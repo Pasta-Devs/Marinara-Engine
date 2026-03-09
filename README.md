@@ -278,6 +278,32 @@ marinara-engine/
 
 ---
 
+## Troubleshooting
+
+### Windows: `EPERM: operation not permitted` when installing pnpm
+
+If you see an error like `EPERM: operation not permitted, open 'C:\Program Files\nodejs\yarnpkg'` or a corepack signature verification failure, this is a Windows permissions issue — corepack can't write to `C:\Program Files\nodejs\`.
+
+**Fix (pick one):**
+
+1. **Run as Administrator** — Right-click your terminal (CMD or PowerShell) and select "Run as administrator", then run `start.bat` again.
+
+2. **Install pnpm manually** (recommended — avoids corepack entirely):
+   ```
+   npm install -g pnpm
+   ```
+   Then run `start.bat` again.
+
+3. **Update corepack** (if you want to keep using it):
+   ```
+   npm install -g corepack
+   corepack enable
+   corepack prepare pnpm@latest --activate
+   ```
+   Run these in an Administrator terminal.
+
+---
+
 ## License
 
 [AGPL-3.0](LICENSE)
