@@ -111,16 +111,18 @@ function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () =
   );
 }
 
-/** Renders all pinned gallery images as floating overlays. */
-export function PinnedImageOverlay() {
+/** Renders pinned gallery images for the active chat as floating overlays. */
+export function PinnedImageOverlay({ activeChatId }: { activeChatId: string | null | undefined }) {
   const pinnedImages = useGalleryStore((s) => s.pinnedImages);
   const unpinImage = useGalleryStore((s) => s.unpinImage);
 
-  if (pinnedImages.length === 0) return null;
+  const visibleImages = pinnedImages.filter((img) => img.chatId === activeChatId);
+
+  if (visibleImages.length === 0) return null;
 
   return (
     <>
-      {pinnedImages.map((img) => (
+      {visibleImages.map((img) => (
         <PinnedImageViewer key={img.id} image={img} onClose={() => unpinImage(img.id)} />
       ))}
     </>
