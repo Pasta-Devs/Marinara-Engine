@@ -108,26 +108,7 @@ All agents are disabled by default — enable only the ones you want. You can al
 
 ## Installation
 
-### Option A: Desktop App (Recommended)
-
-Download the latest installer from the [Releases](https://github.com/SpicyMarinara/marinara-engine/releases) page:
-
-| Platform | File |
-|----------|------|
-| Windows | `Marinara-Engine-Setup-1.1.0.exe` |
-| macOS (Apple Silicon) | `Marinara-Engine-1.1.0-arm64.dmg` |
-| macOS (Intel) | `Marinara-Engine-1.1.0-x64.dmg` |
-| Linux | `Marinara-Engine-1.1.0.AppImage` |
-
-Just run the installer and launch — everything is bundled.
-
----
-
-### Option B: Run from Source
-
-If you'd rather not run an installer, you can run Marinara directly from source. Same app, just without the Electron desktop wrapper.
-
-#### Prerequisites
+### Prerequisites
 
 You need **Node.js** and **Git** installed before running Marinara Engine. pnpm is handled automatically by the start script.
 
@@ -157,7 +138,7 @@ node -v   # should show v20 or higher
 git -v    # should show git version 2.x+
 ```
 
-#### Quick Start
+### Quick Start
 
 **Windows:**
 ```
@@ -182,7 +163,7 @@ The start script will:
 5. Initialize the database
 6. Start the server and open `http://localhost:7860` in your browser
 
-#### Manual Setup
+### Manual Setup
 
 ```bash
 git clone https://github.com/SpicyMarinara/marinara-engine.git
@@ -195,7 +176,7 @@ pnpm start
 
 Then open **http://localhost:7860**. That's it — no account, no cloud, everything runs locally.
 
-#### Updating
+### Updating
 
 If you use the start scripts (`start.sh` / `start.bat`), **updates are automatic** — the launcher pulls the latest version from Git every time you start.
 
