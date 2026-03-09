@@ -24,7 +24,8 @@ Unicode True
 SetCompressor /SOLID lzma
 
 ; ── Modern UI config ──
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+!define MUI_ICON "icon.ico"
+!define MUI_UNICON "icon.ico"
 !define MUI_WELCOMEPAGE_TITLE "Welcome to ${APP_NAME} Setup"
 !define MUI_WELCOMEPAGE_TEXT "This installer will set up ${APP_NAME} v${APP_VERSION} on your computer.$\r$\n$\r$\nWhat it does:$\r$\n  1. Checks that Node.js and Git are installed$\r$\n  2. Clones the repository$\r$\n  3. Installs dependencies and builds$\r$\n  4. Creates a desktop shortcut to launch$\r$\n$\r$\nClick Next to continue."
 !define MUI_DIRECTORYPAGE_TEXT_TOP "Choose the folder where ${APP_NAME} will be installed. About 500 MB of free space is needed."
@@ -137,12 +138,15 @@ Section "Install" SecInstall
   File "launcher.bat"
   Rename "$INSTDIR\launcher.bat" "$INSTDIR\Marinara Engine.bat"
 
+  ; ── Bundle icon ──
+  File "icon.ico"
+
   ; ── Desktop shortcut ──
-  CreateShortCut "$DESKTOP\Marinara Engine.lnk" "$INSTDIR\Marinara Engine.bat" "" "$INSTDIR\Marinara Engine.bat" 0
+  CreateShortCut "$DESKTOP\Marinara Engine.lnk" "$INSTDIR\Marinara Engine.bat" "" "$INSTDIR\icon.ico" 0
   
   ; ── Start Menu ──
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortCut "$SMPROGRAMS\${APP_NAME}\Marinara Engine.lnk" "$INSTDIR\Marinara Engine.bat"
+  CreateShortCut "$SMPROGRAMS\${APP_NAME}\Marinara Engine.lnk" "$INSTDIR\Marinara Engine.bat" "" "$INSTDIR\icon.ico" 0
   CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
   ; ── Uninstaller ──
