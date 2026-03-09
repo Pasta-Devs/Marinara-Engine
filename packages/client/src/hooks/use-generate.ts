@@ -404,7 +404,7 @@ export function useGenerate() {
       clearFailedAgentTypes();
 
       try {
-        for await (const event of api.streamEvents("/retry-agents", { chatId, agentTypes })) {
+        for await (const event of api.streamEvents("/generate/retry-agents", { chatId, agentTypes })) {
           switch (event.type) {
             case "agent_result": {
               const result = event.data as {
