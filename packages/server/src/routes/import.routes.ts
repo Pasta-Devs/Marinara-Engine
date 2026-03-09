@@ -46,10 +46,24 @@ function pickFolder(): Promise<string | null> {
         },
       );
     } else if (os === "win32") {
+      // -STA is required for WinForms dialogs. A hidden topmost form is created
+      // as the owner window so the dialog appears in the foreground instead of
+      // flashing and closing immediately (common Node.js-spawned-PowerShell bug).
       const ps = [
+        "-STA",
         "-NoProfile",
         "-Command",
-        "Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = 'Select your SillyTavern folder'; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath } else { '' }",
+        `Add-Type -AssemblyName System.Windows.Forms;` +
+        `$f = New-Object System.Windows.Forms.Form;` +
+        `$f.TopMost = $true;` +
+        `$f.WindowState = 'Minimized';` +
+        `$f.ShowInTaskbar = $false;` +
+        `$f.Show();` +
+        `$f.Hide();` +
+        `$d = New-Object System.Windows.Forms.FolderBrowserDialog;` +
+        `$d.Description = 'Select your SillyTavern folder';` +
+        `if ($d.ShowDialog($f) -eq 'OK') { $d.SelectedPath } else { '' };` +
+        `$f.Dispose()`,
       ];
       execFile("powershell.exe", ps, (err, stdout) => {
         cleanup();
