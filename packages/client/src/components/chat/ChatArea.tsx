@@ -760,7 +760,7 @@ export function ChatArea() {
         )}
 
         {/* Pinned gallery images */}
-        <PinnedImageOverlay />
+        <PinnedImageOverlay activeChatId={activeChatId} />
 
         {/* Peek Prompt Modal */}
         {peekPromptData && <PeekPromptModal data={peekPromptData} onClose={() => setPeekPromptData(null)} />}
@@ -1005,7 +1005,7 @@ export function ChatArea() {
       <AgentThoughtBubbles />
 
       {/* Pinned gallery images */}
-      <PinnedImageOverlay />
+      <PinnedImageOverlay activeChatId={activeChatId} />
 
       {/* Peek Prompt Modal */}
       {peekPromptData && <PeekPromptModal data={peekPromptData} onClose={() => setPeekPromptData(null)} />}
