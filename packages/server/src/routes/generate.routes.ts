@@ -1401,7 +1401,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // Get the last assistant message for context
       const recentMessages = await chats.listMessages(chatId);
-      const lastAssistant = recentMessages.find((m: any) => m.role === "assistant");
+      const lastAssistant = recentMessages.findLast((m: any) => m.role === "assistant");
       const mainResponse = lastAssistant?.content ?? "";
 
       // Resolve agents
