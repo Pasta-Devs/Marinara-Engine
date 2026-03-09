@@ -1179,7 +1179,8 @@ export async function generateRoutes(app: FastifyInstance) {
           });
 
           // Notify client about agents that still failed after retry
-          const stillFailed = retryResults.filter((r) => !r.success);
+          // Use postResults (not retryResults) so agents skipped during retry (e.g. agentCfg not found) are included
+          const stillFailed = postResults.filter((r) => !r.success);
           if (stillFailed.length > 0) {
             reply.raw.write(
               `data: ${JSON.stringify({
