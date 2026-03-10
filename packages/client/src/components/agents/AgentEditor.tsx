@@ -2,7 +2,7 @@
 // Full-Page Agent Editor
 // Click an agent → opens this editor
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentConfigs, useUpdateAgent, useCreateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useConnections } from "../../hooks/use-connections";
@@ -110,6 +110,8 @@ export function AgentEditor() {
     redirectUri: string | null;
   } | null>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const spotifyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const spotifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dirty, setDirty] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -180,6 +182,14 @@ export function AgentEditor() {
       cancelled = true;
     };
   }, [isSpotifyAgent, dbConfig?.id]);
+
+  // Clean up Spotify polling timers on unmount
+  useEffect(() => {
+    return () => {
+      if (spotifyPollRef.current) clearInterval(spotifyPollRef.current);
+      if (spotifyTimeoutRef.current) clearTimeout(spotifyTimeoutRef.current);
+    };
+  }, []);
 
   // Whether the prompt textarea shows the default or a custom override
   const isUsingDefaultPrompt = !localPrompt.trim();
@@ -598,15 +608,23 @@ export function AgentEditor() {
                         const data = await res.json();
                         if (data.authUrl) {
                           window.open(data.authUrl, "_blank", "width=500,height=700");
+                          // Clear any existing poll before starting a new one
+                          if (spotifyPollRef.current) clearInterval(spotifyPollRef.current);
+                          if (spotifyTimeoutRef.current) clearTimeout(spotifyTimeoutRef.current);
                           // Poll for connection status
-                          const poll = setInterval(async () => {
+                          spotifyPollRef.current = setInterval(async () => {
                             try {
                               const statusRes = await fetch(
                                 `/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`,
                               );
                               const status = await statusRes.json();
                               if (status.connected) {
-                                clearInterval(poll);
+                                clearInterval(spotifyPollRef.current!);
+                                spotifyPollRef.current = null;
+                                if (spotifyTimeoutRef.current) {
+                                  clearTimeout(spotifyTimeoutRef.current);
+                                  spotifyTimeoutRef.current = null;
+                                }
                                 setSpotifyStatus({
                                   connected: true,
                                   expired: false,
@@ -619,8 +637,12 @@ export function AgentEditor() {
                             }
                           }, 2000);
                           // Stop polling after 5 minutes
-                          setTimeout(() => {
-                            clearInterval(poll);
+                          spotifyTimeoutRef.current = setTimeout(() => {
+                            if (spotifyPollRef.current) {
+                              clearInterval(spotifyPollRef.current);
+                              spotifyPollRef.current = null;
+                            }
+                            spotifyTimeoutRef.current = null;
                             setSpotifyConnecting(false);
                           }, 5 * 60_000);
                         }

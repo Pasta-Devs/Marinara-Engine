@@ -12,7 +12,9 @@ echo.
 
 :: ── Choose install location ──
 set "INSTALL_DIR=%USERPROFILE%\Marinara-Engine"
-set /p "INSTALL_DIR=  Install location [%INSTALL_DIR%]: "
+set "USER_INPUT="
+set /p "USER_INPUT=  Install location [%INSTALL_DIR%]: "
+if not "%USER_INPUT%"=="" set "INSTALL_DIR=%USER_INPUT%"
 
 :: ── Check prerequisites ──
 echo.
@@ -30,6 +32,28 @@ if %errorlevel% neq 0 (
 )
 
 for /f "tokens=2 delims=v." %%a in ('node -v') do set NODE_MAJOR=%%a
+
+if not defined NODE_MAJOR (
+    echo.
+    echo  [ERROR] Unable to determine Node.js version from "node -v".
+    echo  Please ensure Node.js is correctly installed and in PATH,
+    echo  then re-run this installer.
+    echo.
+    pause
+    exit /b 1
+)
+
+if %NODE_MAJOR% LSS 20 (
+    echo.
+    echo  [ERROR] Detected Node.js version is too old:
+    node -v
+    echo  Marinara Engine requires Node.js 20 or newer.
+    echo  Please install the latest Node.js 20+ from https://nodejs.org
+    echo  and then re-run this installer.
+    echo.
+    pause
+    exit /b 1
+)
 echo  [OK] Node.js found: 
 node -v
 

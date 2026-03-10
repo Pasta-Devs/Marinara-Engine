@@ -413,7 +413,7 @@ export async function generateRoutes(app: FastifyInstance) {
           (ci.description && allContent.includes(ci.description.split("\n")[0]!.trim().slice(0, 80))) ||
           allContent.includes(`<${xmlTag}>`) ||
           allContent.includes(`<${ci.name}>`) ||
-          allContent.includes(`# ${ci.name}`);
+          new RegExp(`^#{1,6} ${ci.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(allContent);
         if (!hasCharInfo && ci.description) {
           const fieldParts = wrapFields(
             {
@@ -438,7 +438,7 @@ export async function generateRoutes(app: FastifyInstance) {
           allContent.includes(personaDescription.split("\n")[0]!.trim().slice(0, 80)) ||
           allContent.includes(`<${personaXmlTag}>`) ||
           allContent.includes(`<${personaName}>`) ||
-          allContent.includes(`# ${personaName}`);
+          new RegExp(`^#{1,6} ${personaName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(allContent);
         if (!hasPersonaInfo) {
           const fieldParts = wrapFields(
             {

@@ -24,9 +24,18 @@ const SPOTIFY_SCOPES = [
   "user-library-read",
 ].join(" ");
 
+function htmlEscape(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function generateRandomString(length: number): string {
   const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const values = crypto.getRandomValues(new Uint8Array(length));
+  const values = crypto.randomBytes(length);
   return Array.from(values, (x) => possible[x % possible.length]).join("");
 }
 
@@ -92,7 +101,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
         `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
           <div style="text-align:center">
             <h2 style="color:#f44">Spotify Authorization Failed</h2>
-            <p>${error ?? "Missing authorization code"}</p>
+            <p>${htmlEscape(error ?? "Missing authorization code")}</p>
             <p style="color:#888">You can close this window.</p>
           </div>
         </body></html>`,
@@ -158,7 +167,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
           `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
             <div style="text-align:center">
               <h2 style="color:#f44">Token Exchange Failed</h2>
-              <p style="color:#888">${tokenRes.status}: ${body.slice(0, 200)}</p>
+              <p style="color:#888">${htmlEscape(String(tokenRes.status))}: ${htmlEscape(body.slice(0, 200))}</p>
               <p style="color:#888">You can close this window and try again.</p>
             </div>
           </body></html>`,
@@ -198,7 +207,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
         `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
           <div style="text-align:center">
             <h2 style="color:#f44">Connection Error</h2>
-            <p style="color:#888">${err instanceof Error ? err.message : "Unknown error"}</p>
+            <p style="color:#888">${htmlEscape(err instanceof Error ? err.message : "Unknown error")}</p>
           </div>
         </body></html>`,
       );

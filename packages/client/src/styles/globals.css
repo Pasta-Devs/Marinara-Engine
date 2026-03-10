@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes/sillytavern.css";
 
 /* ── Tailwind v4: Wire dark: variant to our data-theme attribute ── */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -1303,7 +1304,6 @@ summary[class*="cursor-pointer"],
 /* ─────────────────────────────────────────────
    19. SILLYTAVERN VISUAL THEME (separate file)
    ───────────────────────────────────────────── */
-@import "./themes/sillytavern.css";
 
 
 /* ─────────────────────────────────────────────
