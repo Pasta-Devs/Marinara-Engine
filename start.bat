@@ -10,7 +10,7 @@ echo.
 
 :: Check for Node.js
 where node >nul 2>&1
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo  [ERROR] Node.js is not installed or not in PATH.
     echo  Please install Node.js 20+ from https://nodejs.org
     echo.
@@ -19,40 +19,36 @@ if %errorlevel% neq 0 (
 )
 
 :: Auto-update from Git
-if exist ".git" (
-    echo  [..] Checking for updates...
-    for /f "tokens=*" %%i in ('git rev-parse HEAD 2^>nul') do set "OLD_HEAD=%%i"
-    git pull >nul 2>&1
-    if !errorlevel! equ 0 (
-        for /f "tokens=*" %%i in ('git rev-parse HEAD 2^>nul') do set "NEW_HEAD=%%i"
-        if not "!OLD_HEAD!"=="!NEW_HEAD!" (
-            echo  [OK] Updated to latest version
-            echo  [..] Reinstalling dependencies...
-            call pnpm install
-            :: Force rebuild
-            if exist "packages\shared\dist" rmdir /s /q "packages\shared\dist"
-            if exist "packages\server\dist" rmdir /s /q "packages\server\dist"
-            if exist "packages\client\dist" rmdir /s /q "packages\client\dist"
-            del /q "packages\shared\tsconfig.tsbuildinfo" 2>nul
-            del /q "packages\server\tsconfig.tsbuildinfo" 2>nul
-            del /q "packages\client\tsconfig.tsbuildinfo" 2>nul
-        ) else (
-            echo  [OK] Already up to date
-        )
-    ) else (
-        echo  [WARN] Could not check for updates. Continuing with current version.
-    )
+if not exist ".git" goto :skip_update
+echo  [..] Checking for updates...
+for /f "tokens=*" %%i in ('git rev-parse HEAD 2^>nul') do set "OLD_HEAD=%%i"
+git pull >nul 2>&1
+if errorlevel 1 (
+    echo  [WARN] Could not check for updates. Continuing with current version.
+    goto :skip_update
 )
+for /f "tokens=*" %%i in ('git rev-parse HEAD 2^>nul') do set "NEW_HEAD=%%i"
+if "!OLD_HEAD!"=="!NEW_HEAD!" (
+    echo  [OK] Already up to date
+    goto :skip_update
+)
+echo  [OK] Updated to latest version
+echo  [..] Reinstalling dependencies...
+call pnpm install
+if exist "packages\shared\dist" rmdir /s /q "packages\shared\dist"
+if exist "packages\server\dist" rmdir /s /q "packages\server\dist"
+if exist "packages\client\dist" rmdir /s /q "packages\client\dist"
+del /q "packages\shared\tsconfig.tsbuildinfo" 2>nul
+del /q "packages\server\tsconfig.tsbuildinfo" 2>nul
+del /q "packages\client\tsconfig.tsbuildinfo" 2>nul
 
-:: Check Node version
-for /f "tokens=1 delims=v." %%a in ('node -v') do set NODE_MAJOR=%%a
-for /f "tokens=2 delims=v." %%a in ('node -v') do set NODE_MAJOR=%%a
-echo  [OK] Node.js found: 
+:skip_update
+echo  [OK] Node.js found:
 node -v
 
 :: Check for pnpm
 where pnpm >nul 2>&1
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo  [..] pnpm not found, installing via corepack...
     corepack enable
     corepack prepare pnpm@latest --activate
@@ -60,18 +56,15 @@ if %errorlevel% neq 0 (
 echo  [OK] pnpm found
 
 :: Install dependencies if needed
-if not exist "node_modules" (
-    echo.
-    echo  [..] Installing dependencies (first run)...
-    echo      This may take a few minutes.
-    echo.
-    call pnpm install
-    if %errorlevel% neq 0 (
-        echo  [ERROR] Failed to install dependencies.
-        pause
-        exit /b 1
-    )
-)
+if exist "node_modules" goto :skip_install
+echo.
+echo  [..] Installing dependencies (first run)...
+echo      This may take a few minutes.
+echo.
+call pnpm install
+if errorlevel 1 echo  [ERROR] Failed to install dependencies. & pause & exit /b 1
+
+:skip_install
 
 :: Build if needed
 if not exist "packages\shared\dist" (
@@ -91,15 +84,13 @@ if not exist "packages\client\dist" (
 echo  [..] Syncing database schema...
 call pnpm db:push 2>nul
 
-:: Start the server
 :: Load .env if present (respects user overrides)
-:: eol=# skips comment lines; tokens/delims split on first '='
-if exist .env (
-  for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
+if not exist .env goto :skip_env
+for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
     if not "%%A"=="" if not "%%B"=="" set "%%A=%%B"
-  )
 )
 
+:skip_env
 :: Set defaults only if not already set
 set NODE_ENV=production
 if not defined PORT set PORT=7860
