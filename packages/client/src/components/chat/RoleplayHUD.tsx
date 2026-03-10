@@ -1423,9 +1423,9 @@ function LabeledEdit({ label, value, onSave }: { label: string; value: string; o
 // ═══════════════════════════════════════════════
 
 const WIDGET =
-  "group flex w-20 h-[3.75rem] max-md:w-9 max-md:h-7 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 cursor-pointer select-none overflow-hidden";
+  "group flex w-20 h-[3.75rem] max-md:w-11 max-md:h-8 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border bg-black/40 backdrop-blur-md transition-all hover:bg-black/60 cursor-pointer select-none overflow-hidden";
 const WIDGET_EDIT =
-  "flex w-20 h-[3.75rem] max-md:w-9 max-md:h-7 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border bg-black/60 backdrop-blur-md overflow-hidden";
+  "flex w-20 h-[3.75rem] max-md:w-11 max-md:h-8 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border bg-black/60 backdrop-blur-md overflow-hidden";
 
 /** Truncated label that shows full text on hover (desktop) or tap (mobile) */
 function WidgetLabel({ value, fallback, className }: { value: string; fallback: string; className?: string }) {
@@ -1442,14 +1442,14 @@ function WidgetLabel({ value, fallback, className }: { value: string; fallback: 
 
   return (
     <span
-      className={cn("relative", className)}
+      className={cn("relative w-full max-md:px-0.5", className)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
       <span
         className={cn(
-          "block max-w-[4.5rem] max-md:max-w-[2.5rem] truncate text-[9px] max-md:text-[7px] font-semibold leading-tight",
+          "block max-w-[4.5rem] max-md:max-w-full truncate text-center text-[9px] max-md:text-[7px] font-semibold leading-tight",
           !value && "italic opacity-40",
         )}
       >
