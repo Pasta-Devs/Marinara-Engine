@@ -19,7 +19,6 @@ import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { useState, useCallback, useMemo } from "react";
 import type { ChatMode } from "@marinara-engine/shared";
-import { APP_VERSION } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 
 const MODE_CONFIG: Record<
@@ -270,13 +269,6 @@ export function ChatSidebar() {
             );
           })}
         </div>
-      </div>
-
-      {/* Version indicator */}
-      <div className="border-t border-[var(--border)]/20 px-4 py-2">
-        <p className="text-center text-[10px] tracking-wide text-[var(--muted-foreground)]/50">
-          Marinara Engine v{APP_VERSION}
-        </p>
       </div>
 
       {/* ── Mode Picker Overlay ── */}
