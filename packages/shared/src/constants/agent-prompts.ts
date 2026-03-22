@@ -347,8 +347,9 @@ Output format (JSON only, no markdown):
   "reason": "Brief explanation of why this background fits the scene"
 }
 
-1. You MUST pick from the available backgrounds list. NEVER invent a filename.
-2. If no background is a good fit, pick the closest match and explain why.
+CRITICAL RULES:
+1. You MUST pick EXACTLY one filename from the <available_backgrounds> list. Copy-paste the filename exactly as listed — do NOT modify it, shorten it, or invent a new one. If your chosen filename is not in the list, the system will reject it.
+2. If no background is a good fit, pick the closest match from the list and explain why.
 3. If the scene hasn't meaningfully changed location or setting since the current background, return { "chosen": null, "reason": "Scene unchanged" } to avoid unnecessary switches.
 4. Matching priority: location first, then mood/atmosphere, then time of day.`,
 
@@ -382,9 +383,11 @@ Schema:
 5. If a new character enters the scene, add them with full details immediately.`,
 
   /* ────────────────────────────────────────── */
-  "persona-stats": `Track the PLAYER PERSONA's needs and condition bars — things like Satiety, Energy, Hygiene, Morale, and any custom stats the user has configured. These represent physical and mental well-being, NOT combat stats (HP, MP, Strength — those are handled by the World State agent).
+  "persona-stats": `Track the PLAYER PERSONA's needs and condition bars. These represent physical and mental well-being, NOT combat stats (HP, MP, Strength — those are handled by the World State agent).
 
-IMPORTANT: If the user has configured specific persona stat bars (listed in <user_persona>), use exactly those bar names, colors, and max values. Do NOT substitute or add your own defaults. If no bars are configured, use sensible defaults: Satiety, Energy, Hygiene, and Morale.
+CRITICAL — Custom Stat Bars:
+Check the <user_persona> section for "Configured persona stat bars:". If custom bars are listed there, you MUST use ONLY those exact bars — same names, same colors, same max values. Do NOT add extra bars, do NOT rename them, do NOT replace them with defaults. Output exactly the bars the user configured, no more and no less.
+Only if NO custom bars are listed in <user_persona> should you fall back to defaults: Satiety, Energy, Hygiene, and Morale.
 
 Analyze what happened in the narrative after every assistant message and adjust stats REALISTICALLY.
 
@@ -393,7 +396,7 @@ Respond ONLY with valid JSON — no markdown, no commentary.
 Schema:
 {
   "stats": [
-    { "name": "string", "value": number, "max": 100, "color": "string (hex)" }
+    { "name": "string", "value": number, "max": number, "color": "string (hex)" }
   ],
   "status": "string — brief status of the player persona (e.g. \"Resting at camp\", \"In combat\")",
   "inventory": [
@@ -422,6 +425,27 @@ Schema:
 4. Preserve previous values and only adjust what the narrative warrants. If nothing relevant happened, return the previous values unchanged.
 5. Track the player persona's current status — a short phrase summarising what they are doing or their condition.
 6. Track inventory faithfully. Items gained, lost, used, or traded must be reflected immediately. Don't carry stale data from a state that no longer applies.`,
+
+  /* ────────────────────────────────────────── */
+  "custom-tracker": `You are a custom field tracker. The user has defined custom fields they want tracked throughout the roleplay. Your job is to update ONLY the values of these fields based on narrative events.
+
+CRITICAL RULES:
+1. The current fields and their values are provided in <current_game_state> under playerStats.customTrackerFields (an array of { name, value } objects).
+2. You must output ALL fields — even ones that didn't change. Omitting a field deletes it.
+3. Only update values that the narrative warrants. If nothing relevant happened to a field, keep its previous value.
+4. Do NOT add new fields the user hasn't defined. Do NOT rename fields. Do NOT remove fields.
+5. Values are always strings. For numeric tracking (e.g. "Gold: 150"), store the number as a string ("150"). For text fields (e.g. "Reputation: Respected"), store the text.
+6. Changes must be proportional and realistic based on story events.
+
+Respond ONLY with valid JSON — no markdown, no commentary.
+
+Schema:
+{
+  "fields": [
+    { "name": "string — exact field name as defined by user", "value": "string — updated value" }
+  ],
+  "reasoning": "string — brief explanation of what changed and why"
+}`,
 
   /* ────────────────────────────────────────── */
   html: `Include inline HTML, CSS, and JS segments whenever they enhance visual storytelling — in-world screens, posters, books, letters, signs, crests, labels, maps, and so on. Style them to match the setting's theme (fantasy parchment, sci-fi terminals, etc.), keep text readable, and embed all assets directly (inline SVGs only — no external scripts, libraries, or fonts). Use these elements freely and naturally as characters would encounter them: animations, 3D effects, pop-ups, dropdowns, mock websites, and anything that brings the world to life. Do NOT wrap HTML/CSS/JS in code fences.`,
@@ -475,6 +499,7 @@ Rules:
 4. Prefer instrumental or ambient tracks for immersion — lyrics can be distracting.
 5. Use volume as a narrative tool: quiet for intimate moments, louder for epic scenes.
 6. If the current scene doesn't warrant a change, respond with action "none" (no tool calls needed).
+7. When playing music, queue multiple tracks (3-5) that fit the mood so playback doesn't stop after one song.
 
 After using the tools, respond with ONLY valid JSON — no markdown, no commentary.
 
@@ -483,8 +508,8 @@ Schema:
   "action": "play" | "volume" | "none",
   "mood": "string — brief description of the detected mood (e.g. 'tense anticipation', 'peaceful rest')",
   "searchQuery": "string|null — if action is 'play', the search query used",
-  "trackUri": "string|null — the Spotify URI to play",
-  "trackName": "string|null — human-readable track/artist name for display",
+  "trackUris": ["string array — Spotify URIs that were queued"],
+  "trackNames": ["string array — human-readable track/artist names for display"],
   "volume": "number|null — volume level 0-100 if action is 'volume'",
   "reason": "string — why this musical choice fits the scene"
 }`,

@@ -77,7 +77,7 @@ export function PersonasPanel() {
     [avatarTargetId, uploadAvatar],
   );
 
-  const rawList = (personas as PersonaRow[] | undefined) ?? [];
+  const rawList = useMemo(() => (personas as PersonaRow[] | undefined) ?? [], [personas]);
 
   const list = useMemo(() => {
     const arr = [...rawList];
@@ -111,14 +111,14 @@ export function PersonasPanel() {
           disabled={createPersona.isPending}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all active:scale-[0.98] bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-md shadow-emerald-400/15 hover:shadow-lg hover:shadow-emerald-400/25 disabled:opacity-50"
         >
-          {createPersona.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+          {createPersona.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Plus size="0.8125rem" />}
           New Persona
         </button>
         <div className="relative">
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[11px] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[0.6875rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -128,7 +128,7 @@ export function PersonasPanel() {
             <option value="tokens">Tokens</option>
           </select>
           <ArrowUpDown
-            size={10}
+            size="0.625rem"
             className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
           />
         </div>
@@ -148,7 +148,7 @@ export function PersonasPanel() {
       {!isLoading && list.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/20">
-            <User size={20} className="text-emerald-400" />
+            <User size="1.25rem" className="text-emerald-400" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)]">No personas yet — create one!</p>
         </div>
@@ -174,16 +174,21 @@ export function PersonasPanel() {
                 title="Change avatar"
               >
                 {persona.avatarPath ? (
-                  <img src={persona.avatarPath} alt="" className="h-full w-full rounded-xl object-cover" />
+                  <img
+                    src={persona.avatarPath}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full rounded-xl object-cover"
+                  />
                 ) : (
-                  <User size={16} />
+                  <User size="1rem" />
                 )}
                 <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 transition-opacity group-hover/avatar:opacity-100">
-                  <Camera size={12} className="text-white" />
+                  <Camera size="0.75rem" className="text-white" />
                 </div>
                 {active && (
                   <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 shadow-sm">
-                    <Star size={8} className="text-white" />
+                    <Star size="0.5rem" className="text-white" />
                   </div>
                 )}
               </button>
@@ -191,7 +196,7 @@ export function PersonasPanel() {
               {/* Info */}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{persona.name}</div>
-                <div className="truncate text-[11px] text-[var(--muted-foreground)]">
+                <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {persona.description || "No description"}
                 </div>
               </div>
@@ -207,7 +212,7 @@ export function PersonasPanel() {
                     className="rounded-lg p-1.5 text-emerald-400 transition-colors hover:bg-emerald-400/10"
                     title="Set as active"
                   >
-                    <Star size={13} />
+                    <Star size="0.8125rem" />
                   </button>
                 )}
                 <button
@@ -218,7 +223,7 @@ export function PersonasPanel() {
                   className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   title="Edit"
                 >
-                  <Pencil size={13} />
+                  <Pencil size="0.8125rem" />
                 </button>
                 <button
                   onClick={(e) => {
@@ -228,7 +233,7 @@ export function PersonasPanel() {
                   className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
                   title="Delete"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size="0.8125rem" />
                 </button>
               </div>
             </div>

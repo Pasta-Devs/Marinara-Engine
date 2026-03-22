@@ -2,10 +2,22 @@
 // Importer: SillyTavern Prompt Preset
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
+import type { MarkerConfig } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import type { PromptVariableGroup } from "@marinara-engine/shared";
 
 const VALID_REASONING = new Set(["low", "medium", "high", "maximum"]);
+
+/** Friendly display names for consolidated markers. */
+const MARKER_DISPLAY_NAMES: Partial<Record<string, string>> = {
+  character: "Character Info",
+  lorebook: "World Info",
+  persona: "Persona",
+  chat_history: "Chat History",
+  dialogue_examples: "Chat Examples",
+  chat_summary: "Chat Summary",
+  agent_data: "Agent Data",
+};
 function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
 }
@@ -109,10 +121,25 @@ export async function importSTPreset(raw: Record<string, unknown>, db: DB, fileN
   // Track identifier → created section ID for reordering
   const createdSectionIds: string[] = [];
 
+  // Track which consolidated marker types have already been emitted so we
+  // don't create duplicates (e.g. worldInfoBefore + worldInfoAfter → one lorebook).
+  const emittedMarkerTypes = new Set<string>();
+
   for (const entry of sortedPrompts) {
     // Skip bracket entries that are just XML open/close tags (now handled by groups)
     const isBracket = /^[┌└┎┖⌈⌊⌜⌞]/.test(entry.name);
     if (isBracket && !entry.content?.trim()) continue;
+
+    // Map ST marker identifiers to our marker types
+    const mappedMarkerConfig = entry.marker ? mapSTMarkerConfig(entry.identifier) : null;
+
+    // Deduplicate consolidated markers — if we already emitted a marker of
+    // this type, skip the duplicate (e.g. second world-info or character marker).
+    if (mappedMarkerConfig) {
+      const key = mappedMarkerConfig.type;
+      if (emittedMarkerTypes.has(key)) continue;
+      emittedMarkerTypes.add(key);
+    }
 
     // Map ST role to our role
     let role: "system" | "user" | "assistant" = "system";
@@ -129,19 +156,22 @@ export async function importSTPreset(raw: Record<string, unknown>, db: DB, fileN
     // Assign to group if the entry was between bracket markers
     const groupId = groupIdMap.get(entry.identifier) ?? null;
 
+    // Use friendly names for consolidated markers
+    const sectionName = mappedMarkerConfig ? (MARKER_DISPLAY_NAMES[mappedMarkerConfig.type] ?? entry.name) : entry.name;
+
     const section = await storage.createSection({
       presetId: created.id,
       identifier: entry.identifier,
-      name: entry.name,
+      name: sectionName,
       content: entry.content ?? "",
       role,
       enabled,
-      isMarker: entry.marker ?? false,
+      isMarker: !!mappedMarkerConfig,
       injectionPosition,
       injectionDepth: entry.injection_depth ?? 0,
       injectionOrder: entry.injection_order ?? 100,
       groupId,
-      markerConfig: entry.marker ? { type: entry.identifier as any } : null,
+      markerConfig: mappedMarkerConfig,
       forbidOverrides: entry.forbid_overrides ?? false,
     });
     if (section) createdSectionIds.push(section.id);
@@ -160,6 +190,37 @@ export async function importSTPreset(raw: Record<string, unknown>, db: DB, fileN
     sectionsImported: sectionsCreated,
     variableGroups: variableGroups.length,
   };
+}
+
+/**
+ * Map an ST marker identifier to the correct MarkerConfig.
+ * ST uses camelCase identifiers (e.g. "chatHistory", "charDescription") but the
+ * marker expander expects specific types (e.g. "chat_history", "character").
+ *
+ * ST splits character info into separate Description / Personality / Scenario markers
+ * and world info into Before / After — we consolidate each into a single marker.
+ */
+function mapSTMarkerConfig(identifier: string): MarkerConfig | null {
+  switch (identifier) {
+    case "chatHistory":
+      return { type: "chat_history" };
+    case "charDescription":
+    case "charPersonality":
+    case "scenario":
+    case "enhanceDefinitions":
+      return { type: "character" };
+    case "personaDescription":
+      return { type: "persona" };
+    case "worldInfoBefore":
+    case "worldInfoAfter":
+      return { type: "lorebook" };
+    case "dialogueExamples":
+      return { type: "dialogue_examples" };
+    default:
+      // For unknown markers (main, nsfw, jailbreak, etc.), return null
+      // so they're treated as regular content sections
+      return null;
+  }
 }
 
 /**

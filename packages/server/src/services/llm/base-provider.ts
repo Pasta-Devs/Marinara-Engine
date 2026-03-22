@@ -11,6 +11,8 @@ export interface ChatMessage {
   tool_calls?: LLMToolCall[];
   /** Base64 data URLs for multimodal image inputs */
   images?: string[];
+  /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
+  providerMetadata?: Record<string, unknown>;
 }
 
 export interface LLMToolCall {
@@ -36,6 +38,9 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   topP?: number;
+  topK?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
   stream?: boolean;
   stop?: string[];
   /** Tool/function definitions for function calling */
@@ -54,6 +59,8 @@ export interface ChatOptions {
   verbosity?: "low" | "medium" | "high";
   /** Abort signal — when triggered, the in-flight LLM request should be cancelled. */
   signal?: AbortSignal;
+  /** Callback to receive the full response parts (for providers that return structured metadata like Gemini thought signatures) */
+  onResponseParts?: (parts: unknown[]) => void;
 }
 
 /** Token usage statistics returned by the model */
@@ -69,6 +76,33 @@ export interface ChatCompletionResult {
   toolCalls: LLMToolCall[];
   finishReason: "stop" | "tool_calls" | "length" | string;
   usage?: LLMUsage;
+}
+
+/**
+ * Sanitise raw error response text for display.
+ * Strips HTML (Cloudflare/proxy error pages), extracts the title, and truncates.
+ */
+export function sanitizeApiError(raw: string, maxLen = 300): string {
+  // If it looks like HTML, pull out the <title> or strip all tags
+  if (raw.includes("<html") || raw.includes("<!DOCTYPE")) {
+    const titleMatch = raw.match(/<title[^>]*>(.*?)<\/title>/i);
+    if (titleMatch?.[1]) return titleMatch[1].trim().slice(0, maxLen);
+    // Strip tags and collapse whitespace
+    const stripped = raw
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return stripped.slice(0, maxLen) || "HTML error page (no details)";
+  }
+  // Try to parse as JSON and extract an error message
+  try {
+    const json = JSON.parse(raw);
+    const msg = json?.error?.message ?? json?.error ?? json?.message;
+    if (typeof msg === "string") return msg.slice(0, maxLen);
+  } catch {
+    // not JSON — return as-is
+  }
+  return raw.slice(0, maxLen);
 }
 
 /**
@@ -105,5 +139,28 @@ export abstract class BaseLLMProvider {
     }
     const usage = result.value || undefined;
     return { content, toolCalls: [], finishReason: "stop", usage };
+  }
+
+  /**
+   * Generate embeddings for one or more texts.
+   * Default implementation calls the OpenAI-compatible /v1/embeddings endpoint.
+   * Override in provider subclasses that use a different API shape.
+   */
+  async embed(texts: string[], model: string): Promise<number[][]> {
+    const res = await fetch(`${this.baseUrl}/v1/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({ input: texts, model }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Embedding request failed (${res.status}): ${sanitizeApiError(body)}`);
+    }
+    const json = (await res.json()) as { data: Array<{ embedding: number[] }> };
+    return json.data.map((d) => d.embedding);
   }
 }

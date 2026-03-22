@@ -82,10 +82,10 @@ export function ImportPresetModal({ open, onClose }: Props) {
               : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
           }`}
         >
-          <Download size={32} className={dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"} />
+          <Download size="2rem" className={dragOver ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"} />
           <p className="text-sm font-medium">Drop preset JSON here or click to browse</p>
           <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-            <FileJson size={12} /> .json
+            <FileJson size="0.75rem" /> .json
           </span>
         </div>
 
@@ -103,17 +103,17 @@ export function ImportPresetModal({ open, onClose }: Props) {
 
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size={14} className="animate-spin text-[var(--primary)]" /> Importing...
+            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" /> Importing...
           </div>
         )}
         {status === "success" && (
           <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-xs text-emerald-400">
-            <CheckCircle size={14} /> {message}
+            <CheckCircle size="0.875rem" /> {message}
           </div>
         )}
         {status === "error" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">
-            <XCircle size={14} /> {message}
+            <XCircle size="0.875rem" /> {message}
           </div>
         )}
 

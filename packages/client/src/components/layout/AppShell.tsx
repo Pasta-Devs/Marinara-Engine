@@ -14,13 +14,20 @@ import { RegexScriptEditor } from "../agents/RegexScriptEditor";
 import { RightPanel } from "./RightPanel";
 import { TopBar } from "./TopBar";
 import { OnboardingTutorial } from "../onboarding/OnboardingTutorial";
-import { EchoChamberPanel } from "../chat/EchoChamberPanel";
 import { useUIStore } from "../../stores/ui.store";
+import { useBackgroundAutonomousPolling } from "../../hooks/use-background-autonomous";
+import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { cn } from "../../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 
 export function AppShell() {
+  // Background autonomous polling for inactive conversation chats
+  useBackgroundAutonomousPolling();
+
+  // Auto idle detection (10 min inactivity → idle, activity → active)
+  useIdleDetection();
+
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -108,32 +115,37 @@ export function AppShell() {
       )}
 
       {/* Right panel - Context / Settings */}
-      <AnimatePresence mode="wait">
-        {rightPanelOpen && (
-          <motion.aside
-            key={isMobile ? "mobile" : "desktop"}
-            initial={isMobile ? { x: "100%" } : { width: 0, opacity: 0 }}
-            animate={isMobile ? { x: 0 } : { width: 320, opacity: 1 }}
-            exit={isMobile ? { x: "100%" } : { width: 0, opacity: 0 }}
-            transition={{ type: "spring", damping: 28, stiffness: 350 }}
-            className={cn(
-              "flex-shrink-0 overflow-hidden border-l border-[var(--sidebar-border)]/30 bg-[var(--background)]/80 backdrop-blur-xl",
-              // Mobile: fixed full-width overlay from the right
-              isMobile && "!fixed inset-y-0 right-0 z-50 !w-full shadow-2xl !border-l-0",
-            )}
-          >
-            <div className="h-full" style={isMobile ? undefined : { width: 320 }}>
+      {isMobile ? (
+        <AnimatePresence mode="wait">
+          {rightPanelOpen && (
+            <motion.aside
+              key="mobile"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 350 }}
+              className="!fixed inset-y-0 right-0 z-50 !w-full shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl"
+            >
               <RightPanel />
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+      ) : (
+        <aside
+          className={cn(
+            "flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            rightPanelOpen && "border-l border-[var(--sidebar-border)]/30",
+          )}
+          style={{ width: rightPanelOpen ? "20rem" : 0 }}
+        >
+          <div className="h-full" style={{ width: "20rem" }}>
+            <RightPanel />
+          </div>
+        </aside>
+      )}
 
       {/* First-time onboarding tutorial */}
       <OnboardingTutorial />
-
-      {/* Echo Chamber — Twitch-style chat reactions panel */}
-      <EchoChamberPanel />
     </div>
   );
 }

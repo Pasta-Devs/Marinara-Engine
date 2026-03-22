@@ -2,6 +2,8 @@
 // Tool Executor — Handles built-in + custom function calls
 // ──────────────────────────────────────────────
 import type { LLMToolCall } from "../llm/base-provider.js";
+import vm from "node:vm";
+import { validateExternalUrl } from "../../utils/url-validation.js";
 
 export interface ToolExecutionResult {
   toolCallId: string;
@@ -126,6 +128,8 @@ async function executeCustomTool(tool: CustomToolDef, args: Record<string, unkno
 
     case "webhook": {
       if (!tool.webhookUrl) return { error: "No webhook URL configured" };
+      const urlError = validateExternalUrl(tool.webhookUrl);
+      if (urlError) return { error: `Webhook URL rejected: ${urlError}` };
       try {
         const res = await fetch(tool.webhookUrl, {
           method: "POST",
@@ -147,19 +151,26 @@ async function executeCustomTool(tool: CustomToolDef, args: Record<string, unkno
     case "script": {
       if (!tool.scriptBody) return { error: "No script body configured" };
       try {
-        // Safe-ish sandboxed eval using Function constructor
-        // Only allows access to args, JSON, Math, String, Number, Date, Array
-        const fn = new Function(
-          "args",
-          "JSON",
-          "Math",
-          "String",
-          "Number",
-          "Date",
-          "Array",
-          `"use strict"; ${tool.scriptBody}`,
-        );
-        const result = fn(args, JSON, Math, String, Number, Date, Array);
+        // Sandboxed execution using vm.runInNewContext
+        // The script only has access to the explicitly provided sandbox objects
+        const sandbox = {
+          args,
+          JSON: { parse: JSON.parse, stringify: JSON.stringify },
+          Math,
+          String,
+          Number,
+          Date,
+          Array,
+          parseInt,
+          parseFloat,
+          isNaN,
+          isFinite,
+          console: { log: () => {} },
+        };
+        const result = vm.runInNewContext(`"use strict"; (function() { ${tool.scriptBody} })()`, sandbox, {
+          timeout: 5000,
+          breakOnSigint: true,
+        });
         return result ?? { result: "OK" };
       } catch (err) {
         return { error: `Script error: ${err instanceof Error ? err.message : "unknown"}` };
@@ -460,16 +471,49 @@ async function spotifyPlay(
   if (!creds?.accessToken) {
     return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
   }
-  const uri = String(args.uri ?? "");
   const reason = String(args.reason ?? "");
 
-  if (!uri.startsWith("spotify:")) {
-    return { error: `Invalid Spotify URI: ${uri}` };
+  // Support both single `uri` and array `uris`
+  let uris: string[] = [];
+  if (Array.isArray(args.uris)) {
+    uris = (args.uris as string[]).filter((u) => typeof u === "string" && u.startsWith("spotify:"));
+  }
+  if (args.uri && typeof args.uri === "string" && args.uri.startsWith("spotify:")) {
+    // If single uri is provided, prepend it (avoid duplicates)
+    if (!uris.includes(args.uri)) uris.unshift(args.uri);
+  }
+  if (uris.length === 0) {
+    return { error: "No valid Spotify URIs provided" };
   }
 
   try {
-    const body = uri.startsWith("spotify:track:") ? { uris: [uri] } : { context_uri: uri };
+    // If it's a single playlist URI, use context_uri
+    const firstUri = uris[0]!;
+    if (uris.length === 1 && !firstUri.startsWith("spotify:track:")) {
+      const body = { context_uri: firstUri };
+      const res = await fetch("https://api.spotify.com/v1/me/player/play", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${creds.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok && res.status !== 204) {
+        const text = await res.text();
+        return { error: `Spotify play failed (${res.status}): ${text.slice(0, 200)}` };
+      }
+      return {
+        applied: true,
+        uris,
+        reason,
+        display: `🎵 Now playing playlist: ${firstUri}${reason ? ` — ${reason}` : ""}`,
+      };
+    }
 
+    // For track URIs, pass them all as a queue
+    const body = { uris };
     const res = await fetch("https://api.spotify.com/v1/me/player/play", {
       method: "PUT",
       headers: {
@@ -483,7 +527,13 @@ async function spotifyPlay(
       const text = await res.text();
       return { error: `Spotify play failed (${res.status}): ${text.slice(0, 200)}` };
     }
-    return { applied: true, uri, reason, display: `🎵 Now playing: ${uri}${reason ? ` — ${reason}` : ""}` };
+    return {
+      applied: true,
+      uris,
+      reason,
+      queued: uris.length,
+      display: `🎵 Queued ${uris.length} tracks${reason ? ` — ${reason}` : ""}`,
+    };
   } catch (err) {
     return { error: `Spotify play failed: ${err instanceof Error ? err.message : "unknown"}` };
   }

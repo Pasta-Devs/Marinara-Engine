@@ -113,7 +113,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--y2k-pink)] to-[var(--y2k-purple)] shadow-lg shadow-[var(--y2k-pink)]/20">
-            <Sparkles size={22} className="text-white" />
+            <Sparkles size="1.375rem" className="text-white" />
           </div>
           <div className="flex-1">
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -202,7 +202,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
             disabled={!form.name.trim() || isPending}
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            {isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
             Save Changes
           </button>
         </div>

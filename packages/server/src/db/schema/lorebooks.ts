@@ -72,6 +72,9 @@ export const lorebookEntries = sqliteTable("lorebook_entries", {
   /** When true, this entry's content won't trigger further entries during recursive scanning */
   preventRecursion: text("prevent_recursion").notNull().default("false"),
 
+  /** Pre-computed embedding vector (JSON array of floats) for semantic matching */
+  embedding: text("embedding"),
+
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

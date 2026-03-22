@@ -2,7 +2,12 @@
 // Routes: Characters, Personas & Groups
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
-import { createCharacterSchema, createGroupSchema, updateGroupSchema } from "@marinara-engine/shared";
+import {
+  createCharacterSchema,
+  createGroupSchema,
+  updateGroupSchema,
+  PROFESSOR_MARI_ID,
+} from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { writeFile, mkdir } from "fs/promises";
@@ -39,6 +44,9 @@ export async function charactersRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    if (req.params.id === PROFESSOR_MARI_ID) {
+      return reply.status(403).send({ error: "Professor Mari is a built-in character and cannot be deleted" });
+    }
     await storage.remove(req.params.id);
     return reply.status(204).send();
   });
@@ -114,7 +122,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/personas/:id", async (req) => {
-    const body = req.body as { name?: string; description?: string };
+    const body = req.body as Record<string, unknown>;
     return storage.updatePersona(req.params.id, body);
   });
 

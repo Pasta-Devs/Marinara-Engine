@@ -2,7 +2,10 @@
 // Slash Commands — SillyTavern-style / commands
 // ──────────────────────────────────────────────
 import { api } from "./api-client";
-import type { Message } from "@marinara-engine/shared";
+import { useChatStore } from "../stores/chat.store";
+import { useUIStore } from "../stores/ui.store";
+import { toast } from "sonner";
+import type { SceneCreateResponse, ScenePlanResponse } from "@marinara-engine/shared";
 
 export interface SlashCommand {
   name: string;
@@ -24,7 +27,7 @@ export interface SlashCommandContext {
     userMessage?: string;
     impersonate?: boolean;
     attachments?: { type: string; data: string }[];
-  }) => Promise<void>;
+  }) => Promise<boolean | void>;
   /** Insert a message directly into the chat (no LLM) */
   createMessage: (data: { role: string; content: string; characterId?: string | null }) => void;
   /** Invalidate chat queries to refresh the UI */
@@ -170,6 +173,73 @@ const COMMANDS: SlashCommand[] = [
           "[Narrator instruction — do not include a reply from {{user}}. Instead: And now, something completely different. Introduce a random, unexpected event to stir up the plot. Be creative and surprising — throw a curveball that keeps things interesting!]",
       });
       return { handled: true };
+    },
+  },
+  {
+    name: "scene",
+    aliases: ["rp"],
+    description: "Start a roleplay scene branching from this conversation",
+    usage: "/scene [description]",
+    local: true,
+    async execute(args, ctx) {
+      const prompt = args.trim();
+
+      // If no prompt and no messages, guide the user
+      if (!prompt) {
+        const msgs = await api.get<unknown[]>(`/chats/${ctx.chatId}/messages`);
+        if (!msgs || msgs.length === 0) {
+          return {
+            handled: true,
+            feedback:
+              "No conversation history to base a scene on. Provide a description or chat first: /scene <description>",
+          };
+        }
+      }
+
+      // Step 1: Ask the LLM to plan the scene (comprehensive plan)
+      const planToastId = toast.loading("Planning scene...", { icon: "🎬" });
+      let planRes: ScenePlanResponse;
+      try {
+        planRes = await api.post<ScenePlanResponse>("/scene/plan", {
+          chatId: ctx.chatId,
+          prompt,
+          connectionId: null,
+        });
+      } catch {
+        toast.dismiss(planToastId);
+        return { handled: true, feedback: "Failed to plan scene. Check your API connection." };
+      }
+
+      if (!planRes.plan) {
+        toast.dismiss(planToastId);
+        return { handled: true, feedback: planRes.error || "Scene planning returned empty result. Try again." };
+      }
+
+      // Step 2: Create the scene chat using the full plan
+      toast.loading("Creating scene...", { id: planToastId, icon: "🎬" });
+      try {
+        const res = await api.post<SceneCreateResponse>("/scene/create", {
+          originChatId: ctx.chatId,
+          initiatorCharId: null, // user-initiated
+          plan: planRes.plan,
+          connectionId: null,
+        });
+
+        // Invalidate chats so the new scene appears + navigate to it
+        ctx.invalidate();
+        useChatStore.getState().setActiveChatId(res.chatId);
+
+        // Apply background if the plan chose one
+        if (res.background) {
+          useUIStore.getState().setChatBackground(`/api/backgrounds/file/${encodeURIComponent(res.background)}`);
+        }
+
+        toast.success(`Scene created: ${res.chatName}`, { id: planToastId, icon: "🎬" });
+        return { handled: true };
+      } catch {
+        toast.dismiss(planToastId);
+        return { handled: true, feedback: "Failed to create scene chat." };
+      }
     },
   },
   {

@@ -42,6 +42,7 @@ function parseEntryRow(row: Record<string, unknown>) {
     dynamicState: JSON.parse((row.dynamicState as string) || "{}"),
     activationConditions: JSON.parse((row.activationConditions as string) || "[]"),
     schedule: row.schedule ? JSON.parse(row.schedule as string) : null,
+    embedding: row.embedding ? JSON.parse(row.embedding as string) : null,
   };
 }
 
@@ -155,10 +156,31 @@ export function createLorebooksStorage(db: DB) {
       return rows.map((r) => parseEntryRow(r as Record<string, unknown>));
     },
 
-    /** Get all enabled entries from all enabled lorebooks (for keyword scanning). */
-    async listActiveEntries() {
-      const enabledBooks = await db.select({ id: lorebooks.id }).from(lorebooks).where(eq(lorebooks.enabled, "true"));
-      const bookIds = enabledBooks.map((b) => b.id);
+    /**
+     * Get all enabled entries from lorebooks that are relevant for a given context.
+     * A lorebook is relevant if it's enabled AND one of:
+     *  - Its ID is in `activeLorebookIds` (user explicitly added it to this chat)
+     *  - Its `characterId` matches one of the chat's active characters
+     *  - Its `chatId` matches the current chat
+     * When no filters are provided, returns entries from ALL enabled lorebooks (legacy behavior).
+     */
+    async listActiveEntries(filters?: { activeLorebookIds?: string[]; characterIds?: string[]; chatId?: string }) {
+      const enabledBooks = await db.select().from(lorebooks).where(eq(lorebooks.enabled, "true"));
+
+      let relevantBooks = enabledBooks;
+      if (filters) {
+        relevantBooks = enabledBooks.filter((b) => {
+          // Explicitly added to this chat
+          if (filters.activeLorebookIds?.includes(b.id)) return true;
+          // Belongs to one of the active characters
+          if (b.characterId && filters.characterIds?.includes(b.characterId)) return true;
+          // Belongs to this chat
+          if (b.chatId && b.chatId === filters.chatId) return true;
+          return false;
+        });
+      }
+
+      const bookIds = relevantBooks.map((b) => b.id);
       if (bookIds.length === 0) return [];
       const rows = await db
         .select()
@@ -248,6 +270,14 @@ export function createLorebooksStorage(db: DB) {
 
       await db.update(lorebookEntries).set(updates).where(eq(lorebookEntries.id, id));
       return this.getEntry(id);
+    },
+
+    /** Update just the embedding vector for an entry. */
+    async updateEntryEmbedding(id: string, embedding: number[] | null) {
+      await db
+        .update(lorebookEntries)
+        .set({ embedding: embedding ? JSON.stringify(embedding) : null, updatedAt: now() })
+        .where(eq(lorebookEntries.id, id));
     },
 
     /** Bulk create entries (for imports and AI generation). */

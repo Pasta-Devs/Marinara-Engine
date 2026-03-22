@@ -79,6 +79,8 @@ export function CharactersPanel() {
       [])
     : [];
 
+  const isConversation = (activeChat as unknown as { mode?: string })?.mode === "conversation";
+
   // Parse character data and filter by search
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
@@ -177,6 +179,7 @@ export function CharactersPanel() {
       {
         onSuccess: () => {
           if (isActive) return; // removing, not adding
+          if (isConversation) return; // no greeting in conversation mode
           const charList = (characters ?? []) as CharacterRow[];
           const char = charList.find((c) => c.id === charId);
           if (!char) return;
@@ -204,6 +207,8 @@ export function CharactersPanel() {
       { id: activeChat.id, characterIds: merged },
       {
         onSuccess: () => {
+          // Skip greeting for conversation mode
+          if (isConversation) return;
           // Find the first newly-added character with a first_mes
           const charList = (characters ?? []) as CharacterRow[];
           for (const charId of newlyAdded) {
@@ -260,7 +265,10 @@ export function CharactersPanel() {
       {/* Search + Sort */}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          <Search
+            size="0.8125rem"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -272,7 +280,7 @@ export function CharactersPanel() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[11px] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[0.6875rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -282,7 +290,7 @@ export function CharactersPanel() {
             <option value="favorites">Favorites</option>
           </select>
           <ArrowUpDown
-            size={10}
+            size="0.625rem"
             className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
           />
         </div>
@@ -294,24 +302,24 @@ export function CharactersPanel() {
           <button
             onClick={() => setTagsExpanded(!tagsExpanded)}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium transition-all",
+              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
               activeTag
                 ? "bg-[var(--primary)]/15 text-[var(--primary)]"
                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
             )}
           >
-            <Tag size={10} />
+            <Tag size="0.625rem" />
             Tags ({allTags.length}){activeTag && <span className="ml-0.5 opacity-70">· {activeTag}</span>}
-            <ChevronDown size={10} className={cn("transition-transform", tagsExpanded && "rotate-180")} />
+            <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
           </button>
           {tagsExpanded && (
             <div className="flex flex-wrap gap-1">
               {activeTag && (
                 <button
                   onClick={() => setActiveTag(null)}
-                  className="flex items-center gap-1 rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20"
+                  className="flex items-center gap-1 rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20"
                 >
-                  <X size={8} /> Clear
+                  <X size="0.5rem" /> Clear
                 </button>
               )}
               {allTags.map((tag) => (
@@ -319,13 +327,13 @@ export function CharactersPanel() {
                   key={tag}
                   onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                   className={cn(
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-all",
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium transition-all",
                     activeTag === tag
                       ? "bg-[var(--primary)]/20 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                   )}
                 >
-                  <Tag size={8} />
+                  <Tag size="0.5rem" />
                   {tag}
                 </button>
               ))}
@@ -340,20 +348,20 @@ export function CharactersPanel() {
           onClick={() => openModal("create-character")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-purple-500 px-3 py-2 text-xs font-medium text-white shadow-md shadow-pink-500/15 transition-all hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98]"
         >
-          <Plus size={12} /> New
+          <Plus size="0.75rem" /> New
         </button>
         <button
           onClick={() => openModal("import-character")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
         >
-          <Download size={12} /> Import
+          <Download size="0.75rem" /> Import
         </button>
         <button
           onClick={() => openModal("character-maker")}
           className="flex w-9 items-center justify-center rounded-xl bg-gradient-to-r from-violet-400 to-fuchsia-500 py-2 text-xs font-medium text-white shadow-md shadow-violet-500/15 transition-all hover:shadow-lg hover:shadow-violet-500/25 active:scale-[0.98]"
           title="AI Character Maker"
         >
-          <Sparkles size={12} />
+          <Sparkles size="0.75rem" />
         </button>
       </div>
 
@@ -362,10 +370,10 @@ export function CharactersPanel() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setGroupsExpanded(!groupsExpanded)}
-            className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+            className="flex items-center gap-1.5 px-1 py-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
           >
-            {groupsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <Users size={11} />
+            {groupsExpanded ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
+            <Users size="0.6875rem" />
             Groups ({parsedGroups.length})
           </button>
           <button
@@ -376,7 +384,7 @@ export function CharactersPanel() {
             className="rounded-lg p-1 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)]"
             title="Create group"
           >
-            <FolderPlus size={13} />
+            <FolderPlus size="0.8125rem" />
           </button>
         </div>
 
@@ -385,7 +393,7 @@ export function CharactersPanel() {
             {/* Inline create group */}
             {creatingGroup && (
               <div className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] p-2 ring-1 ring-[var(--primary)]/30">
-                <FolderOpen size={14} className="shrink-0 text-[var(--primary)]" />
+                <FolderOpen size="0.875rem" className="shrink-0 text-[var(--primary)]" />
                 <input
                   autoFocus
                   value={newGroupName}
@@ -402,7 +410,7 @@ export function CharactersPanel() {
                   disabled={!newGroupName.trim()}
                   className="rounded-md p-0.5 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-30"
                 >
-                  <Check size={13} />
+                  <Check size="0.8125rem" />
                 </button>
                 <button
                   onClick={() => {
@@ -411,7 +419,7 @@ export function CharactersPanel() {
                   }}
                   className="rounded-md p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
                 >
-                  <X size={13} />
+                  <X size="0.8125rem" />
                 </button>
               </div>
             )}
@@ -432,7 +440,7 @@ export function CharactersPanel() {
                     onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
                   >
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-purple-600 text-white shadow-sm">
-                      {isExpanded ? <ChevronDown size={14} /> : <FolderOpen size={14} />}
+                      {isExpanded ? <ChevronDown size="0.875rem" /> : <FolderOpen size="0.875rem" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       {isEditing ? (
@@ -450,7 +458,7 @@ export function CharactersPanel() {
                       ) : (
                         <>
                           <div className="truncate text-xs font-medium">{group.name}</div>
-                          <div className="truncate text-[10px] text-[var(--muted-foreground)]">
+                          <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
                             {group.memberIds.length} character{group.memberIds.length !== 1 ? "s" : ""}
                           </div>
                         </>
@@ -466,7 +474,7 @@ export function CharactersPanel() {
                           className="rounded-lg p-1 transition-all hover:bg-[var(--accent)]"
                           title="Add all to chat"
                         >
-                          <UserPlus size={11} className="text-[var(--primary)]" />
+                          <UserPlus size="0.6875rem" className="text-[var(--primary)]" />
                         </button>
                       )}
                       <button
@@ -480,7 +488,7 @@ export function CharactersPanel() {
                         )}
                         title={isAssigning ? "Done assigning" : "Add/remove members"}
                       >
-                        <Users size={11} />
+                        <Users size="0.6875rem" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -491,7 +499,7 @@ export function CharactersPanel() {
                         className="rounded-lg p-1 transition-all hover:bg-[var(--accent)]"
                         title="Rename group"
                       >
-                        <Pencil size={11} />
+                        <Pencil size="0.6875rem" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -501,7 +509,7 @@ export function CharactersPanel() {
                         className="rounded-lg p-1 transition-all hover:bg-[var(--destructive)]/15"
                         title="Delete group"
                       >
-                        <Trash2 size={11} className="text-[var(--destructive)]" />
+                        <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
                       </button>
                     </div>
                   </div>
@@ -510,8 +518,8 @@ export function CharactersPanel() {
                   {isExpanded && (
                     <div className="ml-5 flex flex-col gap-0.5 border-l-2 border-[var(--border)]/40 pl-3 pb-2">
                       {group.memberIds.length === 0 && (
-                        <div className="py-2 text-[10px] text-[var(--muted-foreground)] italic">
-                          No members — click <Users size={10} className="inline" /> to add characters
+                        <div className="py-2 text-[0.625rem] text-[var(--muted-foreground)] italic">
+                          No members — click <Users size="0.625rem" className="inline" /> to add characters
                         </div>
                       )}
                       {group.memberIds.map((memberId) => {
@@ -524,12 +532,17 @@ export function CharactersPanel() {
                           >
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-pink-400 to-rose-500 text-white">
                               {member.avatarPath ? (
-                                <img src={member.avatarPath} alt={member.name} className="h-full w-full object-cover" />
+                                <img
+                                  src={member.avatarPath}
+                                  alt={member.name}
+                                  loading="lazy"
+                                  className="h-full w-full object-cover"
+                                />
                               ) : (
-                                <User size={12} />
+                                <User size="0.75rem" />
                               )}
                             </div>
-                            <span className="flex-1 truncate text-[11px]">{member.name}</span>
+                            <span className="flex-1 truncate text-[0.6875rem]">{member.name}</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -538,7 +551,7 @@ export function CharactersPanel() {
                               className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
                               title="Remove from group"
                             >
-                              <UserMinus size={11} className="text-[var(--destructive)]" />
+                              <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
                             </button>
                           </div>
                         );
@@ -550,8 +563,8 @@ export function CharactersPanel() {
             })}
 
             {parsedGroups.length === 0 && !creatingGroup && (
-              <div className="py-2 text-center text-[10px] text-[var(--muted-foreground)]">
-                No groups yet — click <FolderPlus size={10} className="inline" /> to create one
+              <div className="py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">
+                No groups yet — click <FolderPlus size="0.625rem" className="inline" /> to create one
               </div>
             )}
           </div>
@@ -561,20 +574,20 @@ export function CharactersPanel() {
       {/* Assign-to-group banner */}
       {assigningToGroup && (
         <div className="flex items-center gap-2 rounded-xl bg-[var(--primary)]/10 px-3 py-2 text-xs ring-1 ring-[var(--primary)]/30">
-          <Users size={13} className="text-[var(--primary)]" />
+          <Users size="0.8125rem" className="text-[var(--primary)]" />
           <span className="flex-1">
             Click characters to add/remove from{" "}
             <strong>{parsedGroups.find((g) => g.id === assigningToGroup)?.name}</strong>
           </span>
           <button onClick={() => setAssigningToGroup(null)} className="rounded p-0.5 hover:bg-[var(--accent)]">
-            <X size={13} />
+            <X size="0.8125rem" />
           </button>
         </div>
       )}
 
       {/* Characters Section Header */}
-      <div className="flex items-center gap-1.5 px-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-        <User size={11} />
+      <div className="flex items-center gap-1.5 px-1 pt-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+        <User size="0.6875rem" />
         Characters ({filteredCharacters.length})
       </div>
 
@@ -590,7 +603,7 @@ export function CharactersPanel() {
       {!isLoading && filteredCharacters.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400/20 to-rose-500/20">
-            <User size={20} className="text-[var(--primary)]" />
+            <User size="1.25rem" className="text-[var(--primary)]" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)]">{search ? "No matches found" : "No characters yet"}</p>
         </div>
@@ -626,25 +639,29 @@ export function CharactersPanel() {
               )}
             >
               {/* Avatar */}
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt={charName}
-                    className="h-full w-full object-cover"
-                    style={getAvatarCropStyle(char.parsed.extensions?.avatarCrop as { zoom: number; offsetX: number; offsetY: number } | undefined)}
+                    className="h-full w-full rounded-xl object-cover"
+                    style={getAvatarCropStyle(
+                      char.parsed.extensions?.avatarCrop as
+                        | { zoom: number; offsetX: number; offsetY: number }
+                        | undefined,
+                    )}
                   />
                 ) : (
-                  <User size={16} />
+                  <User size="1rem" />
                 )}
                 {isSelected && !assigningToGroup && (
                   <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] shadow-sm">
-                    <Check size={9} className="text-white" />
+                    <Check size="0.5625rem" className="text-white" />
                   </div>
                 )}
                 {assigningToGroup && isInTargetGroup && (
                   <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 shadow-sm">
-                    <Check size={9} className="text-white" />
+                    <Check size="0.5625rem" className="text-white" />
                   </div>
                 )}
               </div>
@@ -668,7 +685,7 @@ export function CharactersPanel() {
                 >
                   {charName}
                 </div>
-                <div className="truncate text-[10px] text-[var(--muted-foreground)]">
+                <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
                   {assigningToGroup
                     ? isInTargetGroup
                       ? "In group — click to remove"
@@ -684,13 +701,13 @@ export function CharactersPanel() {
                           e.stopPropagation();
                           setActiveTag(activeTag === tag ? null : tag);
                         }}
-                        className="cursor-pointer rounded-full bg-[var(--primary)]/8 px-1.5 py-px text-[8px] font-medium text-[var(--primary)]/70 transition-all hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
+                        className="cursor-pointer rounded-full bg-[var(--primary)]/8 px-1.5 py-px text-[0.5rem] font-medium text-[var(--primary)]/70 transition-all hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
                       >
                         {tag}
                       </span>
                     ))}
                     {charTags.length > 3 && (
-                      <span className="rounded-full bg-[var(--secondary)] px-1.5 py-px text-[8px] text-[var(--muted-foreground)]">
+                      <span className="rounded-full bg-[var(--secondary)] px-1.5 py-px text-[0.5rem] text-[var(--muted-foreground)]">
                         +{charTags.length - 3}
                       </span>
                     )}
@@ -715,7 +732,7 @@ export function CharactersPanel() {
                       )}
                       title={isSelected ? "Remove from chat" : "Add to chat"}
                     >
-                      {isSelected ? <X size={12} /> : <Check size={12} />}
+                      {isSelected ? <X size="0.75rem" /> : <Check size="0.75rem" />}
                     </button>
                   )}
                   <button
@@ -726,7 +743,7 @@ export function CharactersPanel() {
                     className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15"
                     title="Delete character"
                   >
-                    <Trash2 size={12} className="text-[var(--destructive)]" />
+                    <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>
               )}
@@ -736,7 +753,7 @@ export function CharactersPanel() {
       </div>
 
       {activeChat && !assigningToGroup && (
-        <p className="px-1 text-[10px] text-[var(--muted-foreground)]/60">
+        <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">
           Click to edit · Use ✓ to assign/remove from chat
         </p>
       )}
@@ -752,7 +769,7 @@ export function CharactersPanel() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
-              <MessageCircle size={14} className="text-[var(--muted-foreground)]" />
+              <MessageCircle size="0.875rem" className="text-[var(--muted-foreground)]" />
               <span className="text-sm font-semibold text-[var(--foreground)]">First Message</span>
             </div>
             <div className="px-4 py-3">

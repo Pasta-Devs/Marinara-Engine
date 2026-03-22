@@ -12,6 +12,7 @@ import { importSTPreset } from "../services/import/st-prompt.importer.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { importMarinara } from "../services/import/marinara.importer.js";
 import { scanSTFolder, runSTBulkImport, type STBulkImportOptions } from "../services/import/st-bulk.importer.js";
+import { characters as charactersTable } from "../db/schema/index.js";
 
 const PICK_FOLDER_TIMEOUT_MS = 60_000; // 60s — prevents infinite hang on headless servers
 
@@ -173,6 +174,7 @@ export async function importRoutes(app: FastifyInstance) {
     const data = await req.file();
     if (!data) return { error: "No file uploaded" };
     const content = await data.toBuffer();
+    const text = content.toString("utf-8");
 
     // Use the uploaded filename (minus extension) as chat name if available
     const rawName = data.filename ?? "";
@@ -182,7 +184,36 @@ export async function importRoutes(app: FastifyInstance) {
         .replace(/_/g, " ")
         .trim() || undefined;
 
-    return importSTChat(content.toString("utf-8"), app.db, chatName ? { chatName } : undefined);
+    // Try to link the chat to a character by matching the JSONL header's character_name
+    let characterId: string | null = null;
+    try {
+      const firstLine = text.split("\n")[0];
+      if (firstLine) {
+        const header = JSON.parse(firstLine);
+        const headerName = (header.character_name ?? "").toLowerCase().trim();
+        if (headerName) {
+          const allChars = await app.db.select().from(charactersTable);
+          for (const ch of allChars) {
+            try {
+              const charData = JSON.parse(ch.data);
+              if ((charData?.name ?? "").toLowerCase().trim() === headerName) {
+                characterId = ch.id;
+                break;
+              }
+            } catch {
+              // skip
+            }
+          }
+        }
+      }
+    } catch {
+      // header parse failed — import without character link
+    }
+
+    return importSTChat(text, app.db, {
+      ...(chatName ? { chatName } : {}),
+      ...(characterId ? { characterId } : {}),
+    });
   });
 
   /** Import a Marinara Engine export (.marinara.json). */

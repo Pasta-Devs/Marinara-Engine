@@ -255,14 +255,14 @@ function CollapsibleBlock({
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
       >
         {open ? (
-          <ChevronDown size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronDown size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
         ) : (
-          <ChevronRight size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
         )}
-        <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", roleColor)}>
+        <span className={cn("rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider", roleColor)}>
           {prettifyTag(label)}
         </span>
-        <span className="ml-auto text-[10px] text-[var(--muted-foreground)]">
+        <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
           ~{fmtTokens(tokens)} token{tokens !== 1 ? "s" : ""}
         </span>
       </button>
@@ -294,22 +294,22 @@ function ChatHistorySection({ entries, rawContent }: { entries: ChatHistoryEntry
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
       >
         {open ? (
-          <ChevronDown size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronDown size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
         ) : (
-          <ChevronRight size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
         )}
         <span
           className={cn(
-            "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+            "rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider",
             "bg-green-500/20 text-green-400",
           )}
         >
           Chat History
         </span>
-        <span className="text-[10px] text-[var(--muted-foreground)]">
+        <span className="text-[0.625rem] text-[var(--muted-foreground)]">
           {entries.length} message{entries.length !== 1 ? "s" : ""}
         </span>
-        <span className="ml-auto text-[10px] text-[var(--muted-foreground)]">
+        <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
           ~{fmtTokens(tokens)} token{tokens !== 1 ? "s" : ""}
         </span>
       </button>
@@ -336,19 +336,21 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
         className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/30"
       >
         {open ? (
-          <ChevronDown size={10} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronDown size="0.625rem" className="shrink-0 text-[var(--muted-foreground)]" />
         ) : (
-          <ChevronRight size={10} className="shrink-0 text-[var(--muted-foreground)]" />
+          <ChevronRight size="0.625rem" className="shrink-0 text-[var(--muted-foreground)]" />
         )}
-        <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider", roleColor)}>
+        <span className={cn("rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider", roleColor)}>
           {entry.role}
         </span>
-        {!open && <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--muted-foreground)]">{preview}</span>}
-        <span className="shrink-0 ml-auto text-[9px] text-[var(--muted-foreground)]">~{fmtTokens(tokens)}</span>
+        {!open && (
+          <span className="min-w-0 flex-1 truncate text-[0.625rem] text-[var(--muted-foreground)]">{preview}</span>
+        )}
+        <span className="shrink-0 ml-auto text-[0.5625rem] text-[var(--muted-foreground)]">~{fmtTokens(tokens)}</span>
       </button>
       {open && (
         <div className="border-t border-[var(--border)]/30 px-2.5 py-1.5">
-          <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[var(--foreground)]/80">
+          <pre className="whitespace-pre-wrap break-words text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80">
             {entry.content}
           </pre>
         </div>
@@ -413,7 +415,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
         <div className="shrink-0 flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-bold">Assembled Prompt</h3>
-            <span className="text-[10px] text-[var(--muted-foreground)]">
+            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
               {sections.length} section{sections.length !== 1 ? "s" : ""} &middot; ~{fmtTokens(totalTokens)} tokens
             </span>
           </div>
@@ -421,14 +423,14 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
             onClick={onClose}
             className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
           >
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-2">
           {/* Generation info panel */}
           {(gen || paramPills.length > 0) && (
             <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 space-y-2">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.6875rem]">
                 {gen?.model && (
                   <span className="font-medium text-[var(--foreground)]">
                     {gen.provider ? (
@@ -447,7 +449,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
                   {paramPills.map((p) => (
                     <span
                       key={p.label}
-                      className="inline-flex items-center gap-1 rounded-md bg-[var(--accent)]/50 px-2 py-0.5 text-[10px]"
+                      className="inline-flex items-center gap-1 rounded-md bg-[var(--accent)]/50 px-2 py-0.5 text-[0.625rem]"
                     >
                       <span className="text-[var(--muted-foreground)]">{p.label}</span>
                       <span className="font-medium text-[var(--foreground)]">{p.value}</span>
@@ -458,7 +460,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
             </div>
           )}
           {data.agentNote && (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300/80">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[0.6875rem] text-amber-300/80">
               ⚠ {data.agentNote}
             </div>
           )}

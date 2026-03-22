@@ -9,6 +9,7 @@ type FontSize = 12 | 14 | 16 | 17 | 19 | 22;
 export type VisualTheme = "default" | "sillytavern";
 export type HudPosition = "top" | "left" | "right";
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export type UserStatus = "active" | "idle" | "dnd";
 
 /** A user-installed custom theme */
 export interface CustomTheme {
@@ -67,8 +68,8 @@ interface UIState {
   /** Custom font family name (empty = default Inter) */
   fontFamily: string;
   enableStreaming: boolean;
-  /** Streaming render rate: 30 or 60 FPS */
-  streamingFps: 30 | 60;
+  /** Typewriter speed: 1 (very slow) to 100 (instant). Controls how fast streaming tokens appear. */
+  streamingSpeed: number;
   debugMode: boolean;
   messageGrouping: boolean;
   showTimestamps: boolean;
@@ -82,8 +83,16 @@ interface UIState {
   // ── Visual Theme ──
   visualTheme: VisualTheme;
 
+  // ── Conversation Gradient ──
+  convoGradientFrom: string;
+  convoGradientTo: string;
+
+  // ── Sound ──
+  convoNotificationSound: boolean;
+
   // ── Input ──
-  enterToSend: boolean;
+  enterToSendRP: boolean;
+  enterToSendConvo: boolean;
 
   // ── Roleplay Effects ──
   weatherEffects: boolean;
@@ -106,6 +115,12 @@ interface UIState {
   // ── EchoChamber ──
   echoChamberOpen: boolean;
   echoChamberSide: EchoChamberSide;
+
+  // ── User Status ──
+  /** The user's manually chosen status. Persisted. */
+  userStatusManual: UserStatus;
+  /** Effective status: matches manual, but auto-flips to "idle" on inactivity */
+  userStatus: UserStatus;
 
   // Actions
   toggleSidebar: () => void;
@@ -148,7 +163,7 @@ interface UIState {
   setChatFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
   setEnableStreaming: (v: boolean) => void;
-  setStreamingFps: (v: 30 | 60) => void;
+  setStreamingSpeed: (v: number) => void;
   setDebugMode: (v: boolean) => void;
   setMessageGrouping: (v: boolean) => void;
   setShowTimestamps: (v: boolean) => void;
@@ -157,7 +172,11 @@ interface UIState {
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
-  setEnterToSend: (v: boolean) => void;
+  setConvoGradientFrom: (v: string) => void;
+  setConvoGradientTo: (v: string) => void;
+  setConvoNotificationSound: (v: boolean) => void;
+  setEnterToSendRP: (v: boolean) => void;
+  setEnterToSendConvo: (v: boolean) => void;
   setWeatherEffects: (v: boolean) => void;
   setHudPosition: (v: HudPosition) => void;
   setActiveCustomTheme: (id: string | null) => void;
@@ -171,6 +190,8 @@ interface UIState {
   dismissLinkApiBanner: () => void;
   toggleEchoChamber: () => void;
   setEchoChamberSide: (side: EchoChamberSide) => void;
+  setUserStatus: (status: UserStatus) => void;
+  setUserStatusManual: (status: UserStatus) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -199,7 +220,7 @@ export const useUIStore = create<UIState>()(
       chatFontSize: 16,
       fontFamily: "",
       enableStreaming: true,
-      streamingFps: 60 as 30 | 60,
+      streamingSpeed: 50,
       debugMode: false,
       messageGrouping: true,
       showTimestamps: false,
@@ -208,7 +229,11 @@ export const useUIStore = create<UIState>()(
       messagesPerPage: 20,
       boldDialogue: true,
       visualTheme: "default" as VisualTheme,
-      enterToSend: true,
+      convoGradientFrom: "#0a0a0e",
+      convoGradientTo: "#1c2133",
+      convoNotificationSound: true,
+      enterToSendRP: false,
+      enterToSendConvo: true,
       weatherEffects: true,
       hudPosition: "top" as HudPosition,
       activeCustomTheme: null,
@@ -218,6 +243,8 @@ export const useUIStore = create<UIState>()(
       linkApiBannerDismissed: false,
       echoChamberOpen: false,
       echoChamberSide: "bottom-right" as EchoChamberSide,
+      userStatusManual: "active" as const,
+      userStatus: "active" as UserStatus,
 
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -370,7 +397,7 @@ export const useUIStore = create<UIState>()(
       setChatFontSize: (size) => set({ chatFontSize: size }),
       setFontFamily: (family) => set({ fontFamily: family }),
       setEnableStreaming: (v) => set({ enableStreaming: v }),
-      setStreamingFps: (v) => set({ streamingFps: v }),
+      setStreamingSpeed: (v) => set({ streamingSpeed: Math.max(1, Math.min(100, v)) }),
       setDebugMode: (v) => set({ debugMode: v }),
       setMessageGrouping: (v) => set({ messageGrouping: v }),
       setShowTimestamps: (v) => set({ showTimestamps: v }),
@@ -379,7 +406,11 @@ export const useUIStore = create<UIState>()(
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
       setVisualTheme: (v) => set({ visualTheme: v }),
-      setEnterToSend: (v) => set({ enterToSend: v }),
+      setConvoGradientFrom: (v) => set({ convoGradientFrom: v }),
+      setConvoGradientTo: (v) => set({ convoGradientTo: v }),
+      setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
+      setEnterToSendRP: (v) => set({ enterToSendRP: v }),
+      setEnterToSendConvo: (v) => set({ enterToSendConvo: v }),
       setWeatherEffects: (v) => set({ weatherEffects: v }),
       setHudPosition: (v) => set({ hudPosition: v }),
       setActiveCustomTheme: (id) => set({ activeCustomTheme: id }),
@@ -406,13 +437,40 @@ export const useUIStore = create<UIState>()(
       dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
       toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
       setEchoChamberSide: (side) => set({ echoChamberSide: side }),
+      setUserStatus: (status) => set({ userStatus: status }),
+      setUserStatusManual: (status) => set({ userStatusManual: status, userStatus: status }),
     }),
     {
       name: "marinara-engine-ui",
-      version: 1,
+      version: 4,
       migrate: (persisted: any, version: number) => {
         if (version === 0 && persisted.fontSize === 14) {
           persisted.fontSize = 17;
+        }
+        // v1 → v2: replace streamingFps (30|60) with streamingSpeed (1–100)
+        if (version <= 1) {
+          delete persisted.streamingFps;
+          if (persisted.streamingSpeed === undefined) {
+            persisted.streamingSpeed = 50;
+          }
+        }
+        // v2 → v3: split enterToSend into per-mode toggles
+        if (version <= 2) {
+          const old = persisted.enterToSend;
+          delete persisted.enterToSend;
+          // Keep conversation default true; respect old value for RP
+          if (persisted.enterToSendRP === undefined) {
+            persisted.enterToSendRP = old === true ? true : false;
+          }
+          if (persisted.enterToSendConvo === undefined) {
+            persisted.enterToSendConvo = true;
+          }
+        }
+        // v3 → v4: add conversation notification sound default
+        if (version <= 3) {
+          if (persisted.convoNotificationSound === undefined) {
+            persisted.convoNotificationSound = true;
+          }
         }
         return persisted;
       },
@@ -425,7 +483,7 @@ export const useUIStore = create<UIState>()(
         chatFontSize: state.chatFontSize,
         fontFamily: state.fontFamily,
         enableStreaming: state.enableStreaming,
-        streamingFps: state.streamingFps,
+        streamingSpeed: state.streamingSpeed,
         debugMode: state.debugMode,
         messageGrouping: state.messageGrouping,
         showTimestamps: state.showTimestamps,
@@ -434,7 +492,10 @@ export const useUIStore = create<UIState>()(
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,
         visualTheme: state.visualTheme,
-        enterToSend: state.enterToSend,
+        convoGradientFrom: state.convoGradientFrom,
+        convoGradientTo: state.convoGradientTo,
+        enterToSendRP: state.enterToSendRP,
+        enterToSendConvo: state.enterToSendConvo,
         weatherEffects: state.weatherEffects,
         hudPosition: state.hudPosition,
         activeCustomTheme: state.activeCustomTheme,
@@ -443,6 +504,8 @@ export const useUIStore = create<UIState>()(
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         linkApiBannerDismissed: state.linkApiBannerDismissed,
         echoChamberSide: state.echoChamberSide,
+        userStatusManual: state.userStatusManual,
+        convoNotificationSound: state.convoNotificationSound,
       }),
     },
   ),

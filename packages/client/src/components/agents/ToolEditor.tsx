@@ -182,11 +182,11 @@ export function ToolEditor() {
     localWebhookUrl,
     localStaticResult,
     localScriptBody,
-    localParams,
     dbTool,
     createTool,
     updateTool,
     buildParamsSchema,
+    openToolDetail,
   ]);
 
   const handleDelete = async () => {
@@ -216,10 +216,10 @@ export function ToolEditor() {
           onClick={handleClose}
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--y2k-purple)] to-[var(--y2k-pink)] text-white shadow-sm">
-          <Wrench size={18} />
+          <Wrench size="1.125rem" />
         </div>
         <input
           value={localName}
@@ -232,22 +232,22 @@ export function ToolEditor() {
         />
         <div className="flex items-center gap-1.5">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-red-400">
-              <AlertCircle size={11} /> Error
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+              <AlertCircle size="0.6875rem" /> Error
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-              <Check size={11} /> Saved
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+              <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[10px] font-medium text-amber-400">Unsaved</span>}
+          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
           {dbTool && (
             <button
               onClick={handleDelete}
               className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
             >
-              <Trash2 size={13} /> Delete
+              <Trash2 size="0.8125rem" /> Delete
             </button>
           )}
           <button
@@ -255,7 +255,7 @@ export function ToolEditor() {
             disabled={isPending}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--y2k-purple)] to-[var(--y2k-pink)] px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
           >
-            <Save size={13} /> Save
+            <Save size="0.8125rem" /> Save
           </button>
         </div>
       </div>
@@ -293,10 +293,10 @@ export function ToolEditor() {
       {/* Save error banner */}
       {saveError && (
         <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
-          <AlertCircle size={13} />
+          <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
-            <X size={12} />
+            <X size="0.75rem" />
           </button>
         </div>
       )}
@@ -305,7 +305,7 @@ export function ToolEditor() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {/* ── Name hint ── */}
-          <p className="text-[10px] text-[var(--muted-foreground)]">
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             Tool name must be lowercase snake_case (e.g.{" "}
             <code className="rounded bg-[var(--secondary)] px-1">check_weather</code>). This is the identifier the AI
             will use to call this function.
@@ -314,7 +314,7 @@ export function ToolEditor() {
           {/* ── Description ── */}
           <FieldGroup
             label="Description"
-            icon={<Info size={14} className="text-[var(--y2k-purple)]" />}
+            icon={<Info size="0.875rem" className="text-[var(--y2k-purple)]" />}
             help="Tell the AI what this tool does. Be descriptive — the AI reads this to decide when and how to call your tool."
           >
             <input
@@ -331,10 +331,10 @@ export function ToolEditor() {
           {/* ── Parameters ── */}
           <FieldGroup
             label="Parameters"
-            icon={<Code2 size={14} className="text-[var(--y2k-purple)]" />}
+            icon={<Code2 size="0.875rem" className="text-[var(--y2k-purple)]" />}
             help="The input arguments the AI can pass when calling this tool. Each parameter has a name, type, and description."
           >
-            <p className="text-[10px] text-[var(--muted-foreground)] mb-3">
+            <p className="text-[0.625rem] text-[var(--muted-foreground)] mb-3">
               Define the arguments the AI can pass when calling this tool.
             </p>
             <div className="space-y-2">
@@ -372,7 +372,7 @@ export function ToolEditor() {
                         <option value="array">array</option>
                         <option value="object">object</option>
                       </select>
-                      <label className="flex items-center gap-1 text-[10px] text-[var(--muted-foreground)]">
+                      <label className="flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
                         <input
                           type="checkbox"
                           checked={param.required}
@@ -406,7 +406,7 @@ export function ToolEditor() {
                     }}
                     className="mt-1 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                   >
-                    <Minus size={12} />
+                    <Minus size="0.75rem" />
                   </button>
                 </div>
               ))}
@@ -417,13 +417,13 @@ export function ToolEditor() {
                 }}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
               >
-                <Plus size={12} /> Add Parameter
+                <Plus size="0.75rem" /> Add Parameter
               </button>
             </div>
           </FieldGroup>
 
           {/* ── Execution Type ── */}
-          <FieldGroup label="Execution Type" icon={<Wrench size={14} className="text-[var(--y2k-purple)]" />}>
+          <FieldGroup label="Execution Type" icon={<Wrench size="0.875rem" className="text-[var(--y2k-purple)]" />}>
             <div className="grid grid-cols-3 gap-2">
               {EXEC_TYPES.map((et) => {
                 const isActive = localExecType === et.value;
@@ -442,18 +442,18 @@ export function ToolEditor() {
                         : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
-                    <Icon size={16} />
+                    <Icon size="1rem" />
                     <span className="font-medium">{et.label}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-1.5 text-[10px] text-[var(--muted-foreground)]">{execMeta.description}</p>
+            <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{execMeta.description}</p>
           </FieldGroup>
 
           {/* ── Execution Config ── */}
           {localExecType === "static" && (
-            <FieldGroup label="Static Result" icon={<FileText size={14} className="text-[var(--y2k-purple)]" />}>
+            <FieldGroup label="Static Result" icon={<FileText size="0.875rem" className="text-[var(--y2k-purple)]" />}>
               <textarea
                 value={localStaticResult}
                 onChange={(e) => {
@@ -464,7 +464,7 @@ export function ToolEditor() {
                 placeholder='{"result": "OK"}'
                 className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               />
-              <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 This string is returned as-is when the AI calls this tool. Useful for informational tools or
                 placeholders.
               </p>
@@ -472,7 +472,7 @@ export function ToolEditor() {
           )}
 
           {localExecType === "webhook" && (
-            <FieldGroup label="Webhook URL" icon={<Globe size={14} className="text-[var(--y2k-purple)]" />}>
+            <FieldGroup label="Webhook URL" icon={<Globe size="0.875rem" className="text-[var(--y2k-purple)]" />}>
               <input
                 value={localWebhookUrl}
                 onChange={(e) => {
@@ -482,7 +482,7 @@ export function ToolEditor() {
                 placeholder="https://api.example.com/my-tool"
                 className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 font-mono text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               />
-              <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 A POST request will be sent with{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">{"{ tool, arguments }"}</code> as JSON body.
                 Response is returned to the AI.
@@ -491,7 +491,7 @@ export function ToolEditor() {
           )}
 
           {localExecType === "script" && (
-            <FieldGroup label="Script Body" icon={<Code2 size={14} className="text-[var(--y2k-purple)]" />}>
+            <FieldGroup label="Script Body" icon={<Code2 size="0.875rem" className="text-[var(--y2k-purple)]" />}>
               <textarea
                 value={localScriptBody}
                 onChange={(e) => {
@@ -504,7 +504,7 @@ export function ToolEditor() {
                 }
                 className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               />
-              <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Write JavaScript. Has access to <code className="rounded bg-[var(--secondary)] px-1">args</code>,{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">JSON</code>,{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">Math</code>,{" "}

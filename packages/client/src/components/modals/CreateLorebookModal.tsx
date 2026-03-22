@@ -30,7 +30,7 @@ export function CreateLorebookModal({ open, onClose }: Props) {
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
-            <BookOpen size={22} className="text-white" />
+            <BookOpen size="1.375rem" className="text-white" />
           </div>
           <div className="flex-1">
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -73,7 +73,11 @@ export function CreateLorebookModal({ open, onClose }: Props) {
             disabled={!form.name.trim() || createLorebook.isPending}
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
-            {createLorebook.isPending ? <Loader2 size={12} className="animate-spin" /> : <BookOpen size={12} />}
+            {createLorebook.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <BookOpen size="0.75rem" />
+            )}
             Create Lorebook
           </button>
         </div>

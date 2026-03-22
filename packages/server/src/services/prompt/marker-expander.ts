@@ -32,6 +32,10 @@ export interface MarkerContext {
   enableAgents: boolean;
   /** Per-chat list of active agent type IDs (empty = use global enabled state) */
   activeAgentIds: string[];
+  /** Per-chat list of manually activated lorebook IDs from chat settings */
+  activeLorebookIds: string[];
+  /** Pre-computed embedding of the chat context for semantic lorebook matching. */
+  chatEmbedding?: number[] | null;
 }
 
 /** Expanded marker result. */
@@ -184,6 +188,8 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
   const result = await processLorebooks(ctx.db, ctx.chatMessages, null, {
     chatId: ctx.chatId,
     characterIds: ctx.characterIds,
+    activeLorebookIds: ctx.activeLorebookIds,
+    chatEmbedding: ctx.chatEmbedding ?? null,
   });
 
   switch (config.type) {

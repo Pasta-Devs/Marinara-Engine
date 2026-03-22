@@ -2,7 +2,7 @@
 // Chat: Manage Chat Files — switch between branches
 // Like SillyTavern's "Manage chat files" feature
 // ──────────────────────────────────────────────
-import { X, Plus, Trash2, FileText, MessageSquare, Download } from "lucide-react";
+import { X, Plus, Trash2, FileText, MessageSquare } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatGroup, useCreateChat, useDeleteChat, useDeleteChatGroup, useExportChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
@@ -65,14 +65,14 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
     return (
       <>
         <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-        <div className="absolute right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up">
+        <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-bold">Manage Chat Files</h3>
             <button
               onClick={onClose}
               className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
             >
-              <X size={16} />
+              <X size="1rem" />
             </button>
           </div>
           <div className="border-b border-[var(--border)] px-4 py-3">
@@ -81,7 +81,13 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
               disabled={exportChat.isPending}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
             >
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="0.8125rem"
+                height="0.8125rem"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <path
                   d="M10 13V3m0 0l-4 4m4-4l4 4"
                   stroke="currentColor"
@@ -95,7 +101,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             </button>
           </div>
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-            <FileText size={32} className="text-[var(--muted-foreground)]/40" />
+            <FileText size="2rem" className="text-[var(--muted-foreground)]/40" />
             <p className="text-xs text-[var(--muted-foreground)]">
               This chat isn't part of a group and doesn't have any branches yet. Chats imported from SillyTavern for the
               same character are automatically grouped together into branches.
@@ -112,7 +118,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
       <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="absolute right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up">
+      <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-bold">Manage Chat Files</h3>
@@ -120,7 +126,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             onClick={onClose}
             className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
           >
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
 
@@ -131,7 +137,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             disabled={createChat.isPending}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-sky-400/15 transition-all hover:shadow-lg hover:shadow-sky-400/25 active:scale-[0.98] disabled:opacity-50"
           >
-            <Plus size={13} />
+            <Plus size="0.8125rem" />
             Start New Chat
           </button>
           <button
@@ -139,7 +145,13 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             disabled={exportChat.isPending}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
           >
-            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              width="0.8125rem"
+              height="0.8125rem"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <path
                 d="M10 13V3m0 0l-4 4m4-4l4 4"
                 stroke="currentColor"
@@ -151,7 +163,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             </svg>
             Export Chat
           </button>
-          <p className="mt-2 text-center text-[10px] text-[var(--muted-foreground)]/60">
+          <p className="mt-2 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
             {chatFiles.length} chat file{chatFiles.length !== 1 ? "s" : ""} in this group
           </p>
         </div>
@@ -182,16 +194,16 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                         : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
                     )}
                   >
-                    <MessageSquare size={14} />
+                    <MessageSquare size="0.875rem" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium">{cf.name}</div>
-                    <div className="text-[10px] text-[var(--muted-foreground)]">
+                    <div className="text-[0.625rem] text-[var(--muted-foreground)]">
                       {dateStr} at {timeStr}
                     </div>
                   </div>
                   {isActive && (
-                    <span className="shrink-0 rounded-full bg-sky-400/15 px-2 py-0.5 text-[9px] font-medium text-sky-400">
+                    <span className="shrink-0 rounded-full bg-sky-400/15 px-2 py-0.5 text-[0.5625rem] font-medium text-sky-400">
                       Active
                     </span>
                   )}
@@ -203,7 +215,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                       }}
                       className="shrink-0 rounded-lg p-1.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100"
                     >
-                      <Trash2 size={12} className="text-[var(--destructive)]" />
+                      <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
                     </button>
                   )}
                 </div>
@@ -224,7 +236,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             disabled={deleteChatGroup.isPending}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98] disabled:opacity-50"
           >
-            <Trash2 size={13} />
+            <Trash2 size="0.8125rem" />
             Delete All Branches
           </button>
         </div>

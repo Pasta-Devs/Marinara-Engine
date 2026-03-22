@@ -13,6 +13,10 @@ import type {
   EncounterActionRequest,
   EncounterSummaryRequest,
   NarrativeStyle,
+  CombatPartyMember,
+  CombatEnemy,
+  CombatPlayerActions,
+  EncounterLogEntry,
 } from "@marinara-engine/shared";
 
 // ──────────────────────────────────────────────
@@ -47,16 +51,40 @@ async function resolveConnection(
 }
 
 /** Extract reliable JSON from an LLM response that may include markdown fences. */
-function parseJSON(raw: string): any {
+function parseJSON(raw: string): unknown {
+  // Strip code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw
     .trim()
-    .replace(/```(?:json|markdown)?\s*/gi, "")
-    .replace(/`/g, "");
-  const first = cleaned.indexOf("{");
-  const last = cleaned.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON object found in AI response");
-  cleaned = cleaned.substring(first, last + 1);
-  return JSON.parse(cleaned);
+    .replace(/^```(?:json|markdown)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "");
+  // Find the first { and use balanced braces to find the matching }
+  const start = cleaned.indexOf("{");
+  if (start === -1) throw new Error("No JSON object found in AI response");
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return JSON.parse(cleaned.substring(start, i + 1));
+    }
+  }
+  throw new Error("Unbalanced JSON in AI response");
 }
 
 /** Build character context from the chat's character IDs. */
@@ -77,13 +105,13 @@ async function buildCharacterContext(chars: ReturnType<typeof createCharactersSt
 /** Build persona context. */
 async function buildPersonaContext(chars: ReturnType<typeof createCharactersStorage>) {
   const allPersonas = await chars.listPersonas();
-  const active = allPersonas.find((p: any) => p.isActive === "true" || p.isActive === true);
+  const active = allPersonas.find((p) => p.isActive === "true");
   if (!active) return { personaName: "User", personaCtx: "No persona information available." };
   let ctx = `Name: ${active.name}\n`;
   if (active.description) ctx += `${active.description}\n`;
-  if ((active as any).personality) ctx += `${(active as any).personality}\n`;
-  if ((active as any).backstory) ctx += `${(active as any).backstory}\n`;
-  if ((active as any).appearance) ctx += `${(active as any).appearance}\n`;
+  if (active.personality) ctx += `${active.personality}\n`;
+  if (active.backstory) ctx += `${active.backstory}\n`;
+  if (active.appearance) ctx += `${active.appearance}\n`;
   return { personaName: active.name, personaCtx: ctx };
 }
 
@@ -224,9 +252,9 @@ function buildActionPrompt(
   characterCtx: string,
   chatHistory: ChatMessage[],
   action: string,
-  combatStats: { party: any[]; enemies: any[]; environment: string },
-  playerActions: any | null,
-  encounterLog: any[],
+  combatStats: { party: CombatPartyMember[]; enemies: CombatEnemy[]; environment: string },
+  playerActions: CombatPlayerActions | null,
+  encounterLog: EncounterLogEntry[],
   narrative: NarrativeStyle,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
@@ -238,8 +266,8 @@ function buildActionPrompt(
   system += `<persona>\n${personaCtx}\n</persona>\n\n`;
   msgs.push({ role: "system", content: system });
 
-  // Recent chat history for context
-  for (const m of chatHistory.slice(-8)) {
+  // Recent chat history for context (already sliced to historyDepth by caller)
+  for (const m of chatHistory) {
     msgs.push({ role: m.role as "user" | "assistant", content: m.content });
   }
 
@@ -261,20 +289,16 @@ function buildActionPrompt(
     state += `- ${m.name}${m.isPlayer ? " (Player)" : ""}: ${m.hp}/${m.maxHp} HP\n`;
     const attacks = m.isPlayer && playerActions?.attacks ? playerActions.attacks : m.attacks;
     const items = m.isPlayer && playerActions?.items ? playerActions.items : m.items;
-    if (attacks?.length)
-      state += `  Attacks: ${attacks.map((a: any) => (typeof a === "string" ? a : a.name)).join(", ")}\n`;
+    if (attacks?.length) state += `  Attacks: ${attacks.map((a) => (typeof a === "string" ? a : a.name)).join(", ")}\n`;
     if (items?.length) state += `  Items: ${items.join(", ")}\n`;
-    if (m.statuses?.length)
-      state += `  Status Effects: ${m.statuses.map((s: any) => `${s.emoji} ${s.name}`).join(", ")}\n`;
+    if (m.statuses?.length) state += `  Status Effects: ${m.statuses.map((s) => `${s.emoji} ${s.name}`).join(", ")}\n`;
   }
   state += `\nEnemies:\n`;
   for (const e of combatStats.enemies) {
     state += `- ${e.name} (${e.sprite || ""}): ${e.hp}/${e.maxHp} HP\n`;
     if (e.description) state += `  ${e.description}\n`;
-    if (e.attacks?.length)
-      state += `  Attacks: ${e.attacks.map((a: any) => (typeof a === "string" ? a : a.name)).join(", ")}\n`;
-    if (e.statuses?.length)
-      state += `  Status Effects: ${e.statuses.map((s: any) => `${s.emoji} ${s.name}`).join(", ")}\n`;
+    if (e.attacks?.length) state += `  Attacks: ${e.attacks.map((a) => a.name).join(", ")}\n`;
+    if (e.statuses?.length) state += `  Status Effects: ${e.statuses.map((s) => `${s.emoji} ${s.name}`).join(", ")}\n`;
   }
 
   state += `\n${personaName}'s Action: ${action}\n\n`;
@@ -308,7 +332,7 @@ function buildSummaryPrompt(
   personaName: string,
   personaCtx: string,
   characterCtx: string,
-  encounterLog: any[],
+  encounterLog: EncounterLogEntry[],
   result: string,
   narrative: NarrativeStyle,
 ): ChatMessage[] {
@@ -348,140 +372,182 @@ export async function encounterRoutes(app: FastifyInstance) {
   app.post<{ Body: EncounterInitRequest }>("/init", async (req, reply) => {
     const { chatId, connectionId, settings } = req.body;
 
-    const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
-
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
-    const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
-
-    const characterIds: string[] = JSON.parse(chat.characterIds as string);
-    const characterCtx = await buildCharacterContext(chars, characterIds);
-    const { personaName, personaCtx } = await buildPersonaContext(chars);
-    const gameStateCtx = await buildGameStateContext(gsStorage, chatId, personaName);
-
-    // Get recent chat messages for history
-    const chatMessages = await chats.listMessages(chatId);
-    const depth = settings.historyDepth || 8;
-    const recentMsgs: ChatMessage[] = chatMessages.slice(-depth).map((m: any) => ({
-      role: (m.role === "narrator" ? "system" : m.role) as "user" | "assistant" | "system",
-      content: m.content as string,
-    }));
-
-    const prompt = buildInitPrompt(personaName, personaCtx, characterCtx, recentMsgs, gameStateCtx);
-
-    const result = await provider.chatComplete(prompt, {
-      model: conn.model,
-      temperature: 0.8,
-      maxTokens: 4096,
-    });
-
-    if (!result.content) {
-      return reply.status(500).send({ error: "No response from AI" });
+    if (!chatId || !settings) {
+      return reply.status(400).send({ error: "Missing required fields: chatId, settings" });
     }
 
-    const combatState = parseJSON(result.content);
-    if (!combatState?.party || !combatState?.enemies) {
-      return reply.status(500).send({ error: "Invalid combat data returned by AI" });
-    }
+    try {
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-    return { combatState };
+      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
+
+      const characterIds: string[] = JSON.parse(chat.characterIds as string);
+      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const { personaName, personaCtx } = await buildPersonaContext(chars);
+      const gameStateCtx = await buildGameStateContext(gsStorage, chatId, personaName);
+
+      // Get recent chat messages for history
+      const chatMessages = await chats.listMessages(chatId);
+      const depth = settings.historyDepth || 8;
+      const recentMsgs: ChatMessage[] = chatMessages.slice(-depth).map((m: any) => ({
+        role: (m.role === "narrator" ? "system" : m.role) as "user" | "assistant" | "system",
+        content: m.content as string,
+      }));
+
+      const prompt = buildInitPrompt(personaName, personaCtx, characterCtx, recentMsgs, gameStateCtx);
+
+      const result = await provider.chatComplete(prompt, {
+        model: conn.model,
+        temperature: 0.8,
+        maxTokens: 8192,
+      });
+
+      if (!result.content) {
+        return reply.status(502).send({ error: "No response from AI" });
+      }
+
+      let combatState: Record<string, unknown>;
+      try {
+        combatState = parseJSON(result.content) as Record<string, unknown>;
+      } catch {
+        return reply.status(502).send({ error: "AI returned invalid JSON" });
+      }
+
+      if (!combatState?.party || !combatState?.enemies) {
+        return reply.status(502).send({ error: "Invalid combat data returned by AI" });
+      }
+
+      return { combatState };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return reply.status(500).send({ error: `Encounter init failed: ${message}` });
+    }
   });
 
   // ───────────────────────── ACTION ─────────────────────────
   app.post<{ Body: EncounterActionRequest }>("/action", async (req, reply) => {
     const { chatId, connectionId, action, combatStats, playerActions, encounterLog, settings } = req.body;
 
-    const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
-
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
-    const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
-
-    const characterIds: string[] = JSON.parse(chat.characterIds as string);
-    const characterCtx = await buildCharacterContext(chars, characterIds);
-    const { personaName, personaCtx } = await buildPersonaContext(chars);
-
-    const chatMessages = await chats.listMessages(chatId);
-    const depth = settings.historyDepth || 8;
-    const recentMsgs: ChatMessage[] = chatMessages.slice(-depth).map((m: any) => ({
-      role: (m.role === "narrator" ? "system" : m.role) as "user" | "assistant" | "system",
-      content: m.content as string,
-    }));
-
-    const prompt = buildActionPrompt(
-      personaName,
-      personaCtx,
-      characterCtx,
-      recentMsgs,
-      action,
-      combatStats,
-      playerActions,
-      encounterLog,
-      settings.combatNarrative,
-    );
-
-    const result = await provider.chatComplete(prompt, {
-      model: conn.model,
-      temperature: 0.8,
-      maxTokens: 4096,
-    });
-
-    if (!result.content) {
-      return reply.status(500).send({ error: "No response from AI" });
+    if (!chatId || !action || !combatStats || !settings) {
+      return reply.status(400).send({ error: "Missing required fields: chatId, action, combatStats, settings" });
     }
 
-    const actionResult = parseJSON(result.content);
-    if (!actionResult?.combatStats) {
-      return reply.status(500).send({ error: "Invalid action result returned by AI" });
-    }
+    try {
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-    return { result: actionResult };
+      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
+
+      const characterIds: string[] = JSON.parse(chat.characterIds as string);
+      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const { personaName, personaCtx } = await buildPersonaContext(chars);
+
+      const chatMessages = await chats.listMessages(chatId);
+      const depth = settings.historyDepth || 8;
+      const recentMsgs: ChatMessage[] = chatMessages.slice(-depth).map((m: any) => ({
+        role: (m.role === "narrator" ? "system" : m.role) as "user" | "assistant" | "system",
+        content: m.content as string,
+      }));
+
+      const prompt = buildActionPrompt(
+        personaName,
+        personaCtx,
+        characterCtx,
+        recentMsgs,
+        action,
+        combatStats,
+        playerActions,
+        encounterLog ?? [],
+        settings.combatNarrative,
+      );
+
+      const result = await provider.chatComplete(prompt, {
+        model: conn.model,
+        temperature: 0.8,
+        maxTokens: 8192,
+      });
+
+      if (!result.content) {
+        return reply.status(502).send({ error: "No response from AI" });
+      }
+
+      let actionResult: Record<string, unknown>;
+      try {
+        actionResult = parseJSON(result.content) as Record<string, unknown>;
+      } catch {
+        return reply.status(502).send({ error: "AI returned invalid JSON for action result" });
+      }
+
+      if (!actionResult?.combatStats) {
+        return reply.status(502).send({ error: "Invalid action result returned by AI" });
+      }
+
+      return { result: actionResult };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return reply.status(500).send({ error: `Encounter action failed: ${message}` });
+    }
   });
 
   // ───────────────────────── SUMMARY ─────────────────────────
   app.post<{ Body: EncounterSummaryRequest }>("/summary", async (req, reply) => {
     const { chatId, connectionId, encounterLog, result: combatResult, settings } = req.body;
 
-    const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
-
-    const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
-    const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
-
-    const characterIds: string[] = JSON.parse(chat.characterIds as string);
-    const characterCtx = await buildCharacterContext(chars, characterIds);
-    const { personaName, personaCtx } = await buildPersonaContext(chars);
-
-    const prompt = buildSummaryPrompt(
-      personaName,
-      personaCtx,
-      characterCtx,
-      encounterLog,
-      combatResult,
-      settings.summaryNarrative,
-    );
-
-    const result = await provider.chatComplete(prompt, {
-      model: conn.model,
-      temperature: 0.9,
-      maxTokens: 4096,
-    });
-
-    if (!result.content) {
-      return reply.status(500).send({ error: "No response from AI for summary" });
+    const validResults = ["victory", "defeat", "fled", "interrupted"];
+    if (!chatId || !encounterLog?.length || !combatResult || !settings) {
+      return reply.status(400).send({ error: "Missing required fields: chatId, encounterLog, result, settings" });
+    }
+    if (!validResults.includes(combatResult)) {
+      return reply.status(400).send({ error: `Invalid result. Must be one of: ${validResults.join(", ")}` });
     }
 
-    const summary = result.content.replace(/\[FIGHT CONCLUDED\]\s*/i, "").trim();
+    try {
+      const chat = await chats.getById(chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-    // Save the summary as an assistant message in the chat
-    const characterId = characterIds[0] ?? null;
-    const msg = await chats.createMessage({
-      chatId,
-      role: "assistant",
-      characterId,
-      content: summary,
-    });
+      const { conn, baseUrl } = await resolveConnection(connections, connectionId, chat.connectionId);
+      const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
 
-    return { summary, messageId: msg?.id ?? "" };
+      const characterIds: string[] = JSON.parse(chat.characterIds as string);
+      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const { personaName, personaCtx } = await buildPersonaContext(chars);
+
+      const prompt = buildSummaryPrompt(
+        personaName,
+        personaCtx,
+        characterCtx,
+        encounterLog,
+        combatResult,
+        settings.summaryNarrative,
+      );
+
+      const result = await provider.chatComplete(prompt, {
+        model: conn.model,
+        temperature: 0.9,
+        maxTokens: 4096,
+      });
+
+      if (!result.content) {
+        return reply.status(502).send({ error: "No response from AI for summary" });
+      }
+
+      const summary = result.content.replace(/\[FIGHT CONCLUDED\]\s*/i, "").trim();
+
+      // Save the summary as a narrator message (not attributed to a specific character)
+      const msg = await chats.createMessage({
+        chatId,
+        role: "assistant",
+        characterId: null,
+        content: summary,
+      });
+
+      return { summary, messageId: msg?.id ?? "" };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return reply.status(500).send({ error: `Encounter summary failed: ${message}` });
+    }
   });
 }

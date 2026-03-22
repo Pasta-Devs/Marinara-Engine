@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { createConnectionSchema } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { validateExternalUrl } from "../utils/url-validation.js";
 
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
@@ -35,6 +36,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
+  // Duplicate a connection (copies everything including the encrypted API key)
+  app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
+    const result = await storage.duplicate(req.params.id);
+    if (!result) return reply.status(404).send({ error: "Connection not found" });
+    return result;
+  });
+
   // Test connection (sends a tiny ping to the API)
   app.post<{ Params: { id: string } }>("/:id/test", async (req, reply) => {
     const conn = await storage.getWithKey(req.params.id);
@@ -47,6 +55,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
       const baseUrl = conn.baseUrl || provider?.defaultBaseUrl || "";
 
+      // Validate baseUrl against SSRF
+      if (baseUrl) {
+        const urlError = validateExternalUrl(baseUrl);
+        if (urlError) {
+          return { success: false, message: `Base URL rejected: ${urlError}`, latencyMs: 0, modelName: null };
+        }
+      }
+
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
@@ -55,11 +71,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
         headers[provider.apiKeyHeader] = conn.apiKey;
       }
 
-      // Google uses ?key= query param instead of headers
-      let testUrl = `${baseUrl}${provider?.modelsEndpoint ?? "/models"}`;
-      if (conn.provider === "google") {
-        testUrl += `?key=${conn.apiKey}`;
-      }
+      // image_generation has no standard modelsEndpoint; try /models as a connectivity check
+      let testUrl = `${baseUrl}${provider?.modelsEndpoint || "/models"}`;
 
       const res = await fetch(testUrl, { headers });
       const latencyMs = Date.now() - start;
@@ -97,6 +110,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       if (!baseUrl) {
         return reply.status(400).send({ error: "No base URL configured" });
+      }
+
+      // Validate baseUrl against SSRF
+      const urlError = validateExternalUrl(baseUrl);
+      if (urlError) {
+        return reply.status(400).send({ error: `Base URL rejected: ${urlError}` });
       }
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -148,7 +167,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
     const { PROVIDERS } = await import("@marinara-engine/shared");
     const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
-    const baseUrl = conn.baseUrl || providerDef?.defaultBaseUrl || "";
+    const baseUrl = (conn.baseUrl || providerDef?.defaultBaseUrl || "").replace(/\/+$/, "");
 
     if (!baseUrl) {
       return reply.status(400).send({ error: "No base URL configured" });

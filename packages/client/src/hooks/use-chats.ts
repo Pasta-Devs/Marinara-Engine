@@ -60,8 +60,13 @@ export function useChatGroup(groupId: string | null) {
 export function useCreateChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; mode: string; characterIds?: string[]; groupId?: string | null }) =>
-      api.post<Chat>("/chats", data),
+    mutationFn: (data: {
+      name: string;
+      mode: string;
+      characterIds?: string[];
+      groupId?: string | null;
+      connectionId?: string | null;
+    }) => api.post<Chat>("/chats", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.list() }),
   });
 }
@@ -141,6 +146,7 @@ export function useCreateMessage(chatId: string | null) {
     onSuccess: () => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+        qc.invalidateQueries({ queryKey: chatKeys.list() });
       }
     },
   });
@@ -280,6 +286,32 @@ export function useSetActiveSwipe(chatId: string | null) {
       api.put<Message>(`/chats/${chatId}/messages/${messageId}/active-swipe`, { index }),
     onSuccess: () => {
       if (chatId) qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+    },
+  });
+}
+
+/** Connect two chats bidirectionally (conversation ↔ roleplay) */
+export function useConnectChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chatId, targetChatId }: { chatId: string; targetChatId: string }) =>
+      api.post<{ connected: boolean }>(`/chats/${chatId}/connect`, { targetChatId }),
+    onSuccess: (_data, { chatId, targetChatId }) => {
+      qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.detail(targetChatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+    },
+  });
+}
+
+/** Disconnect a chat from its linked partner */
+export function useDisconnectChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (chatId: string) => api.post<{ disconnected: boolean }>(`/chats/${chatId}/disconnect`, {}),
+    onSuccess: (_data, chatId) => {
+      qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }

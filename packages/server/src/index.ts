@@ -19,7 +19,7 @@ if (existsSync(envPath)) {
 }
 
 const PORT = parseInt(process.env.PORT ?? "7860", 10);
-const HOST = process.env.HOST ?? "0.0.0.0";
+const HOST = process.env.HOST ?? "127.0.0.1";
 
 function loadTlsOptions() {
   const cert = process.env.SSL_CERT;

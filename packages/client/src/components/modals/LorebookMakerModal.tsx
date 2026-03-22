@@ -7,7 +7,7 @@ import { Modal } from "../ui/Modal";
 import { useConnections } from "../../hooks/use-connections";
 import { useLorebooks, useCreateLorebook } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
-import { Sparkles, Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, BookOpen, Plus } from "lucide-react";
+import { Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, BookOpen, Plus } from "lucide-react";
 import { api } from "../../lib/api-client";
 import type { Lorebook } from "@marinara-engine/shared";
 
@@ -182,7 +182,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
               ))}
             </select>
             <ChevronDown
-              size={14}
+              size="0.875rem"
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
             />
           </div>
@@ -205,7 +205,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
               ))}
             </select>
             <ChevronDown
-              size={14}
+              size="0.875rem"
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
             />
           </div>
@@ -244,12 +244,12 @@ export function LorebookMakerModal({ open, onClose }: Props) {
         >
           {streaming ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size="1rem" className="animate-spin" />
               Generating…
             </>
           ) : (
             <>
-              <Wand2 size={16} />
+              <Wand2 size="1rem" />
               Generate Lorebook
             </>
           )}
@@ -268,7 +268,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
         {/* Error */}
         {error && (
           <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-            <AlertCircle size={14} />
+            <AlertCircle size="0.875rem" />
             {error}
           </div>
         )}
@@ -277,10 +277,10 @@ export function LorebookMakerModal({ open, onClose }: Props) {
         {generated && (
           <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
             <div className="flex items-center gap-2">
-              <BookOpen size={16} className="text-amber-400" />
+              <BookOpen size="1rem" className="text-amber-400" />
               <span className="font-semibold">{generated.lorebook_name || "Generated Lorebook"}</span>
               {generated.category && (
-                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[0.625rem] font-medium text-amber-400">
                   {generated.category}
                 </span>
               )}
@@ -291,7 +291,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
             )}
 
             <div className="space-y-1.5">
-              <p className="text-[11px] font-medium text-[var(--muted-foreground)]">
+              <p className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                 {generated.entries?.length ?? 0} entries generated
               </p>
               <div className="max-h-48 space-y-1.5 overflow-y-auto">
@@ -300,7 +300,9 @@ export function LorebookMakerModal({ open, onClose }: Props) {
                     <span className="font-medium">{entry.name}</span>
                     <span className="text-[var(--muted-foreground)]">{entry.keys?.slice(0, 3).join(", ")}</span>
                     {entry.tag && (
-                      <span className="ml-auto rounded bg-[var(--accent)] px-1.5 py-0.5 text-[9px]">{entry.tag}</span>
+                      <span className="ml-auto rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.5625rem]">
+                        {entry.tag}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -316,12 +318,12 @@ export function LorebookMakerModal({ open, onClose }: Props) {
               >
                 {saving ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <Loader2 size="0.875rem" className="animate-spin" />
                     Saving…
                   </>
                 ) : (
                   <>
-                    <Plus size={14} />
+                    <Plus size="0.875rem" />
                     Create Lorebook & Save Entries
                   </>
                 )}
@@ -330,7 +332,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
 
             {saved && (
               <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-400">
-                <CheckCircle size={14} />
+                <CheckCircle size="0.875rem" />
                 Entries saved successfully!
               </div>
             )}

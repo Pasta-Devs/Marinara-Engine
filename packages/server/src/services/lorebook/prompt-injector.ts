@@ -146,7 +146,7 @@ export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget
  */
 export function processActivatedEntries(
   activatedEntries: ActivatedEntry[],
-  tokenBudget: number = 2048,
+  tokenBudget: number = 0,
 ): {
   worldInfoBefore: string;
   worldInfoAfter: string;

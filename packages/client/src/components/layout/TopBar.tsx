@@ -37,7 +37,7 @@ export function TopBar() {
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--y2k-pink)] active:scale-95"
           title="Chats"
         >
-          <PanelLeft size={18} />
+          <PanelLeft size="1.125rem" />
         </button>
 
         <button
@@ -48,7 +48,7 @@ export function TopBar() {
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--y2k-pink)] active:scale-95"
           title="Home"
         >
-          <Home size={18} />
+          <Home size="1.125rem" />
         </button>
       </div>
 
@@ -68,7 +68,7 @@ export function TopBar() {
               )}
               title={label}
             >
-              <Icon size={15} />
+              <Icon size="0.9375rem" />
               {isActive && (
                 <span
                   className={cn(

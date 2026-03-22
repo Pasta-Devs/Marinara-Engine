@@ -52,8 +52,8 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB) {
   let avatarPath: string | undefined;
   if (avatarDataUrl && avatarDataUrl.startsWith("data:image/")) {
     ensureAvatarDir();
-    const ext = avatarDataUrl.startsWith("data:image/png") ? ".png" : ".webp";
-    const filename = `${randomUUID()}${ext}`;
+    const ext = avatarDataUrl.match(/^data:image\/([\w+]+);/)?.[1]?.replace("+xml", "") ?? "png";
+    const filename = `${randomUUID()}.${ext}`;
     const filePath = join(AVATAR_DIR, filename);
 
     // Strip data URL header → raw base64

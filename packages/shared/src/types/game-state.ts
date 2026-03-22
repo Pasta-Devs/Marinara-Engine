@@ -67,6 +67,12 @@ export interface CharacterStat {
   color: string;
 }
 
+/** A user-defined custom tracker field. */
+export interface CustomTrackerField {
+  name: string;
+  value: string;
+}
+
 /** Player-specific stats and inventory. */
 export interface PlayerStats {
   /** Custom stat bars */
@@ -81,6 +87,8 @@ export interface PlayerStats {
   activeQuests: QuestProgress[];
   /** Status text */
   status: string;
+  /** User-defined custom tracker fields */
+  customTrackerFields?: CustomTrackerField[];
 }
 
 /** Classic D&D-style attributes. */

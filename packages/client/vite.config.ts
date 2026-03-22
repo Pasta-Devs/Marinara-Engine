@@ -46,4 +46,8 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: true,
   },
+  esbuild: {
+    // Strip debug console.log in production; keep warn/error
+    pure: process.env.NODE_ENV === "production" ? ["console.log"] : [],
+  },
 });

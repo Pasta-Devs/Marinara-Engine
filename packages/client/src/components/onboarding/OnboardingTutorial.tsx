@@ -4,9 +4,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useCreateChat, useDeleteChat } from "../../hooks/use-chats";
+import { useCreateChat } from "../../hooks/use-chats";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ArrowRightLeft } from "lucide-react";
+import { PROFESSOR_MARI_ID, DEFAULT_CONNECTION_ID } from "@marinara-engine/shared";
+import { api } from "../../lib/api-client";
 
 // ─── Step definitions ─────────────────────────
 
@@ -55,6 +57,18 @@ const STEPS: TourStep[] = [
   },
   {
     target: null,
+    title: "Two Ways to Chat",
+    body: "Marinara Engine has two chat modes:\n\n**Conversation** 💬 — Like Discord DMs. Casual texting, character schedules, statuses, and autonomous messaging. Great for slice-of-life and hanging out.\n\n**Roleplay** 🎭 — Creative writing and storytelling. Rich narration, AI agents, game HUD, quests, and more. Perfect for adventures and immersive stories.",
+    sprite: { src: "/sprites/mari/Mari_explaining.png" },
+  },
+  {
+    target: null,
+    title: "Meet Professor Mari!",
+    body: "That's me! I'm your built-in assistant — I come pre-installed and I'm always here to help. You can message me anytime to ask questions about the app, and I can even **do things for you** — like create characters, personas, start new chats, and navigate the app.\n\nI've set up a chat with me in the sidebar already — feel free to ask me anything after the tour!",
+    sprite: { src: "/sprites/mari/Mari_greet.png" },
+  },
+  {
+    target: null,
     title: "Set Up a Connection",
     body: "Before you start chatting, you'll need to connect an AI provider. Click the chain-link icon (🔗) in the top-right tab buttons, then add your API key for OpenAI, Anthropic, or another provider.",
     sprite: { src: "/sprites/mari/Mari_explaining.png" },
@@ -93,7 +107,7 @@ function getTargetRect(target: string): Rect | null {
   return { top: r.top, left: r.left, width: r.width, height: r.height };
 }
 
-function buildClipPath(rect: Rect): string {
+function _buildClipPath(rect: Rect): string {
   const t = Math.max(0, rect.top - PAD);
   const l = Math.max(0, rect.left - PAD);
   const b = rect.top + rect.height + PAD;
@@ -117,10 +131,24 @@ function buildClipPath(rect: Rect): string {
 // ─── Tooltip position ─────────────────────────
 
 function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "right" = "right"): React.CSSProperties {
-  const TOOLTIP_W = 320;
-  const GAP = 16;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const isMobile = vw < 640;
+  const TOOLTIP_W = isMobile ? Math.min(vw - 32, 320) : 320;
+  const GAP = isMobile ? 8 : 16;
+
+  // On small screens, always center horizontally and position below target
+  if (isMobile) {
+    const top = Math.min(rect.top + rect.height + GAP + PAD, vh * 0.55);
+    return {
+      position: "fixed",
+      top,
+      left: (vw - TOOLTIP_W) / 2,
+      width: TOOLTIP_W,
+      maxHeight: `${vh - top - 16}px`,
+      overflowY: "auto" as const,
+    };
+  }
 
   let top = 0;
   let left = 0;
@@ -129,7 +157,6 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
     top = rect.top + rect.height / 2;
     left = rect.left + rect.width + GAP + PAD;
     if (left + TOOLTIP_W > vw - 16) {
-      // flip to left
       left = rect.left - TOOLTIP_W - GAP - PAD;
     }
   } else if (side === "left") {
@@ -184,7 +211,7 @@ function TourCardContent({
           <img
             src={currentStep.sprite.src}
             alt="Professor Mari"
-            className="h-32 w-auto object-contain drop-shadow-lg"
+            className="h-32 max-h-[15vh] w-auto object-contain drop-shadow-lg"
             style={currentStep.sprite.flip ? { transform: "scaleX(-1)" } : undefined}
             draggable={false}
           />
@@ -236,7 +263,7 @@ function TourCardContent({
           onClick={() => onAction(currentStep.actionKey!)}
           className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20 active:scale-[0.98]"
         >
-          <ArrowRightLeft size={13} />
+          <ArrowRightLeft size="0.8125rem" />
           {currentStep.actionLabel}
         </button>
       )}
@@ -254,7 +281,7 @@ function TourCardContent({
           className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95"
         >
           {isLast ? "Get Started" : "Next"}
-          {!isLast && <ChevronRight size={12} />}
+          {!isLast && <ChevronRight size="0.75rem" />}
         </button>
       </div>
     </>
@@ -276,17 +303,14 @@ function OnboardingTutorialInner() {
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   const createChat = useCreateChat();
-  const deleteChat = useDeleteChat();
 
   const [step, setStep] = useState(0);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const rafRef = useRef<number>(0);
-  const demoChatIdRef = useRef<string | null>(null);
+  const mariChatIdRef = useRef<string | null>(null);
   const prevStepRef = useRef(0);
   const createChatRef = useRef(createChat);
-  const deleteChatRef = useRef(deleteChat);
   createChatRef.current = createChat;
-  deleteChatRef.current = deleteChat;
 
   const currentStep = STEPS[step];
   const isLast = step === STEPS.length - 1;
@@ -314,38 +338,63 @@ function OnboardingTutorialInner() {
       setSidebarOpen(false);
     }
 
-    // Step 3 (chat area): create demo chat on enter
-    if (step === 3 && !demoChatIdRef.current) {
-      demoChatIdRef.current = "pending"; // prevent duplicate creation (StrictMode / re-renders)
+    // Step 3 (chat area): create persistent Assistant Chat with Mari
+    if (step === 3 && !mariChatIdRef.current) {
+      mariChatIdRef.current = "pending";
       createChatRef.current
-        .mutateAsync({ name: "Welcome to Marinara!", mode: "roleplay" })
-        .then((chat) => {
-          demoChatIdRef.current = chat.id;
+        .mutateAsync({
+          name: "Assistant Chat With Mari",
+          mode: "conversation",
+          characterIds: [PROFESSOR_MARI_ID],
+          connectionId: DEFAULT_CONNECTION_ID,
+        })
+        .then(async (chat) => {
+          mariChatIdRef.current = chat.id;
+          // Disable autonomous messages, cross-chat awareness, and memory recall
+          // BEFORE activating the chat — otherwise ConversationView triggers schedule generation
+          try {
+            await api.patch(`/chats/${chat.id}/metadata`, {
+              autonomousMessages: false,
+              crossChatAwareness: false,
+              enableMemoryRecall: false,
+            });
+          } catch {
+            /* non-critical */
+          }
+          // Insert Mari's first message BEFORE activating the chat
+          // so the ConversationView picks it up on first render
+          try {
+            const char = await api.get<{ data: string }>(`/characters/${PROFESSOR_MARI_ID}`);
+            const charData = JSON.parse(char.data) as { first_mes?: string };
+            if (charData.first_mes) {
+              await api.post(`/chats/${chat.id}/messages`, {
+                role: "assistant",
+                characterId: PROFESSOR_MARI_ID,
+                content: charData.first_mes,
+              });
+            }
+          } catch {
+            /* non-critical */
+          }
+          // Now activate the chat — ConversationView will see the message + correct metadata
           setDemoChatActive(chat.id);
         })
         .catch(() => {
-          demoChatIdRef.current = null;
+          mariChatIdRef.current = null;
         });
     }
-    // Leaving step 3: delete demo chat
+    // Leaving step 3: deselect chat (but keep it — it's persistent)
     if (prev === 3 && step !== 3) {
-      if (demoChatIdRef.current && demoChatIdRef.current !== "pending") {
-        const id = demoChatIdRef.current;
-        setDemoChatActive(null);
-        deleteChatRef.current.mutate(id);
-      }
-      demoChatIdRef.current = null;
+      setDemoChatActive(null);
     }
   }, [step, setSidebarOpen, setDemoChatActive]);
 
-  // Cleanup demo chat on unmount (skip/finish while on step 3)
+  // Cleanup on unmount: deselect the Mari chat (but keep it — it's persistent)
   useEffect(() => {
     return () => {
-      if (demoChatIdRef.current && demoChatIdRef.current !== "pending") {
-        const id = demoChatIdRef.current;
-        demoChatIdRef.current = null;
+      if (mariChatIdRef.current && mariChatIdRef.current !== "pending") {
+        mariChatIdRef.current = null;
         useChatStore.setState({ activeChatId: null, activeChat: null, swipeIndex: new Map() });
-        deleteChatRef.current.mutate(id);
       }
     };
   }, []);
@@ -431,8 +480,8 @@ function OnboardingTutorialInner() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.96 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--popover)] p-5 shadow-2xl ring-1 ring-[var(--primary)]/20"
-              style={{ width: 380 }}
+              className="pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--popover)] p-5 shadow-2xl ring-1 ring-[var(--primary)]/20 max-h-[90vh] overflow-y-auto"
+              style={{ width: Math.min(380, window.innerWidth - 32) }}
             >
               <TourCardContent
                 step={step}

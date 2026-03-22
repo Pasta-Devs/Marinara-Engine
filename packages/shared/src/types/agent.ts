@@ -27,6 +27,7 @@ export type AgentResultType =
   | "background_change"
   | "character_tracker_update"
   | "persona_stats_update"
+  | "custom_tracker_update"
   | "chat_summary"
   | "spotify_control";
 
@@ -77,7 +78,13 @@ export interface AgentContext {
   chatId: string;
   chatMode: string;
   /** Recent chat history (last N messages) */
-  recentMessages: Array<{ role: string; content: string; characterId?: string }>;
+  recentMessages: Array<{
+    role: string;
+    content: string;
+    characterId?: string;
+    /** Committed game state snapshot for this message (if any). */
+    gameState?: import("./game-state.js").GameState | null;
+  }>;
   /** The main response text (available for post-processing agents) */
   mainResponse: string | null;
   /** Current game state (if any) */
@@ -122,6 +129,10 @@ export const BUILT_IN_AGENT_IDS = {
   SPOTIFY: "spotify",
   EDITOR: "editor",
   KNOWLEDGE_RETRIEVAL: "knowledge-retrieval",
+  SCHEDULE_PLANNER: "schedule-planner",
+  RESPONSE_ORCHESTRATOR: "response-orchestrator",
+  AUTONOMOUS_MESSENGER: "autonomous-messenger",
+  CUSTOM_TRACKER: "custom-tracker",
 } as const;
 
 export type AgentCategory = "writer" | "tracker" | "misc";
@@ -238,6 +249,16 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
     defaultInjectAsSection: true,
     category: "tracker",
   },
+  {
+    id: "custom-tracker",
+    name: "Custom Tracker",
+    description:
+      "Tracks user-defined fields (currencies, counters, flags, or any custom data). Add any fields you want the model to keep track of during the roleplay.",
+    phase: "post_processing",
+    enabledByDefault: false,
+    defaultInjectAsSection: true,
+    category: "tracker",
+  },
 
   // ── Misc Agents ──
   {
@@ -310,6 +331,35 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
     enabledByDefault: false,
     category: "writer",
   },
+
+  // ── Conversation Agents ──
+  {
+    id: "schedule-planner",
+    name: "Schedule Planner",
+    description:
+      "Generates a realistic weekly schedule for each character in Conversation mode based on their personality and description. Updates automatically each week.",
+    phase: "pre_generation",
+    enabledByDefault: false,
+    category: "tracker",
+  },
+  {
+    id: "response-orchestrator",
+    name: "Response Orchestrator",
+    description:
+      "For group Conversation chats — decides which character(s) should respond to a message based on context, personality, and relevance.",
+    phase: "pre_generation",
+    enabledByDefault: false,
+    category: "misc",
+  },
+  {
+    id: "autonomous-messenger",
+    name: "Autonomous Messenger",
+    description:
+      "Allows characters to send messages unprompted when the user has been inactive, based on personality traits like talkativeness and the character's current schedule.",
+    phase: "parallel",
+    enabledByDefault: false,
+    category: "misc",
+  },
 ];
 
 /** Recommended default tools for each built-in agent type. */
@@ -339,6 +389,10 @@ export const DEFAULT_AGENT_TOOLS: Record<string, string[]> = {
   ],
   editor: [],
   "knowledge-retrieval": ["search_lorebook"],
+  "schedule-planner": [],
+  "response-orchestrator": [],
+  "autonomous-messenger": [],
+  "custom-tracker": ["update_game_state"],
 };
 
 /** Data shape for a lorebook_update agent result. */
@@ -575,17 +629,25 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
   },
   {
     name: "spotify_play",
-    description: "Play a track or playlist on the user's active Spotify device.",
+    description:
+      "Play one or more tracks, or a playlist, on the user's active Spotify device. Pass multiple URIs to queue a sequence of tracks.",
     parameters: {
       type: "object",
       properties: {
         uri: {
           type: "string",
-          description: "Spotify URI to play (e.g. 'spotify:track:xxx' or 'spotify:playlist:xxx')",
+          description:
+            "Single Spotify URI to play (e.g. 'spotify:track:xxx' or 'spotify:playlist:xxx'). Use 'uris' instead when queueing multiple tracks.",
+        },
+        uris: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Array of Spotify track URIs to play as a queue (e.g. ['spotify:track:xxx', 'spotify:track:yyy']). The first track plays immediately, the rest are queued.",
         },
         reason: { type: "string", description: "Why this track fits the current scene mood" },
       },
-      required: ["uri"],
+      required: [],
     },
   },
   {

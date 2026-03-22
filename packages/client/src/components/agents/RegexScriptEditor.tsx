@@ -255,10 +255,10 @@ export function RegexScriptEditor() {
           onClick={handleClose}
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-sm">
-          <Regex size={18} />
+          <Regex size="1.125rem" />
         </div>
         <input
           value={localName}
@@ -271,16 +271,16 @@ export function RegexScriptEditor() {
         />
         <div className="flex items-center gap-1.5">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-red-400">
-              <AlertCircle size={11} /> Save failed
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+              <AlertCircle size="0.6875rem" /> Save failed
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-              <Check size={11} /> Saved
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+              <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[10px] font-medium text-amber-400">Unsaved</span>}
+          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
           {/* Enable/Disable toggle */}
           <button
             onClick={() => {
@@ -291,9 +291,9 @@ export function RegexScriptEditor() {
             title={localEnabled ? "Enabled" : "Disabled"}
           >
             {localEnabled ? (
-              <ToggleRight size={18} className="text-emerald-400" />
+              <ToggleRight size="1.125rem" className="text-emerald-400" />
             ) : (
-              <ToggleLeft size={18} className="text-[var(--muted-foreground)]" />
+              <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
             )}
           </button>
           {dbRow && (
@@ -301,7 +301,7 @@ export function RegexScriptEditor() {
               onClick={handleDelete}
               className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
             >
-              <Trash2 size={13} /> Delete
+              <Trash2 size="0.8125rem" /> Delete
             </button>
           )}
           <button
@@ -309,7 +309,7 @@ export function RegexScriptEditor() {
             disabled={isPending || !!regexError}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-400 to-red-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
           >
-            <Save size={13} /> Save
+            <Save size="0.8125rem" /> Save
           </button>
         </div>
       </div>
@@ -347,10 +347,10 @@ export function RegexScriptEditor() {
       {/* Save error banner */}
       {saveError && (
         <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
-          <AlertCircle size={13} />
+          <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
-            <X size={12} />
+            <X size="0.75rem" />
           </button>
         </div>
       )}
@@ -361,7 +361,7 @@ export function RegexScriptEditor() {
           {/* ── Find Regex ── */}
           <FieldGroup
             label="Find Pattern (Regex)"
-            icon={<Regex size={14} className="text-orange-400" />}
+            icon={<Regex size="0.875rem" className="text-orange-400" />}
             help="The regular expression pattern to search for. Written without delimiters — e.g. \\*([^*]+)\\* to match text between asterisks."
           >
             <div className="relative">
@@ -377,14 +377,14 @@ export function RegexScriptEditor() {
                 )}
                 placeholder="e.g. \\*([^*]+)\\*"
               />
-              {regexError && <p className="mt-1 text-[10px] text-red-400">{regexError}</p>}
+              {regexError && <p className="mt-1 text-[0.625rem] text-red-400">{regexError}</p>}
             </div>
           </FieldGroup>
 
           {/* ── Replace String ── */}
           <FieldGroup
             label="Replace With"
-            icon={<Info size={14} className="text-orange-400" />}
+            icon={<Info size="0.875rem" className="text-orange-400" />}
             help="The replacement string. Supports capture groups: $1, $2, etc. Leave empty to delete matched text."
           >
             <input
@@ -401,7 +401,7 @@ export function RegexScriptEditor() {
           {/* ── Flags ── */}
           <FieldGroup
             label="Regex Flags"
-            icon={<Info size={14} className="text-orange-400" />}
+            icon={<Info size="0.875rem" className="text-orange-400" />}
             help="Standard regex flags: g (global), i (case-insensitive), m (multiline), s (dotAll), u (unicode)."
           >
             <div className="flex items-center gap-2">
@@ -431,7 +431,7 @@ export function RegexScriptEditor() {
           {/* ── Placement ── */}
           <FieldGroup
             label="Apply To"
-            icon={<Play size={14} className="text-orange-400" />}
+            icon={<Play size="0.875rem" className="text-orange-400" />}
             help="Where this regex is applied. AI Output transforms incoming responses; User Input transforms your messages before sending."
           >
             <div className="grid grid-cols-2 gap-2">
@@ -450,7 +450,7 @@ export function RegexScriptEditor() {
                       )}
                     >
                       <span className="font-medium">{meta.label}</span>
-                      <span className="text-[9px] opacity-70">{meta.description}</span>
+                      <span className="text-[0.5625rem] opacity-70">{meta.description}</span>
                     </button>
                   );
                 },
@@ -461,7 +461,7 @@ export function RegexScriptEditor() {
           {/* ── Trim Strings ── */}
           <FieldGroup
             label="Trim Strings"
-            icon={<Minus size={14} className="text-orange-400" />}
+            icon={<Minus size="0.875rem" className="text-orange-400" />}
             help="Additional strings to remove from the result after the regex replacement. One per row."
           >
             <div className="flex flex-col gap-1.5">
@@ -485,7 +485,7 @@ export function RegexScriptEditor() {
                     }}
                     className="rounded-md p-1 text-[var(--destructive)] hover:bg-[var(--destructive)]/15"
                   >
-                    <X size={12} />
+                    <X size="0.75rem" />
                   </button>
                 </div>
               ))}
@@ -494,9 +494,9 @@ export function RegexScriptEditor() {
                   setLocalTrimStrings((prev) => [...prev, ""]);
                   markDirty();
                 }}
-                className="flex items-center gap-1 self-start rounded-lg px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="flex items-center gap-1 self-start rounded-lg px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               >
-                <Plus size={10} /> Add trim string
+                <Plus size="0.625rem" /> Add trim string
               </button>
             </div>
           </FieldGroup>
@@ -504,7 +504,7 @@ export function RegexScriptEditor() {
           {/* ── Advanced Options ── */}
           <FieldGroup
             label="Advanced Options"
-            icon={<Info size={14} className="text-orange-400" />}
+            icon={<Info size="0.875rem" className="text-orange-400" />}
             help="Fine-tune when and how the regex runs."
           >
             <div className="space-y-3">
@@ -519,14 +519,14 @@ export function RegexScriptEditor() {
                   className="shrink-0"
                 >
                   {localPromptOnly ? (
-                    <ToggleRight size={18} className="text-orange-400" />
+                    <ToggleRight size="1.125rem" className="text-orange-400" />
                   ) : (
-                    <ToggleLeft size={18} className="text-[var(--muted-foreground)]" />
+                    <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
                   )}
                 </button>
                 <div>
                   <div className="text-xs font-medium">Prompt Only</div>
-                  <div className="text-[10px] text-[var(--muted-foreground)]">
+                  <div className="text-[0.625rem] text-[var(--muted-foreground)]">
                     Only apply in the prompt context sent to the AI, not in the displayed message.
                   </div>
                 </div>
@@ -544,7 +544,7 @@ export function RegexScriptEditor() {
                   }}
                   className="w-20 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 />
-                <span className="text-[10px] text-[var(--muted-foreground)]">Lower numbers run first</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">Lower numbers run first</span>
               </div>
 
               {/* Depth range */}
@@ -560,7 +560,7 @@ export function RegexScriptEditor() {
                   className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   placeholder="Min"
                 />
-                <span className="text-[10px] text-[var(--muted-foreground)]">to</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">to</span>
                 <input
                   type="number"
                   value={localMaxDepth ?? ""}
@@ -571,7 +571,9 @@ export function RegexScriptEditor() {
                   className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   placeholder="Max"
                 />
-                <span className="text-[10px] text-[var(--muted-foreground)]">message depth (empty = unlimited)</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  message depth (empty = unlimited)
+                </span>
               </div>
             </div>
           </FieldGroup>
@@ -579,7 +581,7 @@ export function RegexScriptEditor() {
           {/* ── Live Test ── */}
           <FieldGroup
             label="Live Test"
-            icon={<Play size={14} className="text-orange-400" />}
+            icon={<Play size="0.875rem" className="text-orange-400" />}
             help="Test your regex pattern against sample text. The result updates in real-time."
           >
             <div className="space-y-2">
@@ -592,7 +594,7 @@ export function RegexScriptEditor() {
               />
               {testInput && (
                 <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
-                  <div className="mb-1 text-[10px] font-medium text-[var(--muted-foreground)]">Result:</div>
+                  <div className="mb-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">Result:</div>
                   <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-emerald-400">
                     {testResult}
                   </pre>
@@ -604,7 +606,7 @@ export function RegexScriptEditor() {
           {/* ── Info Card ── */}
           <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
             <h3 className="mb-2 text-xs font-semibold text-[var(--foreground)]">About Regex Scripts</h3>
-            <div className="space-y-1.5 text-[11px] text-[var(--muted-foreground)]">
+            <div className="space-y-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
               <p>
                 Regex scripts are applied to text during chat — either transforming AI responses before display, or
                 modifying your input before it's sent.

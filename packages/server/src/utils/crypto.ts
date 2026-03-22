@@ -5,10 +5,25 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 
+let warnedAboutDefaultKey = false;
+
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    // In development, use a deterministic (insecure!) key
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ENCRYPTION_KEY environment variable is required in production. " +
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+      );
+    }
+    if (!warnedAboutDefaultKey) {
+      warnedAboutDefaultKey = true;
+      console.warn(
+        "[SECURITY WARNING] No ENCRYPTION_KEY set — using insecure default key. " +
+          "API keys stored in the database can be decrypted by anyone with access to the source code. " +
+          "Set ENCRYPTION_KEY in your .env file for production use.",
+      );
+    }
     return Buffer.alloc(32, "dev-key-do-not-use-in-production!");
   }
   return Buffer.from(key, "hex");

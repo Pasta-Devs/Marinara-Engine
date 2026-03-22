@@ -22,7 +22,7 @@ Return ONLY valid JSON — an object with these fields:
 {
   "lorebook_name": "Short descriptive name for this lorebook",
   "lorebook_description": "One paragraph overview of what this lorebook covers",
-  "category": "world" | "character" | "npc" | "summary" | "uncategorized",
+  "category": "world" | "character" | "npc" | "uncategorized",
   "entries": [
     {
       "name": "Entry title",

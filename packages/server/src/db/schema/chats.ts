@@ -16,6 +16,8 @@ export const chats = sqliteTable("chats", {
   connectionId: text("connection_id"),
   /** JSON object for metadata */
   metadata: text("metadata").notNull().default("{}"),
+  /** ID of a linked chat (conversation ↔ roleplay bidirectional link) */
+  connectedChatId: text("connected_chat_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -43,5 +45,43 @@ export const messageSwipes = sqliteTable("message_swipes", {
   content: text("content").notNull().default(""),
   /** JSON object for extra data */
   extra: text("extra").notNull().default("{}"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const oocInfluences = sqliteTable("ooc_influences", {
+  id: text("id").primaryKey(),
+  /** The conversation chat that created this influence */
+  sourceChatId: text("source_chat_id")
+    .notNull()
+    .references(() => chats.id, { onDelete: "cascade" }),
+  /** The roleplay chat where this influence will be injected */
+  targetChatId: text("target_chat_id")
+    .notNull()
+    .references(() => chats.id, { onDelete: "cascade" }),
+  /** The OOC text to inject */
+  content: text("content").notNull(),
+  /** The user message in the RP that this influence attaches to (persists through swipes) */
+  anchorMessageId: text("anchor_message_id"),
+  /** Whether this influence has been used in a generation */
+  consumed: text("consumed").notNull().default("false"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ── Memory Chunks: embedded conversation fragments for semantic recall ──
+export const memoryChunks = sqliteTable("memory_chunks", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id")
+    .notNull()
+    .references(() => chats.id, { onDelete: "cascade" }),
+  /** Formatted conversation text: "Name: message\n\nName: message\n\n..." */
+  content: text("content").notNull(),
+  /** JSON-serialized float[] embedding (null until vectorized) */
+  embedding: text("embedding"),
+  /** How many messages were grouped into this chunk */
+  messageCount: integer("message_count").notNull(),
+  /** ISO timestamp of the first message in this chunk */
+  firstMessageAt: text("first_message_at").notNull(),
+  /** ISO timestamp of the last message in this chunk */
+  lastMessageAt: text("last_message_at").notNull(),
   createdAt: text("created_at").notNull(),
 });

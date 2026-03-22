@@ -156,14 +156,14 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
         {value && (
           <button
             onClick={clearColor}
-            className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+            className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
           >
-            <X size={10} />
+            <X size="0.625rem" />
             Clear
           </button>
         )}
       </div>
-      {helpText && <p className="text-[10px] text-[var(--muted-foreground)]/70">{helpText}</p>}
+      {helpText && <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">{helpText}</p>}
 
       {/* Preview + trigger */}
       <button
@@ -179,14 +179,14 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
             ...displayStyle,
             ...(!value && {
               backgroundImage: "repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%)",
-              backgroundSize: "8px 8px",
+              backgroundSize: "0.5rem 0.5rem",
             }),
           }}
         />
         <span className="flex-1 text-left text-xs text-[var(--muted-foreground)] truncate">
           {value || "No color set — uses default"}
         </span>
-        <Pipette size={13} className="shrink-0 text-[var(--muted-foreground)]" />
+        <Pipette size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
       </button>
 
       {/* Expanded picker */}
@@ -201,13 +201,13 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
                   if (gradientStops[0]) handleSolidChange(gradientStops[0]);
                 }}
                 className={cn(
-                  "flex-1 rounded-md px-3 py-1.5 text-[11px] font-medium transition-all",
+                  "flex-1 rounded-md px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
                   mode === "solid"
                     ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Pipette size={11} className="mr-1 inline" />
+                <Pipette size="0.6875rem" className="mr-1 inline" />
                 Solid
               </button>
               <button
@@ -216,13 +216,13 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
                   onChange(buildGradient(gradientAngle, gradientStops));
                 }}
                 className={cn(
-                  "flex-1 rounded-md px-3 py-1.5 text-[11px] font-medium transition-all",
+                  "flex-1 rounded-md px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
                   mode === "gradient"
                     ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Sparkles size={11} className="mr-1 inline" />
+                <Sparkles size="0.6875rem" className="mr-1 inline" />
                 Gradient
               </button>
             </div>
@@ -250,7 +250,7 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
 
               {/* Preset palette */}
               <div>
-                <p className="mb-1.5 text-[10px] text-[var(--muted-foreground)]">Presets</p>
+                <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">Presets</p>
                 <div className="flex flex-wrap gap-1.5">
                   {PRESETS.map((color) => (
                     <button
@@ -281,12 +281,12 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
               {/* Stops */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-medium text-[var(--muted-foreground)]">Color Stops</p>
+                  <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Color Stops</p>
                   <button
                     onClick={addStop}
-                    className="flex items-center gap-0.5 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)] transition-all hover:text-[var(--foreground)]"
+                    className="flex items-center gap-0.5 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-all hover:text-[var(--foreground)]"
                   >
-                    <Plus size={10} /> Add
+                    <Plus size="0.625rem" /> Add
                   </button>
                 </div>
                 {gradientStops.map((stop, i) => (
@@ -303,14 +303,14 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
                     <input
                       value={stop}
                       onChange={(e) => handleGradientStopChange(i, e.target.value)}
-                      className="flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 font-mono text-[11px] outline-none focus:border-[var(--primary)]/40"
+                      className="flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 font-mono text-[0.6875rem] outline-none focus:border-[var(--primary)]/40"
                     />
                     {gradientStops.length > 2 && (
                       <button
                         onClick={() => removeStop(i)}
                         className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size="0.6875rem" />
                       </button>
                     )}
                   </div>
@@ -319,7 +319,7 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
 
               {/* Angle */}
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[var(--muted-foreground)]">Angle</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">Angle</span>
                 <input
                   type="range"
                   min={0}
@@ -328,14 +328,14 @@ export function ColorPicker({ value, onChange, gradient = false, label, helpText
                   onChange={(e) => handleAngleChange(parseInt(e.target.value))}
                   className="flex-1 accent-[var(--primary)]"
                 />
-                <span className="w-10 text-right font-mono text-[10px] text-[var(--muted-foreground)]">
+                <span className="w-10 text-right font-mono text-[0.625rem] text-[var(--muted-foreground)]">
                   {gradientAngle}°
                 </span>
               </div>
 
               {/* Gradient presets */}
               <div>
-                <p className="mb-1.5 text-[10px] text-[var(--muted-foreground)]">Presets</p>
+                <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">Presets</p>
                 <div className="grid grid-cols-4 gap-1.5">
                   {GRADIENT_PRESETS.map((g) => (
                     <button

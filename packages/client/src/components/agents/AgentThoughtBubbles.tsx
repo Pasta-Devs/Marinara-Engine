@@ -39,7 +39,7 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
           collapsed && "rounded-b-lg border-b",
         )}
       >
-        <Sparkles size={14} className="shrink-0 text-[var(--primary)]" />
+        <Sparkles size="0.875rem" className="shrink-0 text-[var(--primary)]" />
         <span className="flex-1 text-xs font-medium text-[var(--foreground)]">
           Agents
           {isProcessing && (
@@ -54,7 +54,7 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
           onClick={() => setCollapsed(!collapsed)}
           className="rounded p-0.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
         >
-          {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {collapsed ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
         </button>
         {thoughtBubbles.length > 0 && (
           <button
@@ -62,7 +62,7 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
             className="rounded p-0.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             title="Dismiss all"
           >
-            <X size={14} />
+            <X size="0.875rem" />
           </button>
         )}
       </div>
@@ -89,7 +89,7 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
                     onClick={() => dismissThoughtBubble(i)}
                     className="absolute right-1 top-1 rounded text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                   >
-                    <X size={12} />
+                    <X size="0.75rem" />
                   </button>
                   <div className="pr-4">
                     <span className="font-semibold text-[var(--primary)]">{bubble.agentName}</span>

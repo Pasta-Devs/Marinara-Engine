@@ -58,7 +58,7 @@ export function Modal({ open, onClose, title, children, width = "max-w-md" }: Mo
             transition={{ type: "spring", damping: 25, stiffness: 350 }}
           >
             {/* Pastel gradient title bar */}
-            <div className="pastel-gradient h-[3px]" />
+            <div className="pastel-gradient h-[0.1875rem]" />
             {/* Header */}
             <div className="shrink-0 flex items-center justify-between border-b border-[var(--y2k-purple)]/20 px-5 py-3.5">
               <h2 className="text-sm font-semibold text-[var(--y2k-lavender)]">{title}</h2>
@@ -66,7 +66,7 @@ export function Modal({ open, onClose, title, children, width = "max-w-md" }: Mo
                 onClick={onClose}
                 className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--y2k-pink)]"
               >
-                <X size={16} />
+                <X size="1rem" />
               </button>
             </div>
 

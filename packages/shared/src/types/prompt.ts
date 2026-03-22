@@ -212,4 +212,6 @@ export interface ChatMLMessage {
   name?: string;
   /** Base64 data URLs for multimodal image inputs */
   images?: string[];
+  /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
+  providerMetadata?: Record<string, unknown>;
 }

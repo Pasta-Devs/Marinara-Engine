@@ -103,7 +103,7 @@ export function AgentsPanel() {
       {/* ── Regex Scripts (moved to top) ── */}
       <PanelSection
         title="Regex Scripts"
-        icon={<Regex size={13} />}
+        icon={<Regex size="0.8125rem" />}
         action={
           <div className="flex items-center gap-1">
             <button
@@ -111,14 +111,20 @@ export function AgentsPanel() {
               className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
               title="Create regex script"
             >
-              <Plus size={13} />
+              <Plus size="0.8125rem" />
             </button>
             <label
               className="inline-flex items-center justify-center rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] cursor-pointer"
               title="Import regex scripts from JSON"
             >
               <input type="file" accept="application/json" className="hidden" onChange={handleImportRegex} />
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="0.9375rem"
+                height="0.9375rem"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <path
                   d="M10 3v10m0 0l-4-4m4 4l4-4"
                   stroke="currentColor"
@@ -132,13 +138,13 @@ export function AgentsPanel() {
           </div>
         }
       >
-        <div className="text-[10px] text-[var(--muted-foreground)] mb-1.5">
+        <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
           Find/replace patterns applied to AI output or user input — like SillyTavern regex scripts.
         </div>
         {importError && <div className="text-xs text-red-500 mb-1">{importError}</div>}
         {importSuccess && <div className="text-xs text-green-500 mb-1">{importSuccess}</div>}
         {!regexScripts || (regexScripts as RegexScriptRow[]).length === 0 ? (
-          <p className="text-[10px] text-[var(--muted-foreground)] px-1 py-2">No regex scripts yet.</p>
+          <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No regex scripts yet.</p>
         ) : (
           (regexScripts as RegexScriptRow[]).map((script) => {
             const placements = (() => {
@@ -157,19 +163,19 @@ export function AgentsPanel() {
                   !enabled && "opacity-50",
                 )}
               >
-                <Regex size={14} className="mt-0.5 shrink-0 text-orange-400" />
+                <Regex size="0.875rem" className="mt-0.5 shrink-0 text-orange-400" />
                 <button className="min-w-0 flex-1 text-left" onClick={() => openRegexDetail(script.id)}>
                   <div className="text-xs font-medium">{script.name}</div>
                   <div className="flex items-center gap-1 mt-0.5">
                     {placements.map((p: string) => (
                       <span
                         key={p}
-                        className="rounded bg-[var(--secondary)] px-1 py-0.5 text-[8px] text-[var(--muted-foreground)]"
+                        className="rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
                       >
                         {p === "ai_output" ? "AI" : "User"}
                       </span>
                     ))}
-                    <span className="text-[9px] text-[var(--muted-foreground)] font-mono truncate max-w-[100px]">
+                    <span className="text-[0.5625rem] text-[var(--muted-foreground)] font-mono truncate max-w-[6.25rem]">
                       /{script.findRegex}/{script.flags}
                     </span>
                   </div>
@@ -179,7 +185,7 @@ export function AgentsPanel() {
                   title="Edit script"
                   onClick={() => openRegexDetail(script.id)}
                 >
-                  <Pencil size={13} />
+                  <Pencil size="0.8125rem" />
                 </button>
                 <button
                   className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
@@ -188,7 +194,7 @@ export function AgentsPanel() {
                     if (confirm(`Delete "${script.name}"?`)) deleteRegex.mutate(script.id);
                   }}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size="0.8125rem" />
                 </button>
               </div>
             );
@@ -201,28 +207,28 @@ export function AgentsPanel() {
         {
           category: "writer" as AgentCategory,
           title: "Writer Agents",
-          icon: <PenLine size={13} />,
+          icon: <PenLine size="0.8125rem" />,
           desc: "Prose quality, continuity, directions, and narrative flow.",
         },
         {
           category: "tracker" as AgentCategory,
           title: "Tracker Agents",
-          icon: <Radar size={13} />,
+          icon: <Radar size="0.8125rem" />,
           desc: "Track world state, expressions, quests, backgrounds, and characters.",
         },
         {
           category: "misc" as AgentCategory,
           title: "Misc Agents",
-          icon: <Puzzle size={13} />,
+          icon: <Puzzle size="0.8125rem" />,
           desc: "Utilities, combat, illustrations, and other helpers.",
         },
       ].map(({ category, title, icon, desc }) => {
         const agents = BUILT_IN_AGENTS.filter((a) => a.category === category);
         return (
           <PanelSection key={category} title={title} icon={icon}>
-            <div className="text-[10px] text-[var(--muted-foreground)] mb-1.5">{desc}</div>
+            <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">{desc}</div>
             {!agents.length ? (
-              <p className="text-[10px] text-[var(--muted-foreground)] px-1 py-2">No agents in this category.</p>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No agents in this category.</p>
             ) : (
               agents.map((agent) => {
                 return (
@@ -230,10 +236,10 @@ export function AgentsPanel() {
                     key={agent.id}
                     className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
                   >
-                    <Bot size={14} className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                    <Bot size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
                     <button className="min-w-0 flex-1 text-left" onClick={() => openAgentDetail(agent.id)}>
                       <div className="text-xs font-medium font-mono">{agent.name}</div>
-                      <div className="text-[10px] text-[var(--muted-foreground)] line-clamp-2">
+                      <div className="text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
                         {agent.description || "No description"}
                       </div>
                     </button>
@@ -242,7 +248,7 @@ export function AgentsPanel() {
                       title="Edit agent"
                       onClick={() => openAgentDetail(agent.id)}
                     >
-                      <Pencil size={13} />
+                      <Pencil size="0.8125rem" />
                     </button>
                   </div>
                 );
@@ -255,22 +261,22 @@ export function AgentsPanel() {
       {/* ── Custom Agents ── */}
       <PanelSection
         title="Custom Agents"
-        icon={<Sparkles size={13} />}
+        icon={<Sparkles size="0.8125rem" />}
         action={
           <button
             onClick={handleCreateAgent}
             className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
             title="Create custom agent"
           >
-            <Plus size={13} />
+            <Plus size="0.8125rem" />
           </button>
         }
       >
-        <div className="text-[10px] text-[var(--muted-foreground)] mb-1.5">
+        <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
           Create your own AI agents with custom instructions and settings.
         </div>
         {!customAgents.length ? (
-          <p className="text-[10px] text-[var(--muted-foreground)] px-1 py-2">No custom agents yet.</p>
+          <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No custom agents yet.</p>
         ) : (
           customAgents.map((agent) => {
             return (
@@ -278,10 +284,10 @@ export function AgentsPanel() {
                 key={agent.id}
                 className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
               >
-                <Sparkles size={14} className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
                 <button className="min-w-0 flex-1 text-left" onClick={() => openAgentDetail(agent.id)}>
                   <div className="text-xs font-medium font-mono">{agent.name}</div>
-                  <div className="text-[10px] text-[var(--muted-foreground)] line-clamp-2">
+                  <div className="text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
                     {agent.description || "No description"}
                   </div>
                 </button>
@@ -290,7 +296,7 @@ export function AgentsPanel() {
                   title="Edit agent"
                   onClick={() => openAgentDetail(agent.id)}
                 >
-                  <Pencil size={13} />
+                  <Pencil size="0.8125rem" />
                 </button>
                 <button
                   className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
@@ -299,7 +305,7 @@ export function AgentsPanel() {
                     if (confirm(`Delete "${agent.name}"?`)) deleteAgent.mutate(agent.id);
                   }}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size="0.8125rem" />
                 </button>
               </div>
             );
@@ -310,36 +316,36 @@ export function AgentsPanel() {
       {/* ── Custom Function Tools ── */}
       <PanelSection
         title="Custom Tools"
-        icon={<Wrench size={13} />}
+        icon={<Wrench size="0.8125rem" />}
         action={
           <button
             onClick={handleCreateTool}
             className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
             title="Create custom tool"
           >
-            <Plus size={13} />
+            <Plus size="0.8125rem" />
           </button>
         }
       >
-        <div className="text-[10px] text-[var(--muted-foreground)] mb-1.5">
+        <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
           Define custom functions the AI can call during generation (webhook, script, or static).
         </div>
         {!customTools || (customTools as CustomToolRow[]).length === 0 ? (
-          <p className="text-[10px] text-[var(--muted-foreground)] px-1 py-2">No custom tools yet.</p>
+          <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No custom tools yet.</p>
         ) : (
           (customTools as CustomToolRow[]).map((tool) => (
             <div
               key={tool.id}
               className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
             >
-              <Wrench size={14} className="mt-0.5 shrink-0 text-[var(--y2k-purple)]" />
+              <Wrench size="0.875rem" className="mt-0.5 shrink-0 text-[var(--y2k-purple)]" />
               <button className="min-w-0 flex-1 text-left" onClick={() => openToolDetail(tool.id)}>
                 <div className="text-xs font-medium font-mono">{tool.name}</div>
-                <div className="text-[10px] text-[var(--muted-foreground)] line-clamp-2">
+                <div className="text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
                   {tool.description || "No description"}
                 </div>
               </button>
-              <span className="mt-0.5 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[9px] text-[var(--muted-foreground)]">
+              <span className="mt-0.5 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
                 {tool.executionType}
               </span>
               <button
@@ -347,7 +353,7 @@ export function AgentsPanel() {
                 title="Edit tool"
                 onClick={() => openToolDetail(tool.id)}
               >
-                <Pencil size={13} />
+                <Pencil size="0.8125rem" />
               </button>
               <button
                 className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
@@ -356,7 +362,7 @@ export function AgentsPanel() {
                   if (confirm(`Delete "${tool.name}"?`)) deleteTool.mutate(tool.id);
                 }}
               >
-                <Trash2 size={13} />
+                <Trash2 size="0.8125rem" />
               </button>
             </div>
           ))
@@ -387,9 +393,9 @@ function PanelSection({
       <div className="flex items-center gap-1.5 px-1 py-1.5">
         <button onClick={() => setOpen((o) => !o)} className="flex flex-1 items-center gap-1.5 text-left">
           <span className="text-[var(--muted-foreground)]">{icon}</span>
-          <span className="text-[11px] font-semibold">{title}</span>
+          <span className="text-[0.6875rem] font-semibold">{title}</span>
           <ChevronDown
-            size={11}
+            size="0.6875rem"
             className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
           />
         </button>

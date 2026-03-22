@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef, type FC } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import { toast } from "sonner";
 import {
   usePresetFull,
   useUpdatePreset,
@@ -41,19 +42,17 @@ import {
   MessageSquare,
   User,
   Bot,
-  Copy,
   X,
   Maximize2,
   BookOpen,
   ListChecks,
   Shuffle,
-  Download,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
-import type { PromptSection, PromptGroup, ChoiceBlock, WrapFormat, MarkerType } from "@marinara-engine/shared";
+import type { WrapFormat, MarkerType } from "@marinara-engine/shared";
 
 /** Intercept Tab in a textarea to insert 2 spaces instead of changing focus. */
 function handleTextareaTab(e: React.KeyboardEvent<HTMLTextAreaElement>, value: string, setValue: (v: string) => void) {
@@ -75,7 +74,6 @@ function handleTextareaTab(e: React.KeyboardEvent<HTMLTextAreaElement>, value: s
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "sections", label: "Sections", icon: Layers },
-  { id: "parameters", label: "Parameters", icon: Settings2 },
   { id: "review", label: "AI Review", icon: Sparkles },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -86,7 +84,7 @@ const ROLE_COLORS: Record<string, string> = {
   assistant: "text-purple-400",
 };
 
-const ROLE_ICONS: Record<string, FC<{ size: number; className?: string }>> = {
+const ROLE_ICONS: Record<string, FC<{ size: string | number; className?: string }>> = {
   system: Settings2,
   user: User,
   assistant: Bot,
@@ -251,10 +249,10 @@ export function PresetEditor() {
           onClick={handleClose}
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 text-white shadow-sm max-md:h-8 max-md:w-8">
-          <FileText size={18} className="max-md:!h-[14px] max-md:!w-[14px]" />
+          <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
           value={localName}
@@ -272,14 +270,20 @@ export function PresetEditor() {
             disabled={updatePreset.isPending}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
           >
-            <Save size={13} /> Save
+            <Save size="0.8125rem" /> Save
           </button>
           <button
             onClick={() => api.download(`/prompts/${presetDetailId}/export`)}
             className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title="Export preset"
           >
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              width="0.9375rem"
+              height="0.9375rem"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <path
                 d="M10 13V3m0 0l-4 4m4-4l4 4"
                 stroke="currentColor"
@@ -294,7 +298,7 @@ export function PresetEditor() {
             onClick={handleDelete}
             className="rounded-xl p-2 transition-all hover:bg-[var(--destructive)]/15 active:scale-95"
           >
-            <Trash2 size={15} className="text-[var(--destructive)]" />
+            <Trash2 size="0.9375rem" className="text-[var(--destructive)]" />
           </button>
         </div>
       </div>
@@ -353,7 +357,7 @@ export function PresetEditor() {
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Icon size={14} />
+                <Icon size="0.875rem" />
                 {tab.label}
               </button>
             );
@@ -408,17 +412,6 @@ export function PresetEditor() {
               />
             )}
 
-            {/* ── Parameters Tab ── */}
-            {activeTab === "parameters" && (
-              <ParametersTab
-                params={localParams}
-                onChange={(p) => {
-                  setLocalParams(p);
-                  markDirty();
-                }}
-              />
-            )}
-
             {/* ── Review Tab ── */}
             {activeTab === "review" && <ReviewTab presetId={presetDetailId} />}
           </div>
@@ -462,7 +455,7 @@ function OverviewTab({
           onFocus={(e) => e.target.select()}
           onChange={(e) => onDescriptionChange(e.target.value)}
           placeholder="What does this preset do?"
-          className="min-h-[80px] w-full rounded-xl bg-[var(--secondary)] p-3 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          className="min-h-[5rem] w-full rounded-xl bg-[var(--secondary)] p-3 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         />
       </FieldGroup>
 
@@ -482,12 +475,18 @@ function OverviewTab({
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
               )}
             >
-              {fmt === "xml" ? <Code2 size={14} /> : fmt === "markdown" ? <Hash size={14} /> : <Type size={14} />}
+              {fmt === "xml" ? (
+                <Code2 size="0.875rem" />
+              ) : fmt === "markdown" ? (
+                <Hash size="0.875rem" />
+              ) : (
+                <Type size="0.875rem" />
+              )}
               {fmt.toUpperCase()}
             </button>
           ))}
         </div>
-        <p className="mt-1.5 text-[11px] text-[var(--muted-foreground)]">
+        <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
           {wrapFormat === "xml"
             ? "Sections wrapped in <xml_tags>. Groups become parent tags."
             : wrapFormat === "markdown"
@@ -523,7 +522,7 @@ function SectionsTab({
   sections,
   groupMap,
   choiceBlocks,
-  wrapFormat,
+  wrapFormat: _wrapFormat,
   onCreateSection,
   onUpdateSection,
   onDeleteSection,
@@ -705,7 +704,7 @@ function SectionsTab({
             onClick={() => setShowAddMenu(!showAddMenu)}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-3 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
           >
-            <Plus size={13} /> Add Section
+            <Plus size="0.8125rem" /> Add Section
           </button>
           {showAddMenu && (
             <>
@@ -716,10 +715,10 @@ function SectionsTab({
                   onClick={() => handleAddSection()}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]"
                 >
-                  <MessageSquare size={13} /> Prompt Block
+                  <MessageSquare size="0.8125rem" /> Prompt Block
                 </button>
                 <div className="my-1 border-t border-[var(--border)]" />
-                <p className="px-3 py-1 text-[10px] font-medium text-[var(--muted-foreground)]">Markers</p>
+                <p className="px-3 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">Markers</p>
                 {(Object.keys(MARKER_LABELS) as MarkerType[])
                   .filter((t) => t !== "agent_data")
                   .map((type) => (
@@ -728,20 +727,22 @@ function SectionsTab({
                       onClick={() => handleAddSection({ isMarker: true, markerType: type })}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]"
                     >
-                      <Layers size={13} className="text-purple-400" /> {MARKER_LABELS[type]}
+                      <Layers size="0.8125rem" className="text-purple-400" /> {MARKER_LABELS[type]}
                     </button>
                   ))}
                 {injectableAgents.length > 0 && (
                   <>
                     <div className="my-1 border-t border-[var(--border)]" />
-                    <p className="px-3 py-1 text-[10px] font-medium text-[var(--muted-foreground)]">Agent Sections</p>
+                    <p className="px-3 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      Agent Sections
+                    </p>
                     {injectableAgents.map((agent) => (
                       <button
                         key={agent.id}
                         onClick={() => handleAddSection({ agentType: agent.type, agentName: agent.name })}
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]"
                       >
-                        <Sparkles size={13} className="text-[var(--y2k-pink)]" /> {agent.name} (Agent)
+                        <Sparkles size="0.8125rem" className="text-[var(--y2k-pink)]" /> {agent.name} (Agent)
                       </button>
                     ))}
                   </>
@@ -759,7 +760,7 @@ function SectionsTab({
               : "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--accent)]",
           )}
         >
-          <FolderOpen size={13} /> Groups ({groupMap.size})
+          <FolderOpen size="0.8125rem" /> Groups ({groupMap.size})
         </button>
       </div>
 
@@ -770,16 +771,16 @@ function SectionsTab({
             <h4 className="text-xs font-semibold text-sky-400">Groups</h4>
             <button
               onClick={handleAddGroup}
-              className="flex items-center gap-1 rounded-lg bg-sky-400/15 px-2 py-1 text-[10px] font-medium text-sky-400 hover:bg-sky-400/25 active:scale-95"
+              className="flex items-center gap-1 rounded-lg bg-sky-400/15 px-2 py-1 text-[0.625rem] font-medium text-sky-400 hover:bg-sky-400/25 active:scale-95"
             >
-              <Plus size={10} /> New Group
+              <Plus size="0.625rem" /> New Group
             </button>
           </div>
-          <p className="text-[10px] text-[var(--muted-foreground)]">
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             Groups wrap adjacent sections in a single XML/Markdown container. Assign sections to groups below.
           </p>
           {groupMap.size === 0 ? (
-            <p className="py-2 text-center text-[10px] text-[var(--muted-foreground)]">
+            <p className="py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">
               No groups yet. Create one to organize sections.
             </p>
           ) : (
@@ -818,7 +819,7 @@ function SectionsTab({
                       {g.name}
                     </span>
                   )}
-                  <span className="text-[9px] text-[var(--muted-foreground)]">
+                  <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
                     {sections.filter((s: any) => s.groupId === g.id).length} sections
                   </span>
                   <button
@@ -829,7 +830,7 @@ function SectionsTab({
                     }}
                     className="rounded p-0.5 hover:bg-[var(--destructive)]/15"
                   >
-                    <Trash2 size={10} className="text-[var(--destructive)]" />
+                    <Trash2 size="0.625rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>
               ))}
@@ -842,7 +843,7 @@ function SectionsTab({
       <div ref={containerRef} className="space-y-1" onDragOver={handleContainerDragOver} onDrop={commitDrop}>
         {sections.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <Layers size={24} className="text-[var(--muted-foreground)]" />
+            <Layers size="1.5rem" className="text-[var(--muted-foreground)]" />
             <p className="text-xs text-[var(--muted-foreground)]">No sections yet. Add one to get started.</p>
           </div>
         ) : (
@@ -891,19 +892,19 @@ function SectionsTab({
                       onMouseDown={() => setDragReady(idx)}
                       onMouseUp={() => setDragReady(null)}
                     >
-                      <GripVertical size={14} className="text-[var(--muted-foreground)]" />
+                      <GripVertical size="0.875rem" className="text-[var(--muted-foreground)]" />
                     </div>
                     <button
                       onClick={() => toggleExpanded(section.id)}
                       className="shrink-0 rounded p-0.5 hover:bg-[var(--accent)]"
                     >
                       {isExpanded ? (
-                        <ChevronDown size={14} className="text-[var(--muted-foreground)]" />
+                        <ChevronDown size="0.875rem" className="text-[var(--muted-foreground)]" />
                       ) : (
-                        <ChevronRight size={14} className="text-[var(--muted-foreground)]" />
+                        <ChevronRight size="0.875rem" className="text-[var(--muted-foreground)]" />
                       )}
                     </button>
-                    <RoleIcon size={14} className={cn("shrink-0", ROLE_COLORS[role])} />
+                    <RoleIcon size="0.875rem" className={cn("shrink-0", ROLE_COLORS[role])} />
                     <span
                       className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium"
                       onClick={() => toggleExpanded(section.id)}
@@ -912,16 +913,16 @@ function SectionsTab({
                     </span>
 
                     {isMarker && (
-                      <span className="shrink-0 rounded bg-violet-400/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-400">
+                      <span className="shrink-0 rounded bg-violet-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-violet-400">
                         MARKER
                       </span>
                     )}
                     {group && (
-                      <span className="shrink-0 rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-medium text-sky-400">
+                      <span className="shrink-0 rounded bg-sky-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
                         {group.name}
                       </span>
                     )}
-                    <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">{role}</span>
+                    <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">{role}</span>
 
                     <div className="flex shrink-0 items-center gap-0.5">
                       <button
@@ -936,9 +937,9 @@ function SectionsTab({
                         title={isEnabled ? "Disable" : "Enable"}
                       >
                         {isEnabled ? (
-                          <Eye size={12} className="text-green-400" />
+                          <Eye size="0.75rem" className="text-green-400" />
                         ) : (
-                          <EyeOff size={12} className="text-[var(--muted-foreground)]" />
+                          <EyeOff size="0.75rem" className="text-[var(--muted-foreground)]" />
                         )}
                       </button>
                       <button
@@ -946,7 +947,7 @@ function SectionsTab({
                         className="rounded-lg p-1 hover:bg-[var(--destructive)]/15"
                         title="Delete"
                       >
-                        <Trash2 size={12} className="text-[var(--destructive)]" />
+                        <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
                       </button>
                     </div>
                   </div>
@@ -1013,7 +1014,7 @@ function SectionsTab({
                                 Agent section: <strong>{section.name}</strong>
                                 <p className="mt-1 text-[var(--muted-foreground)]">
                                   The{" "}
-                                  <code className="rounded bg-black/20 px-1 py-0.5 text-[10px] font-mono text-pink-300">
+                                  <code className="rounded bg-black/20 px-1 py-0.5 text-[0.625rem] font-mono text-pink-300">
                                     {"{{agent::" + (mc.agentType ?? "agent") + "}}"}
                                   </code>{" "}
                                   macro will be replaced with the latest output from the agent at assembly time. You can
@@ -1102,7 +1103,7 @@ function SectionsTab({
                           ))}
                         </select>
                         {groupMap.size === 0 && (
-                          <span className="text-[10px] text-[var(--muted-foreground)]">
+                          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
                             (open Groups panel to create one)
                           </span>
                         )}
@@ -1118,7 +1119,7 @@ function SectionsTab({
       </div>
 
       {sections.length > 0 && (
-        <p className="text-center text-[10px] text-[var(--muted-foreground)]">
+        <p className="text-center text-[0.625rem] text-[var(--muted-foreground)]">
           Drag sections to reorder · Click to expand · Sections are assembled top-to-bottom
         </p>
       )}
@@ -1207,9 +1208,9 @@ function PresetVariablesEditor({
     <div className="mt-6 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Hash size={14} className="text-amber-400" />
+          <Hash size="0.875rem" className="text-amber-400" />
           <span className="text-sm font-semibold">Preset Variables</span>
-          <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+          <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-amber-400">
             {variables.length}
           </span>
         </div>
@@ -1225,13 +1226,13 @@ function PresetVariablesEditor({
               ],
             })
           }
-          className="flex items-center gap-1.5 rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-400/20 active:scale-[0.98]"
+          className="flex items-center gap-1.5 rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-[0.6875rem] font-medium text-amber-400 hover:bg-amber-400/20 active:scale-[0.98]"
         >
-          <Plus size={11} /> Add Variable
+          <Plus size="0.6875rem" /> Add Variable
         </button>
       </div>
 
-      <p className="text-[10px] text-[var(--muted-foreground)]">
+      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
         Define variables that users select when assigning this preset to a chat. Use{" "}
         <code className="rounded bg-[var(--secondary)] px-1 text-amber-400">{"{{variable_name}}"}</code> in any section
         to insert the selected value.
@@ -1239,8 +1240,8 @@ function PresetVariablesEditor({
 
       {variables.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-6 text-center">
-          <Hash size={20} className="text-[var(--muted-foreground)]" />
-          <p className="text-[11px] text-[var(--muted-foreground)]">
+          <Hash size="1.25rem" className="text-[var(--muted-foreground)]" />
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             No variables yet. Add one to let users customize prompts per chat.
           </p>
         </div>
@@ -1351,28 +1352,28 @@ function VariableCard({
           onMouseDown={onGripDown}
           onMouseUp={onGripUp}
         >
-          <GripVertical size={14} className="text-[var(--muted-foreground)]" />
+          <GripVertical size="0.875rem" className="text-[var(--muted-foreground)]" />
         </div>
         <button onClick={onToggle} className="shrink-0 rounded p-0.5 hover:bg-[var(--accent)]">
           {isExpanded ? (
-            <ChevronDown size={14} className="text-[var(--muted-foreground)]" />
+            <ChevronDown size="0.875rem" className="text-[var(--muted-foreground)]" />
           ) : (
-            <ChevronRight size={14} className="text-[var(--muted-foreground)]" />
+            <ChevronRight size="0.875rem" className="text-[var(--muted-foreground)]" />
           )}
         </button>
-        <Hash size={14} className="shrink-0 text-amber-400" />
+        <Hash size="0.875rem" className="shrink-0 text-amber-400" />
         <span className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium text-amber-400" onClick={onToggle}>
           {varName}
         </span>
-        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+        <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-amber-400">
           {opts.length} options
         </span>
         {isMultiSelect && (
-          <span className="shrink-0 rounded bg-purple-400/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-400">
+          <span className="shrink-0 rounded bg-purple-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-purple-400">
             {isRandomPick ? "random" : "multi"}
           </span>
         )}
-        <code className="shrink-0 text-[10px] text-[var(--muted-foreground)]">{`{{${varName}}}`}</code>
+        <code className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">{`{{${varName}}}`}</code>
         <button
           onClick={() => {
             if (confirm(`Delete variable "${varName}"?`)) {
@@ -1382,7 +1383,7 @@ function VariableCard({
           className="shrink-0 rounded-lg p-1 hover:bg-[var(--destructive)]/15"
           title="Delete variable"
         >
-          <Trash2 size={12} className="text-[var(--destructive)]" />
+          <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
         </button>
       </div>
 
@@ -1391,9 +1392,9 @@ function VariableCard({
         <div className="space-y-3 border-t border-amber-400/20 px-3 py-3">
           {/* Variable Name */}
           <div className="space-y-1">
-            <label className="text-[10px] font-medium text-[var(--muted-foreground)]">Variable Name</label>
+            <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Variable Name</label>
             <VariableNameInput value={varName} onCommit={(v) => update({ variableName: v })} />
-            <p className="text-[9px] text-[var(--muted-foreground)]">
+            <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
               Use <code className="text-amber-400">{`{{${varName}}}`}</code> in any prompt section to insert the
               selected value. Must be alphanumeric/underscores only.
             </p>
@@ -1401,7 +1402,9 @@ function VariableCard({
 
           {/* Question */}
           <div className="space-y-1">
-            <label className="text-[10px] font-medium text-[var(--muted-foreground)]">Question (shown to user)</label>
+            <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+              Question (shown to user)
+            </label>
             <VariableQuestionInput value={question} onCommit={(v) => update({ question: v })} />
           </div>
 
@@ -1409,8 +1412,8 @@ function VariableCard({
           <div className="space-y-2 rounded-lg bg-[var(--secondary)] p-2.5 ring-1 ring-[var(--border)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ListChecks size={12} className="text-purple-400" />
-                <span className="text-[10px] font-medium text-[var(--foreground)]">Multi-Select</span>
+                <ListChecks size="0.75rem" className="text-purple-400" />
+                <span className="text-[0.625rem] font-medium text-[var(--foreground)]">Multi-Select</span>
               </div>
               <button
                 onClick={() => update({ multiSelect: !isMultiSelect })}
@@ -1427,7 +1430,7 @@ function VariableCard({
                 />
               </button>
             </div>
-            <p className="text-[9px] text-[var(--muted-foreground)]">
+            <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
               Allow users to select multiple options instead of just one.
             </p>
 
@@ -1436,8 +1439,8 @@ function VariableCard({
                 {/* Random Pick Toggle */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Shuffle size={12} className="text-amber-400" />
-                    <span className="text-[10px] font-medium text-[var(--foreground)]">Random Pick</span>
+                    <Shuffle size="0.75rem" className="text-amber-400" />
+                    <span className="text-[0.625rem] font-medium text-[var(--foreground)]">Random Pick</span>
                   </div>
                   <button
                     onClick={() => update({ randomPick: !isRandomPick })}
@@ -1454,7 +1457,7 @@ function VariableCard({
                     />
                   </button>
                 </div>
-                <p className="text-[9px] text-[var(--muted-foreground)]">
+                <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
                   {isRandomPick
                     ? "One of the user's selected options will be randomly picked each generation."
                     : "All selected options will be joined together with the separator below."}
@@ -1463,7 +1466,9 @@ function VariableCard({
                 {/* Separator (only shown when not random pick) */}
                 {!isRandomPick && (
                   <div className="flex items-center gap-2">
-                    <label className="shrink-0 text-[10px] font-medium text-[var(--muted-foreground)]">Separator</label>
+                    <label className="shrink-0 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      Separator
+                    </label>
                     <input
                       value={separatorValue}
                       onFocus={(e) => e.target.select()}
@@ -1471,7 +1476,7 @@ function VariableCard({
                       className="w-20 rounded bg-[var(--background)] px-1.5 py-0.5 text-center font-mono text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-1 focus:ring-purple-400/50"
                       placeholder=", "
                     />
-                    <span className="text-[9px] text-[var(--muted-foreground)]">
+                    <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
                       e.g. ", " → Romance, Fantasy, Action
                     </span>
                   </div>
@@ -1482,13 +1487,13 @@ function VariableCard({
 
           {/* Options */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-[var(--muted-foreground)]">Options</label>
+            <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Options</label>
             {opts.map((opt, oi) => (
               <div
                 key={opt.id}
                 className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 ring-1 ring-[var(--border)]"
               >
-                <span className="shrink-0 text-[10px] font-medium text-amber-400">{oi + 1}.</span>
+                <span className="shrink-0 text-[0.625rem] font-medium text-amber-400">{oi + 1}.</span>
                 <OptionFieldInput
                   value={opt.label}
                   onCommit={(v) => {
@@ -1514,17 +1519,17 @@ function VariableCard({
                   className="shrink-0 rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   title="Expand value editor"
                 >
-                  <Maximize2 size={10} />
+                  <Maximize2 size="0.625rem" />
                 </button>
                 <button
                   onClick={() => {
-                    if (opts.length <= 2) return alert("A variable needs at least 2 options.");
+                    if (opts.length <= 2) return toast.error("A variable needs at least 2 options.");
                     updateOpts(opts.filter((_, i) => i !== oi));
                   }}
                   className="shrink-0 rounded p-0.5 hover:bg-[var(--destructive)]/15"
                   title="Remove option"
                 >
-                  <X size={10} className="text-[var(--destructive)]" />
+                  <X size="0.625rem" className="text-[var(--destructive)]" />
                 </button>
               </div>
             ))}
@@ -1537,9 +1542,9 @@ function VariableCard({
                 };
                 updateOpts([...opts, newOpt]);
               }}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-amber-400/10 active:scale-[0.98]"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] font-medium text-amber-400 hover:bg-amber-400/10 active:scale-[0.98]"
             >
-              <Plus size={10} /> Add Option
+              <Plus size="0.625rem" /> Add Option
             </button>
           </div>
 
@@ -1743,7 +1748,7 @@ function SectionContentTextarea({
               }, 800);
             })
           }
-          className="min-h-[120px] w-full rounded-lg bg-[var(--secondary)] p-2.5 pr-8 font-mono text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          className="min-h-[7.5rem] w-full rounded-lg bg-[var(--secondary)] p-2.5 pr-8 font-mono text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           placeholder="Prompt content… (supports {{user}}, {{char}}, {{// comment}}, {{trim}} macros)"
         />
         <div className="absolute right-1.5 top-1.5 flex flex-col gap-0.5">
@@ -1752,14 +1757,14 @@ function SectionContentTextarea({
             className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title="Expand editor"
           >
-            <Maximize2 size={12} />
+            <Maximize2 size="0.75rem" />
           </button>
           <button
             onClick={() => setShowMacroRef(true)}
             className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title="Macros reference"
           >
-            <BookOpen size={12} />
+            <BookOpen size="0.75rem" />
           </button>
         </div>
       </div>
@@ -1862,7 +1867,7 @@ function ExpandedEditorModal({
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-semibold">{title}</h3>
           <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         {/* Editor */}
@@ -1886,7 +1891,7 @@ function ExpandedEditorModal({
         </div>
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-2.5">
-          <p className="text-[10px] text-[var(--muted-foreground)]">Changes auto-save. Press Escape to close.</p>
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">Changes auto-save. Press Escape to close.</p>
           <button
             onClick={handleClose}
             className="rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98]"
@@ -1985,28 +1990,28 @@ function MacrosReferenceModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-2">
-            <BookOpen size={16} className="text-purple-400" />
+            <BookOpen size="1rem" className="text-purple-400" />
             <h3 className="text-sm font-semibold">Macros Reference</h3>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <p className="text-[11px] text-[var(--muted-foreground)]">
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             Use these macros in your prompt sections. They will be replaced with actual values at generation time.
           </p>
           {MACRO_REFERENCE.map((cat) => (
             <div key={cat.category}>
-              <h4 className="mb-1.5 text-[11px] font-semibold text-purple-400">{cat.category}</h4>
+              <h4 className="mb-1.5 text-[0.6875rem] font-semibold text-purple-400">{cat.category}</h4>
               <div className="space-y-1">
                 {cat.macros.map((m) => (
                   <div key={m.macro} className="flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--accent)]">
-                    <code className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                    <code className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] font-medium text-amber-400">
                       {m.macro}
                     </code>
-                    <span className="text-[11px] text-[var(--muted-foreground)]">{m.desc}</span>
+                    <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{m.desc}</span>
                   </div>
                 ))}
               </div>
@@ -2057,191 +2062,6 @@ function SectionNameInput({ value, onCommit }: { value: string; onCommit: (v: st
       className="flex-1 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
       placeholder="Section name"
     />
-  );
-}
-
-// ═══════════════════════════════════════════════
-//  Parameters Tab
-// ═══════════════════════════════════════════════
-
-function ParametersTab({
-  params,
-  onChange,
-}: {
-  params: Record<string, unknown>;
-  onChange: (p: Record<string, unknown>) => void;
-}) {
-  const set = (key: string, value: unknown) => {
-    onChange({ ...params, [key]: value });
-  };
-
-  return (
-    <>
-      <FieldGroup
-        label="Generation"
-        help="Core parameters that control how the AI generates text. Higher temperature = more creative, lower = more focused. With modern models, it is recommended to use default parameters."
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <NumberField
-            label="Temperature"
-            help="Controls randomness. Low (0.1–0.5) = focused and deterministic. High (0.8–1.5) = creative and varied. Default 1.0."
-            value={(params.temperature as number) ?? 1}
-            onChange={(v) => set("temperature", v)}
-            min={0}
-            max={2}
-            step={0.05}
-          />
-          <NumberField
-            label="Max Tokens"
-            help="Maximum number of tokens (roughly words) the AI can generate in a single response. Higher = longer replies."
-            value={(params.maxTokens as number) ?? 4096}
-            onChange={(v) => set("maxTokens", v)}
-            min={1}
-            max={32768}
-            step={256}
-          />
-          <NumberField
-            label="Top P"
-            help="Nucleus sampling: only considers tokens whose cumulative probability is within this value. Lower = more focused. 1.0 = consider all tokens."
-            value={(params.topP as number) ?? 1}
-            onChange={(v) => set("topP", v)}
-            min={0}
-            max={1}
-            step={0.05}
-          />
-          <NumberField
-            label="Top K"
-            help="Only sample from the top K most likely tokens. 0 = disabled (use Top P instead). Lower values = more predictable output."
-            value={(params.topK as number) ?? 0}
-            onChange={(v) => set("topK", v)}
-            min={0}
-            max={500}
-            step={1}
-          />
-          <NumberField
-            label="Min P"
-            help="Minimum probability threshold. Tokens below this probability relative to the most likely token are filtered out. Helps avoid very unlikely words."
-            value={(params.minP as number) ?? 0}
-            onChange={(v) => set("minP", v)}
-            min={0}
-            max={1}
-            step={0.01}
-          />
-        </div>
-      </FieldGroup>
-
-      <FieldGroup
-        label="Penalties"
-        help="Penalties discourage the AI from repeating itself. Positive values reduce repetition, negative values encourage it."
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <NumberField
-            label="Frequency"
-            help="Penalizes tokens based on how often they've appeared so far. Higher values make the AI avoid repeating the same words."
-            value={(params.frequencyPenalty as number) ?? 0}
-            onChange={(v) => set("frequencyPenalty", v)}
-            min={-2}
-            max={2}
-            step={0.05}
-          />
-          <NumberField
-            label="Presence"
-            help="Penalizes tokens that have appeared at all. Encourages the AI to talk about new topics rather than revisiting old ones."
-            value={(params.presencePenalty as number) ?? 0}
-            onChange={(v) => set("presencePenalty", v)}
-            min={-2}
-            max={2}
-            step={0.05}
-          />
-        </div>
-      </FieldGroup>
-
-      <FieldGroup
-        label="Reasoning"
-        help="For models that support chain-of-thought reasoning (like o1, o3, GPT-5). Controls how much the model 'thinks' before responding."
-      >
-        <div className="space-y-3">
-          <div>
-            <div className="text-xs font-medium text-[var(--muted-foreground)] mb-1.5">Effort</div>
-            <div className="flex gap-2">
-              {(["low", "medium", "high", "maximum", null] as const).map((level) => (
-                <button
-                  key={level ?? "off"}
-                  onClick={() => set("reasoningEffort", level)}
-                  className={cn(
-                    "rounded-xl px-3 py-1.5 text-xs font-medium transition-all",
-                    params.reasoningEffort === level
-                      ? "bg-purple-400/15 text-purple-400 ring-1 ring-purple-400/30"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                  )}
-                >
-                  {level ? level.charAt(0).toUpperCase() + level.slice(1) : "Off"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-[var(--muted-foreground)] mb-1.5">Verbosity</div>
-            <p className="text-[10px] text-[var(--muted-foreground)] mb-1.5">
-              Controls output length. Low = concise, High = thorough explanations. Supported by GPT-5+ models.
-            </p>
-            <div className="flex gap-2">
-              {(["low", "medium", "high", null] as const).map((level) => (
-                <button
-                  key={level ?? "off"}
-                  onClick={() => set("verbosity", level)}
-                  className={cn(
-                    "rounded-xl px-3 py-1.5 text-xs font-medium transition-all",
-                    (params.verbosity ?? null) === level
-                      ? "bg-blue-400/15 text-blue-400 ring-1 ring-blue-400/30"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                  )}
-                >
-                  {level ? level.charAt(0).toUpperCase() + level.slice(1) : "Off"}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </FieldGroup>
-
-      <FieldGroup label="Options" help="Additional flags that affect how messages are processed and displayed.">
-        <div className="space-y-2">
-          <ToggleOption
-            label="Show Thoughts"
-            description="Display model reasoning/thinking"
-            value={(params.showThoughts as boolean) ?? true}
-            onChange={(v) => set("showThoughts", v)}
-          />
-          <ToggleOption
-            label="Strict Role Formatting"
-            description="Enforces system → user → assistant alternation. Sections after Chat History become user messages."
-            value={(params.strictRoleFormatting as boolean) ?? true}
-            onChange={(v) =>
-              onChange({ ...params, strictRoleFormatting: v, ...(v ? { singleUserMessage: false } : {}) })
-            }
-          />
-          <ToggleOption
-            label="Single User Message"
-            description="Sends the entire prompt and chat history as one user message. Some prompting styles require this."
-            value={(params.singleUserMessage as boolean) ?? false}
-            onChange={(v) =>
-              onChange({ ...params, singleUserMessage: v, ...(v ? { strictRoleFormatting: false } : {}) })
-            }
-          />
-        </div>
-      </FieldGroup>
-
-      <FieldGroup
-        label="Stop Sequences"
-        help="Text patterns that make the AI stop generating when encountered. Useful for preventing the AI from speaking as your character."
-      >
-        <StopSequencesEditor
-          sequences={(params.stopSequences as string[]) ?? []}
-          onChange={(v) => set("stopSequences", v)}
-        />
-      </FieldGroup>
-    </>
   );
 }
 
@@ -2348,128 +2168,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-1 flex-col items-center rounded-xl bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
       <span className="text-xl font-bold text-[var(--foreground)]">{value}</span>
-      <span className="text-[10px] text-[var(--muted-foreground)]">{label}</span>
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  help,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-}: {
-  label: string;
-  help?: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-}) {
-  return (
-    <div>
-      <label className="mb-1 flex items-center gap-1 text-[11px] text-[var(--muted-foreground)]">
-        {label}
-        {help && <HelpTooltip text={help} size={10} />}
-      </label>
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onFocus={(e) => e.target.select()}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        className="w-full rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-      />
-    </div>
-  );
-}
-
-function ToggleOption({
-  label,
-  description,
-  value,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className="flex w-full items-center justify-between rounded-lg p-2 text-left transition-all hover:bg-[var(--accent)]"
-    >
-      <div>
-        <div className="text-xs font-medium">{label}</div>
-        <div className="text-[10px] text-[var(--muted-foreground)]">{description}</div>
-      </div>
-      <div
-        className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-          value ? "bg-purple-400" : "bg-[var(--border)]",
-        )}
-      >
-        <div
-          className={cn(
-            "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
-            value && "translate-x-4",
-          )}
-        />
-      </div>
-    </button>
-  );
-}
-
-function StopSequencesEditor({ sequences, onChange }: { sequences: string[]; onChange: (v: string[]) => void }) {
-  const [input, setInput] = useState("");
-
-  const add = () => {
-    const val = input.trim();
-    if (val && !sequences.includes(val)) {
-      onChange([...sequences, val]);
-      setInput("");
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="Add stop sequence…"
-          className="flex-1 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-        />
-        <button onClick={add} className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs">
-          Add
-        </button>
-      </div>
-      {sequences.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {sequences.map((seq, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-1 rounded-lg bg-[var(--secondary)] px-2 py-1 text-[10px] ring-1 ring-[var(--border)]"
-            >
-              <code>{JSON.stringify(seq)}</code>
-              <button
-                onClick={() => onChange(sequences.filter((_, j) => j !== i))}
-                className="hover:text-[var(--destructive)]"
-              >
-                <X size={9} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      <span className="text-[0.625rem] text-[var(--muted-foreground)]">{label}</span>
     </div>
   );
 }
@@ -2514,7 +2213,7 @@ function ConnectionSelector({
         onClick={() => onSelect(connId)}
         className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
       >
-        <Sparkles size={13} /> {label}
+        <Sparkles size="0.8125rem" /> {label}
       </button>
     </div>
   );

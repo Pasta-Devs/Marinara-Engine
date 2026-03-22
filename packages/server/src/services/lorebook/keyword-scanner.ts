@@ -6,6 +6,21 @@
 // ──────────────────────────────────────────────
 import type { LorebookEntry, SelectiveLogic, ActivationCondition, LorebookSchedule } from "@marinara-engine/shared";
 
+/** Compute cosine similarity between two vectors. Returns 0 for empty/mismatched vectors. */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dot = 0,
+    magA = 0,
+    magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i]! * b[i]!;
+    magA += a[i]! * a[i]!;
+    magB += b[i]! * b[i]!;
+  }
+  const denom = Math.sqrt(magA) * Math.sqrt(magB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
 /** Minimal message shape needed for scanning. */
 export interface ScanMessage {
   role: string;
@@ -259,6 +274,10 @@ export interface ScanOptions {
   timingStates?: Map<string, EntryTimingState>;
   /** Current message index for timing calculations. */
   currentMessageIndex?: number;
+  /** Pre-computed embedding of the chat context for semantic matching fallback. */
+  chatEmbedding?: number[] | null;
+  /** Cosine similarity threshold for semantic matching (0-1, default 0.3). */
+  semanticThreshold?: number;
 }
 
 /**
@@ -270,13 +289,21 @@ export function scanForActivatedEntries(
   entries: LorebookEntry[],
   options: ScanOptions = {},
 ): ActivatedEntry[] {
-  const { scanDepth = 0, gameState = null, timingStates = new Map(), currentMessageIndex = messages.length } = options;
+  const {
+    scanDepth = 0,
+    gameState = null,
+    timingStates = new Map(),
+    currentMessageIndex = messages.length,
+    chatEmbedding = null,
+    semanticThreshold = 0.3,
+  } = options;
 
   // Build the text to scan from recent messages
   const messagesToScan = scanDepth > 0 ? messages.slice(-scanDepth) : messages;
   const combinedText = messagesToScan.map((m) => m.content).join("\n");
 
   const activated: ActivatedEntry[] = [];
+  const activatedIds = new Set<string>();
 
   for (const entry of entries) {
     // Skip disabled entries
@@ -289,6 +316,7 @@ export function scanForActivatedEntries(
         matchedKeys: ["[constant]"],
         injectionOrder: entry.order,
       });
+      activatedIds.add(entry.id);
       continue;
     }
 
@@ -343,6 +371,25 @@ export function scanForActivatedEntries(
       matchedKeys,
       injectionOrder: entry.order,
     });
+    activatedIds.add(entry.id);
+  }
+
+  // ── Semantic fallback: check entries with embeddings that weren't keyword-matched ──
+  if (chatEmbedding && chatEmbedding.length > 0) {
+    for (const entry of entries) {
+      if (!entry.enabled || entry.constant || activatedIds.has(entry.id)) continue;
+      if (!entry.embedding || entry.embedding.length === 0) continue;
+
+      const similarity = cosineSimilarity(chatEmbedding, entry.embedding);
+      if (similarity >= semanticThreshold) {
+        activated.push({
+          entry,
+          matchedKeys: [`[semantic:${similarity.toFixed(3)}]`],
+          injectionOrder: entry.order,
+        });
+        activatedIds.add(entry.id);
+      }
+    }
   }
 
   // Apply group selection

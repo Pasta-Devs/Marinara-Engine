@@ -47,7 +47,7 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
         disabled={upload.isPending}
         className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-6 text-xs text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)] hover:text-[var(--primary)]"
       >
-        <ImagePlus size={16} />
+        <ImagePlus size="1rem" />
         {upload.isPending ? "Uploading…" : "Upload Image"}
       </button>
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
@@ -58,15 +58,15 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
       {/* Empty state */}
       {!isLoading && (!images || images.length === 0) && (
         <div className="flex flex-col items-center gap-2 py-8 text-[var(--muted-foreground)]">
-          <Sparkles size={24} className="opacity-40" />
+          <Sparkles size="1.5rem" className="opacity-40" />
           <p className="text-xs">No images yet</p>
-          <p className="text-[10px] opacity-60">Upload images or generate them to build your gallery</p>
+          <p className="text-[0.625rem] opacity-60">Upload images or generate them to build your gallery</p>
         </div>
       )}
 
       {/* Image grid */}
       {images && images.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
           {images.map((img) => (
             <div
               key={img.id}
@@ -88,27 +88,27 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
                       className="rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
                       title="View fullscreen"
                     >
-                      <ZoomIn size={12} />
+                      <ZoomIn size="0.75rem" />
                     </button>
                     <button
                       onClick={() => pinImage(img)}
                       className="rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
                       title="Pin to chat"
                     >
-                      <Pin size={12} />
+                      <Pin size="0.75rem" />
                     </button>
                   </div>
                   <button
                     onClick={() => setConfirmDeleteId(img.id)}
                     className="rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size="0.75rem" />
                   </button>
                 </div>
               </div>
               {/* Prompt label */}
               {img.prompt && (
-                <div className="absolute left-0 top-0 max-w-full truncate bg-black/50 px-2 py-0.5 text-[9px] text-white/80 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                <div className="absolute left-0 top-0 max-w-full truncate bg-black/50 px-2 py-0.5 text-[0.5625rem] text-white/80 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
                   {img.prompt}
                 </div>
               )}
@@ -146,11 +146,11 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80"
           onClick={() => setLightbox(null)}
         >
-          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
             <img
               src={lightbox.url}
               alt={lightbox.prompt || "Gallery image"}
-              className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl"
+              className="max-h-[85vh] w-full rounded-lg object-contain shadow-2xl"
             />
             {/* Controls */}
             <div className="absolute right-2 top-2 flex gap-2">
@@ -162,20 +162,20 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
                 title="Pin to chat"
               >
-                <Minimize2 size={14} />
+                <Minimize2 size="0.875rem" />
               </button>
               <a
                 href={lightbox.url}
                 download
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
               >
-                <Download size={14} />
+                <Download size="0.875rem" />
               </a>
               <button
                 onClick={() => setLightbox(null)}
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
               >
-                <X size={14} />
+                <X size="0.875rem" />
               </button>
             </div>
             {/* Info bar */}
@@ -183,7 +183,7 @@ export function ChatGallery({ chatId }: ChatGalleryProps) {
               <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/60 p-3 text-white backdrop-blur-sm">
                 {lightbox.prompt && <p className="text-xs">{lightbox.prompt}</p>}
                 {lightbox.provider && (
-                  <p className="mt-1 text-[10px] text-white/60">
+                  <p className="mt-1 text-[0.625rem] text-white/60">
                     {lightbox.provider}
                     {lightbox.model ? ` · ${lightbox.model}` : ""}
                   </p>

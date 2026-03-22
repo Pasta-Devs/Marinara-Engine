@@ -11,7 +11,10 @@ import {
 import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { processLorebooks } from "../services/lorebook/index.js";
+import { createLLMProvider } from "../services/llm/provider-registry.js";
+import type { APIProvider } from "@marinara-engine/shared";
 
 export async function lorebooksRoutes(app: FastifyInstance) {
   const storage = createLorebooksStorage(app.db);
@@ -140,19 +143,48 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const chatMessages = await chatsStorage.listMessages(chatId);
     if (!chatMessages.length) return reply.send({ entries: [], totalTokens: 0, totalEntries: 0 });
 
+    // Load chat to get characterIds and activeLorebookIds from metadata
+    const chat = await chatsStorage.getById(chatId);
+    let characterIds: string[] = [];
+    let activeLorebookIds: string[] = [];
+    if (chat) {
+      try {
+        characterIds =
+          typeof chat.characterIds === "string"
+            ? JSON.parse(chat.characterIds)
+            : ((chat.characterIds as string[]) ?? []);
+      } catch {
+        /* ignore */
+      }
+      try {
+        const meta =
+          typeof chat.metadata === "string"
+            ? JSON.parse(chat.metadata)
+            : ((chat.metadata as Record<string, unknown>) ?? {});
+        activeLorebookIds = Array.isArray(meta.activeLorebookIds) ? meta.activeLorebookIds : [];
+      } catch {
+        /* ignore */
+      }
+    }
+
     const scanMessages = chatMessages.map((m) => ({
       role: (m.role === "narrator" ? "system" : m.role) as string,
       content: typeof m.content === "string" ? m.content : "",
     }));
 
-    const result = await processLorebooks(app.db, scanMessages);
+    const result = await processLorebooks(app.db, scanMessages, null, {
+      chatId,
+      characterIds,
+      activeLorebookIds,
+    });
 
     // Fetch full entry data for the activated IDs
-    const activeEntries = result.activatedEntryIds.length > 0
-      ? await Promise.all(
-          result.activatedEntryIds.map((id) => storage.getEntry(id)),
-        ).then((entries) => entries.filter(Boolean))
-      : [];
+    const activeEntries =
+      result.activatedEntryIds.length > 0
+        ? await Promise.all(result.activatedEntryIds.map((id) => storage.getEntry(id))).then((entries) =>
+            entries.filter(Boolean),
+          )
+        : [];
 
     return {
       entries: activeEntries.map((e) => ({
@@ -167,5 +199,47 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       totalTokens: result.totalTokensEstimate,
       totalEntries: result.totalEntries,
     };
+  });
+
+  // ── Vectorize: generate embeddings for all entries in a lorebook ──
+
+  app.post<{ Params: { id: string } }>("/:id/vectorize", async (req, reply) => {
+    const body = req.body as { connectionId: string; model: string };
+    if (!body.connectionId || !body.model) {
+      return reply.status(400).send({ error: "connectionId and model are required" });
+    }
+
+    const connStorage = createConnectionsStorage(app.db);
+    const conn = await connStorage.getWithKey(body.connectionId);
+    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+
+    const entries = await storage.listEntries(req.params.id);
+    if (!entries.length) return { vectorized: 0 };
+
+    const provider = createLLMProvider(conn.provider as string, conn.baseUrl as string, conn.apiKey as string);
+
+    // Build text for each entry: combine name, keys, and content
+    const texts = (entries as Array<Record<string, unknown>>).map((e) => {
+      const keys = Array.isArray(e.keys) ? (e.keys as string[]).join(", ") : "";
+      return `${e.name ?? ""}${keys ? ` [${keys}]` : ""}\n${e.content ?? ""}`.trim();
+    });
+
+    // Batch embed (most APIs support multiple texts per call)
+    const BATCH_SIZE = 50;
+    let vectorized = 0;
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batchTexts = texts.slice(i, i + BATCH_SIZE);
+      const batchEntries = entries.slice(i, i + BATCH_SIZE);
+      const embeddings = await provider.embed(batchTexts, body.model);
+      for (let j = 0; j < batchEntries.length; j++) {
+        const entry = batchEntries[j] as Record<string, unknown>;
+        if (embeddings[j]) {
+          await storage.updateEntryEmbedding(entry.id as string, embeddings[j]!);
+          vectorized++;
+        }
+      }
+    }
+
+    return { vectorized, total: entries.length };
   });
 }

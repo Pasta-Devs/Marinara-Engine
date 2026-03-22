@@ -42,7 +42,7 @@ export const SpriteSidebar = memo(function SpriteSidebar({
   return (
     <div
       className={cn(
-        "flex w-48 flex-col items-center justify-end gap-2 overflow-hidden py-2",
+        "hidden sm:flex w-48 flex-col items-center justify-end gap-2 overflow-hidden py-2",
         isRoleplay ? "bg-black/40 border-white/5" : "bg-[var(--secondary)]/50 border-[var(--border)]",
       )}
     >
@@ -105,7 +105,7 @@ function SidebarSprite({
       {name && (
         <span
           className={cn(
-            "mt-1 truncate text-[10px] font-medium max-w-[10rem] text-center",
+            "mt-1 truncate text-[0.625rem] font-medium max-w-[10rem] text-center",
             isRoleplay ? "text-white/60" : "text-[var(--muted-foreground)]",
           )}
         >

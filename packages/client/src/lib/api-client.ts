@@ -180,7 +180,7 @@ export const api = {
             const parsed = JSON.parse(data);
             yield parsed;
             if (parsed.type === "error") return; // error is a terminal event — stop iteration
-          } catch (e) {
+          } catch {
             // JSON parse failed — yield raw data as a token
             yield { type: "token", data };
           }

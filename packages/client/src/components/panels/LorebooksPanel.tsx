@@ -3,19 +3,7 @@
 // Category tabs, search, click-to-edit, AI generate
 // ──────────────────────────────────────────────
 import { useState, useMemo } from "react";
-import {
-  Plus,
-  Download,
-  Sparkles,
-  BookOpen,
-  Search,
-  Globe,
-  Users,
-  UserRound,
-  ScrollText,
-  Layers,
-  ArrowUpDown,
-} from "lucide-react";
+import { Plus, Download, Sparkles, BookOpen, Search, Globe, Users, UserRound, Layers, ArrowUpDown } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useLorebooks, useDeleteLorebook } from "../../hooks/use-lorebooks";
 import type { Lorebook, LorebookCategory } from "@marinara-engine/shared";
@@ -26,7 +14,6 @@ const CATEGORIES: Array<{ id: LorebookCategory | "all"; label: string; icon: typ
   { id: "world", label: "World", icon: Globe },
   { id: "character", label: "Character", icon: Users },
   { id: "npc", label: "NPC", icon: UserRound },
-  { id: "summary", label: "Summary", icon: ScrollText },
   { id: "uncategorized", label: "Other", icon: BookOpen },
 ];
 
@@ -34,7 +21,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   world: "from-emerald-400 to-teal-500",
   character: "from-violet-400 to-purple-500",
   npc: "from-rose-400 to-pink-500",
-  summary: "from-sky-400 to-blue-500",
   uncategorized: "from-amber-400 to-orange-500",
   all: "from-amber-400 to-orange-500",
 };
@@ -88,7 +74,7 @@ export function LorebooksPanel() {
       map.set(cat, list);
     }
     return map;
-  }, [filtered, activeCategory]);
+  }, [sorted, activeCategory]);
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -98,20 +84,20 @@ export function LorebooksPanel() {
           onClick={() => openModal("create-lorebook")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-amber-400/15 transition-all hover:shadow-lg hover:shadow-amber-400/25 active:scale-[0.98]"
         >
-          <Plus size={13} /> New
+          <Plus size="0.8125rem" /> New
         </button>
         <button
           onClick={() => openModal("import-lorebook")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
         >
-          <Download size={13} /> Import
+          <Download size="0.8125rem" /> Import
         </button>
         <button
           onClick={() => openModal("lorebook-maker")}
           className="flex items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
           title="AI Generate"
         >
-          <Sparkles size={13} />
+          <Sparkles size="0.8125rem" />
         </button>
       </div>
 
@@ -119,7 +105,7 @@ export function LorebooksPanel() {
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <Search
-            size={13}
+            size="0.8125rem"
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
           />
           <input
@@ -134,7 +120,7 @@ export function LorebooksPanel() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
-            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[11px] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[0.6875rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -144,7 +130,7 @@ export function LorebooksPanel() {
             <option value="tokens">Token Budget</option>
           </select>
           <ArrowUpDown
-            size={10}
+            size="0.625rem"
             className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
           />
         </div>
@@ -160,13 +146,13 @@ export function LorebooksPanel() {
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
+                "flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.6875rem] font-medium transition-all",
                 isActive
                   ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm"
                   : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
               )}
             >
-              <Icon size={12} />
+              <Icon size="0.75rem" />
               {cat.label}
             </button>
           );
@@ -186,7 +172,7 @@ export function LorebooksPanel() {
       {!isLoading && sorted.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/20 to-orange-500/20">
-            <BookOpen size={20} className="text-amber-400" />
+            <BookOpen size="1.25rem" className="text-amber-400" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)]">
             {searchQuery ? "No lorebooks match your search" : "No lorebooks yet"}
@@ -204,10 +190,10 @@ export function LorebooksPanel() {
                 const CatIcon = catMeta.icon;
                 return (
                   <div key={category} className="mb-2">
-                    <div className="mb-1 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                      <CatIcon size={11} />
+                    <div className="mb-1 flex items-center gap-1.5 px-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                      <CatIcon size="0.6875rem" />
                       {catMeta.label}
-                      <span className="ml-auto text-[10px] font-normal">{books.length}</span>
+                      <span className="ml-auto text-[0.625rem] font-normal">{books.length}</span>
                     </div>
                     {books.map((lb) => (
                       <LorebookRow
@@ -258,18 +244,18 @@ function LorebookRow({
           gradient,
         )}
       >
-        <CatIcon size={16} />
+        <CatIcon size="1rem" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm font-medium">{lorebook.name}</span>
           {!lorebook.enabled && (
-            <span className="rounded bg-[var(--muted)]/50 px-1 py-0.5 text-[9px] text-[var(--muted-foreground)]">
+            <span className="rounded bg-[var(--muted)]/50 px-1 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
               OFF
             </span>
           )}
         </div>
-        <div className="truncate text-[11px] text-[var(--muted-foreground)]">
+        <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
           {lorebook.description || "No description"}
         </div>
       </div>

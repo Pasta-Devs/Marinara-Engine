@@ -62,6 +62,7 @@ const CREATE_TABLES: string[] = [
     dialogue_color TEXT NOT NULL DEFAULT '',
     box_color TEXT NOT NULL DEFAULT '',
     persona_stats TEXT NOT NULL DEFAULT '',
+    alt_descriptions TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
@@ -292,6 +293,25 @@ const CREATE_TABLES: string[] = [
     height INTEGER,
     created_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS ooc_influences (
+    id TEXT PRIMARY KEY NOT NULL,
+    source_chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    target_chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    anchor_message_id TEXT,
+    consumed TEXT NOT NULL DEFAULT 'false',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS memory_chunks (
+    id TEXT PRIMARY KEY NOT NULL,
+    chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    embedding TEXT,
+    message_count INTEGER NOT NULL,
+    first_message_at TEXT NOT NULL,
+    last_message_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
 ];
 
 // ── Column migrations (ALTER TABLE for schema evolution) ──
@@ -337,6 +357,26 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
     column: "prevent_recursion",
     definition: "TEXT NOT NULL DEFAULT 'false'",
   },
+  {
+    table: "personas",
+    column: "alt_descriptions",
+    definition: "TEXT NOT NULL DEFAULT '[]'",
+  },
+  {
+    table: "lorebook_entries",
+    column: "embedding",
+    definition: "TEXT",
+  },
+  {
+    table: "api_connections",
+    column: "embedding_model",
+    definition: "TEXT",
+  },
+  {
+    table: "chats",
+    column: "connected_chat_id",
+    definition: "TEXT",
+  },
 ];
 
 export async function runMigrations(db: DB) {
@@ -360,5 +400,11 @@ export async function runMigrations(db: DB) {
   );
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_game_state_message ON game_state_snapshots(message_id, swipe_index)`),
+  );
+  await db.run(
+    sql.raw(`CREATE INDEX IF NOT EXISTS idx_ooc_influences_target ON ooc_influences(target_chat_id, consumed)`),
+  );
+  await db.run(
+    sql.raw(`CREATE INDEX IF NOT EXISTS idx_memory_chunks_chat ON memory_chunks(chat_id, last_message_at DESC)`),
   );
 }

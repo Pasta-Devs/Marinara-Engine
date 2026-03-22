@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 
 /** Top-level lorebook categories. */
-export type LorebookCategory = "world" | "character" | "npc" | "summary" | "uncategorized";
+export type LorebookCategory = "world" | "character" | "npc" | "uncategorized";
 
 /** Selective logic operators. */
 export type SelectiveLogic = "and" | "or" | "not";
@@ -98,6 +98,9 @@ export interface LorebookEntry {
   activationConditions: ActivationCondition[];
   /** Schedule: only active during certain in-game times/dates */
   schedule: LorebookSchedule | null;
+
+  /** Pre-computed embedding vector for semantic matching (null if not vectorized) */
+  embedding: number[] | null;
 
   createdAt: string;
   updatedAt: string;

@@ -28,6 +28,8 @@ export interface APIConnection {
   isDefault: boolean;
   /** Whether this connection is in the random-selection pool */
   useForRandom: boolean;
+  /** Model to use for embedding generation (e.g. "text-embedding-3-small") */
+  embeddingModel: string | null;
   createdAt: string;
   updatedAt: string;
 }

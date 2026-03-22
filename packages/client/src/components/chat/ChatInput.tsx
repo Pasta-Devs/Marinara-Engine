@@ -1,8 +1,8 @@
 // ──────────────────────────────────────────────
 // Chat: Input — mode-aware styling
 // ──────────────────────────────────────────────
-import { useState, useRef, useCallback, useEffect } from "react";
-import { Send, Loader2, Paperclip, StopCircle, X } from "lucide-react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Send, Paperclip, StopCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../stores/chat.store";
@@ -38,23 +38,71 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const isStreaming = useChatStore((s) => s.isStreaming);
+  const streamingChatId = useChatStore((s) => s.streamingChatId);
+  const isStreamingGlobal = useChatStore((s) => s.isStreaming);
+  const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
+  const setInputDraft = useChatStore((s) => s.setInputDraft);
+  const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const { generate } = useGenerate();
   const { applyToUserInput } = useApplyRegex();
-  const enterToSend = useUIStore((s) => s.enterToSend);
+  const enterToSend = useUIStore((s) => s.enterToSendRP);
   const createMessage = useCreateMessage(activeChatId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
+  // Restore draft when mounting or switching chats
+  const prevChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevChatIdRef.current !== activeChatId) {
+      // Save draft from the previous chat before switching
+      if (prevChatIdRef.current && textareaRef.current) {
+        const prevText = textareaRef.current.value;
+        if (prevText.trim()) {
+          setInputDraft(prevChatIdRef.current, prevText);
+        } else {
+          clearInputDraft(prevChatIdRef.current);
+        }
+      }
+      prevChatIdRef.current = activeChatId;
+    }
+    // Restore draft for the new active chat
+    if (activeChatId && textareaRef.current) {
+      const draft = useChatStore.getState().inputDrafts.get(activeChatId) ?? "";
+      textareaRef.current.value = draft;
+      setHasInput(draft.trim().length > 0);
+      // Resize textarea to fit content
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+    }
+  }, [activeChatId, setInputDraft, clearInputDraft]);
+
+  // Save draft when component unmounts (e.g. navigating to editor)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    return () => {
+      const chatId = useChatStore.getState().activeChatId;
+      if (chatId && textarea) {
+        const text = textarea.value;
+        if (text.trim()) {
+          useChatStore.getState().setInputDraft(chatId, text);
+        } else {
+          useChatStore.getState().clearInputDraft(chatId);
+        }
+      }
+    };
+  }, []);
+
   // Derive whether the user can retry (last message is theirs with no assistant reply)
-  const canRetry = (() => {
+  const canRetry = useMemo(() => {
     if (!activeChatId || isStreaming) return false;
     const cached = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(activeChatId));
     if (!cached?.pages?.length) return false;
-    const chronological = [...cached.pages].reverse().flat();
-    const lastMsg = chronological[chronological.length - 1];
+    // Flatten all pages to find the most recent message without assuming page ordering.
+    const allMessages = cached.pages.flatMap((page) => page ?? []);
+    if (!allMessages.length) return false;
+    const lastMsg = allMessages[allMessages.length - 1];
     return !!lastMsg && lastMsg.role === "user";
-  })();
+  }, [activeChatId, isStreaming, qc]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -92,10 +140,10 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
       chatId: activeChatId,
       generate,
       createMessage: (data) => createMessage.mutate(data),
-      invalidate: () => {},
+      invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames,
     };
-  }, [activeChatId, generate, createMessage, characterNames]);
+  }, [activeChatId, generate, createMessage, characterNames, qc]);
 
   const handleSend = useCallback(async () => {
     const raw = getValue();
@@ -137,6 +185,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
       setHasInput(false);
       setCompletions([]);
       setAttachments([]);
+      clearInputDraft(activeChatId);
 
       const result = await match.command.execute(match.args, ctx);
       if (result.feedback) {
@@ -164,6 +213,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
     setCompletions([]);
     const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data }));
     setAttachments([]);
+    clearInputDraft(activeChatId);
 
     try {
       await generate({
@@ -177,7 +227,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
       toast.error(msg);
       console.error("Send failed:", error);
     }
-  }, [activeChatId, isStreaming, generate, applyToUserInput, buildContext, qc]);
+  }, [activeChatId, isStreaming, generate, applyToUserInput, buildContext, qc, clearInputDraft, attachments]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Autocomplete navigation
@@ -227,7 +277,19 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
       el.value = fixed;
       el.setSelectionRange(pos, pos);
     }
-    setHasInput(fixed.trim().length > 0);
+    const nowHasInput = fixed.trim().length > 0;
+    setHasInput((prev) => (prev === nowHasInput ? prev : nowHasInput));
+
+    // Keep draft in sync so it survives remounts
+    if (activeChatId) {
+      if (nowHasInput) {
+        setInputDraft(activeChatId, fixed);
+      } else {
+        clearInputDraft(activeChatId);
+      }
+    }
+
+    // Auto-resize textarea
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
 
@@ -247,7 +309,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
     if (hasInput && feedback) setFeedback(null);
   }, [hasInput, feedback]);
 
-  const isRP = mode === "roleplay";
+  const _isRP = mode === "roleplay";
 
   return (
     <div className="chat-input-container p-3">
@@ -287,7 +349,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
             className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
             aria-label="Dismiss"
           >
-            <X size={12} />
+            <X size="0.75rem" />
           </button>
         </div>
       )}
@@ -303,12 +365,12 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
               {att.type.startsWith("image/") ? (
                 <img src={att.data} alt={att.name} className="h-8 w-8 rounded object-cover" />
               ) : null}
-              <span className="max-w-[120px] truncate">{att.name}</span>
+              <span className="max-w-[7.5rem] truncate">{att.name}</span>
               <button
                 onClick={() => removeAttachment(i)}
                 className="ml-0.5 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100"
               >
-                <X size={12} />
+                <X size="0.75rem" />
               </button>
             </div>
           ))}
@@ -343,7 +405,7 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
           )}
           title="Attach files"
         >
-          <Paperclip size={16} />
+          <Paperclip size="1rem" />
         </button>
 
         {/* Text input */}
@@ -351,18 +413,12 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
           ref={textareaRef}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder={
-            activeChatId
-              ? isRP
-                ? "What do you do? — Press Enter to send, / for commands"
-                : "Type a message... — Press Enter to send, / for commands"
-              : "Select a chat first"
-          }
+          placeholder={activeChatId ? "Type here, / for commands." : "Select a chat first"}
           disabled={!activeChatId}
           rows={1}
           spellCheck
           autoCorrect="on"
-          className="max-h-[200px] flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-white/90 placeholder:text-white/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          className="max-h-[12.5rem] flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-white/90 placeholder:text-white/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
 
         {/* Send / Stop button */}
@@ -372,25 +428,19 @@ export function ChatInput({ mode = "conversation", characterNames = [] }: ChatIn
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
             isStreaming
-              ? "bg-[var(--destructive)] text-white hover:opacity-80"
+              ? "text-white hover:opacity-80"
               : (hasInput || attachments.length || canRetry) && activeChatId
                 ? "text-white hover:text-white/80 active:scale-90"
                 : "text-white/20",
           )}
         >
-          {isStreaming ? <StopCircle size={16} /> : <Send size={15} className={cn(hasInput && "translate-x-[1px]")} />}
+          {isStreaming ? (
+            <StopCircle size="1rem" />
+          ) : (
+            <Send size="0.9375rem" className={cn(hasInput && "translate-x-[1px]")} />
+          )}
         </button>
       </div>
-
-      {/* Streaming indicator */}
-      {isStreaming && (
-        <div className={cn("mt-1.5 flex items-center justify-end px-3 text-[10px]", "text-blue-400")}>
-          <span className="flex items-center gap-1">
-            <Loader2 size={9} className="animate-spin" />
-            Generating...
-          </span>
-        </div>
-      )}
     </div>
   );
 }

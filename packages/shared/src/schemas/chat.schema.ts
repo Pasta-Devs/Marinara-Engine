@@ -31,6 +31,7 @@ export const generateRequestSchema = z.object({
   connectionId: z.string().nullable().default(null),
   debugMode: z.boolean().optional().default(false),
   impersonate: z.boolean().optional().default(false),
+  userStatus: z.enum(["active", "idle", "dnd"]).optional().default("active"),
   attachments: z
     .array(
       z.object({

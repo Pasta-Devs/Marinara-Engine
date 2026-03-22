@@ -137,7 +137,7 @@ export const useEncounterStore = create<EncounterState>((set) => ({
     }),
 
   updateCombat: (data) =>
-    set((s) => ({
+    set((_s) => ({
       party: data.party,
       enemies: data.enemies,
       playerActions: data.playerActions,

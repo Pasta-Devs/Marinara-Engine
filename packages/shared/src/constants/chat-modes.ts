@@ -18,7 +18,7 @@ export const CHAT_MODES: Record<ChatMode, ChatModeDefinition> = {
     name: "Conversation",
     description: "A straightforward AI conversation — no roleplay elements.",
     icon: "💬",
-    defaultAgents: [],
+    defaultAgents: ["schedule-planner", "response-orchestrator", "autonomous-messenger"],
   },
   roleplay: {
     id: "roleplay",

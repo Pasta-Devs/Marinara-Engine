@@ -19,6 +19,8 @@ export const apiConnections = sqliteTable("api_connections", {
   useForRandom: text("use_for_random").notNull().default("false"),
   /** Whether to enable Anthropic prompt caching */
   enableCaching: text("enable_caching").notNull().default("false"),
+  /** Model to use for embedding generation (e.g. text-embedding-3-small) */
+  embeddingModel: text("embedding_model"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

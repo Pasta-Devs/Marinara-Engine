@@ -104,20 +104,6 @@ const CATEGORY_SIGNALS: Record<LorebookCategory, string[]> = {
     "rival",
     "mentor",
   ],
-  summary: [
-    "summary",
-    "recap",
-    "previously",
-    "so far",
-    "chapter",
-    "session",
-    "overview",
-    "plot",
-    "arc",
-    "event",
-    "happened",
-    "timeline",
-  ],
   uncategorized: [],
 };
 
@@ -126,7 +112,6 @@ function detectCategory(entries: STWorldInfoEntry[], name?: string): LorebookCat
     world: 0,
     character: 0,
     npc: 0,
-    summary: 0,
     uncategorized: 0,
   };
 

@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
 import { join, extname, basename } from "path";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { randomUUID } from "crypto";
 import type { DB } from "../../db/connection.js";
 import { importSTCharacter } from "./st-character.importer.js";
@@ -84,21 +84,29 @@ function extractCharaFromPng(buf: Buffer): Record<string, unknown> | null {
 
 /** Try multiple possible ST data folder layouts */
 function resolveSTDataDir(rootPath: string): string | null {
-  // Common locations:
-  // <rootPath>/data/default-user/
-  // <rootPath>/public/   (older ST versions)
-  // <rootPath>/          (user points directly to data dir)
-  const candidates = [
-    join(rootPath, "data", "default-user"),
-    join(rootPath, "data"),
-    join(rootPath, "public"),
-    rootPath,
-  ];
+  // 1. Check data/default-user (most common)
+  const defaultUser = join(rootPath, "data", "default-user");
+  if (existsSync(join(defaultUser, "characters"))) return defaultUser;
 
-  for (const c of candidates) {
-    // Check if this looks like an ST data dir (has a characters folder)
-    if (existsSync(join(c, "characters"))) return c;
+  // 2. Check ALL user profile folders under data/ (ST allows custom profile names)
+  const dataParent = join(rootPath, "data");
+  if (existsSync(dataParent)) {
+    try {
+      const entries = readdirSync(dataParent, { withFileTypes: true });
+      for (const e of entries) {
+        if (!e.isDirectory()) continue;
+        const candidate = join(dataParent, e.name);
+        if (existsSync(join(candidate, "characters"))) return candidate;
+      }
+    } catch {
+      // skip if unreadable
+    }
   }
+
+  // 3. Legacy / alternative layouts
+  if (existsSync(join(rootPath, "public", "characters"))) return join(rootPath, "public");
+  if (existsSync(join(rootPath, "characters"))) return rootPath;
+
   return null;
 }
 
@@ -132,7 +140,7 @@ export interface STBulkScanResult {
   error?: string;
   dataDir?: string;
   characters: { path: string; name: string; format: string }[];
-  chats: { path: string; characterName: string }[];
+  chats: { path: string; characterName: string; folderName: string }[];
   groupChats: { path: string; groupName: string; members: string[] }[];
   presets: { path: string; name: string }[];
   lorebooks: { path: string; name: string }[];
@@ -223,8 +231,9 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
         const firstLine = content.split("\n")[0];
         if (firstLine) {
           const header = JSON.parse(firstLine);
-          const charName = header.character_name ?? basename(join(f, ".."));
-          chats.push({ path: f, characterName: String(charName) });
+          const folderName = basename(join(f, ".."));
+          const charName = header.character_name ?? folderName;
+          chats.push({ path: f, characterName: String(charName), folderName });
         }
       } catch {
         // skip
@@ -487,6 +496,15 @@ export async function runSTBulkImport(
     // DB read failed, continue without linking
   }
 
+  // Also index by character card filename (ST organises chat folders by filename)
+  for (const ch of scanResult.characters) {
+    const filenameKey = basename(ch.path, extname(ch.path)).toLowerCase().trim();
+    if (filenameKey && !charNameToId.has(filenameKey)) {
+      const charId = charNameToId.get(ch.name.toLowerCase().trim());
+      if (charId) charNameToId.set(filenameKey, charId);
+    }
+  }
+
   // Import chats (with character linking)
   // Generate one groupId per character name so all chats for the same character
   // are grouped together (like ST "chat files" / branches).
@@ -499,7 +517,11 @@ export async function runSTBulkImport(
       onProgress?.({ category: "Chats", item: ct.characterName, current: idx, total, imported });
       try {
         const content = await readFile(ct.path, "utf-8");
-        const charId = charNameToId.get(ct.characterName.toLowerCase().trim()) ?? null;
+        // Try matching by header character_name first, then by folder name (ST uses filenames for folders)
+        const charId =
+          charNameToId.get(ct.characterName.toLowerCase().trim()) ??
+          charNameToId.get(ct.folderName.toLowerCase().trim()) ??
+          null;
         const groupKey = ct.characterName.toLowerCase().trim();
         if (!charGroupIds.has(groupKey)) {
           charGroupIds.set(groupKey, randomUUID());

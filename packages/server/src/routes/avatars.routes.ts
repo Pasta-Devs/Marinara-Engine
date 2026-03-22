@@ -21,7 +21,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
     const { filename } = req.params as { filename: string };
 
     // Prevent path traversal
-    if (filename.includes("..") || filename.includes("/")) {
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 

@@ -77,7 +77,7 @@ export async function characterMakerRoutes(app: FastifyInstance) {
         {
           model: conn.model,
           temperature: 1,
-          maxTokens: 4096,
+          maxTokens: 8192,
           stream: true,
         },
       )) {

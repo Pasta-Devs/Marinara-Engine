@@ -34,6 +34,8 @@ interface Particle {
   wobble: number;
   life: number;
   maxLife: number;
+  /** Pre-computed fill colour (ash, sand) to avoid Math.random() in draw */
+  color: string;
 }
 
 // ── Map weather string → effect config ──
@@ -256,6 +258,7 @@ function createParticle(type: Particle["type"], w: number, h: number, fromTop = 
     wobble: Math.random() * Math.PI * 2,
     life: 0,
     maxLife: 600 + Math.random() * 400,
+    color: "",
   };
 
   switch (type) {
@@ -330,6 +333,7 @@ function createParticle(type: Particle["type"], w: number, h: number, fromTop = 
       base.size = 2 + Math.random() * 3;
       base.opacity = 0.2 + Math.random() * 0.2;
       base.maxLife = 700 + Math.random() * 300;
+      base.color = `rgba(${(100 + Math.random() * 40) | 0},${(90 + Math.random() * 30) | 0},${(90 + Math.random() * 30) | 0},0.6)`;
       break;
     case "sand":
       base.vy = 0.5 + Math.random() * 1;
@@ -338,6 +342,7 @@ function createParticle(type: Particle["type"], w: number, h: number, fromTop = 
       base.opacity = 0.3 + Math.random() * 0.3;
       base.maxLife = 250 + Math.random() * 150;
       base.x = -10; // enter from left
+      base.color = `rgba(${(200 + Math.random() * 30) | 0},${(170 + Math.random() * 30) | 0},${(110 + Math.random() * 20) | 0},0.7)`;
       break;
     case "hail":
       base.vy = 10 + Math.random() * 6;
@@ -457,7 +462,6 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
       break;
     }
     case "ember": {
-      // Glowing rising ember particle
       const emberPulse = Math.sin(p.life * 0.08) * 0.3 + 0.7;
       const emberGlow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2.5);
       emberGlow.addColorStop(0, `rgba(255,200,60,${emberPulse})`);
@@ -470,7 +474,7 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
       break;
     }
     case "ash": {
-      ctx.fillStyle = `rgba(${100 + Math.random() * 40},${90 + Math.random() * 30},${90 + Math.random() * 30},0.6)`;
+      ctx.fillStyle = p.color;
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.wobble);
@@ -481,14 +485,13 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
       break;
     }
     case "sand": {
-      ctx.fillStyle = `rgba(${200 + Math.random() * 30},${170 + Math.random() * 30},${110 + Math.random() * 20},0.7)`;
+      ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case "hail": {
-      // Icy white pellet with subtle shine
       const hailGrad = ctx.createRadialGradient(p.x - p.size * 0.3, p.y - p.size * 0.3, 0, p.x, p.y, p.size);
       hailGrad.addColorStop(0, "rgba(255,255,255,0.95)");
       hailGrad.addColorStop(0.7, "rgba(200,220,255,0.7)");
@@ -622,7 +625,7 @@ function drawSun(
   ctx.restore();
 }
 
-function drawMoon(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frameCount: number) {
+function drawMoon(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, _frameCount: number) {
   ctx.save();
 
   // Soft moonlight glow
@@ -851,5 +854,5 @@ export function WeatherEffects({ weather, timeOfDay }: WeatherEffectsProps) {
 
   if (!shouldRender) return null;
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[5] h-full w-full" />;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-0 h-full w-full" />;
 }

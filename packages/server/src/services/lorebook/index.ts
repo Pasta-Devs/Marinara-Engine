@@ -37,14 +37,29 @@ export async function processLorebooks(
   options?: {
     chatId?: string;
     characterIds?: string[];
+    activeLorebookIds?: string[];
     tokenBudget?: number;
     enableRecursive?: boolean;
+    /** Pre-computed embedding of the chat context for semantic matching. */
+    chatEmbedding?: number[] | null;
+    /** Cosine similarity threshold for semantic matching (0-1, default 0.3). */
+    semanticThreshold?: number;
   },
 ): Promise<LorebookScanResult> {
   const storage = createLorebooksStorage(db);
 
-  // Fetch all active entries
-  const allEntries = (await storage.listActiveEntries()) as unknown as LorebookEntry[];
+  // Build filters for scoped lorebook selection
+  const filters =
+    options?.chatId || options?.characterIds?.length || options?.activeLorebookIds?.length
+      ? {
+          chatId: options.chatId,
+          characterIds: options.characterIds,
+          activeLorebookIds: options.activeLorebookIds,
+        }
+      : undefined;
+
+  // Fetch active entries (filtered if context provided)
+  const allEntries = (await storage.listActiveEntries(filters)) as unknown as LorebookEntry[];
 
   if (allEntries.length === 0) {
     return {
@@ -57,13 +72,17 @@ export async function processLorebooks(
     };
   }
 
-  // Determine global token budget
-  const tokenBudget = options?.tokenBudget ?? 2048;
+  // No global token budget — include all activated entries.
+  // Each lorebook's own tokenBudget only serves as a hint for the UI;
+  // prompt-level truncation is handled upstream by the assembler / context window.
+  const tokenBudget = options?.tokenBudget ?? 0;
 
   // Scan for activated entries
   const scanOpts: ScanOptions = {
     scanDepth: 0, // Scan all messages
     gameState: gameState ?? null,
+    chatEmbedding: options?.chatEmbedding ?? null,
+    semanticThreshold: options?.semanticThreshold,
   };
 
   // Determine recursion settings from enabled lorebooks

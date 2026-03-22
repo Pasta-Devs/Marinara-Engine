@@ -83,6 +83,7 @@ export function createCharactersStorage(db: DB) {
         dialogueColor?: string;
         boxColor?: string;
         personaStats?: string;
+        altDescriptions?: string;
       },
     ) {
       const id = newId();
@@ -101,6 +102,7 @@ export function createCharactersStorage(db: DB) {
         dialogueColor: extra?.dialogueColor ?? "",
         boxColor: extra?.boxColor ?? "",
         personaStats: extra?.personaStats ?? "",
+        altDescriptions: extra?.altDescriptions ?? "[]",
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -132,6 +134,7 @@ export function createCharactersStorage(db: DB) {
         dialogueColor?: string;
         boxColor?: string;
         personaStats?: string;
+        altDescriptions?: string;
       },
     ) {
       const sets: Record<string, unknown> = { updatedAt: now() };
@@ -146,6 +149,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.dialogueColor !== undefined) sets.dialogueColor = updates.dialogueColor;
       if (updates.boxColor !== undefined) sets.boxColor = updates.boxColor;
       if (updates.personaStats !== undefined) sets.personaStats = updates.personaStats;
+      if (updates.altDescriptions !== undefined) sets.altDescriptions = updates.altDescriptions;
       await db.update(personas).set(sets).where(eq(personas.id, id));
       return this.getPersona(id);
     },

@@ -11,10 +11,14 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { ipAllowlistHook } from "./middleware/ip-allowlist.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedDefaultPreset } from "./db/seed.js";
+import { seedProfessorMari } from "./db/seed-mari.js";
+import { seedDefaultConnection } from "./db/seed-connection.js";
+import { seedDefaultBackgrounds } from "./db/seed-backgrounds.js";
 import { recoverGalleryImages } from "./services/storage/gallery-recovery.js";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { existsSync } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const app = Fastify({
@@ -48,6 +52,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── Seed defaults ──
   await seedDefaultPreset(db);
+  await seedProfessorMari(db);
+  await seedDefaultConnection(db);
+  await seedDefaultBackgrounds();
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
   await recoverGalleryImages(db);
@@ -62,7 +69,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   await registerRoutes(app);
 
   // ── Serve client build in production ──
-  const clientDist = resolve(process.cwd(), "..", "client", "dist");
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const clientDist = resolve(__dirname, "..", "..", "client", "dist");
   if (existsSync(clientDist)) {
     await app.register(fastifyStatic, {
       root: clientDist,

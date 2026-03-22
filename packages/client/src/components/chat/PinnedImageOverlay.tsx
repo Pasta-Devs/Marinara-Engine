@@ -7,15 +7,18 @@ import { useGalleryStore } from "../../stores/gallery.store";
 import type { ChatImage } from "../../hooks/use-gallery";
 
 function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () => void }) {
+  const isMobile = window.innerWidth < 640;
+  const initSize = isMobile ? Math.min(window.innerWidth - 32, window.innerHeight * 0.5) : 400;
   const [pos, setPos] = useState({ x: 80, y: 80 });
-  const [size, setSize] = useState({ w: 400, h: 400 });
+  const [size, setSize] = useState({ w: initSize, h: initSize });
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
 
   // Center on mount
   useEffect(() => {
-    setPos({ x: Math.max(40, (window.innerWidth - 400) / 2), y: Math.max(40, (window.innerHeight - 400) / 2) });
-  }, []);
+    const s = isMobile ? Math.min(window.innerWidth - 32, window.innerHeight * 0.5) : 400;
+    setPos({ x: Math.max(16, (window.innerWidth - s) / 2), y: Math.max(16, (window.innerHeight - s) / 2) });
+  }, [isMobile]);
 
   const onDragStart = useCallback(
     (e: React.PointerEvent) => {
@@ -30,7 +33,9 @@ function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () =
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
-    setPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
+    const newX = Math.max(0, Math.min(dragRef.current.origX + dx, window.innerWidth - 48));
+    const newY = Math.max(0, Math.min(dragRef.current.origY + dy, window.innerHeight - 48));
+    setPos({ x: newX, y: newY });
   }, []);
 
   const onDragEnd = useCallback(() => {
@@ -51,7 +56,10 @@ function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () =
     if (!resizeRef.current) return;
     const dx = e.clientX - resizeRef.current.startX;
     const dy = e.clientY - resizeRef.current.startY;
-    setSize({ w: Math.max(200, resizeRef.current.origW + dx), h: Math.max(200, resizeRef.current.origH + dy) });
+    setSize({
+      w: Math.max(150, Math.min(resizeRef.current.origW + dx, window.innerWidth - 16)),
+      h: Math.max(150, Math.min(resizeRef.current.origH + dy, window.innerHeight - 16)),
+    });
   }, []);
 
   const onResizeEnd = useCallback(() => {
@@ -65,26 +73,26 @@ function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () =
     >
       {/* Title bar — draggable */}
       <div
-        className="flex shrink-0 cursor-grab items-center gap-2 rounded-t-xl border-b border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 active:cursor-grabbing select-none"
+        className="flex shrink-0 cursor-grab items-center gap-2 rounded-t-xl border-b border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5 active:cursor-grabbing select-none touch-none"
         onPointerDown={onDragStart}
         onPointerMove={onDragMove}
         onPointerUp={onDragEnd}
       >
-        <Move size={12} className="text-[var(--muted-foreground)]" />
-        <span className="flex-1 truncate text-[11px] font-medium">{image.prompt || "Gallery Image"}</span>
+        <Move size="0.875rem" className="text-[var(--muted-foreground)]" />
+        <span className="flex-1 truncate text-[0.6875rem] font-medium">{image.prompt || "Gallery Image"}</span>
         <a
           href={image.url}
           download
           className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           onClick={(e) => e.stopPropagation()}
         >
-          <Download size={12} />
+          <Download size="0.75rem" />
         </a>
         <button
           onClick={onClose}
           className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
         >
-          <X size={12} />
+          <X size="0.75rem" />
         </button>
       </div>
       {/* Image content */}
@@ -98,7 +106,7 @@ function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () =
       </div>
       {/* Resize handle */}
       <div
-        className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+        className="absolute bottom-0 right-0 h-6 w-6 cursor-nwse-resize touch-none"
         onPointerDown={onResizeStart}
         onPointerMove={onResizeMove}
         onPointerUp={onResizeEnd}

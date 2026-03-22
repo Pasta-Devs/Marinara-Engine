@@ -20,14 +20,15 @@ import {
   Trash2,
   AlertTriangle,
   Palette,
-  Download,
   Activity,
   Plus,
   X,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ColorPicker } from "../ui/ColorPicker";
+import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { api } from "../../lib/api-client";
 
 // ── Tabs ──
@@ -43,6 +44,13 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+interface AltDescriptionEntry {
+  id: string;
+  label: string;
+  content: string;
+  active: boolean;
+}
+
 interface PersonaFormData {
   name: string;
   description: string;
@@ -54,6 +62,7 @@ interface PersonaFormData {
   dialogueColor: string;
   boxColor: string;
   personaStats: string;
+  altDescriptions: AltDescriptionEntry[];
 }
 
 interface PersonaRow {
@@ -70,6 +79,7 @@ interface PersonaRow {
   dialogueColor?: string;
   boxColor?: string;
   personaStats?: string;
+  altDescriptions?: string;
 }
 
 export function PersonaEditor() {
@@ -98,6 +108,13 @@ export function PersonaEditor() {
   // Parse persona into form data when it loads
   useEffect(() => {
     if (!rawPersona) return;
+    let parsedAltDescs: AltDescriptionEntry[] = [];
+    try {
+      const raw = rawPersona.altDescriptions;
+      if (raw) parsedAltDescs = JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
     setFormData({
       name: rawPersona.name,
       description: rawPersona.description,
@@ -109,6 +126,7 @@ export function PersonaEditor() {
       dialogueColor: rawPersona.dialogueColor ?? "",
       boxColor: rawPersona.boxColor ?? "",
       personaStats: rawPersona.personaStats ?? "",
+      altDescriptions: parsedAltDescs,
     });
     setAvatarPreview(rawPersona.avatarPath);
   }, [rawPersona]);
@@ -122,7 +140,12 @@ export function PersonaEditor() {
     if (!personaId || !formData) return;
     setSaving(true);
     try {
-      await updatePersona.mutateAsync({ id: personaId, ...formData });
+      const { altDescriptions, ...rest } = formData;
+      await updatePersona.mutateAsync({
+        id: personaId,
+        ...rest,
+        altDescriptions: JSON.stringify(altDescriptions),
+      });
       setDirty(false);
     } finally {
       setSaving(false);
@@ -191,7 +214,7 @@ export function PersonaEditor() {
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
           title="Back"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
 
         {/* Avatar */}
@@ -202,10 +225,10 @@ export function PersonaEditor() {
           {avatarPreview ? (
             <img src={avatarPreview} alt={formData.name} className="h-full w-full object-cover" />
           ) : (
-            <User size={22} className="text-white" />
+            <User size="1.375rem" className="text-white" />
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size={16} className="text-white" />
+            <Camera size="1rem" className="text-white" />
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
         </div>
@@ -229,7 +252,7 @@ export function PersonaEditor() {
           className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export persona"
         >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="1.125rem" height="1.125rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M10 13V3m0 0l-4 4m4-4l4 4"
               stroke="currentColor"
@@ -247,7 +270,7 @@ export function PersonaEditor() {
           className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
           title="Delete persona"
         >
-          <Trash2 size={18} />
+          <Trash2 size="1.125rem" />
         </button>
 
         {/* Save */}
@@ -261,7 +284,7 @@ export function PersonaEditor() {
               : "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed",
           )}
         >
-          <Save size={13} />
+          <Save size="0.8125rem" />
           <span className="max-md:hidden">{saving ? "Saving…" : "Save"}</span>
         </button>
       </div>
@@ -269,7 +292,7 @@ export function PersonaEditor() {
       {/* ── Unsaved changes warning ── */}
       {showUnsavedWarning && (
         <div className="flex items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
-          <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+          <AlertTriangle size="0.9375rem" className="shrink-0 text-amber-500" />
           <p className="flex-1 text-xs font-medium text-amber-500">You have unsaved changes. Close without saving?</p>
           <button
             onClick={() => setShowUnsavedWarning(false)}
@@ -312,7 +335,7 @@ export function PersonaEditor() {
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Icon size={14} />
+                <Icon size="0.875rem" />
                 {tab.label}
               </button>
             );
@@ -323,14 +346,7 @@ export function PersonaEditor() {
         <div className="flex-1 overflow-y-auto p-6 max-md:p-4">
           <div className="mx-auto max-w-2xl">
             {activeTab === "description" && (
-              <TextareaTab
-                title="Description"
-                subtitle="Your general description. This is sent in every prompt so the AI knows who you are."
-                value={formData.description}
-                onChange={(v) => updateField("description", v)}
-                placeholder="Describe who you are, your role in the story, and your key traits…"
-                rows={12}
-              />
+              <DescriptionTab formData={formData} updateField={updateField} setDirty={setDirty} />
             )}
             {activeTab === "personality" && (
               <TextareaTab
@@ -399,14 +415,14 @@ function PersonaColorsTab({
 
       {/* Preview card */}
       <div className="rounded-xl border border-[var(--border)] bg-black/30 p-4 space-y-3">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
+        <p className="text-[0.625rem] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
         <div className="flex gap-3 flex-row-reverse">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neutral-500 to-neutral-600 ring-2 ring-white/15">
-            <User size={16} className="text-white" />
+            <User size="1rem" className="text-white" />
           </div>
           <div className="flex-1 space-y-1 items-end flex flex-col">
             <span
-              className="text-[12px] font-bold tracking-tight"
+              className="text-[0.75rem] font-bold tracking-tight"
               style={
                 formData.nameColor
                   ? formData.nameColor.startsWith("linear-gradient")
@@ -423,7 +439,7 @@ function PersonaColorsTab({
               {formData.name || "You"}
             </span>
             <div
-              className="rounded-2xl rounded-tr-sm px-4 py-3 text-[13px] leading-[1.8] backdrop-blur-md ring-1 ring-white/10"
+              className="rounded-2xl rounded-tr-sm px-4 py-3 text-[0.8125rem] leading-[1.8] backdrop-blur-md ring-1 ring-white/10"
               style={
                 formData.boxColor
                   ? { backgroundColor: formData.boxColor }
@@ -597,7 +613,7 @@ function PersonaStatsTab({
         />
         <div>
           <p className="text-sm font-medium">Enable Persona Stats</p>
-          <p className="text-[11px] text-[var(--muted-foreground)]">
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             Tracked by the Persona Stats agent. Stats appear in the HUD and are adjusted based on narrative events.
           </p>
         </div>
@@ -611,9 +627,9 @@ function PersonaStatsTab({
               <h3 className="text-sm font-semibold">Status Bars</h3>
               <button
                 onClick={addBar}
-                className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
               >
-                <Plus size={12} />
+                <Plus size="0.75rem" />
                 Add
               </button>
             </div>
@@ -642,7 +658,7 @@ function PersonaStatsTab({
                       min={0}
                       max={bar.max}
                     />
-                    <span className="text-[10px] text-[var(--muted-foreground)]">/</span>
+                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">/</span>
                     <input
                       type="number"
                       value={bar.max}
@@ -654,7 +670,7 @@ function PersonaStatsTab({
                       onClick={() => removeBar(i)}
                       className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
                     >
-                      <X size={12} />
+                      <X size="0.75rem" />
                     </button>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/30">
@@ -674,7 +690,7 @@ function PersonaStatsTab({
           {/* Info */}
           <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
             <h4 className="mb-1.5 text-xs font-semibold">How persona stats work</h4>
-            <ul className="space-y-1 text-[11px] text-[var(--muted-foreground)]">
+            <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               <li>
                 &bull; <strong className="text-[var(--foreground)]">Status bars</strong> — Represent your persona&apos;s
                 physical and mental state (hunger, energy, hygiene, etc.)
@@ -697,7 +713,7 @@ function PersonaStatsTab({
       <div className="border-t border-[var(--border)] pt-6">
         <SectionHeader
           title="RPG Attributes"
-          subtitle="Define your persona's RPG stats (STR, DEX, etc.), HP, and MP — just like character cards. Tracked by the Character Tracker agent."
+          subtitle="Define your persona's RPG stats (STR, DEX, etc.), HP, and MP — just like character cards. Tracked via Persona Stats in the game state."
         />
 
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
@@ -709,9 +725,8 @@ function PersonaStatsTab({
           />
           <div>
             <p className="text-sm font-medium">Enable RPG Attributes</p>
-            <p className="text-[11px] text-[var(--muted-foreground)]">
-              Attributes are injected into the prompt and tracked by the Character Tracker agent, just like character
-              stats.
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              Attributes are injected into the prompt and tracked via Persona Stats in the game state.
             </p>
           </div>
         </label>
@@ -783,9 +798,9 @@ function PersonaStatsTab({
                 <h3 className="text-sm font-semibold">Attributes</h3>
                 <button
                   onClick={addRpgAttribute}
-                  className="flex items-center gap-1 rounded-lg bg-purple-500/15 px-2.5 py-1 text-[11px] font-medium text-purple-400 transition-colors hover:bg-purple-500/25"
+                  className="flex items-center gap-1 rounded-lg bg-purple-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-purple-400 transition-colors hover:bg-purple-500/25"
                 >
-                  <Plus size={12} />
+                  <Plus size="0.75rem" />
                   Add
                 </button>
               </div>
@@ -808,7 +823,7 @@ function PersonaStatsTab({
                       onChange={(e) => updateRpgAttribute(i, "value", parseInt(e.target.value) || 0)}
                       className="w-16 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
                     />
-                    <span className="text-[10px] text-[var(--muted-foreground)]">/</span>
+                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">/</span>
                     <input
                       type="number"
                       value={attr.max}
@@ -825,7 +840,7 @@ function PersonaStatsTab({
                       onClick={() => removeRpgAttribute(i)}
                       className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
                     >
-                      <X size={12} />
+                      <X size="0.75rem" />
                     </button>
                   </div>
                 ))}
@@ -835,7 +850,7 @@ function PersonaStatsTab({
             {/* Info */}
             <div className="mt-4 rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
               <h4 className="mb-1.5 text-xs font-semibold">How RPG attributes work</h4>
-              <ul className="space-y-1 text-[11px] text-[var(--muted-foreground)]">
+              <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <li>
                   &bull; <strong className="text-[var(--foreground)]">HP &amp; MP</strong> — Injected into the prompt so
                   the AI knows your persona&apos;s current health and mana.
@@ -862,6 +877,186 @@ function PersonaStatsTab({
 // Sub-components
 // ──────────────────────────────────────────────
 
+// ── Description Tab with Alt Descriptions ──
+
+function DescriptionTab({
+  formData,
+  updateField,
+  setDirty: _setDirty,
+}: {
+  formData: PersonaFormData;
+  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+  setDirty: (v: boolean) => void;
+}) {
+  const altDescs = formData.altDescriptions;
+  const [expandedField, setExpandedField] = useState<"description" | string | null>(null);
+
+  const updateAltDescs = (next: AltDescriptionEntry[]) => {
+    updateField("altDescriptions", next);
+  };
+
+  const addAltDesc = () => {
+    updateAltDescs([...altDescs, { id: crypto.randomUUID(), label: "Extension", content: "", active: true }]);
+  };
+
+  const toggleAltDesc = (id: string) => {
+    updateAltDescs(altDescs.map((d) => (d.id === id ? { ...d, active: !d.active } : d)));
+  };
+
+  const updateAltDescField = (id: string, field: "label" | "content", value: string) => {
+    updateAltDescs(altDescs.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
+  };
+
+  const removeAltDesc = (id: string) => {
+    updateAltDescs(altDescs.filter((d) => d.id !== id));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Main description */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold">Description</h3>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+              Your general description. This is sent in every prompt so the AI knows who you are.
+            </p>
+          </div>
+          <button
+            onClick={() => setExpandedField("description")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
+        <textarea
+          value={formData.description}
+          onChange={(e) => updateField("description", e.target.value)}
+          placeholder="Describe who you are, your role in the story, and your key traits…"
+          rows={12}
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+        />
+        <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+          {formData.description.length} characters
+        </p>
+      </div>
+
+      {/* Alt Descriptions */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold">Description Extensions</h3>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+              Toggleable additions appended to your main description. Use these for situational details like combat
+              skills, relationships, or temporary states.
+            </p>
+          </div>
+          <button
+            onClick={addAltDesc}
+            className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
+          >
+            <Plus size="0.75rem" />
+            Add
+          </button>
+        </div>
+
+        {altDescs.length === 0 ? (
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)] italic">
+            No description extensions yet. Add one to toggle extra context on and off.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {altDescs.map((desc) => (
+              <div
+                key={desc.id}
+                className={cn(
+                  "rounded-xl border bg-[var(--card)] p-4 transition-all",
+                  desc.active
+                    ? "border-emerald-400/30 ring-1 ring-emerald-400/10"
+                    : "border-[var(--border)] opacity-60",
+                )}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  {/* Toggle */}
+                  <button
+                    onClick={() => toggleAltDesc(desc.id)}
+                    className={cn(
+                      "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
+                      desc.active ? "bg-emerald-500" : "bg-[var(--muted-foreground)]/30",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        desc.active && "translate-x-4",
+                      )}
+                    />
+                  </button>
+                  {/* Label */}
+                  <input
+                    value={desc.label}
+                    onChange={(e) => updateAltDescField(desc.id, "label", e.target.value)}
+                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2.5 py-1 text-xs font-medium outline-none focus:border-emerald-400/40"
+                    placeholder="Label (e.g. Combat Skills)"
+                  />
+                  {/* Remove */}
+                  <button
+                    onClick={() => removeAltDesc(desc.id)}
+                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
+                    title="Remove extension"
+                  >
+                    <X size="0.75rem" />
+                  </button>
+                  {/* Expand */}
+                  <button
+                    onClick={() => setExpandedField(desc.id)}
+                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                    title="Expand editor"
+                  >
+                    <Maximize2 size="0.75rem" />
+                  </button>
+                </div>
+                {/* Content */}
+                <textarea
+                  value={desc.content}
+                  onChange={(e) => updateAltDescField(desc.id, "content", e.target.value)}
+                  placeholder="Additional description content…"
+                  rows={4}
+                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+                />
+                <p className="mt-1 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+                  {desc.content.length} characters
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ExpandedTextarea
+        open={expandedField === "description"}
+        onClose={() => setExpandedField(null)}
+        title="Description"
+        value={formData.description}
+        onChange={(value) => updateField("description", value)}
+        placeholder="Describe who you are, your role in the story, and your key traits…"
+      />
+      {altDescs.map((desc) => (
+        <ExpandedTextarea
+          key={desc.id}
+          open={expandedField === desc.id}
+          onClose={() => setExpandedField(null)}
+          title={desc.label || "Description Extension"}
+          value={desc.content}
+          onChange={(value) => updateAltDescField(desc.id, "content", value)}
+          placeholder="Additional description content…"
+        />
+      ))}
+    </div>
+  );
+}
+
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="mb-4">
@@ -886,9 +1081,22 @@ function TextareaTab({
   placeholder: string;
   rows?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <div>
-      <SectionHeader title={title} subtitle={subtitle} />
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
+        </div>
+        <button
+          onClick={() => setExpanded(true)}
+          className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          title="Expand editor"
+        >
+          <Maximize2 size="0.875rem" />
+        </button>
+      </div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -896,7 +1104,15 @@ function TextareaTab({
         rows={rows}
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
-      <p className="mt-1.5 text-right text-[10px] text-[var(--muted-foreground)]">{value.length} characters</p>
+      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">{value.length} characters</p>
+      <ExpandedTextarea
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        title={title}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
     </div>
   );
 }

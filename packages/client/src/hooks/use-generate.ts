@@ -1,15 +1,23 @@
 // ──────────────────────────────────────────────
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+
+/** Show a persistent, copyable error toast and log to console */
+function showError(msg: string) {
+  console.error("[Generation]", msg);
+  toast.error(msg, { duration: 15000 });
+}
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useUIStore } from "../stores/ui.store";
 import { chatKeys } from "./use-chats";
+import { characterKeys } from "./use-characters";
+import { playNotificationPing } from "../lib/notification-sound";
 import type { Message } from "@marinara-engine/shared";
 
 /**
@@ -20,18 +28,25 @@ import type { Message } from "@marinara-engine/shared";
  */
 export function useGenerate() {
   const qc = useQueryClient();
-  const { setStreaming, setStreamBuffer, clearStreamBuffer, setRegenerateMessageId, setStreamingCharacterId } =
-    useChatStore();
-  const {
-    setProcessing,
-    addResult,
-    addThoughtBubble,
-    clearThoughtBubbles,
-    addEchoMessage,
-    clearEchoMessages,
-    setFailedAgentTypes,
-    clearFailedAgentTypes,
-  } = useAgentStore();
+  const generatingRef = useRef(false);
+  // Use individual selectors to avoid re-rendering on every store change
+  const setStreaming = useChatStore((s) => s.setStreaming);
+  const setStreamBuffer = useChatStore((s) => s.setStreamBuffer);
+  const clearStreamBuffer = useChatStore((s) => s.clearStreamBuffer);
+  const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
+  const setStreamingCharacterId = useChatStore((s) => s.setStreamingCharacterId);
+  const setTypingCharacterName = useChatStore((s) => s.setTypingCharacterName);
+  const setDelayedCharacterInfo = useChatStore((s) => s.setDelayedCharacterInfo);
+  const setProcessing = useAgentStore((s) => s.setProcessing);
+  const addResult = useAgentStore((s) => s.addResult);
+  const addThoughtBubble = useAgentStore((s) => s.addThoughtBubble);
+  const clearThoughtBubbles = useAgentStore((s) => s.clearThoughtBubbles);
+  const addEchoMessage = useAgentStore((s) => s.addEchoMessage);
+  const clearEchoMessages = useAgentStore((s) => s.clearEchoMessages);
+  const setFailedAgentTypes = useAgentStore((s) => s.setFailedAgentTypes);
+  const clearFailedAgentTypes = useAgentStore((s) => s.clearFailedAgentTypes);
+  const addDebugEntry = useAgentStore((s) => s.addDebugEntry);
+  const clearDebugLog = useAgentStore((s) => s.clearDebugLog);
   const setGameState = useGameStateStore((s) => s.setGameState);
 
   const generate = useCallback(
@@ -45,16 +60,33 @@ export function useGenerate() {
       impersonate?: boolean;
       attachments?: Array<{ type: string; data: string }>;
     }) => {
+      // Prevent concurrent generations — if one is already in progress for
+      // the SAME chat, skip. This stops race conditions where autonomous
+      // messaging + user input both fire generate at once.
+      if (generatingRef.current) {
+        console.warn("[Generate] Skipped — generation already in progress");
+        return false;
+      }
+      generatingRef.current = true;
+
+      // Abort any in-progress generation before starting a new one.
+      // This prevents corrupted state when the user sends in Chat B
+      // while Chat A is still streaming (singleton streaming state).
+      const prev = useChatStore.getState().abortController;
+      if (prev) prev.abort();
+
       // Create an AbortController so the stop button can cancel this generation
       const abortController = new AbortController();
       useChatStore.getState().setAbortController(abortController);
 
-      setStreaming(true);
+      setStreaming(true, params.chatId);
       clearStreamBuffer();
       clearThoughtBubbles();
       clearEchoMessages();
       clearFailedAgentTypes();
+      clearDebugLog();
       setRegenerateMessageId(params.regenerateMessageId ?? null);
+      console.warn("[Generate] Starting generation for chat:", params.chatId);
 
       // Optimistically show the user message in the chat immediately
       if (params.userMessage && !params.impersonate) {
@@ -81,20 +113,38 @@ export function useGenerate() {
       // Tokens arrive in bursts from the server. Instead of dumping them
       // immediately, we feed them character-by-character from a queue
       // at a controlled rate so the text "types out" smoothly.
-      // Uses requestAnimationFrame + adaptive rate for fluid animation.
-      const streamingEnabled = useUIStore.getState().enableStreaming;
+      // Speed is controlled by the user's streamingSpeed setting (1–100).
+      // Conversation mode: always disable streaming — messages appear complete.
+      const isConversationMode = useChatStore.getState().activeChat?.mode === "conversation";
+      const streamingEnabled = isConversationMode ? false : useUIStore.getState().enableStreaming;
+      const speed = useUIStore.getState().streamingSpeed; // 1 (very slow) – 100 (instant)
       let fullBuffer = ""; // What the user sees (or accumulates silently when streaming is off)
       let pendingText = ""; // Tokens waiting to be typed out
+      let receivedContent = false; // Whether any actual message content was received
       let typingActive = false;
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-      const MIN_CHARS = 1; // Minimum characters per frame
-      const MAX_CHARS = 8; // Maximum characters per frame
-      const RAMP_THRESHOLD = 120; // Start ramping up speed at this queue length
+      // Derive typewriter parameters from speed (1–100)
+      // speed 1  → 1 char every 80ms  (very slow, easy to read)
+      // speed 50 → ~2 chars every 16ms (moderate, default)
+      // speed 100 → flush instantly (no typewriter)
+      const charsPerTick = speed >= 100 ? Infinity : Math.max(1, Math.round(speed / 20));
+      // Delay between ticks in ms (0 = use rAF at ~60fps, >0 = use setTimeout)
+      const tickDelay = speed >= 80 ? 0 : Math.round(80 - speed);
+
+      // Adaptive catch-up: when the queue gets very long, temporarily increase
+      // chars-per-tick to prevent the typewriter lagging far behind real completion.
+      const CATCHUP_THRESHOLD = 300;
+      const CATCHUP_MULTIPLIER = 4;
 
       const flushTypewriterBuffer = () => {
         cancelAnimationFrame(rafId);
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
         fullBuffer += pendingText;
         pendingText = "";
         typingActive = false;
@@ -113,27 +163,45 @@ export function useGenerate() {
             }
             return;
           }
-          // Adaptive rate: speed up when the queue is long to prevent lag buildup
-          const queueLen = pendingText.length;
-          const charsThisFrame =
-            queueLen > RAMP_THRESHOLD
-              ? Math.min(MAX_CHARS, MIN_CHARS + Math.floor((queueLen - RAMP_THRESHOLD) / 10))
-              : MIN_CHARS;
-          const batch = pendingText.slice(0, charsThisFrame);
-          pendingText = pendingText.slice(charsThisFrame);
+          // Catch-up: if the pending queue is very long, increase speed to avoid
+          // the typewriter still running long after the model finished.
+          const effective = pendingText.length > CATCHUP_THRESHOLD ? charsPerTick * CATCHUP_MULTIPLIER : charsPerTick;
+          const n = Math.min(effective, pendingText.length);
+          const batch = pendingText.slice(0, n);
+          pendingText = pendingText.slice(n);
           fullBuffer += batch;
           setStreamBuffer(fullBuffer);
-          rafId = requestAnimationFrame(tick);
+          if (tickDelay > 0) {
+            timeoutId = setTimeout(tick, tickDelay);
+          } else {
+            rafId = requestAnimationFrame(tick);
+          }
         };
-        rafId = requestAnimationFrame(tick);
+        if (tickDelay > 0) {
+          timeoutId = setTimeout(tick, tickDelay);
+        } else {
+          rafId = requestAnimationFrame(tick);
+        }
       };
 
       try {
         const debugMode = useUIStore.getState().debugMode;
+        const userStatus = useUIStore.getState().userStatus;
 
-        for await (const event of api.streamEvents("/generate", { ...params, debugMode }, abortController.signal)) {
+        // Flush any pending game-state widget edits so the server sees them before committing
+        const flushPatch = useGameStateStore.getState().flushPatch;
+        if (flushPatch) await flushPatch();
+
+        for await (const event of api.streamEvents(
+          "/generate",
+          { ...params, debugMode, userStatus },
+          abortController.signal,
+        )) {
           switch (event.type) {
             case "token": {
+              receivedContent = true;
+              setTypingCharacterName(null); // Clear typing indicator once response starts
+              setDelayedCharacterInfo(null); // Clear delayed indicator too
               if (streamingEnabled) {
                 pendingText += event.data as string;
                 startTypewriter();
@@ -146,6 +214,50 @@ export function useGenerate() {
 
             case "agent_start": {
               setProcessing(true);
+              break;
+            }
+
+            case "agent_debug": {
+              const debug = event.data as {
+                phase: string;
+                agents?: Array<{ type: string; name: string; model: string; maxTokens: number }>;
+                batchMaxTokens?: number;
+                results?: Array<{
+                  agentType: string;
+                  success: boolean;
+                  error: string | null;
+                  durationMs: number;
+                  tokensUsed: number;
+                  resultType: string;
+                }>;
+              };
+              addDebugEntry({ timestamp: Date.now(), ...debug });
+
+              // Log to browser console (matches debug_prompt / debug_usage style)
+              if (debug.agents) {
+                const agentList = debug.agents.map((a) => `${a.name} (${a.model}, ${a.maxTokens}t)`).join(", ");
+                console.log(
+                  `%c[Debug] Agent ${debug.phase}: ${debug.agents.length} agent(s)` +
+                    (debug.batchMaxTokens ? ` · batch max ${debug.batchMaxTokens.toLocaleString()}t` : ""),
+                  "color: #f59e0b; font-weight: bold",
+                );
+                console.log(`  ${agentList}`);
+              }
+              if (debug.results) {
+                const ok = debug.results.filter((r) => r.success).length;
+                const fail = debug.results.length - ok;
+                console.groupCollapsed(
+                  `%c[Debug] Agent results: ${ok} succeeded, ${fail} failed`,
+                  fail > 0 ? "color: #f87171; font-weight: bold" : "color: #34d399; font-weight: bold",
+                );
+                for (const r of debug.results) {
+                  console.log(
+                    `  ${r.success ? "✓" : "✗"} ${r.agentType} — ${(r.durationMs / 1000).toFixed(1)}s, ${r.tokensUsed}t` +
+                      (r.error ? ` — ${r.error}` : ""),
+                  );
+                }
+                console.groupEnd();
+              }
               break;
             }
 
@@ -172,6 +284,19 @@ export function useGenerate() {
                 error: result.error,
               });
 
+              // Always log agent results to console for visibility (use warn so it shows even if Info is filtered)
+              if (result.success) {
+                console.warn(
+                  `[Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                  result.data,
+                );
+              } else {
+                console.warn(
+                  `[Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                  result.data,
+                );
+              }
+
               // Display as thought bubble for informational agents
               if (result.success && result.data) {
                 const bubble = formatAgentBubble(result.agentType, result.agentName, result.data);
@@ -189,11 +314,68 @@ export function useGenerate() {
                 }
               }
 
-              // Apply background change
+              // Apply background change — validate filename exists before applying
               if (result.success && result.resultType === "background_change" && result.data) {
-                const bg = result.data as { chosen?: string | null };
+                const bg = result.data as { chosen?: string | null; reason?: string };
                 if (bg.chosen) {
-                  useUIStore.getState().setChatBackground(`/api/backgrounds/file/${encodeURIComponent(bg.chosen)}`);
+                  // Validate background exists before setting it (prevents 404s from hallucinated filenames)
+                  fetch(`/api/backgrounds/file/${encodeURIComponent(bg.chosen)}`, { method: "HEAD" })
+                    .then((res) => {
+                      if (res.ok) {
+                        useUIStore
+                          .getState()
+                          .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(bg.chosen!)}`);
+                      } else {
+                        console.warn(`[Agent] Background "${bg.chosen}" does not exist — skipping`);
+                      }
+                    })
+                    .catch(() => {});
+                }
+              }
+
+              // Apply quest updates directly so the widget updates immediately
+              if (result.success && result.agentType === "quest" && result.data) {
+                const qd = result.data as Record<string, unknown>;
+                const updates = (qd.updates as any[]) ?? [];
+                console.warn(`[Agent] Quest data:`, qd);
+                console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
+                if (updates.length > 0) {
+                  const cur = useGameStateStore.getState().current;
+                  console.warn(`[Agent] Quest merge — current gameState:`, cur);
+                  const existing = cur?.playerStats ?? {
+                    stats: [],
+                    attributes: null,
+                    skills: {},
+                    inventory: [],
+                    activeQuests: [],
+                    status: "",
+                  };
+                  const quests: any[] = [...(existing.activeQuests ?? [])];
+                  for (const u of updates) {
+                    const idx = quests.findIndex((q: any) => q.name === u.questName);
+                    if (u.action === "create" && idx === -1) {
+                      quests.push({
+                        questEntryId: u.questName,
+                        name: u.questName,
+                        currentStage: 0,
+                        objectives: u.objectives ?? [],
+                        completed: false,
+                      });
+                    } else if (idx !== -1) {
+                      if (u.action === "update" && u.objectives) quests[idx].objectives = u.objectives;
+                      else if (u.action === "complete") {
+                        quests[idx].completed = true;
+                        if (u.objectives) quests[idx].objectives = u.objectives;
+                      } else if (u.action === "fail") quests.splice(idx, 1);
+                    }
+                  }
+                  const merged = cur
+                    ? { ...cur, playerStats: { ...existing, activeQuests: quests } }
+                    : { playerStats: { ...existing, activeQuests: quests } };
+                  console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
+                  setGameState(merged as any);
+                } else {
+                  console.warn(`[Agent] Quest agent returned success but 0 updates — data shape:`, Object.keys(qd));
                 }
               }
               break;
@@ -269,6 +451,14 @@ export function useGenerate() {
                 }
                 // Pick up the just-saved message from the previous character
                 await qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+                // Increment unread if user navigated away during group generation
+                const activeNow = useChatStore.getState().activeChatId;
+                if (activeNow !== params.chatId) {
+                  useChatStore.getState().incrementUnread(params.chatId);
+                  if (useUIStore.getState().convoNotificationSound) {
+                    playNotificationPing();
+                  }
+                }
                 // Reset the stream buffer for the new character
                 fullBuffer = "";
                 pendingText = "";
@@ -282,12 +472,23 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
+              console.warn(`[Generate] ${event.type} received:`, patch);
               const current = useGameStateStore.getState().current;
               if (current) {
                 const merged = { ...current, ...patch };
                 // Deep-merge playerStats so partial updates don't clobber sibling fields
                 if (patch.playerStats && typeof patch.playerStats === "object" && current.playerStats) {
-                  (merged as any).playerStats = { ...current.playerStats, ...(patch.playerStats as object) };
+                  const mergedPS = { ...current.playerStats, ...(patch.playerStats as object) };
+                  // Don't let an empty activeQuests overwrite existing quests
+                  const patchPS = patch.playerStats as Record<string, unknown>;
+                  if (
+                    Array.isArray(patchPS.activeQuests) &&
+                    patchPS.activeQuests.length === 0 &&
+                    current.playerStats.activeQuests?.length > 0
+                  ) {
+                    mergedPS.activeQuests = current.playerStats.activeQuests;
+                  }
+                  (merged as any).playerStats = mergedPS;
                 }
                 setGameState(merged as any);
               } else {
@@ -313,6 +514,10 @@ export function useGenerate() {
                   // Drain any pending typewriter first
                   if (pendingText.length > 0 || typingActive) {
                     cancelAnimationFrame(rafId);
+                    if (timeoutId !== undefined) {
+                      clearTimeout(timeoutId);
+                      timeoutId = undefined;
+                    }
                     pendingText = "";
                     typingActive = false;
                   }
@@ -323,15 +528,151 @@ export function useGenerate() {
               break;
             }
 
+            case "content_replace": {
+              // Server stripped character commands — replace the displayed content
+              const cleanContent = event.data as string;
+              if (streamingEnabled) {
+                cancelAnimationFrame(rafId);
+                if (timeoutId !== undefined) {
+                  clearTimeout(timeoutId);
+                  timeoutId = undefined;
+                }
+                pendingText = "";
+                typingActive = false;
+                setStreamBuffer(cleanContent);
+              }
+              fullBuffer = cleanContent;
+              break;
+            }
+
+            case "schedule_updated": {
+              const schedData = event.data as { characterId: string; status?: string; activity?: string };
+              const charName = schedData.activity || schedData.status || "schedule";
+              console.log(`[commands] Schedule updated for ${schedData.characterId}: ${charName}`);
+              break;
+            }
+
+            case "cross_post": {
+              const cpData = event.data as { targetChatId: string; targetChatName: string; characterId: string };
+              toast(`Message also sent to ${cpData.targetChatName}`, { icon: "↗️" });
+              // Invalidate the target chat's messages so they refresh
+              qc.invalidateQueries({ queryKey: ["chats", "messages", cpData.targetChatId] });
+              break;
+            }
+
+            case "selfie": {
+              setTypingCharacterName(null);
+              const selfieData = event.data as {
+                characterId: string;
+                characterName: string;
+                messageId: string;
+                imageUrl: string;
+              };
+              toast(`${selfieData.characterName} sent a selfie 📸`);
+              // Invalidate current chat messages to show the attachment
+              qc.invalidateQueries({ queryKey: ["chats", "messages", params.chatId] });
+              break;
+            }
+
+            case "selfie_error": {
+              setTypingCharacterName(null);
+              const errData = event.data as { characterId: string; error: string };
+              console.warn("[selfie] Generation failed:", errData.error);
+              toast.error(`Selfie generation failed: ${errData.error}`);
+              break;
+            }
+
+            case "scene_created": {
+              const sceneData = event.data as {
+                sceneChatId: string;
+                sceneChatName: string;
+                description: string;
+                background?: string | null;
+                initiatorCharId: string;
+                initiatorCharName: string;
+              };
+              toast(`${sceneData.initiatorCharName} started a scene: ${sceneData.sceneChatName}`, { icon: "🎬" });
+              // Invalidate chat list so the new scene chat appears
+              qc.invalidateQueries({ queryKey: ["chats"] });
+              // Apply background if the scene chose one
+              if (sceneData.background) {
+                useUIStore
+                  .getState()
+                  .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(sceneData.background)}`);
+              }
+              break;
+            }
+
+            case "assistant_action": {
+              const actionData = event.data as { action: string; [key: string]: unknown };
+              if (actionData.action === "persona_created") {
+                toast(`Created persona: ${actionData.name}`, { icon: "🎭" });
+                qc.invalidateQueries({ queryKey: ["personas"] });
+              } else if (actionData.action === "character_created") {
+                toast(`Created character: ${actionData.name}`, { icon: "✨" });
+                qc.invalidateQueries({ queryKey: characterKeys.list() });
+              } else if (actionData.action === "chat_created") {
+                toast(`Started ${actionData.mode} chat with ${actionData.characterName}`, { icon: "💬" });
+                qc.invalidateQueries({ queryKey: ["chats"] });
+              } else if (actionData.action === "navigate") {
+                const panel = actionData.panel as string;
+                const tab = actionData.tab as string | null;
+                useUIStore.getState().openRightPanel(panel as any);
+                if (panel === "settings" && tab) {
+                  useUIStore.getState().setSettingsTab(tab as any);
+                }
+              }
+              break;
+            }
+
             case "done": {
               setProcessing(false);
+              break;
+            }
+
+            case "typing": {
+              // Generation is about to start — show "X is typing..."
+              const typingNames = (event as any).characters as string[] | undefined;
+              const typingLabel = typingNames?.length === 1 ? typingNames[0] : (typingNames?.join(", ") ?? "Character");
+              setTypingCharacterName(typingLabel);
+              break;
+            }
+
+            case "delayed": {
+              // Character is busy (DND/idle) — show waiting indicator
+              const delayedNames = (event as any).characters as string[] | undefined;
+              const delayedLabel =
+                delayedNames?.length === 1 ? delayedNames[0] : (delayedNames?.join(", ") ?? "Character");
+              const delayedStatus = ((event as any).status as string) ?? "idle";
+              setDelayedCharacterInfo({ name: delayedLabel, status: delayedStatus });
+              // Refresh character data so sidebar status dots update immediately
+              qc.invalidateQueries({ queryKey: characterKeys.list() });
+              break;
+            }
+
+            case "offline": {
+              // Character is offline — message was saved but no generation
+              const names = (event as any).characters as string[] | undefined;
+              const label = names?.length === 1 ? names[0] : "Characters";
+              toast(`${label} is offline. They'll respond when they're back online.`, { icon: "💤" });
+              setProcessing(false);
+              break;
+            }
+
+            case "ooc_posted": {
+              // OOC messages were posted to the connected conversation — invalidate its messages
+              const oocData = event.data as { chatId: string; count: number };
+              if (oocData.chatId) {
+                qc.invalidateQueries({ queryKey: chatKeys.messages(oocData.chatId) });
+              }
               break;
             }
 
             case "error": {
               // Flush pending text so the user sees what arrived before the error
               flushTypewriterBuffer();
-              toast.error((event.data as string) || "Generation failed");
+              setProcessing(false);
+              showError((event.data as string) || "Generation failed");
               break;
             }
 
@@ -339,7 +680,7 @@ export function useGenerate() {
               const failedList = event.data as Array<{ agentType: string; error: string | null }>;
               const types = failedList.map((f) => f.agentType);
               setFailedAgentTypes(types);
-              toast.error(
+              showError(
                 `${types.length} agent${types.length > 1 ? "s" : ""} failed after retry. Use the retry button in the chat header to try again.`,
               );
               break;
@@ -363,27 +704,50 @@ export function useGenerate() {
       } catch (error) {
         // Flush everything instantly on error so user sees what arrived
         flushTypewriterBuffer();
-        // Abort is intentional — don't log or rethrow
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error("Generation error:", error);
-        throw error;
+        // Abort is intentional — don't log or toast
+        if (error instanceof DOMException && error.name === "AbortError") return receivedContent;
+        const msg = error instanceof Error ? error.message : "Generation failed";
+        showError(msg);
       } finally {
-        // Cancel any pending animation frame to prevent leaks
+        // Cancel any pending animation frame / timeout to prevent leaks
         cancelAnimationFrame(rafId);
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
         // Invalidate messages to pick up saved messages / new swipes from backend
         await qc.invalidateQueries({
           queryKey: chatKeys.messages(params.chatId),
         });
-        // Wait one frame so React renders the fetched messages before
-        // removing the streaming overlay — prevents a visible flash.
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
-        setStreaming(false);
-        setProcessing(false);
-        clearStreamBuffer();
-        setRegenerateMessageId(null);
-        setStreamingCharacterId(null);
-        useChatStore.getState().setAbortController(null);
+        // Re-sort sidebar so this chat floats to the top
+        qc.invalidateQueries({ queryKey: chatKeys.list() });
+        // If the user navigated away from this chat during generation,
+        // increment unread badge + play notification sound so they know.
+        // Only notify if actual content was produced (skip offline/error cases).
+        const currentActive = useChatStore.getState().activeChatId;
+        if (receivedContent && currentActive !== params.chatId) {
+          useChatStore.getState().incrementUnread(params.chatId);
+          if (useUIStore.getState().convoNotificationSound) {
+            playNotificationPing();
+          }
+        }
+        // Only clean up global streaming state if this generation still
+        // "owns" it. If another generation started (different chatId),
+        // that generation now owns the state — don't clobber it.
+        const stillOwner = useChatStore.getState().streamingChatId === params.chatId;
+        if (stillOwner) {
+          // Wait one frame so React renders the fetched messages before
+          // removing the streaming overlay — prevents a visible flash.
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
+          setStreaming(false);
+          setProcessing(false);
+          clearStreamBuffer();
+          setRegenerateMessageId(null);
+          setStreamingCharacterId(null);
+          setTypingCharacterName(null);
+          setDelayedCharacterInfo(null);
+          useChatStore.getState().setAbortController(null);
+        }
+        generatingRef.current = false;
       }
+      return receivedContent;
     },
     [
       qc,
@@ -392,6 +756,8 @@ export function useGenerate() {
       clearStreamBuffer,
       setRegenerateMessageId,
       setStreamingCharacterId,
+      setTypingCharacterName,
+      setDelayedCharacterInfo,
       setProcessing,
       addResult,
       addThoughtBubble,
@@ -400,18 +766,29 @@ export function useGenerate() {
       clearEchoMessages,
       clearFailedAgentTypes,
       setFailedAgentTypes,
+      addDebugEntry,
+      clearDebugLog,
       setGameState,
     ],
   );
 
   const retryAgents = useCallback(
     async (chatId: string, agentTypes: string[]) => {
+      const abortController = new AbortController();
+      useChatStore.getState().setAbortController(abortController);
       setProcessing(true);
       clearFailedAgentTypes();
+      clearThoughtBubbles();
+      clearEchoMessages();
+      clearDebugLog();
 
       try {
         let hasError = false;
-        for await (const event of api.streamEvents("/generate/retry-agents", { chatId, agentTypes })) {
+        for await (const event of api.streamEvents(
+          "/generate/retry-agents",
+          { chatId, agentTypes },
+          abortController.signal,
+        )) {
           switch (event.type) {
             case "agent_result": {
               const result = event.data as {
@@ -423,6 +800,20 @@ export function useGenerate() {
                 error: string | null;
                 durationMs: number;
               };
+
+              // Log agent results (same as main generate handler)
+              if (result.success) {
+                console.warn(
+                  `[Retry Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                  result.data,
+                );
+              } else {
+                console.warn(
+                  `[Retry Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                  result.data,
+                );
+              }
+
               addResult(result.agentType, {
                 agentId: result.agentType,
                 agentType: result.agentType,
@@ -444,12 +835,61 @@ export function useGenerate() {
                 if (result.resultType === "background_change") {
                   const bg = result.data as { chosen?: string | null };
                   if (bg.chosen) {
-                    useUIStore.getState().setChatBackground(`/api/backgrounds/file/${encodeURIComponent(bg.chosen)}`);
+                    fetch(`/api/backgrounds/file/${encodeURIComponent(bg.chosen)}`, { method: "HEAD" })
+                      .then((res) => {
+                        if (res.ok) {
+                          useUIStore
+                            .getState()
+                            .setChatBackground(`/api/backgrounds/file/${encodeURIComponent(bg.chosen!)}`);
+                        } else {
+                          console.warn(`[Agent] Background "${bg.chosen}" does not exist — skipping`);
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                }
+                // Apply quest updates directly so the widget updates immediately
+                if (result.agentType === "quest") {
+                  const qd = result.data as Record<string, unknown>;
+                  const updates = (qd.updates as any[]) ?? [];
+                  if (updates.length > 0) {
+                    const cur = useGameStateStore.getState().current;
+                    const existing = cur?.playerStats ?? {
+                      stats: [],
+                      attributes: null,
+                      skills: {},
+                      inventory: [],
+                      activeQuests: [],
+                      status: "",
+                    };
+                    const quests: any[] = [...(existing.activeQuests ?? [])];
+                    for (const u of updates) {
+                      const idx = quests.findIndex((q: any) => q.name === u.questName);
+                      if (u.action === "create" && idx === -1) {
+                        quests.push({
+                          questEntryId: u.questName,
+                          name: u.questName,
+                          currentStage: 0,
+                          objectives: u.objectives ?? [],
+                          completed: false,
+                        });
+                      } else if (idx !== -1) {
+                        if (u.action === "update" && u.objectives) quests[idx].objectives = u.objectives;
+                        else if (u.action === "complete") {
+                          quests[idx].completed = true;
+                          if (u.objectives) quests[idx].objectives = u.objectives;
+                        } else if (u.action === "fail") quests.splice(idx, 1);
+                      }
+                    }
+                    const merged = cur
+                      ? { ...cur, playerStats: { ...existing, activeQuests: quests } }
+                      : { playerStats: { ...existing, activeQuests: quests } };
+                    setGameState(merged as any);
                   }
                 }
               }
               if (!result.success && result.error) {
-                toast.error(`${result.agentName ?? result.agentType} failed: ${result.error}`);
+                showError(`${result.agentName ?? result.agentType} failed: ${result.error}`);
               }
               break;
             }
@@ -457,7 +897,7 @@ export function useGenerate() {
               const failedList = event.data as Array<{ agentType: string; error: string | null }>;
               const types = failedList.map((f) => f.agentType);
               setFailedAgentTypes(types);
-              toast.error(
+              showError(
                 `${types.length} agent${types.length > 1 ? "s" : ""} failed after retry. Use the retry button in the chat header to try again.`,
               );
               break;
@@ -465,11 +905,22 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
+              console.warn(`[Retry] ${event.type} received:`, patch);
               const current = useGameStateStore.getState().current;
               if (current) {
                 const merged = { ...current, ...patch };
                 if (patch.playerStats && typeof patch.playerStats === "object" && current.playerStats) {
-                  (merged as any).playerStats = { ...current.playerStats, ...(patch.playerStats as object) };
+                  const mergedPS = { ...current.playerStats, ...(patch.playerStats as object) };
+                  // Don't let an empty activeQuests overwrite existing quests
+                  const patchPS = patch.playerStats as Record<string, unknown>;
+                  if (
+                    Array.isArray(patchPS.activeQuests) &&
+                    patchPS.activeQuests.length === 0 &&
+                    current.playerStats.activeQuests?.length > 0
+                  ) {
+                    mergedPS.activeQuests = current.playerStats.activeQuests;
+                  }
+                  (merged as any).playerStats = mergedPS;
                 }
                 setGameState(merged as any);
               } else {
@@ -479,7 +930,7 @@ export function useGenerate() {
             }
             case "error": {
               hasError = true;
-              toast.error((event.data as string) || "Agent retry failed");
+              showError((event.data as string) || "Agent retry failed");
               break;
             }
             case "done": {
@@ -496,12 +947,24 @@ export function useGenerate() {
               ? `${error.message}: ${(error as { cause?: Error }).cause!.message}`
               : error.message
             : "Agent retry failed";
-        toast.error(msg);
+        showError(msg);
       } finally {
         setProcessing(false);
+        useChatStore.getState().setAbortController(null);
       }
     },
-    [addResult, addThoughtBubble, addEchoMessage, clearFailedAgentTypes, setProcessing, setGameState],
+    [
+      addResult,
+      addThoughtBubble,
+      addEchoMessage,
+      clearFailedAgentTypes,
+      clearDebugLog,
+      clearEchoMessages,
+      clearThoughtBubbles,
+      setFailedAgentTypes,
+      setProcessing,
+      setGameState,
+    ],
   );
 
   return { generate, retryAgents };
@@ -592,8 +1055,18 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
       if (action === "none") return null;
       const reason = (d.reason as string) ?? "";
       if (action === "play") {
-        const trackName = (d.trackName as string) ?? "Unknown track";
-        return `🎵 ${trackName}${reason ? ` — ${reason}` : ""}`;
+        // Support both array and singular formats
+        const trackNames: string[] = Array.isArray(d.trackNames)
+          ? (d.trackNames as string[])
+          : d.trackName
+            ? [d.trackName as string]
+            : [];
+        if (trackNames.length === 0) return reason ? `🎵 ${reason}` : null;
+        if (trackNames.length === 1) {
+          return `🎵 ${trackNames[0]}${reason ? ` — ${reason}` : ""}`;
+        }
+        const list = trackNames.map((t, i) => `${i + 1}. ${t}`).join("\n");
+        return `🎵 Queued ${trackNames.length} tracks${reason ? ` — ${reason}` : ""}\n${list}`;
       }
       if (action === "volume") {
         return `🔊 Volume → ${d.volume}%${reason ? ` (${reason})` : ""}`;

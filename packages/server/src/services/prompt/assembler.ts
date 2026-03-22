@@ -99,6 +99,10 @@ export interface AssemblerInput {
   enableAgents?: boolean;
   /** Per-chat list of active agent type IDs (empty = use global enabled state) */
   activeAgentIds?: string[];
+  /** Per-chat list of manually activated lorebook IDs from chat settings */
+  activeLorebookIds?: string[];
+  /** Pre-computed embedding of chat context for semantic lorebook matching. */
+  chatEmbedding?: number[] | null;
 }
 
 /** Output of the assembler. */
@@ -194,6 +198,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     wrapFormat,
     enableAgents: input.enableAgents ?? true,
     activeAgentIds: input.activeAgentIds ?? [],
+    activeLorebookIds: input.activeLorebookIds ?? [],
+    chatEmbedding: input.chatEmbedding ?? null,
   };
 
   // ── Phase 1: Resolve sections in preset order ──
@@ -285,11 +291,13 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // ── Phase 5: Inject depth-based sections ──
   if (depthSections.length > 0) {
     const depthEntries = depthSections.flatMap((s) =>
-      s.messages.map((m) => ({
-        content: m.content,
-        role: m.role as "system" | "user" | "assistant",
-        depth: s.depth,
-      })),
+      s.messages
+        .filter((m) => m.content?.trim()) // skip empty messages
+        .map((m) => ({
+          content: m.content,
+          role: m.role as "system" | "user" | "assistant",
+          depth: s.depth,
+        })),
     );
     finalMessages = injectAtDepth(finalMessages, depthEntries);
     lorebookDepthEntriesCount = depthEntries.length;
@@ -313,6 +321,9 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       .join("\n\n");
     finalMessages = [{ role: "user", content: combined }];
   }
+
+  // ── Final: Drop any messages with empty/whitespace-only content ──
+  finalMessages = finalMessages.filter((m) => m.content?.trim());
 
   return {
     messages: finalMessages,

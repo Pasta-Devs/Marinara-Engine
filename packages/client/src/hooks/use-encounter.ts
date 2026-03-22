@@ -11,8 +11,6 @@ import type {
   EncounterInitResponse,
   EncounterActionResponse,
   EncounterSummaryResponse,
-  CombatPlayerActions,
-  EncounterLogEntry,
   EncounterSettings,
 } from "@marinara-engine/shared";
 
@@ -53,10 +51,41 @@ export function useEncounter() {
     [activeChatId, store],
   );
 
+  /** Generate and inject combat summary into the chat. */
+  const generateSummary = useCallback(
+    async (result: "victory" | "defeat" | "fled" | "interrupted") => {
+      if (!activeChatId) return;
+      const { encounterLog, settings } = useEncounterStore.getState();
+
+      store.setSummaryStatus("generating");
+
+      try {
+        const _res = await api.post<EncounterSummaryResponse>("/encounter/summary", {
+          chatId: activeChatId,
+          connectionId: null,
+          encounterLog,
+          result,
+          settings,
+        });
+
+        store.setSummaryStatus("done");
+
+        // Invalidate chat messages so the new summary shows up
+        await qc.invalidateQueries({
+          queryKey: chatKeys.messages(activeChatId),
+        });
+      } catch {
+        store.setSummaryStatus("error");
+      }
+    },
+    [activeChatId, store, qc],
+  );
+
   /** Send a combat action. */
   const sendAction = useCallback(
     async (actionText: string) => {
       if (!activeChatId) return;
+      if (useEncounterStore.getState().isProcessing) return;
       const { party, enemies, environment, playerActions, encounterLog, settings } = useEncounterStore.getState();
 
       store.setProcessing(true);
@@ -125,37 +154,7 @@ export function useEncounter() {
         store.setProcessing(false);
       }
     },
-    [activeChatId, store],
-  );
-
-  /** Generate and inject combat summary into the chat. */
-  const generateSummary = useCallback(
-    async (result: "victory" | "defeat" | "fled" | "interrupted") => {
-      if (!activeChatId) return;
-      const { encounterLog, settings } = useEncounterStore.getState();
-
-      store.setSummaryStatus("generating");
-
-      try {
-        const res = await api.post<EncounterSummaryResponse>("/encounter/summary", {
-          chatId: activeChatId,
-          connectionId: null,
-          encounterLog,
-          result,
-          settings,
-        });
-
-        store.setSummaryStatus("done");
-
-        // Invalidate chat messages so the new summary shows up
-        await qc.invalidateQueries({
-          queryKey: chatKeys.messages(activeChatId),
-        });
-      } catch (err) {
-        store.setSummaryStatus("error");
-      }
-    },
-    [activeChatId, store, qc],
+    [activeChatId, store, generateSummary],
   );
 
   /** Manually conclude encounter early. */

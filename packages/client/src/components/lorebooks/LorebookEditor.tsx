@@ -13,6 +13,8 @@ import {
   useDeleteLorebookEntry,
   useDeleteLorebook,
 } from "../../hooks/use-lorebooks";
+import { useCharacters } from "../../hooks/use-characters";
+import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import {
   ArrowLeft,
@@ -28,16 +30,16 @@ import {
   ToggleRight,
   AlertTriangle,
   ChevronRight,
-  Copy,
   Globe,
   Users,
   UserRound,
-  ScrollText,
-  Download,
   Maximize2,
   X,
   ArrowUpDown,
   Hash,
+  Sparkles,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -55,7 +57,6 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
   { value: "world", label: "World", icon: Globe },
   { value: "character", label: "Character", icon: Users },
   { value: "npc", label: "NPC", icon: UserRound },
-  { value: "summary", label: "Summary", icon: ScrollText },
   { value: "uncategorized", label: "Uncategorized", icon: BookOpen },
 ];
 
@@ -78,6 +79,7 @@ export function LorebookEditor() {
   const closeDetail = useUIStore((s) => s.closeLorebookDetail);
   const { data: rawLorebook, isLoading } = useLorebook(lorebookId);
   const { data: rawEntries } = useLorebookEntries(lorebookId);
+  const { data: rawCharacters } = useCharacters();
   const updateLorebook = useUpdateLorebook();
   const deleteLorebook = useDeleteLorebook();
   const createEntry = useCreateLorebookEntry();
@@ -85,7 +87,8 @@ export function LorebookEditor() {
   const deleteEntry = useDeleteLorebookEntry();
 
   const lorebook = rawLorebook as Lorebook | undefined;
-  const entries = (rawEntries ?? []) as LorebookEntry[];
+  const entries = useMemo(() => (rawEntries ?? []) as LorebookEntry[], [rawEntries]);
+  const characters = (rawCharacters ?? []) as Array<{ id: string; name: string }>;
 
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -108,6 +111,7 @@ export function LorebookEditor() {
   const [formTokenBudget, setFormTokenBudget] = useState(2048);
   const [formRecursive, setFormRecursive] = useState(false);
   const [formMaxRecursionDepth, setFormMaxRecursionDepth] = useState(3);
+  const [formCharacterId, setFormCharacterId] = useState<string | null>(null);
 
   // ── Form state for entry editor ──
   const [entryForm, setEntryForm] = useState<Partial<LorebookEntry> | null>(null);
@@ -123,6 +127,7 @@ export function LorebookEditor() {
     setFormTokenBudget(lorebook.tokenBudget);
     setFormRecursive(lorebook.recursiveScanning);
     setFormMaxRecursionDepth(lorebook.maxRecursionDepth ?? 3);
+    setFormCharacterId(lorebook.characterId ?? null);
     setDirty(false);
   }, [lorebook]);
 
@@ -182,6 +187,7 @@ export function LorebookEditor() {
         tokenBudget: formTokenBudget,
         recursiveScanning: formRecursive,
         maxRecursionDepth: formMaxRecursionDepth,
+        characterId: formCharacterId,
       });
       setDirty(false);
     } finally {
@@ -197,6 +203,7 @@ export function LorebookEditor() {
     formTokenBudget,
     formRecursive,
     formMaxRecursionDepth,
+    formCharacterId,
     updateLorebook,
   ]);
 
@@ -290,13 +297,13 @@ export function LorebookEditor() {
             onClick={() => setEditingEntryId(null)}
             className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent)]"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size="1rem" />
           </button>
           <div className="min-w-0 flex-1">
             <input
               value={entryForm.name ?? ""}
               onChange={(e) => setEntryForm((f) => (f ? { ...f, name: e.target.value } : f))}
-              className="w-full bg-transparent text-base font-semibold focus:outline-none"
+              className="w-full rounded-lg bg-transparent px-1.5 text-base font-semibold outline-none transition-colors hover:bg-[var(--secondary)] focus:bg-[var(--secondary)] focus:ring-1 focus:ring-[var(--ring)]"
               placeholder="Entry name"
             />
           </div>
@@ -305,13 +312,27 @@ export function LorebookEditor() {
             disabled={saving}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
           >
-            <Save size={13} />
+            <Save size="0.8125rem" />
             {saving ? "Saving…" : "Save Entry"}
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="mx-auto max-w-3xl space-y-6">
+            {/* Name */}
+            <FieldGroup
+              label="Name"
+              icon={FileText}
+              help="A display name for this entry. This is only for your own organization — it's not sent to the AI."
+            >
+              <input
+                value={entryForm.name ?? ""}
+                onChange={(e) => setEntryForm((f) => (f ? { ...f, name: e.target.value } : f))}
+                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                placeholder="Entry name"
+              />
+            </FieldGroup>
+
             {/* Keys */}
             <FieldGroup
               label="Primary Keys"
@@ -335,13 +356,13 @@ export function LorebookEditor() {
                 onChange={(keys) => setEntryForm((f) => (f ? { ...f, secondaryKeys: keys } : f))}
               />
               <div className="mt-2 flex items-center gap-3">
-                <label className="text-[11px] text-[var(--muted-foreground)]">Logic:</label>
+                <label className="text-[0.6875rem] text-[var(--muted-foreground)]">Logic:</label>
                 {(["and", "or", "not"] as const).map((logic) => (
                   <button
                     key={logic}
                     onClick={() => setEntryForm((f) => (f ? { ...f, selectiveLogic: logic } : f))}
                     className={cn(
-                      "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
+                      "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
                       entryForm.selectiveLogic === logic
                         ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                         : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]",
@@ -366,9 +387,8 @@ export function LorebookEditor() {
                 placeholder="The content that will be injected into the prompt when this entry activates…"
                 title="Edit Content"
               />
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--muted-foreground)]">
-                <Hash size={9} />
-                ~{estimateTokens(entryForm.content ?? "").toLocaleString()} tokens
+              <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                <Hash size="0.5625rem" />~{estimateTokens(entryForm.content ?? "").toLocaleString()} tokens
               </p>
             </FieldGroup>
 
@@ -438,7 +458,7 @@ export function LorebookEditor() {
                   onChange={(v) => setEntryForm((f) => (f ? { ...f, order: v } : f))}
                 />
                 <div>
-                  <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">Role</label>
+                  <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Role</label>
                   <select
                     value={entryForm.role ?? "system"}
                     onChange={(e) =>
@@ -490,7 +510,7 @@ export function LorebookEditor() {
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">Group</label>
+                  <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Group</label>
                   <input
                     value={entryForm.group ?? ""}
                     onChange={(e) => setEntryForm((f) => (f ? { ...f, group: e.target.value } : f))}
@@ -499,7 +519,7 @@ export function LorebookEditor() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">Tag</label>
+                  <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Tag</label>
                   <input
                     value={entryForm.tag ?? ""}
                     onChange={(e) => setEntryForm((f) => (f ? { ...f, tag: e.target.value } : f))}
@@ -521,11 +541,11 @@ export function LorebookEditor() {
       {/* Unsaved warning banner */}
       {showUnsavedWarning && (
         <div className="flex items-center gap-3 bg-amber-500/10 px-4 py-2.5 text-xs">
-          <AlertTriangle size={14} className="text-amber-400" />
+          <AlertTriangle size="0.875rem" className="text-amber-400" />
           <span className="flex-1 text-amber-200">You have unsaved changes</span>
           <button
             onClick={() => setShowUnsavedWarning(false)}
-            className="rounded-lg px-3 py-1 text-[11px] font-medium text-amber-300 ring-1 ring-amber-400/30 transition-colors hover:bg-amber-400/10"
+            className="rounded-lg px-3 py-1 text-[0.6875rem] font-medium text-amber-300 ring-1 ring-amber-400/30 transition-colors hover:bg-amber-400/10"
           >
             Keep editing
           </button>
@@ -535,7 +555,7 @@ export function LorebookEditor() {
               setDirty(false);
               closeDetail();
             }}
-            className="rounded-lg px-3 py-1 text-[11px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+            className="rounded-lg px-3 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
           >
             Discard & close
           </button>
@@ -545,7 +565,7 @@ export function LorebookEditor() {
               setShowUnsavedWarning(false);
               closeDetail();
             }}
-            className="rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-medium text-white transition-colors hover:bg-amber-600"
+            className="rounded-lg bg-amber-500 px-3 py-1 text-[0.6875rem] font-medium text-white transition-colors hover:bg-amber-600"
           >
             Save & close
           </button>
@@ -555,14 +575,14 @@ export function LorebookEditor() {
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
         <button onClick={handleClose} className="rounded-lg p-1.5 transition-colors hover:bg-[var(--accent)]">
-          <ArrowLeft size={16} />
+          <ArrowLeft size="1rem" />
         </button>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
-          <BookOpen size={18} />
+          <BookOpen size="1.125rem" />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-base font-semibold">{lorebook.name}</h2>
-          <p className="truncate text-[11px] text-[var(--muted-foreground)]">
+          <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
             {entries.length} entries • {lorebook.category}
           </p>
         </div>
@@ -571,7 +591,7 @@ export function LorebookEditor() {
           disabled={!dirty || saving}
           className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
         >
-          <Save size={13} />
+          <Save size="0.8125rem" />
           {saving ? "Saving…" : "Save"}
         </button>
         <button
@@ -579,7 +599,7 @@ export function LorebookEditor() {
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export lorebook"
         >
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="0.875rem" height="0.875rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M10 13V3m0 0l-4 4m4-4l4 4"
               stroke="currentColor"
@@ -595,311 +615,357 @@ export function LorebookEditor() {
           className="rounded-lg p-2 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/15"
           title="Delete lorebook"
         >
-          <Trash2 size={14} />
+          <Trash2 size="0.875rem" />
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-[var(--border)]">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors",
-                activeTab === tab.id
-                  ? "border-amber-400 text-amber-400"
-                  : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-              )}
-            >
-              <Icon size={13} />
-              {tab.label}
-              {tab.id === "entries" && (
-                <span className="ml-1 rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[10px]">
-                  {entries.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Body: Side-tabs + Content */}
+      <div className="flex flex-1 overflow-hidden max-md:flex-col">
+        {/* Tab Rail */}
+        <nav className="flex w-44 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-[var(--border)] bg-[var(--card)] p-2 max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:p-1.5">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-all text-left max-md:whitespace-nowrap max-md:px-2.5 max-md:py-1.5",
+                  activeTab === tab.id
+                    ? "bg-gradient-to-r from-amber-400/15 to-orange-500/15 text-amber-400 ring-1 ring-amber-400/20"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                )}
+              >
+                <Icon size="0.875rem" />
+                {tab.label}
+                {tab.id === "entries" && (
+                  <span className="ml-auto rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] max-md:ml-1">
+                    {entries.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-3xl">
-          {activeTab === "overview" && (
-            <div className="space-y-6">
-              {/* Name */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium">Name</label>
-                <input
-                  value={formName}
-                  onChange={(e) => {
-                    setFormName(e.target.value);
-                    markDirty();
-                  }}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium">Description</label>
-                <textarea
-                  value={formDescription}
-                  onChange={(e) => {
-                    setFormDescription(e.target.value);
-                    markDirty();
-                  }}
-                  rows={3}
-                  className="w-full resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                />
-              </div>
-
-              {/* Category */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium">Category</label>
-                <div className="flex gap-2">
-                  {CATEGORY_OPTIONS.map((opt) => {
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => {
-                          setFormCategory(opt.value);
-                          markDirty();
-                        }}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all",
-                          formCategory === opt.value
-                            ? "bg-amber-400/15 text-amber-400 ring-1 ring-amber-400/30"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                        )}
-                      >
-                        <Icon size={13} />
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Enabled toggle */}
-              <div className="flex items-center justify-between rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)]">
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-6 max-md:p-4">
+          <div className="mx-auto max-w-3xl">
+            {activeTab === "overview" && (
+              <div className="space-y-6">
+                {/* Name */}
                 <div>
-                  <p className="text-xs font-medium">Enabled</p>
-                  <p className="text-[11px] text-[var(--muted-foreground)]">
-                    When off, entries in this lorebook won't activate
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setFormEnabled(!formEnabled);
-                    markDirty();
-                  }}
-                  className="transition-colors"
-                >
-                  {formEnabled ? (
-                    <ToggleRight size={28} className="text-amber-400" />
-                  ) : (
-                    <ToggleLeft size={28} className="text-[var(--muted-foreground)]" />
-                  )}
-                </button>
-              </div>
-
-              {/* Scan settings */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
-                    Scan Depth{" "}
-                    <HelpTooltip text="How many recent messages to scan for keyword matches. Higher = searches further back in chat history, but uses more processing." />
-                  </label>
+                  <label className="mb-1.5 block text-xs font-medium">Name</label>
                   <input
-                    type="number"
-                    value={formScanDepth}
+                    value={formName}
                     onChange={(e) => {
-                      setFormScanDepth(parseInt(e.target.value) || 0);
+                      setFormName(e.target.value);
                       markDirty();
                     }}
-                    min={0}
                     className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   />
                 </div>
+
+                {/* Description */}
                 <div>
-                  <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
-                    Token Budget{" "}
-                    <HelpTooltip text="Maximum number of tokens this lorebook can inject per generation. Prevents a lorebook from consuming too much of the context window." />
-                  </label>
-                  <input
-                    type="number"
-                    value={formTokenBudget}
+                  <label className="mb-1.5 block text-xs font-medium">Description</label>
+                  <textarea
+                    value={formDescription}
                     onChange={(e) => {
-                      setFormTokenBudget(parseInt(e.target.value) || 0);
+                      setFormDescription(e.target.value);
                       markDirty();
                     }}
-                    min={0}
-                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    rows={3}
+                    className="w-full resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   />
                 </div>
-                <div className="flex items-end gap-2">
-                  <div className="flex items-center justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
-                    <span className="mr-2 text-xs">Recursive</span>
-                    <button
-                      onClick={() => {
-                        setFormRecursive(!formRecursive);
+
+                {/* Category */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">Category</label>
+                  <div className="flex gap-2">
+                    {CATEGORY_OPTIONS.map((opt) => {
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setFormCategory(opt.value);
+                            markDirty();
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                            formCategory === opt.value
+                              ? "bg-amber-400/15 text-amber-400 ring-1 ring-amber-400/30"
+                              : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+                          )}
+                        >
+                          <Icon size="0.8125rem" />
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Character Link */}
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                    Linked Character{" "}
+                    <HelpTooltip text="When linked to a character, this lorebook will only activate in chats that include that character." />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={formCharacterId ?? ""}
+                      onChange={(e) => {
+                        setFormCharacterId(e.target.value || null);
                         markDirty();
                       }}
+                      className="flex-1 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                     >
-                      {formRecursive ? (
-                        <ToggleRight size={22} className="text-amber-400" />
-                      ) : (
-                        <ToggleLeft size={22} className="text-[var(--muted-foreground)]" />
-                      )}
-                    </button>
-                  </div>
-                  {formRecursive && (
-                    <div>
-                      <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
-                        Max Depth{" "}
-                        <HelpTooltip text="Maximum number of recursive passes. Each pass scans activated entry content for additional keyword matches. Higher values find more connections but use more processing." />
-                      </label>
-                      <input
-                        type="number"
-                        value={formMaxRecursionDepth}
-                        onChange={(e) => {
-                          setFormMaxRecursionDepth(Math.max(1, Math.min(10, parseInt(e.target.value) || 3)));
+                      <option value="">None (global)</option>
+                      {characters.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {formCharacterId && (
+                      <button
+                        onClick={() => {
+                          setFormCharacterId(null);
                           markDirty();
                         }}
-                        min={1}
-                        max={10}
-                        className="w-20 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                      />
-                    </div>
-                  )}
+                        className="rounded-xl bg-[var(--secondary)] p-2.5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)]"
+                        title="Unlink character"
+                      >
+                        <X size="0.875rem" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {activeTab === "entries" && (
-            <div className="space-y-3">
-              {/* Search + Sort + Add */}
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search
-                    size={13}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search entries…"
-                    value={entrySearch}
-                    onChange={(e) => setEntrySearch(e.target.value)}
-                    className="w-full rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-3 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  />
-                </div>
-                <div className="relative">
-                  <ArrowUpDown
-                    size={13}
-                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-                  />
-                  <select
-                    value={entrySort}
-                    onChange={(e) => setEntrySort(e.target.value as EntrySortKey)}
-                    className="h-full appearance-none rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-6 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  >
-                    {SORT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  onClick={handleAddEntry}
-                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
-                >
-                  <Plus size={13} />
-                  Add Entry
-                </button>
-              </div>
-
-              {/* Total tokens summary */}
-              {filteredEntries.length > 0 && (
-                <div className="flex items-center gap-3 text-[11px] text-[var(--muted-foreground)]">
-                  <span>{filteredEntries.length} entries</span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Hash size={10} />
-                    {filteredEntries.reduce((sum, e) => sum + estimateTokens(e.content), 0).toLocaleString()} tokens (est.)
-                  </span>
-                </div>
-              )}
-
-              {/* Entry list */}
-              {filteredEntries.length === 0 && (
-                <div className="flex flex-col items-center gap-2 py-8 text-center">
-                  <FileText size={24} className="text-[var(--muted-foreground)]" />
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {entrySearch ? "No entries match your search" : "No entries yet — add one to get started"}
-                  </p>
-                </div>
-              )}
-
-              {filteredEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  onClick={() => setEditingEntryId(entry.id)}
-                  className="group flex cursor-pointer items-center gap-3 rounded-xl bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)] transition-all hover:ring-amber-400/30"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("h-2 w-2 rounded-full", entry.enabled ? "bg-emerald-400" : "bg-zinc-500")} />
-                      <span className="truncate text-sm font-medium">{entry.name}</span>
-                      {entry.constant && (
-                        <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
-                          CONST
-                        </span>
-                      )}
-                      {entry.tag && (
-                        <span className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[9px] text-[var(--muted-foreground)]">
-                          {entry.tag}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
-                      <span className="flex items-center gap-1">
-                        <Key size={10} />
-                        {entry.keys.length > 0 ? entry.keys.slice(0, 3).join(", ") : "No keys"}
-                        {entry.keys.length > 3 && ` +${entry.keys.length - 3}`}
-                      </span>
-                      <span>•</span>
-                      <span>Order {entry.order}</span>
-                      <span>•</span>
-                      <span>Depth {entry.depth}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-0.5">
-                        <Hash size={9} />
-                        {estimateTokens(entry.content).toLocaleString()} tk
-                      </span>
-                    </div>
+                {/* Enabled toggle */}
+                <div className="flex items-center justify-between rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)]">
+                  <div>
+                    <p className="text-xs font-medium">Enabled</p>
+                    <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      When off, entries in this lorebook won't activate
+                    </p>
                   </div>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteEntry(entry.id);
+                    onClick={() => {
+                      setFormEnabled(!formEnabled);
+                      markDirty();
                     }}
-                    className="rounded-lg p-1.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100"
+                    className="transition-colors"
                   >
-                    <Trash2 size={12} className="text-[var(--destructive)]" />
+                    {formEnabled ? (
+                      <ToggleRight size="1.75rem" className="text-amber-400" />
+                    ) : (
+                      <ToggleLeft size="1.75rem" className="text-[var(--muted-foreground)]" />
+                    )}
                   </button>
-                  <ChevronRight size={14} className="text-[var(--muted-foreground)]" />
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Scan settings */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                      Scan Depth{" "}
+                      <HelpTooltip text="How many recent messages to scan for keyword matches. Higher = searches further back in chat history, but uses more processing." />
+                    </label>
+                    <input
+                      type="number"
+                      value={formScanDepth}
+                      onChange={(e) => {
+                        setFormScanDepth(parseInt(e.target.value) || 0);
+                        markDirty();
+                      }}
+                      min={0}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                      Token Budget{" "}
+                      <HelpTooltip text="Maximum number of tokens this lorebook can inject per generation. Prevents a lorebook from consuming too much of the context window." />
+                    </label>
+                    <input
+                      type="number"
+                      value={formTokenBudget}
+                      onChange={(e) => {
+                        setFormTokenBudget(parseInt(e.target.value) || 0);
+                        markDirty();
+                      }}
+                      min={0}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex items-center justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
+                      <span className="mr-2 text-xs">Recursive</span>
+                      <button
+                        onClick={() => {
+                          setFormRecursive(!formRecursive);
+                          markDirty();
+                        }}
+                      >
+                        {formRecursive ? (
+                          <ToggleRight size="1.375rem" className="text-amber-400" />
+                        ) : (
+                          <ToggleLeft size="1.375rem" className="text-[var(--muted-foreground)]" />
+                        )}
+                      </button>
+                    </div>
+                    {formRecursive && (
+                      <div>
+                        <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+                          Max Depth{" "}
+                          <HelpTooltip text="Maximum number of recursive passes. Each pass scans activated entry content for additional keyword matches. Higher values find more connections but use more processing." />
+                        </label>
+                        <input
+                          type="number"
+                          value={formMaxRecursionDepth}
+                          onChange={(e) => {
+                            setFormMaxRecursionDepth(Math.max(1, Math.min(10, parseInt(e.target.value) || 3)));
+                            markDirty();
+                          }}
+                          min={1}
+                          max={10}
+                          className="w-20 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vectorize (Embeddings) */}
+                <VectorizeSection lorebookId={lorebookId!} entryCount={entries.length} />
+              </div>
+            )}
+
+            {activeTab === "entries" && (
+              <div className="space-y-3">
+                {/* Search + Sort + Add */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search
+                      size="0.8125rem"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search entries…"
+                      value={entrySearch}
+                      onChange={(e) => setEntrySearch(e.target.value)}
+                      className="w-full rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-3 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                  </div>
+                  <div className="relative">
+                    <ArrowUpDown
+                      size="0.8125rem"
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                    />
+                    <select
+                      value={entrySort}
+                      onChange={(e) => setEntrySort(e.target.value as EntrySortKey)}
+                      className="h-full appearance-none rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-6 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    >
+                      {SORT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleAddEntry}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
+                  >
+                    <Plus size="0.8125rem" />
+                    Add Entry
+                  </button>
+                </div>
+
+                {/* Total tokens summary */}
+                {filteredEntries.length > 0 && (
+                  <div className="flex items-center gap-3 text-[0.6875rem] text-[var(--muted-foreground)]">
+                    <span>{filteredEntries.length} entries</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Hash size="0.625rem" />
+                      {filteredEntries.reduce((sum, e) => sum + estimateTokens(e.content), 0).toLocaleString()} tokens
+                      (est.)
+                    </span>
+                  </div>
+                )}
+
+                {/* Entry list */}
+                {filteredEntries.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center">
+                    <FileText size="1.5rem" className="text-[var(--muted-foreground)]" />
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {entrySearch ? "No entries match your search" : "No entries yet — add one to get started"}
+                    </p>
+                  </div>
+                )}
+
+                {filteredEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    onClick={() => setEditingEntryId(entry.id)}
+                    className="group flex cursor-pointer items-center gap-3 rounded-xl bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)] transition-all hover:ring-amber-400/30"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn("h-2 w-2 rounded-full", entry.enabled ? "bg-emerald-400" : "bg-zinc-500")}
+                        />
+                        <span className="truncate text-sm font-medium">{entry.name}</span>
+                        {entry.constant && (
+                          <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-amber-400">
+                            CONST
+                          </span>
+                        )}
+                        {entry.tag && (
+                          <span className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
+                            {entry.tag}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                        <span className="flex items-center gap-1">
+                          <Key size="0.625rem" />
+                          {entry.keys.length > 0 ? entry.keys.slice(0, 3).join(", ") : "No keys"}
+                          {entry.keys.length > 3 && ` +${entry.keys.length - 3}`}
+                        </span>
+                        <span>•</span>
+                        <span>Order {entry.order}</span>
+                        <span>•</span>
+                        <span>Depth {entry.depth}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <Hash size="0.5625rem" />
+                          {estimateTokens(entry.content).toLocaleString()} tk
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteEntry(entry.id);
+                      }}
+                      className="rounded-lg p-1.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100"
+                    >
+                      <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+                    </button>
+                    <ChevronRight size="0.875rem" className="text-[var(--muted-foreground)]" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -922,7 +988,7 @@ function FieldGroup({
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
-        <Icon size={13} className="text-amber-400" />
+        <Icon size="0.8125rem" className="text-amber-400" />
         {label}
         {help && <HelpTooltip text={help} />}
       </div>
@@ -948,7 +1014,7 @@ function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys: strin
         {keys.map((key, i) => (
           <span
             key={i}
-            className="flex items-center gap-1 rounded-lg bg-amber-400/15 px-2 py-1 text-[11px] text-amber-300"
+            className="flex items-center gap-1 rounded-lg bg-amber-400/15 px-2 py-1 text-[0.6875rem] text-amber-300"
           >
             {key}
             <button
@@ -970,7 +1036,7 @@ function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys: strin
         />
         <button
           onClick={addKey}
-          className="rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[11px] font-medium transition-colors hover:bg-[var(--accent)]/80"
+          className="rounded-lg bg-[var(--accent)] px-2 py-1.5 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)]/80"
         >
           Add
         </button>
@@ -1002,7 +1068,7 @@ function ToggleButton({
       )}
     >
       {label}
-      {value ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+      {value ? <ToggleRight size="1.125rem" /> : <ToggleLeft size="1.125rem" />}
     </button>
   );
 }
@@ -1022,7 +1088,7 @@ function NumberField({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">{label}</label>
+      <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">{label}</label>
       <input
         type="number"
         value={value}
@@ -1031,6 +1097,92 @@ function NumberField({
         max={max}
         className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
       />
+    </div>
+  );
+}
+
+/** Vectorize lorebook entries for semantic matching. */
+function VectorizeSection({ lorebookId, entryCount }: { lorebookId: string; entryCount: number }) {
+  const { data: rawConnections } = useConnections();
+  const connections = (rawConnections ?? []) as Array<{ id: string; name: string; embeddingModel?: string }>;
+  const embeddingConnections = connections.filter((c) => c.embeddingModel);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
+  const [vectorizing, setVectorizing] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Auto-select first embedding connection
+  useEffect(() => {
+    if (!selectedConnectionId && embeddingConnections.length > 0) {
+      setSelectedConnectionId(embeddingConnections[0].id);
+    }
+  }, [embeddingConnections, selectedConnectionId]);
+
+  const handleVectorize = async () => {
+    if (!selectedConnectionId) return;
+    setVectorizing(true);
+    setResult(null);
+    try {
+      const conn = embeddingConnections.find((c) => c.id === selectedConnectionId);
+      const res = await api.post(`/lorebooks/${lorebookId}/vectorize`, {
+        connectionId: selectedConnectionId,
+        model: conn?.embeddingModel ?? "",
+      });
+      const data = res as { vectorized: number };
+      setResult({ success: true, message: `Vectorized ${data.vectorized} entries` });
+    } catch (err) {
+      setResult({ success: false, message: err instanceof Error ? err.message : "Vectorization failed" });
+    } finally {
+      setVectorizing(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/30 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Sparkles size="0.875rem" className="text-violet-400" />
+        <h4 className="text-xs font-semibold">Semantic Search (Embeddings)</h4>
+        <HelpTooltip text="Vectorize entries to enable semantic matching. Entries will be found by meaning, not just keywords. Requires a connection with an Embedding Model configured." />
+      </div>
+      {embeddingConnections.length === 0 ? (
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+          No connections with an embedding model configured. Set an Embedding Model on a connection first.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedConnectionId}
+              onChange={(e) => setSelectedConnectionId(e.target.value)}
+              className="flex-1 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            >
+              {embeddingConnections.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.embeddingModel})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleVectorize}
+              disabled={vectorizing || entryCount === 0}
+              className="flex items-center gap-1.5 rounded-xl bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-400 ring-1 ring-violet-500/30 transition-all hover:bg-violet-500/25 active:scale-[0.98] disabled:opacity-50"
+            >
+              {vectorizing ? <Loader2 size="0.75rem" className="animate-spin" /> : <Sparkles size="0.75rem" />}
+              Vectorize {entryCount} entries
+            </button>
+          </div>
+          {result && (
+            <p
+              className={cn(
+                "text-[0.625rem] flex items-center gap-1",
+                result.success ? "text-emerald-400" : "text-red-400",
+              )}
+            >
+              {result.success ? <Check size="0.625rem" /> : <AlertTriangle size="0.625rem" />}
+              {result.message}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1066,7 +1218,7 @@ function ExpandableTextarea({
           className="absolute right-2 top-2 rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Expand editor"
         >
-          <Maximize2 size={13} />
+          <Maximize2 size="0.8125rem" />
         </button>
       </div>
 
@@ -1127,7 +1279,7 @@ function ExpandedContentModal({
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-semibold">{title}</h3>
           <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-            <X size={16} />
+            <X size="1rem" />
           </button>
         </div>
         <div className="flex-1 overflow-hidden p-4">
@@ -1140,7 +1292,7 @@ function ExpandedContentModal({
           />
         </div>
         <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-2.5">
-          <p className="text-[10px] text-[var(--muted-foreground)]">
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             Changes auto-save on close. Press Escape to close.
           </p>
           <button

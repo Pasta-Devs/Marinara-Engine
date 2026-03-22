@@ -139,18 +139,18 @@ export function ChoiceSelectionModal({
           <div key={v.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
             <h4 className="mb-1 text-xs font-semibold text-[var(--foreground)]">{v.question}</h4>
             <div className="mb-2 flex items-center gap-2">
-              <p className="text-[10px] text-[var(--muted-foreground)]">
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                 Variable: <code className="text-amber-400">{`{{${v.variableName}}}`}</code>
               </p>
               {v.multiSelect && (
-                <span className="flex items-center gap-0.5 rounded bg-purple-400/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-400">
+                <span className="flex items-center gap-0.5 rounded bg-purple-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-purple-400">
                   {v.randomPick ? (
                     <>
-                      <Shuffle size={9} /> Random pick
+                      <Shuffle size="0.5625rem" /> Random pick
                     </>
                   ) : (
                     <>
-                      <ListChecks size={9} /> Multi-select
+                      <ListChecks size="0.5625rem" /> Multi-select
                     </>
                   )}
                 </span>
@@ -174,16 +174,16 @@ export function ChoiceSelectionModal({
                         )}
                       >
                         {isSelected ? (
-                          <CheckSquare2 size={14} className="mt-0.5 shrink-0 text-purple-400" />
+                          <CheckSquare2 size="0.875rem" className="mt-0.5 shrink-0 text-purple-400" />
                         ) : (
-                          <Square size={14} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                          <Square size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
                         )}
                         <div className="min-w-0 flex-1">
                           <span className={cn("text-xs font-medium", isSelected && "text-purple-400")}>
                             {opt.label}
                           </span>
                           {opt.value && (
-                            <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--muted-foreground)]">
+                            <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
                               {opt.value.slice(0, 150)}
                               {opt.value.length > 150 ? "…" : ""}
                             </p>
@@ -205,16 +205,16 @@ export function ChoiceSelectionModal({
                         )}
                       >
                         {isSelected ? (
-                          <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-purple-400" />
+                          <CheckCircle2 size="0.875rem" className="mt-0.5 shrink-0 text-purple-400" />
                         ) : (
-                          <Circle size={14} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                          <Circle size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
                         )}
                         <div className="min-w-0 flex-1">
                           <span className={cn("text-xs font-medium", isSelected && "text-purple-400")}>
                             {opt.label}
                           </span>
                           {opt.value && (
-                            <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--muted-foreground)]">
+                            <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
                               {opt.value.slice(0, 150)}
                               {opt.value.length > 150 ? "…" : ""}
                             </p>
@@ -228,7 +228,7 @@ export function ChoiceSelectionModal({
         ))}
 
         <div className="flex items-center justify-between gap-2 pt-2">
-          <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
             <button
               type="button"
               role="switch"
@@ -240,7 +240,7 @@ export function ChoiceSelectionModal({
                 className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${saveAsDefault ? "translate-x-3.5" : "translate-x-0.5"}`}
               />
             </button>
-            <Save size={12} />
+            <Save size="0.75rem" />
             Save as default
           </label>
           <div className="flex gap-2">
@@ -255,7 +255,7 @@ export function ChoiceSelectionModal({
               disabled={!allSelected || updateMetadata.isPending}
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
             >
-              <Sparkles size={13} />
+              <Sparkles size="0.8125rem" />
               {updateMetadata.isPending ? "Saving…" : "Confirm Choices"}
             </button>
           </div>

@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────
 # Triggers:
 #   • Push to main            → ghcr.io/OWNER/marinara-engine:latest + :sha-abc1234
-#   • Tag v*                  → ghcr.io/OWNER/marinara-engine:1.3.4 + :latest
+#   • Tag v*                  → ghcr.io/OWNER/marinara-engine:1.4.0 + :latest
 #   • Manual workflow_dispatch → same as push-to-main
 # ──────────────────────────────────────────────
 name: Build & Push Docker Image

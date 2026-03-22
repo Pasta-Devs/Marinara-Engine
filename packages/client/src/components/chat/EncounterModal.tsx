@@ -18,19 +18,12 @@ import {
   Sparkles,
   FlaskConical,
   RefreshCw,
-  Heart,
   Zap,
 } from "lucide-react";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useEncounter } from "../../hooks/use-encounter";
 import { cn } from "../../lib/utils";
-import type {
-  CombatPartyMember,
-  CombatEnemy,
-  CombatAttack,
-  NarrativeStyle,
-  EncounterSettings,
-} from "@marinara-engine/shared";
+import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle } from "@marinara-engine/shared";
 
 // ──────────────────────────────────────────────
 // Sub-components
@@ -62,7 +55,7 @@ function HPBar({ current, max, isParty }: { current: number; max: number; isPart
         animate={{ width: `${pct}%` }}
         transition={{ duration: 0.5, ease: "easeOut" }}
       />
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-sm">
+      <span className="absolute inset-0 flex items-center justify-center text-[0.625rem] font-bold text-white drop-shadow-sm">
         {current}/{max}
       </span>
     </div>
@@ -77,7 +70,7 @@ function StatusBadges({ statuses }: { statuses: Array<{ name: string; emoji: str
         <span
           key={i}
           title={`${s.name} (${s.duration} turns)`}
-          className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px]"
+          className="rounded-md bg-white/10 px-1.5 py-0.5 text-[0.625rem]"
         >
           {s.emoji} {s.duration}
         </span>
@@ -86,7 +79,7 @@ function StatusBadges({ statuses }: { statuses: Array<{ name: string; emoji: str
   );
 }
 
-function EnemyCard({ enemy, index, isDead }: { enemy: CombatEnemy; index: number; isDead: boolean }) {
+function EnemyCard({ enemy, index: _index, isDead }: { enemy: CombatEnemy; index: number; isDead: boolean }) {
   return (
     <motion.div
       layout
@@ -105,10 +98,10 @@ function EnemyCard({ enemy, index, isDead }: { enemy: CombatEnemy; index: number
         <HPBar current={enemy.hp} max={enemy.maxHp} />
       </div>
       <StatusBadges statuses={enemy.statuses} />
-      {enemy.description && <p className="mt-1 text-[10px] leading-tight text-white/40">{enemy.description}</p>}
+      {enemy.description && <p className="mt-1 text-[0.625rem] leading-tight text-white/40">{enemy.description}</p>}
       {isDead && (
         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
-          <Skull size={20} className="text-red-400/60" />
+          <Skull size="1.25rem" className="text-red-400/60" />
         </div>
       )}
     </motion.div>
@@ -148,7 +141,7 @@ function PartyCard({ member }: { member: CombatPartyMember }) {
       </div>
       {isDead && (
         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
-          <Skull size={16} className="text-red-400/60" />
+          <Skull size="1rem" className="text-red-400/60" />
         </div>
       )}
     </motion.div>
@@ -177,14 +170,14 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
       onClick={onCancel}
     >
       <motion.div
-        className="w-80 rounded-2xl border border-white/10 bg-[#1a1a2e] p-5 shadow-2xl"
+        className="w-80 max-w-[90vw] rounded-2xl border border-white/10 bg-[#1a1a2e] p-5 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-white/90">
-          <Crosshair size={16} className="text-red-400" />
+          <Crosshair size="1rem" className="text-red-400" />
           Select Target
         </h3>
 
@@ -198,13 +191,13 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
               <span className="text-lg">💥</span>
               <div>
                 <div className="text-xs font-bold text-white/90">All Enemies</div>
-                <div className="text-[10px] text-white/40">Area of Effect</div>
+                <div className="text-[0.625rem] text-white/40">Area of Effect</div>
               </div>
             </button>
           )}
 
           {attackType === "both" && (
-            <div className="py-1 text-center text-[10px] font-bold uppercase tracking-wider text-white/20">or</div>
+            <div className="py-1 text-center text-[0.625rem] font-bold uppercase tracking-wider text-white/20">or</div>
           )}
 
           {/* Individual enemies */}
@@ -220,7 +213,7 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
                   <span className="text-lg">{enemy.sprite || "👹"}</span>
                   <div className="flex-1">
                     <div className="text-xs font-bold text-white/90">{enemy.name}</div>
-                    <div className="text-[10px] text-white/40">
+                    <div className="text-[0.625rem] text-white/40">
                       {enemy.hp}/{enemy.maxHp} HP
                     </div>
                   </div>
@@ -242,7 +235,7 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
                     <div className="text-xs font-bold text-white/90">
                       {member.name} {member.isPlayer && "(You)"}
                     </div>
-                    <div className="text-[10px] text-white/40">
+                    <div className="text-[0.625rem] text-white/40">
                       {member.hp}/{member.maxHp} HP
                     </div>
                   </div>
@@ -277,7 +270,7 @@ function NarrativeSelect({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-bold text-white/70">{label}</h4>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select
           value={value.tense}
           onChange={(e) => onChange({ ...value, tense: e.target.value as any })}
@@ -329,14 +322,14 @@ function EncounterConfig() {
       onClick={closeConfigModal}
     >
       <motion.div
-        className="w-[420px] rounded-2xl border border-white/10 bg-[#1a1a2e] p-6 shadow-2xl"
+        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-white/10 bg-[#1a1a2e] p-5 sm:p-6 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-5 flex items-center gap-2 text-base font-bold text-white/90">
-          <Swords size={18} className="text-red-400" />
+          <Swords size="1.125rem" className="text-red-400" />
           Configure Combat Narrative
         </h2>
 
@@ -365,7 +358,7 @@ function EncounterConfig() {
             onClick={() => initEncounter(settings)}
             className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 active:scale-95"
           >
-            <Swords size={14} className="mr-1.5 inline" />
+            <Swords size="0.875rem" className="mr-1.5 inline" />
             Begin Combat
           </button>
         </div>
@@ -456,7 +449,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
   if (!player || player.hp <= 0) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
-        <Skull size={24} className="mx-auto mb-2 text-red-400" />
+        <Skull size="1.5rem" className="mx-auto mb-2 text-red-400" />
         <p className="text-xs text-red-300">You have been defeated...</p>
       </div>
     );
@@ -494,14 +487,14 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
     <>
       <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 p-4">
         <h3 className="flex items-center gap-2 text-xs font-bold text-white/70">
-          <Zap size={14} className="text-yellow-400" />
+          <Zap size="0.875rem" className="text-yellow-400" />
           Your Actions
         </h3>
 
         {/* Attacks */}
         {attacks.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Attacks</div>
+            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">Attacks</div>
             <div className="flex flex-wrap gap-1.5">
               {attacks.map((atk, i) => (
                 <button
@@ -510,9 +503,9 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
                   onClick={() => handleAttack(atk)}
                   className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 transition-all hover:border-red-500/40 hover:bg-red-500/20 disabled:opacity-30"
                 >
-                  <Swords size={12} />
+                  <Swords size="0.75rem" />
                   {atk.name}
-                  <span className="text-[10px] opacity-60">{typeIcon(atk.type)}</span>
+                  <span className="text-[0.625rem] opacity-60">{typeIcon(atk.type)}</span>
                 </button>
               ))}
             </div>
@@ -522,7 +515,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
         {/* Items */}
         {items.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Items</div>
+            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">Items</div>
             <div className="flex flex-wrap gap-1.5">
               {items.map((item, i) => (
                 <button
@@ -531,7 +524,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
                   onClick={() => handleItem(item)}
                   className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/20 disabled:opacity-30"
                 >
-                  <FlaskConical size={12} />
+                  <FlaskConical size="0.75rem" />
                   {item}
                 </button>
               ))}
@@ -541,7 +534,9 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
 
         {/* Custom action */}
         <div>
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Custom Action</div>
+          <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">
+            Custom Action
+          </div>
           <div className="flex gap-2">
             <input
               value={customInput}
@@ -556,7 +551,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
               disabled={isProcessing || !customInput.trim()}
               className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-all hover:bg-blue-500 disabled:opacity-30"
             >
-              <Send size={14} />
+              <Send size="0.875rem" />
             </button>
           </div>
         </div>
@@ -603,12 +598,12 @@ function CombatEndScreen() {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
     >
-      <Icon size={64} className={cn(c.color, "mb-4")} />
+      <Icon size="4rem" className={cn(c.color, "mb-4")} />
       <h2 className={cn("mb-2 text-3xl font-black uppercase tracking-wider", c.color)}>{c.label}</h2>
 
       {summaryStatus === "generating" && (
         <div className="mt-4 flex items-center gap-2 text-sm text-white/50">
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2 size="1rem" className="animate-spin" />
           Generating combat summary...
         </div>
       )}
@@ -661,9 +656,9 @@ export function EncounterModal() {
 
   const handleAction = useCallback(
     (text: string) => {
-      // Add player action to local log display
+      // Append player action to local log display
       useEncounterStore.setState((s) => ({
-        pendingLogs: [{ message: `You: ${text}`, type: "player-action" }],
+        pendingLogs: [...s.pendingLogs, { message: `You: ${text}`, type: "player-action" }],
       }));
       sendAction(text);
     },
@@ -713,7 +708,7 @@ export function EncounterModal() {
           {/* Modal */}
           <motion.div
             className={cn(
-              "relative flex h-[85vh] w-[600px] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b shadow-2xl",
+              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b shadow-2xl",
               envGradient,
             )}
             initial={{ scale: 0.9, opacity: 0 }}
@@ -724,7 +719,7 @@ export function EncounterModal() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/5 bg-black/30 px-5 py-3">
               <h2 className="flex items-center gap-2 text-sm font-bold text-white/90">
-                <Swords size={16} className="text-red-400" />
+                <Swords size="1rem" className="text-red-400" />
                 Combat Encounter
               </h2>
               <div className="flex items-center gap-2">
@@ -733,9 +728,9 @@ export function EncounterModal() {
                     onClick={() => {
                       if (confirm("Conclude this encounter early?")) concludeEncounter();
                     }}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 transition-all hover:bg-white/10"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[0.6875rem] text-white/50 transition-all hover:bg-white/10"
                   >
-                    <Flag size={12} />
+                    <Flag size="0.75rem" />
                     Conclude
                   </button>
                 )}
@@ -745,7 +740,7 @@ export function EncounterModal() {
                   }}
                   className="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white/80"
                 >
-                  <X size={16} />
+                  <X size="1rem" />
                 </button>
               </div>
             </div>
@@ -755,7 +750,7 @@ export function EncounterModal() {
               {/* Loading state */}
               {isLoading && !initialized && (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <Loader2 size={32} className="animate-spin text-red-400" />
+                  <Loader2 size="2rem" className="animate-spin text-red-400" />
                   <p className="text-sm text-white/50">Initializing combat encounter...</p>
                 </div>
               )}
@@ -763,14 +758,14 @@ export function EncounterModal() {
               {/* Error state */}
               {error && !initialized && (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <AlertTriangle size={32} className="text-red-400" />
+                  <AlertTriangle size="2rem" className="text-red-400" />
                   <p className="max-w-sm text-center text-sm text-red-300">{error}</p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => initEncounter(settings)}
                       className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-white"
                     >
-                      <RefreshCw size={12} />
+                      <RefreshCw size="0.75rem" />
                       Retry
                     </button>
                     <button
@@ -797,7 +792,7 @@ export function EncounterModal() {
                   {/* Enemies */}
                   <div>
                     <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-red-400">
-                      <Skull size={14} />
+                      <Skull size="0.875rem" />
                       Enemies
                     </h3>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -810,7 +805,7 @@ export function EncounterModal() {
                   {/* Party */}
                   <div>
                     <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-400">
-                      <Shield size={14} />
+                      <Shield size="0.875rem" />
                       Party
                     </h3>
                     <div className="space-y-2">
@@ -823,7 +818,7 @@ export function EncounterModal() {
                   {/* Combat Log */}
                   <div>
                     <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-white/50">
-                      <Sparkles size={14} />
+                      <Sparkles size="0.875rem" />
                       Combat Log
                     </h3>
                     <CombatLog />
@@ -832,7 +827,7 @@ export function EncounterModal() {
                   {/* Processing indicator */}
                   {isProcessing && (
                     <div className="flex items-center justify-center gap-2 py-2 text-xs text-white/40">
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size="0.875rem" className="animate-spin" />
                       Processing action...
                     </div>
                   )}

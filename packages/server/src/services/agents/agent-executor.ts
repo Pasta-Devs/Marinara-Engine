@@ -42,17 +42,12 @@ export async function executeAgent(
       return makeError(config, "No prompt template configured", startTime);
     }
 
-    // Build context block for the agent
-    const contextBlock = buildContextBlock(context, config.type);
-
-    const messages: ChatMessage[] = [
-      { role: "system", content: template },
-      { role: "user", content: contextBlock },
-    ];
+    // Build multi-turn message array for this agent
+    const messages = buildAgentMessages(template, context, config.type);
 
     // Agents use lower temperature for reliability
     const temperature = (config.settings.temperature as number) ?? 0.3;
-    const maxTokens = (config.settings.maxTokens as number) ?? 2048;
+    const maxTokens = Math.max((config.settings.maxTokens as number) ?? 4096, 16384);
 
     // If tools are available, use the tool call loop
     if (toolContext && toolContext.tools.length > 0) {
@@ -69,15 +64,20 @@ export async function executeAgent(
       );
     }
 
-    // Call LLM (non-streaming, no tools)
+    // Call LLM (streaming to avoid proxy timeouts, no tools)
+    let responseText = "";
     const result = await provider.chatComplete(messages, {
       model,
       temperature,
       maxTokens,
+      onToken: (chunk) => {
+        responseText += chunk;
+      },
       signal: context.signal,
     });
 
-    const responseText = result.content?.trim() ?? "";
+    if (!responseText && result.content) responseText = result.content;
+    responseText = responseText.trim();
     const durationMs = Date.now() - startTime;
 
     // Parse the result based on agent type
@@ -199,42 +199,78 @@ export async function executeAgentBatch(
 ): Promise<AgentResult[]> {
   if (configs.length === 0) return [];
   if (configs.length === 1) {
+    console.log(`[agent-batch] Only 1 agent (${configs[0]!.type}), running individually`);
     return [await executeAgent(configs[0]!, context, provider, model)];
   }
+
+  console.log(`[agent-batch] Batching ${configs.length} agents: [${configs.map((c) => c.type).join(", ")}]`);
 
   const startTime = Date.now();
 
   try {
     // Build merged system prompt
     const systemPrompt = buildBatchSystemPrompt(configs);
-    const contextBlock = buildContextBlock(context, "__batch__");
+    const messages = buildAgentMessages(systemPrompt, context, "__batch__");
 
-    const messages: ChatMessage[] = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: contextBlock },
-    ];
-
-    // Use conservative settings for batch calls
-    const maxTokensPerAgent = Math.max(...configs.map((c) => (c.settings.maxTokens as number) ?? 2048));
+    // Each agent needs enough room for its full JSON output.
+    // Use a generous floor (16384) so the model never runs out mid-response.
+    const maxTokensPerAgent = Math.max(...configs.map((c) => (c.settings.maxTokens as number) ?? 4096));
     const temperature = Math.min(...configs.map((c) => (c.settings.temperature as number) ?? 0.3));
+    const batchMaxTokens = Math.max(maxTokensPerAgent * configs.length, 16384);
+    console.log(
+      `[agent-batch] maxTokens: ${batchMaxTokens} (${maxTokensPerAgent} × ${configs.length} agents, floor 16384)`,
+    );
 
+    // Use streaming (onToken) to keep the connection alive — avoids proxy
+    // timeouts (e.g. Cloudflare 524) on large batch responses.
+    let responseText = "";
     const result = await provider.chatComplete(messages, {
       model,
       temperature,
-      maxTokens: Math.min(maxTokensPerAgent * configs.length, 16384),
+      maxTokens: batchMaxTokens,
+      onToken: (chunk) => {
+        responseText += chunk;
+      },
       signal: context.signal,
     });
 
-    const responseText = result.content?.trim() ?? "";
+    // chatComplete also accumulates content, but streaming via onToken is
+    // the primary path — use whichever is populated.
+    if (!responseText && result.content) responseText = result.content;
+    responseText = responseText.trim();
     const durationMs = Date.now() - startTime;
     const totalTokens = result.usage?.totalTokens ?? 0;
+
+    console.log(`[agent-batch] Got response (${responseText.length} chars, ${durationMs}ms, ${totalTokens} tokens)`);
+    console.log(`[agent-batch] Response preview: ${responseText.slice(0, 500)}`);
 
     // Parse the batched response into individual results
     const { parsed, failed } = parseBatchResponse(configs, responseText, durationMs, totalTokens);
 
+    console.log(
+      `[agent-batch] Batch parse: ${parsed.length} parsed, ${failed.length} failed`,
+      failed.length > 0 ? `Failed: [${failed.map((f) => f.type).join(", ")}]` : "",
+    );
+
     // Retry failed agents individually (batch fallback)
     if (failed.length > 0) {
-      const retries = await Promise.all(failed.map((config) => executeAgent(config, context, provider, model)));
+      console.log(`[agent-batch] Retrying ${failed.length} failed agents individually...`);
+      const retrySettled = await Promise.allSettled(
+        failed.map((config) => executeAgent(config, context, provider, model)),
+      );
+      const retries: AgentResult[] = [];
+      for (let i = 0; i < retrySettled.length; i++) {
+        const entry = retrySettled[i]!;
+        if (entry.status === "fulfilled") {
+          retries.push(entry.value);
+        } else {
+          // Individual retry also failed — produce error result
+          console.error(`[agent-batch] Individual retry FAILED for ${failed[i]!.type}:`, entry.reason);
+          retries.push(
+            makeError(failed[i]!, entry.reason instanceof Error ? entry.reason.message : "Retry failed", startTime),
+          );
+        }
+      }
       return [...parsed, ...retries];
     }
 
@@ -242,6 +278,7 @@ export async function executeAgentBatch(
   } catch (err) {
     // On failure, return errors for all agents in the batch
     const errMsg = err instanceof Error ? err.message : "Batch execution failed";
+    console.error(`[agent-batch] Batch call FAILED: ${errMsg}`);
     return configs.map((c) => makeError(c, errMsg, startTime));
   }
 }
@@ -254,12 +291,10 @@ function buildBatchSystemPrompt(configs: AgentExecConfig[]): string {
   const parts: string[] = [];
 
   parts.push(
-    `You are a multi-agent analysis system. You will execute ${configs.length} agent tasks in a SINGLE response.`,
+    `You are a multi-purpose analysis agent that combines the roles of ${configs.length} specialized agents into a SINGLE response.`,
+    `You MUST perform ALL of the following tasks and output results in the exact XML format shown below.`,
     ``,
-    `For EACH agent below, produce your output inside the corresponding XML result tags.`,
-    `You MUST output a <result> block for every agent — do not skip any.`,
-    ``,
-    `─── AGENTS ───`,
+    `─── YOUR TASKS ───`,
   );
 
   for (const config of configs) {
@@ -267,24 +302,31 @@ function buildBatchSystemPrompt(configs: AgentExecConfig[]): string {
     parts.push(``, `<agent_task id="${config.type}" name="${config.name}">`, template, `</agent_task>`);
   }
 
-  parts.push(``, `─── OUTPUT FORMAT ───`, `Respond with one <result> block per agent, in order:`, ``);
+  parts.push(
+    ``,
+    `─── REQUIRED OUTPUT FORMAT ───`,
+    `You MUST wrap each task's output in a <result> tag with the agent ID. Output ALL ${configs.length} result blocks:`,
+    ``,
+  );
 
   for (const config of configs) {
     const isJson = JSON_AGENTS.has(config.type);
     parts.push(
       `<result agent="${config.type}">`,
-      isJson ? `{...your JSON output...}` : `...your text output...`,
+      isJson ? `{ ... valid JSON ... }` : `... your text output ...`,
       `</result>`,
       ``,
     );
   }
 
   parts.push(
-    `IMPORTANT:`,
-    `- Output ALL <result> blocks, one per agent.`,
-    `- Use the exact agent IDs shown above.`,
-    `- JSON agents must output valid JSON (no markdown fences inside the tags).`,
+    `CRITICAL RULES:`,
+    `- You MUST output ALL ${configs.length} <result> blocks. Missing any is a failure. Count them before finishing.`,
+    `- Use the exact agent IDs: ${configs.map((c) => c.type).join(", ")}.`,
+    `- JSON agents MUST output valid JSON (no markdown fences inside the tags).`,
     `- Text agents output plain text.`,
+    `- Do not add any text outside the <result> blocks.`,
+    `- CHECKLIST — verify you included ALL of these before stopping: ${configs.map((c) => `<result agent="${c.type}">`).join(" , ")}`,
   );
 
   return parts.join("\n");
@@ -306,13 +348,38 @@ function parseBatchResponse(
   const failed: AgentExecConfig[] = [];
 
   for (const config of configs) {
-    // Try to extract <result agent="type">...</result>
-    const pattern = new RegExp(`<result\\s+agent=["']${escapeRegex(config.type)}["']>([\\s\\S]*?)</result>`, "i");
-    const match = responseText.match(pattern);
+    const escaped = escapeRegex(config.type);
+    // Try several patterns the model might use:
+    // 1. <result agent="type">...</result>
+    // 2. <result agent='type'>...</result>
+    // 3. <result agent=type>...</result>  (unquoted)
+    // 4. <result_type>...</result_type>   (underscore variant)
+    // 5. <type>...</type>                 (bare agent ID as tag)
+    //
+    // We use GREEDY match ([\s\S]*) with a lookahead for the closing tag
+    // or the next <result to avoid stopping at a </result> inside JSON strings.
+    const patterns = [
+      new RegExp(
+        `<result\\s+agent\\s*=\\s*["']${escaped}["']\\s*>([\\s\\S]*?)</result\\s*>(?=\\s*(?:<result\\b|$))`,
+        "i",
+      ),
+      new RegExp(`<result\\s+agent\\s*=\\s*["']${escaped}["']\\s*>([\\s\\S]*?)</result>`, "i"),
+      new RegExp(`<result\\s+agent\\s*=\\s*${escaped}\\s*>([\\s\\S]*?)</result>`, "i"),
+      new RegExp(`<result_${escaped}>([\\s\\S]*?)</result_${escaped}>`, "i"),
+      new RegExp(`<${escaped}>([\\s\\S]*?)</${escaped}>`, "i"),
+    ];
 
-    if (match) {
-      const agentOutput = match[1]!.trim();
-      const parsedResult = parseAgentResponse(config.type, agentOutput);
+    let matchedOutput: string | null = null;
+    for (const pattern of patterns) {
+      const match = responseText.match(pattern);
+      if (match) {
+        matchedOutput = match[1]!.trim();
+        break;
+      }
+    }
+
+    if (matchedOutput !== null) {
+      const parsedResult = parseAgentResponse(config.type, matchedOutput);
       parsed.push({
         agentId: config.id,
         agentType: config.type,
@@ -362,152 +429,193 @@ export function extractErrorMessage(err: unknown, fallback = "Agent execution fa
 }
 
 /**
- * Build a context block that gets sent as the user message to the agent.
- * Provides structured context about the current chat state.
+ * Build the full multi-turn message array for an agent call.
+ *
+ * Layout:
+ *   1. System   — the agent's own prompt template (or merged batch prompt)
+ *   2. User     — structured context (characters, persona, game state, memory, …)
+ *   3. User/Assistant turns — recent chat history as proper multi-turn messages,
+ *      with committed tracker data appended to assistant messages
+ *   4. User     — final instruction (assistant response for post-processing, agent results, etc.)
  */
-function buildContextBlock(context: AgentContext, agentType: string): string {
-  const parts: string[] = [];
+function buildAgentMessages(systemPrompt: string, context: AgentContext, agentType: string): ChatMessage[] {
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
 
-  // Chat info
-  parts.push(`<chat_info>`);
-  parts.push(`Chat ID: ${context.chatId}`);
-  parts.push(`Mode: ${context.chatMode}`);
-  parts.push(`</chat_info>`);
+  // ── 1. Structured context (user message) ──
+  const ctxParts: string[] = [];
 
-  // Characters
+  ctxParts.push(`<chat_info>`);
+  ctxParts.push(`Chat ID: ${context.chatId}`);
+  ctxParts.push(`Mode: ${context.chatMode}`);
+  ctxParts.push(`</chat_info>`);
+
   if (context.characters.length > 0) {
-    parts.push(`\n<characters>`);
+    ctxParts.push(`\n<characters>`);
     for (const char of context.characters) {
-      parts.push(`- ${char.name}: ${char.description.slice(0, 2000)}`);
+      ctxParts.push(`- ${char.name}: ${char.description.slice(0, 2000)}`);
     }
-    parts.push(`</characters>`);
+    ctxParts.push(`</characters>`);
   }
 
-  // Persona
   if (context.persona) {
-    parts.push(`\n<user_persona>`);
-    parts.push(`Name: ${context.persona.name}`);
-    if (context.persona.description) parts.push(context.persona.description.slice(0, 2000));
+    ctxParts.push(`\n<user_persona>`);
+    ctxParts.push(`Name: ${context.persona.name}`);
+    if (context.persona.description) ctxParts.push(context.persona.description.slice(0, 2000));
     if (context.persona.personaStats?.enabled && context.persona.personaStats.bars.length > 0) {
-      parts.push(`\nConfigured persona stat bars:`);
+      ctxParts.push(`\nConfigured persona stat bars:`);
       for (const bar of context.persona.personaStats.bars) {
-        parts.push(`- ${bar.name}: ${bar.value}/${bar.max} (color: ${bar.color})`);
+        ctxParts.push(`- ${bar.name}: ${bar.value}/${bar.max} (color: ${bar.color})`);
       }
     }
-    parts.push(`</user_persona>`);
+    ctxParts.push(`</user_persona>`);
   }
 
-  // Game state
   if (context.gameState) {
-    parts.push(`\n<current_game_state>`);
-    parts.push(JSON.stringify(context.gameState, null, 2));
-    parts.push(`</current_game_state>`);
+    ctxParts.push(`\n<current_game_state>`);
+    ctxParts.push(JSON.stringify(context.gameState, null, 2));
+    ctxParts.push(`</current_game_state>`);
   }
 
-  // Recent messages (last N for context)
-  if (context.recentMessages.length > 0) {
-    parts.push(`\n<recent_messages>`);
-    for (const msg of context.recentMessages) {
-      const speaker = msg.characterId ?? msg.role;
-      parts.push(`[${speaker}]: ${msg.content.slice(0, 2000)}`);
-    }
-    parts.push(`</recent_messages>`);
-  }
-
-  // Main response (for post-processing agents)
-  if (context.mainResponse) {
-    parts.push(`\n<assistant_response>`);
-    parts.push(context.mainResponse);
-    parts.push(`</assistant_response>`);
-  }
-
-  // Agent persistent memory
   if (Object.keys(context.memory).length > 0) {
-    parts.push(`\n<agent_memory>`);
-    parts.push(JSON.stringify(context.memory, null, 2));
-    parts.push(`</agent_memory>`);
+    ctxParts.push(`\n<agent_memory>`);
+    ctxParts.push(JSON.stringify(context.memory, null, 2));
+    ctxParts.push(`</agent_memory>`);
   }
 
-  // Activated lorebook entries
   if (context.activatedLorebookEntries && context.activatedLorebookEntries.length > 0) {
-    parts.push(`\n<lorebook_entries>`);
+    ctxParts.push(`\n<lorebook_entries>`);
     for (const entry of context.activatedLorebookEntries) {
-      parts.push(`[${entry.tag}] ${entry.name}: ${entry.content}`);
+      ctxParts.push(`[${entry.tag}] ${entry.name}: ${entry.content}`);
     }
-    parts.push(`</lorebook_entries>`);
+    ctxParts.push(`</lorebook_entries>`);
   }
 
-  // Available sprites (for the expression agent)
   if (context.memory._availableSprites) {
     const sprites = context.memory._availableSprites as Array<{
       characterId: string;
       characterName: string;
       expressions: string[];
     }>;
-    parts.push(`\n<available_sprites>`);
+    ctxParts.push(`\n<available_sprites>`);
     for (const char of sprites) {
-      parts.push(`${char.characterName} (${char.characterId}): ${char.expressions.join(", ")}`);
+      ctxParts.push(`${char.characterName} (${char.characterId}): ${char.expressions.join(", ")}`);
     }
-    parts.push(`</available_sprites>`);
+    ctxParts.push(`</available_sprites>`);
   }
 
-  // Available backgrounds (for the background agent)
-  if (agentType === "background" && context.memory._availableBackgrounds) {
+  if ((agentType === "background" || agentType === "__batch__") && context.memory._availableBackgrounds) {
     const bgs = context.memory._availableBackgrounds as Array<{
       filename: string;
       originalName?: string | null;
       tags: string[];
     }>;
-    parts.push(`\n<available_backgrounds>`);
+    ctxParts.push(`\n<available_backgrounds>`);
     for (const bg of bgs) {
       const label = bg.originalName ? `${bg.filename} (${bg.originalName})` : bg.filename;
       const tagStr = bg.tags.length > 0 ? ` [tags: ${bg.tags.join(", ")}]` : "";
-      parts.push(`- ${label}${tagStr}`);
+      ctxParts.push(`- ${label}${tagStr}`);
     }
-    parts.push(`</available_backgrounds>`);
+    ctxParts.push(`</available_backgrounds>`);
     if (context.memory._currentBackground) {
-      parts.push(`\n<current_background>${context.memory._currentBackground}</current_background>`);
+      ctxParts.push(`\n<current_background>${context.memory._currentBackground}</current_background>`);
     }
   }
 
-  // Agent results summary (for the editor agent)
-  if (context.memory._agentResults) {
-    parts.push(`\n<agent_results>`);
-    parts.push(JSON.stringify(context.memory._agentResults, null, 2));
-    parts.push(`</agent_results>`);
-  }
-
-  // Source material for knowledge-retrieval agent
   if (context.memory._sourceMaterial) {
     const material = context.memory._sourceMaterial as string;
-    parts.push(`\n<source_material>`);
-    parts.push(material);
-    parts.push(`</source_material>`);
+    ctxParts.push(`\n<source_material>`);
+    ctxParts.push(material);
+    ctxParts.push(`</source_material>`);
   }
 
-  // Chunk info for multi-pass knowledge-retrieval scanning
   if (context.memory._chunkInfo) {
     const info = context.memory._chunkInfo as { current: number; total: number };
-    parts.push(
+    ctxParts.push(
       `\n<chunk_info>Chunk ${info.current} of ${info.total} — extract relevant information from this chunk.</chunk_info>`,
     );
   }
 
-  // Previous chunk extractions for consolidation pass
   if (context.memory._previousExtractions) {
     const extractions = context.memory._previousExtractions as string[];
-    parts.push(`\n<previous_extractions>`);
-    parts.push(
+    ctxParts.push(`\n<previous_extractions>`);
+    ctxParts.push(
       `The following relevant excerpts were extracted from prior chunks of the same source material. Consolidate them into a single, coherent summary along with any new relevant information from the current chunk.`,
     );
     for (let i = 0; i < extractions.length; i++) {
-      parts.push(`\n--- Chunk ${i + 1} ---`);
-      parts.push(extractions[i]!);
+      ctxParts.push(`\n--- Chunk ${i + 1} ---`);
+      ctxParts.push(extractions[i]!);
     }
-    parts.push(`</previous_extractions>`);
+    ctxParts.push(`</previous_extractions>`);
   }
 
-  return parts.join("\n");
+  messages.push({ role: "user", content: ctxParts.join("\n") });
+
+  // ── 2. Chat history as proper multi-turn messages ──
+  if (context.recentMessages.length > 0) {
+    for (const msg of context.recentMessages) {
+      const role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
+      let content = msg.content.slice(0, 2000);
+
+      // Append committed tracker data to assistant messages
+      if (msg.gameState) {
+        const gs = msg.gameState;
+        const trackerSummary: Record<string, unknown> = {};
+        if (gs.date || gs.time || gs.location || gs.weather || gs.temperature) {
+          trackerSummary.scene = {
+            ...(gs.date ? { date: gs.date } : {}),
+            ...(gs.time ? { time: gs.time } : {}),
+            ...(gs.location ? { location: gs.location } : {}),
+            ...(gs.weather ? { weather: gs.weather } : {}),
+            ...(gs.temperature ? { temperature: gs.temperature } : {}),
+          };
+        }
+        if (gs.presentCharacters?.length) trackerSummary.presentCharacters = gs.presentCharacters;
+        if (gs.recentEvents?.length) trackerSummary.recentEvents = gs.recentEvents;
+        if (gs.playerStats) trackerSummary.playerStats = gs.playerStats;
+        if (gs.personaStats?.length) trackerSummary.personaStats = gs.personaStats;
+        if (Object.keys(trackerSummary).length > 0) {
+          content += `\n\n<committed_tracker_state>\n${JSON.stringify(trackerSummary, null, 2)}\n</committed_tracker_state>`;
+        }
+      }
+
+      // Merge consecutive messages with the same role (API requirement)
+      const last = messages[messages.length - 1]!;
+      if (last.role === role) {
+        messages[messages.length - 1] = { ...last, content: last.content + "\n\n" + content };
+      } else {
+        messages.push({ role, content });
+      }
+    }
+  }
+
+  // ── 3. Final instruction (user message) ──
+  const finalParts: string[] = [];
+
+  if (context.mainResponse) {
+    finalParts.push(`<assistant_response>`);
+    finalParts.push(context.mainResponse);
+    finalParts.push(`</assistant_response>`);
+  }
+
+  if (context.memory._agentResults) {
+    finalParts.push(`\n<agent_results>`);
+    finalParts.push(JSON.stringify(context.memory._agentResults, null, 2));
+    finalParts.push(`</agent_results>`);
+  }
+
+  if (finalParts.length > 0) {
+    finalParts.unshift("Now analyze the above conversation and produce your output.");
+    // If the last message is already user role, merge to avoid consecutive user messages
+    const last = messages[messages.length - 1]!;
+    const finalContent = finalParts.join("\n");
+    if (last.role === "user") {
+      messages[messages.length - 1] = { ...last, content: last.content + "\n\n" + finalContent };
+    } else {
+      messages.push({ role: "user", content: finalContent });
+    }
+  }
+
+  return messages;
 }
 
 /** Map agent type → its primary result type. */
@@ -526,6 +634,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   background: "background_change",
   "character-tracker": "character_tracker_update",
   "persona-stats": "persona_stats_update",
+  "custom-tracker": "custom_tracker_update",
   "chat-summary": "chat_summary",
   spotify: "spotify_control",
   editor: "text_rewrite",
@@ -546,6 +655,7 @@ const JSON_AGENTS = new Set([
   "background",
   "character-tracker",
   "persona-stats",
+  "custom-tracker",
   "chat-summary",
   "spotify",
   "editor",
@@ -575,11 +685,23 @@ function parseAgentResponse(agentType: string, responseText: string): { type: Ag
 function extractJson(text: string): string {
   // Try markdown code fences
   const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) return fenceMatch[1]!.trim();
+  if (fenceMatch) text = fenceMatch[1]!.trim();
+  else {
+    // Try to find a bare JSON object or array
+    const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (jsonMatch) text = jsonMatch[1]!;
+  }
 
-  // Try to find a bare JSON object or array
-  const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-  if (jsonMatch) return jsonMatch[1]!;
-
+  // Repair common LLM JSON issues
+  text = repairJson(text);
   return text;
+}
+
+/** Fix common LLM JSON mistakes: trailing commas, comments, ellipsis placeholders. */
+function repairJson(str: string): string {
+  return str
+    .replace(/\/\/[^\n]*/g, "") // remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
+    .replace(/,\s*([\]\}])/g, "$1") // remove trailing commas before ] or }
+    .replace(/\.\.\.[^"\n]*/g, ""); // remove ... continuations/placeholders
 }

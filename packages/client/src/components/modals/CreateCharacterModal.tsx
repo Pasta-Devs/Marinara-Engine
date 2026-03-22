@@ -95,10 +95,10 @@ export function CreateCharacterModal({ open, onClose }: Props) {
           {avatarDataUrl ? (
             <img src={avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
           ) : (
-            <User size={36} className="text-white" />
+            <User size="2.25rem" className="text-white" />
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size={20} className="text-white" />
+            <Camera size="1.25rem" className="text-white" />
           </div>
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarPick} />
@@ -134,7 +134,11 @@ export function CreateCharacterModal({ open, onClose }: Props) {
             disabled={!name.trim() || createCharacter.isPending}
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
-            {createCharacter.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {createCharacter.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <Sparkles size="0.75rem" />
+            )}
             Create
           </button>
         </div>

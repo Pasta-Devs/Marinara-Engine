@@ -1,7 +1,13 @@
 // ──────────────────────────────────────────────
 // LLM Provider — Anthropic Claude
 // ──────────────────────────────────────────────
-import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
+import {
+  BaseLLMProvider,
+  sanitizeApiError,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMUsage,
+} from "../base-provider.js";
 
 /**
  * Handles Anthropic Claude API (Messages API).
@@ -10,9 +16,9 @@ export class AnthropicProvider extends BaseLLMProvider {
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
     const url = `${this.baseUrl}/messages`;
 
-    // Claude requires system prompt separate from messages
-    const systemMessages = messages.filter((m) => m.role === "system");
-    const chatMessages = messages.filter((m) => m.role !== "system");
+    // Claude requires system prompt separate from messages — filter out empty-content messages
+    const systemMessages = messages.filter((m) => m.role === "system" && m.content?.trim());
+    const chatMessages = messages.filter((m) => m.role !== "system" && m.content?.trim());
 
     // Ensure alternating user/assistant pattern (Claude requirement)
     const mergedMessages = this.mergeConsecutiveMessages(chatMessages);
@@ -67,6 +73,7 @@ export class AnthropicProvider extends BaseLLMProvider {
       stream: options.stream ?? true,
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.topP !== undefined && { top_p: options.topP }),
+      ...(options.topK ? { top_k: options.topK } : {}),
     };
 
     // Enable extended thinking for reasoning models
@@ -92,7 +99,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${errorText.slice(0, 500)}`);
+      throw new Error(`Anthropic API error ${response.status}: ${sanitizeApiError(errorText)}`);
     }
 
     if (!options.stream) {

@@ -47,8 +47,50 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const existing = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const incoming = req.body as Record<string, unknown>;
+    // Validate Discord webhook URL if provided
+    if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim()) {
+      const url = incoming.discordWebhookUrl.trim();
+      if (!/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) {
+        return reply.status(400).send({ error: "Invalid Discord webhook URL" });
+      }
+      incoming.discordWebhookUrl = url;
+    }
     const merged = { ...existing, ...incoming };
     return storage.updateMetadata(req.params.id, merged);
+  });
+
+  // ── Chat Connections (OOC ↔ Roleplay) ──
+
+  // Connect two chats bidirectionally
+  app.post<{ Params: { id: string } }>("/:id/connect", async (req, reply) => {
+    const { targetChatId } = req.body as { targetChatId: string };
+    if (!targetChatId || typeof targetChatId !== "string") {
+      return reply.status(400).send({ error: "targetChatId is required" });
+    }
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const target = await storage.getById(targetChatId);
+    if (!target) return reply.status(404).send({ error: "Target chat not found" });
+    // Don't allow self-connection
+    if (req.params.id === targetChatId) {
+      return reply.status(400).send({ error: "Cannot connect a chat to itself" });
+    }
+    await storage.connectChats(req.params.id, targetChatId);
+    return { connected: true, chatId: req.params.id, targetChatId };
+  });
+
+  // Disconnect a chat from its partner
+  app.post<{ Params: { id: string } }>("/:id/disconnect", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    await storage.disconnectChat(req.params.id);
+    await storage.deleteInfluencesForChat(req.params.id);
+    return { disconnected: true };
+  });
+
+  // List pending OOC influences for a chat
+  app.get<{ Params: { id: string } }>("/:id/influences", async (req) => {
+    return storage.listPendingInfluences(req.params.id);
   });
 
   // Delete all chats in a group (all branches)
@@ -59,6 +101,24 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // Delete chat
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    // If this is a scene chat, clean up the origin chat's scene pointer
+    const chat = await storage.getById(req.params.id);
+    if (chat) {
+      const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+      const originId = meta.sceneOriginChatId;
+      if (originId) {
+        const origin = await storage.getById(originId);
+        if (origin) {
+          const originMeta =
+            typeof origin.metadata === "string" ? JSON.parse(origin.metadata) : (origin.metadata ?? {});
+          delete originMeta.activeSceneChatId;
+          delete originMeta.sceneBusyCharIds;
+          await storage.updateMetadata(originId, originMeta);
+        }
+      }
+    }
+    // Disconnect from partner chat before deleting
+    await storage.disconnectChat(req.params.id);
     await storage.remove(req.params.id);
     return reply.status(204).send();
   });
@@ -109,12 +169,30 @@ export async function chatsRoutes(app: FastifyInstance) {
     },
   );
 
-  // Get latest game state for a chat
+  // Get latest game state for a chat (respects the active swipe of the last assistant message)
   app.get<{ Params: { id: string } }>("/:id/game-state", async (req, reply) => {
     const { createGameStateStorage } = await import("../services/storage/game-state.storage.js");
     const gameStateStore = createGameStateStorage(app.db);
-    const row = await gameStateStore.getLatest(req.params.id);
+
+    // Try to find the snapshot for the last assistant message's active swipe
+    let row: Awaited<ReturnType<typeof gameStateStore.getLatest>> = null;
+    const msgs = await storage.listMessages(req.params.id);
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i]!.role === "assistant") {
+        row = await gameStateStore.getByMessage(msgs[i]!.id, msgs[i]!.activeSwipeIndex);
+        break;
+      }
+    }
+    // Fall back to most recent snapshot if no swipe-specific one exists
+    const usedFallback = !row;
+    if (!row) row = await gameStateStore.getLatest(req.params.id);
     if (!row) return reply.send(null);
+    const presentCharacters = JSON.parse((row.presentCharacters as string) ?? "[]");
+    const playerStats = row.playerStats ? JSON.parse(row.playerStats as string) : null;
+    const personaStats = row.personaStats ? JSON.parse(row.personaStats as string) : null;
+    console.log(
+      `[GET /game-state] chatId=${req.params.id} snapshotId=${row.id} msgId=${row.messageId} swipe=${row.swipeIndex} fallback=${usedFallback} chars=${presentCharacters.length} personaStats=${personaStats ? "present" : "null"} playerStats=${playerStats ? "present" : "null"} date=${row.date ?? "null"} location=${row.location ?? "null"}`,
+    );
     return {
       id: row.id,
       chatId: row.chatId,
@@ -125,10 +203,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       location: row.location,
       weather: row.weather,
       temperature: row.temperature,
-      presentCharacters: JSON.parse((row.presentCharacters as string) ?? "[]"),
+      presentCharacters,
       recentEvents: JSON.parse((row.recentEvents as string) ?? "[]"),
-      playerStats: row.playerStats ? JSON.parse(row.playerStats as string) : null,
-      personaStats: row.personaStats ? JSON.parse(row.personaStats as string) : null,
+      playerStats,
+      personaStats,
       manualOverrides: row.manualOverrides ? JSON.parse(row.manualOverrides as string) : null,
       createdAt: row.createdAt,
     };
@@ -150,7 +228,33 @@ export async function chatsRoutes(app: FastifyInstance) {
       playerStats: any;
       personaStats: any[];
     }>;
-    const updated = await gameStateStore.updateLatest(req.params.id, fields, manual);
+    let updated = await gameStateStore.updateLatest(req.params.id, fields, manual);
+    // If no snapshot exists yet, create one so manual edits aren't lost
+    if (!updated && manual) {
+      const manualOverrides: Record<string, string> = {};
+      const TRACKABLE = ["date", "time", "location", "weather", "temperature"] as const;
+      for (const key of TRACKABLE) {
+        if (fields[key] !== undefined) manualOverrides[key] = fields[key] as string;
+      }
+      await gameStateStore.create(
+        {
+          chatId: req.params.id,
+          messageId: "",
+          swipeIndex: 0,
+          date: (fields.date as string) ?? null,
+          time: (fields.time as string) ?? null,
+          location: (fields.location as string) ?? null,
+          weather: (fields.weather as string) ?? null,
+          temperature: (fields.temperature as string) ?? null,
+          presentCharacters: (fields.presentCharacters as any[]) ?? [],
+          recentEvents: [],
+          playerStats: (fields.playerStats as any) ?? null,
+          personaStats: (fields.personaStats as any) ?? null,
+        },
+        Object.keys(manualOverrides).length > 0 ? manualOverrides : null,
+      );
+      updated = await gameStateStore.getLatest(req.params.id);
+    }
     if (!updated) return reply.status(404).send({ error: "No game state found" });
     return updated;
   });
@@ -279,6 +383,24 @@ export async function chatsRoutes(app: FastifyInstance) {
           if (persona) {
             personaName = persona.name;
             personaDescription = persona.description;
+
+            // Append active alt description extensions
+            if (persona.altDescriptions) {
+              try {
+                const altDescs = JSON.parse(persona.altDescriptions as string) as Array<{
+                  active: boolean;
+                  content: string;
+                }>;
+                for (const ext of altDescs) {
+                  if (ext.active && ext.content) {
+                    personaDescription += "\n" + ext.content;
+                  }
+                }
+              } catch {
+                /* ignore malformed JSON */
+              }
+            }
+
             personaFields = {
               personality: persona.personality ?? "",
               scenario: persona.scenario ?? "",

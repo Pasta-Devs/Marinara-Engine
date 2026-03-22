@@ -10,7 +10,7 @@ import { Loader2, FileText } from "lucide-react";
 
 const DEFAULT_PARAMS = {
   temperature: 0.9,
-  maxTokens: 600,
+  maxTokens: 8192,
   topP: 0.95,
   frequencyPenalty: 0,
   presencePenalty: 0,
@@ -59,7 +59,7 @@ export function CreatePresetModal({ open, onClose }: Props) {
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-lg shadow-purple-400/20">
-            <FileText size={22} className="text-white" />
+            <FileText size="1.375rem" className="text-white" />
           </div>
           <div className="flex-1">
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -110,7 +110,7 @@ export function CreatePresetModal({ open, onClose }: Props) {
             disabled={!name.trim() || createPreset.isPending}
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
-            {createPreset.isPending ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+            {createPreset.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <FileText size="0.75rem" />}
             Create
           </button>
         </div>

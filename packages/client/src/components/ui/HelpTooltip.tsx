@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Reusable help tooltip — hover ? icon to see explanation
 // ──────────────────────────────────────────────
-import { useState, useRef, useLayoutEffect, type ReactNode } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { HelpCircle } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -9,15 +9,15 @@ import { cn } from "../../lib/utils";
 interface HelpTooltipProps {
   /** The help text to display */
   text: string;
-  /** Optional size of the icon (default 12) */
-  size?: number;
+  /** Optional size of the icon (default "0.75rem") */
+  size?: string | number;
   /** Preferred position */
   side?: "top" | "bottom" | "left" | "right";
   /** Extra class on the icon wrapper */
   className?: string;
 }
 
-export function HelpTooltip({ text, size = 12, side = "top", className }: HelpTooltipProps) {
+export function HelpTooltip({ text, size = "0.75rem", side = "top", className }: HelpTooltipProps) {
   const [show, setShow] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ export function HelpTooltip({ text, size = 12, side = "top", className }: HelpTo
         createPortal(
           <div
             ref={tipRef}
-            className="pointer-events-none fixed z-[9999] w-56 rounded-lg bg-[var(--popover)] px-3 py-2 text-[11px] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
+            className="pointer-events-none fixed z-[9999] w-56 rounded-lg bg-[var(--popover)] px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
             style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
           >
             {text}

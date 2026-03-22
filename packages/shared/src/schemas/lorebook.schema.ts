@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const lorebookCategorySchema = z.enum(["world", "character", "npc", "summary", "uncategorized"]);
+export const lorebookCategorySchema = z.enum(["world", "character", "npc", "uncategorized"]);
 
 export const selectiveLogicSchema = z.enum(["and", "or", "not"]);
 

@@ -2,11 +2,13 @@
 // App: Root component with layout
 // ──────────────────────────────────────────────
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "./components/layout/AppShell";
 import { ModalRenderer } from "./components/layout/ModalRenderer";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { Toaster } from "sonner";
 import { useUIStore } from "./stores/ui.store";
+import { api } from "./lib/api-client";
 
 export function App() {
   const theme = useUIStore((s) => s.theme);
@@ -31,9 +33,6 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
-    // Expose a scale factor for CSS rules that need to scale fixed-pixel values
-    // (e.g. icons, hardcoded text sizes). Baseline = 16px (browser default).
-    document.documentElement.style.setProperty("--display-scale", String(fontSize / 16));
   }, [fontSize]);
 
   // Apply custom font family via CSS variable
@@ -45,6 +44,45 @@ export function App() {
     }
   }, [fontFamily]);
 
+  // Pre-load custom fonts at startup so switching to Appearance tab doesn't cause a flash
+  const { data: customFonts } = useQuery<{ filename: string; family: string; url: string }[]>({
+    queryKey: ["custom-fonts"],
+    queryFn: () => api.get("/fonts"),
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (!customFonts?.length) return;
+
+    // Prefer FontFace API over injecting CSS into a <style> tag to avoid CSS injection
+    if (typeof FontFace === "undefined" || !document.fonts) {
+      return;
+    }
+
+    customFonts.forEach((f) => {
+      if (!f.family || !f.url) {
+        return;
+      }
+
+      try {
+        const fontFace = new FontFace(f.family, `url("${f.url}")`, {
+          display: "swap",
+        });
+
+        fontFace
+          .load()
+          .then((loadedFace) => {
+            document.fonts.add(loadedFace);
+          })
+          .catch(() => {
+            // Ignore individual font load errors to avoid breaking others
+          });
+      } catch {
+        // Ignore construction errors for invalid font definitions
+      }
+    });
+  }, [customFonts]);
+
   return (
     <>
       <CustomThemeInjector />
@@ -53,11 +91,14 @@ export function App() {
       <Toaster
         position="bottom-right"
         theme={theme}
+        closeButton
         toastOptions={{
           style: {
             background: "var(--card)",
             border: "1px solid var(--border)",
             color: "var(--foreground)",
+            userSelect: "text",
+            WebkitUserSelect: "text",
           },
         }}
       />

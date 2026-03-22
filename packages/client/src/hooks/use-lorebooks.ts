@@ -52,6 +52,7 @@ export function useUpdateLorebook() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
       qc.invalidateQueries({ queryKey: lorebookKeys.detail(variables.id) });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "active"] });
     },
   });
 }
@@ -91,6 +92,7 @@ export function useCreateLorebookEntry() {
       api.post<LorebookEntry>(`/lorebooks/${lorebookId}/entries`, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "active"] });
     },
   });
 }
@@ -103,6 +105,7 @@ export function useUpdateLorebookEntry() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.entry(variables.entryId) });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "active"] });
     },
   });
 }
@@ -114,6 +117,7 @@ export function useDeleteLorebookEntry() {
       api.delete(`/lorebooks/${lorebookId}/entries/${entryId}`),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "active"] });
     },
   });
 }
@@ -125,6 +129,7 @@ export function useBulkCreateEntries() {
       api.post<LorebookEntry[]>(`/lorebooks/${lorebookId}/entries/bulk`, { entries }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "active"] });
     },
   });
 }

@@ -2,6 +2,7 @@
 // Chat: Main chat area — mode-aware rendering
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   useChatMessages,
   useChat,
@@ -13,12 +14,12 @@ import {
   useSetActiveSwipe,
   useUpdateChatMetadata,
   useBranchChat,
+  useChats,
 } from "../../hooks/use-chats";
 
 import { useChatStore } from "../../stores/chat.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
-import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { ChatSettingsDrawer } from "./ChatSettingsDrawer";
@@ -29,9 +30,12 @@ import { PeekPromptModal } from "./PeekPromptModal";
 import { RoleplayHUD } from "./RoleplayHUD";
 import { WeatherEffects } from "./WeatherEffects";
 import { useGameStateStore } from "../../stores/game-state.store";
+import { api } from "../../lib/api-client";
 import { SpriteOverlay } from "./SpriteOverlay";
 import { SpriteSidebar } from "./SpriteSidebar";
 import { AgentThoughtBubbles } from "../agents/AgentThoughtBubbles";
+import { EchoChamberPanel } from "./EchoChamberPanel";
+
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import {
   MessageSquare,
@@ -46,17 +50,21 @@ import {
   ScrollText,
   FlipHorizontal2,
   HelpCircle,
-  RefreshCw,
   MoreHorizontal,
   Globe,
+  X,
+  ArrowRightLeft,
 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { cn } from "../../lib/utils";
 import { EncounterModal } from "./EncounterModal";
+import { EndSceneBar } from "./SceneBanner";
 import { useEncounter } from "../../hooks/use-encounter";
+import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { SummaryPopover } from "./SummaryPopover";
+import { ConversationView } from "./ConversationView";
 import { useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { BUILT_IN_AGENTS } from "@marinara-engine/shared";
@@ -71,6 +79,7 @@ export type CharacterMap = Map<
     dialogueColor?: string;
     boxColor?: string;
     avatarCrop?: { zoom: number; offsetX: number; offsetY: number } | null;
+    conversationStatus?: "online" | "idle" | "dnd" | "offline";
   }
 >;
 
@@ -91,14 +100,38 @@ function CrossfadeBackground({ url, className }: { url: string | null; className
     const currentUrl = activeSlot.current === "a" ? bgA : bgB;
     if (url === currentUrl) return;
 
-    if (activeSlot.current === "a") {
-      setBgB(url);
-      setAActive(false);
-      activeSlot.current = "b";
-    } else {
-      setBgA(url);
-      setAActive(true);
-      activeSlot.current = "a";
+    // Validate background URL exists before applying (prevents 404s from stale/hallucinated filenames)
+    if (url && url.startsWith("/api/backgrounds/")) {
+      fetch(url, { method: "HEAD" })
+        .then((res) => {
+          if (res.ok) {
+            applyUrl(url);
+          } else {
+            console.warn(`[Background] "${url}" not found — clearing`);
+            useUIStore.getState().setChatBackground(null);
+          }
+        })
+        .catch(() => {
+          // Network error — apply optimistically so the background still shows on
+          // page refresh when the HEAD check fails due to timing. CSS background-image
+          // degrades gracefully if the file is truly missing.
+          applyUrl(url);
+        });
+      return;
+    }
+
+    applyUrl(url);
+
+    function applyUrl(u: string | null) {
+      if (activeSlot.current === "a") {
+        setBgB(u);
+        setAActive(false);
+        activeSlot.current = "b";
+      } else {
+        setBgA(u);
+        setAActive(true);
+        activeSlot.current = "a";
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
@@ -126,12 +159,13 @@ function CrossfadeBackground({ url, className }: { url: string | null; className
 export function ChatArea() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChat = useChatStore((s) => s.setActiveChat);
-  const isStreaming = useChatStore((s) => s.isStreaming);
+  const streamingChatId = useChatStore((s) => s.streamingChatId);
+  const isStreamingGlobal = useChatStore((s) => s.isStreaming);
+  const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
   const streamBuffer = useChatStore((s) => s.streamBuffer);
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
-  const hudPosition = useUIStore((s) => s.hudPosition);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -147,6 +181,7 @@ export function ChatArea() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const { data: chat } = useChat(activeChatId);
+  const { data: allChats } = useChats();
   const {
     data: msgData,
     isLoading,
@@ -200,6 +235,7 @@ export function ChatArea() {
         dialogueColor?: string;
         boxColor?: string;
         avatarCrop?: { zoom: number; offsetX: number; offsetY: number } | null;
+        conversationStatus?: "online" | "idle" | "dnd" | "offline";
       }
     >();
     if (!allCharacters) return map;
@@ -213,6 +249,7 @@ export function ChatArea() {
           dialogueColor: parsed.extensions?.dialogueColor || undefined,
           boxColor: parsed.extensions?.boxColor || undefined,
           avatarCrop: parsed.extensions?.avatarCrop || null,
+          conversationStatus: parsed.extensions?.conversationStatus || undefined,
         });
       } catch {
         map.set(char.id, { name: "Unknown", avatarUrl: null });
@@ -221,7 +258,21 @@ export function ChatArea() {
     return map;
   }, [allCharacters]);
 
-  const characterNames = useMemo(() => Array.from(characterMap.values()).map((c) => c.name), [characterMap]);
+  // Character IDs in the active chat
+  const chatCharIds: string[] = useMemo(
+    () =>
+      chat
+        ? typeof (chat as unknown as { characterIds: unknown }).characterIds === "string"
+          ? JSON.parse((chat as unknown as { characterIds: string }).characterIds)
+          : (chat.characterIds ?? [])
+        : [],
+    [chat],
+  );
+
+  const characterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((n): n is string => !!n),
+    [characterMap, chatCharIds],
+  );
 
   // Active persona info (for user message styling: name, avatar, colors)
   const personaInfo = useMemo(() => {
@@ -253,15 +304,8 @@ export function ChatArea() {
   const chatMode = (chat as unknown as { mode?: string })?.mode ?? "conversation";
   const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
   const { startEncounter } = useEncounter();
+  const { concludeScene, abandonScene } = useScene();
   const encounterActive = useEncounterStore((s) => s.active || s.showConfigModal);
-  const { data: agentConfigs } = useAgentConfigs();
-
-  // Count characters in this chat
-  const chatCharIds: string[] = chat
-    ? typeof (chat as unknown as { characterIds: unknown }).characterIds === "string"
-      ? JSON.parse((chat as unknown as { characterIds: string }).characterIds)
-      : (chat.characterIds ?? [])
-    : [];
 
   // Sprite sidebar settings from chat metadata
   const chatMeta = useMemo(() => {
@@ -271,8 +315,20 @@ export function ChatArea() {
   }, [chat]);
   const spriteCharacterIds: string[] = chatMeta.spriteCharacterIds ?? [];
   const spritePosition: "left" | "right" = chatMeta.spritePosition ?? "left";
-  const spriteExpressions: Record<string, string> = chatMeta.spriteExpressions ?? {};
+  const spriteExpressions: Record<string, string> = useMemo(() => chatMeta.spriteExpressions ?? {}, [chatMeta.spriteExpressions]);
   const groupChatMode: string | undefined = chatCharIds.length > 1 ? (chatMeta.groupChatMode ?? "merged") : undefined;
+
+  // Restore per-chat background from metadata when loading a chat.
+  // Clearing is handled by setActiveChatId on actual chat switches, so we only
+  // SET the background here — never clear it (avoids wiping agent-set backgrounds
+  // that haven't been persisted to metadata yet, e.g. on editor-panel remount).
+  useEffect(() => {
+    const bg = chatMeta.background as string | undefined;
+    if (bg) {
+      useUIStore.getState().setChatBackground(`/api/backgrounds/file/${encodeURIComponent(bg)}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat?.id]);
   const streamingCharacterId = useChatStore((s) => s.streamingCharacterId);
   const updateMeta = useUpdateChatMetadata();
 
@@ -283,6 +339,13 @@ export function ChatArea() {
     pendingExpressions.current = spriteExpressions;
   }, [spriteExpressions]);
 
+  // Clean up expression save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (expressionSaveTimer.current) clearTimeout(expressionSaveTimer.current);
+    };
+  }, []);
+
   const handleExpressionChange = useCallback(
     (characterId: string, expression: string) => {
       if (!chat?.id) return;
@@ -292,6 +355,7 @@ export function ChatArea() {
         updateMeta.mutate({ id: chat!.id, spriteExpressions: pendingExpressions.current });
       }, 1000);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [chat?.id, updateMeta],
   );
 
@@ -306,19 +370,10 @@ export function ChatArea() {
     const set = new Set<string>();
     if (!chatMeta.enableAgents) return set;
     const activeAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds) ? chatMeta.activeAgentIds : [];
-    if (activeAgentIds.length > 0) {
-      // Per-chat agent list: only these agents are active
-      for (const id of activeAgentIds) set.add(id);
-    } else {
-      // Fallback: use all globally enabled agents
-      if (agentConfigs) {
-        for (const a of agentConfigs as AgentConfigRow[]) {
-          if (a.enabled === "true") set.add(a.type);
-        }
-      }
-    }
+    // Only show widgets for agents explicitly added to this chat
+    for (const id of activeAgentIds) set.add(id);
     return set;
-  }, [chatMeta.enableAgents, chatMeta.activeAgentIds, agentConfigs]);
+  }, [chatMeta.enableAgents, chatMeta.activeAgentIds]);
 
   const combatAgentEnabled = enabledAgentTypes.has("combat");
   const expressionAgentEnabled = enabledAgentTypes.has("expression");
@@ -343,7 +398,7 @@ export function ChatArea() {
     [activeChatId, isStreaming, generate],
   );
 
-  const handleRetryAgents = useCallback(async () => {
+  const _handleRetryAgents = useCallback(async () => {
     if (!activeChatId || isStreaming || agentProcessing || failedAgentTypes.length === 0) return;
     await retryAgents(activeChatId, failedAgentTypes);
   }, [activeChatId, isStreaming, agentProcessing, failedAgentTypes, retryAgents]);
@@ -358,9 +413,27 @@ export function ChatArea() {
 
   const handleSetActiveSwipe = useCallback(
     (messageId: string, index: number) => {
-      setActiveSwipe.mutate({ messageId, index });
+      setActiveSwipe.mutate(
+        { messageId, index },
+        {
+          onSuccess: () => {
+            // Refetch game state so the HUD shows trackers for the active swipe
+            if (activeChatId) {
+              api
+                .get<import("@marinara-engine/shared").GameState | null>(`/chats/${activeChatId}/game-state`)
+                .then((gs) => {
+                  console.log(
+                    `[setActiveSwipe] game-state response: chars=${gs?.presentCharacters?.length ?? 0} personaStats=${gs?.personaStats ? "present" : "null"} playerStats=${gs?.playerStats ? "present" : "null"} date=${gs?.date ?? "null"}`,
+                  );
+                  useGameStateStore.getState().setGameState(gs ?? null);
+                })
+                .catch(() => {});
+            }
+          },
+        },
+      );
     },
-    [setActiveSwipe],
+    [setActiveSwipe, activeChatId],
   );
 
   const handleEdit = useCallback(
@@ -454,8 +527,8 @@ export function ChatArea() {
 
   // Auto-scroll on new messages / streaming (but not on "load more")
   // Only scroll if user is already near the bottom (within 150px).
-  // During streaming, if the user scrolls up (breaks away), stop auto-scrolling
-  // until they manually scroll back to the bottom — so they can read at their own pace.
+  // During streaming, if the user scrolls (wheel, touch, or upward scroll),
+  // stop auto-scrolling until they manually scroll back to the bottom.
   const isNearBottomRef = useRef(true);
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
@@ -478,8 +551,23 @@ export function ChatArea() {
       lastScrollTopRef.current = el.scrollTop;
       isNearBottomRef.current = nearBottom;
     };
+
+    // Wheel / touch: immediately disengage auto-scroll during streaming
+    // so the user can read without being dragged to the bottom.
+    const onUserScroll = () => {
+      if (isStreaming && !userScrolledAwayRef.current) {
+        userScrolledAwayRef.current = true;
+      }
+    };
+
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
   }, [isStreaming]);
 
   // Reset scroll-away flag when streaming ends
@@ -488,11 +576,14 @@ export function ChatArea() {
   }, [isStreaming]);
 
   const newestMsgId = msgData?.pages[0]?.[msgData.pages[0].length - 1]?.id;
+  const isOptimistic = newestMsgId?.startsWith("__optimistic_");
   useEffect(() => {
-    if (!isLoadingMoreRef.current && isNearBottomRef.current && !userScrolledAwayRef.current) {
+    if (isLoadingMoreRef.current) return;
+    // Always scroll when the user just sent a message (optimistic msg)
+    if (isOptimistic || (isNearBottomRef.current && !userScrolledAwayRef.current)) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [newestMsgId, streamBuffer, isStreaming]);
+  }, [newestMsgId, streamBuffer, isStreaming, isOptimistic]);
 
   // Preserve scroll position when older messages are prepended
   const pageCount = msgData?.pages.length ?? 0;
@@ -534,7 +625,7 @@ export function ChatArea() {
 
           <div className="stagger-children flex gap-3">
             <QuickStartCard
-              icon={<MessageSquare size={18} />}
+              icon={<MessageSquare size="1.125rem" />}
               label="Conversation"
               bg="linear-gradient(135deg, #4de5dd, #3ab8b1)"
               shadowColor="rgba(77,229,221,0.15)"
@@ -542,7 +633,7 @@ export function ChatArea() {
               onClick={() => handleQuickStart("conversation")}
             />
             <QuickStartCard
-              icon={<BookOpen size={18} />}
+              icon={<BookOpen size="1.125rem" />}
               label="Roleplay"
               bg="linear-gradient(135deg, #eb8951, #d97530)"
               shadowColor="rgba(235,137,81,0.15)"
@@ -550,8 +641,8 @@ export function ChatArea() {
               onClick={() => handleQuickStart("roleplay")}
             />
             <QuickStartCard
-              icon={<Theater size={18} />}
-              label="Visual Novel"
+              icon={<Theater size="1.125rem" />}
+              label="Game"
               bg="linear-gradient(135deg, #e15c8c, #c94776)"
               shadowColor="rgba(225,92,140,0.15)"
               tooltip="Coming soon"
@@ -574,7 +665,7 @@ export function ChatArea() {
                 Marinara
               </a>
             </p>
-            <p className="text-[10px] text-[var(--muted-foreground)]/50">
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]/50">
               Partnered with{" "}
               <a
                 href="https://linkapi.ai/"
@@ -585,7 +676,7 @@ export function ChatArea() {
                 LinkAPI
               </a>
             </p>
-            <p className="text-[10px] text-[var(--muted-foreground)]/50">
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]/50">
               Art and logo by{" "}
               <a
                 href="https://huntercolliex.carrd.co/"
@@ -603,7 +694,7 @@ export function ChatArea() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--y2k-purple)]/20 bg-[var(--secondary)]/60 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:border-[var(--y2k-pink)]/40 hover:text-[var(--y2k-pink)]"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.947 2.418-2.157 2.418z" />
                 </svg>
                 Discord
@@ -614,7 +705,7 @@ export function ChatArea() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--y2k-purple)]/20 bg-[var(--secondary)]/60 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:border-[var(--y2k-pink)]/40 hover:text-[var(--y2k-pink)]"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
                 Support
@@ -622,21 +713,21 @@ export function ChatArea() {
             </div>
 
             {/* Special thanks */}
-            <p className="mt-1 max-w-xs text-center text-[10px] leading-relaxed text-[var(--muted-foreground)]/40">
-              Special thanks to Kuc0, Exalted, Yang Best Girl, MidnightSleeper, Geechan, TheLonelyDevil, Artus, and you!
+            <p className="mt-1 max-w-xs text-center text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/40">
+              Special thanks to Kale, Tabris, GREGOR OVECH, Coins, Tacoman, Jorge, Promansis, Kitsumiro, Sheep, Pod042, Prolix, PlutoMayhem, Mezzeh, Kuc0, Exalted, Yang Best Girl, MidnightSleeper, Geechan, TheLonelyDevil, Artus, and you!
             </p>
 
             {/* Restart tutorial */}
             <button
               onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-[var(--muted-foreground)]/40 transition-colors hover:text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60"
+              className="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]/40 transition-colors hover:text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60"
               title="Replay tutorial"
             >
-              <HelpCircle size={12} />
+              <HelpCircle size="0.75rem" />
               Replay Tutorial
             </button>
 
-            <p className="mt-2 text-[10px] tracking-wide text-[var(--muted-foreground)]/30">v{APP_VERSION}</p>
+            <p className="mt-2 text-[0.625rem] tracking-wide text-[var(--muted-foreground)]/30">v{APP_VERSION}</p>
           </div>
         </div>
       </div>
@@ -655,6 +746,74 @@ export function ChatArea() {
   // Unified layout — mode-aware rendering
   // ═══════════════════════════════════════════════
   const msgPayload = (messages ?? []).map((m) => ({ role: m.role, characterId: m.characterId, content: m.content }));
+
+  // ═══════════════════════════════════════════════
+  // Conversation mode — Discord-style layout
+  // ═══════════════════════════════════════════════
+  if (chatMode === "conversation") {
+    return (
+      <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+          <ConversationView
+            chatId={activeChatId}
+            messages={messages}
+            isLoading={isLoading}
+            hasNextPage={hasNextPage ?? false}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+            pageCount={pageCount}
+            characterMap={characterMap}
+            characterNames={characterNames}
+            personaInfo={personaInfo}
+            chatCharIds={chatCharIds}
+            onDelete={handleDelete}
+            onRegenerate={handleRegenerate}
+            onEdit={handleEdit}
+            onPeekPrompt={handlePeekPrompt}
+            lastAssistantMessageId={lastAssistantMessageId}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenFiles={() => setFilesOpen(true)}
+            onOpenGallery={() => setGalleryOpen(true)}
+            connectedChatName={chat?.connectedChatId ? (allChats ?? []).find((c: any) => c.id === chat.connectedChatId)?.name : undefined}
+            onSwitchChat={chat?.connectedChatId ? () => setActiveChatId(chat.connectedChatId!) : undefined}
+            sceneInfo={
+              chatMeta.activeSceneChatId && (allChats ?? []).some((c: any) => c.id === chatMeta.activeSceneChatId)
+                ? { variant: "origin" as const, sceneChatId: chatMeta.activeSceneChatId }
+                : chatMeta.sceneStatus === "active"
+                  ? { variant: "scene" as const, sceneChatId: activeChatId, originChatId: chatMeta.sceneOriginChatId, description: chatMeta.sceneDescription }
+                  : undefined
+            }
+            onConcludeScene={chatMeta.sceneStatus === "active" ? concludeScene : undefined}
+            onAbandonScene={chatMeta.sceneStatus === "active" ? abandonScene : undefined}
+          />
+
+          {/* Drawers */}
+          {chat && <ChatSettingsDrawer chat={chat} open={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+          {chat && <ChatFilesDrawer chat={chat} open={filesOpen} onClose={() => setFilesOpen(false)} />}
+          {chat && <ChatGalleryDrawer chat={chat} open={galleryOpen} onClose={() => setGalleryOpen(false)} />}
+          {chat && wizardOpen && (
+            <ChatSetupWizard
+              chat={chat}
+              onFinish={() => {
+                setWizardOpen(false);
+                setSettingsOpen(true);
+              }}
+            />
+          )}
+        </div>
+
+        {/* Pinned gallery images */}
+        <PinnedImageOverlay activeChatId={activeChatId} />
+
+        {/* Peek Prompt Modal */}
+        {peekPromptData && <PeekPromptModal data={peekPromptData} onClose={() => setPeekPromptData(null)} />}
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  // Roleplay / Visual Novel mode — existing layout
+  // ═══════════════════════════════════════════════
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -684,123 +843,147 @@ export function ChatArea() {
           />
         )}
 
-        {/* ── Outer flex for left/right HUD sidebars ── */}
+        {/* ── Outer flex for HUD ── */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left HUD sidebar */}
-          {hudPosition === "left" && chat && chatMeta.enableAgents && (
-            <div className="relative z-40 flex flex-col items-center gap-1.5 overflow-y-auto px-1.5 py-2 max-md:hidden">
-              <div className="flex flex-col items-center gap-1">
-                <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
-                <WorldInfoButton chatId={chat?.id ?? null} />
-                <RpToolbarButton
-                  icon={<FolderOpen size={14} />}
-                  title="Manage Chat Files"
-                  onClick={() => setFilesOpen(true)}
-                />
-                {expressionAgentEnabled && chatCharIds.length > 0 && (
-                  <RpToolbarButton
-                    icon={<FlipHorizontal2 size={14} />}
-                    title={`Sprite: ${spritePosition} side (click to flip)`}
-                    onClick={handleToggleSpritePosition}
-                  />
-                )}
-                <RpToolbarButton icon={<Image size={14} />} title="Gallery" onClick={() => setGalleryOpen(true)} />
-                <RpToolbarButton
-                  icon={<Settings2 size={14} />}
-                  title="Chat Settings"
-                  onClick={() => setSettingsOpen(true)}
-                />
-              </div>
-              <div className="w-8 border-t border-white/10" />
-              <RoleplayHUD
-                chatId={chat.id}
-                characterCount={chatCharIds.length}
-                layout="left"
-                onRetriggerTrackers={handleRerunTrackers}
-                enabledAgentTypes={enabledAgentTypes}
-              />
-            </div>
-          )}
 
           <div className="flex flex-1 flex-col overflow-hidden">
             {/* ── Header / Toolbar area ── */}
-            {hudPosition === "top" ? (
-              <div className="pointer-events-none relative z-40 flex items-center px-4 py-2">
-                {chat && chatMeta.enableAgents && (
-                  <div className="pointer-events-auto flex-1 overflow-x-auto">
-                    <RoleplayHUD
-                      chatId={chat.id}
-                      characterCount={chatCharIds.length}
-                      layout="top"
-                      onRetriggerTrackers={handleRerunTrackers}
-                      enabledAgentTypes={enabledAgentTypes}
-                    />
-                  </div>
-                )}
-                <div className="pointer-events-auto flex shrink-0 items-center gap-1.5 ml-auto">
-                  <ToolbarMenu>
-                    <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
-                    <WorldInfoButton chatId={chat?.id ?? null} />
-                    <RpToolbarButton
-                      icon={<FolderOpen size={14} />}
-                      title="Manage Chat Files"
-                      onClick={() => setFilesOpen(true)}
-                    />
-                    {expressionAgentEnabled && chatCharIds.length > 0 && (
-                      <RpToolbarButton
-                        icon={<FlipHorizontal2 size={14} />}
-                        title={`Sprite: ${spritePosition} side`}
-                        onClick={handleToggleSpritePosition}
-                      />
-                    )}
-                    <RpToolbarButton icon={<Image size={14} />} title="Gallery" onClick={() => setGalleryOpen(true)} />
-                    <RpToolbarButton
-                      icon={<Settings2 size={14} />}
-                      title="Chat Settings"
-                      onClick={() => setSettingsOpen(true)}
-                    />
-                  </ToolbarMenu>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Mobile fallback — top bar for left/right modes */}
-                <div className="pointer-events-auto relative z-40 flex flex-col w-full md:hidden">
+            <>
+              {/* Desktop top bar */}
+                <div className="pointer-events-none relative z-40 hidden md:flex items-center px-4 py-2">
                   {chat && chatMeta.enableAgents && (
-                    <div className="flex w-full items-center gap-1.5 px-2 pt-2 pb-1">
+                    <div className="pointer-events-auto flex-1 overflow-x-auto">
                       <RoleplayHUD
                         chatId={chat.id}
                         characterCount={chatCharIds.length}
                         layout="top"
                         onRetriggerTrackers={handleRerunTrackers}
                         enabledAgentTypes={enabledAgentTypes}
+                        manualTrackers={!!chatMeta.manualTrackers}
+                      />
+                    </div>
+                  )}
+                  <div className="pointer-events-auto flex shrink-0 items-center gap-1.5 ml-auto">
+                    <ToolbarMenu>
+                      <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
+                      <WorldInfoButton chatId={chat?.id ?? null} />
+                      <RpToolbarButton
+                        icon={<FolderOpen size="0.875rem" />}
+                        title="Manage Chat Files"
+                        onClick={() => setFilesOpen(true)}
+                      />
+                      {expressionAgentEnabled && chatCharIds.length > 0 && (
+                        <RpToolbarButton
+                          icon={<FlipHorizontal2 size="0.875rem" />}
+                          title={`Sprite: ${spritePosition} side`}
+                          onClick={handleToggleSpritePosition}
+                        />
+                      )}
+                      <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={() => setGalleryOpen(true)} />
+                      {chat?.connectedChatId && (() => {
+                        const linked = (allChats ?? []).find((c: any) => c.id === chat.connectedChatId);
+                        return (
+                          <RpToolbarButton
+                            icon={<ArrowRightLeft size="0.875rem" />}
+                            title={linked ? `Switch to ${linked.name}` : "Connected chat"}
+                            onClick={() => setActiveChatId(chat.connectedChatId!)}
+                          />
+                        );
+                      })()}
+                      <RpToolbarButton
+                        icon={<Settings2 size="0.875rem" />}
+                        title="Chat Settings"
+                        onClick={() => setSettingsOpen(true)}
+                      />
+                    </ToolbarMenu>
+                  </div>
+                </div>
+                {/* Mobile top bar */}
+                <div className="pointer-events-auto relative z-40 flex flex-col w-full md:hidden">
+                  {chat && chatMeta.enableAgents && (
+                    <div className="flex w-full items-center justify-between px-2 pt-2 pb-1">
+                      <RoleplayHUD
+                        chatId={chat.id}
+                        characterCount={chatCharIds.length}
+                        layout="top"
+                        onRetriggerTrackers={handleRerunTrackers}
+                        enabledAgentTypes={enabledAgentTypes}
+                        manualTrackers={!!chatMeta.manualTrackers}
                         mobileCompact
                       />
                       <ToolbarMenu>
                         <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
                         <WorldInfoButton chatId={chat?.id ?? null} />
                         <RpToolbarButton
-                          icon={<FolderOpen size={14} />}
+                          icon={<FolderOpen size="0.875rem" />}
                           title="Manage Chat Files"
                           onClick={() => setFilesOpen(true)}
                           size="sm"
                         />
                         {expressionAgentEnabled && chatCharIds.length > 0 && (
                           <RpToolbarButton
-                            icon={<FlipHorizontal2 size={14} />}
+                            icon={<FlipHorizontal2 size="0.875rem" />}
                             title={`Sprite: ${spritePosition} side`}
                             onClick={handleToggleSpritePosition}
                             size="sm"
                           />
                         )}
                         <RpToolbarButton
-                          icon={<Image size={14} />}
+                          icon={<Image size="0.875rem" />}
                           title="Gallery"
                           onClick={() => setGalleryOpen(true)}
                           size="sm"
                         />
+                        {chat?.connectedChatId && (() => {
+                          const linked = (allChats ?? []).find((c: any) => c.id === chat.connectedChatId);
+                          return (
+                            <RpToolbarButton
+                              icon={<ArrowRightLeft size="0.875rem" />}
+                              title={linked ? `Switch to ${linked.name}` : "Connected chat"}
+                              onClick={() => setActiveChatId(chat.connectedChatId!)}
+                              size="sm"
+                            />
+                          );
+                        })()}
                         <RpToolbarButton
-                          icon={<Settings2 size={14} />}
+                          icon={<Settings2 size="0.875rem" />}
+                          title="Chat Settings"
+                          onClick={() => setSettingsOpen(true)}
+                          size="sm"
+                        />
+                      </ToolbarMenu>
+                    </div>
+                  )}
+                  {chat && !chatMeta.enableAgents && (
+                    <div className="flex w-full items-center justify-end gap-1.5 px-2 pt-2 pb-1">
+                      <ToolbarMenu>
+                        <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
+                        <WorldInfoButton chatId={chat?.id ?? null} />
+                        <RpToolbarButton
+                          icon={<FolderOpen size="0.875rem" />}
+                          title="Manage Chat Files"
+                          onClick={() => setFilesOpen(true)}
+                          size="sm"
+                        />
+                        <RpToolbarButton
+                          icon={<Image size="0.875rem" />}
+                          title="Gallery"
+                          onClick={() => setGalleryOpen(true)}
+                          size="sm"
+                        />
+                        {chat?.connectedChatId && (() => {
+                          const linked = (allChats ?? []).find((c: any) => c.id === chat.connectedChatId);
+                          return (
+                            <RpToolbarButton
+                              icon={<ArrowRightLeft size="0.875rem" />}
+                              title={linked ? `Switch to ${linked.name}` : "Connected chat"}
+                              onClick={() => setActiveChatId(chat.connectedChatId!)}
+                              size="sm"
+                            />
+                          );
+                        })()}
+                        <RpToolbarButton
+                          icon={<Settings2 size="0.875rem" />}
                           title="Chat Settings"
                           onClick={() => setSettingsOpen(true)}
                           size="sm"
@@ -809,41 +992,7 @@ export function ChatArea() {
                     </div>
                   )}
                 </div>
-                {/* Desktop fallback toolbar when agents disabled */}
-                {!chatMeta.enableAgents && (
-                  <div className="pointer-events-none relative z-40 hidden items-center justify-end px-4 py-2 md:flex">
-                    <div className="pointer-events-auto">
-                      <ToolbarMenu>
-                        <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
-                        <WorldInfoButton chatId={chat?.id ?? null} />
-                        <RpToolbarButton
-                          icon={<FolderOpen size={14} />}
-                          title="Manage Chat Files"
-                          onClick={() => setFilesOpen(true)}
-                        />
-                        {expressionAgentEnabled && chatCharIds.length > 0 && (
-                          <RpToolbarButton
-                            icon={<FlipHorizontal2 size={14} />}
-                            title={`Sprite: ${spritePosition} side`}
-                            onClick={handleToggleSpritePosition}
-                          />
-                        )}
-                        <RpToolbarButton
-                          icon={<Image size={14} />}
-                          title="Gallery"
-                          onClick={() => setGalleryOpen(true)}
-                        />
-                        <RpToolbarButton
-                          icon={<Settings2 size={14} />}
-                          title="Chat Settings"
-                          onClick={() => setSettingsOpen(true)}
-                        />
-                      </ToolbarMenu>
-                    </div>
-                  </div>
-                )}
               </>
-            )}
 
             {/* Combat Encounter Modal */}
             {encounterActive && <EncounterModal />}
@@ -852,7 +1001,7 @@ export function ChatArea() {
             <div className={cn("relative flex-1 overflow-hidden z-10")}>
               <div
                 ref={scrollRef}
-                className="h-full overflow-y-auto pt-4 pb-1 rpg-chat-messages-mobile relative px-[15%] max-md:px-3"
+                className="h-full overflow-y-auto overflow-x-hidden pt-4 pb-1 rpg-chat-messages-mobile relative px-[15%] max-md:px-3"
               >
                 {/* Load More */}
                 {hasNextPage && (
@@ -862,7 +1011,7 @@ export function ChatArea() {
                       disabled={isFetchingNextPage}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-white/90 disabled:opacity-50"
                     >
-                      {isFetchingNextPage ? <Loader2 size={12} className="animate-spin" /> : <ChevronUp size={12} />}
+                      {isFetchingNextPage ? <Loader2 size="0.75rem" className="animate-spin" /> : <ChevronUp size="0.75rem" />}
                       Load More
                     </button>
                   </div>
@@ -947,6 +1096,9 @@ export function ChatArea() {
             {/* ── Input area ── */}
             <div className="relative z-20">
               <div className="relative px-[12%] max-md:px-3">
+                {chatMeta.sceneStatus === "active" && (
+                  <EndSceneBar sceneChatId={activeChatId} originChatId={chatMeta.sceneOriginChatId} onConclude={concludeScene} onAbandon={abandonScene} />
+                )}
                 {combatAgentEnabled && (
                   <div className="flex justify-center py-1">
                     <button
@@ -954,7 +1106,7 @@ export function ChatArea() {
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs text-white/50 transition-all hover:bg-white/10 hover:text-orange-300"
                       title="Start Combat Encounter"
                     >
-                      <Swords size={14} />
+                      <Swords size="0.875rem" />
                       <span>Encounter</span>
                     </button>
                   </div>
@@ -978,42 +1130,11 @@ export function ChatArea() {
             )}
           </div>
 
-          {/* Right HUD sidebar */}
-          {hudPosition === "right" && chat && chatMeta.enableAgents && (
-            <div className="relative z-40 flex flex-col items-center gap-1.5 overflow-y-auto px-1.5 py-2 max-md:hidden">
-              <div className="flex flex-col items-center gap-1">
-                <SummaryButton chatId={chat?.id ?? null} summary={chatMeta.summary ?? null} />
-                <WorldInfoButton chatId={chat?.id ?? null} />
-                <RpToolbarButton
-                  icon={<FolderOpen size={14} />}
-                  title="Manage Chat Files"
-                  onClick={() => setFilesOpen(true)}
-                />
-                {expressionAgentEnabled && chatCharIds.length > 0 && (
-                  <RpToolbarButton
-                    icon={<FlipHorizontal2 size={14} />}
-                    title={`Sprite: ${spritePosition} side`}
-                    onClick={handleToggleSpritePosition}
-                  />
-                )}
-                <RpToolbarButton icon={<Image size={14} />} title="Gallery" onClick={() => setGalleryOpen(true)} />
-                <RpToolbarButton
-                  icon={<Settings2 size={14} />}
-                  title="Chat Settings"
-                  onClick={() => setSettingsOpen(true)}
-                />
-              </div>
-              <div className="w-8 border-t border-white/10" />
-              <RoleplayHUD
-                chatId={chat.id}
-                characterCount={chatCharIds.length}
-                layout="right"
-                onRetriggerTrackers={handleRerunTrackers}
-                enabledAgentTypes={enabledAgentTypes}
-              />
-            </div>
-          )}
+          {/* Right HUD sidebar removed — widgets always use top position */}
         </div>
+
+        {/* Echo Chamber — positioned absolutely within the chat area */}
+        <EchoChamberPanel />
       </div>
 
       {/* Sprite sidebar — right (only if expression agent enabled) */}
@@ -1029,6 +1150,8 @@ export function ChatArea() {
       {/* Agent thought bubbles (conversation only) */}
       {!isRoleplay && <AgentThoughtBubbles enabledAgentTypes={enabledAgentTypes} />}
 
+
+
       {/* Pinned gallery images */}
       <PinnedImageOverlay activeChatId={activeChatId} />
 
@@ -1038,7 +1161,8 @@ export function ChatArea() {
   );
 }
 
-/** Animated typing indicator — three bouncing dots */
+/** Animated typing indicator — three bouncing dots (currently unused, kept for future) */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-1 px-4 py-3">
@@ -1116,7 +1240,7 @@ function QuickStartCard({
       style={shadowColor ? { ["--tw-shadow-color" as string]: shadowColor } : undefined}
     >
       {showComingSoon && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] shadow-md animate-fade-in-up">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] shadow-md animate-fade-in-up">
           Coming Soon
         </span>
       )}
@@ -1139,12 +1263,25 @@ function QuickStartCard({
  */
 function ToolbarMenu({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
@@ -1155,26 +1292,30 @@ function ToolbarMenu({ children }: { children: React.ReactNode }) {
       {/* Desktop: show children inline */}
       <div className="hidden md:flex items-center gap-1.5">{children}</div>
       {/* Mobile: show ... button + popover */}
-      <div className="relative md:hidden shrink-0 ml-1" ref={ref}>
+      <div className="relative md:hidden shrink-0" ref={btnRef}>
         <button
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex items-center justify-center rounded-full border p-1.5 backdrop-blur-md transition-all",
-            "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
-            open && "bg-white/10 border-white/20 text-white",
+            "flex w-9 items-center justify-center rounded-xl border backdrop-blur-md transition-all p-1.5",
+            "bg-black/40 border-white/10 text-white/60 hover:bg-black/60 hover:text-white",
+            open && "bg-black/60 border-white/20 text-white",
           )}
           title="More options"
         >
-          <MoreHorizontal size={14} />
+          <MoreHorizontal size="0.9375rem" />
         </button>
-        {open && (
-          <div
-            className="absolute right-0 top-full z-50 mt-1 flex flex-col gap-0.5 rounded-xl border border-white/10 bg-black/80 p-1.5 shadow-xl backdrop-blur-xl animate-message-in"
-            onClick={() => setOpen(false)}
-          >
-            {children}
-          </div>
-        )}
+        {open &&
+          createPortal(
+            <div
+              ref={popRef}
+              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-black/80 p-1 shadow-xl backdrop-blur-xl animate-message-in"
+              style={{ top: pos.top, right: pos.right }}
+              onClick={() => setOpen(false)}
+            >
+              {children}
+            </div>,
+            document.body,
+          )}
       </div>
     </>
   );
@@ -1184,7 +1325,7 @@ function SummaryButton({ chatId, summary }: { chatId: string | null; summary: st
   const [open, setOpen] = useState(false);
   if (!chatId) return null;
   return (
-    <div className="relative">
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen(!open)}
         className={cn(
@@ -1192,12 +1333,12 @@ function SummaryButton({ chatId, summary }: { chatId: string | null; summary: st
           open
             ? "bg-white/15 border-white/20 text-white/90"
             : summary
-              ? "bg-white/5 border-amber-400/30 text-amber-400/70 hover:bg-white/10 hover:text-amber-300"
+              ? "bg-white/10 border-white/25 text-white/80 hover:bg-white/15 hover:text-white"
               : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
         )}
         title="Chat Summary"
       >
-        <ScrollText size={14} />
+        <ScrollText size="0.875rem" />
       </button>
       {open && <SummaryPopover chatId={chatId} summary={summary} onClose={() => setOpen(false)} />}
     </div>
@@ -1206,8 +1347,9 @@ function SummaryButton({ chatId, summary }: { chatId: string | null; summary: st
 
 function WorldInfoButton({ chatId }: { chatId: string | null }) {
   const [open, setOpen] = useState(false);
-  const { data, isLoading } = useActiveLorebookEntries(chatId, open);
+  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
   const ref = useRef<HTMLDivElement>(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   useEffect(() => {
     if (!open) return;
@@ -1218,12 +1360,58 @@ function WorldInfoButton({ chatId }: { chatId: string | null }) {
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open]);
+
   if (!chatId) return null;
   const entries = data?.entries ?? [];
   const hasEntries = entries.length > 0;
 
+  const panelContent = (
+    <>
+      <h3 className="mb-2 text-xs font-semibold text-white/90 flex items-center gap-1.5">
+        <Globe size="0.75rem" />
+        Active World Info
+        {isMobile && (
+          <button
+            onClick={() => setOpen(false)}
+            className="ml-auto rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white/70"
+          >
+            <X size="0.75rem" />
+          </button>
+        )}
+      </h3>
+      {isLoading ? (
+        <div className="flex items-center gap-2 py-4 text-xs text-white/40">
+          <Loader2 size="0.75rem" className="animate-spin" />
+          Scanning entries…
+        </div>
+      ) : entries.length === 0 ? (
+        <p className="py-3 text-center text-xs text-white/40">No active entries for this chat</p>
+      ) : (
+        <>
+          <p className="mb-2 text-[0.625rem] text-white/40">
+            {entries.length} active • ~{(data?.totalTokens ?? 0).toLocaleString()} tokens
+          </p>
+          <div className="space-y-1.5">
+            {entries.map((entry) => (
+              <WorldInfoEntryRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen(!open)}
         className={cn(
@@ -1231,39 +1419,29 @@ function WorldInfoButton({ chatId }: { chatId: string | null }) {
           open
             ? "bg-white/15 border-white/20 text-white/90"
             : hasEntries && !isLoading
-              ? "bg-white/5 border-emerald-400/30 text-emerald-400/70 hover:bg-white/10 hover:text-emerald-300"
+              ? "bg-white/10 border-white/25 text-white/80 hover:bg-white/15 hover:text-white"
               : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
         )}
         title="Active World Info"
       >
-        <Globe size={14} />
+        <Globe size="0.875rem" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-xl animate-message-in">
-          <h3 className="mb-2 text-xs font-semibold text-white/90 flex items-center gap-1.5">
-            <Globe size={12} />
-            Active World Info
-          </h3>
-          {isLoading ? (
-            <div className="flex items-center gap-2 py-4 text-xs text-white/40">
-              <Loader2 size={12} className="animate-spin" />
-              Scanning entries…
-            </div>
-          ) : entries.length === 0 ? (
-            <p className="py-3 text-center text-xs text-white/40">No active entries for this chat</p>
-          ) : (
-            <>
-              <p className="mb-2 text-[10px] text-white/40">
-                {entries.length} active • ~{(data?.totalTokens ?? 0).toLocaleString()} tokens
-              </p>
-              <div className="space-y-1.5">
-                {entries.map((entry) => (
-                  <WorldInfoEntryRow key={entry.id} entry={entry} />
-                ))}
+        isMobile ? (
+          createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
+              <div className="relative w-full max-w-sm max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-xl animate-message-in">
+                {panelContent}
               </div>
-            </>
-          )}
-        </div>
+            </div>,
+            document.body,
+          )
+        ) : (
+          <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-black/90 p-3 shadow-2xl backdrop-blur-xl animate-message-in">
+            {panelContent}
+          </div>
+        )
       )}
     </div>
   );
@@ -1284,20 +1462,20 @@ function WorldInfoEntryRow({
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
         <span className="font-medium text-white/80 truncate">{entry.name}</span>
         {entry.constant && (
-          <span className="rounded bg-amber-400/15 px-1 py-0.5 text-[8px] font-medium text-amber-400 shrink-0">
+          <span className="rounded bg-amber-400/15 px-1 py-0.5 text-[0.5rem] font-medium text-amber-400 shrink-0">
             CONST
           </span>
         )}
-        <span className="ml-auto text-[10px] text-white/30 shrink-0">#{entry.order}</span>
+        <span className="ml-auto text-[0.625rem] text-white/30 shrink-0">#{entry.order}</span>
       </div>
       {entry.keys.length > 0 && (
-        <p className="mt-0.5 truncate text-[10px] text-white/30">
+        <p className="mt-0.5 truncate text-[0.625rem] text-white/30">
           Keys: {entry.keys.slice(0, 5).join(", ")}
           {entry.keys.length > 5 && ` +${entry.keys.length - 5}`}
         </p>
       )}
       {expanded && (
-        <p className="mt-1.5 whitespace-pre-wrap text-[11px] text-white/50 leading-relaxed border-t border-white/5 pt-1.5 max-h-40 overflow-y-auto">
+        <p className="mt-1.5 whitespace-pre-wrap text-[0.6875rem] text-white/50 leading-relaxed border-t border-white/5 pt-1.5 max-h-40 overflow-y-auto">
           {entry.content || "(empty)"}
         </p>
       )}

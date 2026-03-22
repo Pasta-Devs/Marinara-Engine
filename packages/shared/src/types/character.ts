@@ -46,6 +46,8 @@ export interface CharacterExtensions {
   boxColor?: string;
   /** Marinara Engine: RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
+  /** Marinara Engine: Conversation-mode availability status */
+  conversationStatus?: "online" | "idle" | "dnd" | "offline";
   [key: string]: unknown;
 }
 

@@ -51,6 +51,7 @@ export function createConnectionsStorage(db: DB) {
         isDefault: String(input.isDefault ?? false),
         useForRandom: String(input.useForRandom ?? false),
         enableCaching: String(input.enableCaching ?? false),
+        embeddingModel: input.embeddingModel ?? "",
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -77,8 +78,35 @@ export function createConnectionsStorage(db: DB) {
       if (data.enableCaching !== undefined) {
         updateFields.enableCaching = String(data.enableCaching);
       }
+      if (data.embeddingModel !== undefined) {
+        updateFields.embeddingModel = data.embeddingModel;
+      }
       await db.update(apiConnections).set(updateFields).where(eq(apiConnections.id, id));
       return this.getById(id);
+    },
+
+    /** Duplicate a connection (including the encrypted API key). */
+    async duplicate(id: string) {
+      const source = await this.getById(id);
+      if (!source) return null;
+      const newConnId = newId();
+      const timestamp = now();
+      await db.insert(apiConnections).values({
+        id: newConnId,
+        name: `${source.name} (Copy)`,
+        provider: source.provider,
+        baseUrl: source.baseUrl,
+        apiKeyEncrypted: source.apiKeyEncrypted,
+        model: source.model,
+        maxContext: source.maxContext,
+        isDefault: "false",
+        useForRandom: source.useForRandom,
+        enableCaching: source.enableCaching,
+        embeddingModel: source.embeddingModel,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getById(newConnId);
     },
 
     /** Get all connections marked for the random pool (with decrypted keys). */

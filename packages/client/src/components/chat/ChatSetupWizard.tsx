@@ -3,7 +3,20 @@
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Plug, Sliders, Users, BookOpen, Sparkles, Check, Plus, Search, X, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  Plug,
+  BookOpen,
+  Check,
+  Plus,
+  Search,
+  Trash2,
+  MessageCircle,
+  X,
+  Users,
+  Loader2,
+  Bot,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresets } from "../../hooks/use-presets";
@@ -20,11 +33,12 @@ interface WizardStep {
   key: string;
   title: string;
   body: string;
+
   sprite: string;
   spriteFlip?: boolean;
 }
 
-const STEPS: WizardStep[] = [
+const ALL_STEPS: WizardStep[] = [
   {
     key: "connection",
     title: "Choose a Connection",
@@ -66,6 +80,419 @@ interface ChatSetupWizardProps {
 }
 
 export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
+  const chatMode = (chat as unknown as { mode?: string }).mode ?? "roleplay";
+
+  if (chatMode === "conversation") {
+    return <ConversationQuickSetup chat={chat} onFinish={onFinish} />;
+  }
+
+  return <RoleplaySetupWizard chat={chat} onFinish={onFinish} />;
+}
+
+// ──────────────────────────────────────────────
+// Conversation Quick Setup — Discord-style "New DM" picker
+// ──────────────────────────────────────────────
+
+function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
+  const { data: connections } = useConnections();
+  const { data: allCharacters } = useCharacters();
+  const { data: allPersonas } = usePersonas();
+  const updateChat = useUpdateChat();
+  const updateMeta = useUpdateChatMetadata();
+  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const [scheduleState, setScheduleState] = useState<"idle" | "generating" | "done">("idle");
+  const [autonomousEnabled, setAutonomousEnabled] = useState(true);
+  const [generateSchedule, setGenerateSchedule] = useState(true);
+
+  const characters = (allCharacters ?? []) as Array<{ id: string; data: string; avatarPath: string | null }>;
+  const personas = (allPersonas ?? []) as Array<{ id: string; name: string; avatarPath: string | null }>;
+
+  const chatCharIds: string[] = useMemo(() => {
+    return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
+  }, [chat.characterIds]);
+
+  const [search, setSearch] = useState("");
+
+  const charName = useCallback((c: { id?: string; data: string }) => {
+    try {
+      const p = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
+      return (p as { name?: string }).name ?? "Unknown";
+    } catch {
+      return "Unknown";
+    }
+  }, []);
+
+  const toggleCharacter = useCallback(
+    (charId: string) => {
+      const current = [...chatCharIds];
+      const idx = current.indexOf(charId);
+      if (idx >= 0) current.splice(idx, 1);
+      else current.push(charId);
+      updateChat.mutate({ id: chat.id, characterIds: current });
+    },
+    [chat.id, chatCharIds, updateChat],
+  );
+
+  const setConnection = useCallback(
+    (connectionId: string | null) => {
+      updateChat.mutate({ id: chat.id, connectionId });
+    },
+    [chat.id, updateChat],
+  );
+
+  const setPersona = useCallback(
+    (personaId: string | null) => {
+      updateChat.mutate({ id: chat.id, personaId });
+    },
+    [chat.id, updateChat],
+  );
+
+  const available = characters.filter(
+    (c) => !chatCharIds.includes(c.id) && charName(c).toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const hasConnection = !!chat.connectionId;
+  const hasCharacters = chatCharIds.length > 0;
+
+  const handleStartChatting = useCallback(async () => {
+    if (!hasConnection || !hasCharacters) return;
+    await updateMeta.mutateAsync({ id: chat.id, autonomousMessages: autonomousEnabled });
+    if (autonomousEnabled && generateSchedule) {
+      setScheduleState("generating");
+      try {
+        await api.post("/conversation/schedule/generate", { chatId: chat.id, characterIds: chatCharIds });
+      } catch {
+        // Schedule generation is non-critical — continue anyway
+      }
+      setScheduleState("done");
+      setTimeout(onFinish, 2000);
+    } else {
+      onFinish();
+    }
+  }, [hasConnection, hasCharacters, chat.id, chatCharIds, onFinish, autonomousEnabled, generateSchedule, updateMeta]);
+
+  return (
+    <>
+      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onFinish} />
+
+      <div className="absolute inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl overflow-hidden"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
+              <h3 className="text-sm font-semibold text-[var(--foreground)]">New Conversation</h3>
+            </div>
+            <button
+              onClick={onFinish}
+              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+            >
+              <X size="0.875rem" />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Conversation name */}
+            <div className="space-y-1.5">
+              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                Name
+              </label>
+              <input
+                type="text"
+                defaultValue={chat.name}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val && val !== chat.name) updateChat.mutate({ id: chat.id, name: val });
+                }}
+                placeholder="Conversation name"
+                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 placeholder:text-[var(--muted-foreground)]"
+              />
+            </div>
+
+            {/* Connection picker */}
+            <div className="space-y-1.5">
+              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                Connection
+              </label>
+              <select
+                value={chat.connectionId ?? ""}
+                onChange={(e) => setConnection(e.target.value || null)}
+                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+              >
+                <option value="">None</option>
+                <option value="random">🎲 Random</option>
+                {((connections ?? []) as Array<{ id: string; name: string }>).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {((connections ?? []) as Array<unknown>).length === 0 && (
+                <button
+                  onClick={() => {
+                    openRightPanel("connections");
+                    onFinish();
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                >
+                  <Plug size="0.75rem" />
+                  Set Up a Connection
+                </button>
+              )}
+            </div>
+
+            {/* Persona picker (compact) */}
+            <div className="space-y-1.5">
+              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                Your Persona
+              </label>
+              <select
+                value={chat.personaId ?? ""}
+                onChange={(e) => setPersona(e.target.value || null)}
+                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+              >
+                <option value="">None</option>
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Character picker — main area */}
+            <div className="space-y-1.5">
+              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                {chatCharIds.length > 1 ? (
+                  <span className="flex items-center gap-1.5">
+                    <Users size="0.6875rem" />
+                    Group Chat · {chatCharIds.length} members
+                  </span>
+                ) : (
+                  "Who do you want to message?"
+                )}
+              </label>
+
+              {/* Selected characters */}
+              {chatCharIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {chatCharIds.map((cid) => {
+                    const c = characters.find((ch) => ch.id === cid);
+                    if (!c) return null;
+                    const name = charName(c);
+                    return (
+                      <button
+                        key={cid}
+                        onClick={() => toggleCharacter(cid)}
+                        className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/15 pl-1 pr-2.5 py-1 text-xs ring-1 ring-[var(--primary)]/30 transition-all hover:bg-[var(--destructive)]/15 hover:ring-[var(--destructive)]/30 group"
+                      >
+                        {c.avatarPath ? (
+                          <img
+                            src={c.avatarPath}
+                            alt={name}
+                            loading="lazy"
+                            className="h-5 w-5 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5rem] font-bold">
+                            {name[0]}
+                          </div>
+                        )}
+                        <span className="truncate max-w-[6rem]">{name}</span>
+                        <X
+                          size="0.625rem"
+                          className="text-[var(--muted-foreground)] group-hover:text-[var(--destructive)]"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Search */}
+              <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--secondary)]/50 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search characters…"
+                    className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto border-t border-[var(--border)]">
+                  {available.map((c) => {
+                    const name = charName(c);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => toggleCharacter(c.id)}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                      >
+                        {c.avatarPath ? (
+                          <img
+                            src={c.avatarPath}
+                            alt={name}
+                            loading="lazy"
+                            className="h-7 w-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
+                            {name[0]}
+                          </div>
+                        )}
+                        <span className="flex-1 truncate text-xs">{name}</span>
+                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                    );
+                  })}
+                  {available.length === 0 && (
+                    <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
+                        ? "All characters added."
+                        : "No matches."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Autonomous messages toggle */}
+            <div className="space-y-2">
+              <button
+                onClick={() => setAutonomousEnabled((v) => !v)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                  autonomousEnabled
+                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                )}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Bot
+                    size="0.875rem"
+                    className={autonomousEnabled ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+                  />
+                  <div>
+                    <span className="text-xs font-medium">Autonomous Messages</span>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      Characters can message you first based on their schedule
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                    autonomousEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      autonomousEnabled && "translate-x-3.5",
+                    )}
+                  />
+                </div>
+              </button>
+
+              {/* Generate Schedule sub-toggle */}
+              {autonomousEnabled && (
+                <button
+                  onClick={() => setGenerateSchedule((v) => !v)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    generateSchedule
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Loader2
+                      size="0.875rem"
+                      className={generateSchedule ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+                    />
+                    <div>
+                      <span className="text-xs font-medium">Generate Schedule</span>
+                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                        Creates a schedule for each character that dictates their availability
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      generateSchedule ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        generateSchedule && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-[var(--border)] px-4 py-3">
+            {scheduleState === "idle" ? (
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={onFinish}
+                  className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleStartChatting}
+                  disabled={!hasConnection || !hasCharacters}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium shadow-sm transition-all active:scale-95",
+                    hasConnection && hasCharacters
+                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
+                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <MessageCircle size="0.75rem" />
+                  Start Chatting
+                </button>
+              </div>
+            ) : scheduleState === "generating" ? (
+              <div className="flex items-center justify-center gap-2 py-1">
+                <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  Generating schedule{chatCharIds.length > 1 ? "s" : ""}… hang tight!
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-1">
+                <Check size="0.875rem" className="text-emerald-400" />
+                <span className="text-xs text-emerald-400">Ready! Say hi to start the conversation.</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Roleplay Setup Wizard — step-by-step guided setup
+// ──────────────────────────────────────────────
+
+function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
+  const STEPS = ALL_STEPS;
+
   const [step, setStep] = useState(0);
   const currentStep = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
@@ -82,7 +509,10 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: lorebooks } = useLorebooks();
 
   const personas = (allPersonas ?? []) as Array<{ id: string; name: string; avatarPath: string | null }>;
-  const characters = (allCharacters ?? []) as Array<{ id: string; data: string; avatarPath: string | null }>;
+  const characters = useMemo(
+    () => (allCharacters ?? []) as Array<{ id: string; data: string; avatarPath: string | null }>,
+    [allCharacters],
+  );
 
   const metadata = useMemo(() => {
     const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
@@ -93,7 +523,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
 
-  const activeLorebookIds: string[] = metadata.activeLorebookIds ?? [];
+  const activeLorebookIds: string[] = useMemo(() => metadata.activeLorebookIds ?? [], [metadata.activeLorebookIds]);
 
   // Character name helper
   const charNameMap = useMemo(() => {
@@ -238,7 +668,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             }}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
           >
-            <Plug size={13} />
+            <Plug size="0.8125rem" />
             Set Up a Connection
           </button>
         )}
@@ -300,9 +730,9 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                 >
                   {c.avatarPath ? (
-                    <img src={c.avatarPath} alt={name} className="h-6 w-6 rounded-full object-cover" />
+                    <img src={c.avatarPath} alt={name} loading="lazy" className="h-6 w-6 rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[9px] font-bold">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
                       {name[0]}
                     </div>
                   )}
@@ -312,7 +742,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                     title="Remove"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size="0.6875rem" />
                   </button>
                 </div>
               );
@@ -323,7 +753,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         {/* Search + add */}
         <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-            <Search size={12} className="text-[var(--muted-foreground)]" />
+            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
             <input
               value={charSearch}
               onChange={(e) => setCharSearch(e.target.value)}
@@ -341,19 +771,19 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
                 >
                   {c.avatarPath ? (
-                    <img src={c.avatarPath} alt={name} className="h-6 w-6 rounded-full object-cover" />
+                    <img src={c.avatarPath} alt={name} loading="lazy" className="h-6 w-6 rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[9px] font-bold">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
                       {name[0]}
                     </div>
                   )}
                   <span className="flex-1 truncate text-xs">{name}</span>
-                  <Plus size={12} className="text-[var(--muted-foreground)]" />
+                  <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
                 </button>
               );
             })}
             {available.length === 0 && (
-              <p className="px-3 py-2 text-[11px] text-[var(--muted-foreground)]">
+              <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                 {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
                   ? "All characters already added."
                   : "No matches."}
@@ -383,14 +813,14 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   key={lb.id}
                   className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                 >
-                  <BookOpen size={14} className="text-[var(--primary)]" />
+                  <BookOpen size="0.875rem" className="text-[var(--primary)]" />
                   <span className="flex-1 truncate text-xs">{lb.name}</span>
                   <button
                     onClick={() => toggleLorebook(lb.id)}
                     className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                     title="Remove"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size="0.6875rem" />
                   </button>
                 </div>
               );
@@ -401,7 +831,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         {/* Search + add */}
         <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-            <Search size={12} className="text-[var(--muted-foreground)]" />
+            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
             <input
               value={lbSearch}
               onChange={(e) => setLbSearch(e.target.value)}
@@ -416,13 +846,13 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                 onClick={() => toggleLorebook(lb.id)}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
               >
-                <BookOpen size={14} className="text-[var(--muted-foreground)]" />
+                <BookOpen size="0.875rem" className="text-[var(--muted-foreground)]" />
                 <span className="flex-1 truncate text-xs">{lb.name}</span>
-                <Plus size={12} className="text-[var(--muted-foreground)]" />
+                <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
               </button>
             ))}
             {available.length === 0 && (
-              <p className="px-3 py-2 text-[11px] text-[var(--muted-foreground)]">
+              <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                 {((lorebooks ?? []) as Array<{ id: string }>).filter((lb) => !activeLorebookIds.includes(lb.id))
                   .length === 0
                   ? "All lorebooks already added."
@@ -511,7 +941,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                 className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95"
               >
                 {isLast ? "Done" : "Next"}
-                {isLast ? <Check size={12} /> : <ChevronRight size={12} />}
+                {isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
               </button>
             </div>
           </motion.div>

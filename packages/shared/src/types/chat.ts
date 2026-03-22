@@ -25,6 +25,8 @@ export interface Chat {
   personaId: string | null;
   promptPresetId: string | null;
   connectionId: string | null;
+  /** ID of a linked chat (conversation ↔ roleplay bidirectional link) */
+  connectedChatId: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: ChatMetadata;
@@ -52,6 +54,12 @@ export interface ChatMetadata {
   groupSpeakerColors?: boolean;
   /** Group individual mode response order: "sequential" or "smart" (agent-decided) */
   groupResponseOrder?: GroupResponseOrder;
+  /** When true, tracker agents only run when the user manually triggers them (not after every generation) */
+  manualTrackers?: boolean;
+  /** Whether to recall memories from past conversations during generation. Default: true for conversation/scenes, false for roleplay. */
+  enableMemoryRecall?: boolean;
+  /** Discord webhook URL to mirror messages to a Discord channel. */
+  discordWebhookUrl?: string;
   /** Any extra key-value data */
   [key: string]: unknown;
 }
@@ -126,4 +134,15 @@ export interface StreamEvent {
   data: string;
   agentId?: string;
   messageId?: string;
+}
+
+/** An OOC influence queued from a conversation chat to be injected into a roleplay chat. */
+export interface OocInfluence {
+  id: string;
+  sourceChatId: string;
+  targetChatId: string;
+  content: string;
+  anchorMessageId: string;
+  consumed: boolean;
+  createdAt: string;
 }

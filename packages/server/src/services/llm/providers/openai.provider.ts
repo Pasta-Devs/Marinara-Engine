@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import {
   BaseLLMProvider,
+  sanitizeApiError,
   type ChatMessage,
   type ChatOptions,
   type ChatCompletionResult,
@@ -35,28 +36,36 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private formatMessages(messages: ChatMessage[]) {
-    return messages.map((m) => {
-      if (m.role === "tool") {
-        return { role: "tool" as const, content: m.content, tool_call_id: m.tool_call_id };
-      }
-      if (m.role === "assistant" && m.tool_calls?.length) {
-        return {
-          role: "assistant" as const,
-          content: m.content || null,
-          tool_calls: m.tool_calls,
-        };
-      }
-      // Multimodal: if message has images, use content array format
-      if (m.images?.length) {
-        const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-        if (m.content) parts.push({ type: "text", text: m.content });
-        for (const img of m.images) {
-          parts.push({ type: "image_url", image_url: { url: img } });
+    return messages
+      .filter((m) => {
+        // Keep tool messages and assistant messages with tool_calls regardless of content
+        if (m.role === "tool") return true;
+        if (m.role === "assistant" && m.tool_calls?.length) return true;
+        // Drop messages with empty/whitespace-only content
+        return m.content?.trim();
+      })
+      .map((m) => {
+        if (m.role === "tool") {
+          return { role: "tool" as const, content: m.content, tool_call_id: m.tool_call_id };
         }
-        return { role: m.role, content: parts };
-      }
-      return { role: m.role, content: m.content };
-    });
+        if (m.role === "assistant" && m.tool_calls?.length) {
+          return {
+            role: "assistant" as const,
+            content: m.content || null,
+            tool_calls: m.tool_calls,
+          };
+        }
+        // Multimodal: if message has images, use content array format
+        if (m.images?.length) {
+          const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+          if (m.content) parts.push({ type: "text", text: m.content });
+          for (const img of m.images) {
+            parts.push({ type: "image_url", image_url: { url: img } });
+          }
+          return { role: m.role, content: parts };
+        }
+        return { role: m.role, content: m.content };
+      });
   }
 
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
@@ -68,9 +77,16 @@ export class OpenAIProvider extends BaseLLMProvider {
     const url = `${this.baseUrl}/chat/completions`;
     const reasoning = this.isReasoningModel(options.model);
 
+    const formatted = this.formatMessages(messages);
+    // Ensure at least one non-system message exists (some providers like Gemini
+    // reject requests with only system messages)
+    if (!formatted.some((m) => m.role !== "system")) {
+      formatted.push({ role: "user", content: "Continue." });
+    }
+
     const body: Record<string, unknown> = {
       model: options.model,
-      messages: this.formatMessages(messages),
+      messages: formatted,
       stream: options.stream ?? true,
       ...(options.stop?.length ? { stop: options.stop } : {}),
       ...(options.tools?.length ? { tools: options.tools } : {}),
@@ -85,6 +101,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.temperature = options.temperature ?? 1;
       body.max_tokens = options.maxTokens ?? 4096;
       body.top_p = options.topP ?? 1;
+      if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
+      if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
     }
 
     // Send reasoning_effort if set (outside reasoning check so custom/OAI-compatible providers also get it)
@@ -104,7 +122,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errorText.slice(0, 500)}`);
+      throw new Error(`OpenAI API error ${response.status}: ${sanitizeApiError(errorText)}`);
     }
 
     if (!options.stream) {
@@ -191,9 +209,14 @@ export class OpenAIProvider extends BaseLLMProvider {
     // Use streaming when an onToken callback is provided, so text arrives in real time
     const useStream = !!options.onToken;
 
+    const formatted = this.formatMessages(messages);
+    if (!formatted.some((m) => m.role !== "system")) {
+      formatted.push({ role: "user", content: "Continue." });
+    }
+
     const body: Record<string, unknown> = {
       model: options.model,
-      messages: this.formatMessages(messages),
+      messages: formatted,
       stream: useStream,
       ...(options.stop?.length ? { stop: options.stop } : {}),
       ...(options.tools?.length ? { tools: options.tools } : {}),
@@ -206,6 +229,8 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.temperature = options.temperature ?? 1;
       body.max_tokens = options.maxTokens ?? 4096;
       body.top_p = options.topP ?? 1;
+      if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
+      if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
     }
 
     // Send reasoning_effort if set (outside reasoning check so custom/OAI-compatible providers also get it)
@@ -225,7 +250,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errorText.slice(0, 500)}`);
+      throw new Error(`OpenAI API error ${response.status}: ${sanitizeApiError(errorText)}`);
     }
 
     if (!useStream) {
@@ -397,11 +422,13 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     for (const m of messages) {
       if (m.role === "system") {
-        // Merge all system messages into instructions
-        if (instructions) {
-          instructions += "\n\n" + m.content;
-        } else {
-          instructions = m.content;
+        // Merge all system messages into instructions (skip empty)
+        if (m.content?.trim()) {
+          if (instructions) {
+            instructions += "\n\n" + m.content;
+          } else {
+            instructions = m.content;
+          }
         }
         continue;
       }
@@ -445,7 +472,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         continue;
       }
 
-      // Regular user or assistant message
+      // Regular user or assistant message — skip empty content
+      if (!m.content?.trim()) continue;
       input.push({ role: m.role, content: m.content });
     }
 
@@ -485,11 +513,15 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (!this.isReasoningModel(options.model)) {
       if (options.temperature != null) body.temperature = options.temperature;
       if (options.topP != null) body.top_p = options.topP;
+      if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
+      if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
     }
 
-    if (options.reasoningEffort) {
-      body.reasoning = { effort: options.reasoningEffort };
-    }
+    // Build the reasoning config: effort + opt-in to reasoning summaries
+    const reasoning: Record<string, unknown> = {};
+    if (options.reasoningEffort) reasoning.effort = options.reasoningEffort;
+    if (options.enableThinking) reasoning.summary = "auto";
+    if (Object.keys(reasoning).length > 0) body.reasoning = reasoning;
 
     if (options.tools?.length) {
       body.tools = this.formatResponsesTools(options.tools);
@@ -521,7 +553,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenAI Responses API error ${response.status}: ${errorText.slice(0, 500)}`);
+      throw new Error(`OpenAI Responses API error ${response.status}: ${sanitizeApiError(errorText)}`);
     }
 
     if (!options.stream) {
@@ -573,6 +605,11 @@ export class OpenAIProvider extends BaseLLMProvider {
               if (delta) yield delta;
               break;
             }
+            case "response.reasoning_summary_text.delta": {
+              const delta = parsed.delta as string | undefined;
+              if (delta && options.onThinking) options.onThinking(delta);
+              break;
+            }
             case "response.refusal.delta": {
               // Treat refusals as regular text so the user sees the message
               const delta = parsed.delta as string | undefined;
@@ -619,7 +656,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenAI Responses API error ${response.status}: ${errorText.slice(0, 500)}`);
+      throw new Error(`OpenAI Responses API error ${response.status}: ${sanitizeApiError(errorText)}`);
     }
 
     if (!useStream) {
@@ -674,6 +711,12 @@ export class OpenAIProvider extends BaseLLMProvider {
                 content += delta;
                 options.onToken?.(delta);
               }
+              break;
+            }
+
+            case "response.reasoning_summary_text.delta": {
+              const delta = parsed.delta as string | undefined;
+              if (delta && options.onThinking) options.onThinking(delta);
               break;
             }
 

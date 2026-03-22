@@ -36,8 +36,7 @@ function htmlEscape(str: string): string {
 
 function generateRandomString(length: number): string {
   const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const values = crypto.randomBytes(length);
-  return Array.from(values, (x) => possible[x % possible.length]).join("");
+  return Array.from({ length }, () => possible[crypto.randomInt(possible.length)]).join("");
 }
 
 async function sha256Base64url(plain: string): Promise<string> {

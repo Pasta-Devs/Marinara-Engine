@@ -168,7 +168,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
               ))}
             </select>
             <ChevronDown
-              size={14}
+              size="0.875rem"
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
             />
           </div>
@@ -194,12 +194,12 @@ export function CharacterMakerModal({ open, onClose }: Props) {
         >
           {streaming ? (
             <>
-              <Loader2 size={15} className="animate-spin" />
+              <Loader2 size="0.9375rem" className="animate-spin" />
               Generating…
             </>
           ) : (
             <>
-              <Wand2 size={15} />
+              <Wand2 size="0.9375rem" />
               Generate Character
             </>
           )}
@@ -209,8 +209,8 @@ export function CharacterMakerModal({ open, onClose }: Props) {
         {streaming && streamText && (
           <div className="max-h-48 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
             <div className="flex items-center gap-1.5 mb-2">
-              <Sparkles size={12} className="animate-pulse text-violet-400" />
-              <span className="text-[10px] font-medium text-violet-400">Generating…</span>
+              <Sparkles size="0.75rem" className="animate-pulse text-violet-400" />
+              <span className="text-[0.625rem] font-medium text-violet-400">Generating…</span>
             </div>
             <pre className="whitespace-pre-wrap text-xs text-[var(--muted-foreground)] font-mono">
               {streamText.slice(-500)}
@@ -221,7 +221,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
         {/* Error */}
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 p-3">
-            <AlertCircle size={14} className="mt-0.5 shrink-0 text-[var(--destructive)]" />
+            <AlertCircle size="0.875rem" className="mt-0.5 shrink-0 text-[var(--destructive)]" />
             <p className="text-xs text-[var(--destructive)]">{error}</p>
           </div>
         )}
@@ -230,14 +230,14 @@ export function CharacterMakerModal({ open, onClose }: Props) {
         {generated && (
           <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle size={14} className="text-emerald-500" />
+              <CheckCircle size="0.875rem" className="text-emerald-500" />
               <span className="text-xs font-medium text-emerald-500">Character Generated!</span>
             </div>
 
             {/* Preview card */}
             <div className="flex items-start gap-3 rounded-xl bg-[var(--card)] p-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-purple-500 shadow-md">
-                <User size={20} className="text-white" />
+                <User size="1.25rem" className="text-white" />
               </div>
               <div className="min-w-0 flex-1">
                 <h4 className="font-bold">{generated.name}</h4>
@@ -249,7 +249,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
                     {generated.tags.slice(0, 5).map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]"
+                        className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]"
                       >
                         {tag}
                       </span>
@@ -275,12 +275,12 @@ export function CharacterMakerModal({ open, onClose }: Props) {
             >
               {saving ? (
                 <>
-                  <Loader2 size={15} className="animate-spin" />
+                  <Loader2 size="0.9375rem" className="animate-spin" />
                   Saving…
                 </>
               ) : (
                 <>
-                  <Save size={15} />
+                  <Save size="0.9375rem" />
                   Save & Edit Character
                 </>
               )}
@@ -295,7 +295,9 @@ export function CharacterMakerModal({ open, onClose }: Props) {
 function PreviewSection({ label, text }: { label: string; text: string }) {
   return (
     <div className="rounded-lg bg-[var(--secondary)] p-2.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">{label}</span>
+      <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+        {label}
+      </span>
       <p className="mt-1 text-[var(--foreground)] line-clamp-3">{text}</p>
     </div>
   );

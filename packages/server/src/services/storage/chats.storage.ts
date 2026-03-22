@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { eq, desc, and, lt, sql, count } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
-import { chats, messages, messageSwipes, chatImages } from "../../db/schema/index.js";
+import { chats, messages, messageSwipes, chatImages, oocInfluences } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { existsSync, rmSync } from "fs";
 import { join } from "path";
@@ -343,6 +343,64 @@ export function createChatsStorage(db: DB) {
         .update(messageSwipes)
         .set({ extra: JSON.stringify(merged) })
         .where(eq(messageSwipes.id, target.id));
+    },
+
+    // ── Chat Connections ──
+
+    /** Bidirectionally link two chats. */
+    async connectChats(chatIdA: string, chatIdB: string) {
+      const timestamp = now();
+      await db.update(chats).set({ connectedChatId: chatIdB, updatedAt: timestamp }).where(eq(chats.id, chatIdA));
+      await db.update(chats).set({ connectedChatId: chatIdA, updatedAt: timestamp }).where(eq(chats.id, chatIdB));
+    },
+
+    /** Remove the bidirectional link for a chat (and its partner). */
+    async disconnectChat(chatId: string) {
+      const chat = await this.getById(chatId);
+      if (!chat) return;
+      const parsed = typeof chat.connectedChatId === "string" ? chat.connectedChatId : null;
+      const timestamp = now();
+      await db.update(chats).set({ connectedChatId: null, updatedAt: timestamp }).where(eq(chats.id, chatId));
+      if (parsed) {
+        await db.update(chats).set({ connectedChatId: null, updatedAt: timestamp }).where(eq(chats.id, parsed));
+      }
+    },
+
+    // ── OOC Influences ──
+
+    /** Create a queued influence from a conversation → its connected roleplay. */
+    async createInfluence(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string) {
+      const id = newId();
+      await db.insert(oocInfluences).values({
+        id,
+        sourceChatId,
+        targetChatId,
+        content,
+        anchorMessageId: anchorMessageId ?? null,
+        consumed: "false",
+        createdAt: now(),
+      });
+      return id;
+    },
+
+    /** Get all unconsumed influences targeting a chat. */
+    async listPendingInfluences(targetChatId: string) {
+      return db
+        .select()
+        .from(oocInfluences)
+        .where(and(eq(oocInfluences.targetChatId, targetChatId), eq(oocInfluences.consumed, "false")))
+        .orderBy(oocInfluences.createdAt);
+    },
+
+    /** Mark an influence as consumed after it's been injected. */
+    async markInfluenceConsumed(id: string) {
+      await db.update(oocInfluences).set({ consumed: "true" }).where(eq(oocInfluences.id, id));
+    },
+
+    /** Delete all influences associated with a chat (as source or target). */
+    async deleteInfluencesForChat(chatId: string) {
+      await db.delete(oocInfluences).where(eq(oocInfluences.sourceChatId, chatId));
+      await db.delete(oocInfluences).where(eq(oocInfluences.targetChatId, chatId));
     },
   };
 }

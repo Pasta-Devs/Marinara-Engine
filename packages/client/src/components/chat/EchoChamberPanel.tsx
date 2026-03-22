@@ -10,6 +10,8 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide } from "../../stores/ui.store";
 import { useAgentConfigs } from "../../hooks/use-agents";
+import { useChatStore } from "../../stores/chat.store";
+import { useChat } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 
 const MESSAGE_INTERVAL_MS = 30_000; // 30 s between reveals
@@ -31,11 +33,8 @@ const NAME_COLORS = [
 const CORNERS: EchoChamberSide[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
 
 // Layout constants (px)
-const TOP_BAR_H = 48; // h-12
 const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.75rem] (60px)
-const HUD_SIDEBAR_W = 92; // left/right HUD column width (w-20 widgets + px-1.5 padding)
 const INPUT_BOX_H = 72; // bottom chat input area height
-const RIGHT_PANEL_W = 320; // right panel width on desktop
 const GAP = 8; // breathing room
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
@@ -48,7 +47,7 @@ function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChang
           key={c}
           onClick={() => onChange(c)}
           className={cn(
-            "h-[7px] w-[7px] rounded-[1.5px] transition-colors",
+            "h-[0.4375rem] w-[0.4375rem] rounded-[0.09375rem] transition-colors",
             c === current ? "bg-purple-400" : "bg-white/15 hover:bg-white/30",
           )}
           title={c.replace("-", " ")}
@@ -63,19 +62,28 @@ export function EchoChamberPanel() {
   const echoChamberSide = useUIStore((s) => s.echoChamberSide);
   const toggleEchoChamber = useUIStore((s) => s.toggleEchoChamber);
   const setEchoChamberSide = useUIStore((s) => s.setEchoChamberSide);
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
-  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const hudPosition = useUIStore((s) => s.hudPosition);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const activeChatId = useChatStore((s) => s.activeChatId);
+  const { data: chat } = useChat(activeChatId);
   const { data: agentConfigs } = useAgentConfigs();
+
+  // Mirror the enabledAgentTypes logic from ChatArea so per-chat overrides are respected
   const echoEnabled = useMemo(() => {
+    if (!chat) return false;
+    const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
+    const meta = typeof raw === "string" ? JSON.parse(raw) : ((raw ?? {}) as Record<string, unknown>);
+    if (!meta.enableAgents) return false;
+    const activeAgentIds: string[] = Array.isArray(meta.activeAgentIds) ? meta.activeAgentIds : [];
+    if (activeAgentIds.length > 0) {
+      return activeAgentIds.includes("echo-chamber");
+    }
+    // Fallback: check global agent config
     if (!agentConfigs) return false;
     const cfg = (agentConfigs as Array<{ type: string; enabled: string }>).find((a) => a.type === "echo-chamber");
     return cfg?.enabled === "true";
-  }, [agentConfigs]);
+  }, [chat, agentConfigs]);
 
   // ── Timed reveal: show one more message every 30 s ──
   const [visibleCount, setVisibleCount] = useState(0);
@@ -113,34 +121,55 @@ export function EchoChamberPanel() {
     return map;
   }, [echoMessages]);
 
-  // ── Compute position style so the box stays inside the chat area ──
-  const posStyle = useMemo(() => {
-    // On mobile, position below the HUD bar
+  // ── Compute position style relative to the chat area container ──
+  const [posStyle, setPosStyle] = useState<Record<string, number | undefined>>({});
+
+  useEffect(() => {
+    if (!echoChamberOpen) return;
+    // On mobile, position below the HUD bar.
     if (typeof window !== "undefined" && window.innerWidth < 768) {
-      // Try to measure the actual HUD bar height
-      const hudEl = document.querySelector(".rpg-hud");
-      const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom : 56;
-      return { top: hudBottom + 8, left: 16, right: 16 };
+      const findVisibleHud = (): HTMLElement | null => {
+        const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
+        for (const el of els) {
+          if (el.getBoundingClientRect().height > 0) return el;
+        }
+        return null;
+      };
+
+      const update = () => {
+        const hudEl = findVisibleHud();
+        // Position relative to container, so measure HUD bottom relative to rpg-chat-area
+        const container = hudEl?.closest(".rpg-chat-area");
+        const containerTop = container?.getBoundingClientRect().top ?? 0;
+        const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - containerTop : 56;
+        setPosStyle({ top: hudBottom + 8, left: 16, right: 16 });
+      };
+
+      update();
+
+      const hudEl = findVisibleHud();
+      let ro: ResizeObserver | undefined;
+      if (hudEl) {
+        ro = new ResizeObserver(update);
+        ro.observe(hudEl);
+      }
+
+      return () => ro?.disconnect();
     }
+    // Desktop: position within the chat area container (absolute, not fixed)
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
-    // ...existing code...
-    const topBase = TOP_BAR_H;
-    const topOffset = isTop ? topBase + (hudPosition === "top" ? WIDGET_BAR_H : 0) + GAP : undefined;
+    const topOffset = isTop ? WIDGET_BAR_H + GAP : undefined;
     const bottomOffset = !isTop ? INPUT_BOX_H + GAP : undefined;
-    const leftEdge = sidebarOpen ? sidebarWidth : 0;
-    const rightEdge = rightPanelOpen ? RIGHT_PANEL_W : 0;
-    const hudLeftInset = hudPosition === "left" ? HUD_SIDEBAR_W : 0;
-    const hudRightInset = hudPosition === "right" ? HUD_SIDEBAR_W : 0;
-    const leftOffset = isLeft ? leftEdge + hudLeftInset + GAP : undefined;
-    const rightOffset = !isLeft ? rightEdge + hudRightInset + GAP : undefined;
-    return {
+    const leftOffset = isLeft ? GAP : undefined;
+    const rightOffset = !isLeft ? GAP : undefined;
+    setPosStyle({
       ...(topOffset !== undefined && { top: topOffset }),
       ...(bottomOffset !== undefined && { bottom: bottomOffset }),
       ...(leftOffset !== undefined && { left: leftOffset }),
       ...(rightOffset !== undefined && { right: rightOffset }),
-    };
-  }, [echoChamberOpen, echoChamberSide, sidebarOpen, sidebarWidth, rightPanelOpen, hudPosition]);
+    });
+  }, [echoChamberOpen, echoChamberSide]);
 
   if (!echoChamberOpen || !echoEnabled) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
@@ -148,21 +177,21 @@ export function EchoChamberPanel() {
   return (
     <div
       className={cn(
-        "fixed z-[60] flex flex-col rounded-xl border border-white/[0.04] shadow-lg",
-        "pointer-events-auto w-60 max-md:w-auto max-h-44",
+        "absolute z-[60] flex flex-col rounded-xl border border-white/[0.04] shadow-lg",
+        "pointer-events-auto w-60 max-md:w-auto max-h-44 max-md:max-h-28",
       )}
       style={{ ...posStyle, background: "rgba(10, 10, 22, 0.35)", backdropFilter: "blur(14px)" }}
     >
       {/* Header — live dot, corner picker, close */}
       <div className="flex items-center justify-between px-2 py-1">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-purple-400/60">
+        <span className="flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-purple-400/60">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
           </span>
           Echo
           {visibleMessages.length > 0 && (
-            <span className="ml-0.5 text-[9px] font-normal text-white/25">{visibleMessages.length}</span>
+            <span className="ml-0.5 text-[0.5625rem] font-normal text-white/25">{visibleMessages.length}</span>
           )}
         </span>
         <div className="flex items-center gap-1.5">
@@ -174,7 +203,7 @@ export function EchoChamberPanel() {
             onClick={toggleEchoChamber}
             className="rounded p-0.5 text-white/20 transition-colors hover:bg-white/10 hover:text-white/50"
           >
-            <X size={10} />
+            <X size="0.625rem" />
           </button>
         </div>
       </div>
@@ -182,16 +211,16 @@ export function EchoChamberPanel() {
       {/* Scrollable message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 pb-1.5 scrollbar-thin">
         {visibleMessages.length === 0 ? (
-          <p className="py-1.5 text-center text-[10px] text-white/25">Waiting for reactions…</p>
+          <p className="py-1.5 text-center text-[0.625rem] text-white/25">Waiting for reactions…</p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {visibleMessages.map((msg, i) => (
               <div key={i} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
-                <span className={cn("text-[11px] font-bold", nameColorMap.get(msg.characterName))}>
+                <span className={cn("text-[0.6875rem] font-bold", nameColorMap.get(msg.characterName))}>
                   {msg.characterName}
                 </span>
-                <span className="text-[11px] text-white/30">: </span>
-                <span className="text-[11px] leading-snug text-white/60">{msg.reaction}</span>
+                <span className="text-[0.6875rem] text-white/30">: </span>
+                <span className="text-[0.6875rem] leading-snug text-white/60">{msg.reaction}</span>
               </div>
             ))}
           </div>

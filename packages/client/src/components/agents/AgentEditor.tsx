@@ -4,13 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useUIStore } from "../../stores/ui.store";
-import {
-  useAgentConfigs,
-  useUpdateAgent,
-  useCreateAgent,
-  useToggleAgent,
-  type AgentConfigRow,
-} from "../../hooks/use-agents";
+import { useAgentConfigs, useUpdateAgent, useCreateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useConnections } from "../../hooks/use-connections";
 import { useCustomTools, type CustomToolRow } from "../../hooks/use-custom-tools";
 import {
@@ -44,7 +38,6 @@ import {
   useKnowledgeSources,
   useUploadKnowledgeSource,
   useDeleteKnowledgeSource,
-  type KnowledgeSource,
 } from "../../hooks/use-knowledge-sources";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -94,7 +87,6 @@ export function AgentEditor() {
   const updateAgent = useUpdateAgent();
   const createAgent = useCreateAgent();
   const deleteAgent = useDeleteAgent();
-  const toggleBuiltInAgent = useToggleAgent();
 
   // Find built-in meta (null for custom agents)
   const builtIn = useMemo(() => BUILT_IN_AGENTS.find((a) => a.id === agentDetailId) ?? null, [agentDetailId]);
@@ -230,7 +222,7 @@ export function AgentEditor() {
 
   // Whether the prompt textarea shows the default or a custom override
   const isUsingDefaultPrompt = !localPrompt.trim();
-  const displayPrompt = isUsingDefaultPrompt ? defaultPrompt : localPrompt;
+  const _displayPrompt = isUsingDefaultPrompt ? defaultPrompt : localPrompt;
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -306,6 +298,7 @@ export function AgentEditor() {
     builtIn,
     updateAgent,
     createAgent,
+    openAgentDetail,
   ]);
 
   const handleResetPrompt = useCallback(() => {
@@ -340,19 +333,6 @@ export function AgentEditor() {
 
   const isPending = updateAgent.isPending || createAgent.isPending;
 
-  // Current enabled state
-  const isEnabled = dbConfig ? dbConfig.enabled === "true" : builtIn ? builtIn.enabledByDefault : true;
-
-  const handleToggleEnabled = async () => {
-    if (builtIn) {
-      // Built-in agents use the toggle route (creates config on first toggle)
-      await toggleBuiltInAgent.mutateAsync(agentDetailId!);
-    } else if (dbConfig) {
-      // Custom agents update via PATCH
-      await updateAgent.mutateAsync({ id: dbConfig.id, enabled: !isEnabled });
-    }
-  };
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
       {/* ── Header ── */}
@@ -361,10 +341,10 @@ export function AgentEditor() {
           onClick={handleClose}
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--y2k-pink)] to-[var(--y2k-purple)] text-white shadow-sm max-md:h-8 max-md:w-8">
-          <Sparkles size={18} className="max-md:!h-[14px] max-md:!w-[14px]" />
+          <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
           value={localName}
@@ -377,38 +357,22 @@ export function AgentEditor() {
         />
         <div className="flex items-center gap-1.5 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--border)]/30 max-md:pt-2">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-red-400">
-              <AlertCircle size={11} /> Save failed
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+              <AlertCircle size="0.6875rem" /> Save failed
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-              <Check size={11} /> Saved
+            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+              <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[10px] font-medium text-amber-400">Unsaved</span>}
-          {agentDetailId !== "__new__" && (
-            <button
-              onClick={handleToggleEnabled}
-              disabled={toggleBuiltInAgent.isPending || updateAgent.isPending}
-              className={cn(
-                "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50",
-                isEnabled
-                  ? "text-emerald-400 hover:bg-emerald-500/15"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-              )}
-              title={isEnabled ? "Disable agent globally" : "Enable agent globally"}
-            >
-              {isEnabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-              <span className="max-md:hidden">{isEnabled ? "Enabled" : "Disabled"}</span>
-            </button>
-          )}
+          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
           {isCustomAgent && dbConfig && (
             <button
               onClick={handleDelete}
               className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
             >
-              <Trash2 size={13} /> <span className="max-md:hidden">Delete</span>
+              <Trash2 size="0.8125rem" /> <span className="max-md:hidden">Delete</span>
             </button>
           )}
           <button
@@ -416,7 +380,7 @@ export function AgentEditor() {
             disabled={isPending}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--y2k-pink)] to-[var(--y2k-purple)] px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
           >
-            <Save size={13} /> <span className="max-md:hidden">Save</span>
+            <Save size="0.8125rem" /> <span className="max-md:hidden">Save</span>
           </button>
         </div>
       </div>
@@ -454,10 +418,10 @@ export function AgentEditor() {
       {/* Save error banner */}
       {saveError && (
         <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
-          <AlertCircle size={13} />
+          <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
-            <X size={12} />
+            <X size="0.75rem" />
           </button>
         </div>
       )}
@@ -468,7 +432,7 @@ export function AgentEditor() {
           {/* ── Description ── */}
           <FieldGroup
             label="Description"
-            icon={<Info size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Info size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="A short summary of what this agent does. Shown in the agents panel to help you identify each agent."
           >
             <input
@@ -485,7 +449,7 @@ export function AgentEditor() {
           {/* ── Pipeline Phase ── */}
           <FieldGroup
             label="Pipeline Phase"
-            icon={<Zap size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Zap size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="When this agent runs during generation. Pre-Generation runs before the AI replies, Parallel runs alongside, Post-Processing runs after the reply is complete."
           >
             <div className="grid grid-cols-3 gap-2">
@@ -506,19 +470,19 @@ export function AgentEditor() {
                         : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
-                    <Icon size={16} />
+                    <Icon size="1rem" />
                     <span className="font-medium">{meta.label}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-1.5 text-[10px] text-[var(--muted-foreground)]">{phaseMeta.description}</p>
+            <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{phaseMeta.description}</p>
           </FieldGroup>
 
           {/* ── Connection Override ── */}
           <FieldGroup
             label="Connection Override"
-            icon={<Link2 size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Link2 size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="Use a different AI connection for this agent. For example, use a faster/cheaper model for background processing tasks."
           >
             <select
@@ -536,7 +500,7 @@ export function AgentEditor() {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+            <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               Optionally use a different API connection for this agent (e.g. a cheaper model for background tasks).
             </p>
           </FieldGroup>
@@ -544,7 +508,7 @@ export function AgentEditor() {
           {/* ── Context Size ── */}
           <FieldGroup
             label="Context Size"
-            icon={<Clock size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Clock size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="How many recent chat messages this agent receives as context. More messages = more context but higher token usage. Leave blank for the default (20 messages)."
           >
             <div className="flex items-center gap-3">
@@ -561,9 +525,9 @@ export function AgentEditor() {
                 placeholder="20"
                 className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               />
-              <span className="text-[11px] text-[var(--muted-foreground)]">messages</span>
+              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
             </div>
-            <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+            <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               When agents are batched together (same model), the highest context size in the group is used.
             </p>
           </FieldGroup>
@@ -571,7 +535,7 @@ export function AgentEditor() {
           {/* ── Inject as Prompt Section ── */}
           <FieldGroup
             label="Add as Prompt Section"
-            icon={<Layers size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Layers size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="When enabled, this agent's output becomes available as a marker section in prompt presets. Add the section in your preset to inject the agent's latest data into the prompt."
           >
             <button
@@ -582,13 +546,13 @@ export function AgentEditor() {
               className="flex items-center gap-3 rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
             >
               {localInjectAsSection ? (
-                <ToggleRight size={20} className="text-emerald-400" />
+                <ToggleRight size="1.25rem" className="text-emerald-400" />
               ) : (
-                <ToggleLeft size={20} className="text-[var(--muted-foreground)]" />
+                <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
               )}
               <div className="text-left">
                 <p className="text-sm font-medium">{localInjectAsSection ? "Enabled" : "Disabled"}</p>
-                <p className="text-[10px] text-[var(--muted-foreground)]">
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                   {localInjectAsSection
                     ? `"${localName}" appears as a section option in prompt presets`
                     : "Agent output is not injected into prompts"}
@@ -601,13 +565,13 @@ export function AgentEditor() {
           {(agentDetailId === "spotify" || dbConfig?.type === "spotify") && (
             <FieldGroup
               label="Spotify Connection"
-              icon={<Music size={14} className="text-green-400" />}
+              icon={<Music size="0.875rem" className="text-green-400" />}
               help="Connect your Spotify account to let this agent control playback."
             >
               <div className="space-y-3">
                 {/* Client ID input */}
                 <div>
-                  <label className="block text-[11px] font-medium text-white/60 mb-1">Spotify Client ID</label>
+                  <label className="block text-[0.6875rem] font-medium text-white/60 mb-1">Spotify Client ID</label>
                   <input
                     type="text"
                     value={localSpotifyClientId}
@@ -624,7 +588,7 @@ export function AgentEditor() {
                 {spotifyStatus?.connected ? (
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-2 text-xs font-medium text-green-400">
-                      <Check size={12} />
+                      <Check size="0.75rem" />
                       {spotifyStatus.expired ? "Connected (token expired — will auto-refresh)" : "Connected to Spotify"}
                     </span>
                     <button
@@ -727,13 +691,13 @@ export function AgentEditor() {
                         : "bg-white/5 text-white/30 cursor-not-allowed",
                     )}
                   >
-                    <Music size={14} />
+                    <Music size="0.875rem" />
                     {spotifyConnecting ? "Waiting for authorization..." : "Connect Spotify Account"}
                   </button>
                 )}
 
                 {/* Setup instructions */}
-                <div className="rounded-lg border border-green-500/10 bg-green-500/5 p-3 text-[11px] text-white/50 space-y-2">
+                <div className="rounded-lg border border-green-500/10 bg-green-500/5 p-3 text-[0.6875rem] text-white/50 space-y-2">
                   <p className="font-medium text-green-400/80">Setup:</p>
                   <ol className="list-decimal list-inside space-y-1 text-white/40">
                     <li>
@@ -744,7 +708,7 @@ export function AgentEditor() {
                         rel="noopener noreferrer"
                         className="text-green-400 hover:underline inline-flex items-center gap-0.5"
                       >
-                        Spotify Developer Dashboard <ExternalLink size={9} />
+                        Spotify Developer Dashboard <ExternalLink size="0.5625rem" />
                       </a>
                     </li>
                     <li>Create a new app — select &quot;Web API&quot;</li>
@@ -761,7 +725,7 @@ export function AgentEditor() {
                       Save the agent, then click <strong>Connect Spotify Account</strong>
                     </li>
                   </ol>
-                  <p className="text-[10px] text-white/30 mt-1">
+                  <p className="text-[0.625rem] text-white/30 mt-1">
                     Requires Spotify Premium. Tokens refresh automatically — no need to reconnect.
                   </p>
                 </div>
@@ -773,13 +737,13 @@ export function AgentEditor() {
           {isKnowledgeRetrievalAgent && (
             <FieldGroup
               label="Knowledge Sources"
-              icon={<BookOpen size={14} className="text-amber-400" />}
+              icon={<BookOpen size="0.875rem" className="text-amber-400" />}
               help="Select lorebooks and/or upload files for this agent to scan. Supported file types: .txt, .md, .csv, .json, .xml, .html, .pdf"
             >
               <div className="space-y-4">
                 {/* ── Lorebooks ── */}
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-medium text-white/60">Lorebooks</p>
+                  <p className="text-[0.6875rem] font-medium text-white/60">Lorebooks</p>
                   {allLorebooks && allLorebooks.length > 0 ? (
                     <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-white/[0.02] p-2">
                       {allLorebooks.map((lb) => {
@@ -807,24 +771,26 @@ export function AgentEditor() {
                                 selected ? "border-amber-500/50 bg-amber-500/20" : "border-white/20 bg-white/5",
                               )}
                             >
-                              {selected && <Check size={10} />}
+                              {selected && <Check size="0.625rem" />}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">{lb.name}</p>
-                              {lb.description && <p className="truncate text-[10px] text-white/40">{lb.description}</p>}
+                              {lb.description && (
+                                <p className="truncate text-[0.625rem] text-white/40">{lb.description}</p>
+                              )}
                             </div>
                           </button>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-white/40">No lorebooks available.</p>
+                    <p className="text-[0.625rem] text-white/40">No lorebooks available.</p>
                   )}
                 </div>
 
                 {/* ── Uploaded Files ── */}
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-medium text-white/60">Files</p>
+                  <p className="text-[0.6875rem] font-medium text-white/60">Files</p>
                   {/* File list */}
                   {allKnowledgeSources && allKnowledgeSources.length > 0 && (
                     <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-white/[0.02] p-2">
@@ -856,11 +822,11 @@ export function AgentEditor() {
                                   selected ? "border-amber-500/50 bg-amber-500/20" : "border-white/20 bg-white/5",
                                 )}
                               >
-                                {selected && <Check size={10} />}
+                                {selected && <Check size="0.625rem" />}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium">{src.originalName}</p>
-                                <p className="text-[10px] text-white/40">{(src.size / 1024).toFixed(1)} KB</p>
+                                <p className="text-[0.625rem] text-white/40">{(src.size / 1024).toFixed(1)} KB</p>
                               </div>
                             </button>
                             <button
@@ -875,7 +841,7 @@ export function AgentEditor() {
                               className="shrink-0 p-1 rounded text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                               title="Delete file"
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size="0.75rem" />
                             </button>
                           </div>
                         );
@@ -916,12 +882,12 @@ export function AgentEditor() {
                   >
                     {uploadSource.isPending ? (
                       <>
-                        <Loader2 size={14} className="animate-spin" />
+                        <Loader2 size="0.875rem" className="animate-spin" />
                         Uploading...
                       </>
                     ) : (
                       <>
-                        <Upload size={14} />
+                        <Upload size="0.875rem" />
                         Upload File
                       </>
                     )}
@@ -930,7 +896,7 @@ export function AgentEditor() {
 
                 {/* Summary */}
                 {(localSourceLorebookIds.length > 0 || localSourceFileIds.length > 0) && (
-                  <p className="text-[10px] text-white/40">
+                  <p className="text-[0.625rem] text-white/40">
                     {[
                       localSourceLorebookIds.length > 0
                         ? `${localSourceLorebookIds.length} lorebook${localSourceLorebookIds.length !== 1 ? "s" : ""}`
@@ -951,36 +917,36 @@ export function AgentEditor() {
           {/* ── Prompt Template ── */}
           <FieldGroup
             label="Prompt Template"
-            icon={<FileText size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<FileText size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="The system instructions this agent receives. Built-in agents have sensible defaults. You can override to customize behavior."
           >
             {/* Toolbar — only show default/override status for built-in agents */}
             {builtIn && (
               <div className="flex items-center gap-2 mb-2">
                 {isUsingDefaultPrompt ? (
-                  <span className="flex items-center gap-1 rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[10px] font-medium text-emerald-400">
-                    <Check size={10} /> Using built-in default
+                  <span className="flex items-center gap-1 rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[0.625rem] font-medium text-emerald-400">
+                    <Check size="0.625rem" /> Using built-in default
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 rounded-lg bg-amber-400/10 px-2.5 py-1 text-[10px] font-medium text-amber-400">
-                    <FileText size={10} /> Custom override
+                  <span className="flex items-center gap-1 rounded-lg bg-amber-400/10 px-2.5 py-1 text-[0.625rem] font-medium text-amber-400">
+                    <FileText size="0.625rem" /> Custom override
                   </span>
                 )}
                 <div className="flex-1" />
                 {!isUsingDefaultPrompt && (
                   <button
                     onClick={handleResetPrompt}
-                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   >
-                    <RotateCcw size={10} /> Reset to default
+                    <RotateCcw size="0.625rem" /> Reset to default
                   </button>
                 )}
                 {isUsingDefaultPrompt && defaultPrompt && (
                   <button
                     onClick={handleLoadDefault}
-                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   >
-                    <FileText size={10} /> Copy default to edit
+                    <FileText size="0.625rem" /> Copy default to edit
                   </button>
                 )}
               </div>
@@ -991,7 +957,7 @@ export function AgentEditor() {
                 <pre className="w-full max-h-[50vh] overflow-y-auto resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] text-[var(--muted-foreground)] whitespace-pre-wrap">
                   {defaultPrompt || "No default prompt."}
                 </pre>
-                <span className="absolute right-3 top-2 rounded-md bg-[var(--card)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                <span className="absolute right-3 top-2 rounded-md bg-[var(--card)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                   Default — click "Copy default to edit" to customize
                 </span>
               </div>
@@ -1007,7 +973,7 @@ export function AgentEditor() {
                 className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
               />
             )}
-            <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+            <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               {builtIn
                 ? "Leave empty to use the built-in default prompt. Edit to override with your own instructions."
                 : "Write the full system prompt for this custom agent."}
@@ -1019,10 +985,10 @@ export function AgentEditor() {
           {/* ── Available Tools (Function Calling) ── */}
           <FieldGroup
             label="Tools / Function Calling"
-            icon={<Wrench size={14} className="text-[var(--y2k-pink)]" />}
+            icon={<Wrench size="0.875rem" className="text-[var(--y2k-pink)]" />}
             help="Select which tools this agent can use during generation. The AI can call these functions and receive results back for multi-step interactions."
           >
-            <p className="text-[10px] text-[var(--muted-foreground)] mb-3">
+            <p className="text-[0.625rem] text-[var(--muted-foreground)] mb-3">
               Toggle tools on or off for this agent. When enabled for a chat, only selected tools will be available
               during generation.
             </p>
@@ -1061,7 +1027,7 @@ export function AgentEditor() {
                   />
                 ))}
             </div>
-            <p className="mt-2 text-[10px] text-[var(--muted-foreground)]">
+            <p className="mt-2 text-[0.625rem] text-[var(--muted-foreground)]">
               Tool-use must also be enabled per chat via Chat Settings → "Enable Function Calling".
             </p>
           </FieldGroup>
@@ -1069,7 +1035,7 @@ export function AgentEditor() {
           {/* ── Agent Info Card ── */}
           <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
             <h3 className="mb-2 text-xs font-semibold text-[var(--foreground)]">About this Agent</h3>
-            <div className="space-y-1.5 text-[11px] text-[var(--muted-foreground)]">
+            <div className="space-y-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
               <p>
                 <strong className="text-[var(--foreground)]">Type:</strong> {isCustomAgent ? "Custom" : agentDetailId}
               </p>
@@ -1082,7 +1048,9 @@ export function AgentEditor() {
               </p>
               <p>
                 <strong className="text-[var(--foreground)]">Enabled:</strong>{" "}
-                <span className={isEnabled ? "text-emerald-400" : "text-red-400"}>{isEnabled ? "Yes" : "No"}</span>
+                <span className={dbConfig?.enabled !== "false" ? "text-emerald-400" : "text-red-400"}>
+                  {dbConfig?.enabled !== "false" ? "Yes" : "No"}
+                </span>
                 {!dbConfig && builtIn && " (default)"}
               </p>
             </div>
@@ -1145,9 +1113,9 @@ function ToolCard({
       <div className="flex w-full items-center gap-2.5 px-3 py-2.5">
         <button onClick={() => onToggle(tool.name)} className="shrink-0">
           {enabled ? (
-            <ToggleRight size={20} className="text-[var(--primary)]" />
+            <ToggleRight size="1.25rem" className="text-[var(--primary)]" />
           ) : (
-            <ToggleLeft size={20} className="text-[var(--muted-foreground)]" />
+            <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
           )}
         </button>
         <button
@@ -1162,34 +1130,34 @@ function ToolCard({
                 : "bg-[var(--y2k-purple)]/15 text-[var(--y2k-purple)]",
             )}
           >
-            <Wrench size={12} />
+            <Wrench size="0.75rem" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold font-mono text-[var(--foreground)]">
               {tool.name}
-              {isCustom && <span className="ml-1.5 text-[9px] font-normal text-[var(--y2k-pink)]">custom</span>}
+              {isCustom && <span className="ml-1.5 text-[0.5625rem] font-normal text-[var(--y2k-pink)]">custom</span>}
             </p>
-            <p className="text-[10px] text-[var(--muted-foreground)] truncate">{tool.description}</p>
+            <p className="text-[0.625rem] text-[var(--muted-foreground)] truncate">{tool.description}</p>
           </div>
-          <span className="text-[10px] text-[var(--muted-foreground)]">{expanded ? "▲" : "▼"}</span>
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]">{expanded ? "▲" : "▼"}</span>
         </button>
       </div>
       {expanded && (
         <div className="border-t border-[var(--border)] px-3 py-2.5 space-y-1.5">
-          <p className="text-[10px] font-medium text-[var(--muted-foreground)]">Parameters:</p>
+          <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Parameters:</p>
           {Object.entries(params).map(([name, prop]) => {
             const p = prop as { type?: string; description?: string; enum?: string[] };
             const isRequired = required.includes(name);
             return (
-              <div key={name} className="flex items-start gap-2 text-[11px]">
-                <code className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--foreground)]">
+              <div key={name} className="flex items-start gap-2 text-[0.6875rem]">
+                <code className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 font-mono text-[0.625rem] text-[var(--foreground)]">
                   {name}
                   {isRequired && <span className="text-red-400">*</span>}
                 </code>
                 <span className="text-[var(--muted-foreground)]">
                   <span className="text-[var(--y2k-pink)]">{p.type}</span>
                   {p.description && ` — ${p.description}`}
-                  {p.enum && <span className="ml-1 text-[10px]">[{p.enum.join(", ")}]</span>}
+                  {p.enum && <span className="ml-1 text-[0.625rem]">[{p.enum.join(", ")}]</span>}
                 </span>
               </div>
             );

@@ -39,16 +39,17 @@ import {
   Upload,
   Plus,
   Palette,
-  Download,
   FolderOpen,
   Loader2,
   Swords,
   Crop,
+  Maximize2,
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
 import { ColorPicker } from "../ui/ColorPicker";
+import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import type { CharacterData, RPGStatsConfig } from "@marinara-engine/shared";
 
 // ── Tabs ──
@@ -208,7 +209,7 @@ export function CharacterEditor() {
           className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
           title="Back"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size="1.125rem" />
         </button>
 
         {/* Avatar */}
@@ -221,13 +222,15 @@ export function CharacterEditor() {
               src={avatarPreview}
               alt={formData.name}
               className="h-full w-full object-cover"
-              style={getAvatarCropStyle(formData.extensions.avatarCrop as { zoom: number; offsetX: number; offsetY: number } | undefined)}
+              style={getAvatarCropStyle(
+                formData.extensions.avatarCrop as { zoom: number; offsetX: number; offsetY: number } | undefined,
+              )}
             />
           ) : (
-            <User size={22} className="text-white" />
+            <User size="1.375rem" className="text-white" />
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size={16} className="text-white" />
+            <Camera size="1rem" className="text-white" />
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
         </div>
@@ -253,7 +256,7 @@ export function CharacterEditor() {
           )}
           title={formData.extensions.fav ? "Remove from favorites" : "Add to favorites"}
         >
-          {formData.extensions.fav ? <Star size={18} fill="currentColor" /> : <StarOff size={18} />}
+          {formData.extensions.fav ? <Star size="1.125rem" fill="currentColor" /> : <StarOff size="1.125rem" />}
         </button>
 
         {/* Export */}
@@ -262,7 +265,7 @@ export function CharacterEditor() {
           className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export character"
         >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="1.125rem" height="1.125rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M10 13V3m0 0l-4 4m4-4l4 4"
               stroke="currentColor"
@@ -280,7 +283,7 @@ export function CharacterEditor() {
           className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
           title="Delete character"
         >
-          <Trash2 size={18} />
+          <Trash2 size="1.125rem" />
         </button>
 
         {/* Save */}
@@ -294,7 +297,7 @@ export function CharacterEditor() {
               : "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed",
           )}
         >
-          <Save size={13} />
+          <Save size="0.8125rem" />
           <span className="max-md:hidden">{saving ? "Saving…" : "Save"}</span>
         </button>
       </div>
@@ -302,7 +305,7 @@ export function CharacterEditor() {
       {/* ── Unsaved changes warning ── */}
       {showUnsavedWarning && (
         <div className="flex items-center gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
-          <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+          <AlertTriangle size="0.9375rem" className="shrink-0 text-amber-500" />
           <p className="flex-1 text-xs font-medium text-amber-500">You have unsaved changes. Close without saving?</p>
           <button
             onClick={() => setShowUnsavedWarning(false)}
@@ -345,7 +348,7 @@ export function CharacterEditor() {
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Icon size={14} />
+                <Icon size="0.875rem" />
                 {tab.label}
               </button>
             );
@@ -462,9 +465,19 @@ function TextareaTab({
   placeholder: string;
   rows?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <div>
-      <SectionHeader title={title} subtitle={subtitle} />
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <SectionHeader title={title} subtitle={subtitle} />
+        <button
+          onClick={() => setExpanded(true)}
+          className="mt-0.5 shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          title="Expand editor"
+        >
+          <Maximize2 size="0.875rem" />
+        </button>
+      </div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -472,7 +485,15 @@ function TextareaTab({
         rows={rows}
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
-      <p className="mt-1.5 text-right text-[10px] text-[var(--muted-foreground)]">{value.length} characters</p>
+      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">{value.length} characters</p>
+      <ExpandedTextarea
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        title={title}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
     </div>
   );
 }
@@ -540,7 +561,7 @@ function MetadataTab({
       {avatarPreview && (
         <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            <Crop size={12} /> Avatar Zoom & Position
+            <Crop size="0.75rem" /> Avatar Zoom & Position
           </span>
           <div className="flex items-start gap-4 max-sm:flex-col max-sm:items-center">
             {/* Preview */}
@@ -559,18 +580,14 @@ function MetadataTab({
                 draggable={false}
                 style={{
                   transform:
-                    crop.zoom > 1
-                      ? `scale(${crop.zoom}) translate(${crop.offsetX}%, ${crop.offsetY}%)`
-                      : undefined,
+                    crop.zoom > 1 ? `scale(${crop.zoom}) translate(${crop.offsetX}%, ${crop.offsetY}%)` : undefined,
                 }}
               />
             </div>
             {/* Controls */}
             <div className="flex flex-1 flex-col gap-2">
               <label className="space-y-1">
-                <span className="text-[10px] text-[var(--muted-foreground)]">
-                  Zoom: {crop.zoom.toFixed(2)}x
-                </span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">Zoom: {crop.zoom.toFixed(2)}x</span>
                 <input
                   type="range"
                   min={1}
@@ -589,14 +606,14 @@ function MetadataTab({
                   className="w-full accent-[var(--primary)]"
                 />
               </label>
-              <p className="text-[10px] text-[var(--muted-foreground)]">
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                 {crop.zoom > 1 ? "Drag the preview to reposition" : "Increase zoom to reposition"}
               </p>
               {crop.zoom > 1 && (
                 <button
                   type="button"
                   onClick={() => setCrop({ zoom: 1, offsetX: 0, offsetY: 0 })}
-                  className="self-start rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-all hover:text-[var(--foreground)]"
+                  className="self-start rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-all hover:text-[var(--foreground)]"
                 >
                   Reset
                 </button>
@@ -655,7 +672,7 @@ function MetadataTab({
             onChange={(e) => updateExtension("talkativeness", parseFloat(e.target.value))}
             className="w-full accent-[var(--primary)]"
           />
-          <span className="text-[10px] text-[var(--muted-foreground)]">
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
             {Math.round(formData.extensions.talkativeness * 100)}%
           </span>
         </label>
@@ -671,15 +688,15 @@ function MetadataTab({
           {formData.tags.map((tag) => (
             <span
               key={tag}
-              className="flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2.5 py-1 text-[11px] font-medium text-[var(--primary)]"
+              className="flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--primary)]"
             >
-              <Tag size={10} />
+              <Tag size="0.625rem" />
               {tag}
               <button
                 onClick={() => removeTag(tag)}
                 className="ml-0.5 rounded-full transition-colors hover:text-[var(--destructive)]"
               >
-                <X size={10} />
+                <X size="0.625rem" />
               </button>
             </span>
           ))}
@@ -726,6 +743,8 @@ function DialogueTab({
   formData: CharacterData;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
 }) {
+  const [expandedField, setExpandedField] = useState<"first_mes" | "mes_example" | number | null>(null);
+
   const addGreeting = () => {
     updateField("alternate_greetings", [...formData.alternate_greetings, ""]);
   };
@@ -752,10 +771,19 @@ function DialogueTab({
 
       {/* First Message */}
       <label className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          First Message{" "}
-          <HelpTooltip text="The character's opening message when a new chat starts. Good first messages set the scene and establish the character's voice." />
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            First Message{" "}
+            <HelpTooltip text="The character's opening message when a new chat starts. Good first messages set the scene and establish the character's voice." />
+          </span>
+          <button
+            onClick={() => setExpandedField("first_mes")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
         <textarea
           value={formData.first_mes}
           onChange={(e) => updateField("first_mes", e.target.value)}
@@ -785,26 +813,44 @@ function DialogueTab({
               value={g}
               onChange={(e) => updateGreeting(i, e.target.value)}
               rows={3}
-              className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 pr-10 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40"
+              className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 pr-16 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40"
               placeholder={`Greeting #${i + 1}…`}
             />
-            <button
-              onClick={() => removeGreeting(i)}
-              className="absolute right-2 top-2 rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
-            >
-              <Trash2 size={12} />
-            </button>
+            <div className="absolute right-2 top-2 flex items-center gap-0.5">
+              <button
+                onClick={() => setExpandedField(i)}
+                className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                title="Expand editor"
+              >
+                <Maximize2 size="0.75rem" />
+              </button>
+              <button
+                onClick={() => removeGreeting(i)}
+                className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
+              >
+                <Trash2 size="0.75rem" />
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Example Messages */}
       <label className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          Example Dialogue{" "}
-          <HelpTooltip text="Sample conversations showing how the character talks. Helps the AI learn the character's speaking style, vocabulary, and mannerisms." />
-        </span>
-        <p className="text-[10px] text-[var(--muted-foreground)]/70">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Example Dialogue{" "}
+            <HelpTooltip text="Sample conversations showing how the character talks. Helps the AI learn the character's speaking style, vocabulary, and mannerisms." />
+          </span>
+          <button
+            onClick={() => setExpandedField("mes_example")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
           {"Use <START> to separate exchanges. Use {{user}} and {{char}} as placeholders."}
         </p>
         <textarea
@@ -815,6 +861,34 @@ function DialogueTab({
           placeholder={"<START>\n{{user}}: Hello!\n{{char}}: *waves excitedly* Hey there!"}
         />
       </label>
+
+      <ExpandedTextarea
+        open={expandedField === "first_mes"}
+        onClose={() => setExpandedField(null)}
+        title="First Message"
+        value={formData.first_mes}
+        onChange={(value) => updateField("first_mes", value)}
+        placeholder="What does the character say when they first meet someone? Use *asterisks* for actions…"
+      />
+      <ExpandedTextarea
+        open={expandedField === "mes_example"}
+        onClose={() => setExpandedField(null)}
+        title="Example Dialogue"
+        value={formData.mes_example}
+        onChange={(value) => updateField("mes_example", value)}
+        placeholder={"<START>\n{{user}}: Hello!\n{{char}}: *waves excitedly* Hey there!"}
+      />
+      {formData.alternate_greetings.map((g, i) => (
+        <ExpandedTextarea
+          key={i}
+          open={expandedField === i}
+          onClose={() => setExpandedField(null)}
+          title={`Alternate Greeting #${i + 1}`}
+          value={g}
+          onChange={(value) => updateGreeting(i, value)}
+          placeholder={`Greeting #${i + 1}…`}
+        />
+      ))}
     </div>
   );
 }
@@ -829,6 +903,7 @@ function AdvancedTab({
   updateExtension: (key: string, value: unknown) => void;
 }) {
   const depthPrompt = formData.extensions.depth_prompt ?? { prompt: "", depth: 4, role: "system" as const };
+  const [expandedField, setExpandedField] = useState<"system_prompt" | "post_history" | "depth_prompt" | null>(null);
 
   return (
     <div className="space-y-6">
@@ -838,10 +913,19 @@ function AdvancedTab({
       />
 
       <label className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          System Prompt{" "}
-          <HelpTooltip text="Overrides or appends to the main system prompt when this character is active. Use this for character-specific instructions the AI must follow." />
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            System Prompt{" "}
+            <HelpTooltip text="Overrides or appends to the main system prompt when this character is active. Use this for character-specific instructions the AI must follow." />
+          </span>
+          <button
+            onClick={() => setExpandedField("system_prompt")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
         <textarea
           value={formData.system_prompt}
           onChange={(e) => updateField("system_prompt", e.target.value)}
@@ -852,10 +936,19 @@ function AdvancedTab({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          Post-History Instructions{" "}
-          <HelpTooltip text="Text inserted after the chat history, right before the AI generates. Great for reminders like 'stay in character' or 'respond in 2 paragraphs'." />
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Post-History Instructions{" "}
+            <HelpTooltip text="Text inserted after the chat history, right before the AI generates. Great for reminders like 'stay in character' or 'respond in 2 paragraphs'." />
+          </span>
+          <button
+            onClick={() => setExpandedField("post_history")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
         <textarea
           value={formData.post_history_instructions}
           onChange={(e) => updateField("post_history_instructions", e.target.value)}
@@ -867,10 +960,19 @@ function AdvancedTab({
 
       {/* Depth Prompt */}
       <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-        <span className="inline-flex items-center gap-1 text-xs font-semibold">
-          Depth Prompt{" "}
-          <HelpTooltip text="Injects text at a specific position in the chat history. Depth 0 = at the end, depth 4 = 4 messages back. Useful for persistent reminders." />
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold">
+            Depth Prompt{" "}
+            <HelpTooltip text="Injects text at a specific position in the chat history. Depth 0 = at the end, depth 4 = 4 messages back. Useful for persistent reminders." />
+          </span>
+          <button
+            onClick={() => setExpandedField("depth_prompt")}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
         <textarea
           value={depthPrompt.prompt}
           onChange={(e) => updateExtension("depth_prompt", { ...depthPrompt, prompt: e.target.value })}
@@ -906,6 +1008,31 @@ function AdvancedTab({
           </label>
         </div>
       </div>
+
+      <ExpandedTextarea
+        open={expandedField === "system_prompt"}
+        onClose={() => setExpandedField(null)}
+        title="System Prompt"
+        value={formData.system_prompt}
+        onChange={(value) => updateField("system_prompt", value)}
+        placeholder="Override or append to the system prompt for this character…"
+      />
+      <ExpandedTextarea
+        open={expandedField === "post_history"}
+        onClose={() => setExpandedField(null)}
+        title="Post-History Instructions"
+        value={formData.post_history_instructions}
+        onChange={(value) => updateField("post_history_instructions", value)}
+        placeholder="Text inserted after the chat history but before generation…"
+      />
+      <ExpandedTextarea
+        open={expandedField === "depth_prompt"}
+        onClose={() => setExpandedField(null)}
+        title="Depth Prompt"
+        value={depthPrompt.prompt}
+        onChange={(value) => updateExtension("depth_prompt", { ...depthPrompt, prompt: value })}
+        placeholder="Prompt injected at a specific depth in the chat history…"
+      />
     </div>
   );
 }
@@ -1048,16 +1175,16 @@ function SpritesTab({ characterId }: { characterId: string }) {
       <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <Upload size={13} className="text-[var(--y2k-pink)]" />
+            <Upload size="0.8125rem" className="text-[var(--y2k-pink)]" />
             Add Sprite
           </h4>
           <button
             onClick={() => folderInputRef.current?.click()}
             disabled={!!folderProgress}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[11px] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
             title="Select a folder of PNGs — each filename becomes the expression name"
           >
-            <FolderOpen size={13} />
+            <FolderOpen size="0.8125rem" />
             Upload Folder
           </button>
         </div>
@@ -1065,7 +1192,7 @@ function SpritesTab({ characterId }: { characterId: string }) {
         {/* Folder upload progress */}
         {folderProgress && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size={12} className="animate-spin text-[var(--y2k-pink)]" />
+            <Loader2 size="0.75rem" className="animate-spin text-[var(--y2k-pink)]" />
             Uploading {folderProgress.done}/{folderProgress.total} sprites…
           </div>
         )}
@@ -1084,7 +1211,7 @@ function SpritesTab({ characterId }: { characterId: string }) {
             disabled={!newExpression.trim() || uploading}
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--y2k-pink)] to-[var(--y2k-purple)] px-4 py-2 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-40"
           >
-            <Plus size={13} />
+            <Plus size="0.8125rem" />
             Upload
           </button>
         </div>
@@ -1092,13 +1219,13 @@ function SpritesTab({ characterId }: { characterId: string }) {
         {/* Quick expression buttons */}
         {suggestedExpressions.length > 0 && (
           <div>
-            <p className="text-[10px] text-[var(--muted-foreground)] mb-1.5">Quick add:</p>
+            <p className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">Quick add:</p>
             <div className="flex flex-wrap gap-1">
               {suggestedExpressions.slice(0, 12).map((expr) => (
                 <button
                   key={expr}
                   onClick={() => startUpload(expr)}
-                  className="rounded-lg bg-[var(--secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  className="rounded-lg bg-[var(--secondary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                 >
                   {expr}
                 </button>
@@ -1123,24 +1250,24 @@ function SpritesTab({ characterId }: { characterId: string }) {
               className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
             >
               <div className="aspect-[3/4] bg-[var(--secondary)]">
-                <img src={sprite.url} alt={sprite.expression} className="h-full w-full object-contain" />
+                <img src={sprite.url} alt={sprite.expression} loading="lazy" className="h-full w-full object-contain" />
               </div>
               <div className="flex items-center justify-between p-2">
-                <span className="text-[11px] font-medium capitalize">{sprite.expression}</span>
+                <span className="text-[0.6875rem] font-medium capitalize">{sprite.expression}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => startUpload(sprite.expression)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                     title="Replace"
                   >
-                    <Upload size={11} />
+                    <Upload size="0.6875rem" />
                   </button>
                   <button
                     onClick={() => handleDelete(sprite.expression)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                     title="Delete"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size="0.6875rem" />
                   </button>
                 </div>
               </div>
@@ -1149,7 +1276,7 @@ function SpritesTab({ characterId }: { characterId: string }) {
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
-          <Image size={28} className="text-[var(--muted-foreground)]/40" />
+          <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />
           <div>
             <p className="text-sm font-medium text-[var(--muted-foreground)]">No sprites yet</p>
             <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
@@ -1162,7 +1289,7 @@ function SpritesTab({ characterId }: { characterId: string }) {
       {/* Info card */}
       <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
         <h4 className="mb-1.5 text-xs font-semibold">How sprites work</h4>
-        <ul className="space-y-1 text-[11px] text-[var(--muted-foreground)]">
+        <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
           <li>
             • Upload sprites one by one, or use <strong className="text-[var(--foreground)]">Upload Folder</strong> to
             bulk-import a folder of PNGs (each filename = expression name, e.g. admiration.png → "admiration")
@@ -1239,7 +1366,7 @@ function StatsTab({
         />
         <div>
           <p className="text-sm font-medium">Enable RPG Stats</p>
-          <p className="text-[11px] text-[var(--muted-foreground)]">
+          <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             Stats will be injected into the prompt and tracked by the Character Tracker agent.
           </p>
         </div>
@@ -1312,9 +1439,9 @@ function StatsTab({
               <h3 className="text-sm font-semibold">Attributes</h3>
               <button
                 onClick={addAttribute}
-                className="flex items-center gap-1 rounded-lg bg-purple-500/15 px-2.5 py-1 text-[11px] font-medium text-purple-400 transition-colors hover:bg-purple-500/25"
+                className="flex items-center gap-1 rounded-lg bg-purple-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-purple-400 transition-colors hover:bg-purple-500/25"
               >
-                <Plus size={12} />
+                <Plus size="0.75rem" />
                 Add
               </button>
             </div>
@@ -1337,7 +1464,7 @@ function StatsTab({
                     onChange={(e) => updateAttribute(i, "value", parseInt(e.target.value) || 0)}
                     className="w-16 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
                   />
-                  <span className="text-[10px] text-[var(--muted-foreground)]">/</span>
+                  <span className="text-[0.625rem] text-[var(--muted-foreground)]">/</span>
                   <input
                     type="number"
                     value={attr.max}
@@ -1355,7 +1482,7 @@ function StatsTab({
                     onClick={() => removeAttribute(i)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
                   >
-                    <X size={12} />
+                    <X size="0.75rem" />
                   </button>
                 </div>
               ))}
@@ -1365,7 +1492,7 @@ function StatsTab({
           {/* Info */}
           <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
             <h4 className="mb-1.5 text-xs font-semibold">How stats work</h4>
-            <ul className="space-y-1 text-[11px] text-[var(--muted-foreground)]">
+            <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               <li>
                 &bull; <strong className="text-[var(--foreground)]">HP &amp; MP</strong> — Injected into the prompt so
                 the AI knows the character&apos;s current health and mana.
@@ -1521,20 +1648,20 @@ function ColorsTab({
             : "cursor-not-allowed bg-white/5 text-[var(--muted-foreground)]/50",
         )}
       >
-        {extracting ? <Loader2 size={14} className="animate-spin" /> : <Palette size={14} />}
+        {extracting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Palette size="0.875rem" />}
         {extracting ? "Extracting..." : avatarUrl ? "Extract Colors from Avatar" : "Upload an avatar first"}
       </button>
 
       {/* Preview card */}
       <div className="rounded-xl border border-[var(--border)] bg-black/30 p-4 space-y-3">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
+        <p className="text-[0.625rem] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
         <div className="flex gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-600 ring-2 ring-purple-400/20">
-            <User size={16} className="text-white" />
+            <User size="1rem" className="text-white" />
           </div>
           <div className="flex-1 space-y-1">
             <span
-              className="text-[12px] font-bold tracking-tight"
+              className="text-[0.75rem] font-bold tracking-tight"
               style={
                 nameColor
                   ? nameColor.startsWith("linear-gradient")
@@ -1551,7 +1678,7 @@ function ColorsTab({
               {formData.name || "Character"}
             </span>
             <div
-              className="rounded-2xl rounded-tl-sm px-4 py-3 text-[13px] leading-[1.8] backdrop-blur-md ring-1 ring-white/8"
+              className="rounded-2xl rounded-tl-sm px-4 py-3 text-[0.8125rem] leading-[1.8] backdrop-blur-md ring-1 ring-white/8"
               style={boxColor ? { backgroundColor: boxColor } : { backgroundColor: "rgba(255,255,255,0.08)" }}
             >
               <span className="text-white/90">*She looks at you with a warm smile.* </span>
@@ -1593,7 +1720,7 @@ function ColorsTab({
       {/* Info */}
       <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
         <h4 className="mb-1.5 text-xs font-semibold">How colors work</h4>
-        <ul className="space-y-1 text-[11px] text-[var(--muted-foreground)]">
+        <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
           <li>
             &bull; <strong className="text-[var(--foreground)]">Name color</strong> — Applied to the character&apos;s
             display name in chat. Gradients use CSS linear-gradient.
@@ -1626,7 +1753,7 @@ function LorebookTab({ formData }: { formData: CharacterData }) {
 
       {entries.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
-          <Library size={24} className="text-[var(--muted-foreground)]/40" />
+          <Library size="1.5rem" className="text-[var(--muted-foreground)]/40" />
           <div>
             <p className="text-sm font-medium text-[var(--muted-foreground)]">No lorebook entries</p>
             <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
@@ -1641,14 +1768,14 @@ function LorebookTab({ formData }: { formData: CharacterData }) {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{entry.name || `Entry #${i + 1}`}</p>
-                  <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
                     Keys: {entry.keys.join(", ")}{" "}
                     {entry.secondary_keys.length > 0 && `· Secondary: ${entry.secondary_keys.join(", ")}`}
                   </p>
                 </div>
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    "shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium",
                     entry.enabled
                       ? "bg-emerald-500/15 text-emerald-500"
                       : "bg-[var(--muted-foreground)]/15 text-[var(--muted-foreground)]",

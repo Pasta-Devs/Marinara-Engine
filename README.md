@@ -1,20 +1,15 @@
 # 🍝 Marinara Engine
 
-### Release 1.3.4
+## Release 1.4.0
 
 <h3 align="center"><b>Fun. Intuitive. Plug-And-Play.</b></h3>
 
 <p align="center">
-  <b>An AI-powered chat & roleplay engine</b> built around one idea: <b>you install it, you run it, it works.</b><br/>
-  No setup wizards, no config files, no cloud accounts. Created with agentic use in mind, allowing multiple requests at once.<br/>
-  Designed to be <b>the most fun, approachable, and feature-rich</b> local AI frontend out there.
+  <b>A local, AI-powered chat, roleplay, and game (coming soon) engine</b> built around one idea: <b>you install it, you run it, and it just works. Oh, and don't forget about the part where you have fun! ALSO, HEY, LOOK, IT'S FREE.</b><br/>
+  Created with agentic use in mind, allowing multiple requests at once. Everything is connected. Chat with your characters OOC about your roleplays. Have them create RP scenes for you. All designed with simplicity in mind: we don't want to spend hours on setup, we just want to ~~goon~~ play.<br/>
 </p>
 
 ---
-
-**Conversation, roleplay, and visual novel modes** — a full character & sprite system, 18 built-in AI agents, turn-based combat, lorebooks, and more.
-
-Everything runs locally. No accounts, no cloud, no telemetry. Connect to any OpenAI-compatible API (OpenAI, Anthropic, Google, OpenRouter, Mistral, Cohere, or any custom endpoint, local included).
 
 > **⚠️ Alpha Software** — This is an early release. Expect rough edges, missing features, and breaking changes between versions. Bug reports and feedback are very welcome!
 
@@ -23,40 +18,33 @@ Everything runs locally. No accounts, no cloud, no telemetry. Connect to any Ope
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/chat-desktop.png" width="90%" alt="Roleplay Chat — Desktop" />
+  <img src="docs/screenshots/Desktop_Roleplay_View.png" width="90%" alt="Roleplay Chat — Desktop" />
   <br/>
   <em>Roleplay Mode — Character sprites, custom backgrounds, weather effects, and AI agents</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home-desktop.png" width="45%" alt="Home" />
+  <img src="docs/screenshots/Desktop_Main_Menu.png" width="45%" alt="Home" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/character-editor.png" width="45%" alt="Character Editor" />
+  <img src="docs/screenshots/Desktop_Tutorial.png" width="45%" alt="Onboarding Tutorial" />
 </p>
 <p align="center">
-  <em>Home screen &nbsp;&nbsp;·&nbsp;&nbsp; Character editor with tags, metadata, and version history</em>
+  <em>Home screen &nbsp;&nbsp;·&nbsp;&nbsp; Guided onboarding</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/presets-editor.png" width="45%" alt="Presets Editor" />
+  <img src="docs/screenshots/Desktop_DM_Conversation.png" width="45%" alt="DM Conversation" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/persona-colors.png" width="45%" alt="Persona Colors" />
+  <img src="docs/screenshots/Conversation_Selfie.png" width="45%" alt="Conversation with Selfie" />
 </p>
 <p align="center">
-  <em>Drag-and-drop prompt sections &nbsp;&nbsp;·&nbsp;&nbsp; Persona color customization with live preview</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/tutorial.png" width="45%" alt="Onboarding Tutorial" />
-</p>
-<p align="center">
-  <em>Guided onboarding with SillyTavern migration</em>
+  <em>Conversation Mode — Discord-style DMs with selfies and image generation</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home-mobile.png" width="30%" alt="Home — Mobile" />
+  <img src="docs/screenshots/Mobile_Group_Conversation.png" width="30%" alt="Mobile Group Conversation" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="docs/screenshots/chat-mobile.png" width="30%" alt="Chat — Mobile" />
+  <img src="docs/screenshots/Mobile_Roleplay_View.png" width="30%" alt="Mobile Roleplay" />
 </p>
 <p align="center">
   <em>Fully responsive — works on phones and tablets via PWA</em>
@@ -66,12 +54,17 @@ Everything runs locally. No accounts, no cloud, no telemetry. Connect to any Ope
 
 ## Changelog
 
-### v1.3.4
+### v1.4.0
 
 **Added:**
 
+- **Conversations Rework** — Discord-inspired mode for casual chats with the characters, where they remember everything, post selfies, and have access to the group chats and roleplays they're added to.
+- **Default OpenRouter Free Connection** — New users automatically get a pre-configured OpenRouter free connection linked to the initial Professor Mari chat.
+- **Professor Mari** — An assistant that can explain you everything about the Marinara Engine, and even setup chats and characters for you.
+- **Embedding Support** — With in-built model for embeddings that can be toggled on/off for any chats, or option for you to choose an API-provided one.
+- **Conversation Mode Markdown** — Bold (`**text**`) and italic (`*text*`) now render correctly in conversation mode messages.
 - **OpenAI Responses API** — Full support for models that require the Responses API (`gpt-5.4-pro`, Codex models). Streaming, tool use, and non-streaming paths all covered.
-- **New Models** — Added GPT-5.4, GPT-5.4 Pro, 7 Codex models (`gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5-codex`, `codex-mini-latest`).
+- **New Models** — Added Gemini 3.1, GPT-5.4, GPT-5.4 Pro, 7 Codex models (`gemini-3.1-pro-preview`,`gemini-3.0-flash-preview`,`gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5-codex`, `codex-mini-latest`).
 - **Gallery Recovery** — Server startup now scans `data/gallery/` for orphaned image files and re-creates missing database records, preventing gallery loss across updates.
 - **GHCR Docker Workflow** — Added GitHub Container Registry CI/CD workflow for automated multi-arch Docker image builds on push/tag.
 - **IP Allowlist Middleware** — Optional IP-based access control for self-hosted deployments.
@@ -83,97 +76,14 @@ Everything runs locally. No accounts, no cloud, no telemetry. Connect to any Ope
 
 **Changes:**
 
-- **Thinking/Reasoning Support** — Full extended thinking support for Claude (streaming + non-streaming thinking blocks), Gemini (thought-flagged parts), and OpenAI (reasoning_content). Configurable via Reasoning Effort (Low/Medium/High/Maximum) and Show Thoughts toggle.
+- **Thinking/Reasoning Support** — Full extended thinking support for Gemini and Claude (streaming + non-streaming thinking blocks), Gemini (thought-flagged parts), and OpenAI (reasoning_content). Configurable via Reasoning Effort (Low/Medium/High/Maximum) and Show Thoughts toggle.
 - **Agent Data Per-Chat Filtering** — Agent data markers in the prompt now respect the per-chat active agent list. Inactive agents no longer leak their data sections (quests, world state, etc.) into the prompt.
 - **Agent Resolution Fix** — Built-in agents added to a chat's per-chat agent list now resolve correctly even without a prior DB configuration row. Previously, agents like World State would silently fail to run if never opened in the Agent Editor.
 - **Gallery Cleanup** — Deleting a chat now properly removes its associated gallery images (both DB records and physical files).
 
 **Fixes:**
 
-- Fixed false "unsaved changes" warning when switching chats after saving in editors (Character, Connection, Preset, Lorebook, Persona, Agent, Tool, Regex Script).
-- Fixed bold dialogue toggle not persisting correctly.
-- Fixed iOS virtual keyboard pushing layout off-screen.
-- Fixed iPhone bottom safe-area layout issues.
-- Fixed theme save not applying immediately on iOS.
-- Fixed `RESPONSES_ONLY` model detection for Codex suffixes (`-codex`, `-codex-max`, `-codex-mini`).
-- Fixed streaming messages not using the character's default background color in single-character chats.
-- Fixed world-state agent data not appearing in the `<context>` block during generation when no prior committed snapshot existed.
-- Fixed HUD widget data being wiped when the model returned partial agent results (now merges instead of replacing).
-- Fixed visible flash/refresh of all messages when generation ends (entry animation now only plays on initial chat load, not on query refetches).
-
----
-
-## Features
-
-### Chat & Roleplay
-
-- **Three Chat Modes** — Conversation (iMessage-style), Roleplay (immersive dark RPG), Visual Novel
-- **Character Management** — Create or import characters with avatars, personalities, backstories, and system prompts
-- **Avatar Zoom & Repositioning** — Crop and reposition character avatars with a zoom slider and drag-to-pan, applied everywhere avatars appear
-- **Persona System** — User personas with custom names, avatars, and descriptions
-- **Group Chats** — Multiple characters in a single conversation
-- **Chat Branching** — Branch conversations at any message and explore different paths
-- **Message Swiping** — Generate alternate responses and swipe between them
-- **Slash Commands** — `/narrator`, `/random`, `/sys`, `/as`, `/continue`, `/impersonate`, and more for quick chat control
-- **SillyTavern Import** — Migrate characters, chats, presets, and settings from SillyTavern
-
-### Visual & Immersive
-
-- **Sprite System** — Character expression sprites with automatic emotion-based switching
-- **Custom Backgrounds** — Upload backgrounds with per-scene switching
-- **Weather Effects** — Dynamic weather overlays (rain, snow, fog, etc.)
-- **Two Visual Themes** — Y2K Marinara theme and a faithful SillyTavern classic theme
-- **Light & Dark Mode**
-
-### AI Agent System (19 Built-In)
-
-Agents are autonomous AI assistants that run alongside your chat, each handling a specific task:
-
-| Agent                   | What It Does                                                             |
-| ----------------------- | ------------------------------------------------------------------------ |
-| **World State**         | Tracks date/time, weather, location, and present characters              |
-| **Quest Tracker**       | Manages quest objectives, completion, and rewards                        |
-| **Character Tracker**   | Monitors character moods, relationships, and inventory                   |
-| **Persona Stats**       | Tracks your protagonist's HP, MP, XP, and custom stats                   |
-| **Narrative Director**  | Introduces events, NPCs, and plot beats to keep the story moving         |
-| **Prose Guardian**      | Rewrites AI responses to improve prose quality                           |
-| **Continuity Checker**  | Detects contradictions with established lore and facts                   |
-| **Combat**              | Turn-based RPG combat with initiative, HP tracking, and actions          |
-| **Expression Engine**   | Detects emotions and selects character sprites                           |
-| **Background**          | Picks the best background image for the current scene                    |
-| **Echo Chamber**        | Simulates a live-stream chat reacting to your roleplay                   |
-| **Prompt Reviewer**     | Reviews and scores the assembled prompt before generation                |
-| **Illustrator**         | Generates image prompts for key scenes                                   |
-| **Lorebook Keeper**     | Automatically creates and updates lorebook entries                       |
-| **Immersive HTML**      | Formats roleplay output with styled HTML                                 |
-| **Consistency Editor**  | Edits responses for internal consistency                                 |
-| **Spotify DJ**          | Controls Spotify playback to match the scene's mood                      |
-| **Chat Summarizer**     | Generates condensed summaries of long conversations                      |
-| **Knowledge Retrieval** | Scans lorebooks and uploads files for relevant context using chunked RAG |
-
-All agents are disabled by default — enable only the ones you want. You can also create **custom agents** with your own prompts and tool configurations.
-
-### Prompt Engineering
-
-- **Preset System** — Save and load full prompt configurations (system prompt sections, sampling parameters, etc.)
-- **Prompt Sections** — Modular prompt builder with drag-and-drop ordering, depth injection, and per-section toggles
-- **Lorebooks** — World-building entries with keyword triggers that inject context automatically
-- **World Info Inspector** — Live view of active lorebook entries in the current chat, with token usage and keyword details
-- **Lorebook Token Counts & Sorting** — Estimated token counts per entry, sortable by order, name, tokens, or keys
-- **Regex Scripts** — Custom text processing with regex find/replace on inputs and outputs
-- **Macro System** — Template variables like `{{char}}`, `{{user}}`, `{{time}}`, and agent markers
-
-### Connections & Providers
-
-- **Multi-Provider** — OpenAI, Anthropic, Google, OpenRouter, Mistral, Cohere, and any custom OpenAI-compatible endpoint
-- **Encrypted API Keys** — API keys are encrypted at rest with AES-256
-- **Per-Chat Overrides** — Different presets and connections per chat
-
-### Export & Data
-
-- **Export Chats** — Save as JSON or Markdown
-- **Fully Local** — SQLite database, all data stays on your machine
-- **No Account Required** — Just install and go
+- **Heh** — Too many to count.
 
 ---
 
@@ -181,7 +91,7 @@ All agents are disabled by default — enable only the ones you want. You can al
 
 ## Windows EASIEST METHOD
 
-Download **[Marinara-Engine-Installer-1.3.4.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.3.4/Marinara-Engine-Installer-1.3.4.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
+Download **[Marinara-Engine-Installer-1.4.0.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.0/Marinara-Engine-Installer-1.4.0.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
 
 ---
 
@@ -224,7 +134,7 @@ git -v    # should show git version 2.x+
 
 **Windows:**
 
-```
+```bat
 git clone https://github.com/SpicyMarinara/marinara-engine.git
 cd marinara-engine
 start.bat
@@ -271,7 +181,7 @@ pnpm db:push
 pnpm start
 ```
 
-Then open **http://localhost:7860**. That's it — no account, no cloud, everything runs locally.
+Then open **<http://localhost:7860>**. That's it — no account, no cloud, everything runs locally.
 
 ### Updating
 
@@ -314,6 +224,86 @@ pnpm dev:client
 
 ---
 
+## Features
+
+### Chat & Roleplay
+
+- **Three Chat Modes** — Conversation (Discord-style), Roleplay (immersive RPG), Game (Coming Soon)
+- **Plug-And-Play** — I couldn't have made it easier for you.
+- **A Connected System** — All chats can be connected, your characters carry memories between them and are aware of them. It's an immersive system that aims to make you feel like you're chatting with real people.
+- **Character Management** — Create or import characters with avatars, personalities, backstories, and system prompts
+- **Avatar Zoom & Repositioning** — Crop and reposition character avatars with a zoom slider and drag-to-pan, applied everywhere avatars appear
+- **Persona System** — User personas with custom names, avatars, and descriptions
+- **Group Chats** — Multiple characters in a single conversation
+- **Chat Branching** — Branch conversations at any message and explore different paths
+- **Message Swiping** — Generate alternate responses and swipe between them
+- **Slash Commands** — `/narrator`, `/random`, `/sys`, `/as`, `/continue`, `/impersonate`, and more for quick chat control
+- **SillyTavern Import** — Migrate characters, chats, presets, and settings from SillyTavern
+
+### Visual & Immersive
+
+- **Sprite System** — Character expression sprites with automatic emotion-based switching
+- **Custom Backgrounds** — Upload backgrounds with per-scene switching
+- **Weather Effects** — Dynamic weather overlays (rain, snow, fog, etc.)
+- **Two Visual Themes** — Y2K Marinara theme and a faithful SillyTavern classic theme
+- **Light & Dark Mode** — One is obviously superior.
+
+### AI Agent System (23 Built-In)
+
+Agents are autonomous AI assistants that run alongside your chat, each handling a specific task:
+
+| Agent                      | What It Does                                                                |
+| -------------------------- | --------------------------------------------------------------------------- |
+| **World State**            | Tracks date/time, weather, location, and present characters                 |
+| **Quest Tracker**          | Manages quest objectives, completion, and rewards                           |
+| **Character Tracker**      | Monitors character moods, relationships, appearance, outfit, and stats      |
+| **Persona Stats**          | Tracks your protagonist's needs and condition bars (Satiety, Energy, etc.)  |
+| **Custom Tracker**         | Tracks user-defined fields — currencies, counters, flags, or any custom data |
+| **Narrative Director**     | Introduces events, NPCs, and plot beats to keep the story moving            |
+| **Prose Guardian**         | Analyzes writing patterns and generates directives to improve prose variety  |
+| **Continuity Checker**     | Detects contradictions with established lore and facts                      |
+| **Combat**                 | Turn-based RPG combat with initiative, HP tracking, and actions             |
+| **Expression Engine**      | Detects emotions and selects character sprites                              |
+| **Background**             | Picks the best background image for the current scene                       |
+| **Echo Chamber**           | Simulates a live-stream chat reacting to your roleplay                      |
+| **Prompt Reviewer**        | Reviews and scores the assembled prompt before generation                   |
+| **Illustrator**            | Generates image prompts for key scenes                                      |
+| **Lorebook Keeper**        | Automatically creates and updates lorebook entries                          |
+| **Immersive HTML**         | Injects styled HTML/CSS/JS for in-world visuals (letters, terminals, etc.)  |
+| **Consistency Editor**     | Edits responses to fix factual errors and tracker contradictions             |
+| **Spotify DJ**             | Controls Spotify playback to match the scene's mood                         |
+| **Chat Summary**           | Generates condensed rolling summaries of long conversations                 |
+| **Knowledge Retrieval**    | Scans lorebooks for relevant context using chunked RAG                      |
+| **Schedule Planner**       | Generates realistic weekly schedules for characters in Conversation mode    |
+| **Response Orchestrator**  | Decides which character(s) should respond in group Conversations            |
+| **Autonomous Messenger**   | Lets characters send messages unprompted when the user is inactive          |
+
+All agents are disabled by default — enable only the ones you want. You can also create **custom agents** with your own prompts and tool configurations.
+
+### Prompt Engineering
+
+- **Preset System** — Save and load full prompt configurations (system prompt sections, sampling parameters, etc.)
+- **Prompt Sections** — Modular prompt builder with drag-and-drop ordering, depth injection, and per-section toggles
+- **Lorebooks** — World-building entries with keyword triggers that inject context automatically
+- **World Info Inspector** — Live view of active lorebook entries in the current chat, with token usage and keyword details
+- **Lorebook Token Counts & Sorting** — Estimated token counts per entry, sortable by order, name, tokens, or keys
+- **Regex Scripts** — Custom text processing with regex find/replace on inputs and outputs
+- **Macro System** — Template variables like `{{char}}`, `{{user}}`, `{{time}}`, and agent markers
+
+### Connections & Providers
+
+- **Multi-Provider** — OpenAI, Anthropic, Google, OpenRouter, Mistral, Cohere, and any custom OpenAI-compatible endpoint
+- **Encrypted API Keys** — API keys are encrypted at rest with AES-256
+- **Per-Chat Overrides** — Different presets and connections per chat
+
+### Export & Data
+
+- **Export Chats** — Save as JSON or Markdown
+- **Fully Local** — SQLite database, all data stays on your machine
+- **No Account Required** — Just install and go
+
+---
+
 ## Configuration
 
 Copy `.env.example` to `.env` to customize:
@@ -334,7 +324,7 @@ Copy `.env.example` to `.env` to customize:
 
 ## Project Structure
 
-```
+```text
 marinara-engine/
 ├── packages/
 │   ├── shared/      # TypeScript types, schemas, constants
@@ -369,19 +359,28 @@ If you see an error like `EPERM: operation not permitted, open 'C:\Program Files
 
 2. **Install pnpm manually** (recommended — avoids corepack entirely):
 
-   ```
+   ```bash
    npm install -g pnpm
    ```
 
    Then run `start.bat` again.
 
 3. **Update corepack** (if you want to keep using it):
-   ```
+
+   ```bash
    npm install -g corepack
    corepack enable
    corepack prepare pnpm@latest --activate
    ```
+
    Run these in an Administrator terminal.
+
+---
+
+## Community & Support
+
+- [**Join our Discord**](https://discord.com/invite/KdAkTg94ME) — Chat, get help, share characters, and give feedback
+- [**Support on Ko-fi**](https://ko-fi.com/marinara_spaghetti) — Help keep the project alive
 
 ---
 

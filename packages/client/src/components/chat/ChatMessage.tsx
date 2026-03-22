@@ -25,6 +25,63 @@ import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useUIStore } from "../../stores/ui.store";
 import DOMPurify from "dompurify";
 
+/** Isolated edit textarea — uncontrolled to avoid React re-renders on every keystroke. */
+const EditTextarea = memo(function EditTextarea({
+  initialContent,
+  fontSize,
+  onSave,
+  onCancel,
+}: {
+  initialContent: string;
+  fontSize: string | number | undefined;
+  onSave: (content: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = ref.current.scrollHeight + "px";
+      ref.current.focus({ preventScroll: true });
+    }
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (ref.current) onSave(ref.current.value);
+  }, [onSave]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        ref={ref}
+        defaultValue={initialContent}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
+          if (e.key === "Escape") onCancel();
+        }}
+        className="w-full resize-none rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50"
+        style={{ fontSize, lineHeight: 1.5, fieldSizing: "content" } as React.CSSProperties}
+      />
+      <div className="flex items-center gap-1.5 justify-end">
+        <button
+          onClick={onCancel}
+          className="rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white/70"
+          title="Cancel (Esc)"
+        >
+          <X size="0.8125rem" />
+        </button>
+        <button
+          onClick={handleSave}
+          className="rounded-md p-1 text-emerald-400/70 hover:bg-emerald-400/10 hover:text-emerald-400"
+          title="Save (Cmd+Enter)"
+        >
+          <Check size="0.8125rem" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
 interface PersonaInfo {
   name?: string;
   avatarUrl?: string;
@@ -162,7 +219,7 @@ function highlightDialogue(text: string, dialogueColor?: string): ReactNode[] {
         className={!dialogueColor ? "text-white" : undefined}
       >
         {openQuote}
-        {innerText}
+        {applyInlineMarkdown(innerText, `dq${key}`)}
         {closeQuote}
       </strong>,
     );
@@ -215,33 +272,56 @@ function renderContent(
     return <>{renderWithSpeakerTags(normalized, dialogueColor, speakerColorMap, boldDialogue)}</>;
   }
 
-  // For HTML content, strip speaker tags before sanitizing
-  const stripped = normalized.replace(SPEAKER_TAG_RE, "$2");
+  // For HTML content, replace speaker tags with color-annotated spans (preserves per-character colors)
+  const stripped = speakerColorMap
+    ? normalized.replace(SPEAKER_TAG_RE, (_, name, dialogue) => {
+        const color = speakerColorMap.get(name as string);
+        return color ? `<span data-spk="${color}">${dialogue as string}</span>` : (dialogue as string);
+      })
+    : normalized.replace(SPEAKER_TAG_RE, "$2");
 
-  // Convert newlines to <br> with compact spacing for HTML content
-  const withBreaks = stripped.replace(/\n/g, '<br style="display:block;margin:0.2em 0">');
+  // Convert newlines to <br> with compact spacing for HTML content,
+  // but preserve newlines inside <style> blocks (they're harmless in CSS
+  // and injecting <br> tags would corrupt the stylesheet).
+  const withBreaks = stripped.replace(/(<style[\s\S]*?<\/style>)|\n/gi, (m, styleBlock) =>
+    styleBlock ? styleBlock : '<br style="display:block;margin:0.2em 0">',
+  );
 
   // Content has HTML — sanitize and render it
   const clean = DOMPurify.sanitize(withBreaks, {
-    ADD_TAGS: ["style"],
     ADD_ATTR: ["style", "class"],
     ALLOW_DATA_ATTR: true,
   });
 
-  // Apply dialogue bolding inside sanitised HTML, but skip text already
-  // wrapped in a <font color="..."> tag so author-specified colors take priority.
+  // Apply dialogue bolding inside sanitised HTML with per-speaker color support.
   const withDialogue = boldDialogue
-    ? clean.replace(/(?<![=\w])"([^"<>]+)"/g, (match, inner, offset) => {
-        const boldColor = dialogueColor ?? "white";
-        // Find the last opening tag before this match — if it's an unclosed <font color=...>, skip
-        const before = clean.slice(0, offset);
-        const lastFontOpen = before.lastIndexOf("<font ");
-        if (lastFontOpen !== -1) {
-          const lastFontClose = before.lastIndexOf("</font>");
-          if (lastFontClose < lastFontOpen) return match; // we're inside a <font> tag
-        }
-        return `<strong style="color:${boldColor}">"${inner}"</strong>`;
-      })
+    ? (() => {
+        // Sanitize a CSS color value — only allow safe color formats
+        const safeColor = (c: string) =>
+          /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|rgba?\([\d,.\s%]+\)|hsla?\([\d,.\s%]+\))$/.test(c) ? c : "inherit";
+        // Pass 1: Bold quotes inside speaker-annotated spans with their specific colors
+        const afterSpeaker = clean.replace(
+          /<span[^>]*\bdata-spk="([^"]*)"[^>]*>([\s\S]*?)<\/span>/g,
+          (_m: string, color: string, content: string) => {
+            const validColor = safeColor(color);
+            return content.replace(/(?<![=\w])"([^"<>]+)"/g, `<strong style="color:${validColor}">"$1"</strong>`);
+          },
+        );
+        // Pass 2: Bold remaining quotes with default dialogue color, skipping already-bolded text
+        return afterSpeaker.replace(/(?<![=\w])"([^"<>]+)"/g, (match, inner, offset) => {
+          const before = afterSpeaker.slice(0, offset);
+          // Skip if already inside a <strong> from pass 1
+          if (/<strong[^>]*>\s*$/.test(before.slice(Math.max(0, before.length - 300)))) return match;
+          // Skip if inside a <font> tag (author-specified colors take priority)
+          const lastFontOpen = before.lastIndexOf("<font ");
+          if (lastFontOpen !== -1) {
+            const lastFontClose = before.lastIndexOf("</font>");
+            if (lastFontClose < lastFontOpen) return match;
+          }
+          const boldColor = dialogueColor ?? "white";
+          return `<strong style="color:${boldColor}">"${inner}"</strong>`;
+        });
+      })()
     : clean;
 
   // Convert *** horizontal rules to <hr> tags in HTML path
@@ -255,7 +335,7 @@ function renderContent(
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
 
-  return <div dangerouslySetInnerHTML={{ __html: withMarkdown }} />;
+  return <div className="overflow-hidden" dangerouslySetInnerHTML={{ __html: withMarkdown }} />;
 }
 
 /** Build style object for name color (supports gradients). */
@@ -297,10 +377,8 @@ export const ChatMessage = memo(function ChatMessage({
   const chatFontSize = useUIStore((s) => s.chatFontSize);
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
   const [showThinking, setShowThinking] = useState(false);
   const [showActions, setShowActions] = useState(false);
-  const editRef = useRef<HTMLTextAreaElement>(null);
   const scrollRestoreRef = useRef<{ el: HTMLElement; top: number } | null>(null);
   const msgRef = useRef<HTMLDivElement>(null);
 
@@ -335,7 +413,7 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Model name display
   const showModelName = useUIStore((s) => s.showModelName);
-  const modelName = !isUser && showModelName ? (extra.generationInfo?.model ?? null) : null;
+  const _modelName = !isUser && showModelName ? (extra.generationInfo?.model ?? null) : null;
   const genInfo = !isUser && showModelName ? extra.generationInfo : null;
   const genLabel = useMemo(() => {
     if (!genInfo) return null;
@@ -351,10 +429,6 @@ export const ChatMessage = memo(function ChatMessage({
   }, [genInfo]);
   // useLayoutEffect runs after DOM mutation but before browser paint — prevents visible scroll jump
   useLayoutEffect(() => {
-    if (editing && editRef.current) {
-      editRef.current.style.height = editRef.current.scrollHeight + "px";
-      editRef.current.focus({ preventScroll: true });
-    }
     // Restore scroll position saved before the state change
     if (scrollRestoreRef.current) {
       scrollRestoreRef.current.el.scrollTop = scrollRestoreRef.current.top;
@@ -365,21 +439,22 @@ export const ChatMessage = memo(function ChatMessage({
   const startEditing = useCallback(() => {
     const sp = msgRef.current?.closest("[class*='overflow-y']") as HTMLElement | null;
     if (sp) scrollRestoreRef.current = { el: sp, top: sp.scrollTop };
-    setEditContent(message.content);
     setEditing(true);
-  }, [message.content]);
+  }, []);
 
-  const handleSaveEdit = () => {
-    if (editContent.trim() !== message.content) {
-      onEdit?.(message.id, editContent.trim());
-    }
-    setEditing(false);
-  };
+  const handleSaveEdit = useCallback(
+    (content: string) => {
+      if (content.trim() !== message.content) {
+        onEdit?.(message.id, content.trim());
+      }
+      setEditing(false);
+    },
+    [message.content, message.id, onEdit],
+  );
 
-  const handleCancelEdit = () => {
-    setEditContent(message.content);
+  const handleCancelEdit = useCallback(() => {
     setEditing(false);
-  };
+  }, []);
 
   // Apply regex scripts to AI output (assistant/narrator roles)
   const { applyToAIOutput } = useApplyRegex();
@@ -540,7 +615,7 @@ export const ChatMessage = memo(function ChatMessage({
   if (isSystem) {
     return (
       <div className="flex justify-center py-2">
-        <div className="rounded-full bg-[var(--secondary)] px-4 py-1.5 text-[11px] text-[var(--muted-foreground)]">
+        <div className="rounded-full bg-[var(--secondary)] px-4 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
           {message.content}
         </div>
       </div>
@@ -566,16 +641,16 @@ export const ChatMessage = memo(function ChatMessage({
                 )}
                 title="Delete"
               >
-                <Trash2 size={12} />
+                <Trash2 size="0.75rem" />
               </button>
             )}
-            <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-amber-400/70">
+            <div className="mb-1 flex items-center gap-2 text-[0.625rem] font-semibold uppercase tracking-widest text-amber-400/70">
               <span className="h-px flex-1 bg-amber-400/20" />
               Narrator
               <span className="h-px flex-1 bg-amber-400/20" />
             </div>
             <div
-              className="whitespace-pre-wrap text-amber-100/80 italic"
+              className="whitespace-pre-wrap break-words text-amber-100/80 italic"
               style={{ fontSize: chatFontSize, lineHeight: 1.5 }}
             >
               {displayContent}
@@ -630,7 +705,7 @@ export const ChatMessage = memo(function ChatMessage({
                       : "bg-gradient-to-br from-purple-500 to-pink-600 ring-purple-400/20",
                   )}
                 >
-                  {isUser ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
+                  {isUser ? <User size="1rem" className="text-white" /> : <Bot size="1rem" className="text-white" />}
                 </div>
               )}
             </div>
@@ -640,22 +715,22 @@ export const ChatMessage = memo(function ChatMessage({
           {isGrouped && <div className="w-10 flex-shrink-0" />}
 
           {/* Content */}
-          <div className={cn("flex max-w-[82%] flex-col gap-0.5", isUser && "items-end", editing && "w-[82%]")}>
+          <div className={cn("flex min-w-0 max-w-[82%] flex-col gap-0.5", isUser && "items-end", editing && "w-[82%]")}>
             {/* Name + time (only if not grouped) */}
             {!isGrouped && (
               <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>
                 <span
                   className={cn(
-                    "text-[12px] font-bold tracking-tight",
+                    "text-[0.75rem] font-bold tracking-tight",
                     !msgNameColor && !isMergedGroup && (isUser ? "text-neutral-300" : "rpg-char-name"),
                   )}
                   style={!isMergedGroup ? nameColorStyle(msgNameColor) : undefined}
                 >
                   {isMergedGroup ? mergedNameElement : displayName}
                 </span>
-                <span className="text-[10px] text-white/30">{formatTime(message.createdAt)}</span>
+                <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
                 {genLabel && (
-                  <span className="text-[9px] text-white/25 italic truncate max-w-[250px]" title={genLabel}>
+                  <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
                     {genLabel}
                   </span>
                 )}
@@ -666,7 +741,9 @@ export const ChatMessage = memo(function ChatMessage({
             {isConversationStart && (
               <div className="flex items-center gap-1.5 px-1 mb-1">
                 <span className="h-px flex-1 bg-amber-400/30" />
-                <span className="text-[9px] font-semibold uppercase tracking-widest text-amber-400/70">New Start</span>
+                <span className="text-[0.5625rem] font-semibold uppercase tracking-widest text-amber-400/70">
+                  New Start
+                </span>
                 <span className="h-px flex-1 bg-amber-400/30" />
               </div>
             )}
@@ -674,7 +751,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Message bubble */}
             <div
               className={cn(
-                "relative rounded-2xl px-4 py-3 shadow-lg shadow-black/20",
+                "relative overflow-hidden rounded-2xl px-4 py-3 shadow-lg shadow-black/20",
                 isUser
                   ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
                   : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
@@ -691,39 +768,12 @@ export const ChatMessage = memo(function ChatMessage({
               }}
             >
               {editing ? (
-                <div className="flex flex-col gap-2">
-                  <textarea
-                    ref={editRef}
-                    value={editContent}
-                    onChange={(e) => {
-                      setEditContent(e.target.value);
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSaveEdit();
-                      if (e.key === "Escape") handleCancelEdit();
-                    }}
-                    className="w-full resize-none rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50"
-                    style={{ fontSize: chatFontSize, lineHeight: 1.5 }}
-                  />
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <button
-                      onClick={handleCancelEdit}
-                      className="rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white/70"
-                      title="Cancel (Esc)"
-                    >
-                      <X size={13} />
-                    </button>
-                    <button
-                      onClick={handleSaveEdit}
-                      className="rounded-md p-1 text-emerald-400/70 hover:bg-emerald-400/10 hover:text-emerald-400"
-                      title="Save (Cmd+Enter)"
-                    >
-                      <Check size={13} />
-                    </button>
-                  </div>
-                </div>
+                <EditTextarea
+                  initialContent={message.content}
+                  fontSize={chatFontSize}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                />
               ) : (
                 <div className={cn("break-words", !isHtmlContent && "whitespace-pre-wrap")}>
                   {isStreaming && !message.content ? (
@@ -736,7 +786,7 @@ export const ChatMessage = memo(function ChatMessage({
                     <>
                       {renderedContent}
                       {isStreaming && (
-                        <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse rounded-full bg-blue-400" />
+                        <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-blue-400" />
                       )}
                     </>
                   )}
@@ -746,13 +796,13 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* Swipes */}
             {hasSwipes && (
-              <div className="flex items-center gap-1.5 px-1 text-[10px] text-white/40">
+              <div className="flex items-center gap-1.5 px-1 text-[0.625rem] text-white/40">
                 <button
                   className="rounded-md p-0.5 transition-colors hover:bg-white/10 disabled:opacity-30"
                   onClick={handleSwipePrev}
                   disabled={message.activeSwipeIndex <= 0}
                 >
-                  <ChevronLeft size={12} />
+                  <ChevronLeft size="0.75rem" />
                 </button>
                 <span className="tabular-nums">
                   {message.activeSwipeIndex + 1}/{swipeCount}
@@ -762,7 +812,7 @@ export const ChatMessage = memo(function ChatMessage({
                   onClick={handleSwipeNext}
                   disabled={message.activeSwipeIndex >= swipeCount - 1}
                 >
-                  <ChevronRight size={12} />
+                  <ChevronRight size="0.75rem" />
                 </button>
               </div>
             )}
@@ -775,40 +825,40 @@ export const ChatMessage = memo(function ChatMessage({
                 showActions && "opacity-100",
               )}
             >
-              <ActionBtn icon={copied ? "\u2713" : <Copy size={11} />} onClick={handleCopy} title="Copy" dark />
-              <ActionBtn icon={<Pencil size={11} />} onClick={startEditing} title="Edit" dark />
+              <ActionBtn icon={copied ? "\u2713" : <Copy size="0.6875rem" />} onClick={handleCopy} title="Copy" dark />
+              <ActionBtn icon={<Pencil size="0.6875rem" />} onClick={startEditing} title="Edit" dark />
               <ActionBtn
-                icon={<RefreshCw size={11} />}
+                icon={<RefreshCw size="0.6875rem" />}
                 onClick={() => onRegenerate?.(message.id)}
                 title="Regenerate"
                 dark
               />
               <ActionBtn
-                icon={<Flag size={11} />}
+                icon={<Flag size="0.6875rem" />}
                 onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
                 title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
                 className={isConversationStart ? "text-amber-400/80 hover:text-amber-300" : undefined}
                 dark
               />
               {isLastAssistantMessage && !isUser && (
-                <ActionBtn icon={<Eye size={11} />} onClick={() => onPeekPrompt?.()} title="Peek prompt" dark />
+                <ActionBtn icon={<Eye size="0.6875rem" />} onClick={() => onPeekPrompt?.()} title="Peek prompt" dark />
               )}
               {thinking && !isUser && (
                 <ActionBtn
-                  icon={<Brain size={11} />}
+                  icon={<Brain size="0.6875rem" />}
                   onClick={() => setShowThinking(true)}
                   title="View thoughts"
                   dark
                 />
               )}
               <ActionBtn
-                icon={<GitBranch size={11} />}
+                icon={<GitBranch size="0.6875rem" />}
                 onClick={() => onBranch?.(message.id)}
                 title="Branch from here"
                 dark
               />
               <ActionBtn
-                icon={<Trash2 size={11} />}
+                icon={<Trash2 size="0.6875rem" />}
                 onClick={() => onDelete?.(message.id)}
                 title="Delete"
                 className="hover:text-red-400"
@@ -833,7 +883,9 @@ export const ChatMessage = memo(function ChatMessage({
       className={cn("group flex", isUser ? "justify-end" : "justify-start", isGrouped ? "mb-0.5" : "mb-3")}
       onClick={handleMobileTap}
     >
-      <div className={cn("flex max-w-[72%] gap-2", isUser && "flex-row-reverse", editing && "w-[85%] max-w-[85%]")}>
+      <div
+        className={cn("flex min-w-0 max-w-[72%] gap-2", isUser && "flex-row-reverse", editing && "w-[85%] max-w-[85%]")}
+      >
         {/* Avatar — only show for first in group */}
         {(!isUser || avatarUrl) && (
           <div className={cn("flex-shrink-0 self-end", isGrouped && "invisible")}>
@@ -854,10 +906,16 @@ export const ChatMessage = memo(function ChatMessage({
               </div>
             ) : avatarUrl ? (
               <div className="h-8 w-8 overflow-hidden rounded-full">
-                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" style={avatarCropStyle} />
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  style={avatarCropStyle}
+                />
               </div>
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-[var(--muted-foreground)]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[0.6875rem] font-bold text-[var(--muted-foreground)]">
                 {displayName[0]}
               </div>
             )}
@@ -869,7 +927,7 @@ export const ChatMessage = memo(function ChatMessage({
           {!isGrouped && !isUser && (
             <span
               className={cn(
-                "px-3 text-[11px] font-semibold",
+                "px-3 text-[0.6875rem] font-semibold",
                 !msgNameColor && !isMergedGroup && "text-[var(--muted-foreground)]",
               )}
               style={!isMergedGroup ? nameColorStyle(msgNameColor) : undefined}
@@ -882,7 +940,9 @@ export const ChatMessage = memo(function ChatMessage({
           {isConversationStart && (
             <div className="flex items-center gap-1.5 px-2 mb-0.5">
               <span className="h-px flex-1 bg-amber-500/30" />
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-amber-500/70">New Start</span>
+              <span className="text-[0.5625rem] font-semibold uppercase tracking-widest text-amber-500/70">
+                New Start
+              </span>
               <span className="h-px flex-1 bg-amber-500/30" />
             </div>
           )}
@@ -903,39 +963,12 @@ export const ChatMessage = memo(function ChatMessage({
             style={{ fontSize: chatFontSize, lineHeight: 1.5, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
           >
             {editing ? (
-              <div className="flex flex-col gap-2">
-                <textarea
-                  ref={editRef}
-                  value={editContent}
-                  onChange={(e) => {
-                    setEditContent(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = e.target.scrollHeight + "px";
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSaveEdit();
-                    if (e.key === "Escape") handleCancelEdit();
-                  }}
-                  className="w-full resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 outline-none ring-1 ring-[var(--primary)]/40"
-                  style={{ fontSize: chatFontSize, lineHeight: 1.5 }}
-                />
-                <div className="flex items-center gap-1.5 justify-end">
-                  <button
-                    onClick={handleCancelEdit}
-                    className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                    title="Cancel (Esc)"
-                  >
-                    <X size={12} />
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    className="rounded-md p-1 text-emerald-500 hover:bg-emerald-500/10"
-                    title="Save (Cmd+Enter)"
-                  >
-                    <Check size={12} />
-                  </button>
-                </div>
-              </div>
+              <EditTextarea
+                initialContent={message.content}
+                fontSize={chatFontSize}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
+              />
             ) : (
               <div className={cn("break-words", !isHtmlContent && "whitespace-pre-wrap")}>
                 {isStreaming && !message.content ? (
@@ -948,7 +981,7 @@ export const ChatMessage = memo(function ChatMessage({
                   <>
                     {renderedContent}
                     {isStreaming && (
-                      <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse rounded-full bg-white/70" />
+                      <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-white/70" />
                     )}
                   </>
                 )}
@@ -959,10 +992,10 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Timestamp + model — only for last in a group or standalone */}
           {!isGrouped && (
             <div className={cn("flex items-center gap-2 px-3", isUser && "flex-row-reverse")}>
-              <span className="text-[10px] text-[var(--muted-foreground)]/50">{formatTime(message.createdAt)}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]/50">{formatTime(message.createdAt)}</span>
               {genLabel && (
                 <span
-                  className="text-[9px] text-[var(--muted-foreground)]/40 italic truncate max-w-[250px]"
+                  className="text-[0.5625rem] text-[var(--muted-foreground)]/40 italic truncate max-w-[15.625rem]"
                   title={genLabel}
                 >
                   {genLabel}
@@ -973,13 +1006,13 @@ export const ChatMessage = memo(function ChatMessage({
 
           {/* Swipes */}
           {hasSwipes && (
-            <div className="flex items-center gap-1.5 px-2 text-[10px] text-[var(--muted-foreground)]">
+            <div className="flex items-center gap-1.5 px-2 text-[0.625rem] text-[var(--muted-foreground)]">
               <button
                 className="rounded p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
                 onClick={handleSwipePrev}
                 disabled={message.activeSwipeIndex <= 0}
               >
-                <ChevronLeft size={11} />
+                <ChevronLeft size="0.6875rem" />
               </button>
               <span className="tabular-nums">
                 {message.activeSwipeIndex + 1}/{swipeCount}
@@ -989,7 +1022,7 @@ export const ChatMessage = memo(function ChatMessage({
                 onClick={handleSwipeNext}
                 disabled={message.activeSwipeIndex >= swipeCount - 1}
               >
-                <ChevronRight size={11} />
+                <ChevronRight size="0.6875rem" />
               </button>
             </div>
           )}
@@ -1002,24 +1035,32 @@ export const ChatMessage = memo(function ChatMessage({
               showActions && "opacity-100",
             )}
           >
-            <ActionBtn icon={copied ? "✓" : <Copy size={10} />} onClick={handleCopy} title="Copy" />
-            <ActionBtn icon={<Pencil size={10} />} onClick={startEditing} title="Edit" />
-            <ActionBtn icon={<RefreshCw size={10} />} onClick={() => onRegenerate?.(message.id)} title="Regenerate" />
+            <ActionBtn icon={copied ? "✓" : <Copy size="0.625rem" />} onClick={handleCopy} title="Copy" />
+            <ActionBtn icon={<Pencil size="0.625rem" />} onClick={startEditing} title="Edit" />
             <ActionBtn
-              icon={<Flag size={10} />}
+              icon={<RefreshCw size="0.625rem" />}
+              onClick={() => onRegenerate?.(message.id)}
+              title="Regenerate"
+            />
+            <ActionBtn
+              icon={<Flag size="0.625rem" />}
               onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
               title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
               className={isConversationStart ? "text-amber-500" : undefined}
             />
             {isLastAssistantMessage && !isUser && (
-              <ActionBtn icon={<Eye size={10} />} onClick={() => onPeekPrompt?.()} title="Peek prompt" />
+              <ActionBtn icon={<Eye size="0.625rem" />} onClick={() => onPeekPrompt?.()} title="Peek prompt" />
             )}
             {thinking && !isUser && (
-              <ActionBtn icon={<Brain size={10} />} onClick={() => setShowThinking(true)} title="View thoughts" />
+              <ActionBtn icon={<Brain size="0.625rem" />} onClick={() => setShowThinking(true)} title="View thoughts" />
             )}
-            <ActionBtn icon={<GitBranch size={10} />} onClick={() => onBranch?.(message.id)} title="Branch from here" />
             <ActionBtn
-              icon={<Trash2 size={10} />}
+              icon={<GitBranch size="0.625rem" />}
+              onClick={() => onBranch?.(message.id)}
+              title="Branch from here"
+            />
+            <ActionBtn
+              icon={<Trash2 size="0.625rem" />}
               onClick={() => onDelete?.(message.id)}
               title="Delete"
               className="hover:text-[var(--destructive)]"
@@ -1044,18 +1085,18 @@ function ThinkingModal({ thinking, onClose }: { thinking: string; onClose: () =>
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-            <Brain size={14} className="text-[var(--muted-foreground)]" />
+            <Brain size="0.875rem" className="text-[var(--muted-foreground)]" />
             Model Thoughts
           </div>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            <X size={14} />
+            <X size="0.875rem" />
           </button>
         </div>
         <div className="overflow-y-auto px-4 py-3">
-          <pre className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--muted-foreground)]">
+          <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
             {thinking}
           </pre>
         </div>

@@ -29,11 +29,14 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
       // Same role — merge
       const mergedImages: string[] | undefined =
         current.images || msg.images ? [...(current.images ?? []), ...(msg.images ?? [])] : undefined;
+      // Prefer the later message's providerMetadata (most recent thought signature)
+      const mergedMeta: Record<string, unknown> | undefined = msg.providerMetadata ?? current.providerMetadata;
       current = {
         role: current.role,
         content: current.content + "\n\n" + msg.content,
         name: current.name,
         ...(mergedImages ? { images: mergedImages } : {}),
+        ...(mergedMeta ? { providerMetadata: mergedMeta } : {}),
       };
     } else {
       // Different role — push current and start new accumulator

@@ -34,7 +34,7 @@ interface ScanResult {
   error?: string;
   dataDir?: string;
   characters: { path: string; name: string; format: string }[];
-  chats: { path: string; characterName: string }[];
+  chats: { path: string; characterName: string; folderName: string }[];
   groupChats: { path: string; groupName: string; members: string[] }[];
   presets: { path: string; name: string }[];
   lorebooks: { path: string; name: string }[];
@@ -262,7 +262,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   className="flex items-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
                   title="Browse for folder"
                 >
-                  {picking ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
+                  {picking ? <Loader2 size="0.875rem" className="animate-spin" /> : <FolderOpen size="0.875rem" />}
                   Browse
                 </button>
               </div>
@@ -281,9 +281,9 @@ export function STBulkImportModal({ open, onClose }: Props) {
                     className="rounded p-1 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
                     title="Go up"
                   >
-                    <ArrowLeft size={12} />
+                    <ArrowLeft size="0.75rem" />
                   </button>
-                  <span className="flex-1 truncate text-[10px] font-mono text-[var(--muted-foreground)]">
+                  <span className="flex-1 truncate text-[0.625rem] font-mono text-[var(--muted-foreground)]">
                     {browserPath || "/"}
                   </span>
                   <button
@@ -291,7 +291,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                       setFolderPath(browserPath);
                       setShowFolderBrowser(false);
                     }}
-                    className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[10px] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
+                    className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
                   >
                     Select This Folder
                   </button>
@@ -299,10 +299,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <div className="max-h-48 overflow-y-auto p-1">
                   {browserLoading ? (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 size={14} className="animate-spin text-[var(--muted-foreground)]" />
+                      <Loader2 size="0.875rem" className="animate-spin text-[var(--muted-foreground)]" />
                     </div>
                   ) : browserFolders.length === 0 ? (
-                    <p className="py-3 text-center text-[10px] text-[var(--muted-foreground)]">No subfolders</p>
+                    <p className="py-3 text-center text-[0.625rem] text-[var(--muted-foreground)]">No subfolders</p>
                   ) : (
                     browserFolders.map((name) => (
                       <button
@@ -310,9 +310,9 @@ export function STBulkImportModal({ open, onClose }: Props) {
                         onClick={() => loadDirectory(`${browserPath}/${name}`)}
                         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--accent)]"
                       >
-                        <Folder size={13} className="shrink-0 text-sky-400" />
+                        <Folder size="0.8125rem" className="shrink-0 text-sky-400" />
                         <span className="truncate">{name}</span>
-                        <ChevronRight size={11} className="ml-auto shrink-0 text-[var(--muted-foreground)]" />
+                        <ChevronRight size="0.6875rem" className="ml-auto shrink-0 text-[var(--muted-foreground)]" />
                       </button>
                     ))
                   )}
@@ -330,18 +330,22 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-50 cursor-not-allowed",
               )}
             >
-              {phase === "scanning" ? <Loader2 size={14} className="animate-spin" /> : <FolderSearch size={14} />}
+              {phase === "scanning" ? (
+                <Loader2 size="0.875rem" className="animate-spin" />
+              ) : (
+                <FolderSearch size="0.875rem" />
+              )}
               {phase === "scanning" ? "Scanning…" : "Scan Folder"}
             </button>
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">
-                <XCircle size={14} className="mt-0.5 flex-shrink-0" />
+                <XCircle size="0.875rem" className="mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[10px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
               <strong>Tip:</strong> This is the main SillyTavern folder (the one containing{" "}
               <code className="rounded bg-[var(--secondary)] px-1">data/</code> or{" "}
               <code className="rounded bg-[var(--secondary)] px-1">public/</code>). On most setups it's named{" "}
@@ -354,10 +358,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
         {phase === "preview" && scanResult && (
           <>
             <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-2.5 text-xs text-emerald-400">
-              <CheckCircle size={14} />
+              <CheckCircle size="0.875rem" />
               <span>
                 Found ST data in{" "}
-                <code className="rounded bg-[var(--secondary)] px-1 text-[10px]">{scanResult.dataDir}</code>
+                <code className="rounded bg-[var(--secondary)] px-1 text-[0.625rem]">{scanResult.dataDir}</code>
               </span>
             </div>
 
@@ -365,7 +369,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               <span className="text-xs font-medium">Select what to import:</span>
 
               <ImportCategory
-                icon={<Users size={14} />}
+                icon={<Users size="0.875rem" />}
                 label="Characters"
                 count={scanResult.characters.length}
                 items={scanResult.characters.map((c) => c.name)}
@@ -374,7 +378,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<MessageSquare size={14} />}
+                icon={<MessageSquare size="0.875rem" />}
                 label="Chats"
                 count={scanResult.chats.length}
                 items={scanResult.chats.map((c) => c.characterName)}
@@ -383,7 +387,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<Users size={14} />}
+                icon={<Users size="0.875rem" />}
                 label="Group Chats"
                 count={scanResult.groupChats?.length ?? 0}
                 items={(scanResult.groupChats ?? []).map((g) => `${g.groupName} (${g.members.join(", ")})`)}
@@ -392,7 +396,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<FileText size={14} />}
+                icon={<FileText size="0.875rem" />}
                 label="Presets"
                 count={scanResult.presets.length}
                 items={scanResult.presets.map((p) => p.name)}
@@ -401,7 +405,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<BookOpen size={14} />}
+                icon={<BookOpen size="0.875rem" />}
                 label="Lorebooks"
                 count={scanResult.lorebooks.length}
                 items={scanResult.lorebooks.map((l) => l.name)}
@@ -410,7 +414,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<Image size={14} />}
+                icon={<Image size="0.875rem" />}
                 label="Backgrounds"
                 count={scanResult.backgrounds.length}
                 items={scanResult.backgrounds.map((b) => b.name)}
@@ -419,7 +423,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
 
               <ImportCategory
-                icon={<UserCircle size={14} />}
+                icon={<UserCircle size="0.875rem" />}
                 label="Personas"
                 count={scanResult.personas?.length ?? 0}
                 items={(scanResult.personas ?? []).map((p) => p.name)}
@@ -451,7 +455,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
                 )}
               >
-                <Import size={14} />
+                <Import size="0.875rem" />
                 Import Selected
               </button>
             </div>
@@ -461,7 +465,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
         {/* ── Phase: Importing ── */}
         {phase === "importing" && (
           <div className="flex flex-col items-center gap-4 py-6">
-            <Loader2 size={32} className="animate-spin text-[var(--primary)]" />
+            <Loader2 size="2rem" className="animate-spin text-[var(--primary)]" />
             <p className="text-sm font-medium">Importing your data…</p>
             {progress ? (
               <div className="flex w-full flex-col gap-2">
@@ -477,10 +481,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
                     style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
                   />
                 </div>
-                <p className="truncate text-[11px] text-[var(--muted-foreground)]">{progress.item}</p>
+                <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">{progress.item}</p>
 
                 {/* Running totals */}
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--muted-foreground)]">
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.625rem] text-[var(--muted-foreground)]">
                   {progress.imported.characters > 0 && <span>{progress.imported.characters} characters</span>}
                   {progress.imported.chats > 0 && <span>{progress.imported.chats} chats</span>}
                   {progress.imported.groupChats > 0 && <span>{progress.imported.groupChats} group chats</span>}
@@ -507,7 +511,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   : "bg-[var(--destructive)]/10 text-[var(--destructive)]",
               )}
             >
-              {importResult.success ? <CheckCircle size={14} /> : <XCircle size={14} />}
+              {importResult.success ? <CheckCircle size="0.875rem" /> : <XCircle size="0.875rem" />}
               <span className="font-medium">
                 {importResult.success ? "Import complete!" : (importResult.error ?? "Import failed")}
               </span>
@@ -515,18 +519,30 @@ export function STBulkImportModal({ open, onClose }: Props) {
 
             {importResult.success && (
               <div className="grid grid-cols-2 gap-2">
-                <StatCard icon={<Users size={14} />} label="Characters" count={importResult.imported.characters} />
-                <StatCard icon={<MessageSquare size={14} />} label="Chats" count={importResult.imported.chats} />
                 <StatCard
-                  icon={<Users size={14} />}
+                  icon={<Users size="0.875rem" />}
+                  label="Characters"
+                  count={importResult.imported.characters}
+                />
+                <StatCard icon={<MessageSquare size="0.875rem" />} label="Chats" count={importResult.imported.chats} />
+                <StatCard
+                  icon={<Users size="0.875rem" />}
                   label="Group Chats"
                   count={importResult.imported.groupChats ?? 0}
                 />
-                <StatCard icon={<FileText size={14} />} label="Presets" count={importResult.imported.presets} />
-                <StatCard icon={<BookOpen size={14} />} label="Lorebooks" count={importResult.imported.lorebooks} />
-                <StatCard icon={<Image size={14} />} label="Backgrounds" count={importResult.imported.backgrounds} />
+                <StatCard icon={<FileText size="0.875rem" />} label="Presets" count={importResult.imported.presets} />
                 <StatCard
-                  icon={<UserCircle size={14} />}
+                  icon={<BookOpen size="0.875rem" />}
+                  label="Lorebooks"
+                  count={importResult.imported.lorebooks}
+                />
+                <StatCard
+                  icon={<Image size="0.875rem" />}
+                  label="Backgrounds"
+                  count={importResult.imported.backgrounds}
+                />
+                <StatCard
+                  icon={<UserCircle size="0.875rem" />}
                   label="Personas"
                   count={importResult.imported.personas ?? 0}
                 />
@@ -536,10 +552,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
             {importResult.errors.length > 0 && (
               <div className="flex flex-col gap-1.5 rounded-lg bg-amber-500/10 p-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
-                  <AlertTriangle size={12} />
+                  <AlertTriangle size="0.75rem" />
                   {importResult.errors.length} warning{importResult.errors.length !== 1 ? "s" : ""}
                 </div>
-                <div className="max-h-24 overflow-y-auto text-[10px] text-[var(--muted-foreground)]">
+                <div className="max-h-24 overflow-y-auto text-[0.625rem] text-[var(--muted-foreground)]">
                   {importResult.errors.map((err, i) => (
                     <div key={i} className="py-0.5">
                       {err}
@@ -604,7 +620,7 @@ function ImportCategory({
               e.preventDefault();
               setExpanded(!expanded);
             }}
-            className="text-[10px] text-[var(--primary)] hover:underline"
+            className="text-[0.625rem] text-[var(--primary)] hover:underline"
           >
             {expanded ? "Hide" : "Show"}
           </button>
@@ -613,12 +629,14 @@ function ImportCategory({
       {expanded && count > 0 && (
         <div className="border-t border-[var(--border)] px-2.5 py-2 max-h-28 overflow-y-auto">
           {displayItems.map((name, i) => (
-            <div key={i} className="truncate py-0.5 text-[10px] text-[var(--muted-foreground)]">
+            <div key={i} className="truncate py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
               {name}
             </div>
           ))}
           {remaining > 0 && (
-            <div className="py-0.5 text-[10px] font-medium text-[var(--muted-foreground)]">… and {remaining} more</div>
+            <div className="py-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+              … and {remaining} more
+            </div>
           )}
         </div>
       )}
@@ -632,7 +650,7 @@ function StatCard({ icon, label, count }: { icon: React.ReactNode; label: string
       <span className="text-[var(--primary)]">{icon}</span>
       <div className="flex flex-col">
         <span className="text-sm font-bold">{count}</span>
-        <span className="text-[10px] text-[var(--muted-foreground)]">{label}</span>
+        <span className="text-[0.625rem] text-[var(--muted-foreground)]">{label}</span>
       </div>
     </div>
   );

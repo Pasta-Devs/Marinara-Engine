@@ -9,7 +9,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useCharacterSprites, type SpriteInfo } from "../../hooks/use-characters";
 import { detectExpression } from "./SpriteOverlay";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CharacterMap } from "./ChatArea";
 
 interface ExpressionPanelProps {
@@ -70,7 +70,7 @@ export function ExpressionPanel({ characterIds, messages, characterMap, isRolepl
         )}
         title="Show expressions"
       >
-        <ChevronLeft size={14} />
+        <ChevronLeft size="0.875rem" />
       </button>
     );
   }
@@ -91,7 +91,7 @@ export function ExpressionPanel({ characterIds, messages, characterMap, isRolepl
       >
         <span
           className={cn(
-            "text-[11px] font-semibold uppercase tracking-wider",
+            "text-[0.6875rem] font-semibold uppercase tracking-wider",
             isRoleplay ? "text-white/50" : "text-[var(--muted-foreground)]",
           )}
         >
@@ -107,7 +107,7 @@ export function ExpressionPanel({ characterIds, messages, characterMap, isRolepl
           )}
           title="Collapse panel"
         >
-          <ChevronRight size={14} />
+          <ChevronRight size="0.875rem" />
         </button>
       </div>
 
@@ -127,7 +127,7 @@ export function ExpressionPanel({ characterIds, messages, characterMap, isRolepl
                 key={cid}
                 onClick={() => setActiveIndex(i)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-all whitespace-nowrap",
+                  "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[0.6875rem] font-medium transition-all whitespace-nowrap",
                   isActive
                     ? isRoleplay
                       ? "bg-white/10 text-white"
@@ -140,7 +140,7 @@ export function ExpressionPanel({ characterIds, messages, characterMap, isRolepl
                 {info?.avatarUrl ? (
                   <img src={info.avatarUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[8px] font-bold">
+                  <div className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5rem] font-bold">
                     {(info?.name ?? "?")[0]}
                   </div>
                 )}
@@ -183,7 +183,7 @@ function ExpressionSprite({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const info = characterMap.get(characterId);
 
-  const spriteList = (sprites as SpriteInfo[] | undefined) ?? [];
+  const spriteList = useMemo(() => (sprites as SpriteInfo[] | undefined) ?? [], [sprites]);
   const hasSprites = spriteList.length > 0;
 
   // Find the best sprite for the current expression
@@ -242,7 +242,9 @@ function ExpressionSprite({
           <p className={cn("text-sm font-semibold", isRoleplay ? "text-white/80" : "text-[var(--foreground)]")}>
             {info?.name ?? "Character"}
           </p>
-          <p className={cn("mt-0.5 text-[10px]", isRoleplay ? "text-white/30" : "text-[var(--muted-foreground)]/50")}>
+          <p
+            className={cn("mt-0.5 text-[0.625rem]", isRoleplay ? "text-white/30" : "text-[var(--muted-foreground)]/50")}
+          >
             No expression sprites uploaded
           </p>
         </div>
@@ -285,7 +287,7 @@ function ExpressionSprite({
         </div>
         <span
           className={cn(
-            "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium capitalize",
+            "flex-shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium capitalize",
             isRoleplay ? "bg-white/10 text-white/50" : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
           )}
         >

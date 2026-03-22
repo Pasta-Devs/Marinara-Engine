@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Game State Snapshots
 // ──────────────────────────────────────────────
-import { eq, and, ne, desc } from "drizzle-orm";
+import { eq, and, ne, desc, inArray } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { gameStateSnapshots } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -45,8 +45,24 @@ export function createGameStateStorage(db: DB) {
       const rows = await db
         .select()
         .from(gameStateSnapshots)
-        .where(and(eq(gameStateSnapshots.messageId, messageId), eq(gameStateSnapshots.swipeIndex, swipeIndex)));
+        .where(and(eq(gameStateSnapshots.messageId, messageId), eq(gameStateSnapshots.swipeIndex, swipeIndex)))
+        .orderBy(desc(gameStateSnapshots.createdAt))
+        .limit(1);
       return rows[0] ?? null;
+    },
+
+    /** Batch-fetch committed snapshots for multiple messages. Returns a Map of messageId → row. */
+    async getCommittedForMessages(messageIds: string[]) {
+      if (messageIds.length === 0) return new Map<string, typeof gameStateSnapshots.$inferSelect>();
+      const rows = await db
+        .select()
+        .from(gameStateSnapshots)
+        .where(and(inArray(gameStateSnapshots.messageId, messageIds), eq(gameStateSnapshots.committed, 1)));
+      const map = new Map<string, typeof gameStateSnapshots.$inferSelect>();
+      for (const row of rows) {
+        map.set(row.messageId, row);
+      }
+      return map;
     },
 
     /** Mark a specific snapshot as committed. */
@@ -55,6 +71,14 @@ export function createGameStateStorage(db: DB) {
     },
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
+      // Remove any prior snapshot for the same message + swipe so duplicates don't accumulate
+      if (state.messageId) {
+        await db
+          .delete(gameStateSnapshots)
+          .where(
+            and(eq(gameStateSnapshots.messageId, state.messageId), eq(gameStateSnapshots.swipeIndex, state.swipeIndex)),
+          );
+      }
       const id = newId();
       await db.insert(gameStateSnapshots).values({
         id,
@@ -95,7 +119,58 @@ export function createGameStateStorage(db: DB) {
       manual?: boolean,
     ) {
       const latest = await this.getLatest(chatId);
-      if (!latest) return null;
+      return latest ? this._applyUpdate(latest, fields, manual) : null;
+    },
+
+    /**
+     * Same as updateLatest but targets a specific (messageId, swipeIndex) snapshot
+     * instead of the chronologically newest one. This ensures tracker agents write
+     * to the exact same snapshot the world-state agent created for a given swipe.
+     */
+    async updateByMessage(
+      messageId: string,
+      swipeIndex: number,
+      chatId: string,
+      fields: Partial<
+        Pick<
+          GameState,
+          | "date"
+          | "time"
+          | "location"
+          | "weather"
+          | "temperature"
+          | "presentCharacters"
+          | "playerStats"
+          | "personaStats"
+        >
+      >,
+      manual?: boolean,
+    ) {
+      const snap = await this.getByMessage(messageId, swipeIndex);
+      if (snap) return this._applyUpdate(snap, fields, manual);
+      // Fall back to latest so callers still work when no per-swipe snapshot exists
+      const latest = await this.getLatest(chatId);
+      return latest ? this._applyUpdate(latest, fields, manual) : null;
+    },
+
+    /** Internal: apply field updates + optional manual-override tracking to a snapshot row. */
+    async _applyUpdate(
+      row: typeof gameStateSnapshots.$inferSelect,
+      fields: Partial<
+        Pick<
+          GameState,
+          | "date"
+          | "time"
+          | "location"
+          | "weather"
+          | "temperature"
+          | "presentCharacters"
+          | "playerStats"
+          | "personaStats"
+        >
+      >,
+      manual?: boolean,
+    ) {
       const updates: Record<string, unknown> = {};
       if (fields.date !== undefined) updates.date = fields.date;
       if (fields.time !== undefined) updates.time = fields.time;
@@ -107,22 +182,20 @@ export function createGameStateStorage(db: DB) {
         updates.playerStats = fields.playerStats ? JSON.stringify(fields.playerStats) : null;
       if (fields.personaStats !== undefined)
         updates.personaStats = fields.personaStats ? JSON.stringify(fields.personaStats) : null;
-      if (Object.keys(updates).length === 0) return latest;
+      if (Object.keys(updates).length === 0) return row;
 
       // Merge manual override tracking
       if (manual) {
         const TRACKABLE = ["date", "time", "location", "weather", "temperature"] as const;
-        const existing: Record<string, string> = latest.manualOverrides
-          ? JSON.parse(latest.manualOverrides as string)
-          : {};
+        const existing: Record<string, string> = row.manualOverrides ? JSON.parse(row.manualOverrides as string) : {};
         for (const key of TRACKABLE) {
           if (fields[key] !== undefined) existing[key] = fields[key] as string;
         }
         updates.manualOverrides = JSON.stringify(existing);
       }
 
-      await db.update(gameStateSnapshots).set(updates).where(eq(gameStateSnapshots.id, latest.id));
-      return { ...latest, ...updates };
+      await db.update(gameStateSnapshots).set(updates).where(eq(gameStateSnapshots.id, row.id));
+      return { ...row, ...updates };
     },
 
     async deleteForChat(chatId: string) {

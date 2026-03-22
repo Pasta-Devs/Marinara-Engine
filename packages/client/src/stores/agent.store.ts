@@ -4,6 +4,21 @@
 import { create } from "zustand";
 import type { AgentResult } from "@marinara-engine/shared";
 
+interface AgentDebugEntry {
+  timestamp: number;
+  phase: string;
+  agents?: Array<{ type: string; name: string; model: string; maxTokens: number }>;
+  batchMaxTokens?: number;
+  results?: Array<{
+    agentType: string;
+    success: boolean;
+    error: string | null;
+    durationMs: number;
+    tokensUsed: number;
+    resultType: string;
+  }>;
+}
+
 interface AgentState {
   activeAgents: string[];
   lastResults: Map<string, AgentResult>;
@@ -21,6 +36,7 @@ interface AgentState {
     reaction: string;
     timestamp: number;
   }>;
+  debugLog: AgentDebugEntry[];
 
   // Actions
   setActiveAgents: (agents: string[]) => void;
@@ -33,6 +49,8 @@ interface AgentState {
   clearThoughtBubbles: () => void;
   addEchoMessage: (characterName: string, reaction: string) => void;
   clearEchoMessages: () => void;
+  addDebugEntry: (entry: AgentDebugEntry) => void;
+  clearDebugLog: () => void;
   reset: () => void;
 }
 
@@ -43,6 +61,7 @@ export const useAgentStore = create<AgentState>((set) => ({
   failedAgentTypes: [],
   thoughtBubbles: [],
   echoMessages: [],
+  debugLog: [],
 
   setActiveAgents: (agents) => set({ activeAgents: agents }),
   setProcessing: (processing) => set({ isProcessing: processing }),
@@ -81,6 +100,9 @@ export const useAgentStore = create<AgentState>((set) => ({
 
   clearEchoMessages: () => set({ echoMessages: [] }),
 
+  addDebugEntry: (entry) => set((s) => ({ debugLog: [...s.debugLog, entry].slice(-100) })),
+  clearDebugLog: () => set({ debugLog: [] }),
+
   reset: () =>
     set({
       activeAgents: [],
@@ -89,5 +111,6 @@ export const useAgentStore = create<AgentState>((set) => ({
       failedAgentTypes: [],
       thoughtBubbles: [],
       echoMessages: [],
+      debugLog: [],
     }),
 }));

@@ -23,8 +23,21 @@ export interface Persona {
   boxColor: string;
   /** Persona status bars configuration (Satiety, Energy, etc.) */
   personaStats?: PersonaStatsConfig;
+  /** Alternative description extensions (toggleable additions to the main description) */
+  altDescriptions?: AltDescription[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** A toggleable alternative/extended description block for a persona. */
+export interface AltDescription {
+  id: string;
+  /** Short label for this description block (e.g. "Combat Skills", "Relationships") */
+  label: string;
+  /** The description content */
+  content: string;
+  /** Whether this block is currently active and appended to the prompt */
+  active: boolean;
 }
 
 /** A single persona status bar definition. */

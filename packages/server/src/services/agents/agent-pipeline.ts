@@ -83,13 +83,28 @@ async function executeGroup(
   const toolAgents = group.agents.filter((a) => a.toolContext?.tools.length);
   const batchAgents = group.agents.filter((a) => !a.toolContext?.tools.length);
 
+  console.log(
+    `[agent-pipeline] executeGroup: ${batchAgents.length} batchable, ${toolAgents.length} tool-using`,
+    batchAgents.map((a) => a.type),
+  );
+
+  // Safe callback wrapper — errors in the callback (e.g. writing to a
+  // closed SSE stream) must never crash the group and silently drop results.
+  const safeOnResult = (result: AgentResult) => {
+    try {
+      onResult?.(result);
+    } catch {
+      /* swallow */
+    }
+  };
+
   const allResults: AgentResult[] = [];
 
   // Run regular agents as a batch
   if (batchAgents.length > 0) {
     const batchResults = await executeAgentBatch(batchAgents, context, group.provider, group.model);
     for (const result of batchResults) {
-      onResult?.(result);
+      safeOnResult(result);
     }
     allResults.push(...batchResults);
   }
@@ -97,7 +112,7 @@ async function executeGroup(
   // Run tool-using agents individually (they need the tool loop)
   for (const agent of toolAgents) {
     const result = await executeAgent(agent, context, agent.provider, agent.model, agent.toolContext);
-    onResult?.(result);
+    safeOnResult(result);
     allResults.push(result);
   }
 
@@ -118,13 +133,44 @@ async function executePhase(
 
   const groups = groupByProviderModel(phaseAgents);
 
+  console.log(
+    `[agent-pipeline] Phase "${phase}": ${phaseAgents.length} agents → ${groups.length} group(s)`,
+    groups.map((g) => `[${g.agents.map((a) => a.type).join(", ")}] (model: ${g.model})`),
+  );
+
   // Run groups in parallel (different providers/models can work concurrently)
   const settled = await Promise.allSettled(groups.map((group) => executeGroup(group, context, onResult)));
 
   const results: AgentResult[] = [];
-  for (const entry of settled) {
+  for (let i = 0; i < settled.length; i++) {
+    const entry = settled[i]!;
     if (entry.status === "fulfilled") {
       results.push(...entry.value);
+    } else {
+      // Group rejected — log and produce error results so they're visible
+      const group = groups[i]!;
+      console.error(
+        `[agent-pipeline] Group REJECTED in phase "${phase}": [${group.agents.map((a) => a.type).join(", ")}]`,
+        entry.reason,
+      );
+      for (const agent of group.agents) {
+        const errorResult: AgentResult = {
+          agentId: agent.id,
+          agentType: agent.type,
+          type: "context_injection",
+          data: null,
+          tokensUsed: 0,
+          durationMs: 0,
+          success: false,
+          error: entry.reason instanceof Error ? entry.reason.message : "Agent group execution failed",
+        };
+        try {
+          onResult?.(errorResult);
+        } catch {
+          /* swallow */
+        }
+        results.push(errorResult);
+      }
     }
   }
   return results;

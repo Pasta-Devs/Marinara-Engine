@@ -127,6 +127,9 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 // ── Google AI Studio (from #model_google_select) ──
 
 export const GOOGLE_MODELS: KnownModel[] = [
+  // Gemini 3.1
+  { id: "gemini-3.1-pro-preview", name: "gemini-3.1-pro-preview", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 65535, maxOutput: 8192 },
   // Gemini 3.0
   { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", context: 1000000, maxOutput: 65536 },
   { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65535, maxOutput: 8192 },
@@ -353,7 +356,7 @@ export const AI21_MODELS: KnownModel[] = [
   { id: "jamba-instruct-preview", name: "jamba-instruct-preview", context: 256000, maxOutput: 4096 },
 ];
 
-// ── Image Generation Sources (matches SillyTavern extension sources) ──
+// ── Image Generation Sources (service metadata for base URLs) ──
 
 export interface ImageGenSource {
   id: string;
@@ -436,12 +439,46 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
   },
 ];
 
-export const IMAGE_GENERATION_MODELS: KnownModel[] = IMAGE_GENERATION_SOURCES.map((s) => ({
-  id: s.id,
-  name: s.name,
-  context: 0,
-  maxOutput: 0,
-}));
+// Known image generation models (grouped by service)
+const IMAGE_GEN_MODELS: KnownModel[] = [
+  // OpenAI
+  { id: "dall-e-3", name: "DALL-E 3", context: 0, maxOutput: 0 },
+  { id: "dall-e-2", name: "DALL-E 2", context: 0, maxOutput: 0 },
+  { id: "gpt-image-1", name: "GPT Image 1", context: 0, maxOutput: 0 },
+  // Stability AI
+  { id: "sd3-large", name: "Stable Diffusion 3 Large", context: 0, maxOutput: 0 },
+  { id: "sd3-large-turbo", name: "SD3 Large Turbo", context: 0, maxOutput: 0 },
+  { id: "sd3-medium", name: "Stable Diffusion 3 Medium", context: 0, maxOutput: 0 },
+  // Together AI
+  { id: "black-forest-labs/FLUX.1-schnell-Free", name: "FLUX.1 Schnell (Free)", context: 0, maxOutput: 0 },
+  { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell", context: 0, maxOutput: 0 },
+  { id: "black-forest-labs/FLUX.1.1-pro", name: "FLUX 1.1 Pro", context: 0, maxOutput: 0 },
+  { id: "stabilityai/stable-diffusion-xl-base-1.0", name: "SDXL Base 1.0", context: 0, maxOutput: 0 },
+  // NovelAI
+  { id: "nai-diffusion-4-curated-preview", name: "NAI Diffusion 4 Curated", context: 0, maxOutput: 0 },
+  { id: "nai-diffusion-4-5-full", name: "NAI Diffusion 4.5 Full", context: 0, maxOutput: 0 },
+  { id: "nai-diffusion-3", name: "NAI Diffusion 3 (Anime V3)", context: 0, maxOutput: 0 },
+  // Pollinations (model-free, but include as placeholder)
+  { id: "pollinations", name: "Pollinations (Auto)", context: 0, maxOutput: 0 },
+];
+
+/**
+ * Infer which image generation API source to use from the model name and base URL.
+ * The caller should fall back to "openai" (OpenAI-compatible) if no match is found.
+ */
+export function inferImageSource(model: string, baseUrl: string): string {
+  const m = model.toLowerCase();
+  const u = baseUrl.toLowerCase();
+  if (m.startsWith("dall-e") || m.startsWith("gpt-image") || u.includes("openai.com")) return "openai";
+  if (m.startsWith("sd3") || u.includes("stability.ai")) return "stability";
+  if (m.includes("nai-diffusion") || u.includes("novelai.net")) return "novelai";
+  if (m === "pollinations" || u.includes("pollinations.ai")) return "pollinations";
+  if (m.includes("black-forest") || m.includes("flux") || u.includes("together.xyz")) return "togetherai";
+  if (u.includes("stablehorde.net")) return "horde";
+  if (u.includes("blockentropy")) return "blockentropy";
+  // OpenAI-compatible fallback (works for most proxies)
+  return "openai";
+}
 
 // ── Provider → Model map ──
 
@@ -453,7 +490,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   cohere: COHERE_MODELS,
   openrouter: OPENROUTER_MODELS,
   custom: [], // User must type model ID manually for custom endpoints
-  image_generation: IMAGE_GENERATION_MODELS,
+  image_generation: IMAGE_GEN_MODELS,
 };
 
 /**

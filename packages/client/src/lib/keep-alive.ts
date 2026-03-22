@@ -23,7 +23,6 @@ export function startKeepAlive() {
   // promise is pending. We never resolve it → lock held forever → tab
   // won't be discarded while the page is open.
   if (navigator.locks) {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     navigator.locks.request("marinara-engine-keep-alive", () => new Promise(() => {}));
   }
 

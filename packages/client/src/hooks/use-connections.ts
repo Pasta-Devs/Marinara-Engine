@@ -48,6 +48,14 @@ export function useUpdateConnection() {
   });
 }
 
+export function useDuplicateConnection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/connections/${id}/duplicate`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+  });
+}
+
 export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({

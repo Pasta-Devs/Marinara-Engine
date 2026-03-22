@@ -4,7 +4,13 @@
 import type { GenerationParameters } from "../types/prompt.js";
 
 /** App version — single source of truth. */
-export const APP_VERSION = "1.3.4";
+export const APP_VERSION = "1.4.0";
+
+/** Stable ID for the built-in Professor Mari assistant character. */
+export const PROFESSOR_MARI_ID = "__professor_mari__";
+
+/** Stable ID for the default OpenRouter free‑tier connection. */
+export const DEFAULT_CONNECTION_ID = "__default_openrouter__";
 
 /** Default generation parameters for new presets. */
 export const DEFAULT_GENERATION_PARAMS: GenerationParameters = {
