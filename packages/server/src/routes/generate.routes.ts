@@ -2590,6 +2590,13 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
+        // ── Smart quotes: convert straight "double quotes" to typographic "curly quotes" ──
+        const smartQuoted = fullResponse.replace(/"([^"]*?)"/g, "\u201C$1\u201D");
+        if (smartQuoted !== fullResponse) {
+          fullResponse = smartQuoted;
+          contentReplaced = true;
+        }
+
         if (contentReplaced) {
           reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
         }
