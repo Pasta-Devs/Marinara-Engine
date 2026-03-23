@@ -2590,8 +2590,11 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // ── Smart quotes: convert straight "double quotes" to typographic "curly quotes" ──
-        const smartQuoted = fullResponse.replace(/"([^"]*?)"/g, "\u201C$1\u201D");
+        // ── Smart quotes: convert straight quotes to typographic curly quotes ──
+        // Double quotes: "text" → \u201Ctext\u201D
+        // Single quotes: 'text' → \u2018text\u2019 (only when preceded by whitespace/start, not mid-word apostrophes)
+        let smartQuoted = fullResponse.replace(/"([^"]*?)"/g, "\u201C$1\u201D");
+        smartQuoted = smartQuoted.replace(/(^|[\s(])'([^']*?)'(?=[\s),.!?;:\u2014\u2013-]|$)/gm, "$1\u2018$2\u2019");
         if (smartQuoted !== fullResponse) {
           fullResponse = smartQuoted;
           contentReplaced = true;
