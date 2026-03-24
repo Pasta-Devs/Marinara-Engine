@@ -69,6 +69,7 @@ interface PersonaFormData {
 interface PersonaRow {
   id: string;
   name: string;
+  comment?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -118,7 +119,7 @@ export function PersonaEditor() {
     }
     setFormData({
       name: rawPersona.name,
-      comment: (rawPersona as PersonaRow & { comment?: string }).comment ?? "",
+      comment: rawPersona.comment ?? "",
       description: rawPersona.description,
       personality: rawPersona.personality ?? "",
       scenario: rawPersona.scenario ?? "",

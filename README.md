@@ -1,6 +1,6 @@
 # 🍝 Marinara Engine
 
-## Release 1.4.1
+## Release 1.4.2
 
 <h3 align="center"><b>Fun. Intuitive. Plug-And-Play.</b></h3>
 
@@ -54,6 +54,22 @@
 
 ## Changelog
 
+### v1.4.2
+
+**Added:**
+
+- **Lorebook Support for Conversations** — Lorebooks now work in Conversation mode. Attach lorebooks via Chat Settings and triggered entries are injected into the prompt wrapped in `<lore>` tags. Supports keyword, regex, and semantic matching.
+- **Persona Comment Field** — Personas can now have a comment subtitle for disambiguation (e.g. "Modern AU version"). Shown in the Personas panel, persona editor, and chat persona picker. Search in the picker also matches comments.
+- **Smart Typographic Quotes** — AI responses now auto-convert straight quotes to curly typographic quotes: `"` → \u201C\u201D, paired `'` → \u2018\u2019, and remaining `'` → \u2019 (apostrophes).
+- **Mobile Access Documentation** — Added "Accessing from Mobile" section to README with IP discovery instructions for all platforms and a Tailscale tip.
+
+**Bug Fixes:**
+
+- **Backup DATABASE_URL** — The backup endpoint now respects the `DATABASE_URL` environment variable instead of using a hardcoded path.
+- **Mobile Action Icons** — Trash and action icons on cards in Characters, Personas, Lorebooks, Connections, and Presets panels are now always visible on mobile.
+- **Embeddings Double /v1/** — Fixed OpenRouter embeddings returning 404 due to double `/v1/v1/embeddings` in the URL.
+- **SSRF Check Removal** — Removed overly aggressive SSRF private-IP validation that blocked legitimate local and LAN connections in this local-first app.
+
 ### v1.4.1
 
 **Added:**
@@ -83,7 +99,7 @@
 
 ## Windows EASIEST METHOD
 
-Download **[Marinara-Engine-Installer-1.4.1.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.1/Marinara-Engine-Installer-1.4.1.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
+Download **[Marinara-Engine-Installer-1.4.2.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.2/Marinara-Engine-Installer-1.4.2.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
 
 ---
 
@@ -211,9 +227,11 @@ If you're running Marinara Engine on your computer and want to use it from your 
    - **Linux:** Run `hostname -I` or `ip addr`
 
 2. **Open a browser on your phone** (Chrome, Brave, Safari, etc.) and go to:
+
    ```
    http://<your-computer-ip>:7860
    ```
+
    For example: `http://192.168.1.42:7860`
 
 3. **Install the PWA** — tap the browser menu and "Add to Home Screen" for a native app feel.
@@ -265,31 +283,31 @@ pnpm dev:client
 
 Agents are autonomous AI assistants that run alongside your chat, each handling a specific task:
 
-| Agent                      | What It Does                                                                |
-| -------------------------- | --------------------------------------------------------------------------- |
-| **World State**            | Tracks date/time, weather, location, and present characters                 |
-| **Quest Tracker**          | Manages quest objectives, completion, and rewards                           |
-| **Character Tracker**      | Monitors character moods, relationships, appearance, outfit, and stats      |
-| **Persona Stats**          | Tracks your protagonist's needs and condition bars (Satiety, Energy, etc.)  |
-| **Custom Tracker**         | Tracks user-defined fields — currencies, counters, flags, or any custom data |
-| **Narrative Director**     | Introduces events, NPCs, and plot beats to keep the story moving            |
-| **Prose Guardian**         | Analyzes writing patterns and generates directives to improve prose variety  |
-| **Continuity Checker**     | Detects contradictions with established lore and facts                      |
-| **Combat**                 | Turn-based RPG combat with initiative, HP tracking, and actions             |
-| **Expression Engine**      | Detects emotions and selects character sprites                              |
-| **Background**             | Picks the best background image for the current scene                       |
-| **Echo Chamber**           | Simulates a live-stream chat reacting to your roleplay                      |
-| **Prompt Reviewer**        | Reviews and scores the assembled prompt before generation                   |
-| **Illustrator**            | Generates image prompts for key scenes                                      |
-| **Lorebook Keeper**        | Automatically creates and updates lorebook entries                          |
-| **Immersive HTML**         | Injects styled HTML/CSS/JS for in-world visuals (letters, terminals, etc.)  |
-| **Consistency Editor**     | Edits responses to fix factual errors and tracker contradictions             |
-| **Spotify DJ**             | Controls Spotify playback to match the scene's mood                         |
-| **Chat Summary**           | Generates condensed rolling summaries of long conversations                 |
-| **Knowledge Retrieval**    | Scans lorebooks for relevant context using chunked RAG                      |
-| **Schedule Planner**       | Generates realistic weekly schedules for characters in Conversation mode    |
-| **Response Orchestrator**  | Decides which character(s) should respond in group Conversations            |
-| **Autonomous Messenger**   | Lets characters send messages unprompted when the user is inactive          |
+| Agent                     | What It Does                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| **World State**           | Tracks date/time, weather, location, and present characters                  |
+| **Quest Tracker**         | Manages quest objectives, completion, and rewards                            |
+| **Character Tracker**     | Monitors character moods, relationships, appearance, outfit, and stats       |
+| **Persona Stats**         | Tracks your protagonist's needs and condition bars (Satiety, Energy, etc.)   |
+| **Custom Tracker**        | Tracks user-defined fields — currencies, counters, flags, or any custom data |
+| **Narrative Director**    | Introduces events, NPCs, and plot beats to keep the story moving             |
+| **Prose Guardian**        | Analyzes writing patterns and generates directives to improve prose variety  |
+| **Continuity Checker**    | Detects contradictions with established lore and facts                       |
+| **Combat**                | Turn-based RPG combat with initiative, HP tracking, and actions              |
+| **Expression Engine**     | Detects emotions and selects character sprites                               |
+| **Background**            | Picks the best background image for the current scene                        |
+| **Echo Chamber**          | Simulates a live-stream chat reacting to your roleplay                       |
+| **Prompt Reviewer**       | Reviews and scores the assembled prompt before generation                    |
+| **Illustrator**           | Generates image prompts for key scenes                                       |
+| **Lorebook Keeper**       | Automatically creates and updates lorebook entries                           |
+| **Immersive HTML**        | Injects styled HTML/CSS/JS for in-world visuals (letters, terminals, etc.)   |
+| **Consistency Editor**    | Edits responses to fix factual errors and tracker contradictions             |
+| **Spotify DJ**            | Controls Spotify playback to match the scene's mood                          |
+| **Chat Summary**          | Generates condensed rolling summaries of long conversations                  |
+| **Knowledge Retrieval**   | Scans lorebooks for relevant context using chunked RAG                       |
+| **Schedule Planner**      | Generates realistic weekly schedules for characters in Conversation mode     |
+| **Response Orchestrator** | Decides which character(s) should respond in group Conversations             |
+| **Autonomous Messenger**  | Lets characters send messages unprompted when the user is inactive           |
 
 All agents are disabled by default — enable only the ones you want. You can also create **custom agents** with your own prompts and tool configurations.
 

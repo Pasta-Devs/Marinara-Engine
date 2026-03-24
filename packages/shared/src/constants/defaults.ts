@@ -4,7 +4,7 @@
 import type { GenerationParameters } from "../types/prompt.js";
 
 /** App version — single source of truth. */
-export const APP_VERSION = "1.4.1";
+export const APP_VERSION = "1.4.2";
 
 /** Stable ID for the built-in Professor Mari assistant character. */
 export const PROFESSOR_MARI_ID = "__professor_mari__";

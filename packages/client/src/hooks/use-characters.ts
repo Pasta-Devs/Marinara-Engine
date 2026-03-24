@@ -129,6 +129,7 @@ export function useCreatePersona() {
     mutationFn: (data: {
       name: string;
       description?: string;
+      comment?: string;
       personality?: string;
       scenario?: string;
       backstory?: string;
@@ -150,6 +151,7 @@ export function useUpdatePersona() {
     }: {
       id: string;
       name?: string;
+      comment?: string;
       description?: string;
       personality?: string;
       scenario?: string;

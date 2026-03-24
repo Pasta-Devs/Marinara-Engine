@@ -2616,14 +2616,18 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         // ── Smart quotes: convert straight quotes to typographic curly quotes ──
-        // Double quotes: "text" → \u201Ctext\u201D
-        // Single quotes: 'text' → \u2018text\u2019, then remaining ' (apostrophes) → \u2019
-        let smartQuoted = fullResponse.replace(/"([^"]*?)"/g, "\u201C$1\u201D");
-        smartQuoted = smartQuoted.replace(/(^|[\s(])'([^']*?)'(?=[\s),.!?;:\u2014\u2013-]|$)/gm, "$1\u2018$2\u2019");
-        smartQuoted = smartQuoted.replace(/'/g, "\u2019");
-        if (smartQuoted !== fullResponse) {
-          fullResponse = smartQuoted;
-          contentReplaced = true;
+        // Skip if the response contains code fences — don't corrupt code/JSON
+        const hasCodeFence = /```/.test(fullResponse);
+        if (!hasCodeFence) {
+          // Double quotes: "text" → \u201Ctext\u201D
+          // Single quotes: 'text' → \u2018text\u2019, then remaining ' (apostrophes) → \u2019
+          let smartQuoted = fullResponse.replace(/"([^"]*?)"/g, "\u201C$1\u201D");
+          smartQuoted = smartQuoted.replace(/(^|[\s(])'([^']*?)'(?=[\s),.!?;:\u2014\u2013-]|$)/gm, "$1\u2018$2\u2019");
+          smartQuoted = smartQuoted.replace(/'/g, "\u2019");
+          if (smartQuoted !== fullResponse) {
+            fullResponse = smartQuoted;
+            contentReplaced = true;
+          }
         }
 
         if (contentReplaced) {

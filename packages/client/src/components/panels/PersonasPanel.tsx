@@ -17,6 +17,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 type PersonaRow = {
   id: string;
   name: string;
+  comment?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -196,9 +197,9 @@ export function PersonasPanel() {
               {/* Info */}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{persona.name}</div>
-                {(persona as typeof persona & { comment?: string }).comment && (
+                {persona.comment && (
                   <div className="truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                    {(persona as typeof persona & { comment?: string }).comment}
+                    {persona.comment}
                   </div>
                 )}
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">

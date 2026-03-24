@@ -51,6 +51,7 @@ const CREATE_TABLES: string[] = [
   `CREATE TABLE IF NOT EXISTS personas (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
+    comment TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     personality TEXT NOT NULL DEFAULT '',
     scenario TEXT NOT NULL DEFAULT '',
