@@ -6,6 +6,8 @@
 export interface Persona {
   id: string;
   name: string;
+  /** Short comment shown under the name (for disambiguation) */
+  comment: string;
   description: string;
   personality: string;
   scenario: string;

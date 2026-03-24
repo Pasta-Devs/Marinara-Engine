@@ -382,6 +382,11 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
     column: "embedding_connection_id",
     definition: "TEXT",
   },
+  {
+    table: "personas",
+    column: "comment",
+    definition: "TEXT NOT NULL DEFAULT ''",
+  },
 ];
 
 export async function runMigrations(db: DB) {

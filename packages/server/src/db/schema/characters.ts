@@ -16,6 +16,8 @@ export const characters = sqliteTable("characters", {
 export const personas = sqliteTable("personas", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  /** Short comment shown under the name (for disambiguation) */
+  comment: text("comment").notNull().default(""),
   description: text("description").notNull().default(""),
   personality: text("personality").notNull().default(""),
   scenario: text("scenario").notNull().default(""),

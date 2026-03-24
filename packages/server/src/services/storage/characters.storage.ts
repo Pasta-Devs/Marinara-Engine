@@ -75,6 +75,7 @@ export function createCharactersStorage(db: DB) {
       description: string,
       avatarPath?: string,
       extra?: {
+        comment?: string;
         personality?: string;
         scenario?: string;
         backstory?: string;
@@ -91,6 +92,7 @@ export function createCharactersStorage(db: DB) {
       await db.insert(personas).values({
         id,
         name,
+        comment: extra?.comment ?? "",
         description,
         personality: extra?.personality ?? "",
         scenario: extra?.scenario ?? "",
@@ -124,6 +126,7 @@ export function createCharactersStorage(db: DB) {
       id: string,
       updates: {
         name?: string;
+        comment?: string;
         description?: string;
         personality?: string;
         scenario?: string;
@@ -139,6 +142,7 @@ export function createCharactersStorage(db: DB) {
     ) {
       const sets: Record<string, unknown> = { updatedAt: now() };
       if (updates.name !== undefined) sets.name = updates.name;
+      if (updates.comment !== undefined) sets.comment = updates.comment;
       if (updates.description !== undefined) sets.description = updates.description;
       if (updates.personality !== undefined) sets.personality = updates.personality;
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;

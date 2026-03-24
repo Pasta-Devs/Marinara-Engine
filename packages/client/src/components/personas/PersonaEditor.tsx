@@ -53,6 +53,7 @@ interface AltDescriptionEntry {
 
 interface PersonaFormData {
   name: string;
+  comment: string;
   description: string;
   personality: string;
   scenario: string;
@@ -117,6 +118,7 @@ export function PersonaEditor() {
     }
     setFormData({
       name: rawPersona.name,
+      comment: (rawPersona as PersonaRow & { comment?: string }).comment ?? "",
       description: rawPersona.description,
       personality: rawPersona.personality ?? "",
       scenario: rawPersona.scenario ?? "",
@@ -239,6 +241,12 @@ export function PersonaEditor() {
             onChange={(e) => updateField("name", e.target.value)}
             className="w-full bg-transparent text-lg font-bold outline-none"
             placeholder="Persona name"
+          />
+          <input
+            value={formData.comment}
+            onChange={(e) => updateField("comment", e.target.value)}
+            className="w-full bg-transparent text-xs text-[var(--muted-foreground)] outline-none"
+            placeholder="Comment (e.g. 'Modern AU version')"
           />
           <p className="flex items-center gap-1 truncate text-xs text-[var(--muted-foreground)]">
             Your persona

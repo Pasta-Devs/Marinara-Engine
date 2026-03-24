@@ -81,7 +81,12 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
   const { data: agentConfigs } = useAgentConfigs();
   const { data: customTools } = useCustomTools();
   const { data: allChats } = useChats();
-  const personas = (allPersonas ?? []) as Array<{ id: string; name: string; avatarPath: string | null }>;
+  const personas = (allPersonas ?? []) as Array<{
+    id: string;
+    name: string;
+    comment: string;
+    avatarPath: string | null;
+  }>;
 
   const chatCharIds: string[] =
     typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
@@ -522,7 +527,14 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
                           <User size="0.75rem" />
                         </div>
                       )}
-                      <span className="flex-1 truncate text-xs">{p.name}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs">{p.name}</span>
+                        {p.comment && (
+                          <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                            {p.comment}
+                          </span>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <span className="flex-1 truncate text-xs text-[var(--muted-foreground)]">Unknown persona</span>
@@ -576,7 +588,11 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
                   {!chat.personaId && <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />}
                 </button>
                 {personas
-                  .filter((p) => p.name.toLowerCase().includes(personaSearch.toLowerCase()))
+                  .filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(personaSearch.toLowerCase()) ||
+                      (p.comment && p.comment.toLowerCase().includes(personaSearch.toLowerCase())),
+                  )
                   .map((p) => (
                     <button
                       key={p.id}
@@ -601,13 +617,24 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
                           <User size="0.625rem" />
                         </div>
                       )}
-                      <span className="flex-1 truncate text-xs">{p.name}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs">{p.name}</span>
+                        {p.comment && (
+                          <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                            {p.comment}
+                          </span>
+                        )}
+                      </div>
                       {chat.personaId === p.id && (
                         <Check size="0.625rem" className="ml-auto shrink-0 text-[var(--primary)]" />
                       )}
                     </button>
                   ))}
-                {personas.filter((p) => p.name.toLowerCase().includes(personaSearch.toLowerCase())).length === 0 && (
+                {personas.filter(
+                  (p) =>
+                    p.name.toLowerCase().includes(personaSearch.toLowerCase()) ||
+                    (p.comment && p.comment.toLowerCase().includes(personaSearch.toLowerCase())),
+                ).length === 0 && (
                   <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                     {personas.length === 0 ? "No personas created yet." : "No matches."}
                   </p>
