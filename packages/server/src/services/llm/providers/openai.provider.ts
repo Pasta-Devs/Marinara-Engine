@@ -23,6 +23,19 @@ const RESPONSES_ONLY_SUFFIXES = ["-codex", "-codex-max", "-codex-mini"];
  * Handles OpenAI, OpenRouter, Mistral, Cohere, and any OpenAI-compatible endpoint.
  */
 export class OpenAIProvider extends BaseLLMProvider {
+  /** Build standard request headers, adding OpenRouter app tracking when applicable. */
+  private buildHeaders(): Record<string, string> {
+    const h: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+    if (this.baseUrl.includes("openrouter.ai")) {
+      h["HTTP-Referer"] = "https://github.com/SpicyMarinara/Marinara-Engine";
+      h["X-Title"] = "Marinara Engine";
+    }
+    return h;
+  }
+
   /** Check if a model ID represents an OpenAI reasoning model */
   private isReasoningModel(model: string): boolean {
     const m = model.toLowerCase();
@@ -112,10 +125,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers: this.buildHeaders(),
       body: JSON.stringify(body),
       ...(options.signal ? { signal: options.signal } : {}),
     });
@@ -240,10 +250,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers: this.buildHeaders(),
       body: JSON.stringify(body),
       ...(options.signal ? { signal: options.signal } : {}),
     });
@@ -543,10 +550,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers: this.buildHeaders(),
       body: JSON.stringify(body),
       ...(options.signal ? { signal: options.signal } : {}),
     });
@@ -664,10 +668,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers: this.buildHeaders(),
       body: JSON.stringify(body),
       ...(options.signal ? { signal: options.signal } : {}),
     });

@@ -147,12 +147,17 @@ export abstract class BaseLLMProvider {
    * Override in provider subclasses that use a different API shape.
    */
   async embed(texts: string[], model: string): Promise<number[][]> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+    if (this.baseUrl.includes("openrouter.ai")) {
+      headers["HTTP-Referer"] = "https://github.com/SpicyMarinara/Marinara-Engine";
+      headers["X-Title"] = "Marinara Engine";
+    }
     const res = await fetch(`${this.baseUrl}/embeddings`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers,
       body: JSON.stringify({ input: texts, model }),
       signal: AbortSignal.timeout(60_000),
     });
