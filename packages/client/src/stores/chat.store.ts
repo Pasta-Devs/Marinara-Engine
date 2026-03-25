@@ -9,6 +9,24 @@ import { useGameStateStore } from "./game-state.store";
 import { useUIStore } from "./ui.store";
 
 const STORAGE_KEY = "marinara-active-chat-id";
+const DRAFTS_KEY = "marinara-input-drafts";
+
+/** Read drafts from sessionStorage (survives refreshes within the same tab). */
+function loadDrafts(): Map<string, string> {
+  try {
+    const raw = sessionStorage.getItem(DRAFTS_KEY);
+    if (raw) return new Map(JSON.parse(raw));
+  } catch { /* ignore */ }
+  return new Map();
+}
+
+/** Write drafts to sessionStorage. */
+function saveDrafts(m: Map<string, string>) {
+  try {
+    if (m.size === 0) sessionStorage.removeItem(DRAFTS_KEY);
+    else sessionStorage.setItem(DRAFTS_KEY, JSON.stringify([...m]));
+  } catch { /* ignore */ }
+}
 
 interface ChatState {
   activeChatId: string | null;
@@ -95,7 +113,7 @@ export const useChatStore = create<ChatState>()(
     swipeIndex: new Map(),
     shouldOpenSettings: false,
     shouldOpenWizard: false,
-    inputDrafts: new Map(),
+    inputDrafts: loadDrafts(),
     unreadCounts: new Map(),
 
     setActiveChat: (chat) => set({ activeChat: chat }),
@@ -222,6 +240,7 @@ export const useChatStore = create<ChatState>()(
         const m = new Map(state.inputDrafts);
         if (text) m.set(chatId, text);
         else m.delete(chatId);
+        saveDrafts(m);
         return { inputDrafts: m };
       }),
     clearInputDraft: (chatId: string) =>
@@ -229,6 +248,7 @@ export const useChatStore = create<ChatState>()(
         if (!state.inputDrafts.has(chatId)) return state;
         const m = new Map(state.inputDrafts);
         m.delete(chatId);
+        saveDrafts(m);
         return { inputDrafts: m };
       }),
 
@@ -274,6 +294,7 @@ export const useChatStore = create<ChatState>()(
       });
       try {
         localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(DRAFTS_KEY);
       } catch {
         /* ignore */
       }
