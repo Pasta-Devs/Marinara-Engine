@@ -333,9 +333,19 @@ function extractFirstFileFromZip(zip: Uint8Array): Uint8Array | null {
     return zip.slice(dataStart, dataStart + uncompSize);
   }
 
-  // Deflate
-  const compressed = zip.slice(dataStart, dataStart + compSize);
-  return inflateRawSync(Buffer.from(compressed));
+  if (method === 8) {
+    // Deflate
+    const compressed = zip.slice(dataStart, dataStart + compSize);
+    try {
+      return inflateRawSync(Buffer.from(compressed));
+    } catch {
+      // Malformed or unsupported deflate data
+      return null;
+    }
+  }
+
+  // Unsupported compression method
+  return null;
 }
 
 /**
