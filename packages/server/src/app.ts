@@ -18,8 +18,11 @@ import { seedDefaultRegexScripts } from "./db/seed-regex.js";
 import { recoverGalleryImages } from "./services/storage/gallery-recovery.js";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { existsSync } from "fs";
-import { join, resolve, dirname } from "path";
+import { basename, join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+
+const REVALIDATE_FILES = new Set(["index.html"]);
+const NO_STORE_FILES = new Set(["manifest.json", "sw.js", "registerSW.js"]);
 
 export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   const app = Fastify({
@@ -78,10 +81,35 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       root: clientDist,
       prefix: "/",
       wildcard: false,
+      maxAge: 0,
+      setHeaders(res, filePath) {
+        const fileName = basename(filePath);
+
+        if (REVALIDATE_FILES.has(fileName)) {
+          res.setHeader("Cache-Control", "no-cache, must-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+          return;
+        }
+
+        if (NO_STORE_FILES.has(fileName)) {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+          return;
+        }
+
+        if (/\.[A-Za-z0-9_-]{8,}\.(css|js)$/.test(fileName)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
     });
 
     // SPA fallback — serve index.html for non-API routes
     app.setNotFoundHandler(async (_req, reply) => {
+      reply.header("Cache-Control", "no-cache, must-revalidate");
+      reply.header("Pragma", "no-cache");
+      reply.header("Expires", "0");
       return reply.sendFile("index.html", clientDist);
     });
   }

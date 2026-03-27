@@ -10,13 +10,13 @@ export default defineConfig({
     tailwindcss(),
     !process.env.SKIP_PWA &&
       VitePWA({
+        injectRegister: false,
         registerType: "autoUpdate",
         devOptions: { enabled: false },
         manifest: false, // We use the static manifest.json in public/
         workbox: {
-          globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
-          navigateFallback: "/index.html",
-          navigateFallbackDenylist: [/^\/api\//, /^\/ws/],
+          globPatterns: ["**/*.{js,css,png,svg,ico,woff2}"],
+          navigateFallbackAllowlist: [],
           runtimeCaching: [
             {
               urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith("/api/"),

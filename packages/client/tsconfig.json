@@ -4,6 +4,7 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "types": ["vite/client", "vite-plugin-pwa/client"],
     "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,

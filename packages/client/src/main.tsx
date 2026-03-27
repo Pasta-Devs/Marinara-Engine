@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { registerSW } from "virtual:pwa-register";
 import { App } from "./App";
 import { startKeepAlive } from "./lib/keep-alive";
 import "./styles/globals.css";
@@ -15,6 +16,22 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
     },
+  },
+});
+
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    void updateSW(true);
+  },
+  onRegisteredSW(_swUrl: string, registration?: ServiceWorkerRegistration) {
+    if (!registration) {
+      return;
+    }
+
+    window.setInterval(() => {
+      void registration.update();
+    }, 60_000);
   },
 });
 

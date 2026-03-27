@@ -3,12 +3,44 @@
 // ──────────────────────────────────────────────
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { APP_VERSION } from "@marinara-engine/shared";
 import { AppShell } from "./components/layout/AppShell";
 import { ModalRenderer } from "./components/layout/ModalRenderer";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { Toaster } from "sonner";
 import { useUIStore } from "./stores/ui.store";
 import { api } from "./lib/api-client";
+
+const VERSION_RECOVERY_KEY = "marinara:pwa-version-recovery";
+const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
+
+type HealthResponse = {
+  status: string;
+  timestamp: string;
+  version: string;
+};
+
+async function recoverFromVersionSkew(serverVersion: string) {
+  if (sessionStorage.getItem(VERSION_RECOVERY_KEY) === serverVersion) {
+    return;
+  }
+
+  sessionStorage.setItem(VERSION_RECOVERY_KEY, serverVersion);
+
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  }
+
+  if ("caches" in window) {
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
+  }
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("v", serverVersion);
+  window.location.replace(nextUrl.toString());
+}
 
 export function App() {
   const theme = useUIStore((s) => s.theme);
@@ -34,6 +66,60 @@ export function App() {
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
   }, [fontSize]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch("/api/health", {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!res.ok) {
+          return;
+        }
+
+        const health = (await res.json()) as HealthResponse;
+        if (cancelled) {
+          return;
+        }
+
+        if (health.version === APP_VERSION) {
+          sessionStorage.removeItem(VERSION_RECOVERY_KEY);
+          return;
+        }
+
+        await recoverFromVersionSkew(health.version);
+      } catch {
+        // Ignore version checks when the network is unavailable.
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void checkVersion();
+      }
+    };
+
+    void checkVersion();
+    const intervalId = window.setInterval(() => {
+      void checkVersion();
+    }, VERSION_CHECK_INTERVAL_MS);
+
+    window.addEventListener("pageshow", checkVersion);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("pageshow", checkVersion);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // Apply custom font family via CSS variable
   useEffect(() => {
