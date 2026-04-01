@@ -79,35 +79,6 @@
 - **Fixed missing DB column migrations** — Added `openrouter_provider`, `comfyui_workflow`, and `embedding_base_url` to `COLUMN_MIGRATIONS` so they auto-create on startup.
 - **Fixed combat encounter `parseJSON`** — Corrected escape-sequence detection and added 3-level sanitization for AI responses in the combat agent.
 
-### v1.4.5
-
-**New Features:**
-
-- **Buttplug.io Haptic Integration** — "Love Toys Control" agent with per-device capability detection and 6 haptic actions (vibrate, oscillate, rotate, position, stop, constrict). Characters can trigger device commands inline via `<haptic>` tags.
-- **CYOA Choices Agent** — Generates 2–4 in-character choices after each roleplay response. Click a choice to send it as your next message.
-- **Multi-Select Message Deletion** — Select and bulk-delete messages in both Conversation and Roleplay modes via a new dialog flow.
-- **Echo Chamber Persistence** — Echo messages are now saved to the database and restored when switching back to a chat.
-- **Profile Export/Import** — Full backup and restore of characters, personas, lorebooks, presets, and agent configs as a single JSON file.
-- **Always-Enabled Send Button** — Roleplay mode now always shows a send/generate button with smart continue logic.
-
-**Improvements:**
-
-- **Responsive Layout** — Auto-closing panels on narrow screens, improved breakpoints, `min-w-0` overflow fix on AppShell.
-- **Accessibility** — Message multi-select checkboxes now use proper `<button role="checkbox">` with `aria-checked` and `aria-label`.
-- **Security** — Bulk message deletes are now scoped to the chat's `chatId`, preventing cross-chat deletion.
-- **Validation** — `Number.isFinite()` guards on haptic intensity/duration in both the service layer and command parser.
-- **Robustness** — Bulk deletes are chunked (500/batch) to avoid hitting SQLite's variable limit.
-- **Echo Chamber** — `loadedChatRef` reset on toggle-off for proper reload on re-enable.
-- **Haptic Safety** — Invalid device indices now return an empty target list instead of falling back to all connected devices.
-
-**Bug Fixes:**
-
-- Fixed the Echo Chamber agent count badge not updating.
-- Fixed combat agent type mismatch error.
-- Fixed Character Menu `.marinara` file import failing silently.
-- "Clear Trackers" now also clears committed agent runs and agent memory from the database.
-- Removed unused connections data from profile export envelope.
-
 ---
 
 ## Installation
