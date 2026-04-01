@@ -11,6 +11,8 @@ export const characterKeys = {
   personas: ["personas"] as const,
   groups: ["character-groups"] as const,
   groupDetail: (id: string) => ["character-groups", "detail", id] as const,
+  personaGroups: ["persona-groups"] as const,
+  personaGroupDetail: (id: string) => ["persona-groups", "detail", id] as const,
 };
 
 // ── Characters ──
@@ -232,5 +234,40 @@ export function useDeleteGroup() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
+  });
+}
+
+// ── Persona Groups ──
+
+export function usePersonaGroups() {
+  return useQuery({
+    queryKey: characterKeys.personaGroups,
+    queryFn: () => api.get<unknown[]>("/characters/persona-groups/list"),
+  });
+}
+
+export function useCreatePersonaGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description?: string; personaIds?: string[] }) =>
+      api.post("/characters/persona-groups", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
+  });
+}
+
+export function useUpdatePersonaGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; personaIds?: string[] }) =>
+      api.patch(`/characters/persona-groups/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
+  });
+}
+
+export function useDeletePersonaGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/characters/persona-groups/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
   });
 }

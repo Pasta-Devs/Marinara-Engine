@@ -24,6 +24,27 @@ const RESPONSES_ONLY_SUFFIXES = ["-codex", "-codex-max", "-codex-mini"];
  * Handles OpenAI, OpenRouter, Mistral, Cohere, and any OpenAI-compatible endpoint.
  */
 export class OpenAIProvider extends BaseLLMProvider {
+  /**
+   * Extract text and thinking from an OpenRouter/Anthropic-style content block array.
+   * OpenRouter may return `content` as an array of typed blocks instead of a plain string:
+   *   [{ type: "thinking", thinking: "..." }, { type: "text", text: "..." }]
+   */
+  private static extractContentBlocks(content: unknown): { text: string; thinking: string } | null {
+    if (!Array.isArray(content)) return null;
+    let text = "";
+    let thinking = "";
+    for (const block of content) {
+      if (typeof block !== "object" || block === null) continue;
+      const b = block as Record<string, unknown>;
+      if (b.type === "thinking" && typeof b.thinking === "string") {
+        thinking += b.thinking;
+      } else if (b.type === "text" && typeof b.text === "string") {
+        text += b.text;
+      }
+    }
+    return { text, thinking };
+  }
+
   /** Build standard request headers, adding OpenRouter app tracking when applicable. */
   private buildHeaders(): Record<string, string> {
     const h: Record<string, string> = {
@@ -114,7 +135,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     } else {
       body.temperature = options.temperature ?? 1;
       body.max_tokens = options.maxTokens ?? 4096;
-      body.top_p = options.topP ?? 1;
+      if (options.topP != null) body.top_p = options.topP;
       if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
       if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
     }
@@ -147,14 +168,21 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!options.stream) {
       const json = (await response.json()) as {
-        choices: Array<{ message: { content: string; reasoning_content?: string } }>;
+        choices: Array<{ message: { content: string | unknown[]; reasoning_content?: string } }>;
         usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
       };
       const msg = json.choices[0]?.message;
       if (msg?.reasoning_content && options.onThinking) {
         options.onThinking(msg.reasoning_content);
       }
-      yield msg?.content ?? "";
+      // Handle OpenRouter content block arrays (Anthropic-style)
+      const blocks = OpenAIProvider.extractContentBlocks(msg?.content);
+      if (blocks) {
+        if (blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
+        yield blocks.text;
+      } else {
+        yield (msg?.content as string) ?? "";
+      }
       if (json.usage) {
         return {
           promptTokens: json.usage.prompt_tokens,
@@ -192,7 +220,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
         try {
           const parsed = JSON.parse(data) as {
-            choices: Array<{ delta: { content?: string; reasoning_content?: string } }>;
+            choices: Array<{ delta: { content?: string | unknown[]; reasoning_content?: string } }>;
             usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
           };
           // Capture usage from the final chunk (OpenAI sends it with stream_options)
@@ -207,7 +235,14 @@ export class OpenAIProvider extends BaseLLMProvider {
           if (delta?.reasoning_content && options.onThinking) {
             options.onThinking(delta.reasoning_content);
           }
-          if (delta?.content) yield delta.content;
+          // Handle OpenRouter content block arrays (Anthropic-style)
+          const blocks = OpenAIProvider.extractContentBlocks(delta?.content);
+          if (blocks) {
+            if (blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
+            if (blocks.text) yield blocks.text;
+          } else if (delta?.content) {
+            yield delta.content as string;
+          }
         } catch {
           // Skip malformed JSON lines
         }
@@ -248,7 +283,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     } else {
       body.temperature = options.temperature ?? 1;
       body.max_tokens = options.maxTokens ?? 4096;
-      body.top_p = options.topP ?? 1;
+      if (options.topP != null) body.top_p = options.topP;
       if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
       if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
     }
@@ -280,7 +315,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       const json = (await response.json()) as {
         choices: Array<{
           message: {
-            content: string | null;
+            content: string | unknown[] | null;
             tool_calls?: LLMToolCall[];
             reasoning_content?: string;
           };
@@ -293,6 +328,15 @@ export class OpenAIProvider extends BaseLLMProvider {
       if ((choice?.message as any)?.reasoning_content && options.onThinking) {
         options.onThinking((choice?.message as any).reasoning_content);
       }
+      // Handle OpenRouter content block arrays (Anthropic-style)
+      let resolvedContent: string | null = null;
+      const blocks = OpenAIProvider.extractContentBlocks(choice?.message?.content);
+      if (blocks) {
+        if (blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
+        resolvedContent = blocks.text || null;
+      } else {
+        resolvedContent = (choice?.message?.content as string) ?? null;
+      }
       const usage: LLMUsage | undefined = json.usage
         ? {
             promptTokens: json.usage.prompt_tokens,
@@ -301,7 +345,7 @@ export class OpenAIProvider extends BaseLLMProvider {
           }
         : undefined;
       return {
-        content: choice?.message?.content ?? null,
+        content: resolvedContent,
         toolCalls: choice?.message?.tool_calls ?? [],
         finishReason: choice?.finish_reason ?? "stop",
         usage,
@@ -342,7 +386,7 @@ export class OpenAIProvider extends BaseLLMProvider {
           const parsed = JSON.parse(data) as {
             choices: Array<{
               delta: {
-                content?: string;
+                content?: string | unknown[];
                 reasoning_content?: string;
                 tool_calls?: Array<{
                   index: number;
@@ -378,10 +422,17 @@ export class OpenAIProvider extends BaseLLMProvider {
             options.onThinking(delta.reasoning_content);
           }
 
-          // Stream text content
-          if (delta?.content) {
-            content += delta.content;
-            options.onToken!(delta.content);
+          // Handle OpenRouter content block arrays (Anthropic-style)
+          const blocks = OpenAIProvider.extractContentBlocks(delta?.content);
+          if (blocks) {
+            if (blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
+            if (blocks.text) {
+              content += blocks.text;
+              options.onToken!(blocks.text);
+            }
+          } else if (delta?.content) {
+            content += delta.content as string;
+            options.onToken!(delta.content as string);
           }
 
           // Accumulate tool call deltas

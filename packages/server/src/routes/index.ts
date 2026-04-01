@@ -14,6 +14,7 @@ import { importRoutes } from "./import.routes.js";
 import { backgroundsRoutes } from "./backgrounds.routes.js";
 import { avatarsRoutes } from "./avatars.routes.js";
 import { characterMakerRoutes } from "./character-maker.routes.js";
+import { personaMakerRoutes } from "./persona-maker.routes.js";
 import { lorebookMakerRoutes } from "./lorebook-maker.routes.js";
 import { promptReviewerRoutes } from "./prompt-reviewer.routes.js";
 import { spritesRoutes } from "./sprites.routes.js";
@@ -49,6 +50,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(avatarsRoutes, { prefix: "/api/avatars" });
   await app.register(spritesRoutes, { prefix: "/api/sprites" });
   await app.register(characterMakerRoutes, { prefix: "/api/character-maker" });
+  await app.register(personaMakerRoutes, { prefix: "/api/persona-maker" });
   await app.register(lorebookMakerRoutes, { prefix: "/api/lorebook-maker" });
   await app.register(promptReviewerRoutes, { prefix: "/api/prompt-reviewer" });
   await app.register(adminRoutes, { prefix: "/api/admin" });

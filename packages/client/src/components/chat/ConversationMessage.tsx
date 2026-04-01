@@ -101,15 +101,24 @@ function MessageContent({ content, mentionNames }: { content: string; mentionNam
     );
   }
 
+  // Collapse runs of 3+ blank lines into a double newline (preserve paragraph breaks)
+  const compacted = content.replace(/\n{3,}/g, "\n\n");
+
   // Split lines and detect markdown headings + horizontal rules
-  const lines = content.split("\n");
+  const lines = compacted.split("\n");
   const segments: ReactNode[] = [];
   let buffer: string[] = [];
   let key = 0;
 
   const flushBuffer = () => {
     if (buffer.length > 0) {
-      segments.push(<span key={`seg${key++}`}>{mentionNames?.length ? highlightMentions(applyInlineMarkdown(buffer.join("\n"), "m"), mentionNames, "m") : applyInlineMarkdown(buffer.join("\n"), "m")}</span>);
+      segments.push(
+        <span key={`seg${key++}`}>
+          {mentionNames?.length
+            ? highlightMentions(applyInlineMarkdown(buffer.join("\n"), "m"), mentionNames, "m")
+            : applyInlineMarkdown(buffer.join("\n"), "m")}
+        </span>,
+      );
       buffer = [];
     }
   };
@@ -494,7 +503,9 @@ export const ConversationMessage = memo(function ConversationMessage({
                 key={i}
                 className="pl-14 py-0.5 text-[0.875rem] leading-relaxed break-words whitespace-pre-wrap text-[var(--muted-foreground)] italic animate-[fadeSlideIn_0.4s_ease-out]"
               >
-                {mentionNames.length ? highlightMentions(applyInlineMarkdown(combinedText, `ns${i}`), mentionNames, `ns${i}`) : applyInlineMarkdown(combinedText, `ns${i}`)}
+                {mentionNames.length
+                  ? highlightMentions(applyInlineMarkdown(combinedText, `ns${i}`), mentionNames, `ns${i}`)
+                  : applyInlineMarkdown(combinedText, `ns${i}`)}
               </div>
             );
           }
@@ -529,7 +540,9 @@ export const ConversationMessage = memo(function ConversationMessage({
                   )}
                 </div>
                 <div className="text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap">
-                  {mentionNames.length ? highlightMentions(applyInlineMarkdown(combinedText, `gs${i}`), mentionNames, `gs${i}`) : applyInlineMarkdown(combinedText, `gs${i}`)}
+                  {mentionNames.length
+                    ? highlightMentions(applyInlineMarkdown(combinedText, `gs${i}`), mentionNames, `gs${i}`)
+                    : applyInlineMarkdown(combinedText, `gs${i}`)}
                 </div>
               </div>
             </div>
@@ -694,25 +707,20 @@ export const ConversationMessage = memo(function ConversationMessage({
               rows={1}
               style={{ overflow: "auto" }}
               onKeyDown={(e) => {
-                if (e.key === "Backspace" && editValue === "") {
+                if (e.key === "Escape") {
                   e.preventDefault();
                   setEditing(false);
-                }
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSaveEdit();
                 }
               }}
             />
             <div className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              backspace (empty) to{" "}
               <button
                 onClick={() => setEditing(false)}
                 className="text-foreground/70 hover:underline hover:text-foreground"
               >
                 cancel
-              </button>{" "}
-              · enter to{" "}
+              </button>
+              <span>·</span>
               <button onClick={handleSaveEdit} className="text-foreground/70 hover:underline hover:text-foreground">
                 save
               </button>

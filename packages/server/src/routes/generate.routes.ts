@@ -62,6 +62,7 @@ import { MARI_ASSISTANT_PROMPT } from "../db/seed-mari.js";
 import { executeKnowledgeRetrieval } from "../services/agents/knowledge-retrieval.js";
 import { extractFileText, getSourceFilePath } from "./knowledge-sources.routes.js";
 import { gameStateSnapshots as gameStateSnapshotsTable } from "../db/schema/index.js";
+import { chats as chatsTable } from "../db/schema/index.js";
 import { eq, and, desc } from "drizzle-orm";
 import { PROVIDERS, PROFESSOR_MARI_ID } from "@marinara-engine/shared";
 import { chunkAndEmbedMessages, recallMemories } from "../services/memory-recall.js";
@@ -430,7 +431,7 @@ export async function generateRoutes(app: FastifyInstance) {
       }> = mappedMessages;
       let temperature = 1;
       let maxTokens = 4096;
-      let topP = 1;
+      let topP: number | undefined = 1;
       let topK = 0;
       let frequencyPenalty = 0;
       let presencePenalty = 0;
@@ -546,6 +547,10 @@ export async function generateRoutes(app: FastifyInstance) {
             entryStateOverrides:
               (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
               undefined,
+            groupScenarioOverrideText:
+              typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
+                ? (chatMeta.groupScenarioText as string).trim()
+                : null,
           };
 
           const assembled = await assemblePrompt(assemblerInput);
@@ -1651,6 +1656,19 @@ export async function generateRoutes(app: FastifyInstance) {
       // reasoning mode is activated.
       const enableThinking = !!resolvedEffort;
 
+      // ── Claude 4.5/4.6 temperature-only: strip non-temperature sampling params ──
+      // These models only support temperature — topP, topK, frequencyPenalty,
+      // presencePenalty are not valid and should not be sent.
+      const modelLc = (conn.model ?? "").toLowerCase();
+      const isClaudeTemperatureOnly =
+        /claude-(opus|sonnet)-4-[56]/.test(modelLc) || /claude-(opus|sonnet)-4\.[56]/.test(modelLc);
+      if (isClaudeTemperatureOnly) {
+        topP = undefined;
+        topK = 0;
+        frequencyPenalty = 0;
+        presencePenalty = 0;
+      }
+
       // Create provider
       const provider = createLLMProvider(conn.provider, baseUrl, conn.apiKey);
 
@@ -2016,17 +2034,30 @@ export async function generateRoutes(app: FastifyInstance) {
           // Use the last user message as the query
           const lastUserMsg = [...mappedMessages].reverse().find((m) => m.role === "user");
           if (lastUserMsg?.content?.trim()) {
-            const recalled = await recallMemories(
-              app.db,
-              lastUserMsg.content,
-              characterIds,
-              input.chatId, // exclude current chat — those messages are already in context
-            );
+            // Scope recall: current chat only, plus other conversation-mode chats
+            // sharing the same characters (for group conversation chats).
+            const recallChatIds = [input.chatId];
+            if (chatMode === "conversation" && characterIds.length > 1) {
+              const allChats = await app.db
+                .select({ id: chatsTable.id, characterIds: chatsTable.characterIds, mode: chatsTable.mode })
+                .from(chatsTable);
+              const charSet = new Set(characterIds);
+              for (const c of allChats) {
+                if (c.id === input.chatId || c.mode !== "conversation") continue;
+                try {
+                  const ids: string[] = JSON.parse(c.characterIds);
+                  if (ids.some((id) => charSet.has(id))) recallChatIds.push(c.id);
+                } catch {
+                  /* skip */
+                }
+              }
+            }
+            const recalled = await recallMemories(app.db, lastUserMsg.content, recallChatIds);
             if (recalled.length > 0) {
               const memoryLines = recalled.map((m) => m.content);
               const memoriesBlock = [
                 `<memories>`,
-                `The following are recalled fragments from past conversations. Use them to maintain continuity, remember past events, and stay in character — but do not explicitly reference "remembering" unless it's natural.`,
+                `The following are recalled fragments from earlier in this conversation. Use them to maintain continuity, remember past events, and stay in character — but do not explicitly reference "remembering" unless it's natural.`,
                 ...memoryLines.map((line, i) => `--- Memory ${i + 1} ---\n${line}`),
                 `</memories>`,
               ].join("\n");
@@ -2187,10 +2218,25 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // Populate writable lorebook IDs for the lorebook-keeper agent
       if (resolvedAgents.some((a) => a.type === "lorebook-keeper")) {
-        const enabledBooks = await lorebooksStore.list();
-        const enabledIds = enabledBooks
-          .filter((b: any) => b.enabled === true || b.enabled === "true")
-          .map((b: any) => b.id);
+        // Only consider lorebooks that are relevant to THIS chat:
+        //  - explicitly activated for this chat (activeLorebookIds)
+        //  - linked to a character in this chat
+        //  - scoped to this chat via chatId
+        const allBooks = await lorebooksStore.list();
+        const relevantBooks = allBooks.filter((b: any) => {
+          if (b.enabled !== true && b.enabled !== "true") return false;
+          if (chatActiveLorebookIds.includes(b.id)) return true;
+          if (b.characterId && characterIds.includes(b.characterId)) return true;
+          if (b.chatId && b.chatId === input.chatId) return true;
+          return false;
+        });
+        // Sort: prefer chat-scoped lorebooks first (from Lorebook Keeper), then character, then manual
+        relevantBooks.sort((a: any, b: any) => {
+          const aChat = a.chatId === input.chatId ? 0 : 1;
+          const bChat = b.chatId === input.chatId ? 0 : 1;
+          return aChat - bChat;
+        });
+        const enabledIds = relevantBooks.map((b: any) => b.id);
         agentContext.writableLorebookIds = enabledIds;
 
         // ── Interval gating: only run every N assistant messages ──
@@ -3394,6 +3440,15 @@ export async function generateRoutes(app: FastifyInstance) {
 
         if (contentReplaced) {
           reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
+        }
+
+        // Guard: don't save empty responses — the model returned nothing useful
+        if (!fullResponse.trim() && !input.impersonate) {
+          console.warn(`[generate] Empty response from model for chat ${input.chatId} (char: ${targetCharId})`);
+          reply.raw.write(
+            `data: ${JSON.stringify({ type: "error", data: "The AI returned an empty response. Try sending your message again." })}\n\n`,
+          );
+          return null;
         }
 
         // Save assistant message (or user message for impersonate)

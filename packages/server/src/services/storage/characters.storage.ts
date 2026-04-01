@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { eq, desc } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
-import { characters, personas, characterGroups } from "../../db/schema/index.js";
+import { characters, personas, characterGroups, personaGroups } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import type { CharacterData } from "@marinara-engine/shared";
 
@@ -204,6 +204,50 @@ export function createCharactersStorage(db: DB) {
 
     async removeGroup(id: string) {
       await db.delete(characterGroups).where(eq(characterGroups.id, id));
+    },
+
+    // ── Persona Groups ──
+
+    async listPersonaGroups() {
+      return db.select().from(personaGroups).orderBy(desc(personaGroups.updatedAt));
+    },
+
+    async getPersonaGroupById(id: string) {
+      const rows = await db.select().from(personaGroups).where(eq(personaGroups.id, id));
+      return rows[0] ?? null;
+    },
+
+    async createPersonaGroup(name: string, description: string, personaIds: string[] = []) {
+      const id = newId();
+      const timestamp = now();
+      await db.insert(personaGroups).values({
+        id,
+        name,
+        description,
+        personaIds: JSON.stringify(personaIds),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getPersonaGroupById(id);
+    },
+
+    async updatePersonaGroup(id: string, updates: { name?: string; description?: string; personaIds?: string[] }) {
+      const existing = await this.getPersonaGroupById(id);
+      if (!existing) return null;
+      await db
+        .update(personaGroups)
+        .set({
+          ...(updates.name !== undefined && { name: updates.name }),
+          ...(updates.description !== undefined && { description: updates.description }),
+          ...(updates.personaIds !== undefined && { personaIds: JSON.stringify(updates.personaIds) }),
+          updatedAt: now(),
+        })
+        .where(eq(personaGroups.id, id));
+      return this.getPersonaGroupById(id);
+    },
+
+    async removePersonaGroup(id: string) {
+      await db.delete(personaGroups).where(eq(personaGroups.id, id));
     },
   };
 }

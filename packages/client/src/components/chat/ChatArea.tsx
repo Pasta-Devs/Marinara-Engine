@@ -904,9 +904,9 @@ export function ChatArea() {
 
             {/* Special thanks */}
             <p className="mt-1 max-w-xs text-center text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/40">
-              Special thanks to LukaTheHero, Coxde, JorgeLTE, Seele The Seal King, Loungemeister, Kale, Tabris, GREGOR OVECH, Coins,
-              Tacoman, Jorge, Promansis, Kitsumiro, Sheep, Pod042, Prolix, PlutoMayhem, Mezzeh, Kuc0, Exalted, Yang Best
-              Girl, MidnightSleeper, Geechan, TheLonelyDevil, Artus, and you!
+              Special thanks to LukaTheHero, Coxde, JorgeLTE, Seele The Seal King, Loungemeister, Kale, Tabris, GREGOR
+              OVECH, Coins, Tacoman, Jorge, Promansis, Kitsumiro, Sheep, Pod042, Prolix, PlutoMayhem, Mezzeh, Kuc0,
+              Exalted, Yang Best Girl, MidnightSleeper, Geechan, TheLonelyDevil, Artus, and you!
             </p>
 
             {/* Restart tutorial */}
@@ -1109,7 +1109,12 @@ export function ChatArea() {
             {/* ── Header / Toolbar area ── */}
             <>
               {/* Desktop top bar — hidden on mobile AND when compact */}
-              <div className={cn("pointer-events-none relative z-40 items-center px-4 py-2 max-md:hidden", centerCompact ? "hidden" : "flex")}>
+              <div
+                className={cn(
+                  "pointer-events-none relative z-40 items-center px-4 py-2 max-md:hidden",
+                  centerCompact ? "hidden" : "flex",
+                )}
+              >
                 {chat && chatMeta.enableAgents && (
                   <div className="pointer-events-auto flex-1 overflow-x-auto">
                     <RoleplayHUD
@@ -1164,7 +1169,12 @@ export function ChatArea() {
                 </div>
               </div>
               {/* Compact / mobile top bar */}
-              <div className={cn("pointer-events-auto relative z-40 w-full flex-col", centerCompact ? "flex" : "flex md:hidden")}>
+              <div
+                className={cn(
+                  "pointer-events-auto relative z-40 w-full flex-col",
+                  centerCompact ? "flex" : "flex md:hidden",
+                )}
+              >
                 {chat && chatMeta.enableAgents && (
                   <div className="flex w-full items-center justify-between px-2 pt-2 pb-1">
                     <RoleplayHUD
@@ -1184,21 +1194,18 @@ export function ChatArea() {
                         icon={<FolderOpen size="0.875rem" />}
                         title="Manage Chat Files"
                         onClick={() => setFilesOpen(true)}
-                        size="sm"
                       />
                       {expressionAgentEnabled && chatCharIds.length > 0 && (
                         <RpToolbarButton
                           icon={<FlipHorizontal2 size="0.875rem" />}
                           title={`Sprite: ${spritePosition} side`}
                           onClick={handleToggleSpritePosition}
-                          size="sm"
                         />
                       )}
                       <RpToolbarButton
                         icon={<Image size="0.875rem" />}
                         title="Gallery"
                         onClick={() => setGalleryOpen(true)}
-                        size="sm"
                       />
                       {chat?.connectedChatId &&
                         (() => {
@@ -1208,7 +1215,6 @@ export function ChatArea() {
                               icon={<ArrowRightLeft size="0.875rem" />}
                               title={linked ? `Switch to ${linked.name}` : "Connected chat"}
                               onClick={() => setActiveChatId(chat.connectedChatId!)}
-                              size="sm"
                             />
                           );
                         })()}
@@ -1216,7 +1222,6 @@ export function ChatArea() {
                         icon={<Settings2 size="0.875rem" />}
                         title="Chat Settings"
                         onClick={() => setSettingsOpen(true)}
-                        size="sm"
                       />
                     </ToolbarMenu>
                   </div>
@@ -1231,13 +1236,11 @@ export function ChatArea() {
                         icon={<FolderOpen size="0.875rem" />}
                         title="Manage Chat Files"
                         onClick={() => setFilesOpen(true)}
-                        size="sm"
                       />
                       <RpToolbarButton
                         icon={<Image size="0.875rem" />}
                         title="Gallery"
                         onClick={() => setGalleryOpen(true)}
-                        size="sm"
                       />
                       {chat?.connectedChatId &&
                         (() => {
@@ -1247,7 +1250,6 @@ export function ChatArea() {
                               icon={<ArrowRightLeft size="0.875rem" />}
                               title={linked ? `Switch to ${linked.name}` : "Connected chat"}
                               onClick={() => setActiveChatId(chat.connectedChatId!)}
-                              size="sm"
                             />
                           );
                         })()}
@@ -1255,7 +1257,6 @@ export function ChatArea() {
                         icon={<Settings2 size="0.875rem" />}
                         title="Chat Settings"
                         onClick={() => setSettingsOpen(true)}
-                        size="sm"
                       />
                     </ToolbarMenu>
                   </div>
@@ -1270,7 +1271,10 @@ export function ChatArea() {
             <div className={cn("relative flex-1 overflow-hidden z-10")}>
               <div
                 ref={scrollRef}
-                className={cn("mari-messages-scroll h-full overflow-y-auto overflow-x-hidden pt-4 pb-1 rpg-chat-messages-mobile relative", centerCompact ? "px-3" : "px-3 md:px-[15%]")}
+                className={cn(
+                  "mari-messages-scroll h-full overflow-y-auto overflow-x-hidden pt-4 pb-1 rpg-chat-messages-mobile relative",
+                  centerCompact ? "px-3" : "px-3 md:px-[15%]",
+                )}
               >
                 {/* Load More */}
                 {hasNextPage && (

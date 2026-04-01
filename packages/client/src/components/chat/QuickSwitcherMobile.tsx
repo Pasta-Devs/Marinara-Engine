@@ -106,7 +106,6 @@ export function QuickSwitcherMobile() {
     return () => clearTimeout(timer);
   }, [open, tab]);
 
-
   if (!activeChatId) return null;
 
   return (
@@ -122,17 +121,14 @@ export function QuickSwitcherMobile() {
             : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
         )}
       >
-        <ChevronUp
-          size="1rem"
-          className={cn("transition-transform", open && "rotate-180")}
-        />
+        <ChevronUp size="1rem" className={cn("transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
         <div
           ref={menuRef}
           className="fixed z-[9999] flex max-h-[400px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
-          style={pos ? { left: pos.left, top: pos.top, width: pos.width } : undefined}
+          style={pos ? { left: pos.left, top: pos.top, width: pos.width } : { visibility: "hidden" as const }}
         >
           {/* Tab bar with icons */}
           <div className="flex border-b border-[var(--border)]">
@@ -214,7 +210,9 @@ export function QuickSwitcherMobile() {
                     ?
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className={cn("text-xs font-semibold", !activePersonaId && "text-[var(--primary)]")}>None</span>
+                    <span className={cn("text-xs font-semibold", !activePersonaId && "text-[var(--primary)]")}>
+                      None
+                    </span>
                     <span className="text-[0.625rem] text-[var(--muted-foreground)]">No persona selected</span>
                   </div>
                   {!activePersonaId && <span className="ml-auto text-[0.6875rem]">✓</span>}

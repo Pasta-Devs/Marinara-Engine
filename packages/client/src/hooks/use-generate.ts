@@ -582,6 +582,13 @@ export function useGenerate() {
                 const activeNow = useChatStore.getState().activeChatId;
                 if (activeNow !== params.chatId) {
                   useChatStore.getState().incrementUnread(params.chatId);
+                  // Show floating avatar notification bubble
+                  const charData = qc.getQueryData<{ avatarPath?: string | null }>(
+                    characterKeys.detail(turn.characterId),
+                  );
+                  useChatStore
+                    .getState()
+                    .addNotification(params.chatId, turn.characterName, charData?.avatarPath ?? null);
                   const chatList = qc.getQueryData<Chat[]>(chatKeys.list());
                   const thisChat = chatList?.find((c) => c.id === params.chatId);
                   const isRpMode = thisChat?.mode === "roleplay" || thisChat?.mode === "visual_novel";
@@ -891,8 +898,31 @@ export function useGenerate() {
         const currentActive = useChatStore.getState().activeChatId;
         if (receivedContent && currentActive !== params.chatId) {
           useChatStore.getState().incrementUnread(params.chatId);
+          // Show floating avatar notification bubble — look up character from cache
           const chatList = qc.getQueryData<Chat[]>(chatKeys.list());
           const chat = chatList?.find((c) => c.id === params.chatId);
+          const rawIds = chat?.characterIds;
+          const parsedIds: string[] =
+            typeof rawIds === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(rawIds);
+                  } catch {
+                    return [];
+                  }
+                })()
+              : Array.isArray(rawIds)
+                ? rawIds
+                : [];
+          const firstCharId = parsedIds[0];
+          if (firstCharId) {
+            const charData = qc.getQueryData<{ data?: { name?: string } | string; avatarPath?: string | null }>(
+              characterKeys.detail(firstCharId),
+            );
+            const parsed = typeof charData?.data === "string" ? JSON.parse(charData.data) : charData?.data;
+            const charName = parsed?.name ?? "Character";
+            useChatStore.getState().addNotification(params.chatId, charName, charData?.avatarPath ?? null);
+          }
           const isRp = chat?.mode === "roleplay" || chat?.mode === "visual_novel";
           const soundEnabled = isRp
             ? useUIStore.getState().rpNotificationSound

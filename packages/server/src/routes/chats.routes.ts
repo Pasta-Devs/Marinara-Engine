@@ -494,6 +494,10 @@ export async function chatsRoutes(app: FastifyInstance) {
             activeLorebookIds: Array.isArray(chatMeta.activeLorebookIds)
               ? (chatMeta.activeLorebookIds as string[])
               : [],
+            groupScenarioOverrideText:
+              typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
+                ? (chatMeta.groupScenarioText as string).trim()
+                : null,
           });
 
           // ── Strip <speaker> tags from chat history to save tokens (roleplay only) ──
@@ -629,10 +633,13 @@ export async function chatsRoutes(app: FastifyInstance) {
               allContent.includes(`<${charName}>`) ||
               new RegExp(`^#{1,6} ${charName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(allContent);
             if (!hasCharInfo && charDesc) {
+              const hasGroupOverride =
+                typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim();
               const parts: string[] = [];
               if (charDesc) parts.push(wrapContent(charDesc, "description", wrapFormat, 2));
               if (charData.personality) parts.push(wrapContent(charData.personality, "personality", wrapFormat, 2));
-              if (charData.scenario) parts.push(wrapContent(charData.scenario, "scenario", wrapFormat, 2));
+              if (charData.scenario && !hasGroupOverride)
+                parts.push(wrapContent(charData.scenario, "scenario", wrapFormat, 2));
               if (charData.extensions?.backstory)
                 parts.push(wrapContent(charData.extensions.backstory, "backstory", wrapFormat, 2));
               if (charData.extensions?.appearance)

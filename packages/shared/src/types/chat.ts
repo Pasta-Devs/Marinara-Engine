@@ -70,6 +70,10 @@ export interface ChatMetadata {
   groupSpeakerColors?: boolean;
   /** Group individual mode response order: "sequential" or "smart" (agent-decided) */
   groupResponseOrder?: GroupResponseOrder;
+  /** When true, a shared group scenario replaces individual character card scenarios */
+  groupScenarioOverride?: boolean;
+  /** The shared scenario text used when groupScenarioOverride is enabled */
+  groupScenarioText?: string;
   /** When true, tracker agents only run when the user manually triggers them (not after every generation) */
   manualTrackers?: boolean;
   /** Whether to recall memories from past conversations during generation. Default: true for conversation/scenes, false for roleplay. */

@@ -49,3 +49,13 @@ export const characterGroups = sqliteTable("character_groups", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const personaGroups = sqliteTable("persona_groups", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  /** JSON array of persona IDs */
+  personaIds: text("persona_ids").notNull().default("[]"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

@@ -346,6 +346,8 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
   const [scenePromptExpanded, setScenePromptExpanded] = useState(false);
   const [scenePromptDraft, setScenePromptDraft] = useState(metadata.sceneSystemPrompt ?? "");
+  const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
+  const [groupScenarioExpanded, setGroupScenarioExpanded] = useState(false);
 
   const saveName = () => {
     if (nameVal.trim() && nameVal !== chat.name) {
@@ -1001,6 +1003,45 @@ export function ChatSettingsDrawer({ chat, open, onClose }: ChatSettingsDrawerPr
                   </p>
                 </div>
               )}
+
+              {/* Scenario Override */}
+              <div className="mt-2 space-y-1.5">
+                <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Scenario Override</label>
+                <div className="relative">
+                  <textarea
+                    value={groupScenarioDraft}
+                    onChange={(e) => setGroupScenarioDraft(e.target.value)}
+                    onBlur={() => {
+                      if (groupScenarioDraft !== (metadata.groupScenarioText ?? "")) {
+                        updateMeta.mutate({ id: chat.id, groupScenarioText: groupScenarioDraft });
+                      }
+                    }}
+                    placeholder="Replace individual character scenarios with a shared scenario for this group chat or leave empty to keep them…"
+                    rows={4}
+                    className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                  />
+                  <button
+                    onClick={() => setGroupScenarioExpanded(true)}
+                    className="absolute right-1.5 top-1.5 rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    title="Expand editor"
+                  >
+                    <Maximize2 size="0.75rem" />
+                  </button>
+                </div>
+                <ExpandedTextarea
+                  open={groupScenarioExpanded}
+                  onClose={() => {
+                    setGroupScenarioExpanded(false);
+                    if (groupScenarioDraft !== (metadata.groupScenarioText ?? "")) {
+                      updateMeta.mutate({ id: chat.id, groupScenarioText: groupScenarioDraft });
+                    }
+                  }}
+                  title="Group Scenario Override"
+                  value={groupScenarioDraft}
+                  onChange={setGroupScenarioDraft}
+                  placeholder="Replace individual character scenarios with a shared scenario for this group chat or leave empty to keep them…"
+                />
+              </div>
             </Section>
           )}
 

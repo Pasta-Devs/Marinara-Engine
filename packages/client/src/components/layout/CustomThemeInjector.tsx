@@ -90,8 +90,7 @@ export function CustomThemeInjector() {
 
           // Inject DOM element with auto-cleanup
           addElement: (parent: Element | string, tag: string, attrs?: Record<string, string>) => {
-            const target =
-              typeof parent === "string" ? document.querySelector(parent) : parent;
+            const target = typeof parent === "string" ? document.querySelector(parent) : parent;
             if (!target) return null;
             const el = document.createElement(tag);
             if (attrs) {
@@ -118,9 +117,7 @@ export function CustomThemeInjector() {
           // addEventListener with auto-cleanup
           on: (target: EventTarget, event: string, handler: EventListenerOrEventListenerObject) => {
             target.addEventListener(event, handler);
-            extensionCleanups.push(() =>
-              target.removeEventListener(event, handler),
-            );
+            extensionCleanups.push(() => target.removeEventListener(event, handler));
           },
 
           // setInterval with auto-cleanup
@@ -138,21 +135,11 @@ export function CustomThemeInjector() {
           },
 
           // MutationObserver with auto-cleanup
-          observe: (
-            target: Element | string,
-            callback: MutationCallback,
-            options?: MutationObserverInit,
-          ) => {
-            const el =
-              typeof target === "string"
-                ? document.querySelector(target)
-                : target;
+          observe: (target: Element | string, callback: MutationCallback, options?: MutationObserverInit) => {
+            const el = typeof target === "string" ? document.querySelector(target) : target;
             if (!el) return null;
             const observer = new MutationObserver(callback);
-            observer.observe(
-              el,
-              options || { childList: true, subtree: true },
-            );
+            observer.observe(el, options || { childList: true, subtree: true });
             extensionCleanups.push(() => observer.disconnect());
             return observer;
           },

@@ -169,7 +169,7 @@ export function AppShell() {
         data-tour="chat-area"
         data-component="CenterContent"
         aria-label="Main content"
-        className="@container mari-main flex min-w-0 flex-1 flex-col overflow-hidden"
+        className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
       >
         <TopBar />
         {botBrowserOpen ? (
@@ -193,6 +193,8 @@ export function AppShell() {
         ) : (
           <ChatArea />
         )}
+        {/* Floating avatar notification bubbles (right edge) */}
+        <ChatNotificationBubbles />
       </main>
 
       {/* Mobile right panel backdrop */}
@@ -233,9 +235,6 @@ export function AppShell() {
           </div>
         </aside>
       )}
-
-      {/* Floating avatar notification bubbles (left edge) */}
-      <ChatNotificationBubbles />
 
       {/* First-time onboarding tutorial */}
       <OnboardingTutorial />

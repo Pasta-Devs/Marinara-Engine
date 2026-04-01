@@ -797,9 +797,7 @@ export function ConversationView({
                 style={{ animationDelay: "300ms" }}
               />
             </span>
-            <span className="italic">
-              {typingCharacterName} is typing...
-            </span>
+            <span className="italic">{typingCharacterName} is typing...</span>
           </div>
         )}
 

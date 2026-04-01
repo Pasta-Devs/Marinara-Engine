@@ -52,6 +52,8 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
   useEffect(() => {
     if (!open || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
+    const inputBox = btnRef.current.closest(".rounded-2xl") as HTMLElement | null;
+    const anchorTop = inputBox ? inputBox.getBoundingClientRect().top : rect.top;
     requestAnimationFrame(() => {
       const menuEl = menuRef.current;
       const menuHeight = menuEl?.offsetHeight || 360;
@@ -59,7 +61,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
       let left = rect.left;
       if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
       if (left < 8) left = 8;
-      setPos({ left, top: Math.max(8, rect.top - menuHeight - 8) });
+      setPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
     });
   }, [open]);
 
@@ -86,7 +88,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
         <div
           ref={menuRef}
           className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
-          style={pos ? { left: pos.left, top: pos.top } : undefined}
+          style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
         >
           <div className="flex items-center justify-center border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold">
             Connections

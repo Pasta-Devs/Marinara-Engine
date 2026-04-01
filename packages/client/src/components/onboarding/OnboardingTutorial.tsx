@@ -31,7 +31,7 @@ const STEPS: TourStep[] = [
   {
     target: null,
     title: "Welcome to Marinara Engine!",
-    body: "Hi! Here's a quick tutorial to show you around. Confident in your skill? Feel free to skip it!\n\n**Warning:** skipping the tutorial will make me sad. :(",
+    body: "Hi! Here's a quick tutorial to show you around. Confident in your skill? Feel free to skip it!\n\n**Warning:** skipping the tutorial will make me sad.",
     sprite: { src: "/sprites/mari/Mari_wave.png" },
   },
   {

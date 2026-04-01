@@ -123,3 +123,14 @@ export interface CharacterGroup {
   createdAt: string;
   updatedAt: string;
 }
+
+/** A group of personas — for organising user personas. */
+export interface PersonaGroup {
+  id: string;
+  name: string;
+  description: string;
+  /** IDs of personas belonging to this group */
+  personaIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}

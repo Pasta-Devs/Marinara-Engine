@@ -107,6 +107,8 @@ export interface AssemblerInput {
   chatEmbedding?: number[] | null;
   /** Per-chat ephemeral state overrides for lorebook entries (from chat metadata). */
   entryStateOverrides?: Record<string, { ephemeral?: number | null; enabled?: boolean }>;
+  /** When set, replaces individual character scenario fields with this group scenario. */
+  groupScenarioOverrideText?: string | null;
 }
 
 /** Output of the assembler. */
@@ -208,6 +210,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     activeLorebookIds: input.activeLorebookIds ?? [],
     chatEmbedding: input.chatEmbedding ?? null,
     entryStateOverrides: input.entryStateOverrides,
+    groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
   };
 
   // ── Phase 1: Resolve sections in preset order ──

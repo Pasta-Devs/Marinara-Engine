@@ -11,6 +11,8 @@ import { LorebookMakerModal } from "../modals/LorebookMakerModal";
 import { CreatePresetModal } from "../modals/CreatePresetModal";
 import { ImportPresetModal } from "../modals/ImportPresetModal";
 import { EditAgentModal, type AgentData } from "../modals/EditAgentModal";
+import { ImportPersonaModal } from "../modals/ImportPersonaModal";
+import { PersonaMakerModal } from "../modals/PersonaMakerModal";
 import { STBulkImportModal } from "../modals/STBulkImportModal";
 
 export function ModalRenderer() {
@@ -34,6 +36,8 @@ export function ModalRenderer() {
         onClose={closeModal}
         agent={(modal?.props?.agent as AgentData | null) ?? null}
       />
+      <ImportPersonaModal open={type === "import-persona"} onClose={closeModal} />
+      <PersonaMakerModal open={type === "persona-maker"} onClose={closeModal} />
       <STBulkImportModal open={type === "st-bulk-import"} onClose={closeModal} />
     </>
   );

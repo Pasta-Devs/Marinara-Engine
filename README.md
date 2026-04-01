@@ -58,6 +58,36 @@
 
 ## Changelog
 
+### v1.4.7
+
+**New Features:**
+
+- **Persona Groups** — Organize personas into named groups, just like character groups. Create, rename, delete groups and assign/remove personas with a visual assign mode (click personas to toggle membership). Full CRUD backend with SQLite storage.
+- **Group Scenario Override** — Replace individual character scenarios with a single shared scenario for group chats. Text-presence-based: leave the field empty to keep per-character scenarios, or write a shared one that overrides them all. Includes an expandable full-screen editor.
+- **AI Persona Maker** — Generate complete personas (name, description, personality, backstory, appearance) from a prompt using your LLM connection. Streams results via SSE with real-time preview.
+- **Import Persona** — Import personas from PNG character cards or JSON files directly from the Personas panel.
+- **Quick Connection & Persona Switchers** — Floating popover switchers anchored to the chat input for fast connection and persona switching without opening the sidebar.
+- **Notification Bubbles** — Floating avatar notification bubbles appear for unread messages in background chats during both normal and autonomous messaging.
+
+**Improvements:**
+
+- **Personas Panel Redesign** — Search, sort (A-Z, Z-A, newest, oldest, tokens), active/inactive filter, plus New, Import, and AI Maker action buttons.
+- **Quick Switcher Vertical Alignment** — Desktop quick switchers now anchor to the input box container's top border for consistent positioning.
+- **Conversation Edit Simplification** — Removed keyboard shortcuts (backspace-to-cancel, enter-to-save) from message editing. Simplified to explicit cancel/save buttons with Escape-to-cancel.
+- **Blank Line Collapsing** — Runs of 3+ consecutive newlines in messages are collapsed to a double newline, preserving paragraph breaks while eliminating excessive blank lines from verbose models.
+- **OpenRouter Thinking/Content Block Parsing** — Correctly parses responses containing thinking and content blocks from reasoning models via OpenRouter.
+- **Claude 4.5/4.6 Temperature-Only Sampling** — Omits `top_p` for Claude models that only support temperature-based sampling.
+
+**Bug Fixes:**
+
+- **Fixed quick switcher flash** — Added `visibility: 'hidden'` when position is not yet calculated, preventing a brief flash at (0,0) on mount.
+- **Fixed notification bubbles not triggering** — `addNotification()` was only called from the autonomous messaging hook; now also fires from the normal generation completion path with proper character name/avatar lookup.
+- **Fixed notification character ID parsing** — `characterIds` stored as a JSON string in the query cache is now properly parsed before indexing, preventing broken name/avatar lookups.
+- **Fixed empty conversation response guard** — Added early return when the LLM produces no content, preventing empty message turns.
+- **Fixed memory recall scoping** — Simplified memory recall to scope correctly to the current and related chats.
+- **Fixed Lorebook Keeper scoping** — Corrected lorebook entry injection scoping in generation routes.
+- **Fixed missing `persona_groups` DB migration** — Added `CREATE TABLE IF NOT EXISTS persona_groups` to startup migrations so the table is created automatically.
+
 ### v1.4.6
 
 **New Features:**
@@ -100,7 +130,7 @@
 
 ## Windows EASIEST METHOD
 
-Download **[Marinara-Engine-Installer-1.4.6.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.6/Marinara-Engine-Installer-1.4.6.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
+Download **[Marinara-Engine-Installer-1.4.7.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.7/Marinara-Engine-Installer-1.4.7.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
 
 ---
 

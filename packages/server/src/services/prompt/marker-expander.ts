@@ -44,6 +44,8 @@ export interface MarkerContext {
   lorebookDepthEntries?: Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }>;
   /** Collector for updated entry state overrides after ephemeral processing — saved to chat metadata by caller. */
   updatedEntryStateOverrides?: Record<string, { ephemeral?: number | null; enabled?: boolean }>;
+  /** When set, replaces all individual character scenario fields with this shared group scenario. */
+  groupScenarioOverrideText?: string | null;
 }
 
 /** Expanded marker result. */
@@ -104,6 +106,8 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     const charParts: string[] = [];
     for (const field of fields) {
       if (field === "name") continue; // Name is used as the parent tag, not a child field
+      // Skip per-character scenario when a group scenario override is active
+      if (field === "scenario" && ctx.groupScenarioOverrideText) continue;
       const value = getCharacterField(data, field);
       if (value) {
         charParts.push(wrapContent(value, field, ctx.wrapFormat, 2));
@@ -123,6 +127,11 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     if (charBlock) {
       parts.push(wrapContent(charBlock, data.name, ctx.wrapFormat, 1));
     }
+  }
+
+  // Append group scenario override (replaces individual character scenarios)
+  if (ctx.groupScenarioOverrideText) {
+    parts.push(wrapContent(ctx.groupScenarioOverrideText, "scenario", ctx.wrapFormat, 1));
   }
 
   return { content: parts.join("\n") };

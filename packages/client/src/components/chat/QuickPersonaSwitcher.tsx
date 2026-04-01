@@ -62,12 +62,14 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
   useEffect(() => {
     if (!open || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
+    const inputBox = btnRef.current.closest(".rounded-2xl") as HTMLElement | null;
+    const anchorTop = inputBox ? inputBox.getBoundingClientRect().top : rect.top;
     requestAnimationFrame(() => {
       const menuEl = menuRef.current;
       const menuHeight = menuEl?.offsetHeight || 400;
       let left = rect.left;
       if (left + 300 > window.innerWidth) left = window.innerWidth - 308;
-      setPos({ left, top: rect.top - menuHeight - 8 });
+      setPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
     });
   }, [open]);
 
@@ -78,7 +80,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        title={activePersona ? `${activePersona.name}${activePersona.comment ? " — " + activePersona.comment : ""}` : "Quick Persona Switcher"}
+        title={
+          activePersona
+            ? `${activePersona.name}${activePersona.comment ? " — " + activePersona.comment : ""}`
+            : "Quick Persona Switcher"
+        }
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all border-2",
           open ? "border-[var(--primary)]" : "border-transparent hover:border-[var(--primary)] hover:opacity-90",
@@ -102,7 +108,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
         <div
           ref={menuRef}
           className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[400px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
-          style={pos ? { left: pos.left, top: pos.top } : undefined}
+          style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
         >
           <div className="flex items-center justify-center border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold">
             Personas

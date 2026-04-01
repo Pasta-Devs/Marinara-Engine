@@ -3,10 +3,10 @@
 // ──────────────────────────────────────────────
 // Chunks conversation messages into groups, embeds them, and provides
 // semantic recall: given a query, find the most relevant past
-// conversation fragments across all chats with the same character(s).
+// conversation fragments from specified chats.
 import { eq, desc, sql, and } from "drizzle-orm";
 import type { DB } from "../db/connection.js";
-import { chats, messages, memoryChunks } from "../db/schema/index.js";
+import { messages, memoryChunks } from "../db/schema/index.js";
 import { newId, now } from "../utils/id-generator.js";
 import { localEmbed } from "./local-embedder.js";
 
@@ -140,16 +140,15 @@ export async function chunkAndEmbedMessages(
 
 /**
  * Recall relevant conversation memories for a given query.
- * Searches all chats that share at least one character with the given list.
+ * Searches only the specified chat IDs for relevant chunks.
  */
 export async function recallMemories(
   db: DB,
   query: string,
-  characterIds: string[],
-  excludeChatId: string | null,
+  chatIds: string[],
   topK: number = DEFAULT_TOP_K,
 ): Promise<RecalledMemory[]> {
-  if (characterIds.length === 0) return [];
+  if (chatIds.length === 0) return [];
 
   // Embed the query using local model
   const queryEmbeddings = await localEmbed([query]);
@@ -157,24 +156,7 @@ export async function recallMemories(
   const queryEmbedding = queryEmbeddings[0]!;
   if (queryEmbedding.length === 0) return [];
 
-  // Load all chats that share characters — select only id + characterIds columns
-  const allChats = await db.select({ id: chats.id, characterIds: chats.characterIds }).from(chats);
-
-  const charSet = new Set(characterIds);
-  const matchingChatIds = allChats
-    .filter((c) => {
-      if (excludeChatId && c.id === excludeChatId) return false;
-      try {
-        const ids: string[] = JSON.parse(c.characterIds);
-        return ids.some((id) => charSet.has(id));
-      } catch {
-        return false;
-      }
-    })
-    .slice(0, 50)
-    .map((c) => c.id);
-
-  if (matchingChatIds.length === 0) return [];
+  const matchingChatIds = chatIds.slice(0, 50);
 
   // Load embedded chunks from matching chats (capped to prevent memory blowup)
   const MAX_CHUNKS = 500;

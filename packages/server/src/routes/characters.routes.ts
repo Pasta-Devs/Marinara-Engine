@@ -6,6 +6,8 @@ import {
   createCharacterSchema,
   createGroupSchema,
   updateGroupSchema,
+  createPersonaGroupSchema,
+  updatePersonaGroupSchema,
   PROFESSOR_MARI_ID,
 } from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
@@ -237,6 +239,33 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/groups/:id", async (req, reply) => {
     await storage.removeGroup(req.params.id);
+    return reply.status(204).send();
+  });
+
+  // ── Persona Groups ──
+
+  app.get("/persona-groups/list", async () => {
+    return storage.listPersonaGroups();
+  });
+
+  app.get<{ Params: { id: string } }>("/persona-groups/:id", async (req, reply) => {
+    const group = await storage.getPersonaGroupById(req.params.id);
+    if (!group) return reply.status(404).send({ error: "Persona group not found" });
+    return group;
+  });
+
+  app.post("/persona-groups", async (req) => {
+    const input = createPersonaGroupSchema.parse(req.body);
+    return storage.createPersonaGroup(input.name, input.description ?? "", input.personaIds ?? []);
+  });
+
+  app.patch<{ Params: { id: string } }>("/persona-groups/:id", async (req) => {
+    const input = updatePersonaGroupSchema.parse(req.body);
+    return storage.updatePersonaGroup(req.params.id, input);
+  });
+
+  app.delete<{ Params: { id: string } }>("/persona-groups/:id", async (req, reply) => {
+    await storage.removePersonaGroup(req.params.id);
     return reply.status(204).send();
   });
 }
