@@ -1166,8 +1166,9 @@ function LoginModal({ sourceId, provider, pygLoggedIn, ctLoggedIn, loginLoading,
   const isLoggedIn = isPyg ? pygLoggedIn : ctLoggedIn;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
           <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">

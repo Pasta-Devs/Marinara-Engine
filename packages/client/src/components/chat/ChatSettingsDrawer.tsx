@@ -2667,6 +2667,26 @@ function ParamInput({
   step: number;
   help?: string;
 }) {
+  const [draft, setDraft] = useState(String(value));
+  const prevValue = useRef(value);
+
+  // Sync draft when the external value changes (e.g. reset to default)
+  if (value !== prevValue.current) {
+    prevValue.current = value;
+    setDraft(String(value));
+  }
+
+  const commit = () => {
+    const v = parseFloat(draft);
+    if (!isNaN(v) && v >= min && v <= max) {
+      onChange(v);
+      setDraft(String(v));
+    } else {
+      // Revert to current value on invalid input
+      setDraft(String(value));
+    }
+  };
+
   return (
     <div>
       <label className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
@@ -2674,11 +2694,15 @@ function ParamInput({
         {help && <HelpTooltip text={help} size="0.625rem" />}
       </label>
       <input
-        type="number"
-        value={value}
-        onChange={(e) => {
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v >= min && v <= max) onChange(v);
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur();
+          }
         }}
         min={min}
         max={max}

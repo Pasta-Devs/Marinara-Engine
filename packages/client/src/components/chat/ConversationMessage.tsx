@@ -280,6 +280,8 @@ interface ConversationMessageProps {
   personaInfo?: PersonaInfo;
   /** Override the edit button click (used by SplitMessageGroup) */
   onEditClick?: () => void;
+  /** 1-based ordinal position in the message list. Shown under avatar when actions visible. */
+  messageIndex?: number;
   multiSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (messageId: string) => void;
@@ -300,6 +302,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   characterMap,
   personaInfo,
   onEditClick,
+  messageIndex,
   multiSelectMode,
   isSelected,
   onToggleSelect,
@@ -548,6 +551,11 @@ export const ConversationMessage = memo(function ConversationMessage({
                             </div>
                           )}
                         </div>
+                        {isFirst && (showActions || forceShowActions) && messageIndex != null && (
+                          <span className="mt-0.5 block text-center text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
+                            #{messageIndex}
+                          </span>
+                        )}
                       </div>
                       {/* Name + first paragraph */}
                       <div className="min-w-0 flex-1">
@@ -710,15 +718,22 @@ export const ConversationMessage = memo(function ConversationMessage({
       {/* Avatar column — fixed 40px width */}
       <div className="mari-message-avatar w-10 flex-shrink-0">
         {!isGrouped && (
-          <div className="h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} loading="lazy" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
-                {isUser ? <User size="1.125rem" /> : displayName[0]?.toUpperCase()}
-              </div>
+          <>
+            <div className="h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} loading="lazy" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                  {isUser ? <User size="1.125rem" /> : displayName[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            {(showActions || forceShowActions) && messageIndex != null && (
+              <span className="mt-0.5 block text-center text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
+                #{messageIndex}
+              </span>
             )}
-          </div>
+          </>
         )}
       </div>
 

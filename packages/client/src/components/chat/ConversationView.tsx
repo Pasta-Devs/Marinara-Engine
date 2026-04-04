@@ -692,6 +692,7 @@ export function ConversationView({
                 isLastAssistantMessage={msg.id === lastAssistantMessageId}
                 characterMap={characterMap}
                 personaInfo={personaInfo as any}
+                messageIndex={item.index + 1}
                 multiSelectMode={multiSelectMode}
                 isSelected={selectedMessageIds?.has(msg.id)}
                 onToggleSelect={onToggleSelectMessage}
@@ -955,6 +956,7 @@ function SplitMessageGroup({
               isLastAssistantMessage={firstItem.msg.id === lastAssistantMessageId}
               characterMap={characterMap}
               personaInfo={personaInfo as any}
+              messageIndex={firstItem.index + 1}
             />
           );
         }
@@ -979,6 +981,7 @@ function SplitMessageGroup({
               isLastAssistantMessage={msg.id === lastAssistantMessageId}
               characterMap={characterMap}
               personaInfo={personaInfo as any}
+              messageIndex={gi.index + 1}
             />
           );
         });

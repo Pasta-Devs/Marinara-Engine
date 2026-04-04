@@ -396,9 +396,8 @@ function WorldInfoButton({ chatId }: { chatId: string | null }) {
           createPortal(
             <div
               className="fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]"
-              onClick={() => setOpen(false)}
             >
-              <div className="absolute inset-0 bg-black/30" />
+              <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
               <div
                 className="relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in"
                 onClick={(e) => e.stopPropagation()}
@@ -485,9 +484,8 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
           createPortal(
             <div
               className="fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]"
-              onClick={() => setOpen(false)}
             >
-              <div className="absolute inset-0 bg-black/30" />
+              <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
               <div
                 className="relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in"
                 onClick={(e) => e.stopPropagation()}
