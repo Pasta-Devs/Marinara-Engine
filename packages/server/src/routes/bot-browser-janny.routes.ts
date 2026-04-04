@@ -131,6 +131,124 @@ export async function botBrowserJannyRoutes(app: FastifyInstance) {
   });
 
   // ── Proxy JannyAI avatar images ──
+  // ── Fetch full character details by scraping JannyAI page ──
+  app.get<{ Params: { id: string } }>("/janny/character/:id", async (req, reply) => {
+    const charId = req.params.id;
+    if (!charId) throw new Error("Missing character ID");
+
+    const slug = (req.query as Record<string, string>)?.slug || "character";
+    const pageUrl = `${JANNY_SITE_BASE}/characters/${charId}_${slug}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      let html = "";
+
+      // Strategy 1: Direct fetch
+      try {
+        const directRes = await fetch(pageUrl, {
+          headers: {
+            "Accept": "text/html,application/xhtml+xml,*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://jannyai.com/",
+          },
+          signal: controller.signal,
+          redirect: "follow",
+        });
+        if (directRes.ok) {
+          html = await directRes.text();
+          if (html.includes("Just a moment") || html.includes("cf-challenge") || !html.includes("astro-island")) {
+            html = "";
+          }
+        }
+      } catch { /* fall through */ }
+
+      // Strategy 2: corsproxy.io
+      if (!html) {
+        try {
+          const proxyRes = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(pageUrl)}`, {
+            headers: {
+              "Accept": "text/html,application/xhtml+xml,*/*",
+              "Origin": "https://jannyai.com",
+            },
+            signal: controller.signal,
+          });
+          if (proxyRes.ok) {
+            html = await proxyRes.text();
+            if (html.includes("Just a moment") || html.includes("cf-challenge") || !html.includes("astro-island")) {
+              html = "";
+            }
+          }
+        } catch { /* fall through */ }
+      }
+
+      if (!html) {
+        return reply.status(404).send({ error: "Could not fetch character page (Cloudflare blocked)" });
+      }
+
+      // Parse Astro island props containing character data
+      let astroMatch = html.match(
+        /astro-island[^>]*component-export="CharacterButtons"[^>]*props="([^"]+)"/
+      );
+      if (!astroMatch) {
+        astroMatch = html.match(/astro-island[^>]*props="([^"]*character[^"]*)"/);
+      }
+      if (!astroMatch) {
+        return reply.status(404).send({ error: "Could not parse character data from page" });
+      }
+
+      const propsDecoded = astroMatch[1]!
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'");
+
+      const propsJson = JSON.parse(propsDecoded);
+
+      function decodeAstroValue(value: unknown): unknown {
+        if (!Array.isArray(value)) return value;
+        const [type, data] = value;
+        if (type === 0) {
+          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const decoded: Record<string, unknown> = {};
+            for (const [key, val] of Object.entries(data as Record<string, unknown>)) {
+              decoded[key] = decodeAstroValue(val);
+            }
+            return decoded;
+          }
+          return data;
+        } else if (type === 1) {
+          return (data as unknown[]).map((item: unknown) => decodeAstroValue(item));
+        }
+        return data;
+      }
+
+      const character = decodeAstroValue(propsJson.character) as Record<string, unknown> | null;
+
+      if (!character) {
+        return reply.status(404).send({ error: "No character data found in page" });
+      }
+
+      const creatorMatch = html.match(/Creator:\s*(?:<\/[^>]+>\s*)?<a[^>]*>@?([^<]+)<\/a>/);
+      if (creatorMatch) {
+        character.creatorUsername = creatorMatch[1]!.trim();
+      }
+
+      return {
+        character,
+        success: true,
+      };
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        return reply.status(504).send({ error: "Request timed out" });
+      }
+      return reply.status(500).send({ error: (err as Error).message });
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
   app.get<{ Params: { "*": string } }>("/janny/avatar/*", async (req, reply) => {
     const avatarPath = (req.params as Record<string, string>)["*"];
     if (!avatarPath) throw new Error("Missing avatar path");

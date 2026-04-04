@@ -422,7 +422,101 @@ const jannyProvider: ProviderConfig = {
       totalCount: result?.totalHits ?? totalPages * 80,
     };
   },
-  fetchDetail: async () => null,
+  fetchDetail: async (card) => {
+    const raw = card._raw as any;
+    const charId = raw?.id || card.id;
+    const slug = card.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const pageUrl = `https://jannyai.com/characters/${charId}_character-${slug}`;
+
+    // Helper to decode Astro's [type, data] serialization
+    function decodeAstro(value: unknown): unknown {
+      if (!Array.isArray(value)) return value;
+      const [type, data] = value;
+      if (type === 0) {
+        if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+          const decoded: Record<string, unknown> = {};
+          for (const [key, val] of Object.entries(data as Record<string, unknown>)) {
+            decoded[key] = decodeAstro(val);
+          }
+          return decoded;
+        }
+        return data;
+      } else if (type === 1) {
+        return (data as unknown[]).map((item: unknown) => decodeAstro(item));
+      }
+      return data;
+    }
+
+    // Helper to parse character from HTML
+    function parseCharFromHtml(html: string): Record<string, unknown> | null {
+      if (!html || html.includes("Just a moment") || html.includes("cf-challenge")) return null;
+      let astroMatch = html.match(/astro-island[^>]*component-export="CharacterButtons"[^>]*props="([^"]+)"/);
+      if (!astroMatch) astroMatch = html.match(/astro-island[^>]*props="([^"]*character[^"]*)"/);
+      if (!astroMatch?.[1]) return null;
+      try {
+        const decoded = astroMatch[1]
+          .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&#39;/g, "'");
+        const propsJson = JSON.parse(decoded);
+        return decodeAstro(propsJson.character) as Record<string, unknown> | null;
+      } catch { return null; }
+    }
+
+    // Strategy 1: Server-side proxy
+    try {
+      const res = await fetch(`/api/bot-browser/janny/character/${charId}?slug=character-${slug}`);
+      if (res.ok) {
+        const data = await res.json();
+        const char = data?.character;
+        if (char && (char.personality || char.firstMessage)) {
+          return {
+            description: char.personality || undefined,
+            scenario: char.scenario || undefined,
+            firstMessage: char.firstMessage || undefined,
+            exampleDialogs: char.exampleDialogs || undefined,
+            creatorNotes: char.description
+              ? (typeof char.description === "string" ? char.description.replace(/<[^>]*>/g, "").trim() : undefined)
+              : undefined,
+          };
+        }
+      }
+    } catch { /* fall through */ }
+
+    // Strategy 2: corsproxy.io from browser
+    try {
+      const proxyRes = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(pageUrl)}`, {
+        headers: { "Accept": "text/html,application/xhtml+xml,*/*" },
+      });
+      if (proxyRes.ok) {
+        const html = await proxyRes.text();
+        const char = parseCharFromHtml(html);
+        if (char && (char.personality || char.firstMessage)) {
+          return {
+            description: (char.personality as string) || undefined,
+            scenario: (char.scenario as string) || undefined,
+            firstMessage: (char.firstMessage as string) || undefined,
+            exampleDialogs: (char.exampleDialogs as string) || undefined,
+            creatorNotes: char.description
+              ? (typeof char.description === "string" ? char.description.replace(/<[^>]*>/g, "").trim() : undefined)
+              : undefined,
+          };
+        }
+      }
+    } catch { /* fall through */ }
+
+    // Fallback: use search result data
+    const rawDesc = raw?.description || "";
+    const plainDesc = typeof rawDesc === "string" ? rawDesc.replace(/<[^>]*>/g, "").trim() : "";
+    if (plainDesc) {
+      return { creatorNotes: plainDesc };
+    }
+    return null;
+  },
+
   importCard: async () => {},
 };
 
