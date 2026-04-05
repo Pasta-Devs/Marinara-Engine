@@ -146,18 +146,24 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Create manifest list and push
+        id: manifest
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}@sha256:%s ' *)
+          tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          image="${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}"
+          digests=$(printf '${image}@sha256:%s ' *)
+          docker buildx imagetools create $tags $digests
+          # Get the digest of the pushed manifest list
+          digest=$(docker buildx imagetools inspect "$image:${{ steps.meta.outputs.version }}" --format '{{.Digest}}')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}@${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}:${{ steps.meta.outputs.version }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}
-          subject-digest: ${{ steps.meta.outputs.version }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
