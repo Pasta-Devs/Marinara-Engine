@@ -4,7 +4,7 @@
 services:
   marinara:
     # Use the pre-built image from GHCR
-    image: gghcr.io/pasta-devs/marinara-engine:latest
+    image: ghcr.io/pasta-devs/marinara-engine:latest
     ports:
       - "${PORT:-7860}:7860"
     volumes:
