@@ -12,6 +12,15 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".editorconfig"
+      - "*.txt"
   workflow_dispatch:
 
 env:
