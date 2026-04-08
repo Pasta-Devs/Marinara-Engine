@@ -16,8 +16,8 @@
 !define APP_NAME "Marinara Engine"
 !define APP_VERSION "1.4.8"
 !define APP_PUBLISHER "SpicyMarinara"
-!define APP_URL "https://github.com/SpicyMarinara/Marinara-Engine"
-!define REPO_URL "https://github.com/SpicyMarinara/Marinara-Engine.git"
+!define APP_URL "https://github.com/Pasta-Devs/Marinara-Engine"
+!define REPO_URL "https://github.com/Pasta-Devs/Marinara-Engine.git"
 !define DEFAULT_DIR "$LOCALAPPDATA\MarinaraEngine"
 
 ; ── Prerequisite download URLs ──

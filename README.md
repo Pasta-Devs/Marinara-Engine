@@ -58,7 +58,7 @@
 
 ## Latest Release
 
-Current stable release: **[v1.4.8](https://github.com/SpicyMarinara/Marinara-Engine/releases/tag/v1.4.8)**.
+Current stable release: **[v1.4.8](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v1.4.8)**.
 
 Detailed release notes now live in [CHANGELOG.md](CHANGELOG.md). Tagged releases use the `vX.Y.Z` format, and GitHub Releases remain the publication mechanism for installers, release notes, and update metadata.
 
@@ -75,7 +75,7 @@ Detailed release notes now live in [CHANGELOG.md](CHANGELOG.md). Tagged releases
 
 ### Windows Easiest Method
 
-Download **[Marinara-Engine-Installer-1.4.8.exe](https://github.com/SpicyMarinara/Marinara-Engine/releases/download/v1.4.8/Marinara-Engine-Installer-1.4.8.exe)** from the [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
+Download **[Marinara-Engine-Installer-1.4.8.exe](https://github.com/Pasta-Devs/Marinara-Engine/releases/download/v1.4.8/Marinara-Engine-Installer-1.4.8.exe)** from the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page and run it. The installer checks for Node.js and Git, clones the repo, installs dependencies, builds the app, and creates a desktop shortcut.
 
 ### Run from Source (All Platforms)
 
@@ -115,7 +115,7 @@ git --version  # should show git version 2.x+
 **Windows:**
 
 ```bat
-git clone https://github.com/SpicyMarinara/marinara-engine.git
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd marinara-engine
 start.bat
 ```
@@ -123,7 +123,7 @@ start.bat
 **macOS / Linux:**
 
 ```bash
-git clone https://github.com/SpicyMarinara/marinara-engine.git
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd marinara-engine
 chmod +x start.sh
 ./start.sh
@@ -134,7 +134,7 @@ chmod +x start.sh
 Install [Termux](https://f-droid.org/en/packages/com.termux/) from F-Droid (the Play Store version is outdated), then run:
 
 ```bash
-pkg update && pkg install -y git nodejs-lts && git clone https://github.com/SpicyMarinara/marinara-engine.git && cd marinara-engine && chmod +x start-termux.sh && ./start-termux.sh
+pkg update && pkg install -y git nodejs-lts && git clone https://github.com/Pasta-Devs/Marinara-Engine.git && cd marinara-engine && chmod +x start-termux.sh && ./start-termux.sh
 ```
 
 The Termux launcher downloads the prebuilt SQLite native module when available, installs dependencies, builds the app, and starts the server at `http://127.0.0.1:<PORT>` using the resolved `PORT` value from `.env` or the default `7860`. First run takes a few minutes on mobile. After that, run `./start-termux.sh` to start again.
@@ -157,7 +157,7 @@ Set `AUTO_OPEN_BROWSER=false` in `.env` to skip the automatic browser launch. Th
 #### Manual Setup
 
 ```bash
-git clone https://github.com/SpicyMarinara/marinara-engine.git
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd marinara-engine
 pnpm install
 pnpm build
@@ -196,7 +196,7 @@ docker compose down && docker compose pull && docker compose up -d
 If you prefer to build the image yourself:
 
 ```bash
-git clone https://github.com/SpicyMarinara/Marinara-Engine.git
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd Marinara-Engine
 docker build -t marinara-engine .
 docker run -d -p 7860:7860 -v marinara-data:/app/data marinara-engine

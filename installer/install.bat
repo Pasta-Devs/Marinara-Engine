@@ -117,7 +117,7 @@ echo  [OK] pnpm found
 echo.
 if exist "%INSTALL_DIR%\.git" goto :update_repo
 echo  [..] Cloning Marinara Engine to %INSTALL_DIR%...
-git clone https://github.com/SpicyMarinara/Marinara-Engine.git "%INSTALL_DIR%"
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git "%INSTALL_DIR%"
 if errorlevel 1 (
     set "INSTALL_ERROR=Failed to clone repository. Check your internet connection and try again."
     goto :fatal

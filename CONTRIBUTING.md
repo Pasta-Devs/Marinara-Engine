@@ -13,7 +13,7 @@ Prerequisites:
 Typical local setup:
 
 ```bash
-git clone https://github.com/SpicyMarinara/Marinara-Engine.git
+git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd Marinara-Engine
 pnpm install
 pnpm build

@@ -79,7 +79,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       Authorization: `Bearer ${this.apiKey}`,
     };
     if (this.baseUrl.includes("openrouter.ai")) {
-      h["HTTP-Referer"] = "https://github.com/SpicyMarinara/Marinara-Engine";
+      h["HTTP-Referer"] = "https://github.com/Pasta-Devs/Marinara-Engine";
       h["X-Title"] = "Marinara Engine";
     }
     return h;

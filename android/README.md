@@ -89,4 +89,4 @@ Because the APK points at `http://127.0.0.1:<PORT>`, it only works while the Mar
 
 ## Pre-built APKs
 
-When maintainers attach them to a tagged release, pre-built APKs are available on the main [Releases](https://github.com/SpicyMarinara/Marinara-Engine/releases) page.
+When maintainers attach them to a tagged release, pre-built APKs are available on the main [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page.

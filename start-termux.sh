@@ -183,7 +183,7 @@ else
         mkdir -p "$BS3_DIR/build/Release"
         rm -f "$BS3_DIR/build/Release/better_sqlite3.node"
 
-        PREBUILT_URL="https://github.com/SpicyMarinara/Marinara-Engine/releases/latest/download/better_sqlite3-android-arm64.node"
+        PREBUILT_URL="https://github.com/Pasta-Devs/Marinara-Engine/releases/latest/download/better_sqlite3-android-arm64.node"
         echo "  [..] Downloading prebuilt better-sqlite3 for Android ARM64..."
         if curl -fSL --connect-timeout 15 --max-time 120 \
              -o "$BS3_DIR/build/Release/better_sqlite3.node" \
