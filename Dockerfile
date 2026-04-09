@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────
 
 # ── Stage 1: Build ──
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 ARG PNPM_VERSION=10.30.3
 WORKDIR /app
 
@@ -33,7 +33,7 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm build
 
 # ── Stage 2: Production ──
-FROM node:20-slim AS production
+FROM node:22-slim AS production
 ARG PNPM_VERSION=10.30.3
 WORKDIR /app
 
