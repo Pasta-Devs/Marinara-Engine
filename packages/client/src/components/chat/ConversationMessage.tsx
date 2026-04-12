@@ -7,6 +7,7 @@ import { Pencil, Trash2, Copy, RefreshCw, Eye, Brain, X, User, Languages } from 
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Message } from "@marinara-engine/shared";
 import { cn, copyToClipboard } from "../../lib/utils";
+import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { chatKeys } from "../../hooks/use-chats";
 import type { CharacterMap } from "./ChatArea";
 import { useTranslate } from "../../hooks/use-translate";
@@ -64,37 +65,6 @@ function highlightMentions(nodes: ReactNode[], names: string[], keyPrefix: strin
   });
 }
 
-/** Apply markdown-style inline formatting: **bold** and *italic*. */
-function applyInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
-    }
-    if (match[2] != null) {
-      nodes.push(<strong key={`${keyPrefix}b${key++}`}>{match[2]}</strong>);
-    } else if (match[3] != null) {
-      nodes.push(<em key={`${keyPrefix}i${key++}`}>{match[3]}</em>);
-    }
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-  return nodes.length > 0 ? nodes : [text];
-}
-
-/** Regex to match markdown headings at the start of a line. */
-const HEADING_RE = /^(#{1,6})\s+(.+)$/;
-/** Regex to match horizontal rules: *** / --- (3+ chars, standalone line). */
-const HR_LINE_RE = /^(?:\*{3,}|-{3,})$/;
-
 /** Renders message content, showing image URLs as inline images */
 function MessageContent({ content, mentionNames }: { content: string; mentionNames?: string[] }) {
   if (IMAGE_URL_RE.test(content.trim())) {
@@ -109,46 +79,12 @@ function MessageContent({ content, mentionNames }: { content: string; mentionNam
   // Collapse runs of 3+ blank lines into a double newline (preserve paragraph breaks)
   const compacted = content.replace(/\n{3,}/g, "\n\n");
 
-  // Split lines and detect markdown headings + horizontal rules
-  const lines = compacted.split("\n");
-  const segments: ReactNode[] = [];
-  let buffer: string[] = [];
-  let key = 0;
+  // Use shared block-level renderer with mention support
+  const renderInline = mentionNames?.length
+    ? (text: string, kp: string) => highlightMentions(applyInlineMarkdown(text, kp), mentionNames, kp)
+    : applyInlineMarkdown;
 
-  const flushBuffer = () => {
-    if (buffer.length > 0) {
-      segments.push(
-        <span key={`seg${key++}`}>
-          {mentionNames?.length
-            ? highlightMentions(applyInlineMarkdown(buffer.join("\n"), "m"), mentionNames, "m")
-            : applyInlineMarkdown(buffer.join("\n"), "m")}
-        </span>,
-      );
-      buffer = [];
-    }
-  };
-
-  for (const line of lines) {
-    const hMatch = HEADING_RE.exec(line);
-    if (hMatch) {
-      flushBuffer();
-      const level = hMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
-      const Tag = `h${level}` as const;
-      segments.push(
-        <Tag key={`h${key++}`} className="mari-md-heading">
-          {hMatch[2]}
-        </Tag>,
-      );
-    } else if (HR_LINE_RE.test(line.trim())) {
-      flushBuffer();
-      segments.push(<hr key={`hr${key++}`} className="my-3 border-t border-[var(--border)]" />);
-    } else {
-      buffer.push(line);
-    }
-  }
-  flushBuffer();
-
-  return <>{segments}</>;
+  return <>{renderMarkdownBlocks(compacted, renderInline)}</>;
 }
 
 /** Parse <speaker="Name">text</speaker> tags into segments */

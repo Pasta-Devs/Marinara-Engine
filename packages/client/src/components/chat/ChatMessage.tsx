@@ -2,6 +2,7 @@
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
+import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import {
   User,
   Bot,
@@ -137,67 +138,8 @@ interface ChatMessageProps {
   onToggleSelect?: (messageId: string) => void;
 }
 
-/** Regex to match markdown headings at the start of a line. */
-const HEADING_RE = /^(#{1,6})\s+(.+)$/;
-/** Regex to match horizontal rules: *** / --- (3+ chars, standalone line). */
-const HR_LINE_RE = /^(?:\*{3,}|-{3,})$/;
-/** Regex to match a standalone image line (entire line is just one image). */
-const MD_IMAGE_LINE_RE = /^!\[([^\]]*)\]\((https?:\/\/[^)]+)\)$/;
 /** Regex to match a plain image URL as the entire content. */
 const IMAGE_URL_RE = /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?[^\s]*)?$/i;
-
-/**
- * Split text into heading / horizontal-rule and non-heading segments,
- * rendering headings as proper HTML heading elements and `---` / `***`
- * as `<hr>`, then delegating the rest to the given renderer.
- */
-function renderWithHeadings(text: string, renderSegment: (segment: string) => ReactNode): ReactNode {
-  const lines = text.split("\n");
-  const segments: ReactNode[] = [];
-  let buffer: string[] = [];
-  let key = 0;
-
-  const flushBuffer = () => {
-    if (buffer.length > 0) {
-      segments.push(<span key={`seg${key++}`}>{renderSegment(buffer.join("\n"))}</span>);
-      buffer = [];
-    }
-  };
-
-  for (const line of lines) {
-    const hMatch = HEADING_RE.exec(line);
-    if (hMatch) {
-      flushBuffer();
-      const level = hMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
-      const Tag = `h${level}` as const;
-      segments.push(
-        <Tag key={`h${key++}`} className="mari-md-heading">
-          {hMatch[2]}
-        </Tag>,
-      );
-    } else if (HR_LINE_RE.test(line.trim())) {
-      flushBuffer();
-      segments.push(<hr key={`hr${key++}`} className="my-3 border-t border-[var(--border)]" />);
-    } else if (MD_IMAGE_LINE_RE.test(line.trim())) {
-      flushBuffer();
-      const m = MD_IMAGE_LINE_RE.exec(line.trim())!;
-      segments.push(
-        <img
-          key={`img${key++}`}
-          src={m[2]}
-          alt={m[1] || ""}
-          className="my-1 max-w-full rounded-lg sm:max-w-md"
-          loading="lazy"
-        />,
-      );
-    } else {
-      buffer.push(line);
-    }
-  }
-  flushBuffer();
-
-  return segments.length === 1 ? segments[0] : <>{segments}</>;
-}
 
 /** Regex to match <speaker="name">dialogue</speaker> tags. */
 const SPEAKER_TAG_RE = /<speaker="([^"]*)">([\s\S]*?)<\/speaker>/g;
@@ -243,49 +185,6 @@ function renderWithSpeakerTags(
   }
 
   return nodes;
-}
-
-/**
- * Apply markdown-style inline formatting: **bold** and *italic*.
- * Returns an array of ReactNodes.
- */
-function applyInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
-  // Match images, **bold**, and *italic* (order matters)
-  const regex = /(!\[([^\]]*)\]\((https?:\/\/[^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*)/g;
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
-    }
-    if (match[2] != null && match[3] != null) {
-      // ![alt](url)
-      nodes.push(
-        <img
-          key={`${keyPrefix}img${key++}`}
-          src={match[3]}
-          alt={match[2] || ""}
-          className="my-1 inline-block max-w-full rounded-lg align-bottom sm:max-w-md"
-          loading="lazy"
-        />,
-      );
-    } else if (match[4] != null) {
-      // **bold**
-      nodes.push(<strong key={`${keyPrefix}b${key++}`}>{match[4]}</strong>);
-    } else if (match[5] != null) {
-      // *italic*
-      nodes.push(<em key={`${keyPrefix}i${key++}`}>{match[5]}</em>);
-    }
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-  return nodes.length > 0 ? nodes : [text];
 }
 
 /**
@@ -358,9 +257,9 @@ function renderContent(
   if (!HTML_TAG_RE.test(withoutSpeakerTags)) {
     // renderWithHeadings handles headings, *** and --- horizontal rules,
     // and delegates the rest to speaker-tag / dialogue rendering.
-    return renderWithHeadings(normalized, (seg) => (
-      <>{renderWithSpeakerTags(seg, dialogueColor, speakerColorMap, boldDialogue)}</>
-    ));
+    return renderMarkdownBlocks(normalized, (seg, kp) =>
+      renderWithSpeakerTags(seg, dialogueColor, speakerColorMap, boldDialogue),
+    );
   }
 
   // For HTML content, replace speaker tags with color-annotated spans (preserves per-character colors)
@@ -461,14 +360,7 @@ function renderContent(
   );
 
   // Apply markdown-style bold/italic in HTML path
-  const withMarkdown = withHr
-    // Headings: # through ######
-    .replace(/(?:^|(?<=<br[^>]*>))\s*(#{1,6})\s+(.+?)(?=<br|$)/g, (_m, hashes: string, content: string) => {
-      const level = hashes.length;
-      return `<h${level} class="mari-md-heading">${content.trim()}</h${level}>`;
-    })
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+  const withMarkdown = applyInlineMarkdownHTML(withHr);
 
   return <div className="overflow-hidden" dangerouslySetInnerHTML={{ __html: withMarkdown }} />;
 }
