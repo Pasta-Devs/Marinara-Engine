@@ -39,6 +39,10 @@ import {
   Feather,
   Activity,
   Puzzle,
+  Save,
+  FilePlus2,
+  Upload,
+  Download,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -59,6 +63,16 @@ import {
 } from "../../hooks/use-chats";
 import { api } from "../../lib/api-client";
 import { useUIStore } from "../../stores/ui.store";
+import {
+  useChatPresets,
+  useSaveChatPresetSettings,
+  useDuplicateChatPreset,
+  useUpdateChatPreset,
+  useDeleteChatPreset,
+  useApplyChatPreset,
+  useImportChatPreset,
+} from "../../hooks/use-chat-presets";
+import type { ChatMode, ChatPreset, ChatPresetSettings } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { BUILT_IN_AGENTS, BUILT_IN_TOOLS } from "@marinara-engine/shared";
 import type { Chat, CharacterGroup } from "@marinara-engine/shared";
@@ -400,6 +414,128 @@ export function ChatSettingsDrawer({
   const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
   const [groupScenarioExpanded, setGroupScenarioExpanded] = useState(false);
 
+  // ── Chat Settings Presets ──
+  const presetMode = (chatMode === "visual_novel" ? "roleplay" : chatMode) as ChatMode;
+  const { data: chatPresets } = useChatPresets(presetMode);
+  const saveChatPreset = useSaveChatPresetSettings();
+  const duplicateChatPreset = useDuplicateChatPreset();
+  const renameChatPreset = useUpdateChatPreset();
+  const deleteChatPreset = useDeleteChatPreset();
+  const applyChatPreset = useApplyChatPreset();
+  const importChatPreset = useImportChatPreset();
+  const presetList = useMemo(() => (chatPresets ?? []) as ChatPreset[], [chatPresets]);
+  const appliedPresetId = (metadata.appliedChatPresetId as string | undefined) ?? null;
+  const selectedChatPreset = useMemo(() => {
+    if (appliedPresetId) {
+      const match = presetList.find((p) => p.id === appliedPresetId);
+      if (match) return match;
+    }
+    return presetList.find((p) => p.isDefault) ?? null;
+  }, [presetList, appliedPresetId]);
+  const [renamingPreset, setRenamingPreset] = useState(false);
+  const [renamePresetVal, setRenamePresetVal] = useState("");
+  const presetFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const snapshotCurrentPresetSettings = useCallback((): ChatPresetSettings => {
+    return {
+      connectionId: chat.connectionId ?? null,
+      promptPresetId: chat.promptPresetId ?? null,
+      metadata: { ...metadata },
+    };
+  }, [chat.connectionId, chat.promptPresetId, metadata]);
+
+  const handleSelectPreset = (id: string) => {
+    if (!id || id === selectedChatPreset?.id) return;
+    applyChatPreset.mutate({ presetId: id, chatId: chat.id });
+  };
+
+  const handleSaveIntoPreset = () => {
+    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    saveChatPreset.mutate({ id: selectedChatPreset.id, settings: snapshotCurrentPresetSettings() });
+  };
+
+  const handleStartRenamePreset = () => {
+    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    setRenamePresetVal(selectedChatPreset.name);
+    setRenamingPreset(true);
+  };
+
+  const handleCommitRenamePreset = () => {
+    if (!selectedChatPreset || selectedChatPreset.isDefault) {
+      setRenamingPreset(false);
+      return;
+    }
+    const next = renamePresetVal.trim();
+    if (next && next !== selectedChatPreset.name) {
+      renameChatPreset.mutate({ id: selectedChatPreset.id, name: next });
+    }
+    setRenamingPreset(false);
+  };
+
+  const handleSaveAsPreset = () => {
+    if (!selectedChatPreset) return;
+    const baseName = window.prompt("Name for the new preset:", `${selectedChatPreset.name} Copy`);
+    if (!baseName?.trim()) return;
+    const trimmed = baseName.trim().slice(0, 120);
+    duplicateChatPreset.mutate(
+      { id: selectedChatPreset.id, name: trimmed },
+      {
+        onSuccess: (created) => {
+          if (!created) return;
+          // Save the current chat settings into the new preset, then apply it
+          // (which records appliedChatPresetId on the chat so the dropdown follows).
+          saveChatPreset.mutate(
+            { id: created.id, settings: snapshotCurrentPresetSettings() },
+            {
+              onSuccess: () => applyChatPreset.mutate({ presetId: created.id, chatId: chat.id }),
+            },
+          );
+        },
+      },
+    );
+  };
+
+  const handleDeletePreset = () => {
+    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    const ok = window.confirm(`Delete preset "${selectedChatPreset.name}"? This cannot be undone.`);
+    if (!ok) return;
+    const wasApplied = selectedChatPreset.id === appliedPresetId;
+    const defaultPreset = presetList.find((p) => p.isDefault);
+    deleteChatPreset.mutate(selectedChatPreset.id, {
+      onSuccess: () => {
+        // If the chat was using the preset we just deleted, fall back to the
+        // Default preset's settings — without this, the chat would visually
+        // show "Default" but keep the deleted preset's actual values.
+        if (wasApplied && defaultPreset) {
+          applyChatPreset.mutate({ presetId: defaultPreset.id, chatId: chat.id });
+        }
+      },
+    });
+  };
+
+  const handleExportPreset = () => {
+    if (!selectedChatPreset) return;
+    api.download(`/chat-presets/${selectedChatPreset.id}/export`, `${selectedChatPreset.name}.marinara-chat-preset.json`);
+  };
+
+  const handleImportClick = () => {
+    presetFileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const envelope = JSON.parse(text);
+      const created = await importChatPreset.mutateAsync(envelope);
+      if (created?.id) applyChatPreset.mutate({ presetId: created.id, chatId: chat.id });
+    } catch (err) {
+      window.alert(`Failed to import preset: ${err instanceof Error ? err.message : "Invalid file"}`);
+    }
+  };
+
   const saveName = () => {
     if (nameVal.trim() && nameVal !== chat.name) {
       updateChat.mutate({ id: chat.id, name: nameVal.trim() });
@@ -425,6 +561,103 @@ export function ChatSettingsDrawer({
           >
             <X size="1rem" />
           </button>
+        </div>
+
+        {/* Chat Settings Preset bar */}
+        <div className="flex flex-col gap-2 border-b border-[var(--border)] px-4 py-3">
+          <input
+            ref={presetFileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          {/* Dropdown / rename input + help */}
+          <div className="flex items-center gap-2">
+            {renamingPreset ? (
+              <input
+                value={renamePresetVal}
+                onChange={(e) => setRenamePresetVal(e.target.value)}
+                onBlur={handleCommitRenamePreset}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCommitRenamePreset();
+                  else if (e.key === "Escape") setRenamingPreset(false);
+                }}
+                autoFocus
+                maxLength={120}
+                className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
+              />
+            ) : (
+              <select
+                value={selectedChatPreset?.id ?? ""}
+                onChange={(e) => handleSelectPreset(e.target.value)}
+                title="Apply a chat-settings preset to this chat"
+                className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+              >
+                {presetList.length === 0 && <option value="">Loading…</option>}
+                {presetList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.isDefault ? "Default" : p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <HelpTooltip
+              side="left"
+              text="Presets bundle this chat's connection, prompt preset, agents, tools, translation, memory recall, advanced parameters, and other settings. They never touch your characters, persona, lorebooks, sprites, summary, tags, or scene prompt — those stay tied to the chat."
+            />
+          </div>
+          {/* Single row of all preset actions */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleSaveIntoPreset}
+              disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+              title={selectedChatPreset?.isDefault ? "Cannot save into the Default preset" : "Save current chat settings into this preset"}
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Save size="0.875rem" />
+            </button>
+            <button
+              onClick={handleStartRenamePreset}
+              disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+              title={selectedChatPreset?.isDefault ? "Cannot rename the Default preset" : "Rename preset"}
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Pencil size="0.875rem" />
+            </button>
+            <button
+              onClick={handleSaveAsPreset}
+              disabled={!selectedChatPreset}
+              title="Save current chat settings as a new preset"
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <FilePlus2 size="0.875rem" />
+            </button>
+            <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
+            <button
+              onClick={handleImportClick}
+              title="Import preset (.json)"
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              <Upload size="0.875rem" />
+            </button>
+            <button
+              onClick={handleExportPreset}
+              disabled={!selectedChatPreset}
+              title="Export preset (.json)"
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download size="0.875rem" />
+            </button>
+            <button
+              onClick={handleDeletePreset}
+              disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+              title={selectedChatPreset?.isDefault ? "Cannot delete the Default preset" : "Delete preset"}
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 size="0.875rem" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">

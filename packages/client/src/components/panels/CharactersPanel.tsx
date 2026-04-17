@@ -13,9 +13,10 @@ import {
   useUpdateCharacter,
   useDuplicateCharacter,
 } from "../../hooks/use-characters";
-import { useUpdateChat, useCreateMessage, chatKeys } from "../../hooks/use-chats";
+import { useUpdateChat, useCreateMessage, useCreateChat, chatKeys } from "../../hooks/use-chats";
 import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -39,6 +40,7 @@ import {
   Tag,
   MessageCircle,
   Star,
+  Wand2,
 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -88,7 +90,29 @@ export function CharactersPanel() {
   const activeChat = useChatStore((s) => s.activeChat);
   const updateChat = useUpdateChat();
   const createMessage = useCreateMessage(activeChat?.id ?? null);
+  const createChat = useCreateChat();
   const queryClient = useQueryClient();
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; charId: string; charName: string } | null>(
+    null,
+  );
+
+  const quickStartFromCharacter = useCallback(
+    (charId: string, charName: string, mode: "roleplay" | "conversation") => {
+      const label = mode === "conversation" ? "Conversation" : "Roleplay";
+      createChat.mutate(
+        { name: charName ? `${charName} — ${label}` : `New ${label}`, mode, characterIds: [charId] },
+        {
+          onSuccess: (chat) => {
+            useChatStore.getState().setActiveChatId(chat.id);
+            useChatStore.getState().setShouldOpenSettings(true);
+            useChatStore.getState().setShouldOpenWizard(true);
+            useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
+          },
+        },
+      );
+    },
+    [createChat],
+  );
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("name-asc");
@@ -722,6 +746,11 @@ export function CharactersPanel() {
                           <div
                             key={memberId}
                             onClick={() => openCharacterDetail(memberId)}
+                            onContextMenu={(e) => {
+                              if (selectionMode || assigningToGroup) return;
+                              e.preventDefault();
+                              setContextMenu({ x: e.clientX, y: e.clientY, charId: memberId, charName: member.name });
+                            }}
                             className="group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]"
                           >
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-pink-400 to-rose-500 text-white">
@@ -828,6 +857,11 @@ export function CharactersPanel() {
                 } else {
                   openCharacterDetail(char.id);
                 }
+              }}
+              onContextMenu={(e) => {
+                if (selectionMode || assigningToGroup) return;
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, charId: char.id, charName });
               }}
               className={cn(
                 "group flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
@@ -991,6 +1025,25 @@ export function CharactersPanel() {
           Click to edit · Use ✓ to assign/remove from chat
         </p>
       )}
+
+      {contextMenu &&
+        (() => {
+          const items: ContextMenuItem[] = [
+            {
+              label: "Quick Start Roleplay",
+              icon: <Wand2 size="0.75rem" />,
+              onSelect: () => quickStartFromCharacter(contextMenu.charId, contextMenu.charName, "roleplay"),
+            },
+            {
+              label: "Quick Start Conversation",
+              icon: <MessageCircle size="0.75rem" />,
+              onSelect: () => quickStartFromCharacter(contextMenu.charId, contextMenu.charName, "conversation"),
+            },
+          ];
+          return (
+            <ContextMenu x={contextMenu.x} y={contextMenu.y} items={items} onClose={() => setContextMenu(null)} />
+          );
+        })()}
 
       {/* First message confirmation dialog */}
       {firstMesConfirm && (

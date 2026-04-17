@@ -60,6 +60,8 @@ interface ChatState {
   shouldOpenSettings: boolean;
   /** When true, ChatArea should show the setup wizard for the newly created chat. */
   shouldOpenWizard: boolean;
+  /** When true (and the wizard opens), it should land directly on the Quick Setup shortcut view. */
+  shouldOpenWizardInShortcutMode: boolean;
   /** Pending new-chat mode for first-run connection setup gating. */
   pendingNewChatMode: Exclude<ChatMode, "visual_novel"> | null;
   /** Per-chat draft input text so typing isn't lost when navigating away. */
@@ -94,6 +96,7 @@ interface ChatState {
   setSwipeIndex: (messageId: string, index: number) => void;
   setShouldOpenSettings: (v: boolean) => void;
   setShouldOpenWizard: (v: boolean) => void;
+  setShouldOpenWizardInShortcutMode: (v: boolean) => void;
   setPendingNewChatMode: (mode: Exclude<ChatMode, "visual_novel"> | null) => void;
   setInputDraft: (chatId: string, text: string) => void;
   clearInputDraft: (chatId: string) => void;
@@ -129,6 +132,7 @@ export const useChatStore = create<ChatState>()(
     swipeIndex: new Map(),
     shouldOpenSettings: false,
     shouldOpenWizard: false,
+    shouldOpenWizardInShortcutMode: false,
     pendingNewChatMode: null,
     inputDrafts: loadDrafts(),
     unreadCounts: new Map(),
@@ -273,6 +277,8 @@ export const useChatStore = create<ChatState>()(
     setShouldOpenSettings: (v) => set({ shouldOpenSettings: v }),
 
     setShouldOpenWizard: (v) => set({ shouldOpenWizard: v }),
+
+    setShouldOpenWizardInShortcutMode: (v) => set({ shouldOpenWizardInShortcutMode: v }),
 
     setPendingNewChatMode: (mode) => set({ pendingNewChatMode: mode }),
 

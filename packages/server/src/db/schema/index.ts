@@ -2,6 +2,7 @@
 // Database Schema — Barrel Export
 // ──────────────────────────────────────────────
 export * from "./chats.js";
+export * from "./chat-presets.js";
 export * from "./characters.js";
 export * from "./lorebooks.js";
 export * from "./prompts.js";

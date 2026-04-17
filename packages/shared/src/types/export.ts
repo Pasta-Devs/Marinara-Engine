@@ -8,6 +8,7 @@ export type ExportType =
   | "marinara_persona"
   | "marinara_lorebook"
   | "marinara_preset"
+  | "marinara_chat_preset"
   | "marinara_profile";
 
 /** Wrapper envelope for exported data. */

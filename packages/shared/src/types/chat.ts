@@ -100,6 +100,8 @@ export interface ChatMetadata {
   /** Per-chat ephemeral / enabled overrides for lorebook entries (entryId → state).
    *  Tracked per-chat so ephemeral countdown in one chat doesn't affect others. */
   entryStateOverrides?: Record<string, { ephemeral?: number | null; enabled?: boolean }>;
+  /** ID of the chat preset most recently applied to this chat (drives the preset bar dropdown). */
+  appliedChatPresetId?: string | null;
   /** Any extra key-value data */
   [key: string]: unknown;
 }

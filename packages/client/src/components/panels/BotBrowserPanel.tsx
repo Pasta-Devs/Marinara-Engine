@@ -1,11 +1,14 @@
 // ──────────────────────────────────────────────
 // Panel: Browser (sidebar — shows imported characters)
 // ──────────────────────────────────────────────
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useCharacters } from "../../hooks/use-characters";
+import { useCreateChat } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
-import { Search, User, Globe } from "lucide-react";
+import { useChatStore } from "../../stores/chat.store";
+import { Search, User, Globe, Wand2, MessageCircle } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 type CharacterRow = { id: string; data: string; avatarPath: string | null; createdAt: string; updatedAt: string };
 
@@ -14,7 +17,11 @@ export function BotBrowserPanel() {
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
+  const createChat = useCreateChat();
   const [search, setSearch] = useState("");
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; charId: string; charName: string } | null>(
+    null,
+  );
 
   const parsed = useMemo(() => {
     if (!characters) return [];
@@ -34,6 +41,24 @@ export function BotBrowserPanel() {
     const q = search.toLowerCase();
     return parsed.filter((c) => c.name.toLowerCase().includes(q));
   }, [parsed, search]);
+
+  const quickStartFromCharacter = useCallback(
+    (charId: string, charName: string, mode: "roleplay" | "conversation") => {
+      const label = mode === "conversation" ? "Conversation" : "Roleplay";
+      createChat.mutate(
+        { name: charName ? `${charName} — ${label}` : `New ${label}`, mode, characterIds: [charId] },
+        {
+          onSuccess: (chat) => {
+            useChatStore.getState().setActiveChatId(chat.id);
+            useChatStore.getState().setShouldOpenSettings(true);
+            useChatStore.getState().setShouldOpenWizard(true);
+            useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
+          },
+        },
+      );
+    },
+    [createChat],
+  );
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -76,6 +101,10 @@ export function BotBrowserPanel() {
             <button
               key={char.id}
               onClick={() => openCharacterDetail(char.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, charId: char.id, charName: char.name });
+              }}
               className="group flex items-center gap-2.5 rounded-xl p-2 text-left transition-all hover:bg-[var(--sidebar-accent)]"
             >
               <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm overflow-hidden">
@@ -96,6 +125,25 @@ export function BotBrowserPanel() {
           ))}
         </div>
       )}
+
+      {contextMenu &&
+        (() => {
+          const items: ContextMenuItem[] = [
+            {
+              label: "Quick Start Roleplay",
+              icon: <Wand2 size="0.75rem" />,
+              onSelect: () => quickStartFromCharacter(contextMenu.charId, contextMenu.charName, "roleplay"),
+            },
+            {
+              label: "Quick Start Conversation",
+              icon: <MessageCircle size="0.75rem" />,
+              onSelect: () => quickStartFromCharacter(contextMenu.charId, contextMenu.charName, "conversation"),
+            },
+          ];
+          return (
+            <ContextMenu x={contextMenu.x} y={contextMenu.y} items={items} onClose={() => setContextMenu(null)} />
+          );
+        })()}
     </div>
   );
 }

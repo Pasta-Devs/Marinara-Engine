@@ -18,9 +18,11 @@ export * from "./types/regex.js";
 export * from "./types/export.js";
 export * from "./types/haptic.js";
 export * from "./types/theme.js";
+export * from "./types/chat-preset.js";
 
 // Schemas
 export * from "./schemas/chat.schema.js";
+export * from "./schemas/chat-preset.schema.js";
 export * from "./schemas/character.schema.js";
 export * from "./schemas/lorebook.schema.js";
 export * from "./schemas/prompt.schema.js";

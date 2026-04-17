@@ -16,6 +16,8 @@ import {
   Users,
   Loader2,
   Bot,
+  Wand2,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
@@ -23,10 +25,12 @@ import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-pre
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../hooks/use-chats";
+import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { api } from "../../lib/api-client";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
-import type { Chat } from "@marinara-engine/shared";
+import type { Chat, ChatMode, ChatPreset } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Step definitions ─────────────────────────
@@ -543,6 +547,13 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const currentStep = STEPS[step]!;
   const isLast = step === STEPS.length - 1;
   const [showChoiceModal, setShowChoiceModal] = useState(false);
+  // Open in shortcut mode if the chat store flag was set (e.g. via right-click "Quick Start").
+  const [shortcutMode, setShortcutMode] = useState(() => {
+    const flag = useChatStore.getState().shouldOpenWizardInShortcutMode;
+    if (flag) useChatStore.getState().setShouldOpenWizardInShortcutMode(false);
+    return flag;
+  });
+  const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -559,6 +570,12 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: allPersonas } = usePersonas();
   const { data: allCharacters } = useCharacters();
   const { data: lorebooks } = useLorebooks();
+
+  // Chat-settings presets for the shortcut view
+  const chatPresetMode = ((chat as unknown as { mode?: string }).mode === "visual_novel" ? "roleplay" : "roleplay") as ChatMode;
+  const { data: chatPresetsData } = useChatPresets(chatPresetMode);
+  const chatPresetList = useMemo(() => (chatPresetsData ?? []) as ChatPreset[], [chatPresetsData]);
+  const applyChatPreset = useApplyChatPreset();
 
   const personas = (allPersonas ?? []) as Array<{ id: string; name: string; avatarPath: string | null }>;
   const characters = useMemo(
@@ -716,6 +733,31 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     },
     [chat.id, activeLorebookIds, updateMeta],
   );
+
+  // Default the shortcut dropdown to the Default preset once presets load
+  useEffect(() => {
+    if (shortcutPresetId) return;
+    const def = chatPresetList.find((p) => p.isDefault);
+    if (def) setShortcutPresetId(def.id);
+  }, [chatPresetList, shortcutPresetId]);
+
+  const [shortcutApplying, setShortcutApplying] = useState(false);
+
+  const handleShortcutApply = useCallback(async () => {
+    if (!shortcutPresetId) {
+      onFinish();
+      return;
+    }
+    try {
+      setShortcutApplying(true);
+      await applyChatPreset.mutateAsync({ presetId: shortcutPresetId, chatId: chat.id });
+    } catch {
+      /* fall through — still close the wizard */
+    } finally {
+      setShortcutApplying(false);
+      onFinish();
+    }
+  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
@@ -997,71 +1039,289 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         )}
       >
         <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 12, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-2xl"
-          >
-            {/* Sprite */}
-            <div className="mb-3 flex justify-center">
-              <img
-                src={currentStep.sprite}
-                alt="Professor Mari"
-                className="h-28 w-auto object-contain drop-shadow-lg"
-                style={currentStep.spriteFlip ? { transform: "scaleX(-1)" } : undefined}
-                draggable={false}
-              />
-            </div>
+          {shortcutMode ? (
+            <motion.div
+              key="shortcut"
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pointer-events-auto w-full max-w-sm max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+                <button
+                  onClick={() => setShortcutMode(false)}
+                  className="flex items-center gap-1.5 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                  aria-label="Back"
+                >
+                  <ArrowLeft size="0.875rem" />
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <Wand2 size="0.875rem" className="text-[var(--primary)]" />
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">Quick Setup</h3>
+                </div>
+                <button
+                  onClick={onFinish}
+                  className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                  aria-label="Close"
+                >
+                  <X size="0.875rem" />
+                </button>
+              </div>
 
-            {/* Title */}
-            <h3 className="mb-1 text-center text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h3>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                <p className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  Pick a preset, your persona, and any characters to instantly configure this roleplay.
+                </p>
 
-            {/* Body */}
-            <p className="mb-4 text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
-              {currentStep.body}
-            </p>
+                {/* Chat Preset */}
+                <div className="space-y-1.5">
+                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                    Chat Preset
+                  </label>
+                  <select
+                    value={shortcutPresetId}
+                    onChange={(e) => setShortcutPresetId(e.target.value)}
+                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                  >
+                    {chatPresetList.length === 0 && <option value="">Loading…</option>}
+                    {chatPresetList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.isDefault ? "Default" : p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* Step content */}
-            <div className="mb-4">{stepRenderers[currentStep.key]?.()}</div>
+                {/* Persona */}
+                <div className="space-y-1.5">
+                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                    Persona
+                  </label>
+                  <select
+                    value={chat.personaId ?? ""}
+                    onChange={(e) => setPersona(e.target.value || null)}
+                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                  >
+                    <option value="">None</option>
+                    {personas.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* Progress dots */}
-            <div className="mb-3 flex items-center justify-center gap-1.5">
-              {STEPS.map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300",
-                    i === step
-                      ? "w-4 bg-[var(--primary)]"
-                      : i < step
-                        ? "w-1.5 bg-[var(--primary)]/40"
-                        : "w-1.5 bg-[var(--muted-foreground)]/20",
+                {/* Characters */}
+                <div className="space-y-1.5">
+                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
+                    {chatCharIds.length > 1 ? (
+                      <span className="flex items-center gap-1.5">
+                        <Users size="0.6875rem" />
+                        Characters · {chatCharIds.length}
+                      </span>
+                    ) : (
+                      "Characters"
+                    )}
+                  </label>
+
+                  {chatCharIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-1.5">
+                      {chatCharIds.map((cid) => {
+                        const c = characters.find((ch) => ch.id === cid);
+                        if (!c) return null;
+                        const name = charName(c);
+                        return (
+                          <button
+                            key={cid}
+                            onClick={() => toggleCharacter(cid)}
+                            className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/15 pl-1 pr-2.5 py-1 text-xs ring-1 ring-[var(--primary)]/30 transition-all hover:bg-[var(--destructive)]/15 hover:ring-[var(--destructive)]/30 group"
+                          >
+                            {c.avatarPath ? (
+                              <img
+                                src={c.avatarPath}
+                                alt={name}
+                                loading="lazy"
+                                className="h-5 w-5 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5rem] font-bold">
+                                {name[0]}
+                              </div>
+                            )}
+                            <span className="truncate max-w-[6rem]">{name}</span>
+                            <X
+                              size="0.625rem"
+                              className="text-[var(--muted-foreground)] group-hover:text-[var(--destructive)]"
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                />
-              ))}
-            </div>
 
-            {/* Buttons */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={onFinish}
-                className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-              >
-                Skip
-              </button>
-              <button
-                onClick={next}
-                disabled={nextDisabled}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-              >
-                {isLast ? "Done" : "Next"}
-                {isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-              </button>
-            </div>
-          </motion.div>
+                  <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
+                    <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+                      <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      <input
+                        value={charSearch}
+                        onChange={(e) => setCharSearch(e.target.value)}
+                        placeholder="Search characters…"
+                        className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto">
+                      {characters
+                        .filter(
+                          (c) =>
+                            !chatCharIds.includes(c.id) &&
+                            charName(c).toLowerCase().includes(charSearch.toLowerCase()),
+                        )
+                        .map((c) => {
+                          const name = charName(c);
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => toggleCharacter(c.id)}
+                              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                            >
+                              {c.avatarPath ? (
+                                <img
+                                  src={c.avatarPath}
+                                  alt={name}
+                                  loading="lazy"
+                                  className="h-6 w-6 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
+                                  {name[0]}
+                                </div>
+                              )}
+                              <span className="flex-1 truncate text-xs">{name}</span>
+                              <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                            </button>
+                          );
+                        })}
+                      {characters.filter(
+                        (c) =>
+                          !chatCharIds.includes(c.id) &&
+                          charName(c).toLowerCase().includes(charSearch.toLowerCase()),
+                      ).length === 0 && (
+                        <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                          {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
+                            ? "All characters added."
+                            : "No matches."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-[var(--border)] px-4 py-3 flex items-center justify-between">
+                <button
+                  onClick={() => setShortcutMode(false)}
+                  className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleShortcutApply}
+                  disabled={shortcutApplying || !shortcutPresetId}
+                  className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                >
+                  {shortcutApplying ? (
+                    <>
+                      <Loader2 size="0.75rem" className="animate-spin" />
+                      Applying…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 size="0.75rem" />
+                      Apply &amp; Start
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-2xl"
+            >
+              {/* Sprite */}
+              <div className="mb-3 flex justify-center">
+                <img
+                  src={currentStep.sprite}
+                  alt="Professor Mari"
+                  className="h-28 w-auto object-contain drop-shadow-lg"
+                  style={currentStep.spriteFlip ? { transform: "scaleX(-1)" } : undefined}
+                  draggable={false}
+                />
+              </div>
+
+              {/* Title */}
+              <h3 className="mb-1 text-center text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h3>
+
+              {/* Body */}
+              <p className="mb-4 text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
+                {currentStep.body}
+              </p>
+
+              {/* Step content */}
+              <div className="mb-4">{stepRenderers[currentStep.key]?.()}</div>
+
+              {/* Progress dots */}
+              <div className="mb-3 flex items-center justify-center gap-1.5">
+                {STEPS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all duration-300",
+                      i === step
+                        ? "w-4 bg-[var(--primary)]"
+                        : i < step
+                          ? "w-1.5 bg-[var(--primary)]/40"
+                          : "w-1.5 bg-[var(--muted-foreground)]/20",
+                    )}
+                  />
+                ))}
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={onFinish}
+                  className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => setShortcutMode(true)}
+                  title="Apply a saved chat-settings preset and pick a persona + characters in one step"
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                >
+                  <Wand2 size="0.75rem" />
+                  <span className="hidden xs:inline sm:inline">Use Settings Presets</span>
+                  <span className="inline xs:hidden sm:hidden">Presets</span>
+                </button>
+                <button
+                  onClick={next}
+                  disabled={nextDisabled}
+                  className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                >
+                  {isLast ? "Done" : "Next"}
+                  {isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
+                </button>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </>
