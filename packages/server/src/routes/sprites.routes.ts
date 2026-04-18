@@ -5,8 +5,34 @@ import type { FastifyInstance } from "fastify";
 import { existsSync, mkdirSync, createReadStream, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
 import { writeFile, mkdir, readdir, unlink } from "fs/promises";
 import { join, extname } from "path";
-import sharp from "sharp";
 import { DATA_DIR } from "../utils/data-dir.js";
+
+// sharp is an optional dependency — native prebuilds don't exist for all platforms
+// (e.g. Android/Termux). Lazy-load so the server boots even when sharp is missing;
+// sprite-generation routes will return a clear error instead of crashing the process.
+// We intentionally avoid `import type` from "sharp" so tsc succeeds on platforms
+// where the package isn't installed at all.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SharpFn = any;
+let _sharp: SharpFn | null = null;
+let _sharpLoadError: Error | null = null;
+async function getSharp(): Promise<SharpFn> {
+  if (_sharp) return _sharp;
+  if (_sharpLoadError) throw _sharpLoadError;
+  try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - optional native dep, may not be installed on some platforms
+    const mod = await import("sharp");
+    _sharp = (mod.default ?? mod) as SharpFn;
+    return _sharp;
+  } catch {
+    _sharpLoadError = new Error(
+      "Image processing is unavailable on this platform (native 'sharp' module could not be loaded). " +
+        "Sprite generation and background removal are disabled.",
+    );
+    throw _sharpLoadError;
+  }
+}
 import { generateImage } from "../services/image/image-generation.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 
@@ -23,6 +49,7 @@ function ensureDir(dir: string) {
  * This works best when the model renders on a solid white backdrop.
  */
 async function removeNearWhiteBackgroundPng(input: Buffer, cleanupStrength = 50): Promise<Buffer> {
+  const sharp = await getSharp();
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 
   if (!info.width || !info.height) {
@@ -405,6 +432,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
             // Normalize to the expected portrait dimensions – some providers
             // ignore or snap the requested size, returning wider / square images.
+            const sharp = await getSharp();
             const meta = await sharp(spriteBuffer).metadata();
             if (meta.width && meta.height && (meta.width !== targetWidth || meta.height !== targetHeight)) {
               spriteBuffer = await sharp(spriteBuffer)
@@ -466,6 +494,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
       // Decode the generated image
       let sheetBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
+      const sharp = await getSharp();
       let metadata = await sharp(sheetBuffer).metadata();
 
       // If noBackground is requested, remove near-white background after generation.
@@ -504,7 +533,7 @@ export async function spritesRoutes(app: FastifyInstance) {
               .extract({ left, top, width: cellWidth, height: cellHeight })
               .png()
               .toBuffer()
-              .then((buf) => ({
+              .then((buf: Buffer) => ({
                 expression,
                 base64: buf.toString("base64"),
               })),

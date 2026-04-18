@@ -167,9 +167,6 @@ importers:
       png-chunks-extract:
         specifier: ^1.0.0
         version: 1.0.0
-      sharp:
-        specifier: ^0.34.5
-        version: 0.34.5
       undici:
         specifier: ^7.24.6
         version: 7.24.6
@@ -186,9 +183,6 @@ importers:
       '@types/pdf-parse':
         specifier: ^1.1.5
         version: 1.1.5
-      '@types/sharp':
-        specifier: ^0.32.0
-        version: 0.32.0
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
@@ -211,6 +205,9 @@ importers:
       onnxruntime-web:
         specifier: 1.24.3
         version: 1.24.3
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
       sql.js:
         specifier: ^1.12.0
         version: 1.14.1
@@ -2170,10 +2167,6 @@ packages:
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
-
-  '@types/sharp@0.32.0':
-    resolution: {integrity: sha512-OOi3kL+FZDnPhVzsfD37J88FNeZh6gQsGcLc95NbeURRGvmSjeXiDcyWzF2o3yh/gQAUn2uhh/e+CPCa5nwAxw==}
-    deprecated: This is a stub types definition. sharp provides its own type definitions, so you do not need this installed.
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -6282,10 +6275,6 @@ snapshots:
       csstype: 3.2.3
 
   '@types/resolve@1.20.2': {}
-
-  '@types/sharp@0.32.0':
-    dependencies:
-      sharp: 0.34.5
 
   '@types/trusted-types@2.0.7': {}
 
