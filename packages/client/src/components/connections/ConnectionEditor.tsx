@@ -625,45 +625,48 @@ export function ConnectionEditor() {
             )}
           </FieldGroup>
 
+          {/* ── Image Service (only for image_generation provider) ── */}
+          {localProvider === "image_generation" && (
+            <FieldGroup
+              label="Image Service"
+              icon={<Globe size="0.875rem" className="text-sky-400" />}
+              help="Select which image generation service to use. This sets the Base URL automatically. You can also set a custom URL in the Base URL field above."
+            >
+              <div className="grid grid-cols-2 gap-1.5">
+                {IMAGE_GENERATION_SOURCES.map((src) => {
+                  const isActive = localBaseUrl === src.defaultBaseUrl;
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => {
+                        setLocalBaseUrl(src.defaultBaseUrl);
+                        markDirty();
+                      }}
+                      className={cn(
+                        "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
+                        isActive
+                          ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
+                          : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{src.name}</span>
+                        {isActive && <Check size="0.625rem" />}
+                      </div>
+                      <span className="text-[0.5625rem] opacity-70">{src.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </FieldGroup>
+          )}
+
           {/* ── Model Selection ── */}
           <FieldGroup
             label="Model"
             icon={<Server size="0.875rem" className="text-sky-400" />}
             help="The specific AI model to use. You can pick from the list or type a custom model ID directly."
           >
-            {/* Image generation: show service quick-pick as base URL helper */}
-            {localProvider === "image_generation" && (
-              <div className="mb-3 space-y-1.5">
-                <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
-                  Service (sets Base URL)
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {IMAGE_GENERATION_SOURCES.map((src) => {
-                    const isActive = localBaseUrl === src.defaultBaseUrl;
-                    return (
-                      <button
-                        key={src.id}
-                        onClick={() => {
-                          setLocalBaseUrl(src.defaultBaseUrl);
-                          markDirty();
-                        }}
-                        className={cn(
-                          "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
-                          isActive
-                            ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                        )}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium">{src.name}</span>
-                          {isActive && <Check size="0.625rem" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
             {/* Standard model dropdown + manual input (used for all providers including image_generation) */}
             <div ref={modelTriggerRef} className="relative">
               <div
