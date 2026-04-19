@@ -728,7 +728,7 @@ export function PersonasPanel() {
             <div
               key={persona.id}
               className={cn(
-                "group flex items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
+                "group relative flex items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
                 selectionMode && isBulkSelected && "ring-1 ring-emerald-400/40 bg-emerald-400/8",
                 active && "ring-1 ring-emerald-400/40 bg-emerald-400/5",
                 assigningToGroup && isInTargetGroup && "ring-1 ring-violet-500/50 bg-violet-500/10",
@@ -807,7 +807,7 @@ export function PersonasPanel() {
 
               {/* Actions */}
               {!selectionMode && (
-                <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
                   {!active && (
                     <button
                       onClick={(e) => {

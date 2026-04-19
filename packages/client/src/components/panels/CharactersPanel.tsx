@@ -684,7 +684,7 @@ export function CharactersPanel() {
                 >
                   {/* Group header */}
                   <div
-                    className="group flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer"
+                    className="group relative flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer"
                     onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
                   >
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-purple-600 text-white shadow-sm">
@@ -712,7 +712,7 @@ export function CharactersPanel() {
                         </>
                       )}
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100 max-md:opacity-100">
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
                       {activeChat && (
                         <button
                           onClick={(e) => {
@@ -915,7 +915,7 @@ export function CharactersPanel() {
                 });
               }}
               className={cn(
-                "group flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
+                "group relative flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
                 selectionMode && isBulkSelected && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/8",
                 isSelected && !assigningToGroup && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/5",
                 assigningToGroup && isInTargetGroup && "ring-1 ring-violet-500/50 bg-violet-500/10",
@@ -1021,7 +1021,7 @@ export function CharactersPanel() {
 
               {/* Actions (hidden during group assign mode) */}
               {!assigningToGroup && !selectionMode && (
-                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100 max-md:opacity-100">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
                   {activeChat && (
                     <button
                       onClick={(e) => {

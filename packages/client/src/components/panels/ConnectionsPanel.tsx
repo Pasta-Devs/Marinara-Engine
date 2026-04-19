@@ -271,7 +271,7 @@ export function ConnectionsPanel() {
               key={conn.id}
               onClick={() => openConnectionDetail(conn.id)}
               className={cn(
-                "group flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
                 isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
               )}
             >
@@ -302,7 +302,7 @@ export function ConnectionsPanel() {
                   {conn.provider} • {conn.model || "No model set"}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-0.5">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -312,7 +312,7 @@ export function ConnectionsPanel() {
                     "rounded-lg p-1.5 transition-all active:scale-90",
                     inRandomPool
                       ? "bg-amber-400/15 text-amber-400"
-                      : "text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 max-md:opacity-100 hover:bg-amber-400/10 hover:text-amber-400",
+                      : "text-[var(--muted-foreground)] hover:bg-amber-400/10 hover:text-amber-400",
                   )}
                   title={inRandomPool ? "In random pool (click to remove)" : "Add to random pool"}
                 >
@@ -327,7 +327,7 @@ export function ConnectionsPanel() {
                       },
                     });
                   }}
-                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-all hover:bg-sky-400/10 hover:text-sky-400 active:scale-90"
+                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-sky-400/10 hover:text-sky-400 active:scale-90"
                   title="Duplicate connection"
                 >
                   <Copy size="0.8125rem" />
@@ -337,7 +337,7 @@ export function ConnectionsPanel() {
                     e.stopPropagation();
                     deleteConnection.mutate(conn.id);
                   }}
-                  className="rounded-lg p-1.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100 max-md:opacity-100 active:scale-90"
+                  className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15 active:scale-90"
                 >
                   <Trash2 size="0.8125rem" className="text-[var(--destructive)]" />
                 </button>
