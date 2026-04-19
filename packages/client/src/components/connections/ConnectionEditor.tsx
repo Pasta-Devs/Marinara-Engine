@@ -1010,13 +1010,13 @@ export function ConnectionEditor() {
               </div>
               <span className="text-sm">
                 {isImageGenerationProvider
-                  ? "Use as default Illustrator image connection"
+                  ? "Use as default Illustrator agent connection"
                   : "Use as default agent connection"}
               </span>
             </label>
             {isImageGenerationProvider && (
               <p className="px-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                Only one image generation connection should be marked as the default for Illustrator.
+                Only one image generation connection should be marked as the default for the Illustrator agent.
               </p>
             )}
           </FieldGroup>

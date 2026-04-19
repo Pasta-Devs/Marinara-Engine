@@ -36,7 +36,7 @@ export function createConnectionsStorage(db: DB) {
     /** Get the connection marked as default for agents (with decrypted key). */
     async getDefaultForAgents() {
       const rows = await db.select().from(apiConnections).where(eq(apiConnections.defaultForAgents, "true"));
-      const row = rows[0];
+      const row = rows.find((candidate) => candidate.provider !== "image_generation");
       if (!row) return null;
       return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
     },
@@ -48,9 +48,24 @@ export function createConnectionsStorage(db: DB) {
       if (input.isDefault) {
         await db.update(apiConnections).set({ isDefault: "false" });
       }
-      // If this is set as default for agents, unset others
+      // If this is set as default for agents, unset others in the same provider category
       if (input.defaultForAgents) {
-        await db.update(apiConnections).set({ defaultForAgents: "false" });
+        if (input.provider === "image_generation") {
+          await db
+            .update(apiConnections)
+            .set({ defaultForAgents: "false" })
+            .where(and(eq(apiConnections.defaultForAgents, "true"), eq(apiConnections.provider, "image_generation")));
+        } else {
+          const existingDefaults = await db
+            .select()
+            .from(apiConnections)
+            .where(eq(apiConnections.defaultForAgents, "true"));
+          for (const row of existingDefaults) {
+            if (row.provider !== "image_generation") {
+              await db.update(apiConnections).set({ defaultForAgents: "false" }).where(eq(apiConnections.id, row.id));
+            }
+          }
+        }
       }
       await db.insert(apiConnections).values({
         id,
@@ -76,6 +91,10 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async update(id: string, data: Partial<CreateConnectionInput>) {
+      const existing = await this.getById(id);
+      if (!existing) return null;
+
+      const effectiveProvider = data.provider ?? existing.provider;
       const updateFields: Record<string, unknown> = { updatedAt: now() };
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.provider !== undefined) updateFields.provider = data.provider;
@@ -94,7 +113,22 @@ export function createConnectionsStorage(db: DB) {
       }
       if (data.defaultForAgents !== undefined) {
         if (data.defaultForAgents) {
-          await db.update(apiConnections).set({ defaultForAgents: "false" });
+          if (effectiveProvider === "image_generation") {
+            await db
+              .update(apiConnections)
+              .set({ defaultForAgents: "false" })
+              .where(and(eq(apiConnections.defaultForAgents, "true"), eq(apiConnections.provider, "image_generation")));
+          } else {
+            const existingDefaults = await db
+              .select()
+              .from(apiConnections)
+              .where(eq(apiConnections.defaultForAgents, "true"));
+            for (const row of existingDefaults) {
+              if (row.provider !== "image_generation") {
+                await db.update(apiConnections).set({ defaultForAgents: "false" }).where(eq(apiConnections.id, row.id));
+              }
+            }
+          }
         }
         updateFields.defaultForAgents = String(data.defaultForAgents);
       }

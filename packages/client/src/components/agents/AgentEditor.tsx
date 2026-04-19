@@ -151,17 +151,7 @@ export function AgentEditor() {
           : dbConfig.settings
         : {};
       setLocalContextSize(settings.contextSize ?? "");
-      {
-        const saved = settings.imageConnectionId ?? "";
-        if (saved) {
-          setLocalImageConnectionId(saved);
-        } else {
-          const defaultImgConnDb = (connections as Array<{ id: string; provider: string }> | undefined)?.find(
-            (c) => c.provider === "image_generation",
-          );
-          setLocalImageConnectionId(defaultImgConnDb?.id ?? "");
-        }
-      }
+      setLocalImageConnectionId((settings.imageConnectionId as string) ?? "");
       setLocalRunInterval(settings.runInterval ?? "");
       setLocalInjectAsSection(settings.injectAsSection ?? false);
       setLocalEnabledTools(settings.enabledTools ?? DEFAULT_AGENT_TOOLS[dbConfig.type] ?? []);
@@ -176,11 +166,7 @@ export function AgentEditor() {
       setLocalDescription(builtIn.description);
       setLocalPhase(builtIn.phase);
       setLocalConnectionId("");
-      // Default image connection to the first image_generation provider when creating a new agent
-      const defaultImgConn = (connections as Array<{ id: string; provider: string }> | undefined)?.find(
-        (c) => c.provider === "image_generation",
-      );
-      setLocalImageConnectionId(defaultImgConn?.id ?? "");
+      setLocalImageConnectionId("");
       setLocalContextSize("");
       setLocalRunInterval("");
       setLocalInjectAsSection(builtIn.defaultInjectAsSection ?? false);
@@ -197,10 +183,7 @@ export function AgentEditor() {
       setLocalDescription("");
       setLocalPhase("post_processing");
       setLocalConnectionId("");
-      const defaultImgConnNew = (connections as Array<{ id: string; provider: string }> | undefined)?.find(
-        (c) => c.provider === "image_generation",
-      );
-      setLocalImageConnectionId(defaultImgConnNew?.id ?? "");
+      setLocalImageConnectionId("");
       setLocalContextSize("");
       setLocalRunInterval("");
       setLocalInjectAsSection(false);
@@ -263,6 +246,22 @@ export function AgentEditor() {
   // Whether the prompt textarea shows the default or a custom override
   const isUsingDefaultPrompt = !localPrompt.trim();
   const _displayPrompt = isUsingDefaultPrompt ? defaultPrompt : localPrompt;
+
+  const allConnections =
+    (connections as
+      | Array<{ id: string; name: string; provider: string; defaultForAgents?: boolean | string }>
+      | undefined) ?? [];
+
+  const llmConnections = allConnections.filter((conn) => conn.provider !== "image_generation");
+  const imageConnections = allConnections.filter((conn) => conn.provider === "image_generation");
+
+  const defaultAgentConn = allConnections.find(
+    (c) => c.provider !== "image_generation" && (c.defaultForAgents === true || c.defaultForAgents === "true"),
+  );
+
+  const defaultIllustratorImageConn = imageConnections.find(
+    (c) => c.defaultForAgents === true || c.defaultForAgents === "true",
+  );
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -542,16 +541,9 @@ export function AgentEditor() {
               className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
             >
               <option value="">
-                {(() => {
-                  const defaultAgentConn = (
-                    connections as
-                      | Array<{ id: string; name: string; provider: string; defaultForAgents: boolean | string }>
-                      | undefined
-                  )?.find((c) => c.defaultForAgents === true || c.defaultForAgents === "true");
-                  return defaultAgentConn ? `Agent default (${defaultAgentConn.name})` : "Use chat connection";
-                })()}
+                {defaultAgentConn ? `Agent default (${defaultAgentConn.name})` : "Use chat connection"}
               </option>
-              {(connections as Array<{ id: string; name: string; provider: string }> | undefined)?.map((conn) => (
+              {llmConnections.map((conn) => (
                 <option key={conn.id} value={conn.id}>
                   {conn.name} ({conn.provider})
                 </option>
@@ -566,9 +558,9 @@ export function AgentEditor() {
           {/* ── Image Generation Connection (Illustrator only) ── */}
           {(agentDetailId === "illustrator" || dbConfig?.type === "illustrator") && (
             <FieldGroup
-              label="Image Generation Connection"
+              label="Image Generation Connection Override"
               icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
-              help="The connection used to generate images. This should point to an image generation API (e.g. DALL-E, NovelAI, Stable Diffusion). The Connection Override above is used for the LLM that decides when and what to illustrate."
+              help="The connection used to generate images. This should point to an image generation API (e.g. DALL-E, NovelAI, Stable Diffusion). The Connection Override above is used for the LLM that decides when and what to illustrate. Leave this empty to use the default Illustrator image connection from Settings → Connections."
             >
               <select
                 value={localImageConnectionId}
@@ -578,8 +570,12 @@ export function AgentEditor() {
                 }}
                 className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               >
-                <option value="">None (no image generation)</option>
-                {(connections as Array<{ id: string; name: string; provider: string }> | undefined)?.map((conn) => (
+                <option value="">
+                  {defaultIllustratorImageConn
+                    ? `Illustrator agent default (${defaultIllustratorImageConn.name})`
+                    : "None (no image generation)"}
+                </option>
+                {imageConnections.map((conn) => (
                   <option key={conn.id} value={conn.id}>
                     {conn.name} ({conn.provider})
                   </option>
@@ -588,7 +584,7 @@ export function AgentEditor() {
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 The Illustrator uses two connections: the LLM above analyzes the scene and writes an image prompt, then
                 this connection generates the actual image from that prompt. Leave this empty to use the default
-                Illustrator image connection from Settings → Connections.
+                Illustrator image connection from Settings → Connections, if one is configured.
               </p>
               <label className="mt-3 flex items-center gap-2 cursor-pointer">
                 <input
