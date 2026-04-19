@@ -638,7 +638,7 @@ export function AgentEditor() {
                     className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   >
                     <option value="">None (select a connection)</option>
-                    {(connections as Array<{ id: string; name: string; provider: string }> | undefined)?.map((conn) => (
+                    {imageConnections.map((conn) => (
                       <option key={conn.id} value={conn.id}>
                         {conn.name} ({conn.provider})
                       </option>
