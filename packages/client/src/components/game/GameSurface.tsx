@@ -411,6 +411,7 @@ export function GameSurface({
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const tutorialAutoTriggeredRef = useRef(false);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
+  const hudSurfaceRef = useRef<HTMLDivElement>(null);
   const lastProcessedMsgRef = useRef<string | null>(null);
   const weatherMsgRef = useRef<string | null>(null);
   const sceneAnalysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2655,7 +2656,7 @@ export function GameSurface({
               )}
 
               {/* Main content area */}
-              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div ref={hudSurfaceRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
                 {/* Top-left: Map + Party portraits side by side */}
                 <div className="pointer-events-auto absolute left-3 top-3 z-20 flex items-start gap-2">
                   {/* Mobile: map icon button that opens modal */}
@@ -2669,16 +2670,15 @@ export function GameSurface({
                     />
                   </div>
                   {/* Desktop: inline minimap */}
-                  <div
-                    data-tour="game-map"
-                    className="hidden md:block w-52 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 shadow-lg backdrop-blur-sm"
-                  >
+                  <div className="hidden md:block">
                     <GameMapPanel
                       map={currentMap}
                       onMove={handleMapMove}
                       onGenerateMap={handleGenerateMap}
                       disabled={isStreaming || !narrationDone}
                       gameState={gameState}
+                      chatId={activeChatId}
+                      constraintsRef={hudSurfaceRef}
                     />
                   </div>
 
@@ -2978,12 +2978,22 @@ export function GameSurface({
               {!combatUiActive && hudWidgets.length > 0 && (
                 <>
                   {/* Desktop: full widget cards */}
-                  <div className="pointer-events-none absolute inset-x-3 bottom-24 z-30 hidden items-start justify-between md:flex">
+                  <div className="pointer-events-none absolute inset-x-3 bottom-24 z-30 hidden items-end justify-between md:flex">
                     <div className="w-44">
-                      <GameWidgetPanel widgets={normalizedWidgets} position="hud_left" />
+                      <GameWidgetPanel
+                        widgets={normalizedWidgets}
+                        position="hud_left"
+                        chatId={activeChatId}
+                        constraintsRef={hudSurfaceRef}
+                      />
                     </div>
                     <div className="w-44">
-                      <GameWidgetPanel widgets={normalizedWidgets} position="hud_right" />
+                      <GameWidgetPanel
+                        widgets={normalizedWidgets}
+                        position="hud_right"
+                        chatId={activeChatId}
+                        constraintsRef={hudSurfaceRef}
+                      />
                     </div>
                   </div>
                 </>

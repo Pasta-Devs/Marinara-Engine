@@ -1,12 +1,14 @@
 // ──────────────────────────────────────────────
 // Game: Map Wrapper (switches between grid and node)
 // ──────────────────────────────────────────────
-import { useState, useCallback } from "react";
+import { useState, useCallback, type RefObject } from "react";
+import { motion } from "framer-motion";
 import type { GameMap, GameActiveState } from "@marinara-engine/shared";
 import { GameGridMap } from "./GameGridMap";
 import { GameNodeMap } from "./GameNodeMap";
 import { ChevronDown, ChevronUp, Map as MapIcon, Wand2, X, Compass, MessageCircle, Swords, Moon } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
 
 const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: string; color: string }> = {
   exploration: { icon: Compass, label: "Exploration", color: "text-emerald-300" },
@@ -25,14 +27,25 @@ interface GameMapProps {
   gameState?: GameActiveState;
 }
 
+interface GameMapPanelProps extends GameMapProps {
+  /** Chat id used to scope persisted lock + position so layouts don't bleed across games. */
+  chatId: string;
+  /** Ref to the game surface element used as a drag boundary. */
+  constraintsRef?: RefObject<HTMLElement | null>;
+}
+
 /** Desktop: inline collapsible panel. */
-export function GameMapPanel({ map, onMove, onGenerateMap, disabled, gameState }: GameMapProps) {
+export function GameMapPanel({ map, onMove, onGenerateMap, disabled, gameState, chatId, constraintsRef }: GameMapPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [stateHovered, setStateHovered] = useState(false);
+  const { locked, toggleLocked, x, y, handleDragEnd } = useDraggablePanel(chatId, "map");
 
   if (!map) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 p-3 text-[var(--muted-foreground)]">
+      <div
+        data-tour="game-map"
+        className="flex w-52 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-3 text-[var(--muted-foreground)] shadow-lg backdrop-blur-sm"
+      >
         <span className="text-[0.625rem]">No map yet</span>
         {onGenerateMap && (
           <button
@@ -53,10 +66,30 @@ export function GameMapPanel({ map, onMove, onGenerateMap, disabled, gameState }
   const StateIcon = stateCfg?.icon ?? null;
 
   return (
-    <div className="game-map-container flex flex-col gap-1 p-2">
-      <button
+    <motion.div
+      data-tour="game-map"
+      drag={!locked}
+      dragMomentum={false}
+      dragElastic={0}
+      dragConstraints={constraintsRef as RefObject<Element>}
+      onDragEnd={handleDragEnd}
+      style={{ x, y }}
+      className={cn(
+        "game-map-container flex w-52 flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-2 shadow-lg backdrop-blur-sm",
+        !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
+      )}
+    >
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setCollapsed(!collapsed)}
-        className="relative flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setCollapsed(!collapsed);
+          }
+        }}
+        className="relative flex cursor-pointer items-center gap-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
       >
         {/* State icon */}
         {StateIcon && (
@@ -83,15 +116,16 @@ export function GameMapPanel({ map, onMove, onGenerateMap, disabled, gameState }
             <span className="block truncate">{mapName}</span>
           )}
         </span>
+        <PanelLockButton locked={locked} onToggle={toggleLocked} size={11} />
         <span className="shrink-0">{collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}</span>
-      </button>
+      </div>
       {!collapsed &&
         (map.type === "grid" ? (
           <GameGridMap map={map} onCellClick={(x, y) => onMove({ x, y })} />
         ) : (
           <GameNodeMap map={map} onNodeClick={(nodeId) => onMove(nodeId)} disabled={disabled} />
         ))}
-    </div>
+    </motion.div>
   );
 }
 
