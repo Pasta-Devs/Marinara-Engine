@@ -154,6 +154,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       // ── Special handling for local image gen services ──
       const lowerBase = baseUrl.toLowerCase();
+      const sanitizeProviderBody = (body: string): string => {
+        if (body.includes("<html") || body.includes("<!DOCTYPE")) {
+          return "Provider returned an HTML page instead of JSON. Check the Base URL for this image service.";
+        }
+        return body.slice(0, 300);
+      };
 
       // ComfyUI: fetch checkpoints from object_info
       if (conn.provider === "image_generation" && (lowerBase.includes(":8188") || lowerBase.includes("comfyui"))) {
@@ -182,6 +188,27 @@ export async function connectionsRoutes(app: FastifyInstance) {
         };
       }
 
+      if (conn.provider === "image_generation" && lowerBase.includes("nano-gpt.com")) {
+        const res = await fetch(`${baseUrl}/image-models`, { headers });
+        if (!res.ok) {
+          const body = await res.text();
+          return reply.status(502).send({ error: `Provider returned ${res.status}: ${sanitizeProviderBody(body)}` });
+        }
+        const text = await res.text();
+        let json: Record<string, unknown>;
+        try {
+          json = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          return reply.status(502).send({
+            error: `Failed to fetch models: ${sanitizeProviderBody(text)}`,
+          });
+        }
+        const data = (json.data ?? []) as Array<{ id?: string; name?: string }>;
+        return {
+          models: data.map((m) => ({ id: m.id ?? "", name: m.name ?? m.id ?? "" })).filter((m) => m.id),
+        };
+      }
+
       let modelsUrl = `${baseUrl}${provider?.modelsEndpoint ?? "/models"}`;
       if (conn.provider === "google") {
         modelsUrl += `?key=${conn.apiKey}`;
@@ -191,11 +218,19 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (!res.ok) {
         const body = await res.text();
         return reply.status(502).send({
-          error: `Provider returned ${res.status}: ${body.slice(0, 300)}`,
+          error: `Provider returned ${res.status}: ${sanitizeProviderBody(body)}`,
         });
       }
 
-      const json = (await res.json()) as Record<string, unknown>;
+      const text = await res.text();
+      let json: Record<string, unknown>;
+      try {
+        json = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        return reply.status(502).send({
+          error: `Failed to fetch models: ${sanitizeProviderBody(text)}`,
+        });
+      }
 
       // Normalize across providers
       const models = normalizeModelsResponse(conn.provider, json);

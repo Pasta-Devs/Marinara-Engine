@@ -61,6 +61,7 @@ export async function generateImage(
   const resolvedSource = inferImageSource(source, baseUrl);
   switch (resolvedSource) {
     case "openai":
+    case "nanogpt":
       return generateOpenAI(baseUrl, apiKey, request);
     case "pollinations":
       return generatePollinations(request);
