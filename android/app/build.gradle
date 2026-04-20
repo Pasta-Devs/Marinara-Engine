@@ -8,6 +8,10 @@ android {
     namespace 'com.marinara.engine'
     compileSdk 34
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "com.marinara.engine"
         minSdk 24
