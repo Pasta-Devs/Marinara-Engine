@@ -744,4 +744,28 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
       required: ["volume"],
     },
   },
+  {
+    name: "read_chat_summary",
+    description:
+      "Read the current long-term conversation summary. Use this to maintain context on past events that are no longer in the recent message history.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "append_chat_summary",
+    description:
+      "Append new information to the long-term conversation summary. Use this to record important plot points, character developments, or world changes as they happen.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The new information to append to the summary (one or two concise paragraphs).",
+        },
+      },
+      required: ["text"],
+    },
+  },
 ];
