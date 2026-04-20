@@ -160,7 +160,7 @@ class SidecarProcessService {
     }
   }
 
-  private buildArgs(modelPath: string, gpuLayers: number): string[] {
+  private buildArgs(modelPath: string, gpuLayers: number, runtime: SidecarRuntimeInstall): string[] {
     const config = sidecarModelService.getConfig();
     const args = [
       "-m",
@@ -172,10 +172,13 @@ class SidecarProcessService {
       "--log-disable",
       "--ctx-size",
       String(config.contextSize),
-      "-sm",
-      "none",
     ];
 
+    // Workaround for https://github.com/ggml-org/llama.cpp/issues/21730:
+    // Gemma 4 crashes with split mode on multi-GPU CUDA setups.
+    if (/cuda/i.test(runtime.variant) && gpuLayers > 0) {
+      args.push("-sm", "none");
+    }
     args.push("-ngl", String(gpuLayers));
     return args;
   }
@@ -190,11 +193,13 @@ class SidecarProcessService {
       return [{ gpuLayers: config.gpuLayers, label: `gpuLayers=${config.gpuLayers}` }];
     }
 
-    const plans = [{ gpuLayers: 999, label: "max GPU offload" }];
     if (this.usesGpuRuntime(runtime)) {
-      plans.push({ gpuLayers: 0, label: "CPU fallback" });
+      return [
+        { gpuLayers: 999, label: "max GPU offload" },
+        { gpuLayers: 0, label: "CPU fallback" },
+      ];
     }
-    return plans;
+    return [{ gpuLayers: 0, label: "CPU only" }];
   }
 
   private shouldRetryStartup(error: unknown): error is LlamaServerExitError {
@@ -248,7 +253,7 @@ class SidecarProcessService {
       for (let attempt = 0; attempt < startupPlans.length; attempt += 1) {
         const plan = startupPlans[attempt]!;
         const port = await getFreePort();
-        const args = this.buildArgs(modelPath, plan.gpuLayers);
+        const args = this.buildArgs(modelPath, plan.gpuLayers, runtime);
         args.push("--port", String(port));
 
         const logStream = createWriteStream(sidecarRuntimeService.getLogPath(), { flags: "a" });

@@ -44,6 +44,13 @@ FROM node:22-slim AS production
 ARG PNPM_VERSION=10.30.3
 WORKDIR /app
 
+# llama-server dynamically links these at runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libssl3 \
+      libgomp1 \
+      libvulkan1 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Copy workspace config
