@@ -12,6 +12,8 @@ services:
     environment:
       - NODE_ENV=production
       - DATA_DIR=/app/data
+      # Set Timezone for Chat Schedules
+      # - TZ=Etc/UTC
     restart: unless-stopped
 
 volumes:
