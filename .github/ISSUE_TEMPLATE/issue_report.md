@@ -6,13 +6,6 @@ labels: ""
 assignees: ""
 ---
 
-## Template check (quick anti-skim)
-
-Please **uncheck (untick)** the box below before submitting so we know you read the template.
-It is intentionally pre-checked as a quick anti-skim step:
-
-- [x] I read this template and will provide the requested details.
-
 ## Summary
 
 <!-- What is wrong in one or two sentences? -->
@@ -45,3 +38,10 @@ It is intentionally pre-checked as a quick anti-skim step:
 ## Additional context
 
 <!-- Optional: related issue links, temporary workaround, etc. -->
+
+## Template check
+
+Please **uncheck (untick)** the box below before submitting so we know you read the template.
+It is intentionally pre-checked:
+
+- [x] I read this template and will provide the requested details.
