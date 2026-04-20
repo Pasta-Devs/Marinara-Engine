@@ -86,25 +86,7 @@ Detailed release notes now live in [CHANGELOG.md](CHANGELOG.md). Tagged releases
 - Different supported game modes, including more tabletop-like gameplay, point-and-click games, and classic text adventures.
 - Overall improvements and addressing any bugs that pop up along the way.
 
-## Project Docs
-
-- [docs/INSTALLATION.md](docs/INSTALLATION.md) — installation guide index (all platforms)
-- [docs/installation/windows.md](docs/installation/windows.md) — Windows installation guide
-- [docs/installation/macos-linux.md](docs/installation/macos-linux.md) — macOS / Linux installation guide
-- [docs/installation/android-termux.md](docs/installation/android-termux.md) — Android (Termux) installation guide
-- [docs/installation/containers.md](docs/installation/containers.md) — Docker / Podman deployment guide
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow, validation, versioning, and release steps
-- [CLAUDE.md](CLAUDE.md) — thin maintainer notes for contributors using Claude
-- [CHANGELOG.md](CHANGELOG.md) — release notes source of truth
-- [android/README.md](android/README.md) — Android WebView wrapper guide
-
----
-
 ## Installation
-
-Download **[Marinara-Engine-Installer-1.5.2.exe](https://github.com/Pasta-Devs/Marinara-Engine/releases/download/v1.5.2/Marinara-Engine-Installer-1.5.2.exe)** from the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page and run it. The installer lets you choose the install folder, checks for Node.js and Git, aligns pnpm to the repo-pinned version even if an older global pnpm is already installed, clones the repo, installs dependencies, builds the app, and creates desktop and Start Menu shortcuts with the Marinara icon.
-
-Choose a platform guide:
 
 | Platform | Guide |
 | -------- | ----- |
@@ -114,6 +96,16 @@ Choose a platform guide:
 | 🐳 Docker / Podman | [Container Installation Guide](docs/installation/containers.md) |
 
 Each guide covers installation and updating for that platform.
+
+---
+
+## Project Docs
+
+- [docs/INSTALLATION.md](docs/INSTALLATION.md) — installation guide index (all platforms)
+- [android/README.md](android/README.md) — Android WebView wrapper guide
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow, validation, versioning, and release steps
+- [CLAUDE.md](CLAUDE.md) — thin maintainer notes for contributors using Claude
+- [CHANGELOG.md](CHANGELOG.md) — release notes source of truth
 
 ---
 
