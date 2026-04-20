@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATA_DIR=/app/data
+      - TZ=${TZ:-UTC}
     restart: unless-stopped
 
 volumes:

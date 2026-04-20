@@ -8,6 +8,13 @@ docker compose up -d
 
 Then open **<http://127.0.0.1:7860>**.
 
+If you need schedules and other time-based behavior to follow your local timezone, set `TZ` in your compose `.env` (IANA zone format, for example `Asia/Manila`) before starting:
+
+```bash
+echo "TZ=Asia/Manila" >> .env
+docker compose up -d
+```
+
 Data (SQLite database, uploads, fonts, default backgrounds) is stored in the named volume `marinara-data`. To inspect it:
 
 ```bash
@@ -28,7 +35,7 @@ If you prefer to build the image yourself:
 git clone https://github.com/Pasta-Devs/Marinara-Engine.git
 cd Marinara-Engine
 docker build -t marinara-engine .
-docker run -d -p 7860:7860 -v marinara-data:/app/data marinara-engine
+docker run -d -p 7860:7860 -e TZ=Asia/Manila -v marinara-data:/app/data marinara-engine
 ```
 
 ## Podman
@@ -44,7 +51,7 @@ podman compose up -d
 Or:
 
 ```bash
-podman run -d -p 7860:7860 -v marinara-data:/app/data ghcr.io/pasta-devs/marinara-engine:latest
+podman run -d -p 7860:7860 -e TZ=Asia/Manila -v marinara-data:/app/data ghcr.io/pasta-devs/marinara-engine:latest
 ```
 
 > **Note:** `podman compose` requires the [`podman-compose`](https://github.com/containers/podman-compose/) plugin. On most distributions you can install it with `sudo dnf install podman-compose` (Fedora), `sudo apt install podman-compose` (Debian/Ubuntu), or `pip install podman-compose`.
