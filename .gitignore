@@ -45,3 +45,5 @@ release/
 
 # Installer artifacts are published on GitHub Releases, not tracked in source
 installer/*.exe
+start_dev_client.bat
+start_dev_server.bat
