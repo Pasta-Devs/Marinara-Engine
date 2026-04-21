@@ -2,6 +2,9 @@
 // Tool Executor — Handles built-in + custom function calls
 // ──────────────────────────────────────────────
 import type { LLMToolCall } from "../llm/base-provider.js";
+import type { DB } from "../../db/connection.js";
+import { createChatsStorage } from "../storage/chats.storage.js";
+import { parseExtra } from "../../routes/generate/generate-route-utils.js";
 import vm from "node:vm";
 
 export interface ToolExecutionResult {
@@ -38,6 +41,9 @@ export interface SpotifyCredentials {
 export async function executeToolCalls(
   toolCalls: LLMToolCall[],
   context?: {
+    db?: DB;
+    chatId?: string;
+    chatSummary?: string | null;
     gameState?: Record<string, unknown>;
     customTools?: CustomToolDef[];
     searchLorebook?: LorebookSearchFn;
@@ -79,6 +85,9 @@ async function executeSingleTool(
   name: string,
   args: Record<string, unknown>,
   context?: {
+    db?: DB;
+    chatId?: string;
+    chatSummary?: string | null;
     gameState?: Record<string, unknown>;
     customTools?: CustomToolDef[];
     searchLorebook?: LorebookSearchFn;
@@ -106,6 +115,10 @@ async function executeSingleTool(
       return spotifyPlay(args, context?.spotify);
     case "spotify_set_volume":
       return spotifySetVolume(args, context?.spotify);
+    case "read_chat_summary":
+      return readChatSummary(context);
+    case "append_chat_summary":
+      return appendChatSummary(args, context);
     default: {
       // Try custom tools
       const custom = context?.customTools?.find((t) => t.name === name);
@@ -559,5 +572,45 @@ async function spotifySetVolume(
     return { applied: true, volume, reason, display: `🔊 Volume → ${volume}%${reason ? ` (${reason})` : ""}` };
   } catch (err) {
     return { error: `Spotify volume failed: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+}
+
+async function readChatSummary(context?: { chatSummary?: string | null }): Promise<Record<string, unknown>> {
+  return {
+    summary: context?.chatSummary ?? "",
+    count: (context?.chatSummary ?? "").length,
+  };
+}
+
+async function appendChatSummary(
+  args: Record<string, unknown>,
+  context?: { db?: DB; chatId?: string; chatSummary?: string | null },
+): Promise<Record<string, unknown>> {
+  const text = String(args.text ?? "").trim();
+  if (!text) return { error: "text argument is required and cannot be empty" };
+
+  if (!context?.db || !context?.chatId) {
+    return { error: "Database context or Chat ID is missing. Summary cannot be updated." };
+  }
+
+  try {
+    const chatsStore = createChatsStorage(context.db);
+    const chat = await chatsStore.getById(context.chatId);
+    if (!chat) return { error: `Chat not found: ${context.chatId}` };
+
+    const meta = parseExtra(chat.metadata);
+    const existing = ((meta.summary as string) ?? "").trim();
+    const combined = existing ? `${existing}\n\n${text}` : text;
+
+    await chatsStore.updateMetadata(context.chatId, { ...meta, summary: combined });
+
+    return {
+      success: true,
+      newSummary: combined,
+      appended: text,
+      display: `📝 Appended to summary: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}"`,
+    };
+  } catch (err) {
+    return { error: `Failed to append summary: ${err instanceof Error ? err.message : "unknown"}` };
   }
 }

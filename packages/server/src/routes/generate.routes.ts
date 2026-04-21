@@ -4114,7 +4114,12 @@ export async function generateRoutes(app: FastifyInstance) {
                 resolvedSpotify.toolContext = {
                   tools: spotifyToolDefs,
                   executeToolCall: async (call) => {
-                    const results = await executeToolCalls([call], { spotify: spotifyCreds });
+                    const results = await executeToolCalls([call], {
+                      db: app.db,
+                      chatId: input.chatId,
+                      chatSummary: (chatMeta.summary as string) ?? null,
+                      spotify: spotifyCreds,
+                    });
                     return results[0]?.result ?? "Tool execution failed";
                   },
                 };
@@ -4242,6 +4247,9 @@ export async function generateRoutes(app: FastifyInstance) {
               });
 
               const toolResults = await executeToolCalls(result.toolCalls, {
+                db: app.db,
+                chatId: input.chatId,
+                chatSummary: (chatMeta.summary as string) ?? null,
                 customTools: customToolDefs,
                 spotify: spotifyCreds,
                 searchLorebook: async (query: string, category?: string | null) => {
