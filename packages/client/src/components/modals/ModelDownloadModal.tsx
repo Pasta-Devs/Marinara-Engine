@@ -7,8 +7,8 @@
 // ──────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
-import { BrainCircuit, Check, Download, HardDrive, Loader2, MessageSquare, Search, Server, X, Zap } from "lucide-react";
-import type { SidecarBackend, SidecarQuantization } from "@marinara-engine/shared";
+import { BrainCircuit, Check, ChevronDown, ChevronUp, Download, HardDrive, Loader2, MessageSquare, Search, Server, Settings2, X, Zap } from "lucide-react";
+import type { SidecarBackend, SidecarQuantization, SidecarRuntimePreference } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
 import { useSidecarStore } from "../../stores/sidecar.store.js";
 
@@ -38,6 +38,61 @@ function formatQuantizationLabel(quantization: SidecarQuantization | null, backe
 function formatRuntimeVariantLabel(variant: string | null): string | null {
   if (!variant) return null;
   return variant.replace(/-/g, " ");
+}
+
+function formatRuntimePreferenceLabel(preference: SidecarRuntimePreference): string {
+  switch (preference) {
+    case "auto":
+      return "Auto detect";
+    case "nvidia":
+      return "NVIDIA GPU (CUDA)";
+    case "amd":
+      return "AMD GPU";
+    case "intel":
+      return "Intel GPU";
+    case "vulkan":
+      return "Vulkan GPU";
+    case "cpu":
+      return "CPU only";
+    case "system":
+      return "System llama-server";
+    default:
+      return preference;
+  }
+}
+
+function describeGpuLayers(gpuLayers: number): string {
+  if (gpuLayers === -1) return "Auto offload";
+  if (gpuLayers === 0) return "CPU only";
+  return `${gpuLayers} GPU layers`;
+}
+
+function getRuntimePreferenceOptions(platform: string, arch: string): SidecarRuntimePreference[] {
+  if (platform === "win32" && arch === "x64") {
+    return ["auto", "nvidia", "amd", "intel", "vulkan", "cpu", "system"];
+  }
+
+  if (platform === "linux" && arch === "x64") {
+    return ["auto", "nvidia", "amd", "intel", "vulkan", "cpu", "system"];
+  }
+
+  if (platform === "linux" && arch === "arm64") {
+    return ["auto", "vulkan", "cpu", "system"];
+  }
+
+  if (platform === "win32" && arch === "arm64") {
+    return ["auto", "cpu", "system"];
+  }
+
+  if (platform === "darwin" && arch === "x64") {
+    return ["auto", "cpu", "system"];
+  }
+
+  if (platform === "android") {
+    return ["auto", "cpu"];
+  }
+
+  return ["auto", "cpu", "system"];
 }
 
 function ResponseBlock({ label, value }: { label: string; value: string }) {
@@ -75,6 +130,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     cancelDownload,
     unloadModel,
     restartRuntime,
+    installRuntime,
     sendTestMessage,
     testMessagePending,
     testMessageResult,
@@ -89,6 +145,11 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const [selectedQuant, setSelectedQuant] = useState<SidecarQuantization>("q8_0");
   const [repoInput, setRepoInput] = useState(config.customModelRepo ?? "");
   const [selectedCustomPath, setSelectedCustomPath] = useState("");
+  const [showRuntimeSettings, setShowRuntimeSettings] = useState(false);
+  const [gpuLayersInput, setGpuLayersInput] = useState(config.gpuLayers > 0 ? String(config.gpuLayers) : "");
+  const [gpuLayersModeDraft, setGpuLayersModeDraft] = useState<"auto" | "cpu" | "custom">(
+    config.gpuLayers === -1 ? "auto" : config.gpuLayers === 0 ? "cpu" : "custom",
+  );
 
   const activeBackend = runtime.backend ?? config.backend;
   const isSystemRuntime = runtime.source === "system";
@@ -107,6 +168,12 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     (status === "starting_server" || status === "downloaded");
   const isSetupBusy = isDownloading || status === "downloading_runtime" || isPreparingServer;
   const canFinish = status === "ready" && inferenceReady;
+  const runtimePreferenceOptions = getRuntimePreferenceOptions(platform, arch);
+  const gpuLayersMode = gpuLayersModeDraft;
+  const quickRuntimeSummary =
+    activeBackend === "mlx"
+      ? "MLX runtime"
+      : `${formatRuntimePreferenceLabel(config.runtimePreference)} • ${describeGpuLayers(config.gpuLayers)}`;
 
   useEffect(() => {
     if (!open) {
@@ -133,6 +200,17 @@ export function ModelDownloadModal({ open, onClose }: Props) {
       setSelectedCustomPath(customModels[0]!.path);
     }
   }, [customModels, selectedCustomPath]);
+
+  useEffect(() => {
+    setGpuLayersInput(config.gpuLayers > 0 ? String(config.gpuLayers) : "");
+    setGpuLayersModeDraft(config.gpuLayers === -1 ? "auto" : config.gpuLayers === 0 ? "cpu" : "custom");
+  }, [config.gpuLayers]);
+
+  useEffect(() => {
+    if (status === "server_error" || testMessageResult) {
+      setShowRuntimeSettings(true);
+    }
+  }, [status, testMessageResult]);
 
   const progress = downloadProgress;
   const progressPercent = progress && progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0;
@@ -195,6 +273,37 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     onClose();
   };
 
+  const handleRuntimePreferenceChange = (preference: SidecarRuntimePreference) => {
+    void updateConfig({ runtimePreference: preference });
+  };
+
+  const handleGpuLayersModeChange = (mode: "auto" | "cpu" | "custom") => {
+    setGpuLayersModeDraft(mode);
+
+    if (mode === "auto") {
+      void updateConfig({ gpuLayers: -1 });
+      return;
+    }
+
+    if (mode === "cpu") {
+      void updateConfig({ gpuLayers: 0 });
+      return;
+    }
+
+    if (config.gpuLayers <= 0) {
+      setGpuLayersInput("999");
+    }
+  };
+
+  const handleApplyCustomGpuLayers = () => {
+    const parsed = Number.parseInt(gpuLayersInput, 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 1024) {
+      return;
+    }
+    setGpuLayersModeDraft("custom");
+    void updateConfig({ gpuLayers: parsed });
+  };
+
   const handleCancelSetup = () => {
     if (isPreparingServer) {
       void unloadModel();
@@ -218,8 +327,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
             </p>
             <p className="mt-1.5 text-xs text-[var(--muted-foreground)]/70">
               {isAppleSilicon
-                ? "On Apple Silicon Macs, curated Gemma presets use MLX-native models. Marinara downloads its own private uv bootstrap automatically and keeps the MLX runtime inside its sidecar folder. Custom HuggingFace models on this path must also be MLX-native repos."
-                : "Runtime downloads are automatic per platform. You can use the curated Gemma 4 presets or any GGUF hosted on HuggingFace."}
+                ? "Set up the MLX runtime first if you want Marinara to keep it private and isolated, then choose either a curated Gemma preset or an MLX-native HuggingFace repo."
+                : "Set up the runtime first, then choose either a curated Gemma preset or any GGUF from HuggingFace. Runtime device selection lives inside Runtime Settings."}
             </p>
           </div>
         </div>
@@ -245,137 +354,312 @@ export function ModelDownloadModal({ open, onClose }: Props) {
         )}
 
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Server size="0.95rem" className="text-purple-300" />
-            Runtime
+          <div className="flex items-start justify-between gap-3 max-sm:flex-col">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Server size="0.95rem" className="text-purple-300" />
+                Runtime
+              </div>
+              <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                <span>Status: {runtimeStatusLabel}</span>
+                <span> • </span>
+                <span>{quickRuntimeSummary}</span>
+              </div>
+              <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">
+                {runtime.installed
+                  ? isSystemRuntime
+                    ? `Using system llama-server${runtime.systemPath ? `: ${runtime.systemPath}` : ""}`
+                    : runtime.variant
+                      ? `Installed runtime: ${formatRuntimeVariantLabel(runtime.variant)}`
+                      : "Runtime installed and ready to use."
+                  : hasModel
+                    ? "Your model is ready, but the runtime has not been installed yet."
+                    : "Install and configure the runtime here, then choose a model below."}
+              </div>
+              {status === "server_error" && (
+                <div className="mt-2 text-xs text-amber-200">Runtime startup failed. Open Runtime Settings for details.</div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowRuntimeSettings((current) => !current)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
+            >
+              <Settings2 size="0.875rem" />
+              Runtime Settings
+              {showRuntimeSettings ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
+            </button>
           </div>
-          <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]">
-            <span>Status: {runtimeStatusLabel}</span>
-            {isSetupBusy && (
-              <span>
-                Setup in progress. Marinara is still preparing the runtime or starting the local sidecar server.
-              </span>
-            )}
-            {runtime.installed && (
-              <span>
-                Runtime build: {runtime.build} • {runtime.variant}
-              </span>
-            )}
-            {isSystemRuntime && runtime.systemPath && <span>Using system llama-server: {runtime.systemPath}</span>}
-            {status === "server_error" && logPath && <span>Log: {logPath}</span>}
-          </div>
+
           {!isSetupBusy && (
             <div className="mt-3 flex flex-wrap gap-2">
+              {!runtime.installed ? (
+                <button
+                  onClick={() => void installRuntime()}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-purple-500/15 px-4 py-2 text-sm font-medium text-purple-300 transition-colors hover:bg-purple-500/25"
+                >
+                  <Download size="0.875rem" />
+                  {activeBackend === "mlx" ? "Install MLX Runtime" : "Install Runtime"}
+                </button>
+              ) : (
+                <>
+                  {hasModel && (
+                    <button
+                      onClick={() => void restartRuntime()}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-purple-500/15 px-4 py-2 text-sm font-medium text-purple-300 transition-colors hover:bg-purple-500/25"
+                    >
+                      <Loader2 size="0.875rem" />
+                      {status === "server_error" ? "Retry Startup" : inferenceReady ? "Restart Runtime" : "Start Runtime"}
+                    </button>
+                  )}
+                  {canReinstallRuntime && (
+                    <button
+                      onClick={() => void reinstallRuntime()}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]"
+                    >
+                      <Download size="0.875rem" />
+                      Reinstall Runtime
+                    </button>
+                  )}
+                </>
+              )}
               <button
-                onClick={() => void sendTestMessage()}
-                disabled={!hasModel || testMessagePending}
+                onClick={() => {
+                  setShowRuntimeSettings(true);
+                  void sendTestMessage();
+                }}
+                disabled={!hasModel || !runtime.installed || testMessagePending}
                 className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {testMessagePending ? <Loader2 size="0.875rem" className="animate-spin" /> : <MessageSquare size="0.875rem" />}
                 Send Test Message
               </button>
-              {!hasModel && (
-                <span className="self-center text-xs text-[var(--muted-foreground)]/70">
-                  Download or choose a model first to test the local runtime.
-                </span>
+            </div>
+          )}
+
+          {showRuntimeSettings && (
+            <div className="mt-4 flex flex-col gap-4 rounded-xl border border-[var(--border)]/80 bg-[var(--secondary)]/40 p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    Runtime Target
+                  </div>
+                  {activeBackend === "mlx" ? (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
+                      MLX chooses the Apple Silicon accelerator path automatically.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <select
+                          value={config.runtimePreference}
+                          onChange={(event) => handleRuntimePreferenceChange(event.target.value as SidecarRuntimePreference)}
+                          className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-purple-400/50 focus:ring-1 focus:ring-purple-400/20"
+                        >
+                          {runtimePreferenceOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {formatRuntimePreferenceLabel(option)}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size="0.95rem"
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
+                        />
+                      </div>
+                      <div className="text-xs text-[var(--muted-foreground)]/70">
+                        Pick the GPU family you actually want Marinara to target so it does not guess the wrong adapter.
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                    GPU Offload
+                  </div>
+                  {activeBackend === "mlx" ? (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-sm text-[var(--muted-foreground)]/75">
+                      MLX manages GPU offload automatically.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <select
+                          value={gpuLayersMode}
+                          onChange={(event) => handleGpuLayersModeChange(event.target.value as "auto" | "cpu" | "custom")}
+                          className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-purple-400/50 focus:ring-1 focus:ring-purple-400/20"
+                        >
+                          <option value="auto">Auto offload</option>
+                          <option value="cpu">CPU only</option>
+                          <option value="custom">Custom GPU layers</option>
+                        </select>
+                        <ChevronDown
+                          size="0.95rem"
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]/70"
+                        />
+                      </div>
+                      {gpuLayersMode === "custom" && (
+                        <div className="flex items-center justify-end gap-2">
+                          <input
+                            value={gpuLayersInput}
+                            onChange={(event) => setGpuLayersInput(event.target.value.replace(/[^\d]/g, ""))}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                handleApplyCustomGpuLayers();
+                              }
+                            }}
+                            placeholder="1-1024"
+                            inputMode="numeric"
+                            className="w-24 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-3 py-2 text-center text-sm text-[var(--foreground)] outline-none transition-colors focus:border-purple-400/50 focus:ring-1 focus:ring-purple-400/20"
+                          />
+                          <button
+                            onClick={handleApplyCustomGpuLayers}
+                            className="flex shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card)]"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      )}
+                      <div className="text-xs text-[var(--muted-foreground)]/70">
+                        Auto tries max offload first, CPU only disables GPU use, and custom lets you cap how many layers go to the GPU.
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {runtime.installed && (
+                <div className="flex flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3 text-xs text-[var(--muted-foreground)]/75">
+                  <span>Status: {runtimeStatusLabel}</span>
+                  {runtime.build && runtime.variant && <span>Runtime build: {runtime.build} • {runtime.variant}</span>}
+                  {isSystemRuntime && runtime.systemPath && <span>Using system llama-server: {runtime.systemPath}</span>}
+                </div>
+              )}
+
+              {status === "server_error" && (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+                  <div className="text-sm font-medium text-amber-200">Local runtime failed to start</div>
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">
+                    Marinara will keep working without the local model until you retry or change these settings.
+                  </div>
+                  <div className="mt-3 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
+                    {failedRuntimeVariant && <span>Runtime: {formatRuntimeVariantLabel(failedRuntimeVariant)}</span>}
+                    {startupError && <span>Error: {startupError}</span>}
+                    {logPath && <span>Log: {logPath}</span>}
+                  </div>
+                  <div className="mt-3 flex gap-2 max-sm:flex-col">
+                    <button
+                      onClick={() => void restartRuntime()}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
+                    >
+                      <Loader2 size="0.875rem" />
+                      Retry Startup
+                    </button>
+                    {canReinstallRuntime && (
+                      <button
+                        onClick={() => void reinstallRuntime()}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 px-4 py-2.5 text-sm text-amber-100 transition-colors hover:bg-amber-500/10"
+                      >
+                        <Download size="0.875rem" />
+                        Reinstall Runtime
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void updateConfig({ useForTrackers: false, useForGameScene: false })}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
+                    >
+                      Continue Without Local AI
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {testMessageResult && (
+                <div
+                  className={`rounded-xl border p-4 ${
+                    testMessageResult.success
+                      ? "border-emerald-500/25 bg-emerald-500/5"
+                      : "border-red-500/25 bg-red-500/5"
+                  }`}
+                >
+                  <div className={`text-sm font-medium ${testMessageResult.success ? "text-emerald-300" : "text-red-300"}`}>
+                    Local Test Message {testMessageResult.success ? "Succeeded" : "Failed"}
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">{testMessageResult.latencyMs}ms</div>
+                  {testMessageResult.success ? (
+                    <div className="mt-3 flex flex-col gap-3">
+                      {testMessageResult.nonce && (
+                        <div className="text-xs text-[var(--muted-foreground)]/75">
+                          Verification token: <span className="font-mono text-[var(--foreground)]">{testMessageResult.nonce}</span>
+                          {testMessageResult.nonceVerified ? " • echoed by model" : " • not echoed"}
+                        </div>
+                      )}
+                      {(testMessageResult.usage || testMessageResult.timings) && (
+                        <div className="text-xs text-[var(--muted-foreground)]/75">
+                          {testMessageResult.usage && (
+                            <span>
+                              Usage: prompt {testMessageResult.usage.promptTokens ?? "?"}, completion{" "}
+                              {testMessageResult.usage.completionTokens ?? "?"}, total {testMessageResult.usage.totalTokens ?? "?"}
+                            </span>
+                          )}
+                          {testMessageResult.usage && testMessageResult.timings && <span> • </span>}
+                          {testMessageResult.timings && (
+                            <span>
+                              Timings: prompt {testMessageResult.timings.promptMs ?? "?"}ms / gen{" "}
+                              {testMessageResult.timings.predictedMs ?? "?"}ms
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!!testMessageResult.messageContent && <ResponseBlock label="Message Content" value={testMessageResult.messageContent} />}
+                      {!!testMessageResult.reasoningContent && (
+                        <ResponseBlock label="Reasoning Content" value={testMessageResult.reasoningContent} />
+                      )}
+                      {!testMessageResult.messageContent && !testMessageResult.reasoningContent && (
+                        <ResponseBlock label="Response" value={testMessageResult.response} />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-col gap-1 text-xs text-red-200/90">
+                      <span>{testMessageResult.error || "No response received from the local runtime."}</span>
+                      {testMessageResult.failedRuntimeVariant && (
+                        <span>Runtime: {formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant)}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {runtimeDiagnostics && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
+                  <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">Diagnostics</div>
+                  <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
+                    {runtimeDiagnostics.gpuVendors.length > 0 && (
+                      <span>Detected GPU vendors: {runtimeDiagnostics.gpuVendors.join(", ")}</span>
+                    )}
+                    <span>
+                      Backend hints:
+                      {runtimeDiagnostics.preferCuda ? " CUDA" : ""}
+                      {runtimeDiagnostics.preferHip ? " HIP" : ""}
+                      {runtimeDiagnostics.preferRocm ? " ROCm" : ""}
+                      {runtimeDiagnostics.preferSycl ? " SYCL" : ""}
+                      {runtimeDiagnostics.preferVulkan ? " Vulkan" : ""}
+                      {!runtimeDiagnostics.preferCuda &&
+                      !runtimeDiagnostics.preferHip &&
+                      !runtimeDiagnostics.preferRocm &&
+                      !runtimeDiagnostics.preferSycl &&
+                      !runtimeDiagnostics.preferVulkan
+                        ? " none"
+                        : ""}
+                    </span>
+                    {runtimeDiagnostics.systemLlamaPath && <span>System llama-server: {runtimeDiagnostics.systemLlamaPath}</span>}
+                    {runtimeDiagnostics.launchCommand && <span>Last launch command: {runtimeDiagnostics.launchCommand}</span>}
+                  </div>
+                </div>
               )}
             </div>
           )}
         </div>
-
-        {testMessageResult && (
-          <div
-            className={`rounded-xl border p-4 ${
-              testMessageResult.success
-                ? "border-emerald-500/25 bg-emerald-500/5"
-                : "border-red-500/25 bg-red-500/5"
-            }`}
-          >
-            <div className={`text-sm font-medium ${testMessageResult.success ? "text-emerald-300" : "text-red-300"}`}>
-              Local Test Message {testMessageResult.success ? "Succeeded" : "Failed"}
-            </div>
-            <div className="mt-1 text-xs text-[var(--muted-foreground)]/75">{testMessageResult.latencyMs}ms</div>
-            {testMessageResult.success ? (
-              <div className="mt-3 flex flex-col gap-3">
-                {testMessageResult.nonce && (
-                  <div className="text-xs text-[var(--muted-foreground)]/75">
-                    Verification token: <span className="font-mono text-[var(--foreground)]">{testMessageResult.nonce}</span>
-                    {testMessageResult.nonceVerified ? " • echoed by model" : " • not echoed"}
-                  </div>
-                )}
-                {(testMessageResult.usage || testMessageResult.timings) && (
-                  <div className="text-xs text-[var(--muted-foreground)]/75">
-                    {testMessageResult.usage && (
-                      <span>
-                        Usage: prompt {testMessageResult.usage.promptTokens ?? "?"}, completion{" "}
-                        {testMessageResult.usage.completionTokens ?? "?"}, total {testMessageResult.usage.totalTokens ?? "?"}
-                      </span>
-                    )}
-                    {testMessageResult.usage && testMessageResult.timings && <span> • </span>}
-                    {testMessageResult.timings && (
-                      <span>
-                        Timings: prompt {testMessageResult.timings.promptMs ?? "?"}ms / gen {testMessageResult.timings.predictedMs ?? "?"}ms
-                      </span>
-                    )}
-                  </div>
-                )}
-                {!!testMessageResult.messageContent && <ResponseBlock label="Message Content" value={testMessageResult.messageContent} />}
-                {!!testMessageResult.reasoningContent && (
-                  <ResponseBlock label="Reasoning Content" value={testMessageResult.reasoningContent} />
-                )}
-                {!testMessageResult.messageContent && !testMessageResult.reasoningContent && (
-                  <ResponseBlock label="Response" value={testMessageResult.response} />
-                )}
-              </div>
-            ) : (
-              <div className="mt-3 flex flex-col gap-1 text-xs text-red-200/90">
-                <span>{testMessageResult.error || "No response received from the local runtime."}</span>
-                {testMessageResult.failedRuntimeVariant && (
-                  <span>Runtime: {formatRuntimeVariantLabel(testMessageResult.failedRuntimeVariant)}</span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {status === "server_error" && (
-          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
-            <div className="text-sm font-medium text-amber-200">Local runtime failed to start</div>
-            <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">
-              Marinara will keep working without the local model until you retry or change settings.
-            </div>
-            <div className="mt-3 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
-              {failedRuntimeVariant && <span>Runtime: {formatRuntimeVariantLabel(failedRuntimeVariant)}</span>}
-              {startupError && <span>Error: {startupError}</span>}
-              <span>Open this panel to retry startup, switch models, or temporarily disable local helpers.</span>
-              {logPath && <span>Log: {logPath}</span>}
-            </div>
-            <div className="mt-3 flex gap-2 max-sm:flex-col">
-              <button
-                onClick={() => void restartRuntime()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
-              >
-                <Loader2 size="0.875rem" />
-                Retry Startup
-              </button>
-              {canReinstallRuntime && (
-                <button
-                  onClick={() => void reinstallRuntime()}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 px-4 py-2.5 text-sm text-amber-100 transition-colors hover:bg-amber-500/10"
-                >
-                  <Download size="0.875rem" />
-                  Reinstall Runtime
-                </button>
-              )}
-              <button
-                onClick={() => void updateConfig({ useForTrackers: false, useForGameScene: false })}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]"
-              >
-                Continue Without Local AI
-              </button>
-            </div>
-          </div>
-        )}
 
         {isSetupBusy && (
           <div className="rounded-xl border border-purple-400/25 bg-purple-500/5 p-4">
@@ -604,34 +888,6 @@ export function ModelDownloadModal({ open, onClose }: Props) {
             </>
           )}
         </div>
-
-        {runtimeDiagnostics && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">
-            <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">Diagnostics</div>
-            <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
-              {runtimeDiagnostics.gpuVendors.length > 0 && (
-                <span>Detected GPU vendors: {runtimeDiagnostics.gpuVendors.join(", ")}</span>
-              )}
-              <span>
-                Backend hints:
-                {runtimeDiagnostics.preferCuda ? " CUDA" : ""}
-                {runtimeDiagnostics.preferHip ? " HIP" : ""}
-                {runtimeDiagnostics.preferRocm ? " ROCm" : ""}
-                {runtimeDiagnostics.preferSycl ? " SYCL" : ""}
-                {runtimeDiagnostics.preferVulkan ? " Vulkan" : ""}
-                {!runtimeDiagnostics.preferCuda &&
-                !runtimeDiagnostics.preferHip &&
-                !runtimeDiagnostics.preferRocm &&
-                !runtimeDiagnostics.preferSycl &&
-                !runtimeDiagnostics.preferVulkan
-                  ? " none"
-                  : ""}
-              </span>
-              {runtimeDiagnostics.systemLlamaPath && <span>System llama-server: {runtimeDiagnostics.systemLlamaPath}</span>}
-              {runtimeDiagnostics.launchCommand && <span>Last launch command: {runtimeDiagnostics.launchCommand}</span>}
-            </div>
-          </div>
-        )}
 
         {!hasModel && !isSetupBusy && (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 p-3">

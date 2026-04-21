@@ -92,7 +92,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   await registerRoutes(app);
 
   // ── Sidecar bootstrap (background) ──
-  void sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true }).catch((error) => {
+  void sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false }).catch((error) => {
     app.log.warn({ err: error }, "sidecar bootstrap failed");
   });
 

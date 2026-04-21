@@ -37,6 +37,7 @@ type ManagedRuntimeInstall = SidecarRuntimeInstall | MlxRuntimeInstall;
 type SyncOptions = {
   suppressKnownFailure?: boolean;
   forceStart?: boolean;
+  allowRuntimeInstall?: boolean;
 };
 
 class SidecarServerExitError extends Error {
@@ -87,6 +88,7 @@ class SidecarProcessService {
     await this.syncForCurrentConfig({
       suppressKnownFailure: !forceStart,
       forceStart,
+      allowRuntimeInstall: forceStart,
     });
     if (!this.ready || !this.baseUrl) {
       throw new Error(this.startupError ?? "The local sidecar server is not ready");
@@ -106,7 +108,21 @@ class SidecarProcessService {
       this.clearStartupFailure();
       this.currentSignature = null;
       await this.stopUnlocked();
-      await this.syncUnlocked();
+      await this.syncUnlocked({ allowRuntimeInstall: true });
+    });
+  }
+
+  async installRuntime(): Promise<void> {
+    return this.withLock(async () => {
+      this.clearStartupFailure();
+      const backend = sidecarModelService.getResolvedBackend();
+      await this.ensureRuntimeInstalled(backend);
+
+      if (sidecarModelService.getConfiguredModelRef() && sidecarModelService.isEnabled()) {
+        await this.syncUnlocked({ allowRuntimeInstall: false });
+      } else {
+        sidecarModelService.setStatus(sidecarModelService.getConfiguredModelRef() ? "downloaded" : "not_downloaded");
+      }
     });
   }
 
@@ -119,15 +135,16 @@ class SidecarProcessService {
       if (backend === "mlx") {
         mlxRuntimeService.resetRuntime();
       } else {
-        if (sidecarRuntimeService.getStatus().source === "system") {
+        if (sidecarRuntimeService.getStatus(sidecarModelService.getConfig().runtimePreference).source === "system") {
           throw new Error("The local runtime is using a system llama-server from PATH. Reinstall that runtime outside Marinara.");
         }
         sidecarRuntimeService.resetRuntime();
       }
 
       if (sidecarModelService.getConfiguredModelRef() && sidecarModelService.isEnabled()) {
-        await this.syncUnlocked();
+        await this.syncUnlocked({ allowRuntimeInstall: true });
       } else {
+        await this.ensureRuntimeInstalled(backend);
         sidecarModelService.setStatus(sidecarModelService.getConfiguredModelRef() ? "downloaded" : "not_downloaded");
       }
     });
@@ -171,9 +188,17 @@ class SidecarProcessService {
 
   private normalizeSyncOptions(options?: boolean | SyncOptions): SyncOptions {
     if (typeof options === "boolean") {
-      return { forceStart: options };
+      return { forceStart: options, allowRuntimeInstall: options };
     }
     return options ?? {};
+  }
+
+  private isRuntimeInstalled(backend: SidecarBackend): boolean {
+    if (backend === "mlx") {
+      return mlxRuntimeService.getStatus().installed;
+    }
+
+    return sidecarRuntimeService.getStatus(sidecarModelService.getConfig().runtimePreference).installed;
   }
 
   private async syncUnlocked(options: SyncOptions = {}): Promise<void> {
@@ -188,6 +213,13 @@ class SidecarProcessService {
     }
 
     if (!options.forceStart && !sidecarModelService.isEnabled()) {
+      await this.stopUnlocked();
+      this.clearStartupFailure();
+      sidecarModelService.setStatus("downloaded");
+      return;
+    }
+
+    if (!options.allowRuntimeInstall && !this.isRuntimeInstalled(backend)) {
       await this.stopUnlocked();
       this.clearStartupFailure();
       sidecarModelService.setStatus("downloaded");
@@ -224,9 +256,15 @@ class SidecarProcessService {
         });
       }
 
-      return await sidecarRuntimeService.ensureInstalled((progress) => {
-        sidecarModelService.emitExternalProgress(progress);
-      }, options);
+      return await sidecarRuntimeService.ensureInstalled(
+        (progress) => {
+          sidecarModelService.emitExternalProgress(progress);
+        },
+        {
+          ...options,
+          preference: sidecarModelService.getConfig().runtimePreference,
+        },
+      );
     } catch (error) {
       if (isAbortError(error)) {
         sidecarModelService.setStatus(sidecarModelService.getConfiguredModelRef() ? "downloaded" : "not_downloaded");
@@ -631,7 +669,7 @@ class SidecarProcessService {
     }
 
     try {
-      await this.syncForCurrentConfig();
+      await this.syncForCurrentConfig({ allowRuntimeInstall: false });
     } catch (error) {
       console.error("[sidecar] Auto-restart failed:", error);
       sidecarModelService.setStatus("server_error");

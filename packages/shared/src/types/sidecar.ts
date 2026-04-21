@@ -12,6 +12,10 @@ export type SidecarQuantization = "q8_0" | "q4_k_m";
 /** Runtime backend used by the built-in local model. */
 export type SidecarBackend = "llama_cpp" | "mlx";
 
+/** Which runtime target Marinara should prepare for llama.cpp-based local inference. */
+export const SIDECAR_RUNTIME_PREFERENCES = ["auto", "nvidia", "amd", "intel", "vulkan", "cpu", "system"] as const;
+export type SidecarRuntimePreference = (typeof SIDECAR_RUNTIME_PREFERENCES)[number];
+
 /** Where the active runtime comes from. */
 export type SidecarRuntimeSource = "bundled" | "system";
 
@@ -61,6 +65,8 @@ export interface SidecarConfig {
   contextSize: number;
   /** GPU layers to offload (-1 = try max GPU offload first, then fall back if startup fails). */
   gpuLayers: number;
+  /** Which runtime target to install for llama.cpp-based local inference. */
+  runtimePreference: SidecarRuntimePreference;
 }
 
 export interface SidecarRuntimeInfo {
@@ -216,6 +222,7 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   useForGameScene: true,
   contextSize: 8192,
   gpuLayers: -1,
+  runtimePreference: "auto",
 };
 
 /**

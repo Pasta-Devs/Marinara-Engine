@@ -437,7 +437,7 @@ export async function isInferenceAvailable(): Promise<boolean> {
   }
 
   try {
-    await sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true });
+    await sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false });
   } catch {
     return false;
   }
