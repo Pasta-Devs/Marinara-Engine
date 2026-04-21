@@ -840,6 +840,10 @@ export function GameNarration({
     }
     setActiveIndex(playerSegmentOffset);
     setVisibleChars(getSegmentStartVisibleChars(playerSegmentOffset));
+    // Clear the restore flag once we've advanced to a new message so the
+    // "segments grow after restore" effect below no longer snaps back to the
+    // stale saved index when segments rebuild for the new scene.
+    restoredRef.current = false;
     // For non-restore (new message), enable persistence and enter immediately
     segmentChangeReady.current = true;
     segmentEnterReady.current = true;
