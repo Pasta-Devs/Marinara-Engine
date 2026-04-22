@@ -534,6 +534,15 @@ const DEFAULT_COMFYUI_WORKFLOW: Record<string, unknown> = {
 
 const COMFYUI_GEN_TIMEOUT = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 120);
 
+function escapeJsonString(str: string): string {
+  return str
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
+}
+
 async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promise<ImageGenResult> {
   const base = baseUrl.replace(/\/+$/, "");
   const seed = Math.floor(Math.random() * 2 ** 32);
@@ -552,8 +561,8 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
 
   // Replace placeholders in the workflow JSON string
   let wfStr = JSON.stringify(workflow);
-  wfStr = wfStr.replace(/%prompt%/g, (request.prompt || "").replace(/"/g, '\\"'));
-  wfStr = wfStr.replace(/%negative_prompt%/g, (request.negativePrompt || "").replace(/"/g, '\\"'));
+  wfStr = wfStr.replace(/%prompt%/g, escapeJsonString(request.prompt || ""));
+  wfStr = wfStr.replace(/%negative_prompt%/g, escapeJsonString(request.negativePrompt || ""));
   wfStr = wfStr.replace(/%width%/g, String(request.width ?? 512));
   wfStr = wfStr.replace(/%height%/g, String(request.height ?? 768));
   wfStr = wfStr.replace(/%seed%/g, String(seed));
