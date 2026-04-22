@@ -1,0 +1,129 @@
+# ──────────────────────────────────────────────
+# Marinara Engine — Wolfi Lite Docker Build
+# ──────────────────────────────────────────────
+# Three-stage build using Chainguard Wolfi images:
+#   1. Builder  — full dev toolchain, compiles TS and bundles client
+#   2. Deps     — production-only node_modules (stripped of heavy native deps)
+#   3. Runtime  — minimal Wolfi base + Node.js 22 binary only
+#
+# Disabled features (MARINARA_LITE):
+#   • Local sidecar model (llama-server / Gemma)
+#   • Local embedding model (onnxruntime + all-MiniLM-L6-v2)
+#   • Memory recall (semantic search)
+# ──────────────────────────────────────────────
+
+# ── Stage 1: Build ──
+# Uses wolfi-base + nodejs-22 + npm so Node ABI matches across all stages.
+FROM cgr.dev/chainguard/wolfi-base AS builder
+ARG BUILD_COMMIT
+WORKDIR /app
+
+RUN apk add --no-cache nodejs-22 npm && \
+    npm install -g pnpm@10.30.3
+
+ENV MARINARA_LITE=true
+ENV VITE_MARINARA_LITE=true
+
+# Copy workspace config first (layer cache for deps)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
+COPY packages/client/package.json packages/client/
+
+# Install all dependencies (including dev for building)
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Copy source code
+COPY tsconfig.base.json ./
+COPY packages/shared/ packages/shared/
+COPY packages/server/ packages/server/
+COPY packages/client/ packages/client/
+
+# Build everything: shared → server + client in parallel
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN pnpm build
+
+# Bake the git commit into build-meta.json so the app can display it.
+RUN if [ -n "$BUILD_COMMIT" ]; then \
+      echo "{\"commit\":\"$BUILD_COMMIT\"}" > packages/server/dist/config/build-meta.json; \
+    fi
+
+# ── Stage 2: Production dependencies ──
+# Separate stage keeps builder cache warm while allowing aggressive dep stripping.
+FROM cgr.dev/chainguard/wolfi-base AS deps
+WORKDIR /app
+
+RUN apk add --no-cache nodejs-22 npm && \
+    npm install -g pnpm@10.30.3
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
+COPY packages/client/package.json packages/client/
+
+# Install production deps only, then strip non-core native modules.
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod && \
+    # ── Remove onnxruntime (native + WASM) ──
+    rm -rf /app/node_modules/.pnpm/onnxruntime-node@* \
+           /app/node_modules/.pnpm/onnxruntime-web@* \
+           /app/node_modules/.pnpm/onnxruntime-common@* \
+           /app/node_modules/onnxruntime-node \
+           /app/node_modules/onnxruntime-web \
+           /app/node_modules/onnxruntime-common && \
+    # ── Remove @huggingface/transformers (embedding model runtime) ──
+    rm -rf /app/node_modules/.pnpm/@huggingface+transformers@* \
+           /app/node_modules/@huggingface && \
+    # ── Remove sharp native binaries ──
+    rm -rf /app/node_modules/.pnpm/sharp@* \
+           /app/node_modules/sharp && \
+    # ── Sweep leftover native addons ──
+    find /app/node_modules/.pnpm -name '*.node' -path '*onnxruntime*' -delete 2>/dev/null; true
+
+# Archive node_modules preserving pnpm symlinks — Docker COPY
+# dereferences them which would break module resolution.
+RUN tar cf /tmp/node_modules.tar \
+    node_modules \
+    packages/shared/node_modules \
+    packages/server/node_modules 2>/dev/null; true
+
+# ── Stage 3: Minimal Wolfi runtime ──
+# Only the Node.js 22 binary — no npm, no build tools, no shell bloat.
+FROM cgr.dev/chainguard/wolfi-base AS production
+WORKDIR /app
+
+RUN apk add --no-cache nodejs-22-minimal && \
+    # Drop the package manager cache to save space
+    rm -rf /var/cache/apk/*
+
+# Extract prod node_modules (preserves pnpm symlinks).
+# Use a bind mount from the deps stage to avoid copying the tar into the image
+RUN --mount=type=bind,from=deps,source=/tmp/node_modules.tar,target=/tmp/node_modules.tar \
+    tar xf /tmp/node_modules.tar -C /app
+
+# Copy workspace manifests (pnpm resolution needs them)
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
+COPY packages/client/package.json packages/client/
+
+# Copy built artifacts from builder
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/server/dist packages/server/dist
+COPY --from=builder /app/packages/client/dist packages/client/dist
+
+# Ensure data directory exists
+RUN mkdir -p /app/data
+
+# Runtime feature flag
+ENV MARINARA_LITE=true
+ENV DATA_DIR=/app/data
+ENV PORT=7860
+ENV HOST=0.0.0.0
+ENV NODE_ENV=production
+
+VOLUME /app/data
+EXPOSE 7860
+
+CMD ["node", "packages/server/dist/index.js"]

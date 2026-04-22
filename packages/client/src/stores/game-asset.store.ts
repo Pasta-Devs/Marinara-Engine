@@ -55,7 +55,7 @@ export const useGameAssetStore = create<GameAssetStore>((set, get) => ({
   currentMusic: null,
   currentAmbient: null,
   currentBackground: null,
-  audioMuted: false,
+  audioMuted: localStorage.getItem("game-audio-muted") === "true",
 
   fetchManifest: async () => {
     set({ isLoading: true, error: null });
@@ -81,7 +81,10 @@ export const useGameAssetStore = create<GameAssetStore>((set, get) => ({
   setCurrentMusic: (tag) => set({ currentMusic: tag }),
   setCurrentAmbient: (tag) => set({ currentAmbient: tag }),
   setCurrentBackground: (tag) => set({ currentBackground: tag }),
-  setAudioMuted: (muted) => set({ audioMuted: muted }),
+  setAudioMuted: (muted) => {
+    localStorage.setItem("game-audio-muted", JSON.stringify(muted));
+    set({ audioMuted: muted });
+  },
 
   resolveAssetUrl: (tag: string) => {
     const { manifest } = get();

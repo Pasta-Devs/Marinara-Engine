@@ -42,6 +42,7 @@ async function recoverFromVersionSkew(serverVersion: string) {
 
 export function App() {
   const theme = useUIStore((s) => s.theme);
+  const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
   const fontSize = useUIStore((s) => s.fontSize);
   const language = useUIStore((s) => s.language);
   const visualTheme = useUIStore((s) => s.visualTheme);
@@ -55,7 +56,7 @@ export function App() {
 
   // Fetch sidecar status on mount so the Local AI card is populated when opened later.
   useEffect(() => {
-    void fetchSidecarStatus();
+    if (!isLite) void fetchSidecarStatus();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply theme + font size to the document root whenever they change
@@ -187,7 +188,7 @@ export function App() {
     <>
       <CustomThemeInjector />
       <AppShell />
-      <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />
+      {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
       {hasModalOpen && (
         <Suspense fallback={null}>
           <LazyModalRenderer />

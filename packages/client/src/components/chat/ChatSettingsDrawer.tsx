@@ -2405,7 +2405,7 @@ export function ChatSettingsDrawer({
                       }
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
                     >
-                      <option value="">Local sidecar (Gemma)</option>
+                      {import.meta.env.VITE_MARINARA_LITE !== "true" && <option value="">Local sidecar (Gemma)</option>}
                       {((connections ?? []) as Array<{ id: string; name: string; model?: string }>)
                         .filter((c) => (c as { provider?: string }).provider !== "image_generation")
                         .map((c) => (
@@ -2862,7 +2862,7 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Memory Recall — conversation mode: show here; roleplay: shown after Function Calling */}
-          {isConversation && (
+          {isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
@@ -3132,7 +3132,7 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Memory Recall — roleplay mode: show after Function Calling */}
-          {!isConversation && (
+          {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
