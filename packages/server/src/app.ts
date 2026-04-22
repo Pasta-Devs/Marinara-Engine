@@ -31,6 +31,7 @@ import {
 } from "./config/runtime-config.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
 
+const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const REVALIDATE_FILES = new Set(["index.html"]);
 const NO_STORE_FILES = new Set(["manifest.json", "sw.js", "registerSW.js"]);
 
@@ -100,10 +101,12 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── Routes ──
   await registerRoutes(app);
 
-  // ── Sidecar bootstrap (background) ──
-  void sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false }).catch((error) => {
-    app.log.warn({ err: error }, "sidecar bootstrap failed");
-  });
+  // ── Sidecar bootstrap (background, skipped in lite mode) ──
+  if (!isLite) {
+    void sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false }).catch((error) => {
+      app.log.warn({ err: error }, "sidecar bootstrap failed");
+    });
+  }
 
   // ── Serve client build in production ──
   const __dirname = dirname(fileURLToPath(import.meta.url));

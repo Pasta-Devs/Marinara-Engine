@@ -276,7 +276,7 @@ export function ConnectionsPanel() {
   return (
     <div className="flex flex-col gap-2 p-3">
       {/* ── Local Model (Sidecar) ── */}
-      <SidecarCard />
+      {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
 
       <button
         onClick={() => openModal("create-connection")}

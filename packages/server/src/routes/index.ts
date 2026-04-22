@@ -87,5 +87,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(appSettingsRoutes, { prefix: "/api/app-settings" });
   await app.register(gameRoutes, { prefix: "/api/game" });
   await app.register(gameAssetsRoutes, { prefix: "/api/game-assets" });
-  await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
+  if (process.env.MARINARA_LITE !== "true" && process.env.MARINARA_LITE !== "1") {
+    await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
+  }
 }
