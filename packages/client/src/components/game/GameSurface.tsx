@@ -418,7 +418,10 @@ export function GameSurface({
   } | null>(null);
   const [assetGenerationFailed, setAssetGenerationFailed] = useState(false);
   const [volumePopoverOpen, setVolumePopoverOpen] = useState(false);
-  const [masterVolume, setMasterVolume] = useState(50);
+  const [masterVolume, setMasterVolume] = useState(() => {
+    const saved = localStorage.getItem("game-master-volume");
+    return saved != null ? Number(saved) : 50;
+  });
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const tutorialAutoTriggeredRef = useRef(false);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
@@ -2242,6 +2245,7 @@ export function GameSurface({
   const handleVolumeChange = useCallback(
     (value: number) => {
       setMasterVolume(value);
+      localStorage.setItem("game-master-volume", String(value));
       const v = value / 100;
       audioManager.setVolumes(v * 0.6, v * 0.8, v * 0.5); // scale: music 60%, sfx 80%, ambient 50% of master
       if (value === 0 && !audioMuted) {
@@ -2252,6 +2256,13 @@ export function GameSurface({
     },
     [audioMuted],
   );
+
+  // Apply saved volume on mount so audioManager matches the persisted level
+  useEffect(() => {
+    const v = masterVolume / 100;
+    audioManager.setVolumes(v * 0.6, v * 0.8, v * 0.5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Close volume popover on outside click
   useEffect(() => {
@@ -2684,7 +2695,7 @@ export function GameSurface({
                         <div className="relative flex h-32 w-5 items-end justify-center rounded-full bg-white/10">
                           <div
                             className="absolute bottom-0 w-full rounded-full bg-[var(--primary)]/60"
-                            style={{ height: `${masterVolume}%` }}
+                            style={{ height: `${audioMuted ? 0 : masterVolume}%` }}
                           />
                           <input
                             type="range"
@@ -2696,7 +2707,19 @@ export function GameSurface({
                             style={{ writingMode: "vertical-lr", direction: "rtl" }}
                           />
                         </div>
-                        <span className="text-[10px] tabular-nums text-white/50">{masterVolume}</span>
+                        <span className="text-[10px] tabular-nums text-white/50">{audioMuted ? "M" : masterVolume}</span>
+                        <button
+                          onClick={handleToggleMute}
+                          className={cn(
+                            "flex h-6 w-6 items-center justify-center rounded-full transition-colors",
+                            audioMuted
+                              ? "bg-red-500/30 text-red-300 hover:bg-red-500/50"
+                              : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white",
+                          )}
+                          title={audioMuted ? "Unmute" : "Mute"}
+                        >
+                          {audioMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+                        </button>
                       </div>
                     )}
                   </div>
