@@ -15,6 +15,8 @@ import {
   Plug,
   Image,
   BookOpen,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import type { GameSetupConfig, GameGmMode } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
@@ -29,6 +31,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { usePersonas } from "../../hooks/use-characters";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useLorebooks } from "../../hooks/use-lorebooks";
+import { useGameAssetStore } from "../../stores/game-asset.store";
 
 interface GameSetupWizardProps {
   onComplete: (
@@ -103,6 +106,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   const [lbSearch, setLbSearch] = useState("");
   const [enableCustomWidgets, setEnableCustomWidgets] = useState(true);
   const [language, setLanguage] = useState("English");
+  const [startMuted, setStartMuted] = useState(false);
 
   const sidecarStatus = useSidecarStore((s) => s.status);
   const sidecarConfig = useSidecarStore((s) => s.config);
@@ -235,6 +239,9 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
 
   const handleComplete = () => {
     if (isLoading || !canStart) return;
+    if (startMuted) {
+      useGameAssetStore.getState().setAudioMuted(true);
+    }
     // Sync the wizard's local-scene toggle to the global sidecar config
     if (sidecarAvailable) {
       useSidecarStore.getState().updateConfig({ useForGameScene: sceneModelValue === "local" });
@@ -1197,6 +1204,41 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                 </div>
               </div>
             </div>
+
+          {/* Start Muted */}
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+            <button
+              onClick={() => setStartMuted(!startMuted)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <div className="flex items-center gap-2">
+                {startMuted ? (
+                  <VolumeX size={14} className="text-[var(--muted-foreground)]" />
+                ) : (
+                  <Volume2 size={14} className="text-[var(--primary)]" />
+                )}
+                <div>
+                  <p className="text-xs font-medium text-[var(--foreground)]">Start Muted</p>
+                  <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+                    Begin the game with all audio muted
+                  </p>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
+                  startMuted ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
+                )}
+              >
+                <div
+                  className={cn(
+                    "h-4 w-4 rounded-full bg-white transition-transform",
+                    startMuted && "translate-x-3.5",
+                  )}
+                />
+              </div>
+            </button>
+          </div>
           </>
         )}
       </div>

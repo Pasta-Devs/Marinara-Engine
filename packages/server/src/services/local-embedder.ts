@@ -15,6 +15,7 @@ import { DATA_DIR } from "../utils/data-dir.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
 const CACHE_DIR = join(DATA_DIR, "models");
+const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 
 // Singleton state
 let pipeline: any = null;
@@ -27,6 +28,7 @@ let loadFailed = false;
  */
 async function getPipeline(): Promise<any> {
   if (pipeline) return pipeline;
+  if (isLite) return null;
   if (loadFailed) return null;
   if (loadingPromise) return loadingPromise;
 
@@ -95,5 +97,6 @@ export async function localEmbed(texts: string[]): Promise<number[][] | null> {
  * Check if the local embedder is available (model loaded or loadable).
  */
 export function isLocalEmbedderAvailable(): boolean {
+  if (isLite) return false;
   return !loadFailed;
 }

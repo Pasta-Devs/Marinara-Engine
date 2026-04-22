@@ -1,0 +1,163 @@
+# ──────────────────────────────────────────────
+# Build & push lite container image to GHCR
+# ──────────────────────────────────────────────
+# Triggers:
+#   • Tag v*  → ghcr.io/pasta-devs/marinara-engine:1.5.4-lite + :lite
+#
+# NOT triggered on push to main — lite images are only published
+# alongside versioned releases.
+# ──────────────────────────────────────────────
+name: Build & Push Lite Container Image
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: image-lite-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        id: lower
+        run: echo "image=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}},suffix=-lite
+            type=semver,pattern={{major}}.{{minor}},suffix=-lite
+            type=semver,pattern={{major}},suffix=-lite
+            type=raw,value=lite
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.lite
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ steps.lower.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=lite-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=lite-${{ matrix.platform }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-lite-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        id: lower
+        run: echo "image=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-lite-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}},suffix=-lite
+            type=semver,pattern={{major}}.{{minor}},suffix=-lite
+            type=semver,pattern={{major}},suffix=-lite
+            type=raw,value=lite
+
+      - name: Create manifest list and push
+        id: manifest
+        working-directory: /tmp/digests
+        run: |
+          tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          image="${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}"
+          digests=$(printf "${image}@sha256:%s " *)
+          docker buildx imagetools create $tags $digests
+          digest=$(docker buildx imagetools inspect "$image:${{ steps.meta.outputs.version }}-lite" --raw | sha256sum | cut -d' ' -f1 | sed 's/^/sha256:/')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}:${{ steps.meta.outputs.version }}-lite
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.lower.outputs.image }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true

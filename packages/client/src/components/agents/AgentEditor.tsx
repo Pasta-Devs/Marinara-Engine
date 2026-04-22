@@ -564,7 +564,9 @@ export function AgentEditor() {
               <option value="">
                 {defaultAgentConn ? `Agent default (${defaultAgentConn.name})` : "Use chat connection"}
               </option>
-              <option value={LOCAL_SIDECAR_CONNECTION_ID}>Local Model (sidecar)</option>
+              {import.meta.env.VITE_MARINARA_LITE !== "true" && (
+                <option value={LOCAL_SIDECAR_CONNECTION_ID}>Local Model (sidecar)</option>
+              )}
               {llmConnections.map((conn) => (
                 <option key={conn.id} value={conn.id}>
                   {conn.name} ({conn.provider})

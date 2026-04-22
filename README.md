@@ -13,7 +13,28 @@
 
 ---
 
-## Screenshots
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Latest Release](#latest-release)
+- [Plans](#plans)
+- [Installation](#installation)
+- [Project Docs](#project-docs)
+- [Accessing from Mobile](#accessing-from-mobile-or-another-device)
+- [Features](#features)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Project Structure](#project-structure)
+- [Tech Stack](#tech-stack)
+- [Community & Support](#community--support)
+- [Contributors](#contributors)
+- [License](#license)
+
+---
+
+<details>
+<summary><h2>Screenshots</h2></summary>
 
 <p align="center">
   <img src="docs/screenshots/Desktop_Roleplay_View.png" width="90%" alt="Roleplay Chat — Desktop" />
@@ -71,6 +92,8 @@
   <em>Fully responsive — Conversations, Roleplay, and Game Mode all work on phones and tablets via PWA</em>
 </p>
 
+</details>
+
 ---
 
 ## Latest Release
@@ -79,12 +102,16 @@ Current stable release: **[v1.5.4](https://github.com/Pasta-Devs/Marinara-Engine
 
 Detailed release notes now live in [CHANGELOG.md](CHANGELOG.md). Tagged releases use the `vX.Y.Z` format, and GitHub Releases remain the publication mechanism for installers, release notes, and update metadata.
 
+---
+
 ## Plans
 
 - Adding Marinara Engine as a free-to-download app on both Android and iPhone mobiles.
 - An engine feature allowing you to set up full games with your curated sprites, soundtracks, scenarios, etc., and share them with others.
 - Different supported game modes, including more tabletop-like gameplay, point-and-click games, and classic text adventures.
 - Overall improvements and addressing any bugs that pop up along the way.
+
+---
 
 ## Installation
 
@@ -97,6 +124,10 @@ Detailed release notes now live in [CHANGELOG.md](CHANGELOG.md). Tagged releases
 
 Each guide covers installation and updating for that platform.
 
+### Windows Installer
+
+Download **[Marinara-Engine-Installer-1.5.4.exe](https://github.com/Pasta-Devs/Marinara-Engine/releases/download/v1.5.4/Marinara-Engine-Installer-1.5.4.exe)** from the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page and run it. The installer lets you choose the install folder, checks for Node.js and Git, aligns pnpm to the repo-pinned version even if an older global pnpm is already installed, clones the repo, installs dependencies, builds the app, and creates desktop and Start Menu shortcuts with the Marinara icon.
+
 ---
 
 ## Project Docs
@@ -106,10 +137,6 @@ Each guide covers installation and updating for that platform.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow, validation, versioning, and release steps
 - [CLAUDE.md](CLAUDE.md) — thin maintainer notes for contributors using Claude
 - [CHANGELOG.md](CHANGELOG.md) — release notes source of truth
-
-### Windows Installer
-
-Download **[Marinara-Engine-Installer-1.5.4.exe](https://github.com/Pasta-Devs/Marinara-Engine/releases/download/v1.5.4/Marinara-Engine-Installer-1.5.4.exe)** from the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page and run it. The installer lets you choose the install folder, checks for Node.js and Git, aligns pnpm to the repo-pinned version even if an older global pnpm is already installed, clones the repo, installs dependencies, builds the app, and creates desktop and Start Menu shortcuts with the Marinara icon.
 
 ---
 
@@ -134,26 +161,6 @@ If you started the app with bare `pnpm start`, set `HOST=0.0.0.0` first or use o
 3. **Install the PWA** from your browser for a more native app experience.
 
 > **Tip:** If you're not on the same network, tools like [Tailscale](https://tailscale.com/) give each device a stable IP address on a private network.
-
----
-
-## Development
-
-```bash
-# Start both server + client with hot reload
-pnpm dev
-
-# Canonical local validation (lint + build)
-pnpm check
-
-# Server only (port 7860)
-pnpm dev:server
-
-# Client only (port 5173, proxies API to server)
-pnpm dev:client
-```
-
-Contributor workflow, validation, and release/version policy live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -266,35 +273,6 @@ Copy `.env.example` to `.env` to customize:
 
 ---
 
-## Project Structure
-
-```text
-marinara-engine/
-├── packages/
-│   ├── client/       # React frontend (Vite + Tailwind v4)
-│   ├── server/       # Fastify API, SQLite database, AI agents, update routes
-│   └── shared/       # Shared types, schemas, constants, version data
-├── android/          # Android WebView wrapper for the Termux-served app
-├── installer/        # Windows installer sources and scripts
-├── docs/             # Screenshots and user documentation (installation + frontend)
-├── start.bat         # Windows launcher
-├── start.sh          # macOS/Linux launcher
-├── start-termux.sh   # Termux launcher
-└── .env.example      # Environment template
-```
-
-## Tech Stack
-
-| Layer    | Technology                                                     |
-| -------- | -------------------------------------------------------------- |
-| Frontend | React 19, Tailwind CSS v4, Framer Motion, Zustand, React Query |
-| Backend  | Fastify 5, Drizzle ORM, SQLite                                 |
-| PWA      | vite-plugin-pwa, Web App Manifest                              |
-| Shared   | TypeScript 5, Zod                                              |
-| Build    | Vite 6, pnpm workspaces                                        |
-
----
-
 ## Troubleshooting
 
 ### Windows: `EPERM: operation not permitted` when installing pnpm
@@ -317,6 +295,57 @@ Check both local data locations:
 2. `data/`
 
 Look for `marinara-engine.db` plus any `-wal` and `-shm` companion files. The server now logs the resolved `DATA_DIR` and database path on startup to help identify which one is active.
+
+---
+
+## Development
+
+```bash
+# Start both server + client with hot reload
+pnpm dev
+
+# Canonical local validation (lint + build)
+pnpm check
+
+# Server only (port 7860)
+pnpm dev:server
+
+# Client only (port 5173, proxies API to server)
+pnpm dev:client
+```
+
+Contributor workflow, validation, and release/version policy live in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Project Structure
+
+```text
+marinara-engine/
+├── packages/
+│   ├── client/       # React frontend (Vite + Tailwind v4)
+│   ├── server/       # Fastify API, SQLite database, AI agents, update routes
+│   └── shared/       # Shared types, schemas, constants, version data
+├── android/          # Android WebView wrapper for the Termux-served app
+├── installer/        # Windows installer sources and scripts
+├── docs/             # Screenshots and user documentation (installation + frontend)
+├── start.bat         # Windows launcher
+├── start.sh          # macOS/Linux launcher
+├── start-termux.sh   # Termux launcher
+└── .env.example      # Environment template
+```
+
+---
+
+## Tech Stack
+
+| Layer    | Technology                                                     |
+| -------- | -------------------------------------------------------------- |
+| Frontend | React 19, Tailwind CSS v4, Framer Motion, Zustand, React Query |
+| Backend  | Fastify 5, Drizzle ORM, SQLite                                 |
+| PWA      | vite-plugin-pwa, Web App Manifest                              |
+| Shared   | TypeScript 5, Zod                                              |
+| Build    | Vite 6, pnpm workspaces                                        |
 
 ---
 

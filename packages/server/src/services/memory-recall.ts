@@ -9,6 +9,7 @@ import type { DB } from "../db/connection.js";
 import { messages, memoryChunks } from "../db/schema/index.js";
 import { newId, now } from "../utils/id-generator.js";
 import { localEmbed } from "./local-embedder.js";
+const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 
 /** How many messages per chunk. */
 const CHUNK_SIZE = 5;
@@ -55,6 +56,7 @@ export async function chunkAndEmbedMessages(
   /** Map from role → display name. Used to format "Name: content" lines. */
   nameMap: { userName: string; characterNames: Record<string, string> },
 ): Promise<void> {
+  if (isLite) return;
   // Find the last chunk for this chat to know where to start
   const lastChunk = await db
     .select({ lastMessageAt: memoryChunks.lastMessageAt })
@@ -148,6 +150,7 @@ export async function recallMemories(
   chatIds: string[],
   topK: number = DEFAULT_TOP_K,
 ): Promise<RecalledMemory[]> {
+  if (isLite) return [];
   if (chatIds.length === 0) return [];
 
   // Embed the query using local model
