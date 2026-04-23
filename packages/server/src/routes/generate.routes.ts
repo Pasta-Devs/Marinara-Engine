@@ -3658,16 +3658,6 @@ export async function generateRoutes(app: FastifyInstance) {
           ? enabledCustomTools.filter((ct: any) => chatActiveToolIds.includes(ct.name))
           : enabledCustomTools;
         for (const ct of customFiltered) {
-          const schema =
-            typeof ct.parametersSchema === "string" ? JSON.parse(ct.parametersSchema) : ct.parametersSchema;
-          toolDefs.push({
-            type: "function" as const,
-            function: {
-              name: ct.name,
-              description: ct.description,
-              parameters: schema as Record<string, unknown>,
-            },
-          });
           customToolDefs.push({
             name: ct.name,
             executionType: ct.executionType,
@@ -3675,6 +3665,27 @@ export async function generateRoutes(app: FastifyInstance) {
             staticResult: ct.staticResult,
             scriptBody: ct.scriptBody,
           });
+
+          try {
+            const schema =
+              typeof ct.parametersSchema === "string"
+                ? JSON.parse(ct.parametersSchema)
+                : ct.parametersSchema;
+            if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+              throw new Error("parametersSchema must be a JSON object");
+            }
+
+            toolDefs.push({
+              type: "function" as const,
+              function: {
+                name: ct.name,
+                description: ct.description,
+                parameters: schema as Record<string, unknown>,
+              },
+            });
+          } catch {
+            console.warn(`[tools] Skipping custom tool "${ct.name}" with invalid parameter schema`);
+          }
         }
       }
 
