@@ -3697,6 +3697,7 @@ export async function generateRoutes(app: FastifyInstance) {
       }
 
       // ── Spotify Token Refresh (Early) ──
+      const resolvedToolNames = new Set((toolDefs ?? []).map((td) => td.function.name));
       const spotifyAgent =
         resolvedAgents.find((a) => a.type === "spotify") ??
         enabledConfigs.find((cfg: any) => cfg.type === "spotify") ??
@@ -4594,11 +4595,30 @@ export async function generateRoutes(app: FastifyInstance) {
                 tool_calls: result.toolCalls,
               });
 
-              const toolResults = await executeToolCalls(result.toolCalls, {
+              const permittedToolCalls = result.toolCalls.filter((call) => resolvedToolNames.has(call.function.name));
+              const deniedToolResults = result.toolCalls
+                .filter((call) => !resolvedToolNames.has(call.function.name))
+                .map((call) => ({
+                  toolCallId: call.id,
+                  name: call.function.name,
+                  result: JSON.stringify({
+                    error: `Tool not allowed in this context: ${call.function.name}`,
+                    allowed: Array.from(resolvedToolNames),
+                  }),
+                  success: false,
+                }));
+
+              const executedToolResults = await executeToolCalls(permittedToolCalls, {
                 customTools: customToolDefs,
                 spotify: spotifyCreds,
                 searchLorebook: searchLorebookForTools,
               });
+              const toolResultsById = new Map(
+                [...executedToolResults, ...deniedToolResults].map((result) => [result.toolCallId, result]),
+              );
+              const toolResults = result.toolCalls
+                .map((call) => toolResultsById.get(call.id))
+                .filter((toolResult): toolResult is NonNullable<typeof toolResult> => toolResult != null);
 
               for (const tr of toolResults) {
                 reply.raw.write(
