@@ -66,7 +66,6 @@ A **lite** image variant is available that trades some offline features for a si
 
 All core features — chat, roleplay, game mode, agents, lorebooks, characters, connections to remote LLM APIs — work exactly the same. You just need an external API connection (OpenRouter, OpenAI, Ollama, etc.) for all LLM features instead of being able to run a model locally via ME.
 
-
 ### Pre-built image
 
 ```bash
@@ -112,3 +111,10 @@ podman compose down && podman compose pull && podman compose up -d
 You can also go to **Settings → Advanced → Updates** and click **Check for Updates**. For container installs, the UI shows the command to run: `docker compose pull && docker compose up -d`.
 
 > Container images are published from `v*` release tags. Auto-update is not available for container installs; you pull new images manually.
+
+---
+
+## See Also
+
+- [Configuration Reference](../CONFIGURATION.md) — environment variables and `.env` setup
+- [Troubleshooting](../TROUBLESHOOTING.md) — common issues and fixes (includes container permission fixes)

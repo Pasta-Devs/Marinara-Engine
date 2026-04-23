@@ -56,15 +56,9 @@ Then open **<http://127.0.0.1:7860>**. Everything runs locally.
 
 > `pnpm start` binds to `127.0.0.1` by default. To allow LAN access, set `HOST=0.0.0.0` in `.env` first.
 
-### Troubleshooting: `EPERM: operation not permitted` when installing pnpm
+## Accessing from Another Device
 
-If you see an error like `EPERM: operation not permitted, open 'C:\Program Files\nodejs\yarnpkg'` or a corepack signature verification failure, corepack could not write to `C:\Program Files\nodejs\`.
-
-**Fix one of these:**
-
-1. **Run as Administrator** — Right-click your terminal (CMD or PowerShell), select "Run as administrator", then run `start.bat` again.
-2. **Install pnpm manually** — Run `npm install -g pnpm`, then run `start.bat` again.
-3. **Update corepack** — Run `npm install -g corepack`, `corepack enable`, and `corepack prepare pnpm@10.30.3 --activate` in an Administrator terminal.
+Want to use Marinara Engine from your phone, tablet, or another computer? See the [FAQ — LAN access](../FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) guide.
 
 ## Updating
 
@@ -96,3 +90,10 @@ pnpm db:push
 ```
 
 Then restart the server.
+
+---
+
+## See Also
+
+- [Configuration Reference](../CONFIGURATION.md) — environment variables and `.env` setup
+- [Troubleshooting](../TROUBLESHOOTING.md) — common issues and fixes

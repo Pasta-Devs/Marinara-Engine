@@ -2,6 +2,16 @@
 
 This is the canonical contributor guide for Marinara Engine. Use it with `README.md` for the product overview, `CHANGELOG.md` for release notes, and `CLAUDE.md` only as a thin companion for maintainers using Claude.
 
+## Tech Stack
+
+| Layer    | Technology                                                     |
+| -------- | -------------------------------------------------------------- |
+| Frontend | React 19, Tailwind CSS v4, Framer Motion, Zustand, React Query |
+| Backend  | Fastify 5, Drizzle ORM, SQLite                                 |
+| PWA      | vite-plugin-pwa, Web App Manifest                              |
+| Shared   | TypeScript 5, Zod                                              |
+| Build    | Vite 6, pnpm workspaces                                        |
+
 ## Development Setup
 
 Prerequisites:
@@ -72,6 +82,9 @@ There is not a meaningful automated repo test suite yet. Do not present `pnpm te
 - `CHANGELOG.md` is the durable release-notes source and should be reusable for GitHub Releases.
 - `android/README.md` is scoped to the Android wrapper around the Termux-served app.
 - `CONTRIBUTING.md` is the canonical contributor and maintainer workflow document.
+- `docs/CONFIGURATION.md` is the environment variable and `.env` reference.
+- `docs/TROUBLESHOOTING.md` collects common user-facing issues and fixes.
+- `docs/FAQ.md` is the user-facing FAQ for common questions like LAN access.
 - If a change makes any existing doc misleading, fix that doc in the same PR.
 
 ## Versioning and Releases

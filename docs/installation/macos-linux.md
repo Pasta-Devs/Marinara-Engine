@@ -15,12 +15,12 @@ You need **Node.js** and **Git** installed. pnpm is handled automatically by the
 
 **Install Git:**
 
-| Platform              | Command                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| macOS                 | `brew install git` or install Xcode Command Line Tools: `xcode-select --install`             |
-| Linux (Ubuntu/Debian) | `sudo apt install -y git`                                                                    |
-| Linux (Fedora)        | `sudo dnf install -y git`                                                                    |
-| Linux (Arch)          | `sudo pacman -S git`                                                                         |
+| Platform              | Command                                                                          |
+| --------------------- | -------------------------------------------------------------------------------- |
+| macOS                 | `brew install git` or install Xcode Command Line Tools: `xcode-select --install` |
+| Linux (Ubuntu/Debian) | `sudo apt install -y git`                                                        |
+| Linux (Fedora)        | `sudo dnf install -y git`                                                        |
+| Linux (Arch)          | `sudo pacman -S git`                                                             |
 
 Verify both are installed:
 
@@ -68,25 +68,9 @@ Then open **<http://127.0.0.1:7860>**. Everything runs locally.
 
 > `pnpm start` binds to `127.0.0.1` by default. To allow LAN access, set `HOST=0.0.0.0` in `.env` first.
 
-## Accessing from Another Device on Your Network
+## Accessing from Another Device
 
-If you want to use Marinara Engine from your phone or tablet on the same network:
-
-1. **Find your computer's local IP address:**
-   - **macOS:** Check System Settings → Wi-Fi → your network, or run `ipconfig getifaddr en0`
-   - **Linux:** Run `hostname -I` or `ip addr`
-2. Make sure you started the server with `HOST=0.0.0.0` (the launcher does this by default).
-3. **Open a browser on your phone** and go to:
-
-   ```
-   http://<your-computer-ip>:7860
-   ```
-
-   Example: `http://192.168.1.42:7860`
-
-4. **Install the PWA** from your browser for a more native app experience.
-
-> **Tip:** If you're not on the same network, tools like [Tailscale](https://tailscale.com/) give each device a stable IP address on a private network.
+Want to use Marinara Engine from your phone, tablet, or another computer? See the [FAQ — LAN access](../FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device) guide.
 
 ## Updating
 
@@ -116,3 +100,10 @@ pnpm db:push
 ```
 
 Then restart the server.
+
+---
+
+## See Also
+
+- [Configuration Reference](../CONFIGURATION.md) — environment variables and `.env` setup
+- [Troubleshooting](../TROUBLESHOOTING.md) — common issues and fixes
