@@ -3690,7 +3690,12 @@ export async function generateRoutes(app: FastifyInstance) {
       }
 
       // ── Spotify Token Refresh (Early) ──
-      const spotifyAgent = resolvedAgents.find((a) => a.type === "spotify");
+      const spotifyAgent =
+        resolvedAgents.find((a) => a.type === "spotify") ??
+        enabledConfigs.find((cfg: any) => cfg.type === "spotify") ??
+        ((enableTools && !enabledConfigs.some((cfg: any) => cfg.type === "spotify"))
+          ? (await agentsStore.list()).find((cfg: any) => cfg.type === "spotify")
+          : null);
       let spotifyAccessToken: string | null = null;
       if (spotifyAgent) {
         const sSettings =
