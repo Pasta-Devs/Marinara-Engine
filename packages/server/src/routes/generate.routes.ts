@@ -3729,11 +3729,10 @@ export async function generateRoutes(app: FastifyInstance) {
         const spotifyExpiresAt = (sSettings.spotifyExpiresAt as number) ?? 0;
 
         if (
-          spotifyAccessToken &&
           spotifyRefreshToken &&
           spotifyClientId &&
-          spotifyExpiresAt > 0 &&
-          Date.now() > spotifyExpiresAt - 60_000 // Refresh 1 min before expiry
+          (!spotifyAccessToken ||
+            (spotifyExpiresAt > 0 && Date.now() > spotifyExpiresAt - 60_000)) // Refresh if missing or 1 min before expiry
         ) {
           try {
             const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
