@@ -1,10 +1,11 @@
 // ──────────────────────────────────────────────
-// Chat: Manage Chat Files — export and branch management
+// Chat: Manage Chat Files — switch between branches
+// Like SillyTavern's "Manage chat files" feature
 // ──────────────────────────────────────────────
-import { X, Trash2, FileText, MessageSquare, Download } from "lucide-react";
+import { X, Trash2, FileText, MessageSquare, Download, Pencil } from "lucide-react";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
-import { useChatGroup, useDeleteChat, useDeleteChatGroup, useExportChat } from "../../hooks/use-chats";
+import { useChatGroup, useDeleteChat, useDeleteChatGroup, useExportChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import type { Chat } from "@marinara-engine/shared";
 
@@ -16,7 +17,7 @@ interface ChatFilesDrawerProps {
 
 export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   const groupId = (chat as any).groupId as string | null;
-  const { data: groupChats } = useChatGroup(groupId);
+  const { data: groupChats, refetch: refetchGroupChats } = useChatGroup(groupId);
   const deleteChat = useDeleteChat();
   const deleteChatGroup = useDeleteChatGroup();
   const exportChat = useExportChat();
@@ -24,6 +25,43 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   const activeChatId = useChatStore((s) => s.activeChatId);
 
   const chatFiles = (groupChats ?? []) as Chat[];
+
+  const getBranchName = (cf: Chat) => {
+    const rawMeta = (cf as any).metadata;
+    const meta =
+      typeof rawMeta === "string"
+        ? (() => {
+            try {
+              return JSON.parse(rawMeta);
+            } catch {
+              return {};
+            }
+          })()
+        : (rawMeta ?? {});
+    return meta?.branchName ?? cf.name;
+  };
+
+  const handleSwitch = (chatId: string) => {
+    setActiveChatId(chatId);
+    onClose();
+  };
+
+  const updateMetadata = useUpdateChatMetadata();
+
+  const handleRename = async (cf: Chat) => {
+    const currentName = getBranchName(cf);
+    const nextName = window.prompt("Rename branch:", currentName);
+    if (!nextName) return;
+
+    const trimmed = nextName.trim();
+    if (!trimmed || trimmed === currentName) return;
+
+    await updateMetadata.mutateAsync({
+      id: cf.id,
+      branchName: trimmed,
+    });
+    await refetchGroupChats();
+  };
 
   const handleDelete = async (chatId: string) => {
     if (
@@ -37,6 +75,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
       return;
     }
     deleteChat.mutate(chatId);
+    if (chatId === activeChatId && chatFiles.length > 1) {
+      const next = chatFiles.find((c) => c.id !== chatId);
+      if (next) setActiveChatId(next.id);
+    }
   };
 
   if (!open) return null;
@@ -135,9 +177,6 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
           <p className="mt-2 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
             {chatFiles.length} chat file{chatFiles.length !== 1 ? "s" : ""} in this group
           </p>
-          <p className="mt-1 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
-            Switch branches from the selector at the top of the chat.
-          </p>
         </div>
 
         {/* Chat files list */}
@@ -152,11 +191,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
               return (
                 <div
                   key={cf.id}
+                  onClick={() => handleSwitch(cf.id)}
                   className={cn(
-                    "group flex items-center gap-3 rounded-xl p-2.5 transition-all",
-                    isActive
-                      ? "bg-sky-400/10 ring-1 ring-sky-400/30"
-                      : "bg-[var(--background)]/40 hover:bg-[var(--accent)]",
+                    "group flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all",
+                    isActive ? "bg-sky-400/10 ring-1 ring-sky-400/30" : "hover:bg-[var(--accent)]",
                   )}
                 >
                   <div
@@ -170,7 +208,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                     <MessageSquare size="0.875rem" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium">{cf.name}</div>
+                    <div className="truncate text-xs font-medium">{getBranchName(cf)}</div>
                     <div className="text-[0.625rem] text-[var(--muted-foreground)]">
                       {dateStr} at {timeStr}
                     </div>
@@ -181,15 +219,28 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                     </span>
                   )}
                   {!isActive && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(cf.id);
-                      }}
-                      className="shrink-0 rounded-lg p-1.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100 max-md:opacity-100"
-                    >
-                      <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-all group-hover:opacity-100 max-md:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleRename(cf);
+                        }}
+                        className="rounded-lg p-1.5 transition-all hover:bg-[var(--accent)]/80 active:scale-[0.95] ring-1 ring-transparent hover:ring-[var(--border)]"
+                        title="Rename branch"
+                      >
+                        <Pencil size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(cf.id);
+                        }}
+                        className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15"
+                        title="Delete branch"
+                      >
+                        <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+                      </button>
+                    </div>
                   )}
                 </div>
               );

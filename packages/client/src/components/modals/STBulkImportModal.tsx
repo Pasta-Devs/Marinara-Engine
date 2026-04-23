@@ -476,12 +476,12 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   )
                 }
                 onSelectNone={() => updateCategorySelection("chats", [])}
-                getItemLabel={(item) => item.characterName || item.name}
+                getItemLabel={(item) => item.name || item.characterName}
                 renderDetails={(item) => {
                   const modified = formatModifiedAt(item.modifiedAt);
                   return (
                     <span>
-                      Folder: {item.folderName}
+                      Folder: {item.folderName} · fileName: {item.name} · characterName: {item.characterName}
                       {modified ? ` · modified ${modified}` : ""}
                     </span>
                   );

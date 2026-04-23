@@ -36,6 +36,8 @@ export interface ImportSTChatOptions {
   mode?: ChatMode;
   /** Explicitly set the chat name instead of deriving from header */
   chatName?: string;
+  /** Optional imported branch/file label for branch UIs */
+  branchName?: string;
   /** For group chats: map of speaker name → characterId */
   speakerMap?: Record<string, string>;
   /** Group ID to associate this chat with (for grouping branches) */
@@ -81,6 +83,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     content: string;
     createdAt?: string;
   }[] = [];
+
   for (let i = 1; i < lines.length; i++) {
     try {
       const stMsg = JSON.parse(lines[i]!) as STChatMessage;
@@ -105,7 +108,12 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       const createdAt = parseTrustedTimestamp(stMsg.send_date);
       if (createdAt) messageTimestamps.push(createdAt);
 
-      msgInputs.push({ role, characterId: messageCharacterId, content, ...(createdAt ? { createdAt } : {}) });
+      msgInputs.push({
+        role,
+        characterId: messageCharacterId,
+        content,
+        ...(createdAt ? { createdAt } : {}),
+      });
     } catch {
       // Skip malformed lines
     }
@@ -132,6 +140,16 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   );
 
   if (!chat) return { error: "Failed to create chat" };
+
+  // Preserve an imported branch/file label separately from the main thread/chat name.
+  if (opts?.branchName) {
+    const existingMetadata =
+      typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    await storage.updateMetadata(chat.id, {
+      ...existingMetadata,
+      branchName: opts.branchName,
+    });
+  }
 
   await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
 

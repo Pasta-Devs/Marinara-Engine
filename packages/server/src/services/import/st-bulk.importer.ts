@@ -138,6 +138,12 @@ function makeScanItemId(category: string, dataDir: string, filePath: string) {
   return `${category}:${relative(dataDir, filePath).replace(/\\/g, "/")}`;
 }
 
+function isPlaceholderChatName(value: unknown) {
+  if (typeof value !== "string") return true;
+  const name = value.trim().toLowerCase();
+  return !name || name === "unused" || name === "new chat";
+}
+
 function isConfidentBuiltinPreset(filePath: string) {
   const name = basename(filePath, extname(filePath)).trim().toLowerCase();
   return new Set([
@@ -164,7 +170,7 @@ export interface STBulkScanResult {
   error?: string;
   dataDir?: string;
   characters: Array<STBulkScanItemBase & { format: string }>;
-  chats: Array<STBulkScanItemBase & { characterName: string; folderName: string }>;
+  chats: Array<STBulkScanItemBase & { characterName: string; folderName: string; chatName: string }>;
   groupChats: Array<STBulkScanItemBase & { groupName: string; members: string[] }>;
   presets: Array<STBulkScanItemBase & { isBuiltin?: boolean }>;
   lorebooks: STBulkScanItemBase[];
@@ -269,13 +275,15 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
         const firstLine = content.split("\n")[0];
         if (firstLine) {
           const header = JSON.parse(firstLine);
+          const fileBaseName = basename(f, ".jsonl");
           const folderName = basename(join(f, ".."));
-          const charName = header.character_name ?? folderName;
+          const charName = isPlaceholderChatName(header.character_name) ? folderName : String(header.character_name);
           const fileInfo = await stat(f);
           chats.push({
             id: makeScanItemId("chats", dataDir, f),
             path: f,
-            name: String(charName),
+            name: fileBaseName,
+            chatName: fileBaseName,
             characterName: String(charName),
             folderName,
             modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
@@ -586,68 +594,93 @@ export async function runSTBulkImport(
     }
   }
 
-  // Build a name → characterId map for linking chats to characters
-  // We look at ALL characters in DB (including ones just imported)
-  const charNameToId = new Map<string, string>();
-  try {
-    const allChars = await db.select().from(charactersTable);
-    for (const ch of allChars) {
-      try {
-        const data = JSON.parse(ch.data);
-        const name = (data?.name ?? "").toLowerCase().trim();
-        if (name) charNameToId.set(name, ch.id);
-      } catch {
-        // skip
-      }
-    }
-  } catch {
-    // DB read failed, continue without linking
-  }
+	 // Build a name → characterId map for linking chats to characters
+	// We look at ALL characters in DB (including ones just imported)
+	const charNameToId = new Map<string, string>();
+	try {
+	  const allChars = await db.select().from(charactersTable);
+	  for (const ch of allChars) {
+		try {
+		  const data = JSON.parse(ch.data);
+		  const name = (data?.name ?? "").toLowerCase().trim();
+		  if (name) charNameToId.set(name, ch.id);
+		} catch {
+		  // skip
+		}
+	  }
+	} catch {
+	  // DB read failed, continue without linking
+	}
 
-  // Also index by character card filename (ST organises chat folders by filename)
-  for (const ch of selectedCharacters) {
-    const filenameKey = basename(ch.path, extname(ch.path)).toLowerCase().trim();
-    if (filenameKey && !charNameToId.has(filenameKey)) {
-      const charId = charNameToId.get(ch.name.toLowerCase().trim());
-      if (charId) charNameToId.set(filenameKey, charId);
-    }
-  }
+	// Also index by character card filename.
+	// Use ALL scanned characters, not just selectedCharacters, so chats can still
+	// link to already-existing characters even when they were not re-imported now.
+	for (const ch of scanResult.characters) {
+	  const displayNameKey = ch.name.toLowerCase().trim();
+	  const filenameKey = basename(ch.path, extname(ch.path)).toLowerCase().trim();
 
-  // Import chats (with character linking)
-  // Generate one groupId per character name so all chats for the same character
-  // are grouped together (like ST "chat files" / branches).
-  if (selectedChats.length > 0) {
+	  const charId =
+		charNameToId.get(displayNameKey) ??
+		charNameToId.get(filenameKey) ??
+		null;
+
+	  if (charId) {
+		if (displayNameKey && !charNameToId.has(displayNameKey)) {
+		  charNameToId.set(displayNameKey, charId);
+		}
+		if (filenameKey && !charNameToId.has(filenameKey)) {
+		  charNameToId.set(filenameKey, charId);
+		}
+	  }
+	}
+
+	  // Import chats (with character linking)
+  // Group chats by character, but preserve each imported file's name as a branch label.
+    if (selectedChats.length > 0) {
     const charGroupIds = new Map<string, string>();
     const total = selectedChats.length;
     let idx = 0;
+
     for (const ct of selectedChats) {
       idx++;
       onProgress?.({ category: "Chats", item: ct.characterName, current: idx, total, imported });
+
       try {
         const content = await readFile(ct.path, "utf-8");
         const fileInfo = await stat(ct.path);
-        // Try matching by header character_name first, then by folder name (ST uses filenames for folders)
+
+        const normalizedCharacterName = ct.characterName.toLowerCase().trim();
+        const normalizedFolderName = ct.folderName.toLowerCase().trim();
+
+        // Prefer folder name first because ST chat folders usually track the
+        // character card filename more reliably than character_name headers.
         const charId =
-          charNameToId.get(ct.characterName.toLowerCase().trim()) ??
-          charNameToId.get(ct.folderName.toLowerCase().trim()) ??
+          charNameToId.get(normalizedFolderName) ??
+          charNameToId.get(normalizedCharacterName) ??
           null;
-        const groupKey = ct.characterName.toLowerCase().trim();
-        if (!charGroupIds.has(groupKey)) {
-          charGroupIds.set(groupKey, randomUUID());
+
+        const groupKey = normalizedFolderName || normalizedCharacterName;
+        let groupId = charGroupIds.get(groupKey);
+        if (!groupId) {
+          groupId = randomUUID();
+          charGroupIds.set(groupKey, groupId);
         }
+
         await importSTChat(content, db, {
           characterId: charId,
           chatName: ct.characterName,
-          groupId: charGroupIds.get(groupKey)!,
+          branchName: ct.chatName ?? basename(ct.path, ".jsonl"),
+          groupId,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+
         imported.chats++;
       } catch (err) {
         errors.push(`Chat "${ct.characterName}": ${(err as Error).message}`);
       }
     }
   }
-
+	
   // Import group chats
   if (selectedGroupChats.length > 0) {
     const gcGroupIds = new Map<string, string>();

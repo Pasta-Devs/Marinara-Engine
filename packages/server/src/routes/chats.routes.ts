@@ -1032,10 +1032,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       await storage.update(req.params.id, { groupId });
     }
 
-    // Create a new chat as a branch
-    const branchName = `${sourceChat.name} (branch)`;
+    // Create a new chat as a branch. Keep the main thread/chat name stable and
+    // store the per-branch display label in metadata instead.
     const newChat = await storage.create({
-      name: branchName,
+      name: sourceChat.name,
       mode: sourceChat.mode as "conversation" | "roleplay" | "visual_novel",
       characterIds: (() => {
         try {
@@ -1053,11 +1053,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!newChat) return reply.status(500).send({ error: "Failed to create branch" });
 
     // Copy metadata (preset, lorebooks, agents, persona settings, etc.) from source chat
-    if (sourceChat.metadata) {
-      // Preserve all settings but clear transient state like summaries
-      const { summary, daySummaries, weekSummaries, ...settingsToKeep } = sourceMeta;
-      await storage.updateMetadata(newChat.id, settingsToKeep);
-    }
+    // but keep branch labels separate from the stable thread name.
+    const { summary, daySummaries, weekSummaries, ...settingsToKeep } = sourceMeta;
+    await storage.updateMetadata(newChat.id, {
+      ...settingsToKeep,
+      branchName: "New Branch",
+    });
 
     // Copy messages from source chat, using the active swipe's content
     const msgs = await storage.listMessages(req.params.id);
