@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Message } from "@marinara-engine/shared";
+import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { cn, copyToClipboard } from "../../lib/utils";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { chatKeys } from "../../hooks/use-chats";
@@ -267,6 +269,9 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const hasInput = useChatStore((s) => s.currentInput.trim().length > 0);
+  const guideGenerations = useUIStore((s) => s.guideGenerations);
+  const regenerateButtonTitle = (guideGenerations && hasInput) ? "Regenerate (guided)" : "Regenerate";
 
   // Translation
   const { translate, translations, translating } = useTranslate();
@@ -733,7 +738,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           <MsgAction
             icon={<RefreshCw size="0.75rem" />}
             onClick={() => onRegenerate?.(message.id)}
-            title="Regenerate"
+            title={regenerateButtonTitle}
           />
           {isLastAssistantMessage && (
             <MsgAction icon={<Eye size="0.75rem" />} onClick={() => onPeekPrompt?.()} title="Peek prompt" />
@@ -1011,7 +1016,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             <MsgAction
               icon={<RefreshCw size="0.75rem" />}
               onClick={() => onRegenerate?.(message.id)}
-              title="Regenerate"
+              title={regenerateButtonTitle}
             />
           )}
           {isLastAssistantMessage && !isUser && (

@@ -70,9 +70,11 @@ export const ChatInput = memo(function ChatInput({
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
+  const currentInput = useChatStore((s) => s.currentInput);
   const { generate } = useGenerate();
   const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendRP);
+  const guideGenerations = useUIStore((s) => s.guideGenerations);
   const createMessage = useCreateMessage(activeChatId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeRafRef = useRef<number>(0);
@@ -505,17 +507,17 @@ export const ChatInput = memo(function ChatInput({
       setCharPickerOpen(false);
       setCharPickerPos(null);
       try {
-        await generate({
-          chatId: activeChatId,
-          connectionId: null,
-          forCharacterId: characterId,
-        });
+        await generate(
+          guideGenerations && hasInput
+          ? { chatId: activeChatId, connectionId: null, forCharacterId: characterId, generationGuide: currentInput }
+          : { chatId: activeChatId, connectionId: null, forCharacterId: characterId }
+        );
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Generation failed";
         toast.error(msg);
       }
     },
-    [activeChatId, isStreaming, generate],
+    [activeChatId, isStreaming, generate, hasInput, currentInput, guideGenerations],
   );
 
   // Close character picker on outside click
@@ -730,7 +732,7 @@ export const ChatInput = memo(function ChatInput({
                 ? "text-foreground bg-foreground/10"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
-            title="Trigger character response"
+            title={(guideGenerations && hasInput) ? "Trigger character response (guided)" : "Trigger character response"}
           >
             <Users size="1rem" />
           </button>

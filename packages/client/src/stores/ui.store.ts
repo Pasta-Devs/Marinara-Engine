@@ -107,6 +107,7 @@ interface UIState {
   showModelName: boolean;
   showTokenUsage: boolean;
   showMessageNumbers: boolean;
+  guideGenerations: boolean;
   confirmBeforeDelete: boolean;
   /** Number of messages to load per page (0 = load all) */
   messagesPerPage: number;
@@ -242,6 +243,7 @@ interface UIState {
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
+  setGuideGenerations: (v: boolean) => void;
   setConfirmBeforeDelete: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
@@ -310,6 +312,7 @@ export function pickSyncedSettings(state: UIState) {
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
     showMessageNumbers: state.showMessageNumbers,
+    guideGenerations: state.guideGenerations,
     confirmBeforeDelete: state.confirmBeforeDelete,
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
@@ -380,6 +383,7 @@ export const useUIStore = create<UIState>()(
       showModelName: false,
       showTokenUsage: false,
       showMessageNumbers: false,
+      guideGenerations: false,
       confirmBeforeDelete: true,
       messagesPerPage: 20,
       boldDialogue: true,
@@ -621,6 +625,7 @@ export const useUIStore = create<UIState>()(
       setShowModelName: (v) => set({ showModelName: v }),
       setShowTokenUsage: (v) => set({ showTokenUsage: v }),
       setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
+      setGuideGenerations: (v) => set({ guideGenerations: v }),
       setConfirmBeforeDelete: (v) => set({ confirmBeforeDelete: v }),
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
@@ -798,6 +803,7 @@ export const useUIStore = create<UIState>()(
         showModelName: state.showModelName,
         showTokenUsage: state.showTokenUsage,
         showMessageNumbers: state.showMessageNumbers,
+        guideGenerations: state.guideGenerations,
         confirmBeforeDelete: state.confirmBeforeDelete,
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,

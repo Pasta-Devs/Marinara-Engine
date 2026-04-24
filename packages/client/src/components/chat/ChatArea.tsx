@@ -83,10 +83,12 @@ export function ChatArea() {
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
   const isPageActive = usePageActivity();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
+  const currentInput = useChatStore((s) => s.currentInput);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const centerCompact = useUIStore((s) => s.centerCompact);
+  const guideGenerations = useUIStore((s) => s.guideGenerations);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef(0);
@@ -652,12 +654,17 @@ export function ChatArea() {
       }
       try {
         // Regenerate as a new swipe on the existing message
-        await generate({ chatId: activeChatId, connectionId: null, regenerateMessageId: messageId });
+        const hasInput = currentInput ? currentInput.trim().length > 0 : false;
+        await generate(
+          guideGenerations && hasInput
+          ? { chatId: activeChatId, connectionId: null, regenerateMessageId: messageId, generationGuide: currentInput?.toString() }
+          : { chatId: activeChatId, connectionId: null, regenerateMessageId: messageId }
+        );
       } catch {
         // Error toast is shown by the generate hook
       }
     },
-    [activeChatId, isStreaming, generate],
+    [activeChatId, isStreaming, generate, currentInput, guideGenerations],
   );
 
   const _handleRetryAgents = useCallback(async () => {

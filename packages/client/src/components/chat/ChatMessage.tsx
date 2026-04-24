@@ -32,6 +32,7 @@ import { useShallow } from "zustand/react/shallow";
 import { resolveMessageMacros } from "../../lib/chat-macros";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { useTranslate } from "../../hooks/use-translate";
 import { api } from "../../lib/api-client";
 import { ttsService } from "../../lib/tts-service";
@@ -458,6 +459,7 @@ export const ChatMessage = memo(function ChatMessage({
     showModelName,
     showTokenUsage,
     showMessageNumbers,
+    guideGenerations,
     boldDialogue,
   } = useUIStore(
     useShallow((s) => ({
@@ -470,9 +472,12 @@ export const ChatMessage = memo(function ChatMessage({
       showModelName: s.showModelName,
       showTokenUsage: s.showTokenUsage,
       showMessageNumbers: s.showMessageNumbers,
+      guideGenerations: s.guideGenerations,
       boldDialogue: s.boldDialogue ?? true,
     })),
   );
+  const hasInput = useChatStore((s) => s.currentInput.trim().length > 0);
+  const regenerateButtonTitle = (guideGenerations && hasInput) ? "Regenerate (guided)" : "Regenerate";
 
   // Build reusable text style objects (memoized to avoid unnecessary DOM updates)
   const textStrokeStyle = useMemo<React.CSSProperties>(
@@ -1387,7 +1392,7 @@ export const ChatMessage = memo(function ChatMessage({
               <ActionBtn
                 icon={<RefreshCw size="0.6875rem" />}
                 onClick={() => onRegenerate?.(message.id)}
-                title="Regenerate"
+                title={regenerateButtonTitle}
                 dark
               />
               <ActionBtn
@@ -1723,7 +1728,7 @@ export const ChatMessage = memo(function ChatMessage({
             <ActionBtn
               icon={<RefreshCw size="0.625rem" />}
               onClick={() => onRegenerate?.(message.id)}
-              title="Regenerate"
+              title={regenerateButtonTitle}
             />
             <ActionBtn
               icon={<Flag size="0.625rem" />}

@@ -1928,6 +1928,8 @@ function AdvancedSettings() {
   const setShowTokenUsage = useUIStore((s) => s.setShowTokenUsage);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
+  const guideGenerations = useUIStore((s) => s.guideGenerations);
+  const setGuideGenerations = useUIStore((s) => s.setGuideGenerations);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
@@ -2306,6 +2308,12 @@ function AdvancedSettings() {
         checked={showMessageNumbers}
         onChange={setShowMessageNumbers}
         help="Displays a message number below each avatar in roleplay chats."
+      />
+      <ToggleSetting
+        label="Guide generations with chat input"
+        checked={guideGenerations}
+        onChange={setGuideGenerations}
+        help="Uses chat input to guide regenerations and manually triggered responses."
       />
 
       {/* ── Backup ── */}
