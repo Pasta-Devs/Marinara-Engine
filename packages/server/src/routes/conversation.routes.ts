@@ -44,9 +44,15 @@ export async function conversationRoutes(app: FastifyInstance) {
   // POST /schedule/generate — Generate or refresh weekly schedules
   // ─────────────────────────────────────────────
   app.post<{
-    Body: { chatId: string; forceRefresh?: boolean; characterIds?: string[] };
+    Body: {
+      chatId: string;
+      forceRefresh?: boolean;
+      characterIds?: string[];
+      scheduleGenerationPreferences?: string;
+    };
   }>("/schedule/generate", async (req, reply) => {
     const { chatId, forceRefresh } = req.body;
+    const userSchedulePreferences = (req.body.scheduleGenerationPreferences ?? "").trim();
 
     const chat = await chats.getById(chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
@@ -170,6 +176,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           charData.name,
           charData.description ?? "",
           charData.personality ?? "",
+          userSchedulePreferences,
         );
         console.log(`[schedule] Generated schedule for ${charData.name}, days:`, Object.keys(schedule.days ?? {}));
 

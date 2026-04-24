@@ -89,6 +89,7 @@ export async function generateCharacterSchedule(
   characterName: string,
   characterDescription: string,
   characterPersonality: string,
+  userSchedulePreferences?: string,
 ): Promise<{ schedule: Omit<WeekSchedule, "weekStart">; raw: string }> {
   const systemPrompt = [
     `You are a schedule generator. Create a realistic weekly schedule for a character based on their personality and description.`,
@@ -97,6 +98,15 @@ export async function generateCharacterSchedule(
     `Description: ${characterDescription}`,
     `Personality: ${characterPersonality}`,
     ``,
+    ...(userSchedulePreferences?.trim()
+      ? [
+          `User preferences:`,
+          `The person using this app has provided the following scheduling guidance.`,
+          `Honor these preferences even when they would override typical patterns for this character:`,
+          userSchedulePreferences.trim(),
+          ``,
+        ]
+      : []),
     `Generate a schedule for each day of the week (Monday through Sunday).`,
     `Each day should have time blocks covering the full 24 hours.`,
     `The schedule should be realistic and consistent with the character's lifestyle.`,

@@ -252,7 +252,12 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     if (autonomousEnabled && generateSchedule) {
       setScheduleState("generating");
       try {
-        await api.post("/conversation/schedule/generate", { chatId: chat.id, characterIds: chatCharIds });
+        const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        await api.post("/conversation/schedule/generate", {
+          chatId: chat.id,
+          characterIds: chatCharIds,
+          scheduleGenerationPreferences,
+        });
       } catch {
         // Schedule generation is non-critical — continue anyway
       }

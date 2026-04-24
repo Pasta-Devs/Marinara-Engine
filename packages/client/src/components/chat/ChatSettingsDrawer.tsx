@@ -217,6 +217,7 @@ export function ChatSettingsDrawer({
   const disconnectChat = useDisconnectChat();
   const { retryAgents } = useGenerate();
   const agentProcessing = useAgentStore((s) => s.isProcessing);
+  const scheduleGenerationPreferences = useUIStore((s) => s.scheduleGenerationPreferences);
 
   const { data: allCharacters } = useCharacters();
   const { data: characterGroups } = useCharacterGroups();
@@ -2009,6 +2010,27 @@ export function ChatSettingsDrawer({
                   )}
                 </div>
 
+                {/* Active schedule-generation preference indicator */}
+                {scheduleGenerationPreferences.trim() && (
+                  <div
+                    className="flex items-start gap-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2.5"
+                    title={scheduleGenerationPreferences.trim()}
+                  >
+                    <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                    <div className="flex-1 min-w-0">
+                      <span className="block text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
+                        Schedule generation preference active
+                      </span>
+                      <p className="mt-0.5 truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                        “{scheduleGenerationPreferences.trim()}”
+                      </p>
+                      <p className="mt-1 text-[0.59375rem] text-[var(--muted-foreground)]/70">
+                        Will be applied the next time schedules are regenerated. Edit in Settings → General.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Schedule status */}
                 <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2.5">
                   <CalendarClock size="0.875rem" className="text-[var(--muted-foreground)]" />
@@ -2025,10 +2047,13 @@ export function ChatSettingsDrawer({
                   <button
                     onClick={async () => {
                       try {
+                        const scheduleGenerationPreferences =
+                          useUIStore.getState().scheduleGenerationPreferences;
                         await api.post("/conversation/schedule/generate", {
                           chatId: chat.id,
                           characterIds: chatCharIds,
                           forceRefresh: true,
+                          scheduleGenerationPreferences,
                         });
                         // Refresh chat data to pick up new schedules
                         qc.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });

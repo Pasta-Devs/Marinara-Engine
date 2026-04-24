@@ -75,7 +75,12 @@ export function useAutonomousMessaging(
     async (characterIds?: string[]) => {
       if (!chatId) return;
       try {
-        await api.post("/conversation/schedule/generate", { chatId, characterIds });
+        const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        await api.post("/conversation/schedule/generate", {
+          chatId,
+          characterIds,
+          scheduleGenerationPreferences,
+        });
       } catch {
         // non-critical — schedule generation may fail if no connection
       }
