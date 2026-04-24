@@ -638,6 +638,7 @@ export function ChatSettingsDrawer({
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [addingAgentToChat, setAddingAgentToChat] = useState(false);
+  const [isRegeneratingSchedules, setIsRegeneratingSchedules] = useState(false);
   const [scenePromptExpanded, setScenePromptExpanded] = useState(false);
   const [scenePromptDraft, setScenePromptDraft] = useState(metadata.sceneSystemPrompt ?? "");
   const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
@@ -2046,6 +2047,8 @@ export function ChatSettingsDrawer({
                   </div>
                   <button
                     onClick={async () => {
+                      if (isRegeneratingSchedules) return;
+                      setIsRegeneratingSchedules(true);
                       try {
                         const scheduleGenerationPreferences =
                           useUIStore.getState().scheduleGenerationPreferences;
@@ -2059,13 +2062,21 @@ export function ChatSettingsDrawer({
                         qc.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });
                       } catch {
                         // non-critical
+                      } finally {
+                        setIsRegeneratingSchedules(false);
                       }
                     }}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title="Regenerate schedules"
+                    disabled={isRegeneratingSchedules}
+                    className={cn(
+                      "flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
+                      isRegeneratingSchedules
+                        ? "cursor-not-allowed text-[var(--muted-foreground)]/60"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    )}
+                    title={isRegeneratingSchedules ? "Regenerating schedules…" : "Regenerate schedules"}
                   >
-                    <RefreshCw size="0.6875rem" />
-                    Regenerate
+                    <RefreshCw size="0.6875rem" className={cn(isRegeneratingSchedules && "animate-spin")} />
+                    {isRegeneratingSchedules ? "Regenerating…" : "Regenerate"}
                   </button>
                 </div>
 
