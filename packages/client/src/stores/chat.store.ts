@@ -39,13 +39,15 @@ interface ChatState {
   /** The chatId that the current streaming generation belongs to. */
   streamingChatId: string | null;
   /**
-   * chatId currently in the post-stream command execution window.
+   * chatIds currently in the post-stream command execution window.
    *
    * Mari's embedded commands (create_character, fetch, etc.) run after her
-   * reply finishes streaming; this flag gates the "Mari is thinking…"
-   * indicator so the user knows her background work isn't frozen.
+   * reply finishes streaming; membership in this set gates the "Mari is
+   * thinking…" indicator so the user knows her background work isn't frozen.
+   * Uses a set (not a single id) so concurrent command runs across chats
+   * don't stomp each other.
    */
-  commandsExecutingChatId: string | null;
+  commandsExecutingChatIds: Set<string>;
   streamBuffer: string;
   /** Per-chat AbortControllers for active generations — keyed by chatId. */
   abortControllers: Map<string, AbortController>;
@@ -90,7 +92,7 @@ interface ChatState {
   addMessage: (message: Message) => void;
   updateLastMessage: (content: string) => void;
   setStreaming: (streaming: boolean, chatId?: string) => void;
-  setCommandsExecutingChatId: (chatId: string | null) => void;
+  setCommandsExecuting: (chatId: string, executing: boolean) => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
   stopGeneration: () => void;
   appendStreamBuffer: (text: string) => void;
@@ -133,7 +135,7 @@ export const useChatStore = create<ChatState>()(
     messages: [],
     isStreaming: false,
     streamingChatId: null,
-    commandsExecutingChatId: null,
+    commandsExecutingChatIds: new Set(),
     streamBuffer: "",
     abortControllers: new Map(),
     regenerateMessageId: null,
@@ -225,7 +227,18 @@ export const useChatStore = create<ChatState>()(
         streamingChatId: streaming ? (chatId ?? null) : null,
         ...(!streaming ? { generationPhase: null } : {}),
       }),
-    setCommandsExecutingChatId: (chatId) => set({ commandsExecutingChatId: chatId }),
+    setCommandsExecuting: (chatId, executing) =>
+      set((state) => {
+        const next = new Set(state.commandsExecutingChatIds);
+        if (executing) {
+          if (next.has(chatId)) return state;
+          next.add(chatId);
+        } else {
+          if (!next.has(chatId)) return state;
+          next.delete(chatId);
+        }
+        return { commandsExecutingChatIds: next };
+      }),
     setAbortController: (chatId, controller) =>
       set((state) => {
         const m = new Map(state.abortControllers);
@@ -376,7 +389,7 @@ export const useChatStore = create<ChatState>()(
         messages: [],
         isStreaming: false,
         streamingChatId: null,
-        commandsExecutingChatId: null,
+        commandsExecutingChatIds: new Set(),
         streamBuffer: "",
         abortControllers: new Map(),
         regenerateMessageId: null,

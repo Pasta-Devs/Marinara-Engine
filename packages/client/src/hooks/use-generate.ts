@@ -310,7 +310,7 @@ export function useGenerate() {
   const qc = useQueryClient();
   // Use individual selectors to avoid re-rendering on every store change
   const setStreaming = useChatStore((s) => s.setStreaming);
-  const setCommandsExecutingChatId = useChatStore((s) => s.setCommandsExecutingChatId);
+  const setCommandsExecuting = useChatStore((s) => s.setCommandsExecuting);
   const setStreamBuffer = useChatStore((s) => s.setStreamBuffer);
   const clearStreamBuffer = useChatStore((s) => s.clearStreamBuffer);
   const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
@@ -539,6 +539,12 @@ export function useGenerate() {
         };
         rafId = requestAnimationFrame(tick);
       };
+
+      // Safety net: guarantees the "Mari is thinking…" indicator clears for
+      // this chat on every termination path (done, error, abort, unexpected
+      // throw). The assistant_commands_end SSE event is still the primary
+      // clear; this just keeps state sane when the stream dies mid-window.
+      const clearCommandsExecutingForThisChat = () => setCommandsExecuting(params.chatId, false);
 
       try {
         const userStatus = useUIStore.getState().userStatus;
@@ -1061,14 +1067,12 @@ export function useGenerate() {
             }
 
             case "assistant_commands_start": {
-              setCommandsExecutingChatId(params.chatId);
+              setCommandsExecuting(params.chatId, true);
               break;
             }
 
             case "assistant_commands_end": {
-              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
-                setCommandsExecutingChatId(null);
-              }
+              clearCommandsExecutingForThisChat();
               break;
             }
 
@@ -1102,9 +1106,7 @@ export function useGenerate() {
 
             case "done": {
               if (isActiveChat()) setProcessing(false);
-              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
-                setCommandsExecutingChatId(null);
-              }
+              clearCommandsExecutingForThisChat();
               break;
             }
 
@@ -1152,9 +1154,7 @@ export function useGenerate() {
               // Flush pending text so the user sees what arrived before the error
               flushTypewriterBuffer();
               if (isActiveChat()) setProcessing(false);
-              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
-                setCommandsExecutingChatId(null);
-              }
+              clearCommandsExecutingForThisChat();
               showError((event.data as string) || "Generation failed");
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
               break;
@@ -1194,6 +1194,9 @@ export function useGenerate() {
         showError(msg);
         window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
       } finally {
+        // Stream has terminated (done, error, abort, or unexpected throw) —
+        // guarantee the Mari indicator clears even if the end SSE never arrived.
+        clearCommandsExecutingForThisChat();
         // Cancel any pending animation frame to prevent leaks
         cancelAnimationFrame(rafId);
 
