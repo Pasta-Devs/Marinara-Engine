@@ -3680,6 +3680,33 @@ export async function generateRoutes(app: FastifyInstance) {
             if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
               throw new Error("parametersSchema must be a JSON object");
             }
+            const schemaObject = schema as Record<string, unknown>;
+            const schemaType = schemaObject.type;
+            const schemaProperties = schemaObject.properties;
+            const schemaRequired = schemaObject.required;
+
+            if (schemaType !== undefined && schemaType !== "object") {
+              throw new Error('parametersSchema root "type" must be "object"');
+            }
+            if (
+              schemaProperties !== undefined &&
+              (!schemaProperties || typeof schemaProperties !== "object" || Array.isArray(schemaProperties))
+            ) {
+              throw new Error('parametersSchema "properties" must be an object');
+            }
+            if (
+              schemaType === undefined &&
+              (schemaProperties === undefined || !schemaProperties || typeof schemaProperties !== "object")
+            ) {
+              throw new Error('parametersSchema must define root "type": "object" or include object "properties"');
+            }
+            if (
+              schemaRequired !== undefined &&
+              (!Array.isArray(schemaRequired) ||
+                schemaRequired.some((entry) => typeof entry !== "string"))
+            ) {
+              throw new Error('parametersSchema "required" must be an array of strings');
+            }
 
             customToolDefs.push({
               name: ct.name,
@@ -3694,12 +3721,15 @@ export async function generateRoutes(app: FastifyInstance) {
               function: {
                 name: ct.name,
                 description: ct.description,
-                parameters: schema as Record<string, unknown>,
+                parameters: schemaObject,
               },
             });
-          } catch {
+          } catch (error) {
             registeredToolSources.delete(ct.name);
-            console.warn(`[tools] Skipping custom tool "${ct.name}" with invalid parameter schema`);
+            console.warn(
+              `[tools] Skipping custom tool "${ct.name}" with invalid parameter schema: ${error instanceof Error ? error.message : "unknown error"}`,
+              ct.parametersSchema,
+            );
           }
         }
       }
