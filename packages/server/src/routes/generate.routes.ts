@@ -6161,6 +6161,12 @@ export async function generateRoutes(app: FastifyInstance) {
       // Character Command Execution (Conversation mode)
       // ────────────────────────────────────────
       if (collectedCommands.length > 0 && !abortController.signal.aborted) {
+        reply.raw.write(
+          `data: ${JSON.stringify({
+            type: "assistant_commands_start",
+            data: { count: collectedCommands.length },
+          })}\n\n`,
+        );
         for (const { command, characterId, messageId } of collectedCommands) {
           try {
             if (command.type === "schedule_update") {
@@ -6979,6 +6985,12 @@ export async function generateRoutes(app: FastifyInstance) {
             console.error(`[commands] Error processing ${command.type} command:`, cmdErr);
           }
         }
+        reply.raw.write(
+          `data: ${JSON.stringify({
+            type: "assistant_commands_end",
+            data: {},
+          })}\n\n`,
+        );
       }
 
       // ── Post OOC messages to connected conversation (Roleplay → Conversation) ──
