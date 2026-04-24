@@ -68,8 +68,8 @@ export const MariThinkingIndicator = memo(function MariThinkingIndicator() {
     }
 
     const evaluate = () => {
-      const { commandsExecutingChatId, activeChatId: currentActive } = useChatStore.getState();
-      const shouldShow = !!currentActive && commandsExecutingChatId === currentActive;
+      const { commandsExecutingChatIds, activeChatId: currentActive } = useChatStore.getState();
+      const shouldShow = !!currentActive && commandsExecutingChatIds.has(currentActive);
       if (shouldShow) {
         if (hideTimerRef.current) {
           clearTimeout(hideTimerRef.current);
@@ -89,10 +89,10 @@ export const MariThinkingIndicator = memo(function MariThinkingIndicator() {
     };
 
     evaluate();
-    const unsubChatId = useChatStore.subscribe((s) => s.commandsExecutingChatId, evaluate);
+    const unsubChatIds = useChatStore.subscribe((s) => s.commandsExecutingChatIds, evaluate);
     const unsubActive = useChatStore.subscribe((s) => s.activeChatId, evaluate);
     return () => {
-      unsubChatId();
+      unsubChatIds();
       unsubActive();
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
