@@ -27,6 +27,7 @@ import {
   FlipHorizontal2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Modal } from "../ui/Modal";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
@@ -85,6 +86,11 @@ const WorldInfoPanel = lazy(async () => {
 const AuthorNotesPanel = lazy(async () => {
   const module = await import("./ChatRoleplayPanels");
   return { default: module.AuthorNotesPanel };
+});
+
+const AuthorNotesPeek = lazy(async () => {
+  const module = await import("./ChatRoleplayPanels");
+  return { default: module.AuthorNotesPeek };
 });
 
 function WeatherEffectsConnected() {
@@ -438,42 +444,50 @@ function WorldInfoButton({ chatId }: { chatId: string | null }) {
   );
 }
 
+/**
+ * Three-state Author's Notes affordance: closed → peek → edit.
+ * Toolbar icon toggles between closed and peek; peek's Edit button opens the dialog.
+ */
 function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMeta: Record<string, any> }) {
-  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"closed" | "peek" | "edit">("closed");
   const ref = useRef<HTMLDivElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const compact = useUIStore((s) => s.centerCompact);
 
+// Outside-click closes the peek. Desktop only — mobile uses the backdrop.
   useEffect(() => {
-    if (!open || isMobile) return;
+    if (view !== "peek" || isMobile) return;
     const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setView("closed");
     };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open, isMobile]);
+    document.addEventListener("click", handle);
+    return () => document.removeEventListener("click", handle);
+  }, [view, isMobile]);
 
   useEffect(() => {
-    if (!open) return;
+    if (view !== "peek") return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setView("closed");
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open]);
+  }, [view]);
 
   if (!chatId) return null;
 
   const hasNotes = !!String(chatMeta.authorNotes ?? "").trim();
+  const isOpen = view !== "closed";
+  const peekOpen = view === "peek";
+  const editOpen = view === "edit";
 
   return (
-    <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>
+    <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => setView((v) => (v === "closed" ? "peek" : "closed"))}
         className={cn(
           "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
           compact ? "p-1" : "p-1.5",
-          open
+          isOpen
             ? "bg-foreground/15 border-foreground/20 text-foreground/90"
             : hasNotes
               ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
@@ -483,7 +497,8 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
       >
         <PenLine size="0.875rem" />
       </button>
-      {open &&
+
+      {peekOpen &&
         (isMobile ? (
           createPortal(
             <div
@@ -491,7 +506,7 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
+              <div className="absolute inset-0 bg-black/30" onClick={() => setView("closed")} />
               <div
                 className="relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in"
                 onClick={(e) => e.stopPropagation()}
@@ -504,11 +519,11 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
                     </div>
                   }
                 >
-                  <AuthorNotesPanel
-                    chatId={chatId}
+                  <AuthorNotesPeek
                     chatMeta={chatMeta}
                     isMobile={isMobile}
-                    onClose={() => setOpen(false)}
+                    onEdit={() => setView("edit")}
+                    onClose={() => setView("closed")}
                   />
                 </Suspense>
               </div>
@@ -525,15 +540,28 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
                 </div>
               }
             >
-              <AuthorNotesPanel
-                chatId={chatId}
+              <AuthorNotesPeek
                 chatMeta={chatMeta}
                 isMobile={isMobile}
-                onClose={() => setOpen(false)}
+                onEdit={() => setView("edit")}
+                onClose={() => setView("closed")}
               />
             </Suspense>
           </div>
         ))}
+
+      <Modal open={editOpen} onClose={() => setView("closed")} title="Author's Notes">
+        <Suspense
+          fallback={
+            <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
+              <Loader2 size="0.75rem" className="animate-spin" />
+              Loading author's notes...
+            </div>
+          }
+        >
+          <AuthorNotesPanel chatId={chatId} chatMeta={chatMeta} onClose={() => setView("closed")} />
+        </Suspense>
+      </Modal>
     </div>
   );
 }
