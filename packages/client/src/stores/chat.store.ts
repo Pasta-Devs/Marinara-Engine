@@ -38,6 +38,14 @@ interface ChatState {
   isStreaming: boolean;
   /** The chatId that the current streaming generation belongs to. */
   streamingChatId: string | null;
+  /**
+   * chatId currently in the post-stream command execution window.
+   *
+   * Mari's embedded commands (create_character, fetch, etc.) run after her
+   * reply finishes streaming; this flag gates the "Mari is thinking…"
+   * indicator so the user knows her background work isn't frozen.
+   */
+  commandsExecutingChatId: string | null;
   streamBuffer: string;
   /** Per-chat AbortControllers for active generations — keyed by chatId. */
   abortControllers: Map<string, AbortController>;
@@ -82,6 +90,7 @@ interface ChatState {
   addMessage: (message: Message) => void;
   updateLastMessage: (content: string) => void;
   setStreaming: (streaming: boolean, chatId?: string) => void;
+  setCommandsExecutingChatId: (chatId: string | null) => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
   stopGeneration: () => void;
   appendStreamBuffer: (text: string) => void;
@@ -124,6 +133,7 @@ export const useChatStore = create<ChatState>()(
     messages: [],
     isStreaming: false,
     streamingChatId: null,
+    commandsExecutingChatId: null,
     streamBuffer: "",
     abortControllers: new Map(),
     regenerateMessageId: null,
@@ -215,6 +225,7 @@ export const useChatStore = create<ChatState>()(
         streamingChatId: streaming ? (chatId ?? null) : null,
         ...(!streaming ? { generationPhase: null } : {}),
       }),
+    setCommandsExecutingChatId: (chatId) => set({ commandsExecutingChatId: chatId }),
     setAbortController: (chatId, controller) =>
       set((state) => {
         const m = new Map(state.abortControllers);
@@ -365,6 +376,7 @@ export const useChatStore = create<ChatState>()(
         messages: [],
         isStreaming: false,
         streamingChatId: null,
+        commandsExecutingChatId: null,
         streamBuffer: "",
         abortControllers: new Map(),
         regenerateMessageId: null,

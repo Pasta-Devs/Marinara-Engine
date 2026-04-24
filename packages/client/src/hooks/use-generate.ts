@@ -310,6 +310,7 @@ export function useGenerate() {
   const qc = useQueryClient();
   // Use individual selectors to avoid re-rendering on every store change
   const setStreaming = useChatStore((s) => s.setStreaming);
+  const setCommandsExecutingChatId = useChatStore((s) => s.setCommandsExecutingChatId);
   const setStreamBuffer = useChatStore((s) => s.setStreamBuffer);
   const clearStreamBuffer = useChatStore((s) => s.clearStreamBuffer);
   const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
@@ -1059,6 +1060,18 @@ export function useGenerate() {
               break;
             }
 
+            case "assistant_commands_start": {
+              setCommandsExecutingChatId(params.chatId);
+              break;
+            }
+
+            case "assistant_commands_end": {
+              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
+                setCommandsExecutingChatId(null);
+              }
+              break;
+            }
+
             case "assistant_action": {
               const actionData = event.data as { action: string; [key: string]: unknown };
               if (actionData.action === "persona_created") {
@@ -1089,6 +1102,9 @@ export function useGenerate() {
 
             case "done": {
               if (isActiveChat()) setProcessing(false);
+              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
+                setCommandsExecutingChatId(null);
+              }
               break;
             }
 
@@ -1136,6 +1152,9 @@ export function useGenerate() {
               // Flush pending text so the user sees what arrived before the error
               flushTypewriterBuffer();
               if (isActiveChat()) setProcessing(false);
+              if (useChatStore.getState().commandsExecutingChatId === params.chatId) {
+                setCommandsExecutingChatId(null);
+              }
               showError((event.data as string) || "Generation failed");
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
               break;
