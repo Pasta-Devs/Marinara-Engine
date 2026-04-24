@@ -173,13 +173,13 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
       onClick={onCancel}
     >
       <motion.div
-        className="w-80 max-w-[90vw] rounded-2xl border border-white/10 bg-[#1a1a2e] p-5 shadow-2xl"
+        className="w-80 max-w-[90vw] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-white/90">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
           <Crosshair size="1rem" className="text-red-400" />
           Select Target
         </h3>
@@ -193,14 +193,14 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
             >
               <span className="text-lg">💥</span>
               <div>
-                <div className="text-xs font-bold text-white/90">All Enemies</div>
-                <div className="text-[0.625rem] text-white/40">Area of Effect</div>
+                <div className="text-xs font-bold text-[var(--foreground)]">All Enemies</div>
+                <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">Area of Effect</div>
               </div>
             </button>
           )}
 
           {attackType === "both" && (
-            <div className="py-1 text-center text-[0.625rem] font-bold uppercase tracking-wider text-white/20">or</div>
+            <div className="py-1 text-center text-[0.625rem] font-bold uppercase tracking-wider text-[var(--muted-foreground)]/40">or</div>
           )}
 
           {/* Individual enemies */}
@@ -215,8 +215,8 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
                 >
                   <span className="text-lg">{enemy.sprite || "👹"}</span>
                   <div className="flex-1">
-                    <div className="text-xs font-bold text-white/90">{enemy.name}</div>
-                    <div className="text-[0.625rem] text-white/40">
+                    <div className="text-xs font-bold text-[var(--foreground)]">{enemy.name}</div>
+                    <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
                       {enemy.hp}/{enemy.maxHp} HP
                     </div>
                   </div>
@@ -235,10 +235,10 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
                 >
                   <span className="text-lg">✨</span>
                   <div className="flex-1">
-                    <div className="text-xs font-bold text-white/90">
+                    <div className="text-xs font-bold text-[var(--foreground)]">
                       {member.name} {member.isPlayer && "(You)"}
                     </div>
-                    <div className="text-[0.625rem] text-white/40">
+                    <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
                       {member.hp}/{member.maxHp} HP
                     </div>
                   </div>
@@ -248,7 +248,7 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
 
         <button
           onClick={onCancel}
-          className="mt-3 w-full rounded-xl border border-white/10 py-2 text-xs text-white/50 hover:bg-white/5"
+          className="mt-3 w-full rounded-xl border border-[var(--border)] py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
         >
           Cancel
         </button>
@@ -272,12 +272,12 @@ function NarrativeSelect({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="text-xs font-bold text-white/70">{label}</h4>
+      <h4 className="text-xs font-bold text-[var(--muted-foreground)]">{label}</h4>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select
           value={value.tense}
           onChange={(e) => onChange({ ...value, tense: e.target.value as any })}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80"
+          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="present">Present Tense</option>
           <option value="past">Past Tense</option>
@@ -285,7 +285,7 @@ function NarrativeSelect({
         <select
           value={value.person}
           onChange={(e) => onChange({ ...value, person: e.target.value as any })}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80"
+          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="first">First Person</option>
           <option value="second">Second Person</option>
@@ -294,7 +294,7 @@ function NarrativeSelect({
         <select
           value={value.narration}
           onChange={(e) => onChange({ ...value, narration: e.target.value as any })}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80"
+          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="omniscient">Omniscient</option>
           <option value="limited">Limited</option>
@@ -303,7 +303,7 @@ function NarrativeSelect({
           value={value.pov}
           onChange={(e) => onChange({ ...value, pov: e.target.value })}
           placeholder="narrator"
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 placeholder:text-white/30"
+          className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
         />
       </div>
     </div>
@@ -330,13 +330,13 @@ function EncounterConfig() {
       onClick={closeConfigModal}
     >
       <motion.div
-        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-white/10 bg-[#1a1a2e] p-5 sm:p-6 shadow-2xl"
+        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-5 flex items-center gap-2 text-base font-bold text-white/90">
+        <h2 className="mb-5 flex items-center gap-2 text-base font-bold text-[var(--foreground)]">
           <Swords size="1.125rem" className="text-red-400" />
           Configure Combat Narrative
         </h2>
@@ -356,17 +356,17 @@ function EncounterConfig() {
 
           {/* Spellbook selection */}
           <div className="space-y-2">
-            <h4 className="flex items-center gap-1.5 text-xs font-bold text-white/70">
+            <h4 className="flex items-center gap-1.5 text-xs font-bold text-[var(--muted-foreground)]">
               <Wand2 size="0.75rem" className="text-indigo-400" />
               Spellbook
             </h4>
-            <p className="text-[0.625rem] leading-relaxed text-white/40">
+            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/70">
               Attach a spellbook so the AI knows which spells and abilities are available in combat.
             </p>
             <select
               value={spellbookId ?? ""}
               onChange={(e) => setSpellbookId(e.target.value || null)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
             >
               <option value="">None</option>
               {spellbooks.map((lb) => (
@@ -381,7 +381,7 @@ function EncounterConfig() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={closeConfigModal}
-            className="flex-1 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white/50 hover:bg-white/5"
+            className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
           >
             Cancel
           </button>

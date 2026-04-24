@@ -904,8 +904,8 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                   </option>
                 ))}
               </select>
-              <p className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-100">
-                <span className="font-semibold text-amber-200">Warning!</span> It&apos;s recommended you use a strong
+              <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-800 dark:border-amber-500/25 dark:text-amber-100">
+                <span className="font-semibold text-amber-900 dark:text-amber-200">Warning!</span> It&apos;s recommended you use a strong
                 model (any SOTA one; the newest Opus, Gemini, GPT) for the initial generation for the best experience.
                 You can change the model later, after the initial generation (in Chat Settings -&gt; Connection).
               </p>
@@ -1040,7 +1040,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                     ))}
                   </select>
                   {imageConnections.length === 0 && (
-                    <p className="mt-1 text-[0.55rem] text-amber-400/80">
+                    <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
                       No image generation connections found. Add one in Settings → Connections.
                     </p>
                   )}

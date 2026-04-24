@@ -633,8 +633,8 @@ export function ConversationInput({ characterNames = [] }: ConversationInputProp
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative flex items-center gap-1.5 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:gap-2 sm:px-4 bg-black/40",
-          isDragging ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10" : "border-foreground/25",
+          "relative flex items-center gap-1.5 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:gap-2 sm:px-4 bg-[var(--card)] dark:bg-black/40",
+          isDragging ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10" : "border-[var(--border)]",
         )}
       >
         {/* Attach button */}
@@ -675,7 +675,7 @@ export function ConversationInput({ characterNames = [] }: ConversationInputProp
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[#c3c2c2] outline-none placeholder:text-foreground/30"
+          className="max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30"
         />
 
         {/* Right actions */}

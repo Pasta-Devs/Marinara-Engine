@@ -403,14 +403,14 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
 ];
 
 const CATEGORY_STYLES: Record<string, string> = {
-  "Top Issue": "border-rose-400/30 bg-rose-500/12 text-rose-200",
-  Setup: "border-amber-400/30 bg-amber-500/12 text-amber-200",
-  Connections: "border-cyan-400/30 bg-cyan-500/12 text-cyan-200",
-  Core: "border-emerald-400/30 bg-emerald-500/12 text-emerald-200",
-  Agents: "border-violet-400/30 bg-violet-500/12 text-violet-200",
-  Images: "border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-200",
-  "Game Mode": "border-orange-400/30 bg-orange-500/12 text-orange-200",
-  Misc: "border-white/15 bg-white/8 text-white/75",
+  "Top Issue": "border-rose-400/30 bg-rose-500/12 text-rose-700 dark:text-rose-200",
+  Setup: "border-amber-400/30 bg-amber-500/12 text-amber-700 dark:text-amber-200",
+  Connections: "border-cyan-400/30 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200",
+  Core: "border-emerald-400/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-200",
+  Agents: "border-violet-400/30 bg-violet-500/12 text-violet-700 dark:text-violet-200",
+  Images: "border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-200",
+  "Game Mode": "border-orange-400/30 bg-orange-500/12 text-orange-700 dark:text-orange-200",
+  Misc: "border-[var(--border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]",
 };
 
 export function HomeFaq() {
@@ -419,11 +419,11 @@ export function HomeFaq() {
 
   return (
     <section className="w-full max-w-md">
-      <div className="overflow-hidden rounded-[1.25rem] border border-[var(--border)]/60 bg-[linear-gradient(180deg,rgba(18,14,23,0.92),rgba(11,10,16,0.86))] shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-[1.25rem] border border-[var(--border)]/60 bg-[var(--card)] shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl dark:bg-[linear-gradient(180deg,rgba(18,14,23,0.92),rgba(11,10,16,0.86))]">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-white/5 sm:items-center sm:gap-3 sm:px-4"
+          className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:items-center sm:gap-3 sm:px-4"
           aria-expanded={expanded}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--primary)]/25 bg-[linear-gradient(135deg,rgba(235,137,81,0.18),rgba(77,229,221,0.14))] text-[var(--primary)] shadow-[0_0_24px_rgba(235,137,81,0.12)]">
@@ -432,7 +432,7 @@ export function HomeFaq() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold tracking-tight text-[var(--foreground)]">Professor Mari&apos;s FAQ</p>
-              <span className="rounded-full border border-[var(--border)]/60 bg-white/6 px-2 py-0.5 text-[0.5625rem] uppercase tracking-[0.16em] text-[var(--muted-foreground)]/80">
+              <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-2 py-0.5 text-[0.5625rem] uppercase tracking-[0.16em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
                 {HOME_FAQ_ITEMS.length} answers
               </span>
             </div>
@@ -453,7 +453,7 @@ export function HomeFaq() {
           <div className="border-t border-[var(--border)]/60 px-4 pb-4 pt-3">
             <div className="rounded-[1.1rem] border border-[var(--primary)]/20 bg-[linear-gradient(135deg,rgba(235,137,81,0.12),rgba(77,229,221,0.08))] p-3.5 shadow-[0_10px_26px_rgba(0,0,0,0.18)] sm:p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="mx-auto flex h-28 w-20 shrink-0 items-start justify-center overflow-hidden rounded-[1.25rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),rgba(0,0,0,0.16))] shadow-[0_10px_24px_rgba(0,0,0,0.22)] sm:mx-0 sm:h-32 sm:w-24">
+                <div className="mx-auto flex h-28 w-20 shrink-0 items-start justify-center overflow-hidden rounded-[1.25rem] border border-[var(--border)] bg-[var(--card)]/80 shadow-[0_10px_24px_rgba(0,0,0,0.22)] sm:mx-0 sm:h-32 sm:w-24">
                   <img
                     src="/sprites/mari/Mari_explaining.png"
                     alt="Professor Mari"
@@ -461,7 +461,7 @@ export function HomeFaq() {
                   />
                 </div>
                 <div className="min-w-0 text-center sm:text-left">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[0.5625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]/85">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/50 px-2.5 py-1 text-[0.5625rem] uppercase tracking-[0.18em] text-[var(--muted-foreground)]/85 dark:border-white/10 dark:bg-black/20">
                     <Sparkles size="0.6875rem" />
                     Professor Mari
                   </div>
@@ -477,14 +477,14 @@ export function HomeFaq() {
             </div>
 
             <div className="mt-3 rounded-[1.1rem] border border-amber-400/20 bg-amber-500/8 p-3">
-              <div className="flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-amber-200/90">
+              <div className="flex items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200/90">
                 <TriangleAlert size="0.875rem" />
                 Before You Post A Bug
               </div>
               <ul className="mt-2 space-y-1.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/88">
                 {QUICK_FIXES.map((fix) => (
                   <li key={fix} className="flex gap-2">
-                    <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300/75" />
+                    <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/75 dark:bg-amber-300/75" />
                     <span>{fix}</span>
                   </li>
                 ))}
@@ -514,7 +514,7 @@ export function HomeFaq() {
                       <button
                         type="button"
                         onClick={() => setOpenItemId((current) => (current === item.id ? null : item.id))}
-                        className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-white/5"
+                        className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                         aria-expanded={isOpen}
                       >
                         <div className="min-w-0 flex-1">
@@ -540,7 +540,7 @@ export function HomeFaq() {
                       </button>
 
                       {isOpen && (
-                        <div className="border-t border-[var(--border)]/55 bg-black/10 px-3 py-3">
+                        <div className="border-t border-[var(--border)]/55 bg-[var(--muted)]/30 px-3 py-3 dark:bg-black/10">
                           <p className="text-[0.72rem] leading-relaxed text-[var(--foreground)]/92">{item.answer}</p>
                           {item.bullets?.length ? (
                             <ul className="mt-2 space-y-1.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">

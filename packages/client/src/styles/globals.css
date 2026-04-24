@@ -421,7 +421,12 @@ strong {
 
 /* Chat message narration text color */
 .mari-message-content {
-  color: #c3c2c2;
+  color: var(--foreground);
+}
+
+/* RP surface always has a dark background — keep message text light regardless of theme */
+.rpg-chat-area .mari-message-content {
+  color: #d4d4d4;
 }
 
 /* Hide <style> text inside inline SVGs (browser renders CSS text as visible SVG content) */
@@ -1085,7 +1090,7 @@ summary[class*="cursor-pointer"],
 
 .os-window {
   backdrop-filter: blur(10px);
-  background: #141414d9;
+  background: var(--card);
   border: 2px solid var(--y2k-purple);
   border-radius: 0.75rem;
   position: relative;

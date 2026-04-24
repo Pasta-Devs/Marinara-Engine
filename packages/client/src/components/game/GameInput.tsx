@@ -213,7 +213,7 @@ export function GameInput({
             <button
               key={d}
               onClick={() => handleDiceRoll(d)}
-              className="rounded bg-white/10 px-2 py-1 text-xs font-mono text-white/70 hover:bg-white/20 transition-colors"
+              className="rounded bg-[var(--muted)]/30 px-2 py-1 text-xs font-mono text-[var(--foreground)]/70 hover:bg-[var(--muted)]/50 transition-colors"
             >
               🎲 {d}
             </button>
@@ -224,7 +224,7 @@ export function GameInput({
               value={customDice}
               onChange={(e) => setCustomDice(e.target.value)}
               placeholder="3d8+2"
-              className="h-[26px] w-16 rounded bg-white/10 px-1.5 text-xs font-mono text-white/70 outline-none placeholder:text-white/30"
+              className="h-[26px] w-16 rounded bg-[var(--muted)]/30 px-1.5 text-xs font-mono text-[var(--foreground)]/70 outline-none placeholder:text-[var(--muted-foreground)]/50"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && customDice.trim()) {
                   handleDiceRoll(customDice.trim());
@@ -239,7 +239,7 @@ export function GameInput({
                   setCustomDice("");
                 }
               }}
-              className="flex h-[26px] items-center rounded bg-white/10 px-1.5 text-white/70 hover:bg-white/20"
+              className="flex h-[26px] items-center rounded bg-[var(--muted)]/30 px-1.5 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/50"
             >
               <Send size={14} />
             </button>
@@ -303,8 +303,8 @@ export function GameInput({
                   className={cn(
                     "flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
                     addressMode === "party"
-                      ? "bg-sky-500/15 text-sky-200"
-                      : "text-[var(--foreground)]/75 hover:bg-white/5 hover:text-[var(--foreground)]",
+                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-200"
+                      : "text-[var(--foreground)]/75 hover:bg-black/5 hover:text-[var(--foreground)] dark:hover:bg-white/5",
                   )}
                 >
                   <Users size={14} className="shrink-0" />
@@ -317,8 +317,8 @@ export function GameInput({
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
                   addressMode === "gm"
-                    ? "bg-amber-500/15 text-amber-200"
-                    : "text-[var(--foreground)]/75 hover:bg-white/5 hover:text-[var(--foreground)]",
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-200"
+                    : "text-[var(--foreground)]/75 hover:bg-black/5 hover:text-[var(--foreground)] dark:hover:bg-white/5",
                 )}
               >
                 <MessageCircle size={14} className="shrink-0" />
@@ -397,16 +397,16 @@ export function GameInput({
           }
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-[#c3c2c2] outline-none placeholder:text-foreground/30 disabled:opacity-50"
+          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 disabled:opacity-50"
           style={{ minHeight: 36, maxHeight: 120 }}
         />
 
         {queuedDice && (
-          <div className="flex items-center self-stretch rounded-lg border border-white/15 bg-white/10 px-2 text-xs text-white/70">
+          <div className="flex items-center self-stretch rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 text-xs text-[var(--foreground)]/70">
             🎲 {queuedDice}
             <button
               onClick={() => setQueuedDice(null)}
-              className="ml-1 text-white/40 transition-colors hover:text-white"
+              className="ml-1 text-[var(--muted-foreground)]/60 transition-colors hover:text-[var(--foreground)]"
               title="Clear queued roll"
             >
               ✕
@@ -420,8 +420,8 @@ export function GameInput({
           className={cn(
             "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
             showDice
-              ? "text-white/80 hover:bg-foreground/10"
-              : "text-white/50 hover:bg-foreground/10 hover:text-white/70",
+              ? "text-[var(--foreground)]/80 hover:bg-foreground/10"
+              : "text-[var(--foreground)]/50 hover:bg-foreground/10 hover:text-[var(--foreground)]/70",
           )}
           title="Roll dice"
         >
@@ -461,8 +461,8 @@ export function GameInput({
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90",
             (text.trim() || attachments.length > 0 || (pendingMoveLabel && addressMode === "scene") || queuedDice) &&
               !disabled
-              ? "text-white hover:text-white/80"
-              : "text-white/30",
+              ? "text-[var(--primary)] hover:text-[var(--primary)]/80"
+              : "text-[var(--muted-foreground)]/40",
           )}
         >
           <Send size={18} />

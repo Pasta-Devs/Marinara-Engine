@@ -525,7 +525,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                 onDelete(message.id);
               }}
               className={cn(
-                "absolute -right-1 -top-1 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
+                "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
                 showActions && "opacity-100",
               )}
               title="Delete"
@@ -717,7 +717,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         {/* Hover action bar */}
         <div
           className={cn(
-            "absolute -top-3 right-4 flex items-center gap-0.5 rounded-md border border-white/20 bg-black/40 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all",
+            "absolute -top-3 right-4 flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--card)]/90 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all dark:border-white/20 dark:bg-black/40",
             "opacity-0 group-hover:opacity-100",
             (showActions || forceShowActions) && "opacity-100",
           )}
@@ -878,7 +878,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                 el.style.height = "auto";
                 el.style.height = `${Math.min(el.scrollHeight, 300)}px`;
               }}
-              className="w-full resize-none rounded-lg border border-white/25 bg-[var(--secondary)] p-2.5 text-[0.9375rem] leading-relaxed outline-none"
+              className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2.5 text-[0.9375rem] leading-relaxed outline-none"
               rows={1}
               style={{ overflow: "auto" }}
               onKeyDown={(e) => {
@@ -994,7 +994,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       {!hideActions && (
         <div
           className={cn(
-            "mari-message-actions absolute -top-3 right-4 flex items-center gap-0.5 rounded-md border border-white/20 bg-black/40 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all",
+            "mari-message-actions absolute -top-3 right-4 flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--card)]/90 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all dark:border-white/20 dark:bg-black/40",
             "opacity-0 group-hover:opacity-100",
             (showActions || forceShowActions) && "opacity-100",
           )}

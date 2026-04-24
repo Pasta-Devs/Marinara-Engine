@@ -107,7 +107,7 @@ export function CyoaChoices({ messages }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-3 animate-message-in">
-      <div className="flex items-center gap-2 text-[0.625rem] text-white/30">
+      <div className="flex items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]/60">
         <div className="flex items-center gap-1.5">
           <Sparkles size="0.625rem" />
           <span>What will you do?</span>
@@ -116,7 +116,7 @@ export function CyoaChoices({ messages }: Props) {
           type="button"
           onClick={isEditing ? handleCancelEdit : handleStartEdit}
           disabled={isStreaming || updateMessageExtra.isPending}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[0.5625rem] text-white/50 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)]/20 px-2 py-1 text-[0.5625rem] text-[var(--foreground)]/60 transition-all hover:border-[var(--border)] hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-black/35 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80"
           title={isEditing ? "Cancel editing choices" : "Edit CYOA choices"}
         >
           <Pencil size="0.625rem" />
@@ -124,22 +124,22 @@ export function CyoaChoices({ messages }: Props) {
         </button>
       </div>
       {isEditing ? (
-        <div className="w-full max-w-[85%] space-y-2 rounded-2xl border border-white/10 bg-black/45 p-3 backdrop-blur-md">
+        <div className="w-full max-w-[85%] space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 backdrop-blur-md dark:border-white/10 dark:bg-black/45">
           {draftChoices.map((choice, index) => (
-            <div key={index} className="rounded-xl border border-white/8 bg-black/30 p-3">
+            <div key={index} className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-3 dark:border-white/8 dark:bg-black/30">
               <input
                 type="text"
                 value={choice.label}
                 onChange={(e) => updateDraftChoice(index, "label", e.target.value)}
                 placeholder={`Choice ${index + 1}`}
-                className="w-full rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-[0.6875rem] font-semibold text-purple-200 outline-none transition-colors focus:border-purple-400/40"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] font-semibold text-purple-700 outline-none transition-colors focus:border-purple-400/40 dark:border-white/10 dark:bg-black/35 dark:text-purple-200"
               />
               <textarea
                 value={choice.text}
                 onChange={(e) => updateDraftChoice(index, "text", e.target.value)}
                 rows={Math.min(Math.max(choice.text.split("\n").length, 2), 6)}
                 placeholder="Describe the action or dialogue sent when this choice is clicked."
-                className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-[0.6875rem] leading-relaxed text-white/75 outline-none transition-colors focus:border-purple-400/40"
+                className="mt-2 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80 outline-none transition-colors focus:border-purple-400/40 dark:border-white/10 dark:bg-black/35 dark:text-white/75"
               />
             </div>
           ))}
@@ -148,7 +148,7 @@ export function CyoaChoices({ messages }: Props) {
               type="button"
               onClick={handleCancelEdit}
               disabled={updateMessageExtra.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/35 px-3 py-1.5 text-[0.625rem] text-white/60 transition-colors hover:bg-white/10 hover:text-white/85 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-1.5 text-[0.625rem] text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-black/35 dark:text-white/60"
             >
               <X size="0.75rem" />
               <span>Cancel</span>
@@ -178,12 +178,12 @@ export function CyoaChoices({ messages }: Props) {
               type="button"
               onClick={() => handleChoice(choice.text)}
               disabled={isStreaming}
-              className="group relative rounded-xl border border-white/10 bg-black/50 px-4 py-2.5 text-left backdrop-blur-md transition-all hover:border-purple-400/40 hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/5 active:scale-[0.98] disabled:opacity-50"
+              className="group relative rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-4 py-2.5 text-left backdrop-blur-md transition-all hover:border-purple-400/40 hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/5 active:scale-[0.98] disabled:opacity-50 dark:border-white/10 dark:bg-black/50"
             >
-              <span className="block text-[0.6875rem] font-semibold text-purple-300/90 group-hover:text-purple-200">
+              <span className="block text-[0.6875rem] font-semibold text-purple-700 group-hover:text-purple-600 dark:text-purple-300/90 dark:group-hover:text-purple-200">
                 {choice.label}
               </span>
-              <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-white/50 group-hover:text-white/70">
+              <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--foreground)]/60 group-hover:text-[var(--foreground)]/80 dark:text-white/50 dark:group-hover:text-white/70">
                 {choice.text}
               </span>
             </button>

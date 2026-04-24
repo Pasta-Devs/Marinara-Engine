@@ -102,6 +102,9 @@ function hasNamePrefixFormat(msg: Message, characterMap: CharacterMap): boolean 
 // from replaying when the user navigates away from a chat and comes back.
 const globalSeenKeys = new Set<string>();
 
+const HEADER_BTN =
+  "flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50";
+
 export function ConversationView({
   chatId,
   messages,
@@ -164,12 +167,16 @@ export function ConversationView({
   }, [chatId, qc]);
 
   // Global conversation gradient from settings
+  const theme = useUIStore((s) => s.theme);
   const convoGradientFrom = useUIStore((s) => s.convoGradientFrom);
   const convoGradientTo = useUIStore((s) => s.convoGradientTo);
-  const gradientStyle = useMemo(
-    () => ({ background: `linear-gradient(135deg, ${convoGradientFrom}, ${convoGradientTo})` }),
-    [convoGradientFrom, convoGradientTo],
-  );
+  const gradientStyle = useMemo(() => {
+    // In light mode, only apply the gradient if the user has customized it away from the dark default.
+    // Otherwise fall back to the theme background so the chat area adapts to the current theme.
+    const isDefaultDark = convoGradientFrom === "#0a0a0e" && convoGradientTo === "#1c2133";
+    if (theme === "light" && isDefaultDark) return {};
+    return { background: `linear-gradient(135deg, ${convoGradientFrom}, ${convoGradientTo})` };
+  }, [convoGradientFrom, convoGradientTo, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -564,7 +571,7 @@ export function ConversationView({
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div className="flex items-center gap-2 rounded-lg bg-black/30 px-2.5 py-1.5 backdrop-blur-sm">
+                <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
                       <img src={c.avatarUrl} alt={c.name} className="h-5 w-5 rounded-full object-cover" />
@@ -574,7 +581,7 @@ export function ConversationView({
                       </div>
                     )}
                     <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-black/30 ${statusColor(c.conversationStatus)}`}
+                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
                     />
                   </div>
                   <div className="flex flex-col leading-tight">
@@ -589,7 +596,7 @@ export function ConversationView({
 
             // Multiple characters — show stacked avatars + names
             return (
-              <div className="flex items-center gap-2 rounded-lg bg-black/30 px-2.5 py-1.5 backdrop-blur-sm">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
@@ -601,21 +608,21 @@ export function ConversationView({
                           <img
                             src={c.avatarUrl}
                             alt={c.name}
-                            className="h-5 w-5 rounded-full object-cover ring-1 ring-black/30"
+                            className="h-5 w-5 rounded-full object-cover ring-1 ring-[var(--border)]"
                           />
                         ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-black/30">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
                             {c.name[0]}
                           </div>
                         )}
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-black/30 ${statusColor(c.conversationStatus)}`}
+                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-                <span className="text-[0.75rem] font-medium text-white/90">
+                <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90">
                   {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}
                 </span>
               </div>
@@ -624,34 +631,22 @@ export function ConversationView({
 
           <div className="flex items-center gap-1.5">
             <ChatBranchSelector activeChatId={chatId} activeChatName={chatName} groupId={chatGroupId} />
-            <button
-              onClick={onOpenFiles}
-              className="flex items-center justify-center rounded-lg bg-black/30 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-foreground"
-              title="Manage Chat Files"
-            >
+            <button onClick={onOpenFiles} className={HEADER_BTN} title="Manage Chat Files">
               <FolderOpen size="0.875rem" />
             </button>
-            <button
-              onClick={onOpenGallery}
-              className="flex items-center justify-center rounded-lg bg-black/30 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-foreground"
-              title="Gallery"
-            >
+            <button onClick={onOpenGallery} className={HEADER_BTN} title="Gallery">
               <ImageIcon size="0.875rem" />
             </button>
             {onSwitchChat && (
               <button
                 onClick={onSwitchChat}
-                className="flex items-center justify-center rounded-lg bg-black/30 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-foreground"
+                className={HEADER_BTN}
                 title={connectedChatName ? `Switch to ${connectedChatName}` : "Switch to connected chat"}
               >
                 <ArrowRightLeft size="0.875rem" />
               </button>
             )}
-            <button
-              onClick={onOpenSettings}
-              className="flex items-center justify-center rounded-lg bg-black/30 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-foreground"
-              title="Chat Settings"
-            >
+            <button onClick={onOpenSettings} className={HEADER_BTN} title="Chat Settings">
               <Settings2 size="0.875rem" />
             </button>
           </div>
@@ -962,7 +957,7 @@ function SplitMessageGroup({
             ref={editRef}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="w-full resize-none rounded-lg border border-white/25 bg-[var(--secondary)] p-2.5 text-[0.9375rem] leading-relaxed outline-none"
+            className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2.5 text-[0.9375rem] leading-relaxed outline-none"
             rows={Math.min(editValue.split("\n").length + 1, 16)}
             onKeyDown={(e) => {
               if (e.key === "Backspace" && editValue === "") {

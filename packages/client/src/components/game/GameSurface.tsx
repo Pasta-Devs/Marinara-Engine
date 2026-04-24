@@ -115,9 +115,9 @@ function IntroTypewriter({ text, onComplete }: { text: string; onComplete?: () =
   }, [visible]);
   return (
     <div>
-      <p className="text-sm leading-relaxed text-white/70 whitespace-pre-line">
+      <p className="text-sm leading-relaxed text-[var(--foreground)]/70 dark:text-white/70 whitespace-pre-line">
         {text.slice(0, visible)}
-        {visible < text.length && <span className="animate-pulse text-white/40">▌</span>}
+        {visible < text.length && <span className="animate-pulse text-[var(--foreground)]/40 dark:text-white/40">▌</span>}
         <span ref={endRef} />
       </p>
     </div>
@@ -3619,8 +3619,8 @@ export function GameSurface({
   // indicator instead of flashing the setup/start screens.
   if (isMessagesLoading && !needsCreation && sessionStatus !== "setup" && !isSetupActive) {
     return (
-      <div className="flex h-full items-center justify-center bg-black/80">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+      <div className="flex h-full items-center justify-center bg-[var(--background)] dark:bg-black/80">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
       </div>
     );
   }
@@ -3683,16 +3683,18 @@ export function GameSurface({
     const setupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
     // Phase: "idle" = show Start button over overview, "intro" = typewriter reveal after clicking Start
     const introPhase = startGame.isPending || awaitingFirstTurn ? "intro" : "idle";
+    const SURFACE_BTN =
+      "flex items-center gap-2 rounded-lg bg-[var(--muted)]/30 px-4 py-2 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white";
     return (
-      <div className="flex h-full items-center justify-center overflow-hidden bg-black/80 p-6">
+      <div className="flex h-full items-center justify-center overflow-hidden bg-[var(--background)] dark:bg-black/80 p-6">
         <div className="flex max-h-full max-w-lg flex-col items-center gap-6 text-center">
           {/* Genre / Setting tag */}
           {setupConfig && (
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2 text-xs text-white/40">
+            <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2 text-xs text-[var(--muted-foreground)] dark:text-white/40">
               <span>{setupConfig.genre as string}</span>
-              <span className="text-white/20">|</span>
+              <span className="text-[var(--muted-foreground)]/50 dark:text-white/20">|</span>
               <span>{setupConfig.setting as string}</span>
-              <span className="text-white/20">|</span>
+              <span className="text-[var(--muted-foreground)]/50 dark:text-white/20">|</span>
               <span>{setupConfig.tone as string}</span>
             </div>
           )}
@@ -3727,8 +3729,8 @@ export function GameSurface({
                   </button>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 text-sm text-white/60">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+                    <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] dark:text-white/60">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
                       <span>
                         {hasEverHadContent && !sceneProcessed
                           ? "Preparing the scene..."
@@ -3744,14 +3746,14 @@ export function GameSurface({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => retrySceneAnalysis()}
-                          className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-xs text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+                          className={SURFACE_BTN}
                         >
                           <RefreshCw size={14} />
                           Retry Scene Analysis
                         </button>
                         <button
                           onClick={() => skipSceneAnalysis()}
-                          className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-xs text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+                          className={SURFACE_BTN}
                         >
                           Skip
                         </button>
@@ -3765,7 +3767,7 @@ export function GameSurface({
                       !sceneAnalysisFailed && (
                         <button
                           onClick={() => skipSceneAnalysis()}
-                          className="mt-1 flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-xs text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+                          className={cn("mt-1", SURFACE_BTN)}
                         >
                           Skip
                         </button>
@@ -3776,7 +3778,7 @@ export function GameSurface({
                 {!isStreaming && !latestAssistantMsg?.content && !startGame.isPending && (
                   <button
                     onClick={() => generate({ chatId: activeChatId, connectionId: null })}
-                    className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-xs text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+                    className={SURFACE_BTN}
                   >
                     <RefreshCw size={14} />
                     Retry
