@@ -57,6 +57,26 @@ LOG_LEVEL=debug pnpm start
 
 > **Note:** Client-side (browser) logging uses the standard `console.*` API and is not controlled by `LOG_LEVEL`. Production client builds automatically strip `console.log` calls; only `console.warn` and `console.error` survive in the browser.
 
+## Agent-Specific Configuration
+
+Some agents have configuration that lives outside `.env` — typically because it includes encrypted credentials managed through the UI rather than environment variables.
+
+### Oracle (Web Search)
+
+The Oracle agent fetches live web results when the user types `<search>topic</search>` inside a chat message, summarises them with anti-hallucination rules, injects the summary into the character's context, and (optionally) persists character takeaways to the lorebook. It is configured from **Settings → Connections → Oracle**, and the encrypted API key is stored alongside other application settings.
+
+| Setting            | Default   | Range / Values    | Description                                                                                                                                              |
+| ------------------ | --------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`          | `false`   | boolean           | Master switch for the Oracle agent. The agent must also be enabled in the agent panel for it to fire.                                                    |
+| `provider`         | `tavily`  | `tavily`          | Web-search provider. Only Tavily is implemented in the MVP.                                                                                              |
+| `apiKey`           | _(empty)_ | string            | Provider API key. Encrypted at rest using `ENCRYPTION_KEY`. The UI displays a masked placeholder once a key is saved.                                    |
+| `maxResults`       | `3`       | `1`–`10`          | Number of raw search results requested from the provider. The summariser still caps its own output independently.                                        |
+| `summaryTokenCap`  | `400`     | `100`–`2000`      | Hard cap on the summary length handed back to the character. Smaller values are faster and cheaper; larger values keep more facts.                       |
+| `timeoutMs`        | `8000`    | `2000`–`30000`    | Fetch timeout (ms) before Oracle gives up and returns an empty injection.                                                                                |
+| `autoPersist`      | `true`    | boolean           | When the character makes a durable commitment after a search (a choice, a preference, an opinion), persist it as a lorebook entry tagged `web-research`. |
+
+See [`docs/ORACLE.md`](./ORACLE.md) for the end-to-end flow, the trigger syntax, and how summaries are injected and persisted.
+
 ## Notes
 
 - The shell launchers (`start.bat`, `start.sh`, `start-termux.sh`) source `.env` automatically. If you run `pnpm start` directly, make sure the variables are set in your environment or `.env` file.

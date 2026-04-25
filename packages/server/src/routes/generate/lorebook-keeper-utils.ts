@@ -192,19 +192,24 @@ export async function persistLorebookKeeperUpdates(args: {
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
   updates: Array<Record<string, unknown>>;
+  /**
+   * Overrides for the auto-created lorebook's metadata. Used when a non-Lorebook-Keeper
+   * agent (e.g. Oracle) persists entries and wants the origin attributed correctly.
+   */
+  source?: { agentId?: string; description?: string };
 }): Promise<string | null> {
-  const { lorebooksStore, chatId, chatName, preferredTargetLorebookId, writableLorebookIds, updates } = args;
+  const { lorebooksStore, chatId, chatName, preferredTargetLorebookId, writableLorebookIds, updates, source } = args;
 
   let targetLorebookId = preferredTargetLorebookId ?? writableLorebookIds?.[0] ?? null;
   if (!targetLorebookId) {
     const created = await lorebooksStore.create({
       name: `Auto-generated (${chatName || chatId})`,
-      description: "Automatically created by the Lorebook Keeper agent",
+      description: source?.description ?? "Automatically created by the Lorebook Keeper agent",
       category: "uncategorized",
       chatId,
       enabled: true,
       generatedBy: "agent",
-      sourceAgentId: "lorebook-keeper",
+      sourceAgentId: source?.agentId ?? "lorebook-keeper",
     });
     targetLorebookId = (created as { id?: string } | null)?.id ?? null;
   }
@@ -225,6 +230,9 @@ export async function persistLorebookKeeperUpdates(args: {
     const content = typeof update.content === "string" ? update.content : "";
     const keys = Array.isArray(update.keys) ? update.keys.filter((key): key is string => typeof key === "string") : [];
     const tag = typeof update.tag === "string" ? update.tag : "";
+    // Optional: callers (e.g. Oracle) may opt entries into "always-on" injection
+    // by passing constant=true, so keyword matching isn't required for activation.
+    const constant = update.constant === true ? true : undefined;
     const existing = entryByName.get(rawName.toLowerCase());
 
     if (existing && (existing.locked === true || existing.locked === "true")) {
@@ -232,7 +240,12 @@ export async function persistLorebookKeeperUpdates(args: {
     }
 
     if (existing) {
-      await lorebooksStore.updateEntry(existing.id, { content, keys, tag });
+      await lorebooksStore.updateEntry(existing.id, {
+        content,
+        keys,
+        tag,
+        ...(constant !== undefined ? { constant } : {}),
+      });
       entryByName.set(rawName.toLowerCase(), existing);
       continue;
     }
@@ -244,6 +257,7 @@ export async function persistLorebookKeeperUpdates(args: {
       keys,
       tag,
       enabled: true,
+      ...(constant !== undefined ? { constant } : {}),
     });
     if (created && typeof created === "object" && "id" in created) {
       entryByName.set(rawName.toLowerCase(), created as { id: string; name?: string | null; locked?: unknown });

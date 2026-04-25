@@ -495,6 +495,42 @@ export function parseCharacterCommands(content: string): {
 }
 
 /**
+ * Extract `<search>...</search>` trigger tags from a user message.
+ * Returns the distinct, trimmed queries and the content with the tags stripped,
+ * so the tag itself doesn't bleed into the main generation prompt.
+ *
+ * Unlike parseCharacterCommands (which scans assistant output), this helper is
+ * scoped to user-facing input — the Oracle agent is the only caller in MVP.
+ */
+const SEARCH_RE = /<search>([\s\S]*?)<\/search>/gi;
+
+export function extractSearchQueries(content: string): { queries: string[]; cleanContent: string } {
+  const queries: string[] = [];
+  const seen = new Set<string>();
+
+  for (const match of content.matchAll(SEARCH_RE)) {
+    const raw = match[1]?.trim() ?? "";
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    queries.push(raw);
+  }
+
+  const cleanContent = content
+    .replace(SEARCH_RE, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  // When the user typed only <search> tags, cleanContent ends up empty. That's
+  // fine — the chat history simply skips saving a user bubble (the existing
+  // guard in generate.routes does this), and the Oracle injection path
+  // compensates by creating a dedicated last user message carrying the query
+  // plus the findings, so the main LLM still has a question to answer.
+  return { queries, cleanContent };
+}
+
+/**
  * Parse a duration string like "2h", "30m", "1h30m" into minutes.
  * Returns null if unparseable.
  */

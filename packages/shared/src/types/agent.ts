@@ -178,6 +178,7 @@ export const BUILT_IN_AGENT_IDS = {
   SECRET_PLOT_DRIVER: "secret-plot-driver",
   GAME_MASTER: "game-master",
   PARTY_PLAYER: "party-player",
+  ORACLE: "oracle",
 } as const;
 
 export type AgentCategory = "writer" | "tracker" | "misc";
@@ -463,6 +464,18 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
     enabledByDefault: false,
     category: "misc",
   },
+
+  // NOTE: Oracle must remain pre_generation. The summary has to be in the prompt
+  // before the character replies — moving to parallel/post_processing breaks the flow.
+  {
+    id: "oracle",
+    name: "Oracle",
+    description:
+      "When the user writes <search>topic</search> in their message, fetches results from the web (Tavily), summarizes them with strict anti-hallucination rules, injects the summary into the character's context, and saves it to the chat lorebook.",
+    phase: "pre_generation",
+    enabledByDefault: false,
+    category: "misc",
+  },
 ];
 
 export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Readonly<Record<string, number>> = {
@@ -524,6 +537,7 @@ export const DEFAULT_AGENT_TOOLS: Record<string, string[]> = {
   "secret-plot-driver": [],
   "game-master": ["roll_dice", "update_game_state"],
   "party-player": [],
+  oracle: ["web_search"],
 };
 
 /** Data shape for a lorebook_update agent result. */
@@ -837,6 +851,25 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
         },
       },
       required: ["volume"],
+    },
+  },
+  {
+    name: "web_search",
+    description:
+      "Search the public web for up-to-date information on a topic. Returns a list of relevant passages with source URLs. Used by the Oracle agent.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query — keywords, a question, or a topic name.",
+        },
+        maxResults: {
+          type: "number",
+          description: "Maximum number of results to return (1-10). Defaults to the Oracle config.",
+        },
+      },
+      required: ["query"],
     },
   },
 ];

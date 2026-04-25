@@ -22,6 +22,7 @@ export * from "./types/theme.js";
 export * from "./types/chat-preset.js";
 export * from "./types/game.js";
 export * from "./types/sidecar.js";
+export * from "./types/oracle.js";
 
 // Schemas
 export * from "./schemas/chat.schema.js";

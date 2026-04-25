@@ -74,7 +74,13 @@ export async function executeAgent(
 
     // Agents use lower temperature for reliability
     const temperature = (config.settings.temperature as number) ?? 0.3;
-    const rawMaxTokens = Math.max((config.settings.maxTokens as number) ?? 4096, 16384);
+    // If the agent provides an explicit positive maxTokens, respect it. Otherwise
+    // apply a generous floor (16384) so JSON-emitting agents never run out mid-response.
+    // Agents with bounded output (e.g. Oracle's summaryTokenCap) can opt out of the
+    // floor by passing settings.maxTokens directly, freeing input budget for them.
+    const explicitMaxTokens = config.settings.maxTokens;
+    const rawMaxTokens =
+      typeof explicitMaxTokens === "number" && explicitMaxTokens > 0 ? explicitMaxTokens : 16384;
     const maxTokens =
       provider.maxTokensOverrideValue !== null ? Math.min(rawMaxTokens, provider.maxTokensOverrideValue) : rawMaxTokens;
     const streamResponses = context.streaming !== false;
@@ -784,6 +790,27 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</source_material>`);
   }
 
+  if (context.memory._searchQuery) {
+    parts.push(`<search_query>`);
+    parts.push(context.memory._searchQuery as string);
+    parts.push(`</search_query>`);
+  }
+
+  if (Array.isArray(context.memory._sourceUrls)) {
+    const urls = (context.memory._sourceUrls as unknown[]).filter(
+      (u): u is string => typeof u === "string" && u.length > 0,
+    );
+    if (urls.length > 0) {
+      parts.push(`<source_urls>`);
+      for (const url of urls) parts.push(url);
+      parts.push(`</source_urls>`);
+    }
+  }
+
+  if (typeof context.memory._summaryTokenCap === "number") {
+    parts.push(`<summary_token_cap>${context.memory._summaryTokenCap}</summary_token_cap>`);
+  }
+
   if (context.memory._chunkInfo) {
     const info = context.memory._chunkInfo as { current: number; total: number };
     parts.push(
@@ -865,6 +892,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   haptic: "haptic_command",
   cyoa: "cyoa_choices",
   "secret-plot-driver": "secret_plot",
+  oracle: "context_injection",
 };
 
 /** Agents that return structured JSON. */

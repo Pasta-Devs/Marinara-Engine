@@ -52,6 +52,7 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/lo
 import {
   parseCharacterCommands,
   parseDuration,
+  extractSearchQueries,
   type CharacterCommand,
   type ScheduleUpdateCommand,
   type CrossPostCommand,
@@ -70,6 +71,10 @@ import {
 } from "../services/conversation/character-commands.js";
 import { MARI_ASSISTANT_PROMPT } from "../db/seed-mari.js";
 import { executeKnowledgeRetrieval } from "../services/agents/knowledge-retrieval.js";
+import { executeOracle, extractCharacterTakeaway, type OraclePersistPayload } from "../services/agents/oracle.js";
+import { loadOracleConfig } from "../services/agents/web-search/config.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { ORACLE_LOREBOOK_TAG, type OracleConfig } from "@marinara-engine/shared";
 import { extractFileText, getSourceFilePath } from "./knowledge-sources.routes.js";
 import { gameStateSnapshots as gameStateSnapshotsTable } from "../db/schema/index.js";
 import { chats as chatsTable } from "../db/schema/index.js";
@@ -309,6 +314,21 @@ export async function generateRoutes(app: FastifyInstance) {
    */
   app.post("/", async (req, reply) => {
     const input = generateRequestSchema.parse(req.body);
+
+    // ── Oracle trigger extraction ──
+    // Pull any <search>...</search> tags out of the user message BEFORE it reaches
+    // the main LLM. Storing both lists here keeps the rest of the pipeline agnostic:
+    // the character never sees the raw tags, and the Oracle block downstream picks
+    // up the queries only if the agent is enabled and configured.
+    let oracleSearchQueries: string[] = [];
+    if (input.userMessage) {
+      const extracted = extractSearchQueries(input.userMessage);
+      if (extracted.queries.length > 0) {
+        oracleSearchQueries = extracted.queries;
+        input.userMessage = extracted.cleanContent;
+        logger.info("[oracle] Detected %d <search> trigger(s): %j", extracted.queries.length, extracted.queries);
+      }
+    }
 
     // Resolve the chat
     const chat = await chats.getById(input.chatId);
@@ -3352,6 +3372,85 @@ export async function generateRoutes(app: FastifyInstance) {
       }
 
       // ────────────────────────────────────────
+      // Oracle — load config when the user triggered <search> and the agent is on
+      // ────────────────────────────────────────
+      // Oracle is user-triggered (via <search> tags), so it bypasses the chat-level
+      // enableAgents gate — otherwise it would be unreachable in Conversation mode,
+      // where the Agents section of the chat settings drawer is hidden.
+      let oracleAgent: ResolvedAgent | undefined = resolvedAgents.find((a) => a.type === "oracle");
+      if (!oracleAgent && oracleSearchQueries.length > 0) {
+        const oracleRow = await agentsStore.getByType("oracle");
+        if (oracleRow && oracleRow.enabled === "true") {
+          // Resolve provider: per-agent override → default-for-agents → chat connection
+          let bypassProvider = provider;
+          let bypassModel = conn.model;
+          const bypassConnId = (oracleRow.connectionId as string | null) ?? defaultAgentConn?.id ?? null;
+          if (bypassConnId) {
+            const cached = agentProviderCache.get(bypassConnId);
+            if (cached) {
+              bypassProvider = cached.provider;
+              bypassModel = cached.model;
+            } else {
+              const bypassConn = await connections.getWithKey(bypassConnId);
+              if (bypassConn) {
+                const bypassBaseUrl = resolveBaseUrl(bypassConn);
+                if (bypassBaseUrl) {
+                  bypassProvider = createLLMProvider(
+                    bypassConn.provider,
+                    bypassBaseUrl,
+                    bypassConn.apiKey,
+                    bypassConn.maxContext,
+                    bypassConn.openrouterProvider,
+                    bypassConn.maxTokensOverride,
+                  );
+                  bypassModel = bypassConn.model;
+                }
+              }
+            }
+          }
+          oracleAgent = {
+            id: oracleRow.id,
+            type: oracleRow.type,
+            name: oracleRow.name,
+            phase: oracleRow.phase as string,
+            promptTemplate: oracleRow.promptTemplate as string,
+            connectionId: oracleRow.connectionId as string | null,
+            settings: oracleRow.settings ? JSON.parse(oracleRow.settings as string) : {},
+            provider: bypassProvider,
+            model: bypassModel,
+          };
+          logger.info("[oracle] Resolved via enableAgents bypass (user-triggered by <search>)");
+        }
+      }
+
+      let oracleConfig: OracleConfig | null = null;
+      logger.debug(
+        "[oracle] gate — agentInResolved=%s queries=%d resolvedAgentTypes=[%s]",
+        !!oracleAgent,
+        oracleSearchQueries.length,
+        resolvedAgents.map((a) => a.type).join(", "),
+      );
+      if (oracleAgent && oracleSearchQueries.length > 0) {
+        try {
+          const appSettings = createAppSettingsStorage(app.db);
+          const cfg = await loadOracleConfig(appSettings);
+          logger.debug(
+            "[oracle] config loaded — enabled=%s hasKey=%s provider=%s",
+            cfg.enabled,
+            Boolean(cfg.apiKey),
+            cfg.provider,
+          );
+          if (cfg.enabled && cfg.apiKey) {
+            oracleConfig = cfg;
+          } else {
+            logger.info("[oracle] Agent enabled but config missing (disabled or no API key) — skipping");
+          }
+        } catch (err) {
+          logger.warn(err, "[oracle] Failed to load config");
+        }
+      }
+
+      // ────────────────────────────────────────
       // Automated Chat Summary — interval gating
       // ────────────────────────────────────────
       // Only run if the Automated Chat Summary agent is in the pipeline.
@@ -3600,8 +3699,8 @@ export async function generateRoutes(app: FastifyInstance) {
       let contextInjections: AgentInjection[] = [];
       // Static-injection agents don't need LLM calls — they inject prompt text directly
       const STATIC_INJECTION_AGENTS = new Set(["html"]);
-      const SEPARATE_INJECTION_AGENTS = new Set(["knowledge-retrieval"]);
-      const EXCLUDED_FROM_PIPELINE = new Set(["html", "knowledge-retrieval"]);
+      const SEPARATE_INJECTION_AGENTS = new Set(["knowledge-retrieval", "oracle"]);
+      const EXCLUDED_FROM_PIPELINE = new Set(["html", "knowledge-retrieval", "oracle"]);
       const hasPreGenAgents = resolvedAgents.some(
         (a) => a.phase === "pre_generation" && !EXCLUDED_FROM_PIPELINE.has(a.type),
       );
@@ -3613,8 +3712,16 @@ export async function generateRoutes(app: FastifyInstance) {
         !input.regenerateMessageId
       );
       const shouldRunPreGen = hasPreGenAgents && !input.regenerateMessageId;
+      const shouldRunOracle = !!(
+        oracleAgent &&
+        oracleConfig &&
+        oracleSearchQueries.length > 0 &&
+        !input.regenerateMessageId
+      );
+      // Collected across Oracle runs so the post-gen step can persist summaries to the lorebook.
+      const oraclePersistPayloads: OraclePersistPayload[] = [];
 
-      if (shouldRunPreGen || shouldRunKR) {
+      if (shouldRunPreGen || shouldRunKR || shouldRunOracle) {
         sendProgress("agents");
 
         // Build the pre-gen promise
@@ -3670,14 +3777,51 @@ export async function generateRoutes(app: FastifyInstance) {
             })()
           : Promise.resolve(null);
 
-        // Run both in parallel
-        const [preGenResult, krResult] = await Promise.all([preGenPromise, krPromise]);
+        // Build the Oracle promise — MVP processes only the first query per turn
+        // to keep latency and token cost bounded. Multi-query support ships in Phase 2.
+        const oraclePromise = shouldRunOracle
+          ? (async () => {
+              reply.raw.write(
+                `data: ${JSON.stringify({ type: "agent_start", data: { phase: "pre_generation", agentType: "oracle" } })}\n\n`,
+              );
+              const query = oracleSearchQueries[0]!;
+              const oracleExecConfig = {
+                id: oracleAgent!.id,
+                type: oracleAgent!.type,
+                name: oracleAgent!.name,
+                phase: oracleAgent!.phase,
+                promptTemplate: oracleAgent!.promptTemplate,
+                connectionId: oracleAgent!.connectionId,
+                settings: oracleAgent!.settings,
+              };
+              const _tOracle = Date.now();
+              const { result, persist } = await executeOracle({
+                agentConfig: oracleExecConfig,
+                oracleConfig: oracleConfig!,
+                baseContext: agentContext,
+                provider: oracleAgent!.provider,
+                model: oracleAgent!.model,
+                query,
+              });
+              sendAgentEvent(result);
+              if (persist && oracleConfig!.autoPersist) {
+                oraclePersistPayloads.push(persist);
+              }
+              logger.info("[timing] Oracle: %dms", Date.now() - _tOracle);
+              return result;
+            })()
+          : Promise.resolve(null);
+
+        // Run all three in parallel
+        const [preGenResult, krResult, oracleResult] = await Promise.all([preGenPromise, krPromise, oraclePromise]);
         contextInjections = preGenResult;
 
         // ── Failure gate: only block generation if a critical pre-gen agent failed ──
         // The secret-plot-driver shapes narrative direction — generating without
         // it would produce incoherent output. Other agents are enhancement-only.
-        const preGenResults = pipeline.results.filter((r) => r.agentType !== "knowledge-retrieval");
+        const preGenResults = pipeline.results.filter(
+          (r) => r.agentType !== "knowledge-retrieval" && r.agentType !== "oracle",
+        );
         const criticalFailed = preGenResults.filter((r) => !r.success && r.type === "secret_plot");
         const nonCriticalFailed = preGenResults.filter((r) => !r.success && r.type !== "secret_plot");
         if (criticalFailed.length > 0) {
@@ -3760,6 +3904,42 @@ export async function generateRoutes(app: FastifyInstance) {
               finalMessages[finalMessages.length - 1] = { ...last, content: last.content + krWrapped };
             }
             contextInjections.push({ agentType: "knowledge-retrieval", text: krText });
+          }
+        }
+
+        // Inject Oracle output into the prompt (same pattern as KR, distinct wrapper tag)
+        if (oracleResult?.success && oracleResult.data) {
+          const oracleText =
+            typeof oracleResult.data === "string"
+              ? oracleResult.data
+              : ((oracleResult.data as { text?: string })?.text ?? "");
+          if (oracleText) {
+            const oracleQuery = oracleSearchQueries[0] ?? "";
+            const oracleWrapped =
+              wrapFormat === "markdown"
+                ? `\n\n## Web Search\n${oracleText}`
+                : `\n\n<web_search>\n${oracleText}\n</web_search>`;
+            const lastUserIdx = findLastIndex(finalMessages, "user");
+            if (lastUserIdx >= 0) {
+              // The user typed a message alongside the tag — append findings to it.
+              const target = finalMessages[lastUserIdx]!;
+              finalMessages[lastUserIdx] = { ...target, content: target.content + oracleWrapped };
+            } else {
+              // The user typed ONLY <search> tags — no visible user bubble exists.
+              // Create a synthetic last user message so the main LLM has an anchor,
+              // without polluting the chat history (this message is ephemeral, only
+              // used for this turn's prompt assembly).
+              const anchorPrefix = oracleQuery
+                ? wrapFormat === "markdown"
+                  ? `The user searched for: "${oracleQuery}". Respond using the information below.`
+                  : `<user_intent query="${oracleQuery.replace(/"/g, "&quot;")}">The user triggered a web search for the topic above. Use the information inside &lt;web_search&gt; to answer.</user_intent>`
+                : "";
+              finalMessages.push({
+                role: "user",
+                content: `${anchorPrefix}${oracleWrapped}`.trim(),
+              });
+            }
+            contextInjections.push({ agentType: "oracle", text: oracleText });
           }
         }
       } else if (hasPreGenAgents && input.regenerateMessageId) {
@@ -6113,6 +6293,165 @@ export async function generateRoutes(app: FastifyInstance) {
           } catch {
             // Non-critical — don't fail generation if editor errors
           }
+        }
+      }
+
+      // ────────────────────────────────────────
+      // Oracle: persist web-research summaries to the lorebook
+      // ────────────────────────────────────────
+      // Runs unconditionally (not gated by hasPostWork) so it works in
+      // conversation mode where no post-processing agents are active.
+      //
+      // Scoping strategy:
+      //  - Single-character chat → attach to a character-scoped Oracle lorebook
+      //    (reused across future chats with the same character)
+      //  - Multi-character or zero characters → fall back to chat-scoped
+      //    auto-created lorebook (conservative, avoids cross-contamination)
+      if (oraclePersistPayloads.length > 0 && !abortController.signal.aborted && oracleAgent) {
+        try {
+          // Run the character-takeaway extractor per payload. We persist ONLY the
+          // character's commitments (preferences, choices) — not the raw facts —
+          // so future re-injections from the lorebook push roleplay-relevant
+          // memory instead of an encyclopedia dump.
+          const characterName = charInfo[0]?.name ?? "The character";
+          const extractorAgentConfig = {
+            id: oracleAgent.id,
+            type: oracleAgent.type,
+            name: oracleAgent.name,
+            phase: oracleAgent.phase,
+            promptTemplate: oracleAgent.promptTemplate,
+            connectionId: oracleAgent.connectionId,
+            settings: oracleAgent.settings,
+          };
+
+          const extractionPairs: Array<{ payload: OraclePersistPayload; takeaway: string }> = [];
+          for (const payload of oraclePersistPayloads) {
+            const _tExtract = Date.now();
+            const takeaway = await extractCharacterTakeaway({
+              agentConfig: extractorAgentConfig,
+              provider: oracleAgent.provider,
+              model: oracleAgent.model,
+              characterName,
+              characterResponse: combinedResponse,
+              oracleFindings: payload.summaryBody,
+              query: payload.query,
+              baseContext: agentContext,
+            });
+            logger.info(
+              "[oracle] Takeaway for %s — %dms — %s",
+              JSON.stringify(payload.query),
+              Date.now() - _tExtract,
+              takeaway ? JSON.stringify(takeaway.slice(0, 120)) : "NO_MEMORY (skipped)",
+            );
+            if (takeaway) extractionPairs.push({ payload, takeaway });
+          }
+
+          if (extractionPairs.length === 0) {
+            logger.info("[oracle] No durable commitments detected — nothing to persist this turn");
+          } else {
+            const updates = extractionPairs.map(({ payload, takeaway }) => ({
+              // Name uses the first extracted proper-noun phrase when available,
+              // falling back to the raw query — keeps the lorebook panel readable.
+              entryName: (payload.keys[0] ?? payload.query).slice(0, 120),
+              content: takeaway,
+              keys: payload.keys,
+              tag: ORACLE_LOREBOOK_TAG,
+              // Always-on injection: Oracle entries are character-scoped, so they
+              // are only ever in scope when the user is talking to that character —
+              // and when in scope, the character should always have access to its
+              // accumulated takeaways without depending on the user echoing exact
+              // entity names ("which film were we going to see again?" should still
+              // recall a film picked last week).
+              constant: true,
+            }));
+
+            // Resolve the preferred target lorebook. Priority:
+            //  1. Lorebook Keeper's explicit target (if configured on the chat)
+            //  2. Existing character-scoped Oracle lorebook (single-character chats)
+            //  3. Create a new character-scoped Oracle lorebook (single-character chats)
+            //  4. Fall back to chat-scoped auto-creation via persistLorebookKeeperUpdates
+            let preferredTargetId: string | null =
+              typeof agentContext.memory._lorebookKeeperTargetLorebookId === "string"
+                ? (agentContext.memory._lorebookKeeperTargetLorebookId as string)
+                : null;
+
+            if (!preferredTargetId && characterIds.length === 1) {
+              const singleCharId = characterIds[0]!;
+              const allBooks = (await lorebooksStore.list()) as unknown as Array<{
+                id: string;
+                characterId?: string | null;
+                sourceAgentId?: string | null;
+                enabled?: unknown;
+              }>;
+              const existing = allBooks.find(
+                (b) =>
+                  b.sourceAgentId === "oracle" &&
+                  b.characterId === singleCharId &&
+                  (b.enabled === true || b.enabled === "true"),
+              );
+              if (existing) {
+                preferredTargetId = existing.id;
+                logger.info(
+                  "[oracle] Reusing character-scoped lorebook %s for character %s",
+                  existing.id,
+                  singleCharId,
+                );
+              } else {
+                const charName = charInfo.find((c) => c.id === singleCharId)?.name ?? "character";
+                const created = await lorebooksStore.create({
+                  name: `Oracle knowledge (${charName})`,
+                  description: "Web-research summaries collected by the Oracle agent",
+                  category: "uncategorized",
+                  characterId: singleCharId,
+                  enabled: true,
+                  generatedBy: "agent",
+                  sourceAgentId: "oracle",
+                });
+                preferredTargetId = (created as { id?: string } | null)?.id ?? null;
+                if (preferredTargetId) {
+                  logger.info(
+                    "[oracle] Created character-scoped lorebook %s for %s",
+                    preferredTargetId,
+                    charName,
+                  );
+                }
+              }
+            }
+
+          logger.info(
+            "[oracle] Persist start — %d update(s), chatId=%s, preferredTarget=%s, charIds=%j",
+            updates.length,
+            input.chatId,
+            preferredTargetId ?? "none",
+            characterIds,
+          );
+          const targetId = await persistLorebookKeeperUpdates({
+            lorebooksStore,
+            chatId: input.chatId,
+            chatName: chat.name,
+            preferredTargetLorebookId: preferredTargetId,
+            writableLorebookIds: agentContext.writableLorebookIds,
+            updates,
+            source: {
+              agentId: "oracle",
+              description: "Automatically created by the Oracle agent for web-research summaries",
+            },
+          });
+            if (targetId) {
+              logger.info(
+                "[oracle] Persist done — wrote %d entr%s into lorebook %s",
+                updates.length,
+                updates.length === 1 ? "y" : "ies",
+                targetId,
+              );
+            } else {
+              logger.warn(
+                "[oracle] Persist FAILED — targetLorebookId returned null (creation or lookup failed silently)",
+              );
+            }
+          }
+        } catch (err) {
+          logger.warn(err, "[oracle] Failed to persist lorebook entries");
         }
       }
 
