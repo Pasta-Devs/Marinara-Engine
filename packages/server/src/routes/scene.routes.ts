@@ -22,6 +22,8 @@ import type {
   SceneCreateResponse,
   SceneConcludeRequest,
   SceneConcludeResponse,
+  SceneForkRequest,
+  SceneForkResponse,
   ScenePlanRequest,
   ScenePlanResponse,
   SceneFullPlan,
@@ -126,6 +128,71 @@ async function getCharacterName(chars: ReturnType<typeof createCharactersStorage
 function listAvailableBackgrounds(): string[] {
   if (!existsSync(BG_DIR)) return [];
   return readdirSync(BG_DIR).filter((f) => ALLOWED_BG_EXTS.has(extname(f).toLowerCase()));
+}
+
+function parseMetadata(chat: { metadata?: string | Record<string, unknown> | null }): Record<string, unknown> {
+  if (!chat.metadata) return {};
+  return typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : chat.metadata;
+}
+
+function parseCharacterIds(characterIds: unknown): string[] {
+  if (Array.isArray(characterIds)) return characterIds.map(String);
+  if (typeof characterIds === "string") {
+    try {
+      const parsed = JSON.parse(characterIds);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+const SCENE_FORK_METADATA_EXCLUDE = new Set([
+  "sceneOriginChatId",
+  "sceneInitiatorCharId",
+  "sceneDescription",
+  "sceneScenario",
+  "sceneSystemPrompt",
+  "sceneRating",
+  "sceneStatus",
+  "sceneConversationContext",
+  "sceneRelationshipHistory",
+  "sceneBackground",
+  "activeSceneChatId",
+  "sceneBusyCharIds",
+]);
+
+function buildRoleplayForkMetadata(sceneMeta: Record<string, unknown>) {
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(sceneMeta)) {
+    if (SCENE_FORK_METADATA_EXCLUDE.has(key) || key.startsWith("scene")) continue;
+    next[key] = value;
+  }
+  return next;
+}
+
+function buildForkContextMessage(sceneMeta: Record<string, unknown>, includePreSceneSummary: boolean) {
+  if (!includePreSceneSummary) return null;
+
+  const parts: string[] = [];
+  if (typeof sceneMeta.sceneDescription === "string" && sceneMeta.sceneDescription.trim()) {
+    parts.push(`Scene premise:\n${sceneMeta.sceneDescription.trim()}`);
+  }
+  if (typeof sceneMeta.sceneScenario === "string" && sceneMeta.sceneScenario.trim()) {
+    parts.push(`Scene scenario:\n${sceneMeta.sceneScenario.trim()}`);
+  }
+  if (typeof sceneMeta.sceneRelationshipHistory === "string" && sceneMeta.sceneRelationshipHistory.trim()) {
+    parts.push(`Relationship continuity:\n${sceneMeta.sceneRelationshipHistory.trim()}`);
+  }
+  if (typeof sceneMeta.sceneConversationContext === "string" && sceneMeta.sceneConversationContext.trim()) {
+    parts.push(`Pre-scene conversation context:\n${sceneMeta.sceneConversationContext.trim()}`);
+  }
+
+  if (!parts.length) return null;
+  return [`The following continuity was preserved when this scene became a standalone roleplay.`, "", ...parts].join(
+    "\n\n",
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -412,6 +479,120 @@ export async function sceneRoutes(app: FastifyInstance) {
     await chats.remove(sceneChatId);
 
     return { originChatId };
+  });
+
+  // Copy an active scene into a standalone roleplay chat. Clone leaves the
+  // original scene running; convert detaches and deletes the original scene
+  // without generating summaries or character memory.
+  app.post<{ Body: SceneForkRequest }>("/fork", async (req, reply) => {
+    const {
+      sceneChatId,
+      mode,
+      upToMessageId,
+      includePreSceneSummary = true,
+      includeParticipationGuide = true,
+    } = req.body ?? ({} as SceneForkRequest);
+
+    if (!sceneChatId) return reply.status(400).send({ error: "sceneChatId is required" });
+    if (mode !== "clone" && mode !== "convert") {
+      return reply.status(400).send({ error: "mode must be 'clone' or 'convert'" });
+    }
+    if (mode === "convert" && upToMessageId) {
+      return reply.status(400).send({ error: "Convert cannot be limited to a message" });
+    }
+
+    const sceneChat = await chats.getById(sceneChatId);
+    if (!sceneChat) return reply.status(404).send({ error: "Scene chat not found" });
+
+    const sceneMeta = parseMetadata(sceneChat);
+    const originChatId = typeof sceneMeta.sceneOriginChatId === "string" ? sceneMeta.sceneOriginChatId : null;
+    const isActiveScene = sceneMeta.sceneStatus === "active";
+    if (!isActiveScene && !originChatId) {
+      return reply.status(400).send({ error: "Not a scene chat" });
+    }
+
+    const sceneMessages = await chats.listMessages(sceneChatId);
+    if (upToMessageId && !sceneMessages.some((msg) => msg.id === upToMessageId)) {
+      return reply.status(400).send({ error: "Message is not part of this scene" });
+    }
+
+    const newChat = await chats.create({
+      name: sceneChat.name.startsWith("Scene: ")
+        ? sceneChat.name.replace(/^Scene:\s*/, "")
+        : `${sceneChat.name} (roleplay)`,
+      mode: "roleplay",
+      characterIds: parseCharacterIds(sceneChat.characterIds),
+      groupId: sceneChat.groupId,
+      personaId: sceneChat.personaId,
+      promptPresetId: sceneChat.promptPresetId,
+      connectionId: sceneChat.connectionId,
+    });
+    if (!newChat) return reply.status(500).send({ error: "Failed to create roleplay chat" });
+
+    await chats.updateMetadata(newChat.id, {
+      ...parseMetadata(newChat),
+      ...buildRoleplayForkMetadata(sceneMeta),
+    });
+
+    const copiedMessages: Array<{
+      role: "user" | "assistant" | "system" | "narrator";
+      characterId: string | null;
+      content: string;
+    }> = [];
+
+    const continuity = buildForkContextMessage(sceneMeta, includePreSceneSummary);
+    if (continuity) {
+      copiedMessages.push({
+        role: "narrator",
+        characterId: null,
+        content: continuity,
+      });
+    }
+
+    let skippedParticipationGuide = false;
+    for (const msg of sceneMessages) {
+      if (!includeParticipationGuide && !skippedParticipationGuide && msg.role === "narrator") {
+        skippedParticipationGuide = true;
+        if (upToMessageId && msg.id === upToMessageId) break;
+        continue;
+      }
+
+      let content = msg.content;
+      if (msg.activeSwipeIndex > 0) {
+        const swipes = await chats.getSwipes(msg.id);
+        const activeSwipe = swipes.find((s: { index: number }) => s.index === msg.activeSwipeIndex);
+        if (activeSwipe) content = activeSwipe.content;
+      }
+
+      copiedMessages.push({
+        role: msg.role as "user" | "assistant" | "system" | "narrator",
+        characterId: msg.characterId,
+        content,
+      });
+
+      if (upToMessageId && msg.id === upToMessageId) break;
+    }
+
+    await chats.createMessagesBatch(newChat.id, copiedMessages);
+
+    if (mode === "convert" && originChatId) {
+      const originChat = await chats.getById(originChatId);
+      if (originChat) {
+        const originMeta = parseMetadata(originChat);
+        delete originMeta.activeSceneChatId;
+        delete originMeta.sceneBusyCharIds;
+        await chats.updateMetadata(originChatId, originMeta);
+      }
+
+      await chats.disconnectChat(sceneChatId);
+      await chats.remove(sceneChatId);
+    }
+
+    return {
+      chatId: newChat.id,
+      originChatId,
+      mode,
+    } satisfies SceneForkResponse;
   });
 
   // ───────────────────────── PLAN (user-initiated) ─────────────────────────

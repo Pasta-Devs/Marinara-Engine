@@ -12,6 +12,9 @@ import type {
   SceneCreateResponse,
   SceneConcludeRequest,
   SceneConcludeResponse,
+  SceneForkMode,
+  SceneForkRequest,
+  SceneForkResponse,
   ScenePlanRequest,
   ScenePlanResponse,
   SceneFullPlan,
@@ -133,5 +136,46 @@ export function useScene() {
     [qc, setActiveChatId],
   );
 
-  return { planScene, createScene, concludeScene, abandonScene };
+  /** Fork a scene into a standalone roleplay chat. */
+  const forkScene = useCallback(
+    async (
+      sceneChatId: string,
+      mode: SceneForkMode,
+      opts?: { upToMessageId?: string },
+    ): Promise<SceneForkResponse | null> => {
+      try {
+        const res = await api.post<SceneForkResponse>("/scene/fork", {
+          sceneChatId,
+          mode,
+          upToMessageId: opts?.upToMessageId,
+          includePreSceneSummary: true,
+          includeParticipationGuide: true,
+        } satisfies SceneForkRequest);
+
+        qc.invalidateQueries({ queryKey: chatKeys.all });
+        qc.invalidateQueries({ queryKey: chatKeys.messages(sceneChatId) });
+        if (res.originChatId) qc.invalidateQueries({ queryKey: chatKeys.detail(res.originChatId) });
+        qc.invalidateQueries({ queryKey: chatKeys.detail(res.chatId) });
+        qc.invalidateQueries({ queryKey: chatKeys.messages(res.chatId) });
+        qc.invalidateQueries({ queryKey: chatKeys.messageCount(res.chatId) });
+
+        if (mode === "convert") {
+          qc.removeQueries({ queryKey: chatKeys.detail(sceneChatId) });
+        }
+
+        setActiveChatId(res.chatId);
+        toast.success(mode === "convert" ? "Scene converted to roleplay" : "Scene cloned as roleplay", {
+          icon: "RP",
+        });
+        return res;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to fork scene";
+        toast.error(msg);
+        return null;
+      }
+    },
+    [qc, setActiveChatId],
+  );
+
+  return { planScene, createScene, concludeScene, abandonScene, forkScene };
 }

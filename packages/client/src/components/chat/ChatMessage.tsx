@@ -121,6 +121,7 @@ interface ChatMessageProps {
   onToggleConversationStart?: (messageId: string, current: boolean) => void;
   onPeekPrompt?: () => void;
   onBranch?: (messageId: string) => void;
+  onCloneSceneFromHere?: (messageId: string) => void;
   isLastAssistantMessage?: boolean;
   characterMap?: CharacterMap;
   chatMode?: string;
@@ -430,6 +431,7 @@ export const ChatMessage = memo(function ChatMessage({
   onToggleConversationStart,
   onPeekPrompt,
   onBranch,
+  onCloneSceneFromHere,
   isLastAssistantMessage,
   characterMap,
   chatMode,
@@ -1416,6 +1418,14 @@ export const ChatMessage = memo(function ChatMessage({
                   dark
                 />
               )}
+              {onCloneSceneFromHere && (
+                <ActionBtn
+                  icon={<GitBranch size="0.6875rem" />}
+                  onClick={() => onCloneSceneFromHere(message.id)}
+                  title="Clone from here"
+                  dark
+                />
+              )}
               <ActionBtn
                 icon={<Trash2 size="0.6875rem" />}
                 onClick={() => onDelete?.(message.id)}
@@ -1742,6 +1752,13 @@ export const ChatMessage = memo(function ChatMessage({
                 icon={<GitBranch size="0.625rem" />}
                 onClick={() => onBranch(message.id)}
                 title="Branch from here"
+              />
+            )}
+            {onCloneSceneFromHere && (
+              <ActionBtn
+                icon={<GitBranch size="0.625rem" />}
+                onClick={() => onCloneSceneFromHere(message.id)}
+                title="Clone from here"
               />
             )}
             <ActionBtn

@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { type SpritePlacement, type SpriteSide } from "@marinara-engine/shared";
+import { type SceneForkMode, type SpritePlacement, type SpriteSide } from "@marinara-engine/shared";
 import {
   FolderOpen,
   Globe,
@@ -595,6 +595,7 @@ type RoleplaySurfaceProps = {
   onToggleConversationStart: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
   onBranch?: (messageId: string) => void;
+  onCloneSceneFromHere?: (messageId: string) => void;
   onToggleSelectMessage: (toggle: MessageSelectionToggle) => void;
   onSummaryContextSizeChange: (size: number) => void;
   onRerunTrackers: () => void;
@@ -602,6 +603,7 @@ type RoleplaySurfaceProps = {
   onStartEncounter: () => void;
   onConcludeScene: () => void;
   onAbandonScene: () => void;
+  onForkScene: (sceneChatId: string, mode: SceneForkMode) => void;
   onOpenSettings: () => void;
   onOpenFiles: () => void;
   onOpenGallery: () => void;
@@ -686,6 +688,7 @@ export function ChatRoleplaySurface({
   onToggleConversationStart,
   onPeekPrompt,
   onBranch,
+  onCloneSceneFromHere,
   onToggleSelectMessage,
   onSummaryContextSizeChange,
   onRerunTrackers,
@@ -693,6 +696,7 @@ export function ChatRoleplaySurface({
   onStartEncounter,
   onConcludeScene,
   onAbandonScene,
+  onForkScene,
   onOpenSettings,
   onOpenFiles,
   onOpenGallery,
@@ -1003,6 +1007,7 @@ export function ChatRoleplaySurface({
                           onToggleConversationStart={onToggleConversationStart}
                           onPeekPrompt={onPeekPrompt}
                           onBranch={onBranch}
+                          onCloneSceneFromHere={onCloneSceneFromHere}
                           isLastAssistantMessage={msg.id === lastAssistantMessageId}
                           characterMap={characterMap}
                           personaInfo={personaInfo}
@@ -1028,6 +1033,7 @@ export function ChatRoleplaySurface({
                           onToggleConversationStart={onToggleConversationStart}
                           onPeekPrompt={onPeekPrompt}
                           onBranch={onBranch}
+                          onCloneSceneFromHere={onCloneSceneFromHere}
                           isLastAssistantMessage={msg.id === lastAssistantMessageId}
                           characterMap={characterMap}
                           personaInfo={personaInfo}
@@ -1072,6 +1078,7 @@ export function ChatRoleplaySurface({
                     originChatId={chatMeta.sceneOriginChatId}
                     onConclude={onConcludeScene}
                     onAbandon={onAbandonScene}
+                    onFork={onForkScene}
                   />
                 )}
                 {combatAgentEnabled && (

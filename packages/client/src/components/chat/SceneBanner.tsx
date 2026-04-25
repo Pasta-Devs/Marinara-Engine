@@ -1,9 +1,11 @@
 // ──────────────────────────────────────────────
 // SceneBanner — inline message-style indicators for active scenes
 // ──────────────────────────────────────────────
-import { Film, ArrowRight, ArrowLeft, Trash2 } from "lucide-react";
+import { Film, ArrowRight, ArrowLeft, Trash2, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
 import { useChatStore } from "../../stores/chat.store";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import type { SceneForkMode } from "@marinara-engine/shared";
 
 interface SceneBannerProps {
   /** "origin" = the conversation has an active scene; "scene" = we ARE the scene chat */
@@ -103,17 +105,31 @@ export function EndSceneBar({
   originChatId,
   onConclude,
   onAbandon,
+  onFork,
 }: {
   sceneChatId: string;
   originChatId?: string;
   onConclude: (id: string) => void;
   onAbandon?: (id: string) => void;
+  onFork?: (id: string, mode: SceneForkMode) => void;
 }) {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
+  const handleConvert = async () => {
+    const confirmed = await showConfirmDialog({
+      title: "Convert this scene into a standalone roleplay?",
+      message:
+        "This will create a new roleplay chat from the current scene and detach the original scene from its conversation. No scene summary or character memory will be written back to the original conversation.",
+      confirmLabel: "Convert",
+      cancelLabel: "Cancel",
+      tone: "destructive",
+    });
+    if (confirmed) onFork?.(sceneChatId, "convert");
+  };
+
   return (
-    <div className="flex items-center justify-center gap-2 py-1.5">
+    <div className="flex flex-wrap items-center justify-center gap-2 py-1.5">
       {originChatId && (
         <button
           onClick={() => setActiveChatId(originChatId)}
@@ -153,6 +169,19 @@ export function EndSceneBar({
         >
           <Trash2 size={13} />
           Discard
+        </button>
+      )}
+      {onFork && !confirmDiscard && (
+        <button
+          onClick={handleConvert}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
+          style={{
+            color: "var(--muted-foreground)",
+          }}
+          title="Detach this scene into a standalone roleplay"
+        >
+          <ArrowRightLeft size={13} />
+          Convert
         </button>
       )}
       {onAbandon && confirmDiscard && (

@@ -104,6 +104,31 @@ export interface SceneAbandonResponse {
   originChatId: string;
 }
 
+export type SceneForkMode = "clone" | "convert";
+
+/** Request body for POST /scene/fork. */
+export interface SceneForkRequest {
+  /** The scene (roleplay) chat to copy into a standalone roleplay. */
+  sceneChatId: string;
+  /** Clone keeps the original scene active; convert detaches and discards it. */
+  mode: SceneForkMode;
+  /** Clone only: copy scene messages up to and including this message. */
+  upToMessageId?: string;
+  /** Include origin conversation and relationship context as a narrator note. */
+  includePreSceneSummary?: boolean;
+  /** Include scene participation guidance messages when copying scene messages. */
+  includeParticipationGuide?: boolean;
+}
+
+/** Response from POST /scene/fork. */
+export interface SceneForkResponse {
+  /** The newly created standalone roleplay chat. */
+  chatId: string;
+  /** The origin conversation chat ID, if the scene had one. */
+  originChatId: string | null;
+  mode: SceneForkMode;
+}
+
 /** Request body for POST /scene/plan (user-initiated via /scene command). */
 export interface ScenePlanRequest {
   /** The conversation chat where the user typed /scene. */
