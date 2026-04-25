@@ -192,19 +192,24 @@ export async function persistLorebookKeeperUpdates(args: {
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
   updates: Array<Record<string, unknown>>;
+  /**
+   * Overrides for the auto-created lorebook's metadata. Used when a non-Lorebook-Keeper
+   * agent (e.g. Oracle) persists entries and wants the origin attributed correctly.
+   */
+  source?: { agentId?: string; description?: string };
 }): Promise<string | null> {
-  const { lorebooksStore, chatId, chatName, preferredTargetLorebookId, writableLorebookIds, updates } = args;
+  const { lorebooksStore, chatId, chatName, preferredTargetLorebookId, writableLorebookIds, updates, source } = args;
 
   let targetLorebookId = preferredTargetLorebookId ?? writableLorebookIds?.[0] ?? null;
   if (!targetLorebookId) {
     const created = await lorebooksStore.create({
       name: `Auto-generated (${chatName || chatId})`,
-      description: "Automatically created by the Lorebook Keeper agent",
+      description: source?.description ?? "Automatically created by the Lorebook Keeper agent",
       category: "uncategorized",
       chatId,
       enabled: true,
       generatedBy: "agent",
-      sourceAgentId: "lorebook-keeper",
+      sourceAgentId: source?.agentId ?? "lorebook-keeper",
     });
     targetLorebookId = (created as { id?: string } | null)?.id ?? null;
   }

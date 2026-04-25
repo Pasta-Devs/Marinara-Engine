@@ -2,6 +2,12 @@
 
 This file is the release-notes source of truth for Marinara Engine. Reuse these entries when publishing GitHub Releases for tags in the `vX.Y.Z` format.
 
+## [Unreleased]
+
+### Added
+
+- New agent: **Oracle** — fetches live web results when the user types `<search>topic</search>` in a chat message, summarises them with anti-hallucination rules, injects the summary into the character's context, and persists the character's takeaway (preferences, choices, opinions) to the lorebook with the `web-research` tag. Tavily is the MVP provider; configure the API key and behaviour from Settings → Connections → Oracle. See `docs/ORACLE.md` for the end-to-end flow.
+
 ## [1.5.5]
 
 ### Added

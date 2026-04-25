@@ -142,7 +142,7 @@ Character expression sprites with automatic emotion switching, custom scene back
 
 ### AI Agent System
 
-25+ built-in agents that run alongside your chat — world state tracking, quest management, combat, expression detection, background selection, narrative direction, prose analysis, Spotify DJ, CYOA choices, and more. All disabled by default; enable only what you want, or create custom agents.
+25+ built-in agents that run alongside your chat — world state tracking, quest management, combat, expression detection, background selection, narrative direction, prose analysis, Spotify DJ, CYOA choices, an Oracle that answers `<search>topic</search>` triggers with live web results (via Tavily) and persists character takeaways to the lorebook, and more. All disabled by default; enable only what you want, or create custom agents.
 
 ### Prompt Engineering
 
@@ -167,6 +167,7 @@ Export chats as JSONL or plain text. Fully local SQLite database — all data st
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and fixes                                         |
 | [docs/FAQ.md](docs/FAQ.md)                         | Frequently asked questions (LAN access, etc.)                   |
 | [docs/FRONTEND.md](docs/FRONTEND.md)               | Frontend architecture, components, hooks, and API reference     |
+| [docs/ORACLE.md](docs/ORACLE.md)                   | Oracle agent — web search trigger, summary, and persistence     |
 | [android/README.md](android/README.md)             | Android WebView wrapper (APK) guide                             |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                 | Contributor workflow, validation, versioning, and release steps |
 | [CHANGELOG.md](CHANGELOG.md)                       | Release notes                                                   |

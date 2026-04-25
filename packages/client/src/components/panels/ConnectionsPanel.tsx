@@ -18,6 +18,7 @@ import { Plus, Trash2, Link, Check, Shuffle, ExternalLink, X, Copy, BrainCircuit
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 import { TTSConfigCard } from "./settings/TTSConfigCard";
+import { OracleConfigCard } from "./settings/OracleConfigCard";
 
 /** Provider → gradient color pair for connection icons. */
 const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; badge: string }> = {
@@ -270,6 +271,9 @@ export function ConnectionsPanel() {
 
       {/* ── Text to Speech ── */}
       <TTSConfigCard />
+
+      {/* ── Oracle (Web Search) ── */}
+      <OracleConfigCard />
 
       <button
         onClick={() => openModal("create-connection")}
