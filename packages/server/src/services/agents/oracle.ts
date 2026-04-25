@@ -104,33 +104,45 @@ OUTPUT: a single sentence OR the literal token NO_MEMORY. Nothing else.`;
   return cleaned.slice(0, 400);
 }
 
-/** Split a summary into body (facts only) and the trailing "Sources:" footer. */
-function splitSummary(raw: string): { body: string; hadFooter: boolean } {
-  const match = raw.match(/\n+Sources?:\s*\n/i);
-  if (!match || match.index === undefined) return { body: raw.trim(), hadFooter: false };
-  return { body: raw.slice(0, match.index).trim(), hadFooter: true };
-}
-
 /**
- * Extract lorebook activation keys from the summary body.
- * Strategy: grab capitalized multi-word phrases (proper nouns), plus the raw
- * query as a whole. Filters stop-word-only matches and short single capitals.
+ * Split a summary into:
+ *  - `body`: facts only, no Keys line, no Sources footer (used for lorebook entry).
+ *  - `injection`: body + Sources footer, no Keys line (used to inject into the
+ *    character's prompt — preserves source traceability without leaking the
+ *    internal Keys metadata into the character's context).
+ *  - `keys`: parsed from the LLM's "Keys: A, B, C" line (empty when missing or "none").
+ *
+ * Falls back gracefully when the model omits or mangles the Keys/Sources blocks —
+ * the caller always prepends the raw query so persistence still has at least one key.
  */
-function extractKeys(summaryBody: string, query: string): string[] {
-  const keys = new Set<string>();
-  // Whole query is always a key — covers the user's exact phrasing
-  if (query.trim()) keys.add(query.trim());
+function splitSummary(raw: string): {
+  body: string;
+  injection: string;
+  keys: string[];
+  hadFooter: boolean;
+} {
+  const sourcesMatch = raw.match(/\n+Sources?:\s*\n/i);
+  const hadFooter = sourcesMatch !== null;
+  const beforeSources = sourcesMatch?.index !== undefined ? raw.slice(0, sourcesMatch.index) : raw;
+  const sourcesPart = sourcesMatch?.index !== undefined ? raw.slice(sourcesMatch.index).trim() : "";
 
-  // Proper-noun-like phrases: Capitalized word optionally followed by more Capitalized words
-  const properNounRe = /\b[A-Z][a-zA-Z]{2,}(?:\s+(?:[A-Z][a-zA-Z]+|of|the|de|du|des|la|le|les))*(?:\s+[A-Z][a-zA-Z]+)?\b/g;
-  for (const match of summaryBody.matchAll(properNounRe)) {
-    const phrase = match[0].trim();
-    if (phrase.length < 3) continue;
-    keys.add(phrase);
-    if (keys.size >= 12) break;
+  const keysMatch = beforeSources.match(/\n+Keys?:\s*([^\n]+)/i);
+  let keys: string[] = [];
+  let bodyRaw = beforeSources;
+  if (keysMatch?.index !== undefined && keysMatch[1] !== undefined) {
+    bodyRaw = beforeSources.slice(0, keysMatch.index);
+    const value = keysMatch[1].trim();
+    if (value.length > 0 && value.toLowerCase() !== "none") {
+      keys = value
+        .split(",")
+        .map((k) => k.trim())
+        .filter((k) => k.length >= 2);
+    }
   }
 
-  return Array.from(keys).slice(0, 12);
+  const body = bodyRaw.trim();
+  const injection = sourcesPart ? `${body}\n\n${sourcesPart}` : body;
+  return { body, injection, keys, hadFooter };
 }
 
 function buildSourceMaterial(response: OracleSearchResponse): string {
@@ -290,17 +302,28 @@ export async function executeOracle(args: {
   const isInformative =
     summaryResult.success && trimmedSummary.length > 0 && trimmedSummary !== "No relevant information found.";
 
-  // Split body/footer for persistence: the "Sources:" footer is useful to show
-  // provenance in the current-turn injection, but useless inside a lorebook
-  // entry that will be re-injected later — URLs pollute the character's context.
-  const { body: summaryBody } = splitSummary(trimmedSummary);
-  const persistKeys = isInformative ? extractKeys(summaryBody, trimmedQuery) : [];
+  // Split body/keys/footer:
+  //  - `summaryBody` (no Sources, no Keys line) is what we persist into the lorebook.
+  //  - `injectionText` (body + Sources, no Keys line) is what we inject into the
+  //    character's prompt — keeps source attribution while hiding the internal
+  //    Keys metadata from the character's context.
+  //  - `llmKeys` are the activation triggers extracted by the summariser itself
+  //    (semantic, language-agnostic, short canonical forms).
+  // The raw query is only used as a degraded fallback when the model didn't
+  // produce any key — otherwise the query (a long natural-language phrase) would
+  // bloat the activation list with a trigger that almost never matches.
+  const { body: summaryBody, injection: injectionText, keys: llmKeys } = splitSummary(trimmedSummary);
+  const persistKeys = isInformative
+    ? llmKeys.length > 0
+      ? llmKeys.slice(0, 12)
+      : [trimmedQuery]
+    : [];
 
   return {
     result: {
       ...summaryResult,
       type: "context_injection",
-      data: { text: trimmedSummary }, // full text (with footer) for in-turn injection
+      data: { text: injectionText }, // body + Sources for in-turn injection (no Keys line)
       durationMs: Date.now() - startTime,
     },
     persist: isInformative

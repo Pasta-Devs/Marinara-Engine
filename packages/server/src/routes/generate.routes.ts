@@ -6356,6 +6356,13 @@ export async function generateRoutes(app: FastifyInstance) {
               content: takeaway,
               keys: payload.keys,
               tag: ORACLE_LOREBOOK_TAG,
+              // Always-on injection: Oracle entries are character-scoped, so they
+              // are only ever in scope when the user is talking to that character —
+              // and when in scope, the character should always have access to its
+              // accumulated takeaways without depending on the user echoing exact
+              // entity names ("which film were we going to see again?" should still
+              // recall a film picked last week).
+              constant: true,
             }));
 
             // Resolve the preferred target lorebook. Priority:

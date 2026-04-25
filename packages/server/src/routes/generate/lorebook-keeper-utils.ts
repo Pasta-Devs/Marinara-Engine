@@ -230,6 +230,9 @@ export async function persistLorebookKeeperUpdates(args: {
     const content = typeof update.content === "string" ? update.content : "";
     const keys = Array.isArray(update.keys) ? update.keys.filter((key): key is string => typeof key === "string") : [];
     const tag = typeof update.tag === "string" ? update.tag : "";
+    // Optional: callers (e.g. Oracle) may opt entries into "always-on" injection
+    // by passing constant=true, so keyword matching isn't required for activation.
+    const constant = update.constant === true ? true : undefined;
     const existing = entryByName.get(rawName.toLowerCase());
 
     if (existing && (existing.locked === true || existing.locked === "true")) {
@@ -237,7 +240,12 @@ export async function persistLorebookKeeperUpdates(args: {
     }
 
     if (existing) {
-      await lorebooksStore.updateEntry(existing.id, { content, keys, tag });
+      await lorebooksStore.updateEntry(existing.id, {
+        content,
+        keys,
+        tag,
+        ...(constant !== undefined ? { constant } : {}),
+      });
       entryByName.set(rawName.toLowerCase(), existing);
       continue;
     }
@@ -249,6 +257,7 @@ export async function persistLorebookKeeperUpdates(args: {
       keys,
       tag,
       enabled: true,
+      ...(constant !== undefined ? { constant } : {}),
     });
     if (created && typeof created === "object" && "id" in created) {
       entryByName.set(rawName.toLowerCase(), created as { id: string; name?: string | null; locked?: unknown });

@@ -274,6 +274,27 @@ chat-scoped lorebook loses everything when the user opens a fresh chat. So:
 Future Oracle runs with the same character reuse that one lorebook, so entries
 accumulate instead of spawning a new book per turn.
 
+### Why Oracle entries are persisted as `constant: true`
+
+Lorebook entries normally activate by matching keywords against the recent
+chat. That model breaks for conversational recall: when the user asks
+*"which film were we going to see again?"* a week after the search, the
+message contains none of the original entity names (`Wicked`, `Avatar 3`)
+and the entry never fires — the character forgets.
+
+Oracle entries are written with `constant: true`, which makes them
+always-on: whenever the character's lorebook is in scope, every takeaway
+the character has accumulated is injected, no keyword matching required.
+This is safe because the entries are already character-scoped — they only
+ever appear in chats with that specific character, never bleeding into
+other roleplays.
+
+The trade-off is context size: each takeaway is a single short sentence
+(~30-40 tokens), so 30 entries adds roughly 1k tokens of permanent context.
+Acceptable on modern model windows; if it becomes a problem in practice,
+the user can prune entries from the lorebook panel, and a future iteration
+could cap the count to the N most recent automatically.
+
 ### Why Oracle bypasses the chat's `enableAgents` gate
 
 In conversation mode, Marinara's settings drawer hides the "Enable Agents"
@@ -299,6 +320,49 @@ streaming and coupling. Two focused calls with clean system prompts are more
 robust to small quantized models like Gemma-4-26b. Total latency is ~3-8s and
 the takeaway extractor runs **after** the user-visible response, so the user
 never waits on it.
+
+### Why the summariser produces lorebook keys, not a server-side regex
+
+Lorebook entries activate by matching keywords against the chat. The shape of
+those keywords decides whether the entry helps or pollutes:
+
+- A key too generic (`The`, `She`, `Five`) fires on almost every future
+  message and drowns the character's context in stale web findings.
+- A key too long or too specific (the raw search query, or a fully qualified
+  proper noun like `Ichika Nakano`) almost never matches a natural chat
+  message and the entry effectively never activates.
+
+A previous iteration extracted keys with a regex over capitalised words. It
+produced both failure modes — sentence-start artefacts (`The`, `While`,
+`Five`, broken fragments like `Man Band` from hyphenated compounds) on the
+generic side, the verbatim search query on the over-specific side. The regex
+was also English-biased, which clashes with Marinara's multilingual posture.
+
+The summariser now emits a `Keys:` line right before its `Sources:` footer,
+constrained by the prompt to produce **canonical short forms** — given names
+alone when unambiguous in the work (`Ichika`, not `Ichika Nakano`), short
+canonical titles for works/places/organisations (`The Quintessential
+Quintuplets`, not `The Quintessential Quintuplets manga series`), and 3 to 6
+entities total:
+
+    [factual paragraphs]
+
+    Keys: Ichika, Nino, Miku, Yotsuba, Itsuki, The Quintessential Quintuplets
+
+    Sources:
+    - https://…
+
+The server parses that line into the persisted key list, then strips the
+`Keys:` line out before the summary is injected into the character's prompt —
+so the character sees the facts and the sources, never the internal metadata.
+The model picks the keys with full semantic context (it knows what's a name
+and what's just a sentence-start capital), which is robust across languages
+without any server-side stop list.
+
+If the model omits or mangles the `Keys:` block (small quantized models
+sometimes do), the server falls back to the raw search query as the sole key.
+That key rarely matches naturally, but at least the entry exists and the
+user can edit its keys from the lorebook panel — degraded, not broken.
 
 ## Configuration reference
 
