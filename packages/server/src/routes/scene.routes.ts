@@ -583,7 +583,7 @@ export async function sceneRoutes(app: FastifyInstance) {
         if (activeSwipe) {
           content = activeSwipe.content ?? content;
           extra = activeSwipe.extra ?? extra;
-          swipeExtra = activeSwipe.extra ?? extra;
+          swipeExtra = activeSwipe.extra;
           createdAt = activeSwipe.createdAt ?? createdAt;
         }
       }
