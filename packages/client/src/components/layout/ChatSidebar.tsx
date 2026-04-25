@@ -102,6 +102,7 @@ export function ChatSidebar() {
   const editorDirty = useUIStore((s) => s.editorDirty);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const defaultOpenChatTab = useUIStore((s) => s.defaultOpenChatTab);
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
 
   // Folder hooks
@@ -134,7 +135,7 @@ export function ChatSidebar() {
   const [sort, setSort] = useState<ChatSortOption>("newest");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">("conversation");
+  const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">(defaultOpenChatTab);
   const [deleteTarget, setDeleteTarget] = useState<{
     chatId: string;
     groupId: string | null;
@@ -368,6 +369,13 @@ export function ChatSidebar() {
       return () => clearTimeout(timer);
     }
   }, [activeChatId, chats, folders, updateFolderMut]);
+
+  // Keep the selected tab aligned with the user's default when no chat is active.
+  useEffect(() => {
+    if (!activeChatId) {
+      setActiveTab(defaultOpenChatTab);
+    }
+  }, [activeChatId, defaultOpenChatTab]);
 
   const handleNewChat = useCallback(
     (mode: ChatMode) => {

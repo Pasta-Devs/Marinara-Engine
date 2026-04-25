@@ -20,6 +20,7 @@ export type HudPosition = "top" | "left" | "right";
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type UserStatus = "active" | "idle" | "dnd";
 export type RoleplayAvatarStyle = "circles" | "rectangles" | "panel";
+export type DefaultOpenChatTab = "conversation" | "roleplay" | "game";
 export const APP_LANGUAGE_OPTIONS = [{ id: "en", label: "English" }] as const;
 export type AppLanguage = (typeof APP_LANGUAGE_OPTIONS)[number]["id"];
 
@@ -148,6 +149,8 @@ interface UIState {
   enterToSendRP: boolean;
   enterToSendConvo: boolean;
   enterToSendGame: boolean;
+  /** Which chat mode tab is shown first in the sidebar when opening the app without an active chat selected. */
+  defaultOpenChatTab: DefaultOpenChatTab;
 
   // ── Roleplay Effects ──
   weatherEffects: boolean;
@@ -262,6 +265,7 @@ interface UIState {
   setEnterToSendRP: (v: boolean) => void;
   setEnterToSendConvo: (v: boolean) => void;
   setEnterToSendGame: (v: boolean) => void;
+  setDefaultOpenChatTab: (v: DefaultOpenChatTab) => void;
   setWeatherEffects: (v: boolean) => void;
   setHudPosition: (v: HudPosition) => void;
   /** Legacy migration helpers for browser-local custom themes. */
@@ -325,6 +329,7 @@ export function pickSyncedSettings(state: UIState) {
     convoGradientTo: state.convoGradientTo,
     enterToSendRP: state.enterToSendRP,
     enterToSendConvo: state.enterToSendConvo,
+    defaultOpenChatTab: state.defaultOpenChatTab,
     weatherEffects: state.weatherEffects,
     hudPosition: state.hudPosition,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
@@ -399,6 +404,7 @@ export const useUIStore = create<UIState>()(
       enterToSendRP: false,
       enterToSendConvo: true,
       enterToSendGame: true,
+      defaultOpenChatTab: "conversation" as DefaultOpenChatTab,
       weatherEffects: true,
       hudPosition: "top" as HudPosition,
       activeCustomTheme: null,
@@ -641,6 +647,7 @@ export const useUIStore = create<UIState>()(
       setEnterToSendRP: (v) => set({ enterToSendRP: v }),
       setEnterToSendConvo: (v) => set({ enterToSendConvo: v }),
       setEnterToSendGame: (v) => set({ enterToSendGame: v }),
+      setDefaultOpenChatTab: (v) => set({ defaultOpenChatTab: v }),
       setWeatherEffects: (v) => set({ weatherEffects: v }),
       setHudPosition: (v) => set({ hudPosition: v }),
       setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
@@ -814,6 +821,7 @@ export const useUIStore = create<UIState>()(
         enterToSendRP: state.enterToSendRP,
         enterToSendConvo: state.enterToSendConvo,
         enterToSendGame: state.enterToSendGame,
+        defaultOpenChatTab: state.defaultOpenChatTab,
         weatherEffects: state.weatherEffects,
         hudPosition: state.hudPosition,
         hasMigratedCustomThemesToServer: state.hasMigratedCustomThemesToServer,

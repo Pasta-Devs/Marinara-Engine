@@ -189,6 +189,8 @@ function GeneralSettings() {
   const setEnterToSendConvo = useUIStore((s) => s.setEnterToSendConvo);
   const enterToSendGame = useUIStore((s) => s.enterToSendGame);
   const setEnterToSendGame = useUIStore((s) => s.setEnterToSendGame);
+  const defaultOpenChatTab = useUIStore((s) => s.defaultOpenChatTab);
+  const setDefaultOpenChatTab = useUIStore((s) => s.setDefaultOpenChatTab);
   const confirmBeforeDelete = useUIStore((s) => s.confirmBeforeDelete);
   const setConfirmBeforeDelete = useUIStore((s) => s.setConfirmBeforeDelete);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
@@ -310,6 +312,49 @@ function GeneralSettings() {
           <span>Long</span>
         </div>
       </label>
+
+      {/* Default Opened Chats — inline toggles per mode */}
+      <div className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+        <div className="flex items-center gap-2">
+          <span className="text-xs">Default opened chats</span>
+          <HelpTooltip text="Choose which chat tab opens by default when no chat is currently selected." />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setDefaultOpenChatTab("roleplay")}
+            className={cn(
+              "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
+              defaultOpenChatTab === "roleplay"
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+            )}
+          >
+            Roleplay
+          </button>
+          <button
+            onClick={() => setDefaultOpenChatTab("conversation")}
+            className={cn(
+              "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
+              defaultOpenChatTab === "conversation"
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+            )}
+          >
+            Conversations
+          </button>
+          <button
+            onClick={() => setDefaultOpenChatTab("game")}
+            className={cn(
+              "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
+              defaultOpenChatTab === "game"
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+            )}
+          >
+            Game
+          </button>
+        </div>
+      </div>
 
       {/* Send on Enter — inline toggles per mode */}
       <div className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
