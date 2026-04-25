@@ -210,6 +210,8 @@ export interface MessageExtra {
     dialogueColor?: string | null;
     boxColor?: string | null;
   } | null;
+  /** Stored for generation context but hidden from the visible chat transcript */
+  hiddenFromUser?: boolean;
 }
 
 /** Metadata about how a message was generated. */

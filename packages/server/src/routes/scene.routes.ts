@@ -507,8 +507,14 @@ export async function sceneRoutes(app: FastifyInstance) {
     if (!isActiveScene && !originChatId) {
       return reply.status(400).send({ error: "Not a scene chat" });
     }
+    if (mode === "convert" && !originChatId) {
+      return reply.status(400).send({ error: "convert requires originChatId" });
+    }
 
-    const sceneMessages = await chats.listMessages(sceneChatId);
+    const sceneMessages = (await chats.listMessages(sceneChatId)).sort(
+      (a: { createdAt: string }, b: { createdAt: string }) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
     if (upToMessageId && !sceneMessages.some((msg) => msg.id === upToMessageId)) {
       return reply.status(400).send({ error: "Message is not part of this scene" });
     }
@@ -546,6 +552,13 @@ export async function sceneRoutes(app: FastifyInstance) {
         role: "narrator",
         characterId: null,
         content: continuity,
+        extra: {
+          displayText: null,
+          isGenerated: true,
+          tokenCount: null,
+          generationInfo: null,
+          hiddenFromUser: true,
+        },
       });
     }
 

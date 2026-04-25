@@ -213,6 +213,11 @@ function RegeneratingMessageContent({
   return <ChatMessage message={{ ...msg, extra: cleanExtra, content: streamBuffer || "" }} isStreaming {...rest} />;
 }
 
+function isHiddenFromUser(message: MessageWithSwipes) {
+  const extra = typeof message.extra === "string" ? JSON.parse(message.extra) : (message.extra ?? {});
+  return extra.hiddenFromUser === true;
+}
+
 function RpToolbarButton({
   icon,
   title,
@@ -988,6 +993,7 @@ export function ChatRoleplaySurface({
                 )}
 
                 {messages?.map((msg, i) => {
+                  if (isHiddenFromUser(msg)) return null;
                   const isRegenerating = isStreaming && regenerateMessageId === msg.id;
                   return (
                     <div
