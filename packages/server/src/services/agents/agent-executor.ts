@@ -4,6 +4,7 @@
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition, LLMToolCall } from "../llm/base-provider.js";
 import type { AgentResult, AgentContext, AgentResultType } from "@marinara-engine/shared";
 import { getDefaultAgentPrompt } from "@marinara-engine/shared";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 
 /** Strip HTML/XML-style tags (e.g. <div style="..."> <br> <speaker>) from text to save tokens. */
@@ -233,14 +234,14 @@ async function executeAgentWithTools(
 
     // Execute each tool call and append results
     for (const tc of result.toolCalls) {
-      console.log(`[agent-tools] ${config.type} calling: ${tc.function.name}`);
+      logger.info("[agent-tools] %s calling: %s", config.type, tc.function.name);
       if (isDebugAgentsEnabled()) {
-        console.log(`[agent-tools] ${config.type} args: ${formatToolPayloadForLog(tc.function.arguments)}`);
+        logger.debug("[agent-tools] %s args: %s", config.type, formatToolPayloadForLog(tc.function.arguments));
       }
       const toolResult = await toolContext.executeToolCall(tc);
-      console.log(`[agent-tools] ${config.type} ${tc.function.name} completed`);
+      logger.info("[agent-tools] %s %s completed", config.type, tc.function.name);
       if (isDebugAgentsEnabled()) {
-        console.log(`[agent-tools] ${config.type} result: ${formatToolPayloadForLog(toolResult)}`);
+        logger.debug("[agent-tools] %s result: %s", config.type, formatToolPayloadForLog(toolResult));
       }
       loopMessages.push({
         role: "tool",
