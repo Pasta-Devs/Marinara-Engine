@@ -34,6 +34,11 @@ function resolveTimestamps(overrides?: TimestampOverrides | null) {
   };
 }
 
+function serializeJsonField(value: unknown, fallback: Record<string, unknown>) {
+  if (value === undefined || value === null) return JSON.stringify(fallback);
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function createChatsStorage(db: DB) {
   return {
     async list() {
@@ -221,7 +226,13 @@ export function createChatsStorage(db: DB) {
      */
     async createMessagesBatch(
       chatId: string,
-      inputs: Array<Omit<CreateMessageInput, "chatId"> & { createdAt?: string | null }>,
+      inputs: Array<
+        Omit<CreateMessageInput, "chatId"> & {
+          createdAt?: string | null;
+          extra?: unknown;
+          swipeExtra?: unknown;
+        }
+      >,
       timestampOverrides?: TimestampOverrides | null,
     ) {
       if (inputs.length === 0) return;
@@ -248,7 +259,7 @@ export function createChatsStorage(db: DB) {
           characterId: input.characterId,
           content: input.content,
           activeSwipeIndex: 0,
-          extra: JSON.stringify({
+          extra: serializeJsonField(input.extra, {
             displayText: null,
             isGenerated: input.role !== "user",
             tokenCount: null,
@@ -261,7 +272,7 @@ export function createChatsStorage(db: DB) {
           messageId: id,
           index: 0,
           content: input.content,
-          extra: JSON.stringify({}),
+          extra: serializeJsonField(input.swipeExtra, {}),
           createdAt: timestamp,
         });
       }

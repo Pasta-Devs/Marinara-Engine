@@ -106,12 +106,14 @@ export function EndSceneBar({
   onConclude,
   onAbandon,
   onFork,
+  isForking,
 }: {
   sceneChatId: string;
   originChatId?: string;
   onConclude: (id: string) => void;
   onAbandon?: (id: string) => void;
   onFork?: (id: string, mode: SceneForkMode) => void;
+  isForking?: boolean;
 }) {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -125,7 +127,7 @@ export function EndSceneBar({
       cancelLabel: "Cancel",
       tone: "destructive",
     });
-    if (confirmed) onFork?.(sceneChatId, "convert");
+    if (confirmed && !isForking) onFork?.(sceneChatId, "convert");
   };
 
   return (
@@ -174,6 +176,7 @@ export function EndSceneBar({
       {onFork && !confirmDiscard && (
         <button
           onClick={handleConvert}
+          disabled={isForking}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all hover:opacity-80"
           style={{
             color: "var(--muted-foreground)",

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Hook: Scene API calls
 // ──────────────────────────────────────────────
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
@@ -24,6 +24,8 @@ export function useScene() {
   const qc = useQueryClient();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const isForkingRef = useRef(false);
+  const [isForking, setIsForking] = useState(false);
 
   /** Plan a scene from a user prompt (used by /scene slash command). */
   const planScene = useCallback(
@@ -143,6 +145,9 @@ export function useScene() {
       mode: SceneForkMode,
       opts?: { upToMessageId?: string },
     ): Promise<SceneForkResponse | null> => {
+      if (isForkingRef.current) return null;
+      isForkingRef.current = true;
+      setIsForking(true);
       try {
         const res = await api.post<SceneForkResponse>("/scene/fork", {
           sceneChatId,
@@ -172,10 +177,13 @@ export function useScene() {
         const msg = err instanceof Error ? err.message : "Failed to fork scene";
         toast.error(msg);
         return null;
+      } finally {
+        isForkingRef.current = false;
+        setIsForking(false);
       }
     },
     [qc, setActiveChatId],
   );
 
-  return { planScene, createScene, concludeScene, abandonScene, forkScene };
+  return { planScene, createScene, concludeScene, abandonScene, forkScene, isForking };
 }

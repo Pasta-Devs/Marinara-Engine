@@ -604,6 +604,7 @@ type RoleplaySurfaceProps = {
   onConcludeScene: () => void;
   onAbandonScene: () => void;
   onForkScene: (sceneChatId: string, mode: SceneForkMode) => void;
+  isForkingScene?: boolean;
   onOpenSettings: () => void;
   onOpenFiles: () => void;
   onOpenGallery: () => void;
@@ -697,6 +698,7 @@ export function ChatRoleplaySurface({
   onConcludeScene,
   onAbandonScene,
   onForkScene,
+  isForkingScene,
   onOpenSettings,
   onOpenFiles,
   onOpenGallery,
@@ -1079,6 +1081,7 @@ export function ChatRoleplaySurface({
                     onConclude={onConcludeScene}
                     onAbandon={onAbandonScene}
                     onFork={onForkScene}
+                    isForking={isForkingScene}
                   />
                 )}
                 {combatAgentEnabled && (

@@ -290,7 +290,7 @@ export function ChatArea() {
   const chatMode = rawMode ?? lastModeRef.current;
   const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
   const { startEncounter } = useEncounter();
-  const { concludeScene, abandonScene, forkScene } = useScene();
+  const { concludeScene, abandonScene, forkScene, isForking } = useScene();
   const encounterActive = useEncounterStore((s) => s.active || s.showConfigModal);
 
   // Sprite sidebar settings from chat metadata
@@ -725,10 +725,10 @@ export function ChatArea() {
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {
-      if (!activeChatId) return;
+      if (!activeChatId || isForking) return;
       forkScene(activeChatId, "clone", { upToMessageId: messageId });
     },
-    [activeChatId, forkScene],
+    [activeChatId, forkScene, isForking],
   );
 
   // Peek prompt state
@@ -1361,7 +1361,7 @@ export function ChatArea() {
           onToggleConversationStart={handleToggleConversationStart}
           onPeekPrompt={handlePeekPrompt}
           onBranch={isSceneChat ? undefined : handleBranch}
-          onCloneSceneFromHere={isSceneChat ? handleCloneSceneFromHere : undefined}
+          onCloneSceneFromHere={isSceneChat && !isForking ? handleCloneSceneFromHere : undefined}
           onToggleSelectMessage={handleToggleSelectMessage}
           onSummaryContextSizeChange={handleSummaryContextSizeChange}
           onRerunTrackers={handleRerunTrackers}
@@ -1369,6 +1369,7 @@ export function ChatArea() {
           onConcludeScene={() => concludeScene(activeChatId)}
           onAbandonScene={() => abandonScene(activeChatId)}
           onForkScene={forkScene}
+          isForkingScene={isForking}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenFiles={() => setFilesOpen(true)}
           onOpenGallery={() => setGalleryOpen(true)}

@@ -179,9 +179,6 @@ function buildForkContextMessage(sceneMeta: Record<string, unknown>, includePreS
   if (typeof sceneMeta.sceneDescription === "string" && sceneMeta.sceneDescription.trim()) {
     parts.push(`Scene premise:\n${sceneMeta.sceneDescription.trim()}`);
   }
-  if (typeof sceneMeta.sceneScenario === "string" && sceneMeta.sceneScenario.trim()) {
-    parts.push(`Scene scenario:\n${sceneMeta.sceneScenario.trim()}`);
-  }
   if (typeof sceneMeta.sceneRelationshipHistory === "string" && sceneMeta.sceneRelationshipHistory.trim()) {
     parts.push(`Relationship continuity:\n${sceneMeta.sceneRelationshipHistory.trim()}`);
   }
@@ -538,6 +535,9 @@ export async function sceneRoutes(app: FastifyInstance) {
       role: "user" | "assistant" | "system" | "narrator";
       characterId: string | null;
       content: string;
+      extra?: unknown;
+      swipeExtra?: unknown;
+      createdAt?: string | null;
     }> = [];
 
     const continuity = buildForkContextMessage(sceneMeta, includePreSceneSummary);
@@ -558,16 +558,31 @@ export async function sceneRoutes(app: FastifyInstance) {
       }
 
       let content = msg.content;
+      let extra = msg.extra;
+      let swipeExtra: unknown = undefined;
+      let createdAt = msg.createdAt;
       if (msg.activeSwipeIndex > 0) {
         const swipes = await chats.getSwipes(msg.id);
-        const activeSwipe = swipes.find((s: { index: number }) => s.index === msg.activeSwipeIndex);
-        if (activeSwipe) content = activeSwipe.content;
+        const activeSwipe = swipes.find(
+          (s: { index: number; content?: string; extra?: unknown; createdAt?: string }) =>
+            s.index === msg.activeSwipeIndex,
+        );
+        if (activeSwipe) {
+          content = activeSwipe.content ?? content;
+          extra = activeSwipe.extra ?? extra;
+          swipeExtra = activeSwipe.extra;
+          createdAt = activeSwipe.createdAt ?? createdAt;
+        }
       }
+      swipeExtra ??= extra;
 
       copiedMessages.push({
         role: msg.role as "user" | "assistant" | "system" | "narrator",
         characterId: msg.characterId,
         content,
+        extra,
+        swipeExtra,
+        createdAt,
       });
 
       if (upToMessageId && msg.id === upToMessageId) break;
