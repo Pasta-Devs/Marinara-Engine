@@ -193,7 +193,8 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const { chatId } = req.params;
     const chatsStorage = createChatsStorage(app.db);
     const chatMessages = await chatsStorage.listMessages(chatId);
-    if (!chatMessages.length) return reply.send({ entries: [], totalTokens: 0, totalEntries: 0 });
+    // CONST entries activate regardless of message content, so the scan
+    // must run even when the chat has no messages.
 
     // Load chat to get characterIds and activeLorebookIds from metadata
     const chat = await chatsStorage.getById(chatId);
