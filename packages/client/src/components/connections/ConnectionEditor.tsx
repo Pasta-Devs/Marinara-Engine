@@ -632,9 +632,7 @@ export function ConnectionEditor() {
               placeholder={
                 localProvider === "claude_subscription"
                   ? "Not used — managed by the Claude Agent SDK"
-                  : conn
-                    ? "••••••••  (leave empty to keep existing key)"
-                    : "Enter API key…"
+                  : "••••••••  (leave empty to keep existing key)"
               }
               disabled={localProvider === "claude_subscription"}
             />
