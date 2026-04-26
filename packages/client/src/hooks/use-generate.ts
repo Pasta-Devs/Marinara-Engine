@@ -310,7 +310,7 @@ export function useGenerate() {
   const qc = useQueryClient();
   // Use individual selectors to avoid re-rendering on every store change
   const setStreaming = useChatStore((s) => s.setStreaming);
-  const setCommandsExecuting = useChatStore((s) => s.setCommandsExecuting);
+  const setMariPhase = useChatStore((s) => s.setMariPhase);
   const setStreamBuffer = useChatStore((s) => s.setStreamBuffer);
   const clearStreamBuffer = useChatStore((s) => s.clearStreamBuffer);
   const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
@@ -544,8 +544,8 @@ export function useGenerate() {
       // chat on every termination path (done, error, abort, unexpected
       // throw). The assistant_commands_end SSE event is still the primary
       // clear; this just keeps state sane when the stream dies mid-window.
-      const clearCommandsExecutingForThisChat = () => {
-        setCommandsExecuting(params.chatId, false);
+      const clearMariPhaseForThisChat = () => {
+        setMariPhase(params.chatId, "idle");
         window.dispatchEvent(
           new CustomEvent("marinara:mari-phase", {
             detail: { chatId: params.chatId, phase: "idle" },
@@ -579,8 +579,10 @@ export function useGenerate() {
               }
               // Fire the "Mari is thinking…" pill on the first token — that's
               // the same moment "X is typing…" clears, so the two indicators
-              // never overlap.
+              // never overlap. Also seed the per-chat phase in the store so
+              // the indicator can restore the pill on chat-switch-back.
               if (isFirstToken) {
+                setMariPhase(params.chatId, "thinking");
                 window.dispatchEvent(
                   new CustomEvent("marinara:mari-phase", {
                     detail: { chatId: params.chatId, phase: "thinking" },
@@ -1085,7 +1087,7 @@ export function useGenerate() {
             }
 
             case "assistant_commands_start": {
-              setCommandsExecuting(params.chatId, true);
+              setMariPhase(params.chatId, "updating");
               window.dispatchEvent(
                 new CustomEvent("marinara:mari-phase", {
                   detail: { chatId: params.chatId, phase: "updating" },
@@ -1095,7 +1097,7 @@ export function useGenerate() {
             }
 
             case "assistant_commands_end": {
-              clearCommandsExecutingForThisChat();
+              clearMariPhaseForThisChat();
               break;
             }
 
@@ -1129,7 +1131,7 @@ export function useGenerate() {
 
             case "done": {
               if (isActiveChat()) setProcessing(false);
-              clearCommandsExecutingForThisChat();
+              clearMariPhaseForThisChat();
               break;
             }
 
@@ -1177,7 +1179,7 @@ export function useGenerate() {
               // Flush pending text so the user sees what arrived before the error
               flushTypewriterBuffer();
               if (isActiveChat()) setProcessing(false);
-              clearCommandsExecutingForThisChat();
+              clearMariPhaseForThisChat();
               showError((event.data as string) || "Generation failed");
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
               break;
@@ -1219,7 +1221,7 @@ export function useGenerate() {
       } finally {
         // Stream has terminated (done, error, abort, or unexpected throw) —
         // guarantee the Mari indicator clears even if the end SSE never arrived.
-        clearCommandsExecutingForThisChat();
+        clearMariPhaseForThisChat();
         // Cancel any pending animation frame to prevent leaks
         cancelAnimationFrame(rafId);
 
@@ -1390,7 +1392,7 @@ export function useGenerate() {
     [
       qc,
       setStreaming,
-      setCommandsExecuting,
+      setMariPhase,
       setStreamBuffer,
       clearStreamBuffer,
       setRegenerateMessageId,

@@ -27,13 +27,20 @@ const PHASE_LABEL: Record<Exclude<MariPhase, "idle">, string> = {
  * user who asked her to do something can't tell whether she's still working
  * or stalled.
  *
- * Transport: window CustomEvents `marinara:mari-phase` dispatched by
- * use-generate.ts. We previously tried a Zustand subscribeWithSelector
- * subscription; in this codebase that combination has documented timing
- * issues with React 19 batching that drop fast transitions (see
- * GameSurface.tsx for the same workaround). CustomEvents fire synchronously
- * and outside React's batching, so the indicator reliably observes every
- * phase change.
+ * Two transports working together:
+ *
+ * - **Live transitions** inside the active chat are driven by window
+ *   CustomEvents `marinara:mari-phase` dispatched by use-generate.ts. We
+ *   previously tried a Zustand subscribeWithSelector subscription; in this
+ *   codebase that combination has documented timing issues with React 19
+ *   batching that drop fast transitions (see GameSurface.tsx for the same
+ *   workaround). CustomEvents fire synchronously outside React's batching,
+ *   so the indicator reliably observes every phase change in real time.
+ *
+ * - **Chat-switch restoration** is driven by `mariPhaseByChatId` in the
+ *   chat store. When the user leaves a chat mid-stream and comes back, no
+ *   live event re-fires for the same phase — the store carries the truth so
+ *   the indicator can restore the pill from current state on switch.
  *
  * A minimum visible duration keeps each phase on-screen long enough to
  * perceive even when it finishes in under a millisecond.
@@ -68,32 +75,31 @@ export const MariThinkingIndicator = memo(function MariThinkingIndicator() {
   const isMariChatRef = useRef(isMariChat);
   isMariChatRef.current = isMariChat;
 
-  // Hide immediately when the user leaves a Mari chat — the pill belongs to
-  // the previous chat and shouldn't linger into a chat that doesn't even
-  // qualify for the indicator.
+  // On chat switch (or when isMariChat flips), re-derive the pill from store
+  // truth. Reads the store imperatively so within-chat phase changes don't
+  // re-trigger this effect — those are handled by the CustomEvent listener
+  // below, which applies the min-visible-duration on hide. This effect's job
+  // is purely "what should the pill look like for the chat I just opened?".
   useEffect(() => {
-    if (isMariChat) return;
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    visibleChatIdRef.current = null;
-    setPhase("idle");
-  }, [isMariChat]);
-
-  // If the active chat changes while the pill is showing for a different
-  // chat, hide it immediately — don't let the min-duration timer leak the
-  // pill into an unrelated chat.
-  useEffect(() => {
-    if (visibleChatIdRef.current && visibleChatIdRef.current !== activeChatId) {
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
+    if (!isMariChat || !activeChatId) {
+      visibleChatIdRef.current = null;
+      setPhase("idle");
+      return;
+    }
+    const storedPhase = useChatStore.getState().mariPhaseByChatId.get(activeChatId) ?? null;
+    if (storedPhase) {
+      phaseShownAtRef.current = Date.now();
+      visibleChatIdRef.current = activeChatId;
+      setPhase(storedPhase);
+    } else {
       visibleChatIdRef.current = null;
       setPhase("idle");
     }
-  }, [activeChatId]);
+  }, [activeChatId, isMariChat]);
 
   useEffect(() => {
     const onPhase = (e: Event) => {
