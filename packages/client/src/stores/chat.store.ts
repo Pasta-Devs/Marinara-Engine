@@ -72,6 +72,8 @@ interface ChatState {
   chatNotifications: Map<string, { chatId: string; characterName: string; avatarUrl: string | null; count: number }>;
   /** Manually dismissed notification chatIds (won't re-appear until next message). */
   dismissedNotifications: Set<string>;
+  /** Pending /goto request — ChatArea fulfils by paginating + scrolling to the target message. Token forces re-fire on identical N. */
+  gotoRequest: { chatId: string; messageNumber: number; token: number } | null;
 
   // Actions
   setActiveChat: (chat: Chat | null) => void;
@@ -104,6 +106,8 @@ interface ChatState {
   clearUnread: (chatId: string) => void;
   addNotification: (chatId: string, characterName: string, avatarUrl: string | null) => void;
   dismissNotification: (chatId: string) => void;
+  requestGotoMessage: (chatId: string, messageNumber: number) => void;
+  clearGotoRequest: () => void;
   reset: () => void;
 }
 
@@ -138,6 +142,7 @@ export const useChatStore = create<ChatState>()(
     unreadCounts: new Map(),
     chatNotifications: new Map(),
     dismissedNotifications: new Set(),
+    gotoRequest: null,
 
     setActiveChat: (chat) => set({ activeChat: chat }),
     setActiveChatId: (id) => {
@@ -336,6 +341,16 @@ export const useChatStore = create<ChatState>()(
         return { chatNotifications: m, dismissedNotifications: d };
       }),
 
+    requestGotoMessage: (chatId, messageNumber) =>
+      set((state) => ({
+        gotoRequest: {
+          chatId,
+          messageNumber,
+          token: (state.gotoRequest?.token ?? 0) + 1,
+        },
+      })),
+    clearGotoRequest: () => set({ gotoRequest: null }),
+
     setSwipeIndex: (messageId: string, index: number) =>
       set((state) => {
         const m = new Map(state.swipeIndex);
@@ -365,6 +380,7 @@ export const useChatStore = create<ChatState>()(
         unreadCounts: new Map(),
         chatNotifications: new Map(),
         dismissedNotifications: new Set(),
+        gotoRequest: null,
       });
       try {
         localStorage.removeItem(STORAGE_KEY);
