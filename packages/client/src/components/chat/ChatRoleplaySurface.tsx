@@ -1114,6 +1114,7 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
                 <ChatInput
+                  key={activeChatId}
                   mode={isRoleplay ? "roleplay" : "conversation"}
                   characterNames={characterNames}
                   groupResponseOrder={

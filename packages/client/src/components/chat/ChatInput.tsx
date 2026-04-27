@@ -69,13 +69,21 @@ export const ChatInput = memo(function ChatInput({
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
+  const setCurrentInput = useChatStore((s) => s.setCurrentInput);
+  const currentInput = useChatStore((s) => s.currentInput);
   const { generate } = useGenerate();
   const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendRP);
+  const guideGenerations = useUIStore((s) => s.guideGenerations);
   const createMessage = useCreateMessage(activeChatId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeRafRef = useRef<number>(0);
   const qc = useQueryClient();
+
+  const syncInputState = useCallback((value: string) => {
+    setHasInput(value.trim().length > 0);
+    setCurrentInput(value);
+  }, [setCurrentInput]);
 
   // Restore draft when mounting or switching chats
   const prevChatIdRef = useRef<string | null>(null);
@@ -96,23 +104,23 @@ export const ChatInput = memo(function ChatInput({
     if (activeChatId && textareaRef.current) {
       const draft = useChatStore.getState().inputDrafts.get(activeChatId) ?? "";
       textareaRef.current.value = draft;
-      setHasInput(draft.trim().length > 0);
+      syncInputState(draft);
       // Resize textarea to fit content
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
     }
-  }, [activeChatId, setInputDraft, clearInputDraft]);
+  }, [activeChatId, setInputDraft, clearInputDraft, syncInputState]);
 
   // Save draft when component unmounts (e.g. navigating to editor)
   useEffect(() => {
     const textarea = textareaRef.current;
+    const chatId = useChatStore.getState().activeChatId;
     return () => {
       // Cancel pending debounce timers
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       // Cancel pending resize rAF
       if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
       // Flush draft synchronously
-      const chatId = useChatStore.getState().activeChatId;
       if (chatId && textarea) {
         const text = textarea.value;
         if (text.trim()) {
@@ -292,7 +300,7 @@ export const ChatInput = memo(function ChatInput({
         textareaRef.current.value = "";
         textareaRef.current.style.height = "auto";
       }
-      setHasInput(false);
+      syncInputState("");
       setCompletions([]);
       setAttachments([]);
       clearInputDraft(activeChatId);
@@ -339,7 +347,7 @@ export const ChatInput = memo(function ChatInput({
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
     }
-    setHasInput(false);
+    syncInputState("");
     setCompletions([]);
     const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data }));
     setAttachments([]);
@@ -384,6 +392,7 @@ export const ChatInput = memo(function ChatInput({
     mode,
     groupResponseOrder,
     createMessage,
+    syncInputState
   ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -442,6 +451,7 @@ export const ChatInput = memo(function ChatInput({
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       const chatId = activeChatId;
       const text = fixed;
+      setCurrentInput(text);
       draftTimerRef.current = setTimeout(() => {
         if (text.trim()) {
           setInputDraft(chatId, text);
@@ -486,9 +496,9 @@ export const ChatInput = memo(function ChatInput({
     const value = el.value;
     el.value = value.slice(0, start) + emoji + value.slice(end);
     el.selectionStart = el.selectionEnd = start + emoji.length;
-    setHasInput(el.value.length > 0);
+    syncInputState(el.value);
     el.focus();
-  }, []);
+  }, [syncInputState]);
 
   // Character picker: trigger a response from a specific character (manual mode)
   const handleCharacterResponse = useCallback(
@@ -497,17 +507,17 @@ export const ChatInput = memo(function ChatInput({
       setCharPickerOpen(false);
       setCharPickerPos(null);
       try {
-        await generate({
-          chatId: activeChatId,
-          connectionId: null,
-          forCharacterId: characterId,
-        });
+        await generate(
+          guideGenerations && hasInput
+          ? { chatId: activeChatId, connectionId: null, forCharacterId: characterId, generationGuide: currentInput }
+          : { chatId: activeChatId, connectionId: null, forCharacterId: characterId }
+        );
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Generation failed";
         toast.error(msg);
       }
     },
-    [activeChatId, isStreaming, generate],
+    [activeChatId, isStreaming, generate, hasInput, currentInput, guideGenerations],
   );
 
   // Close character picker on outside click
@@ -718,11 +728,13 @@ export const ChatInput = memo(function ChatInput({
             onClick={() => setCharPickerOpen((v) => !v)}
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-              charPickerOpen
-                ? "text-foreground bg-foreground/10"
-                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+              guideGenerations && hasInput
+                ? "text-[var(--primary)] bg-[var(--primary)]/15 ring-1 ring-[var(--primary)]/30 hover:bg-[var(--primary)]/20"
+                : charPickerOpen
+                  ? "text-foreground bg-foreground/10"
+                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
-            title="Trigger character response"
+            title={(guideGenerations && hasInput) ? "Trigger character response (guided)" : "Trigger character response"}
           >
             <Users size="1rem" />
           </button>

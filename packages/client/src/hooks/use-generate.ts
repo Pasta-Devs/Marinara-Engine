@@ -341,6 +341,7 @@ export function useGenerate() {
       attachments?: Array<{ type: string; data: string }>;
       mentionedCharacterNames?: string[];
       forCharacterId?: string;
+      generationGuide?: string;
     }) => {
       // Prevent concurrent generations for the SAME chat — stops race conditions
       // where autonomous messaging + user input both fire generate at once.

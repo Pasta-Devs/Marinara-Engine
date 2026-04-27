@@ -4930,10 +4930,17 @@ export async function generateRoutes(app: FastifyInstance) {
       const collectedCommands: Array<{ command: CharacterCommand; characterId: string | null; messageId: string }> = [];
       const collectedOocMessages: string[] = [];
 
+      const normalizedGenerationGuide = typeof input.generationGuide === "string" ? input.generationGuide.trim() : "";
+      const generationGuideInstruction = normalizedGenerationGuide ? `Take the following into special consideration for your next message: ${normalizedGenerationGuide}` : null;
+
       if (useIndividualLoop) {
         // Individual group mode: generate one response per character
         sendProgress("generating");
         let runningMessages = [...finalMessages];
+
+        if (generationGuideInstruction) {
+          runningMessages.push({ role: "system", content: generationGuideInstruction });
+        }
 
         for (let ci = 0; ci < respondingCharIds.length; ci++) {
           if (abortController.signal.aborted) break;
@@ -4968,6 +4975,10 @@ export async function generateRoutes(app: FastifyInstance) {
         sendProgress("generating");
         let targetCharId = characterIds[0] ?? null;
         const sentMessages = [...finalMessages];
+
+        if (generationGuideInstruction) {
+          sentMessages.push({ role: "system", content: generationGuideInstruction });
+        }
 
         if (mentionedConversationCharacters.length > 0 && !regenGroupChatIndividual) {
           const mentionedNames = mentionedConversationCharacters.map((character) => character.name);

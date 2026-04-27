@@ -877,7 +877,7 @@ export function ConversationView({
       )}
 
       {/* ── Input area ── */}
-      <ConversationInput characterNames={characterNames} />
+      <ConversationInput key={chatId} characterNames={characterNames} />
     </div>
   );
 }
