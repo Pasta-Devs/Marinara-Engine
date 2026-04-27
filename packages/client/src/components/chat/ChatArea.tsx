@@ -725,10 +725,10 @@ export function ChatArea() {
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {
-      if (!activeChatId || isForking) return;
+      if (!activeChatId || isForking || isStreaming) return;
       forkScene(activeChatId, "clone", { upToMessageId: messageId });
     },
-    [activeChatId, forkScene, isForking],
+    [activeChatId, forkScene, isForking, isStreaming],
   );
 
   // Peek prompt state
@@ -1361,7 +1361,8 @@ export function ChatArea() {
           onToggleConversationStart={handleToggleConversationStart}
           onPeekPrompt={handlePeekPrompt}
           onBranch={isSceneChat ? undefined : handleBranch}
-          onCloneSceneFromHere={isSceneChat && !isForking ? handleCloneSceneFromHere : undefined}
+          onCloneSceneFromHere={isSceneChat ? handleCloneSceneFromHere : undefined}
+          isCloneSceneFromHereDisabled={isForking || isStreaming}
           onToggleSelectMessage={handleToggleSelectMessage}
           onSummaryContextSizeChange={handleSummaryContextSizeChange}
           onRerunTrackers={handleRerunTrackers}
@@ -1369,7 +1370,7 @@ export function ChatArea() {
           onConcludeScene={() => concludeScene(activeChatId)}
           onAbandonScene={() => abandonScene(activeChatId)}
           onForkScene={forkScene}
-          isForkingScene={isForking}
+          isForkingScene={isForking || isStreaming}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenFiles={() => setFilesOpen(true)}
           onOpenGallery={() => setGalleryOpen(true)}

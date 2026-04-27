@@ -123,6 +123,7 @@ interface ChatMessageProps {
   onPeekPrompt?: () => void;
   onBranch?: (messageId: string) => void;
   onCloneSceneFromHere?: (messageId: string) => void;
+  isCloneSceneFromHereDisabled?: boolean;
   isLastAssistantMessage?: boolean;
   characterMap?: CharacterMap;
   chatMode?: string;
@@ -433,6 +434,7 @@ export const ChatMessage = memo(function ChatMessage({
   onPeekPrompt,
   onBranch,
   onCloneSceneFromHere,
+  isCloneSceneFromHereDisabled,
   isLastAssistantMessage,
   characterMap,
   chatMode,
@@ -1424,6 +1426,7 @@ export const ChatMessage = memo(function ChatMessage({
                   icon={<GitBranch size="0.6875rem" />}
                   onClick={() => onCloneSceneFromHere(message.id)}
                   title="Clone from here"
+                  disabled={isCloneSceneFromHereDisabled}
                   dark
                 />
               )}
@@ -1760,6 +1763,7 @@ export const ChatMessage = memo(function ChatMessage({
                 icon={<GitBranch size="0.625rem" />}
                 onClick={() => onCloneSceneFromHere(message.id)}
                 title="Clone from here"
+                disabled={isCloneSceneFromHereDisabled}
               />
             )}
             <ActionBtn

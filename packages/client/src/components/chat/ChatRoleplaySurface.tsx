@@ -603,6 +603,7 @@ type RoleplaySurfaceProps = {
   onPeekPrompt: () => void;
   onBranch?: (messageId: string) => void;
   onCloneSceneFromHere?: (messageId: string) => void;
+  isCloneSceneFromHereDisabled?: boolean;
   onToggleSelectMessage: (toggle: MessageSelectionToggle) => void;
   onSummaryContextSizeChange: (size: number) => void;
   onRerunTrackers: () => void;
@@ -697,6 +698,7 @@ export function ChatRoleplaySurface({
   onPeekPrompt,
   onBranch,
   onCloneSceneFromHere,
+  isCloneSceneFromHereDisabled,
   onToggleSelectMessage,
   onSummaryContextSizeChange,
   onRerunTrackers,
@@ -1018,6 +1020,7 @@ export function ChatRoleplaySurface({
                           onPeekPrompt={onPeekPrompt}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
+                          isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
                           isLastAssistantMessage={msg.id === lastAssistantMessageId}
                           characterMap={characterMap}
                           personaInfo={personaInfo}
@@ -1044,6 +1047,7 @@ export function ChatRoleplaySurface({
                           onPeekPrompt={onPeekPrompt}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
+                          isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
                           isLastAssistantMessage={msg.id === lastAssistantMessageId}
                           characterMap={characterMap}
                           personaInfo={personaInfo}
