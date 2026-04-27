@@ -1315,14 +1315,11 @@ export async function generateRoutes(app: FastifyInstance) {
               const wEntry = weekSummaries[weekKey]!;
               const monday = parseDateKey(weekKey);
               const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
-              let block = wEntry.summary;
-              if (wEntry.keyDetails.length > 0) {
-                block += `\nKey details: ${wEntry.keyDetails.join("; ")}`;
-              }
+              // Key details are surfaced separately via <important_memories> in the system prompt.
               return [
                 {
                   role: "system" as const,
-                  content: `<summary week="${weekKey} – ${fmtDateKey(sunday)}">\n${block}\n</summary>`,
+                  content: `<summary week="${weekKey} – ${fmtDateKey(sunday)}">\n${wEntry.summary}\n</summary>`,
                 },
               ];
             }
@@ -1330,14 +1327,11 @@ export async function generateRoutes(app: FastifyInstance) {
             // Non-consolidated day with a summary
             const entry = daySummaries[bucket.date];
             if (entry) {
-              let block = entry.summary;
-              if (entry.keyDetails.length > 0) {
-                block += `\nKey details: ${entry.keyDetails.join("; ")}`;
-              }
+              // Key details are surfaced separately via <important_memories> in the system prompt.
               return [
                 {
                   role: "system" as const,
-                  content: `<summary date="${bucket.date}">\n${block}\n</summary>`,
+                  content: `<summary date="${bucket.date}">\n${entry.summary}\n</summary>`,
                 },
               ];
             }
