@@ -238,6 +238,7 @@ export function ConnectionEditor() {
       { token: "%height%", label: "%height%", critical: false },
       { token: "%seed%", label: "%seed%", critical: false },
       { token: "%model%", label: "%model%", critical: false },
+      { token: "%reference_image%", label: "%reference_image%", critical: false },
     ];
     const missing = KNOWN_SUBS.filter(({ token }) => !wf.includes(token));
     return { parseError: false as const, missing };
@@ -1395,7 +1396,7 @@ export function ConnectionEditor() {
               {localProvider === "image_generation" && (
                 <button
                   onClick={handleTestImage}
-                  disabled={testImageGeneration.isPending || dirty}
+                  disabled={testImageGeneration.isPending}
                   className="flex items-center gap-1.5 rounded-xl bg-violet-400/10 px-4 py-2.5 text-xs font-medium text-violet-400 ring-1 ring-violet-400/20 transition-all hover:bg-violet-400/20 active:scale-[0.98] disabled:opacity-50"
                   title={dirty ? "Save first to test image generation" : undefined}
                 >
@@ -1452,6 +1453,7 @@ export function ConnectionEditor() {
                   <img
                     src={`data:${imgTestResult.mimeType};base64,${imgTestResult.base64}`}
                     title={imgTestResult.prompt}
+                    alt={imgTestResult.prompt}
                     className="mt-2 max-w-full rounded-lg"
                     style={{ maxHeight: 300 }}
                   />

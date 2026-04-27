@@ -292,31 +292,30 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const baseUrl = (conn.baseUrl || providerDef?.defaultBaseUrl || "").replace(/\/+$/, "");
 
     const { generateImage } = await import("../services/image/image-generation.js");
-    const imgModel = (conn as any).model || "";
+    const imgModel = conn.model || "";
     const imgApiKey = conn.apiKey || "";
-    const imgSource = (conn as any).imageGenerationSource || imgModel;
-    const imgServiceHint = (conn as any).imageService || imgSource;
+    const imgSource = conn.imageGenerationSource || imgModel;
+    const imgServiceHint = conn.imageService || imgSource;
 
     const BASE_PROMPT = "plate of spaghetti with marinara sauce";
-    const effectivePrompt = [BASE_PROMPT].filter(Boolean).join(" ");
 
     const start = Date.now();
     try {
-      const result = await generateImage(imgModel, baseUrl, imgApiKey, imgServiceHint, {
+      const result = await generateImage(imgSource, baseUrl, imgApiKey, imgServiceHint, {
         prompt: BASE_PROMPT,
         model: imgModel || undefined,
         width: 512,
         height: 512,
-        comfyWorkflow: (conn as any).comfyuiWorkflow || undefined,
+        comfyWorkflow: conn.comfyuiWorkflow || undefined,
       });
-      return { success: true, base64: result.base64, mimeType: result.mimeType, latencyMs: Date.now() - start, prompt: effectivePrompt };
+      return { success: true, base64: result.base64, mimeType: result.mimeType, latencyMs: Date.now() - start, prompt: BASE_PROMPT };
     } catch (err) {
       return {
         success: false,
         base64: null,
         mimeType: null,
         latencyMs: Date.now() - start,
-        prompt: effectivePrompt,
+        prompt: BASE_PROMPT,
         error: err instanceof Error ? err.message : "Unknown error",
       };
     }
