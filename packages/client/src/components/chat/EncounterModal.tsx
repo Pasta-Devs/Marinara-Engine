@@ -36,7 +36,7 @@ function HPBar({ current, max, isParty }: { current: number; max: number; isPart
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   const isDead = current <= 0;
   return (
-    <div className="relative h-3 w-full overflow-hidden rounded-full bg-white/10">
+    <div className="relative h-3 w-full overflow-hidden rounded-full bg-foreground/10">
       <motion.div
         className={cn(
           "absolute inset-y-0 left-0 rounded-full",
@@ -58,7 +58,7 @@ function HPBar({ current, max, isParty }: { current: number; max: number; isPart
         animate={{ width: `${pct}%` }}
         transition={{ duration: 0.5, ease: "easeOut" }}
       />
-      <span className="absolute inset-0 flex items-center justify-center text-[0.625rem] font-bold text-white drop-shadow-sm">
+      <span className="absolute inset-0 flex items-center justify-center text-[0.625rem] font-bold text-foreground drop-shadow-sm">
         {current}/{max}
       </span>
     </div>
@@ -73,7 +73,7 @@ function StatusBadges({ statuses }: { statuses: Array<{ name: string; emoji: str
         <span
           key={i}
           title={`${s.name} (${s.duration} turns)`}
-          className="rounded-md bg-white/10 px-1.5 py-0.5 text-[0.625rem]"
+          className="rounded-md bg-foreground/10 px-1.5 py-0.5 text-[0.625rem]"
         >
           {s.emoji} {s.duration}
         </span>
@@ -89,19 +89,19 @@ function EnemyCard({ enemy, index: _index, isDead }: { enemy: CombatEnemy; index
       className={cn(
         "relative flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all",
         isDead
-          ? "border-white/5 bg-white/5 opacity-40 grayscale"
+          ? "border-foreground/5 bg-foreground/5 opacity-40 grayscale"
           : "border-red-500/20 bg-red-500/5 hover:border-red-500/40",
       )}
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: isDead ? 0.4 : 1, y: 0 }}
     >
       <div className="text-2xl">{enemy.sprite || "👹"}</div>
-      <h4 className="text-xs font-bold text-white/90">{enemy.name}</h4>
+      <h4 className="text-xs font-bold text-foreground/90">{enemy.name}</h4>
       <div className="w-full">
         <HPBar current={enemy.hp} max={enemy.maxHp} />
       </div>
       <StatusBadges statuses={enemy.statuses} />
-      {enemy.description && <p className="mt-1 text-[0.625rem] leading-tight text-white/40">{enemy.description}</p>}
+      {enemy.description && <p className="mt-1 text-[0.625rem] leading-tight text-foreground/40">{enemy.description}</p>}
       {isDead && (
         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
           <Skull size="1.25rem" className="text-red-400/60" />
@@ -119,7 +119,7 @@ function PartyCard({ member }: { member: CombatPartyMember }) {
       className={cn(
         "relative flex items-center gap-3 rounded-xl border p-3 transition-all",
         isDead
-          ? "border-white/5 bg-white/5 opacity-40 grayscale"
+          ? "border-foreground/5 bg-foreground/5 opacity-40 grayscale"
           : member.isPlayer
             ? "border-blue-500/20 bg-blue-500/5"
             : "border-emerald-500/20 bg-emerald-500/5",
@@ -136,7 +136,7 @@ function PartyCard({ member }: { member: CombatPartyMember }) {
         {member.name[0]}
       </div>
       <div className="min-w-0 flex-1">
-        <h4 className="truncate text-xs font-bold text-white/90">
+        <h4 className="truncate text-xs font-bold text-foreground/90">
           {member.name} {member.isPlayer && <span className="text-blue-400">(You)</span>}
         </h4>
         <HPBar current={member.hp} max={member.maxHp} isParty />
@@ -387,7 +387,7 @@ function EncounterConfig() {
           </button>
           <button
             onClick={() => initEncounter(settings)}
-            className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 active:scale-95"
+            className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-orange-500 py-2.5 text-xs font-bold text-foreground shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 active:scale-95"
           >
             <Swords size="0.875rem" className="mr-1.5 inline" />
             Begin Combat
@@ -437,7 +437,7 @@ function CombatLog() {
   return (
     <div
       ref={logRef}
-      className="scrollbar-thin max-h-40 overflow-y-auto rounded-xl border border-white/5 bg-black/30 p-3"
+      className="scrollbar-thin max-h-40 overflow-y-auto rounded-xl border border-foreground/5 bg-black/30 p-3"
     >
       <AnimatePresence>
         {entries.map(
@@ -449,11 +449,11 @@ function CombatLog() {
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
                   "mb-1 whitespace-pre-wrap text-xs leading-relaxed",
-                  e.type === "system" && "italic text-white/30",
+                  e.type === "system" && "italic text-foreground/30",
                   e.type === "player-action" && "font-semibold text-blue-300",
                   e.type === "enemy-action" && "text-red-300",
                   e.type === "party-action" && "text-emerald-300",
-                  e.type === "narrative" && "text-white/70",
+                  e.type === "narrative" && "text-foreground/70",
                 )}
               >
                 {e.message}
@@ -537,8 +537,8 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
 
   return (
     <>
-      <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 p-4">
-        <h3 className="flex items-center gap-2 text-xs font-bold text-white/70">
+      <div className="space-y-3 rounded-xl border border-foreground/5 bg-foreground/5 p-4">
+        <h3 className="flex items-center gap-2 text-xs font-bold text-foreground/70">
           <Zap size="0.875rem" className="text-yellow-400" />
           Your Actions
         </h3>
@@ -546,7 +546,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
         {/* Attacks */}
         {attacks.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">Attacks</div>
+            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-foreground/30">Attacks</div>
             <div className="flex flex-wrap gap-1.5">
               {attacks.map((atk, i) => (
                 <button
@@ -567,7 +567,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
         {/* Items */}
         {items.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">Items</div>
+            <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-foreground/30">Items</div>
             <div className="flex flex-wrap gap-1.5">
               {items.map((item, i) => (
                 <button
@@ -586,7 +586,7 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
 
         {/* Custom action */}
         <div>
-          <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-white/30">
+          <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-foreground/30">
             Custom Action
           </div>
           <div className="flex gap-2">
@@ -596,12 +596,12 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
               onKeyDown={(e) => e.key === "Enter" && !isProcessing && handleCustomSubmit()}
               placeholder="Describe what you do..."
               disabled={isProcessing}
-              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80 placeholder:text-white/25 disabled:opacity-30"
+              className="flex-1 rounded-lg border border-foreground/10 bg-foreground/5 px-3 py-2 text-xs text-foreground/80 placeholder:text-foreground/25 disabled:opacity-30"
             />
             <button
               onClick={handleCustomSubmit}
               disabled={isProcessing || !customInput.trim()}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-all hover:bg-blue-500 disabled:opacity-30"
+              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-foreground transition-all hover:bg-blue-500 disabled:opacity-30"
             >
               <Send size="0.875rem" />
             </button>
@@ -654,7 +654,7 @@ function CombatEndScreen() {
       <h2 className={cn("mb-2 text-3xl font-black uppercase tracking-wider", c.color)}>{c.label}</h2>
 
       {summaryStatus === "generating" && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-white/50">
+        <div className="mt-4 flex items-center gap-2 text-sm text-foreground/50">
           <Loader2 size="1rem" className="animate-spin" />
           Generating combat summary...
         </div>
@@ -662,10 +662,10 @@ function CombatEndScreen() {
 
       {summaryStatus === "done" && (
         <>
-          <p className="mt-2 text-sm text-white/50">Combat summary has been added to the chat.</p>
+          <p className="mt-2 text-sm text-foreground/50">Combat summary has been added to the chat.</p>
           <button
             onClick={closeEncounter}
-            className="mt-6 rounded-xl bg-white/10 px-6 py-3 text-sm font-bold text-white/80 transition-all hover:bg-white/20"
+            className="mt-6 rounded-xl bg-foreground/10 px-6 py-3 text-sm font-bold text-foreground/80 transition-all hover:bg-foreground/20"
           >
             Close Combat Window
           </button>
@@ -677,7 +677,7 @@ function CombatEndScreen() {
           <p className="mt-2 text-sm text-red-400">Failed to generate summary.</p>
           <button
             onClick={closeEncounter}
-            className="mt-6 rounded-xl bg-white/10 px-6 py-3 text-sm font-bold text-white/80 transition-all hover:bg-white/20"
+            className="mt-6 rounded-xl bg-foreground/10 px-6 py-3 text-sm font-bold text-foreground/80 transition-all hover:bg-foreground/20"
           >
             Close Anyway
           </button>
@@ -760,7 +760,7 @@ function EncounterModalInner() {
           {/* Modal */}
           <motion.div
             className={cn(
-              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b shadow-2xl",
+              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-gradient-to-b shadow-2xl",
               envGradient,
             )}
             initial={{ scale: 0.9, opacity: 0 }}
@@ -769,8 +769,8 @@ function EncounterModalInner() {
             transition={{ type: "spring", bounce: 0.2 }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/5 bg-black/30 px-5 py-3">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-white/90">
+            <div className="flex items-center justify-between border-b border-foreground/5 bg-black/30 px-5 py-3">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground/90">
                 <Swords size="1rem" className="text-red-400" />
                 Combat Encounter
               </h2>
@@ -789,7 +789,7 @@ function EncounterModalInner() {
                         concludeEncounter();
                       }
                     }}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[0.6875rem] text-white/50 transition-all hover:bg-white/10"
+                    className="flex items-center gap-1.5 rounded-lg border border-foreground/10 px-3 py-1.5 text-[0.6875rem] text-foreground/50 transition-all hover:bg-foreground/10"
                   >
                     <Flag size="0.75rem" />
                     Conclude
@@ -808,7 +808,7 @@ function EncounterModalInner() {
                       closeEncounter();
                     }
                   }}
-                  className="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white/80"
+                  className="rounded-lg p-1.5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/80"
                 >
                   <X size="1rem" />
                 </button>
@@ -821,7 +821,7 @@ function EncounterModalInner() {
               {isLoading && !initialized && (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <Loader2 size="2rem" className="animate-spin text-red-400" />
-                  <p className="text-sm text-white/50">Initializing combat encounter...</p>
+                  <p className="text-sm text-foreground/50">Initializing combat encounter...</p>
                 </div>
               )}
 
@@ -833,14 +833,14 @@ function EncounterModalInner() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => initEncounter(settings)}
-                      className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-white"
+                      className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-foreground"
                     >
                       <RefreshCw size="0.75rem" />
                       Retry
                     </button>
                     <button
                       onClick={closeEncounter}
-                      className="rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5"
+                      className="rounded-xl border border-foreground/10 px-4 py-2 text-xs text-foreground/50 hover:bg-foreground/5"
                     >
                       Close
                     </button>
@@ -855,7 +855,7 @@ function EncounterModalInner() {
               {initialized && !combatResult && (
                 <div className="space-y-4">
                   {/* Environment */}
-                  <div className="rounded-xl bg-white/5 p-3 text-center text-xs text-white/50">
+                  <div className="rounded-xl bg-foreground/5 p-3 text-center text-xs text-foreground/50">
                     🏔️ {environment || "Battle Arena"}
                   </div>
 
@@ -884,7 +884,7 @@ function EncounterModalInner() {
 
                   {/* Combat Log */}
                   <div>
-                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-white/50">
+                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground/50">
                       <Sparkles size="0.875rem" />
                       Combat Log
                     </h3>
@@ -893,7 +893,7 @@ function EncounterModalInner() {
 
                   {/* Processing indicator */}
                   {isProcessing && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-white/40">
+                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-foreground/40">
                       <Loader2 size="0.875rem" className="animate-spin" />
                       Processing action...
                     </div>
@@ -933,8 +933,8 @@ class EncounterErrorBoundary extends Component<{ children: ReactNode; onReset: (
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="relative flex max-w-md flex-col items-center gap-4 rounded-2xl border border-red-500/20 bg-gray-950 p-8 shadow-2xl">
             <AlertTriangle size="2.5rem" className="text-red-400" />
-            <h3 className="text-sm font-bold text-white/90">Combat Error</h3>
-            <p className="text-center text-xs text-white/50">
+            <h3 className="text-sm font-bold text-foreground/90">Combat Error</h3>
+            <p className="text-center text-xs text-foreground/50">
               Something went wrong during combat. This is usually caused by the AI returning unexpected data.
             </p>
             <button
@@ -942,7 +942,7 @@ class EncounterErrorBoundary extends Component<{ children: ReactNode; onReset: (
                 this.setState({ hasError: false });
                 this.props.onReset();
               }}
-              className="rounded-xl bg-red-600 px-6 py-2.5 text-xs font-medium text-white transition-all hover:bg-red-500"
+              className="rounded-xl bg-red-600 px-6 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-red-500"
             >
               Close Encounter
             </button>

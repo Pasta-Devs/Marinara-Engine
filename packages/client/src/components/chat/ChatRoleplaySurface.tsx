@@ -233,9 +233,9 @@ function RpToolbarButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center rounded-full border bg-white/5 text-white/60 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white",
+        "flex items-center justify-center rounded-full border bg-foreground/5 text-foreground/60 backdrop-blur-md transition-all hover:bg-foreground/10 hover:text-foreground",
         size === "sm" ? "p-1" : "p-1.5",
-        "border-white/10",
+        "border-foreground/10",
       )}
       title={title}
     >
@@ -278,9 +278,9 @@ function ToolbarMenu({ children }: { children: ReactNode }) {
         <button
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex w-9 items-center justify-center rounded-xl border bg-black/40 p-1.5 text-white/60 backdrop-blur-md transition-all hover:bg-black/60 hover:text-white",
-            "border-white/10",
-            open && "bg-black/60 border-white/20 text-white",
+            "flex w-9 items-center justify-center rounded-xl border bg-[var(--card)] p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-[var(--accent)] hover:text-foreground",
+            "border-foreground/10",
+            open && "bg-[var(--accent)] border-foreground/20 text-foreground",
           )}
           title="More options"
         >
@@ -290,7 +290,7 @@ function ToolbarMenu({ children }: { children: ReactNode }) {
           createPortal(
             <div
               ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-black/80 p-1 shadow-xl backdrop-blur-xl animate-message-in"
+              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-foreground/10 bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
               style={{ top: pos.top, right: pos.right }}
               onClick={() => setOpen(false)}
             >
@@ -327,10 +327,10 @@ function SummaryButton({
           "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
           compact ? "p-1" : "p-1.5",
           open
-            ? "bg-white/15 border-white/20 text-white/90"
+            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
             : summary
-              ? "bg-white/10 border-white/25 text-white/80 hover:bg-white/15 hover:text-white"
-              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
+              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
+              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
         )}
         title="Chat Summary"
       >
@@ -389,10 +389,10 @@ function WorldInfoButton({ chatId }: { chatId: string | null }) {
           "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
           compact ? "p-1" : "p-1.5",
           open
-            ? "bg-white/15 border-white/20 text-white/90"
+            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
             : hasEntries && !isLoading
-              ? "bg-white/10 border-white/25 text-white/80 hover:bg-white/15 hover:text-white"
-              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
+              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
+              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
         )}
         title="Active World Info"
       >
@@ -479,10 +479,10 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
           "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
           compact ? "p-1" : "p-1.5",
           open
-            ? "bg-white/15 border-white/20 text-white/90"
+            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
             : hasNotes
-              ? "bg-white/10 border-white/25 text-white/80 hover:bg-white/15 hover:text-white"
-              : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white",
+              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
+              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
         )}
         title="Author's Notes"
       >
@@ -968,7 +968,7 @@ export function ChatRoleplaySurface({
                     <button
                       onClick={onLoadMore}
                       disabled={isFetchingNextPage}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-white/90 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-foreground/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] hover:text-foreground/90 disabled:opacity-50"
                     >
                       {isFetchingNextPage ? (
                         <Loader2 size="0.75rem" className="animate-spin" />
@@ -982,7 +982,7 @@ export function ChatRoleplaySurface({
 
                 {isLoading && (
                   <div className="flex flex-col items-center gap-3 py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-white/60" />
                   </div>
                 )}
 
@@ -1083,7 +1083,7 @@ export function ChatRoleplaySurface({
                   <div className="flex justify-center py-1">
                     <button
                       onClick={onStartEncounter}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs text-white/50 transition-all hover:bg-white/10 hover:text-orange-300"
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs text-foreground/50 transition-all hover:bg-foreground/10 hover:text-orange-300"
                       title="Start Combat Encounter"
                     >
                       <Swords size="0.875rem" />

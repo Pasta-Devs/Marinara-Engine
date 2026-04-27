@@ -252,7 +252,7 @@ function highlightDialogue(text: string, dialogueColor?: string, boldDialogue = 
       <DialogueTag
         key={`d${key++}`}
         style={dialogueColor ? { color: dialogueColor } : undefined}
-        className={!dialogueColor ? "text-white" : undefined}
+        className={!dialogueColor ? "text-black dark:text-white" : undefined}
       >
         {openQuote}
         {innerNodes}
@@ -459,6 +459,7 @@ export const ChatMessage = memo(function ChatMessage({
     showTokenUsage,
     showMessageNumbers,
     boldDialogue,
+    theme,
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
@@ -471,6 +472,7 @@ export const ChatMessage = memo(function ChatMessage({
       showTokenUsage: s.showTokenUsage,
       showMessageNumbers: s.showMessageNumbers,
       boldDialogue: s.boldDialogue ?? true,
+      theme: s.theme,
     })),
   );
 
@@ -492,15 +494,23 @@ export const ChatMessage = memo(function ChatMessage({
     [chatFontSize, chatFontColor, textStrokeStyle],
   );
 
-  // Compute message bubble background with user-controlled opacity
-  // Base colors match the original Tailwind dark-mode values: neutral-900/70 and neutral-900/60
+  // Compute message bubble background with user-controlled opacity.
+  // Dark theme: neutral-900 (23,23,23) on dark bg → translucent dark bubble.
+  // Light theme: slightly grayer than --background (#faf8ff) so bubbles stay visible on light bg.
   const { userBubbleBg, assistantBubbleBg } = useMemo(() => {
     const o = chatFontOpacity / 100;
+    if (theme === "light") {
+      // Higher base opacity in light mode so the bubble actually contrasts the page
+      return {
+        userBubbleBg: `rgba(225,220,235,${Math.min(1, 0.85 * o).toFixed(3)})`,
+        assistantBubbleBg: `rgba(238,234,245,${Math.min(1, 0.9 * o).toFixed(3)})`,
+      };
+    }
     return {
       userBubbleBg: `rgba(23,23,23,${(0.7 * o).toFixed(3)})`,
       assistantBubbleBg: `rgba(23,23,23,${(0.6 * o).toFixed(3)})`,
     };
-  }, [chatFontOpacity]);
+  }, [chatFontOpacity, theme]);
 
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -1855,7 +1865,7 @@ function ActionBtn({
       className={cn(
         "rounded-md p-1 transition-all active:scale-90 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
         dark
-          ? "text-white/40 hover:bg-white/10 hover:text-white/70"
+          ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
         className,
       )}

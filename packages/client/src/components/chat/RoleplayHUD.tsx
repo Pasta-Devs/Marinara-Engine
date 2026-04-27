@@ -450,7 +450,7 @@ export function RoleplayHUD({
 
 /** Common mobile HUD button sizing – used by all four strip buttons */
 const MOBILE_HUD_BTN =
-  "flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 transition-all hover:bg-[var(--card)] dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none";
+  "flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none";
 
 function DeferredHUDPanelFallback({ label }: { label: string }) {
   return <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">{label}</div>;
@@ -540,7 +540,7 @@ function ActionsGroup({
     createPortal(
       <div
         ref={dropdownRef}
-        className="fixed w-72 max-w-[calc(100vw-1rem)] max-h-80 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl z-[9999] animate-message-in dark:border-white/10 dark:bg-black/80"
+        className="fixed w-72 max-w-[calc(100vw-1rem)] max-h-80 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl z-[9999] animate-message-in dark:border-foreground/10 dark:bg-black/80"
         style={{ top: pos.top, left: pos.left }}
       >
         <Suspense fallback={<DeferredActionsFallback isAgentProcessing={isAgentProcessing} />}>
@@ -570,8 +570,8 @@ function ActionsGroup({
         ref={btnRef}
         onClick={() => setAgentsOpen(!agentsOpen)}
         className={cn(
-          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
-          agentsOpen && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-white/20",
+          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
+          agentsOpen && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-foreground/20",
         )}
         title="Agents & Actions"
       >
@@ -589,12 +589,12 @@ function ActionsGroup({
         )}
         <Trash2 size="0.8125rem" strokeWidth={2.5} className="text-purple-400/50 shrink-0" />
         {badgeCount > 0 && (
-          <span className="hidden md:flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-purple-500/80 px-1 text-[0.5rem] font-bold text-white">
+          <span className="hidden md:flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-purple-500/80 px-1 text-[0.5rem] font-bold text-foreground">
             {badgeCount}
           </span>
         )}
         {failedAgentTypes.length > 0 && (
-          <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500/80 px-1 text-[0.5rem] font-bold text-white">
+          <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500/80 px-1 text-[0.5rem] font-bold text-foreground">
             {failedAgentTypes.length}
           </span>
         )}
@@ -618,7 +618,7 @@ function EchoChamberToggle() {
     <button
       onClick={toggleEchoChamber}
       className={cn(
-        "flex items-center gap-1 rounded-full bg-[var(--muted)]/20 border border-[var(--border)] px-2 py-1 text-[0.625rem] text-[var(--foreground)]/70 backdrop-blur-md transition-all hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] dark:bg-white/5 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white",
+        "flex items-center gap-1 rounded-full bg-[var(--muted)]/20 border border-[var(--border)] px-2 py-1 text-[0.625rem] text-[var(--foreground)]/70 backdrop-blur-md transition-all hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] dark:bg-foreground/5 dark:border-foreground/10 dark:text-foreground/60 dark:hover:bg-foreground/10 dark:hover:text-foreground",
         echoChamberOpen && "bg-purple-500/20 text-purple-600 border-purple-500/30 dark:text-purple-300",
       )}
       title="Toggle Echo Chamber panel"
@@ -626,7 +626,7 @@ function EchoChamberToggle() {
       <MessageCircle size="0.625rem" className="text-purple-400/70" />
       <span>Echo</span>
       {echoMessages.length > 0 && (
-        <span className="flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-purple-500/80 px-1 text-[0.5rem] font-bold text-white">
+        <span className="flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-purple-500/80 px-1 text-[0.5rem] font-bold text-foreground">
           {echoMessages.length}
         </span>
       )}
@@ -815,7 +815,7 @@ function WidgetPopover({
       ref={ref}
       style={pos ? { position: "fixed", top: pos.top, left: pos.left } : { position: "fixed", top: -9999, left: -9999 }}
       className={cn(
-        "z-[9999] max-w-[calc(100vw-1rem)] animate-message-in rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl dark:border-white/10 dark:bg-black/80",
+        "z-[9999] max-w-[calc(100vw-1rem)] animate-message-in rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl dark:border-foreground/10 dark:bg-black/80",
         className,
       )}
     >
@@ -907,7 +907,7 @@ function PersonaStatsWidget({
             {bars.map((bar) => {
               const pct = bar.max > 0 ? Math.min(100, (bar.value / bar.max) * 100) : 0;
               return (
-                <div key={bar.name} className="h-1 max-md:h-px w-full rounded-full bg-[var(--muted)]/30 dark:bg-white/10 overflow-hidden">
+                <div key={bar.name} className="h-1 max-md:h-px w-full rounded-full bg-[var(--muted)]/30 dark:bg-foreground/10 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: bar.color || "#8b5cf6" }}
@@ -1149,9 +1149,9 @@ function QuestsWidget({
 // ═══════════════════════════════════════════════
 
 const WIDGET =
-  "group flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md transition-all hover:bg-[var(--card)] dark:border-white/15 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none overflow-hidden";
+  "group flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md transition-all hover:bg-[var(--card)] dark:border-foreground/15 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none overflow-hidden";
 const WIDGET_EDIT =
-  "flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)] backdrop-blur-md dark:border-white/15 dark:bg-black/60 overflow-hidden";
+  "flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)] backdrop-blur-md dark:border-foreground/15 dark:bg-black/60 overflow-hidden";
 
 /** Hook: mobile single-tap = tooltip, double-tap = edit; desktop click = edit */
 function useWidgetTap(onEdit: () => void) {
@@ -1209,7 +1209,7 @@ function WidgetLabel({
         {value || fallback}
       </span>
       {showTip && value && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap rounded bg-[var(--popover)] border border-[var(--border)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--foreground)]/80 z-[9999] pointer-events-none animate-message-in dark:bg-black/90 dark:border-white/10 dark:text-white/80">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap rounded bg-[var(--popover)] border border-[var(--border)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--foreground)]/80 z-[9999] pointer-events-none animate-message-in dark:bg-black/90 dark:border-foreground/10 dark:text-foreground/80">
           {value}
         </span>
       )}
@@ -1249,7 +1249,7 @@ function WidgetInput({
       }}
       onBlur={commit}
       className={cn(
-        "w-[4.5rem] max-md:w-full max-md:px-0.5 bg-transparent text-center text-[0.5625rem] max-md:text-[0.625rem] font-medium outline-none placeholder:text-[var(--muted-foreground)]/40 dark:placeholder:text-white/20",
+        "w-[4.5rem] max-md:w-full max-md:px-0.5 bg-transparent text-center text-[0.5625rem] max-md:text-[0.625rem] font-medium outline-none placeholder:text-[var(--muted-foreground)]/40 dark:placeholder:text-foreground/20",
         accent,
       )}
     />
@@ -1322,8 +1322,8 @@ function CombinedWorldWidget({
         ref={buttonRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
-          open && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-white/20",
+          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
+          open && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-foreground/20",
         )}
         title="World State"
       >
