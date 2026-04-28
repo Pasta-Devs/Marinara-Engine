@@ -305,7 +305,13 @@ export function AgentEditor() {
         enabledTools: localEnabledTools,
         ...(localSpotifyClientId ? { spotifyClientId: localSpotifyClientId } : {}),
         ...(localSourceLorebookIds.length > 0 ? { sourceLorebookIds: localSourceLorebookIds } : {}),
-        ...(localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
+        // Only persist sourceFileIds for the Knowledge Retrieval agent — the Router
+        // doesn't read this setting. Without this guard, switching an agent from
+        // Retrieval to Router would leave behind stale file IDs the user can no
+        // longer see or remove via the UI.
+        ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0
+          ? { sourceFileIds: localSourceFileIds }
+          : {}),
         ...(localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localUseAvatarReferences ? { useAvatarReferences: true } : {}),
