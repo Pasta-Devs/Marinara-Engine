@@ -124,7 +124,7 @@ import {
   type PerceptionContext,
 } from "../services/game/perception.service.js";
 import { getMoraleTier, formatMoraleContext } from "../services/game/morale.service.js";
-import type { GameMap, GameNpc } from "@marinara-engine/shared";
+import type { GameMap, GameNpc, LorebookEntry } from "@marinara-engine/shared";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 
 function sanitizeConnectedGameTranscript(content: string): string {
@@ -3396,13 +3396,12 @@ export async function generateRoutes(app: FastifyInstance) {
       // for routing. The router picks IDs from this list and the selected entries
       // are injected verbatim — no per-entry summarization pass.
       const knowledgeRouterAgent = resolvedAgents.find((a) => a.type === "knowledge-router");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let knowledgeRouterEntries: any[] = [];
+      let knowledgeRouterEntries: LorebookEntry[] = [];
       if (knowledgeRouterAgent) {
         try {
           const sourceIds = (knowledgeRouterAgent.settings.sourceLorebookIds as string[]) ?? [];
           if (sourceIds.length > 0) {
-            const entries = await lorebooksStore.listEntriesByLorebooks(sourceIds);
+            const entries = (await lorebooksStore.listEntriesByLorebooks(sourceIds)) as LorebookEntry[];
             // Honor per-chat entry state overrides — a user can disable an entry for
             // this chat without touching the global lorebook, and ephemeral entries
             // carry per-chat countdown state. Mirrors the projection the standard
@@ -3415,21 +3414,17 @@ export async function generateRoutes(app: FastifyInstance) {
             //     activation pipeline — routing them would duplicate work).
             //   - Exhausted ephemeral entries (countdown reached 0 in this chat).
             knowledgeRouterEntries = entries
-              .filter(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (e: any) => {
-                  const ov = entryStateOverrides[e.id];
-                  const isEnabled = ov?.enabled ?? e.enabled !== false;
-                  if (!isEnabled || e.constant === true) return false;
-                  // Project the ephemeral override here so the exhaustion check uses
-                  // the per-chat remaining count, not the stale global default.
-                  const effectiveEphemeral = ov?.ephemeral !== undefined ? ov.ephemeral : e.ephemeral;
-                  if (effectiveEphemeral === 0) return false;
-                  return true;
-                },
-              )
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((e: any) => {
+              .filter((e: LorebookEntry) => {
+                const ov = entryStateOverrides[e.id];
+                const isEnabled = ov?.enabled ?? e.enabled !== false;
+                if (!isEnabled || e.constant === true) return false;
+                // Project the ephemeral override here so the exhaustion check uses
+                // the per-chat remaining count, not the stale global default.
+                const effectiveEphemeral = ov?.ephemeral !== undefined ? ov.ephemeral : e.ephemeral;
+                if (effectiveEphemeral === 0) return false;
+                return true;
+              })
+              .map((e: LorebookEntry) => {
                 const ov = entryStateOverrides[e.id];
                 return ov?.ephemeral !== undefined ? { ...e, ephemeral: ov.ephemeral } : e;
               });
