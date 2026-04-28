@@ -129,7 +129,7 @@ All server-side logging goes through a shared [Pino](https://getpino.io/) logger
 
 ## Pull Request Expectations
 
-- Link the issue or feature request your PR addresses. If there isn't one yet, open one first (see [Before You Open a PR](#before-you-open-a-pr)).
+- Link the issue or feature request your PR addresses. If there isn't one yet, open one first (see [Before You Open a Pull Request](#before-you-open-a-pull-request)).
 - Keep PRs focused. Separate unrelated refactors from user-facing fixes or documentation work.
 - Explain the why clearly in the PR description. Reviewers should understand the user problem, regression, or tradeoff being addressed, not just the implementation summary.
 - Update documentation in the same PR when behavior changes affect installation, updates, release flow, launchers, or platform-specific behavior.
