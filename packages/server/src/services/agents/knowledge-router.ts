@@ -64,15 +64,25 @@ export function buildCatalog(entries: LorebookEntry[]): CatalogItem[] {
 export function formatCatalogForPrompt(items: CatalogItem[]): string {
   return items
     .map((item) => {
-      const keyAttr = item.keys.length > 0 ? ` keys="${item.keys.join(", ")}"` : "";
-      const body = item.summary.length > 0 ? item.summary : "(no description)";
-      return `<entry id="${item.id}" name="${escapeXmlAttr(item.name)}"${keyAttr}>\n${body}\n</entry>`;
+      const keyAttr = item.keys.length > 0 ? ` keys="${escapeXmlAttr(item.keys.join(", "))}"` : "";
+      const body = item.summary.length > 0 ? escapeXmlText(item.summary) : "(no description)";
+      return `<entry id="${escapeXmlAttr(item.id)}" name="${escapeXmlAttr(item.name)}"${keyAttr}>\n${body}\n</entry>`;
     })
     .join("\n");
 }
 
+/** Escape characters that would break an XML attribute value (double-quote delimited). */
 function escapeXmlAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Escape characters that would break XML element content. Notably we don't have
+ * to escape `"` here (no attribute delimiter context), but `&` and `<` would
+ * still confuse a parser.
+ */
+function escapeXmlText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /**
@@ -152,10 +162,10 @@ export async function executeKnowledgeRouter(
   const result = await executeAgent(config, context, provider, model);
 
   if (!result.success) {
-    logger.warn(
-      "[knowledge-router] agent execution failed: %s",
-      result.error ?? "unknown error",
-    );
+    // result.error is `string | null` per AgentResult — wrap in an Error so Pino
+    // can serialize a stack-aware payload via its err-first signature.
+    const err = new Error(result.error ?? "unknown error");
+    logger.error(err, "[knowledge-router] agent execution failed");
     return result;
   }
 
@@ -165,9 +175,13 @@ export async function executeKnowledgeRouter(
       : ((result.data as { text?: string } | null)?.text ?? "");
   const selectedIds = parseRouterResponse(responseText);
 
+  // Dedupe IDs in case the model repeats one — we don't want to inject the same
+  // entry's content twice (token waste + confusing context).
+  const dedupedIds = [...new Set(selectedIds)];
+
   // Build the verbatim injection text from the entries the router picked.
   const entriesById = new Map(entries.map((e) => [e.id, e]));
-  const selectedEntries = selectedIds
+  const selectedEntries = dedupedIds
     .map((id) => entriesById.get(id))
     .filter((entry): entry is LorebookEntry => entry !== undefined);
 
@@ -185,10 +199,12 @@ export async function executeKnowledgeRouter(
     .join("\n\n");
 
   logger.debug(
-    "[knowledge-router] selected %d/%d entries (%d ids ignored as unknown)",
+    "[knowledge-router] selected %d/%d entries (%d ids returned, %d unique, %d unknown)",
     selectedEntries.length,
     entries.length,
-    selectedIds.length - selectedEntries.length,
+    selectedIds.length,
+    dedupedIds.length,
+    dedupedIds.length - selectedEntries.length,
   );
 
   return {
