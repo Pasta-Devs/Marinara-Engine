@@ -837,6 +837,12 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</source_material>`);
   }
 
+  if (context.memory._routerCatalog) {
+    parts.push(`<entry_catalog>`);
+    parts.push(context.memory._routerCatalog as string);
+    parts.push(`</entry_catalog>`);
+  }
+
   if (context.memory._chunkInfo) {
     const info = context.memory._chunkInfo as { current: number; total: number };
     parts.push(
