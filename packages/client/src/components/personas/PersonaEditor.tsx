@@ -119,6 +119,7 @@ export function PersonaEditor() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const loadedPersonaIdRef = useRef<string | null>(null);
+  const latestAvatarUploadTokenRef = useRef<string | null>(null);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(dirty);
@@ -199,8 +200,13 @@ export function PersonaEditor() {
     const file = e.target.files?.[0];
     if (!file || !personaId) return;
 
+    const uploadToken = generateClientId();
+    latestAvatarUploadTokenRef.current = uploadToken;
+    const fallbackAvatarPath = rawPersona?.avatarPath ?? null;
+
     const reader = new FileReader();
     reader.onload = async () => {
+      if (latestAvatarUploadTokenRef.current !== uploadToken) return;
       const dataUrl = reader.result as string;
       setAvatarPreview(dataUrl);
       try {
@@ -210,7 +216,8 @@ export function PersonaEditor() {
           filename: `persona-${personaId}-${Date.now()}.${file.name.split(".").pop()}`,
         });
       } catch {
-        setAvatarPreview(rawPersona?.avatarPath ?? null);
+        if (latestAvatarUploadTokenRef.current !== uploadToken) return;
+        setAvatarPreview(fallbackAvatarPath);
       }
     };
     reader.readAsDataURL(file);
