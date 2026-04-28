@@ -2,9 +2,9 @@
 // Routes: Browser — Pygmalion provider
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { logger } from "../lib/logger.js";
 
 const PYGMALION_API_BASE = "https://server.pygmalion.chat/galatea.v1.PublicCharacterService";
-const PYGMALION_AUTH_URL = "https://auth.pygmalion.chat/session";
 const PYGMALION_ORIGIN = "https://pygmalion.chat";
 const PYGMALION_ASSETS_BASE = "https://assets.pygmalion.chat";
 
@@ -12,62 +12,72 @@ const PYGMALION_ASSETS_BASE = "https://assets.pygmalion.chat";
 let pygToken: string = "";
 
 export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
-  // ── Login to Pygmalion via auth proxy ──
-  app.post<{
-    Body: { username: string; password: string };
-  }>("/pygmalion/login", async (req, reply) => {
-    const { username, password } = req.body ?? {};
-    if (!username || !password) {
-      return reply.status(400).send({ error: "username and password are required" });
-    }
-    if (
-      typeof username !== "string" ||
-      typeof password !== "string" ||
-      username.length > 256 ||
-      password.length > 256
-    ) {
-      return reply.status(400).send({ error: "Invalid credentials format" });
+  // ── Store token directly (user pastes their auth token) ──
+  app.post<{ Body: { token: string } }>("/pygmalion/set-token", async (req, reply) => {
+    const { token } = req.body ?? {};
+    if (!token || typeof token !== "string" || !token.trim()) {
+      return reply.status(400).send({ error: "token string is required" });
     }
 
-    const body = new URLSearchParams({ username, password }).toString();
+    let value = token.trim();
+
+    // Normalize: strip "Bearer " prefix if pasted with it
+    if (value.toLowerCase().startsWith("bearer ")) {
+      value = value.slice("bearer ".length).trim();
+    }
+
+    if (value.length > 8192 || value.includes(" ") || value.includes("\n")) {
+      return reply.status(400).send({ error: "Invalid token value. Paste only the token string." });
+    }
+
+    pygToken = value;
+    logger.info("[bot-browser] Pygmalion token stored");
+    return { ok: true };
+  });
+
+  // ── Validate stored token by making a test authenticated search ──
+  app.get("/pygmalion/validate", async () => {
+    if (!pygToken) {
+      return { valid: false, reason: "no token stored" };
+    }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
-      const res = await fetch(PYGMALION_AUTH_URL, {
+      const res = await fetch(`${PYGMALION_API_BASE}/CharacterSearch`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${pygToken}`,
           Origin: PYGMALION_ORIGIN,
           Referer: `${PYGMALION_ORIGIN}/`,
         },
-        body,
+        body: JSON.stringify({
+          query: "",
+          orderBy: "downloads",
+          orderDescending: true,
+          pageSize: 1,
+          page: 0,
+          includeSensitive: true,
+        }),
         signal: controller.signal,
       });
 
-      const text = await res.text();
-
       if (res.ok) {
-        // Try to extract token from response
-        try {
-          const data = JSON.parse(text);
-          if (data?.token || data?.idToken || data?.access_token) {
-            pygToken = data.token || data.idToken || data.access_token;
-          }
-        } catch {
-          // Response might be the token itself
-          if (text.length > 20 && text.length < 4096 && !text.includes("<")) {
-            pygToken = text.trim();
-          }
-        }
+        logger.info("[bot-browser] Pygmalion token validated");
+        return { valid: true };
       }
 
-      return reply
-        .status(res.status)
-        .header("Content-Type", res.headers.get("content-type") || "application/json")
-        .send(text);
+      if (res.status === 401 || res.status === 403) {
+        pygToken = "";
+        return { valid: false, reason: "Token rejected (expired or invalid)" };
+      }
+
+      return { valid: false, reason: `HTTP ${res.status}` };
     } catch (err) {
-      return reply.status(502).send({ error: "Failed to reach Pygmalion auth server" });
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      return { valid: false, reason: msg };
     } finally {
       clearTimeout(timeout);
     }
@@ -76,22 +86,13 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
   // ── Logout (clear stored token) ──
   app.post("/pygmalion/logout", async () => {
     pygToken = "";
+    logger.info("[bot-browser] Pygmalion token cleared");
     return { ok: true };
   });
 
   // ── Check session status ──
   app.get("/pygmalion/session", async () => {
     return { active: !!pygToken, hasToken: !!pygToken };
-  });
-
-  // ── Store token directly (from client after login response parsing) ──
-  app.post<{ Body: { token: string } }>("/pygmalion/set-token", async (req, reply) => {
-    const { token } = req.body ?? {};
-    if (!token || typeof token !== "string" || token.length > 8192) {
-      return reply.status(400).send({ error: "Invalid token" });
-    }
-    pygToken = token.trim();
-    return { ok: true };
   });
 
   // ── Search characters on Pygmalion via Connect RPC ──

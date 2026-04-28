@@ -36,6 +36,7 @@ import { botBrowserJannyRoutes } from "./bot-browser-janny.routes.js";
 import { botBrowserChartavernRoutes } from "./bot-browser-chartavern.routes.js";
 import { botBrowserPygmalionRoutes } from "./bot-browser-pygmalion.routes.js";
 import { botBrowserWyvernRoutes } from "./bot-browser-wyvern.routes.js";
+import { botBrowserDatacatRoutes } from "./bot-browser-datacat.routes.js";
 import { chatFoldersRoutes } from "./chat-folders.routes.js";
 import { chatPresetsRoutes } from "./chat-presets.routes.js";
 import { updatesRoutes } from "./updates.routes.js";
@@ -83,6 +84,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(botBrowserChartavernRoutes, { prefix: "/api/bot-browser" });
   await app.register(botBrowserPygmalionRoutes, { prefix: "/api/bot-browser" });
   await app.register(botBrowserWyvernRoutes, { prefix: "/api/bot-browser" });
+  await app.register(botBrowserDatacatRoutes, { prefix: "/api/bot-browser" });
   await app.register(updatesRoutes, { prefix: "/api/updates" });
   await app.register(themesRoutes, { prefix: "/api/themes" });
   await app.register(appSettingsRoutes, { prefix: "/api/app-settings" });

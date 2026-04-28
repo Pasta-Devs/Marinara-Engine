@@ -48,10 +48,10 @@ interface BrowseCard {
   avatarUrl: string;
   stat1: number;
   stat1Label: string;
-  stat1Icon: "star" | "download" | "heart" | "eye" | "message";
+  stat1Icon: "star" | "download" | "heart" | "eye" | "message" | "hash";
   stat2: number;
   stat2Label: string;
-  stat2Icon: "star" | "download" | "heart" | "eye" | "message";
+  stat2Icon: "star" | "download" | "heart" | "eye" | "message" | "hash";
   stat3: number;
   stat3Label: string;
   stat3Icon: "star" | "download" | "heart" | "eye" | "message" | "hash";
@@ -420,33 +420,108 @@ const jannyProvider: ProviderConfig = {
     return `https://jannyai.com/characters/${raw?.id || card.id}_character-${slug}`;
   },
   search: async (p) => {
-    const params = new URLSearchParams({
-      q: p.query,
-      page: String(p.page),
-      limit: "80",
-      sort: p.sort,
-      nsfw: String(p.nsfw),
-      min_tokens: p.minTokens || "29",
-      max_tokens: p.maxTokens || "100000",
-    });
-    if (p.extraToggles.showLowQuality) params.set("showLowQuality", "true");
-    if (p.includeTags.length > 0) {
-      const ids = jannyTagNamesToIds(p.includeTags);
-      if (ids.length > 0) params.set("tagIds", ids.join(","));
-    }
-    const res = await fetch(`/api/bot-browser/janny/search?${params}`);
-    if (!res.ok) throw new Error("Search failed");
-    const raw = await res.json();
-    const result = raw?.results?.[0];
-    let hits = result?.hits || [];
-    const totalPages = result?.totalPages || 1;
-    // Client-side exclude tag filtering (JannyAI API doesn't support server-side exclude)
-    if (p.excludeTags.length > 0) {
-      const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
-      hits = hits.filter((h: any) => {
-        const charTagNames = jannyTagNames(h.tagIds || []).map((t) => t.toLowerCase());
-        return !lowerExclude.some((et) => charTagNames.includes(et));
+    // Fetch a one-time search token from the server (token is scraped from JannyAI's
+    // public Astro bundle). The actual MeiliSearch POST runs from the BROWSER so that
+    // Cloudflare sees a real browser TLS fingerprint + the user's cf_clearance cookie.
+    const tokenRes = await fetch("/api/bot-browser/janny/token");
+    if (!tokenRes.ok) throw new Error("Could not obtain JannyAI token");
+    const { token } = await tokenRes.json();
+    if (!token) throw new Error("JannyAI token unavailable");
+
+    const sortMap: Record<string, string[]> = {
+      newest: ["createdAtStamp:desc"],
+      oldest: ["createdAtStamp:asc"],
+      tokens_desc: ["totalToken:desc"],
+      tokens_asc: ["totalToken:asc"],
+      relevant: [],
+    };
+    const sortArr = sortMap[p.sort] ?? sortMap.newest!;
+
+    // Split include tags into "known" (mapped to MeiliSearch tagIds) and "custom"
+    // (free-form names that aren't in JANNY_TAG_MAP). Known tags filter server-side;
+    // custom tags filter client-side against the hit's resolved tag-name list.
+    const knownIncludeTagIds = jannyTagNamesToIds(p.includeTags);
+    const customIncludeTags = p.includeTags
+      .filter((t) => JANNY_TAG_REVERSE[t.toLowerCase()] === undefined)
+      .map((t) => t.toLowerCase());
+
+    const fetchOnePage = async (pageNum: number) => {
+      const filters: string[] = [];
+      filters.push(`totalToken >= ${parseInt(p.minTokens) || 29}`);
+      filters.push(`totalToken <= ${parseInt(p.maxTokens) || 100000}`);
+      if (!p.nsfw) filters.push("isNsfw = false");
+      if (!p.extraToggles.showLowQuality) filters.push("isLowQuality = false");
+      if (knownIncludeTagIds.length > 0) {
+        filters.push(knownIncludeTagIds.map((id) => `tagIds = ${id}`).join(" AND "));
+      }
+
+      const body = {
+        queries: [
+          {
+            indexUid: "janny-characters",
+            q: p.query,
+            facets: ["isLowQuality", "isNsfw", "tagIds", "totalToken"],
+            attributesToCrop: ["description:300"],
+            cropMarker: "...",
+            filter: filters,
+            attributesToHighlight: ["name", "description"],
+            highlightPreTag: "__ais-highlight__",
+            highlightPostTag: "__/ais-highlight__",
+            hitsPerPage: 80,
+            page: pageNum,
+            ...(sortArr.length > 0 ? { sort: sortArr } : {}),
+          },
+        ],
+      };
+
+      const res = await fetch("https://search.jannyai.com/multi-search", {
+        method: "POST",
+        headers: {
+          Accept: "*/*",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "x-meilisearch-client": "Meilisearch instant-meilisearch (v0.19.0) ; Meilisearch JavaScript (v0.41.0)",
+        },
+        body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error(
+            "JannyAI is blocking the request (Cloudflare). Visit https://jannyai.com once in this browser to clear the challenge, then retry.",
+          );
+        }
+        throw new Error(`JannyAI search error ${res.status}`);
+      }
+      const raw = await res.json();
+      return raw?.results?.[0];
+    };
+
+    const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
+    const applyClientFilter = (hitsArr: any[]): any[] => {
+      if (lowerExclude.length === 0 && customIncludeTags.length === 0) return hitsArr;
+      return hitsArr.filter((h: any) => {
+        const charTagNames = jannyTagNames(h.tagIds || []).map((t) => t.toLowerCase());
+        if (lowerExclude.length > 0 && lowerExclude.some((et) => charTagNames.includes(et))) return false;
+        // Custom tags: every custom tag must appear in the hit's resolved tag names
+        if (customIncludeTags.length > 0 && !customIncludeTags.every((ct) => charTagNames.includes(ct))) return false;
+        return true;
+      });
+    };
+
+    let currentPage = p.page;
+    const result = await fetchOnePage(currentPage);
+    let hits = applyClientFilter(result?.hits || []);
+    const totalPages = result?.totalPages || 1;
+
+    // Auto-fetch up to 3 extra pages when client-side filters thin the page
+    if (lowerExclude.length > 0 || customIncludeTags.length > 0) {
+      let autoFetches = 0;
+      while (hits.length < 80 && currentPage < totalPages && autoFetches < 3) {
+        autoFetches++;
+        currentPage++;
+        const more = await fetchOnePage(currentPage);
+        hits = hits.concat(applyClientFilter(more?.hits || []));
+      }
     }
     return {
       cards: hits.map((h: any) => ({
@@ -520,31 +595,8 @@ const jannyProvider: ProviderConfig = {
       }
     }
 
-    // Strategy 1: Server-side proxy
-    try {
-      const res = await fetch(`/api/bot-browser/janny/character/${charId}?slug=character-${slug}`);
-      if (res.ok) {
-        const data = await res.json();
-        const char = data?.character;
-        if (char && (char.personality || char.firstMessage)) {
-          return {
-            description: char.personality || undefined,
-            scenario: char.scenario || undefined,
-            firstMessage: char.firstMessage || undefined,
-            exampleDialogs: char.exampleDialogs || undefined,
-            creatorNotes: char.description
-              ? typeof char.description === "string"
-                ? char.description.replace(/<[^>]*>/g, "").trim()
-                : undefined
-              : undefined,
-          };
-        }
-      }
-    } catch {
-      /* fall through */
-    }
-
-    // Strategy 2: corsproxy.io from browser
+    // Strategy 1: corsproxy.io from browser (preferred — bypasses Cloudflare via the
+    // user's browser TLS fingerprint + any cf_clearance cookie they have for jannyai.com)
     try {
       const proxyRes = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(pageUrl)}`, {
         headers: { Accept: "text/html,application/xhtml+xml,*/*" },
@@ -558,6 +610,30 @@ const jannyProvider: ProviderConfig = {
             scenario: (char.scenario as string) || undefined,
             firstMessage: (char.firstMessage as string) || undefined,
             exampleDialogs: (char.exampleDialogs as string) || undefined,
+            creatorNotes: char.description
+              ? typeof char.description === "string"
+                ? char.description.replace(/<[^>]*>/g, "").trim()
+                : undefined
+              : undefined,
+          };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+
+    // Strategy 2: server-side proxy (likely fails due to Cloudflare, but try anyway)
+    try {
+      const res = await fetch(`/api/bot-browser/janny/character/${charId}?slug=character-${slug}`);
+      if (res.ok) {
+        const data = await res.json();
+        const char = data?.character;
+        if (char && (char.personality || char.firstMessage)) {
+          return {
+            description: char.personality || undefined,
+            scenario: char.scenario || undefined,
+            firstMessage: char.firstMessage || undefined,
+            exampleDialogs: char.exampleDialogs || undefined,
             creatorNotes: char.description
               ? typeof char.description === "string"
                 ? char.description.replace(/<[^>]*>/g, "").trim()
@@ -877,6 +953,235 @@ const wyvernProvider: ProviderConfig = {
 };
 
 // ════════════════════════════════════════════════
+// Provider: DataCat
+// (Aggregator surfacing JanitorAI characters via datacat.run REST API)
+// ════════════════════════════════════════════════
+
+// Cache of DataCat tags (name <-> id) populated from the faceted endpoint.
+// Names are lowercased so user input from the tag panel can match either the
+// upstream display name or any case variant.
+//
+// DataCat returns ~28k tags. Rendering all of them as buttons crashes the
+// browser, so the tag panel only shows the top N most-popular tags
+// (`datacatTopTagNames`); the full id<->name maps are still populated so
+// custom user input and card-level resolution still work for the long tail.
+const TOP_TAGS_DISPLAY_LIMIT = 150;
+const datacatTagNameToId = new Map<string, number>();
+const datacatTagIdToName = new Map<number, string>();
+let datacatTopTagNames: string[] = [];
+let datacatTagsLoaded = false;
+let datacatTagsLoading: Promise<void> | null = null;
+
+async function loadDatacatTags(): Promise<void> {
+  if (datacatTagsLoaded) return;
+  if (datacatTagsLoading) return datacatTagsLoading;
+  datacatTagsLoading = (async () => {
+    try {
+      const res = await fetch("/api/bot-browser/datacat/tags");
+      if (!res.ok) return;
+      const data = await res.json();
+      const list: any[] = data?.tags || data?.facets || data || [];
+      const sortable: { id: number; name: string; count: number }[] = [];
+      for (const t of list) {
+        const id = Number(t?.id ?? t?.tag_id ?? t?.tagId);
+        const name: string = (t?.name || t?.slug || "").toString();
+        const count = Number(t?.count ?? 0) || 0;
+        if (Number.isFinite(id) && name) {
+          datacatTagNameToId.set(name.toLowerCase(), id);
+          datacatTagIdToName.set(id, name);
+          sortable.push({ id, name, count });
+        }
+      }
+      sortable.sort((a, b) => b.count - a.count);
+      datacatTopTagNames = sortable.slice(0, TOP_TAGS_DISPLAY_LIMIT).map((t) => t.name);
+      datacatTagsLoaded = true;
+    } finally {
+      datacatTagsLoading = null;
+    }
+  })();
+  return datacatTagsLoading;
+}
+
+function datacatTagNamesToIds(names: string[]): number[] {
+  return names
+    .map((n) => datacatTagNameToId.get(n.toLowerCase()))
+    .filter((id): id is number => typeof id === "number");
+}
+
+const datacatProvider: ProviderConfig = {
+  id: "datacat",
+  name: "DataCat",
+  icon: "🐱",
+  siteName: "DataCat",
+  defaultSort: "relevance",
+  sortOptions: [
+    { value: "relevance", label: "🔍 Relevance" },
+    { value: "fresh", label: "🔥 Fresh" },
+  ],
+  features: [],
+  hasSortDirection: false,
+  hasTokenFilters: false,
+  extraToggles: [],
+  // DataCat is NSFW-only — hide the toggle since every character is NSFW-tagged
+  nsfwAvailable: false,
+  nsfwMode: "wyvern",
+  getAvatarUrl: (card) => {
+    const raw = card._raw as any;
+    const av = raw?.avatar || "";
+    if (!av) return "";
+    if (av.startsWith("http")) return `/api/bot-browser/datacat/avatar/${encodeURIComponent(av)}`;
+    return `/api/bot-browser/datacat/avatar/${av}`;
+  },
+  getExternalUrl: (card) => {
+    const raw = card._raw as any;
+    const id = raw?.characterId || raw?.character_id || card.id;
+    return `https://datacat.run/characters/${id}`;
+  },
+  search: async (p) => {
+    await loadDatacatTags();
+    const tagIds = p.includeTags.length > 0 ? datacatTagNamesToIds(p.includeTags) : [];
+
+    // Fresh = trending, Relevance = recent-public (which is the "Characters" tab on
+    // datacat.run — supports tag filtering and shows the full library).
+    const useFresh = p.sort === "fresh" && tagIds.length === 0 && !p.query;
+
+    let list: any[] = [];
+    let totalCount = 0;
+
+    if (useFresh) {
+      const params = new URLSearchParams({
+        sortBy: "score",
+        limit24: "80",
+        limitWeek: "0",
+      });
+      const res = await fetch(`/api/bot-browser/datacat/fresh?${params}`);
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      // Response shape: { success, sortBy, windows: { last24h: { count, characters: [...] }, thisWeek: {...} } }
+      const last24h = data?.windows?.last24h || data?.last24h;
+      list = Array.isArray(last24h) ? last24h : last24h?.characters || [];
+      totalCount = data?.windows?.last24h?.count ?? list.length;
+    } else {
+      const offset = Math.max(0, (p.page - 1) * 80);
+      const params = new URLSearchParams({ limit: "80", offset: String(offset) });
+      if (tagIds.length > 0) params.set("tagIds", tagIds.join(","));
+      const res = await fetch(`/api/bot-browser/datacat/recent?${params}`);
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      list = data?.characters || [];
+      totalCount = data?.totalCount || list.length;
+    }
+
+    // Client-side query filter (DataCat REST has no full-text search on these endpoints)
+    if (p.query) {
+      const q = p.query.toLowerCase();
+      list = list.filter((c: any) => {
+        const name = (c.chat_name || c.name || "").toLowerCase();
+        return name.includes(q);
+      });
+    }
+    // DataCat is NSFW-only — every character is tagged NSFW upstream, so filtering
+    // by nsfw=false would always return an empty list. Skip the filter entirely.
+    // Client-side excludeTags filter
+    if (p.excludeTags.length > 0) {
+      const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
+      list = list.filter((c: any) => {
+        const tagNames = (Array.isArray(c.tags) ? c.tags : [])
+          .map((t: any) => (typeof t === "string" ? t : t?.name || t?.slug || ""))
+          .map((s: string) => s.toLowerCase());
+        return !lowerExclude.some((et) => tagNames.includes(et));
+      });
+    }
+
+    return {
+      cards: list.map((c: any) => {
+        // Tags can come either as objects ({id,name,slug}), as strings, or as
+        // numeric tagIds — try every shape and normalize to display names.
+        const rawTags: any[] = Array.isArray(c.tags) ? c.tags : Array.isArray(c.tagIds) ? c.tagIds : [];
+        const tagNames: string[] = rawTags
+          .map((t: any) => {
+            if (typeof t === "string") return t;
+            if (typeof t === "number") return datacatTagIdToName.get(t) || "";
+            return t?.name || t?.slug || (typeof t?.id === "number" ? datacatTagIdToName.get(t.id) || "" : "");
+          })
+          .filter(Boolean);
+        const av = c.avatar || "";
+        const avatarProxyUrl = av
+          ? av.startsWith("http")
+            ? `/api/bot-browser/datacat/avatar/${encodeURIComponent(av)}`
+            : `/api/bot-browser/datacat/avatar/${av}`
+          : "";
+        const charId = c.characterId || c.character_id || c.id || "";
+        return {
+          id: charId,
+          name: c.chatName || c.chat_name || c.name || "Unnamed",
+          creator: c.creatorName || c.creator_name || "",
+          tagline: (c.description || "").replace(/<[^>]*>/g, "").slice(0, 200),
+          tags: tagNames,
+          avatarUrl: avatarProxyUrl,
+          stat1: c.chatCount || c.chat_count || 0,
+          stat1Label: "Chats",
+          stat1Icon: "message" as const,
+          stat2: c.totalTokens || c.total_tokens || 0,
+          stat2Label: "Tokens",
+          stat2Icon: "hash" as const,
+          stat3: 0,
+          stat3Label: "",
+          stat3Icon: "star" as const,
+          nsfw: !!c.isNsfw,
+          externalUrl: `https://datacat.run/characters/${charId}`,
+          _raw: c,
+        };
+      }),
+      totalCount,
+    };
+  },
+  fetchDetail: async (card) => {
+    const id = (card._raw as any)?.characterId || (card._raw as any)?.character_id || card.id;
+    if (!id) return null;
+    // Prefer the download endpoint for V2-shaped data, fall back to character endpoint
+    try {
+      const dlRes = await fetch(`/api/bot-browser/datacat/download/${encodeURIComponent(id)}`);
+      if (dlRes.ok) {
+        const dl = await dlRes.json();
+        const d = dl?.data;
+        if (d) {
+          return {
+            description: d.description || d.personality || undefined,
+            personality: d.personality || undefined,
+            scenario: d.scenario || undefined,
+            firstMessage: d.first_mes || undefined,
+            exampleDialogs: d.mes_example || undefined,
+            creatorNotes: d.creator_notes || undefined,
+            alternateGreetings: Array.isArray(d.alternate_greetings) ? d.alternate_greetings.filter(Boolean) : [],
+          };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+    try {
+      const res = await fetch(`/api/bot-browser/datacat/character/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const c = data?.character || data;
+      if (!c) return null;
+      const rawDesc = c.description || "";
+      const plainDesc = typeof rawDesc === "string" ? rawDesc.replace(/<[^>]*>/g, "").trim() : "";
+      return {
+        description: c.personality || undefined,
+        scenario: c.scenario || undefined,
+        firstMessage: c.first_message || undefined,
+        creatorNotes: plainDesc || undefined,
+      };
+    } catch {
+      return null;
+    }
+  },
+  importCard: async () => {},
+};
+
+// ════════════════════════════════════════════════
 // Provider Registry
 // ════════════════════════════════════════════════
 
@@ -886,6 +1191,7 @@ const ALL_PROVIDERS: ProviderConfig[] = [
   chartavernProvider,
   pygmalionProvider,
   wyvernProvider,
+  datacatProvider,
 ];
 
 function getProvider(id: string): ProviderConfig {
@@ -988,7 +1294,10 @@ export function BotBrowserView() {
     return provider.nsfwAvailable;
   }, [provider, sourceId, pygLoggedIn, ctLoggedIn]);
 
-  const switchProvider = useCallback((newId: string) => {
+  const [datacatNsfwAcked, setDatacatNsfwAcked] = useState(false);
+  const [pendingDatacatSwitch, setPendingDatacatSwitch] = useState(false);
+
+  const performSwitch = useCallback((newId: string) => {
     const newProv = getProvider(newId);
     setSourceId(newId);
     setSourceOpen(false);
@@ -996,7 +1305,8 @@ export function BotBrowserView() {
     setSort(newProv.defaultSort);
     setSortAsc(false);
     setPage(1);
-    setNsfwRaw(getPersistNsfw(newId));
+    // DataCat is NSFW-only — every character is tagged NSFW upstream, force the flag on
+    setNsfwRaw(newId === "datacat" ? true : getPersistNsfw(newId));
     setIncludeTags([]);
     setExcludeTags([]);
     setTagSearch("");
@@ -1015,6 +1325,18 @@ export function BotBrowserView() {
     setShowLoginModal(false);
   }, []);
 
+  const switchProvider = useCallback(
+    (newId: string) => {
+      if (newId === "datacat" && !datacatNsfwAcked) {
+        setSourceOpen(false);
+        setPendingDatacatSwitch(true);
+        return;
+      }
+      performSwitch(newId);
+    },
+    [datacatNsfwAcked, performSwitch],
+  );
+
   useEffect(() => {
     const allTags = new Set<string>();
     for (const card of results) {
@@ -1025,6 +1347,25 @@ export function BotBrowserView() {
       return Array.from(merged).sort((a, b) => a.localeCompare(b));
     });
   }, [results]);
+
+  // When DataCat is the active provider, eagerly populate the tag panel with
+  // only the top-N most-popular DataCat tags. (The full ~28k tag list lives in
+  // the module-level id<->name maps for resolution; rendering all of them as
+  // buttons would freeze the browser.)
+  useEffect(() => {
+    if (sourceId !== "datacat") return;
+    let cancelled = false;
+    loadDatacatTags().then(() => {
+      if (cancelled || datacatTopTagNames.length === 0) return;
+      setAvailableTags((prev) => {
+        const merged = new Set([...prev, ...datacatTopTagNames]);
+        return Array.from(merged).sort((a, b) => a.localeCompare(b));
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceId]);
 
   const doSearch = useCallback(async () => {
     setLoading(true);
@@ -1236,7 +1577,7 @@ export function BotBrowserView() {
   const handleNsfwClick = (e: React.MouseEvent) => {
     if (effectiveNsfwAvailable) return; // Let the checkbox handle it
     e.preventDefault();
-    if (provider.nsfwMode === "wyvern") {
+    if (sourceId === "wyvern") {
       toast.info('Use the "🔞 Popular NSFW" sort option to browse NSFW content on Wyvern.');
     } else if (provider.nsfwMode === "login") {
       setShowLoginModal(true);
@@ -1244,34 +1585,21 @@ export function BotBrowserView() {
   };
 
   // ── Auth handlers ──
-  const handlePygmalionLogin = async (username: string, password: string) => {
+  const handlePygmalionSetToken = async (token: string) => {
     setLoginLoading(true);
     try {
-      const res = await fetch("/api/bot-browser/pygmalion/login", {
+      const res = await fetch("/api/bot-browser/pygmalion/set-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ token }),
       });
-      const text = await res.text();
-      if (!res.ok) throw new Error("Login failed: " + text.slice(0, 200));
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to save token");
 
-      // Try to parse token from response
-      let token = "";
-      try {
-        const data = JSON.parse(text);
-        token = data?.token || data?.idToken || data?.access_token || "";
-      } catch {
-        if (text.length > 20 && text.length < 4096 && !text.includes("<")) token = text.trim();
-      }
-
-      // If we got a token, store it on the server
-      if (token) {
-        await fetch("/api/bot-browser/pygmalion/set-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-      }
+      // Validate
+      const valRes = await fetch("/api/bot-browser/pygmalion/validate");
+      const valData = await valRes.json();
+      if (!valData.valid) throw new Error(valData.reason || "Token validation failed");
 
       setPygLoggedIn(true);
       setShowLoginModal(false);
@@ -1279,7 +1607,7 @@ export function BotBrowserView() {
       setPage(1);
       toast.success("Logged in to Pygmalion! NSFW content enabled.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Login failed");
+      toast.error(err instanceof Error ? err.message : "Token validation failed");
     } finally {
       setLoginLoading(false);
     }
@@ -1649,9 +1977,11 @@ export function BotBrowserView() {
                           ? "NSFW depends on your account settings"
                           : effectiveNsfwAvailable
                             ? "Toggle NSFW content"
-                            : provider.nsfwMode === "wyvern"
+                            : sourceId === "wyvern"
                               ? 'Use the "Popular NSFW" sort option'
-                              : `Click to log in to ${provider.name} for NSFW content`
+                              : sourceId === "datacat"
+                                ? "DataCat is NSFW-only"
+                                : `Click to log in to ${provider.name} for NSFW content`
                       }
                       onClick={nsfwGreyedOut ? (e: React.MouseEvent) => e.preventDefault() : handleNsfwClick}
                     >
@@ -1704,7 +2034,7 @@ export function BotBrowserView() {
                       <LogIn size="0.75rem" /> Log In
                     </button>
                   ))}
-                {provider.nsfwMode === "wyvern" && (
+                {sourceId === "wyvern" && (
                   <span className="flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[0.65rem] text-amber-400">
                     Use "🔞 Popular NSFW" sort for NSFW content
                   </span>
@@ -1875,11 +2205,62 @@ export function BotBrowserView() {
           ctLoggedIn={ctLoggedIn}
           loginLoading={loginLoading}
           onClose={() => setShowLoginModal(false)}
-          onPygLogin={handlePygmalionLogin}
+          onPygSetToken={handlePygmalionSetToken}
           onPygLogout={handlePygmalionLogout}
           onCtSetCookie={handleCtSetCookie}
           onCtLogout={handleCtLogout}
         />
+      )}
+
+      {/* ═══ DataCat NSFW Warning ═══ */}
+      {pendingDatacatSwitch && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingDatacatSwitch(false);
+          }}
+        >
+          <div className="absolute inset-0 bg-black/60" onClick={() => setPendingDatacatSwitch(false)} />
+          <div
+            className="relative w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+                <span className="text-amber-400">⚠️</span> DataCat is NSFW only
+              </h3>
+              <button
+                onClick={() => setPendingDatacatSwitch(false)}
+                className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              >
+                <X size="1rem" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3 p-5 text-sm text-[var(--foreground)]">
+              <p>
+                Every character on DataCat is tagged NSFW upstream, so the NSFW filter is locked on for this provider.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    setDatacatNsfwAcked(true);
+                    setPendingDatacatSwitch(false);
+                    performSwitch("datacat");
+                  }}
+                  className="flex-1 rounded-lg bg-pink-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-pink-500"
+                >
+                  Continue to DataCat
+                </button>
+                <button
+                  onClick={() => setPendingDatacatSwitch(false)}
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
+                >
+                  Don't continue to DataCat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1896,7 +2277,7 @@ function LoginModal({
   ctLoggedIn,
   loginLoading,
   onClose,
-  onPygLogin,
+  onPygSetToken,
   onPygLogout,
   onCtSetCookie,
   onCtLogout,
@@ -1907,15 +2288,15 @@ function LoginModal({
   ctLoggedIn: boolean;
   loginLoading: boolean;
   onClose: () => void;
-  onPygLogin: (u: string, p: string) => void;
+  onPygSetToken: (t: string) => void;
   onPygLogout: () => void;
   onCtSetCookie: (c: string) => void;
   onCtLogout: () => void;
 }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [pygTokenInput, setPygTokenInput] = useState("");
   const [cookie, setCookie] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const [showPygHelp, setShowPygHelp] = useState(false);
 
   const isPyg = sourceId === "pygmalion";
   const isCt = sourceId === "chartavern";
@@ -1961,10 +2342,10 @@ function LoginModal({
             <strong>Browsing and downloading public characters works without logging in!</strong>
           </div>
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-[var(--foreground)]">
-            <span className="mr-1.5">{isPyg ? "🔑" : "🍪"}</span>
+            <span className="mr-1.5">🔑</span>
             <strong>Optional:</strong>{" "}
             {isPyg
-              ? "Log in to enable NSFW content, follow authors, and access your Following timeline."
+              ? "Paste your auth token to enable NSFW content and access authenticated character data."
               : "Paste your session cookies to see NSFW-tagged content."}
           </div>
 
@@ -1972,47 +2353,58 @@ function LoginModal({
           {isPyg ? (
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">Auth Token</label>
+                <textarea
+                  value={pygTokenInput}
+                  onChange={(e) => setPygTokenInput(e.target.value)}
                   disabled={isLoggedIn || loginLoading}
-                  placeholder="your-email@example.com"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && email && password) onPygLogin(email, password);
-                  }}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--primary)] disabled:opacity-50"
+                  placeholder="Paste your Pygmalion auth token here"
+                  rows={3}
+                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)] disabled:opacity-50"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoggedIn || loginLoading}
-                  placeholder="Your Pygmalion password"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && email && password) onPygLogin(email, password);
-                  }}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--primary)] disabled:opacity-50"
-                />
-              </div>
+              <details open={showPygHelp} onToggle={(e) => setShowPygHelp((e.target as HTMLDetailsElement).open)}>
+                <summary className="cursor-pointer text-xs font-medium text-blue-400 hover:underline">
+                  ▸ ❓ How to get your auth token
+                </summary>
+                <div className="mt-2 flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)] p-3 text-[0.7rem] leading-relaxed text-[var(--muted-foreground)]">
+                  <p>
+                    1. Go to{" "}
+                    <a
+                      href="https://pygmalion.chat"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 underline"
+                    >
+                      pygmalion.chat
+                    </a>{" "}
+                    and log in
+                  </p>
+                  <p>
+                    2. Open DevTools (F12) → <strong>Application</strong> tab → <strong>Local Storage</strong>
+                  </p>
+                  <p>
+                    3. Find the entry named <code className="rounded bg-[var(--accent)] px-1">authn</code>
+                  </p>
+                  <p>
+                    4. Copy its <strong>Value</strong> (a long string, ~705 characters) and paste it above
+                  </p>
+                </div>
+              </details>
               {isLoggedIn && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                  <CheckCircle size="0.75rem" /> Authenticated — NSFW content enabled
+                  <CheckCircle size="0.75rem" /> Token active — NSFW content enabled
                 </div>
               )}
               <div className="flex items-center gap-2">
                 {!isLoggedIn ? (
                   <button
-                    onClick={() => onPygLogin(email, password)}
-                    disabled={loginLoading || !email || !password}
+                    onClick={() => onPygSetToken(pygTokenInput)}
+                    disabled={loginLoading || !pygTokenInput.trim()}
                     className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
                   >
-                    {loginLoading ? <Loader2 size="0.75rem" className="animate-spin" /> : <LogIn size="0.75rem" />} Log
-                    In
+                    {loginLoading ? <Loader2 size="0.75rem" className="animate-spin" /> : <KeyRound size="0.75rem" />}{" "}
+                    Save & Connect
                   </button>
                 ) : (
                   <button
