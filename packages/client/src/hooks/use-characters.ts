@@ -267,7 +267,7 @@ export function useUpdatePersona() {
       tags?: string;
     }) => api.patch(`/characters/personas/${id}`, data),
     onSuccess: (updatedPersona, variables) => {
-      qc.setQueryData(characterKeys.personas, (old) => {
+      qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
         if (!Array.isArray(old)) return old;
         const updatedId = (updatedPersona as { id?: string } | null)?.id ?? variables.id;
         if (!updatedId) return old;
@@ -275,7 +275,8 @@ export function useUpdatePersona() {
         return old.map((p) => {
           const row = p as { id?: string };
           if (row?.id !== updatedId) return p;
-          return updatedPersona;
+          if (!updatedPersona || typeof updatedPersona !== "object") return p;
+          return { ...row, ...(updatedPersona as object) };
         });
       });
 
