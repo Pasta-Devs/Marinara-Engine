@@ -149,22 +149,32 @@ function pct(value: number, baseline: number): string {
   return `${(ratio * 100).toFixed(1)}%`;
 }
 
+/**
+ * Write a markdown line to stdout. We use process.stdout.write rather than
+ * console.log because (a) the project's logging guidelines forbid console.* in
+ * server code, and (b) Pino's structured output would muddy markdown intended
+ * for piping into a PR description.
+ */
+function writeLine(line = ""): void {
+  process.stdout.write(`${line}\n`);
+}
+
 function main(): void {
   const sizes = [20, 100, 500];
 
-  console.log("# Knowledge Router vs Knowledge Retrieval — cost model");
-  console.log();
-  console.log("Estimated input/output tokens per generation, using documented assumptions");
-  console.log("(see header comment in `benchmark-knowledge-router.ts` for the full list).");
-  console.log();
-  console.log(
+  writeLine("# Knowledge Router vs Knowledge Retrieval — cost model");
+  writeLine();
+  writeLine("Estimated input/output tokens per generation, using documented assumptions");
+  writeLine("(see header comment in `benchmark-knowledge-router.ts` for the full list).");
+  writeLine();
+  writeLine(
     `Avg entry content: ${AVG_CONTENT_CHARS} chars (~${Math.round(AVG_CONTENT_CHARS / CHARS_PER_TOKEN)} tokens). ` +
       `Description coverage: ${(DESCRIPTION_COVERAGE * 100).toFixed(0)}%. ` +
       `KR chunk budget: ${KR_CHUNK_TOKENS} tokens.`,
   );
-  console.log();
-  console.log("| Entries | Knowledge Retrieval | Knowledge Router | Router vs KR (input) |");
-  console.log("|---|---|---|---|");
+  writeLine();
+  writeLine("| Entries | Knowledge Retrieval | Knowledge Router | Router vs KR (input) |");
+  writeLine("|---|---|---|---|");
 
   for (const n of sizes) {
     const entries = makeFakeLorebook(n);
@@ -175,22 +185,22 @@ function main(): void {
     const routerCell = `${fmt(router.inputTokens)} in / ${fmt(router.outputTokens)} out (${router.llmCalls} call)`;
     const ratio = pct(router.inputTokens, kr.inputTokens);
 
-    console.log(`| ${n} | ${krCell} | ${routerCell} | ${ratio} |`);
+    writeLine(`| ${n} | ${krCell} | ${routerCell} | ${ratio} |`);
   }
 
-  console.log();
-  console.log("**Read this as:** the smaller the Router % is, the bigger the savings.");
-  console.log("Output tokens are smaller for Router because it returns IDs rather than prose.");
-  console.log("LLM call count matters too — fewer calls = less wall-clock latency.");
-  console.log();
-  console.log("**Caveats:**");
-  console.log("- These are *modelled* costs, not measured. The model uses the same chunking logic");
-  console.log("  and token heuristics the agents use internally, but real LLM calls vary.");
-  console.log("- Router quality depends on description quality. With 0% description coverage the");
-  console.log("  router falls back to content snippets and accuracy drops; with 100% coverage and");
-  console.log("  good summaries the router approaches its best case.");
-  console.log("- KR's summarization may be MORE useful than verbatim entries on some queries.");
-  console.log("  This model captures cost, not quality.");
+  writeLine();
+  writeLine("**Read this as:** the smaller the Router % is, the bigger the savings.");
+  writeLine("Output tokens are smaller for Router because it returns IDs rather than prose.");
+  writeLine("LLM call count matters too — fewer calls = less wall-clock latency.");
+  writeLine();
+  writeLine("**Caveats:**");
+  writeLine("- These are *modelled* costs, not measured. The model uses the same chunking logic");
+  writeLine("  and token heuristics the agents use internally, but real LLM calls vary.");
+  writeLine("- Router quality depends on description quality. With 0% description coverage the");
+  writeLine("  router falls back to content snippets and accuracy drops; with 100% coverage and");
+  writeLine("  good summaries the router approaches its best case.");
+  writeLine("- KR's summarization may be MORE useful than verbatim entries on some queries.");
+  writeLine("  This model captures cost, not quality.");
 }
 
 main();
