@@ -136,6 +136,19 @@ export const ChatInput = memo(function ChatInput({
   // Read directly from the cache to avoid creating a useQuery observer that
   // conflicts with the useInfiniteQuery observer in useChatMessages (mixing
   // useQuery and useInfiniteQuery on the same query key corrupts query state).
+  // Subscribe to cache updates for the active chat so the send button enables
+  // as soon as messages land (e.g. right after branching) without needing the
+  // user to type to trigger a re-render.
+  const [, bumpMessagesTick] = useState(0);
+  useEffect(() => {
+    if (!activeChatId) return;
+    const targetKey = JSON.stringify(chatKeys.messages(activeChatId));
+    return qc.getQueryCache().subscribe((event) => {
+      if (JSON.stringify(event.query.queryKey) === targetKey) {
+        bumpMessagesTick((n) => n + 1);
+      }
+    });
+  }, [activeChatId, qc]);
   const messagesData = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(activeChatId ?? ""));
   const lastMessageRole = useMemo(() => {
     const firstPage = messagesData?.pages?.[0];
