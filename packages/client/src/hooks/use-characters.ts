@@ -266,7 +266,22 @@ export function useUpdatePersona() {
       altDescriptions?: string;
       tags?: string;
     }) => api.patch(`/characters/personas/${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
+    onSuccess: (updatedPersona, variables) => {
+      qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
+        if (!Array.isArray(old)) return old;
+        const updatedId = (updatedPersona as { id?: string } | null)?.id ?? variables.id;
+        if (!updatedId) return old;
+
+        return old.map((p) => {
+          const row = p as Record<string, unknown> & { id?: string };
+          if (row?.id !== updatedId) return p;
+          if (!updatedPersona || typeof updatedPersona !== "object") return p;
+          return { ...row, ...(updatedPersona as Record<string, unknown>) };
+        });
+      });
+
+      qc.invalidateQueries({ queryKey: characterKeys.personas });
+    },
   });
 }
 

@@ -118,6 +118,8 @@ export function PersonaEditor() {
   const [formData, setFormData] = useState<PersonaFormData | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const loadedPersonaIdRef = useRef<string | null>(null);
+  const latestAvatarUploadTokenRef = useRef<string | null>(null);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(dirty);
@@ -129,9 +131,16 @@ export function PersonaEditor() {
   // Find the persona from the list
   const rawPersona = (allPersonas as PersonaRow[] | undefined)?.find((p) => p.id === personaId);
 
-  // Parse persona into form data when it loads
+  // Parse persona into form data when it first loads (or when switching personas).
+  // Important: don't overwrite local unsaved edits if server data refetches (e.g. after avatar upload).
   useEffect(() => {
     if (!rawPersona) return;
+
+    const isSwitchingPersona = loadedPersonaIdRef.current !== rawPersona.id;
+    if (!isSwitchingPersona && dirty) return;
+
+    loadedPersonaIdRef.current = rawPersona.id;
+
     let parsedAltDescs: AltDescriptionEntry[] = [];
     try {
       const raw = rawPersona.altDescriptions;
@@ -139,6 +148,7 @@ export function PersonaEditor() {
     } catch {
       /* ignore */
     }
+
     setFormData({
       name: rawPersona.name,
       comment: rawPersona.comment ?? "",
@@ -161,7 +171,8 @@ export function PersonaEditor() {
       })(),
     });
     setAvatarPreview(rawPersona.avatarPath);
-  }, [rawPersona]);
+    setDirty(false);
+  }, [rawPersona, dirty]);
 
   const updateField = useCallback(<K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => {
     setFormData((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -189,8 +200,13 @@ export function PersonaEditor() {
     const file = e.target.files?.[0];
     if (!file || !personaId) return;
 
+    const uploadToken = generateClientId();
+    latestAvatarUploadTokenRef.current = uploadToken;
+    const fallbackAvatarPath = rawPersona?.avatarPath ?? null;
+
     const reader = new FileReader();
     reader.onload = async () => {
+      if (latestAvatarUploadTokenRef.current !== uploadToken) return;
       const dataUrl = reader.result as string;
       setAvatarPreview(dataUrl);
       try {
@@ -200,10 +216,12 @@ export function PersonaEditor() {
           filename: `persona-${personaId}-${Date.now()}.${file.name.split(".").pop()}`,
         });
       } catch {
-        // revert on failure
+        if (latestAvatarUploadTokenRef.current !== uploadToken) return;
+        setAvatarPreview(fallbackAvatarPath);
       }
     };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const handleDelete = async () => {
