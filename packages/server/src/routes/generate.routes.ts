@@ -3434,8 +3434,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 return ov?.ephemeral !== undefined ? { ...e, ephemeral: ov.ephemeral } : e;
               });
           }
-        } catch {
-          /* non-critical */
+        } catch (err) {
+          // Non-critical: the router simply skips this turn if loading fails. Log
+          // so the failure is diagnosable instead of looking like "no matches found".
+          logger.warn(err, "[knowledge-router] failed to load source lorebook entries");
         }
       }
 
@@ -3958,6 +3960,32 @@ export async function generateRoutes(app: FastifyInstance) {
       );
       const shouldRunPreGen = hasPreGenAgents && !input.regenerateMessageId;
 
+      // Helper: wrap a separate-injection agent's text and append it to the last
+      // user message. Used by both knowledge-retrieval and knowledge-router on
+      // both fresh generations AND regen-cache replays — keeping the wrap+append
+      // in one place prevents the two paths from drifting again (PR #228 had to
+      // fix exactly that drift once already).
+      const appendSeparateAgentInjection = (
+        agentType: "knowledge-retrieval" | "knowledge-router",
+        text: string,
+      ): void => {
+        const isRouter = agentType === "knowledge-router";
+        const heading = isRouter ? "Knowledge Router" : "Knowledge Retrieval";
+        const tag = isRouter ? "knowledge_router" : "knowledge_retrieval";
+        const wrapped =
+          wrapFormat === "markdown"
+            ? `\n\n## ${heading}\n${text}`
+            : `\n\n<${tag}>\n${text}\n</${tag}>`;
+        const lastUserIdx = findLastIndex(finalMessages, "user");
+        if (lastUserIdx >= 0) {
+          const target = finalMessages[lastUserIdx]!;
+          finalMessages[lastUserIdx] = { ...target, content: target.content + wrapped };
+        } else {
+          const last = finalMessages[finalMessages.length - 1]!;
+          finalMessages[finalMessages.length - 1] = { ...last, content: last.content + wrapped };
+        }
+      };
+
       if (shouldRunPreGen || shouldRunKR || shouldRunRouter) {
         sendProgress("agents");
 
@@ -4016,7 +4044,19 @@ export async function generateRoutes(app: FastifyInstance) {
                 logger.debug(`[timing] Knowledge retrieval: ${Date.now() - _tKR}ms`);
                 return krResult;
               } catch (err) {
+                // Emit agent_error so the client closes the pending state opened by
+                // agent_start above — without this the UI shows the agent as forever-
+                // running. (Mirrors the Illustrator agent's failure protocol.)
                 logger.warn(err, "[knowledge-retrieval] failed — continuing generation without retrieved context");
+                reply.raw.write(
+                  `data: ${JSON.stringify({
+                    type: "agent_error",
+                    data: {
+                      agentType: "knowledge-retrieval",
+                      error: err instanceof Error ? err.message : "Knowledge retrieval failed",
+                    },
+                  })}\n\n`,
+                );
                 return null;
               }
             })()
@@ -4053,7 +4093,19 @@ export async function generateRoutes(app: FastifyInstance) {
                 logger.debug(`[timing] Knowledge router: ${Date.now() - _tRouter}ms`);
                 return routerResult;
               } catch (err) {
+                // Emit agent_error so the client closes the pending state opened by
+                // agent_start above — without this the UI shows the agent as forever-
+                // running. (Mirrors the Illustrator agent's failure protocol.)
                 logger.warn(err, "[knowledge-router] failed — continuing generation without routed context");
+                reply.raw.write(
+                  `data: ${JSON.stringify({
+                    type: "agent_error",
+                    data: {
+                      agentType: "knowledge-router",
+                      error: err instanceof Error ? err.message : "Knowledge router failed",
+                    },
+                  })}\n\n`,
+                );
                 return null;
               }
             })()
@@ -4142,18 +4194,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const krText =
             typeof krResult.data === "string" ? krResult.data : ((krResult.data as { text?: string })?.text ?? "");
           if (krText) {
-            const krWrapped =
-              wrapFormat === "markdown"
-                ? `\n\n## Knowledge Retrieval\n${krText}`
-                : `\n\n<knowledge_retrieval>\n${krText}\n</knowledge_retrieval>`;
-            const lastUserIdx = findLastIndex(finalMessages, "user");
-            if (lastUserIdx >= 0) {
-              const target = finalMessages[lastUserIdx]!;
-              finalMessages[lastUserIdx] = { ...target, content: target.content + krWrapped };
-            } else {
-              const last = finalMessages[finalMessages.length - 1]!;
-              finalMessages[finalMessages.length - 1] = { ...last, content: last.content + krWrapped };
-            }
+            appendSeparateAgentInjection("knowledge-retrieval", krText);
             contextInjections.push({ agentType: "knowledge-retrieval", text: krText });
           }
         }
@@ -4165,18 +4206,7 @@ export async function generateRoutes(app: FastifyInstance) {
               ? routerResult.data
               : ((routerResult.data as { text?: string })?.text ?? "");
           if (routerText) {
-            const routerWrapped =
-              wrapFormat === "markdown"
-                ? `\n\n## Knowledge Router\n${routerText}`
-                : `\n\n<knowledge_router>\n${routerText}\n</knowledge_router>`;
-            const lastUserIdx = findLastIndex(finalMessages, "user");
-            if (lastUserIdx >= 0) {
-              const target = finalMessages[lastUserIdx]!;
-              finalMessages[lastUserIdx] = { ...target, content: target.content + routerWrapped };
-            } else {
-              const last = finalMessages[finalMessages.length - 1]!;
-              finalMessages[finalMessages.length - 1] = { ...last, content: last.content + routerWrapped };
-            }
+            appendSeparateAgentInjection("knowledge-router", routerText);
             contextInjections.push({ agentType: "knowledge-router", text: routerText });
           }
         }
@@ -4269,22 +4299,10 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         for (const inj of cachedSeparateInjections) {
-          // Match the tag/heading the fresh-generation path uses for this agent type.
-          const isRouter = inj.agentType === "knowledge-router";
-          const heading = isRouter ? "Knowledge Router" : "Knowledge Retrieval";
-          const tag = isRouter ? "knowledge_router" : "knowledge_retrieval";
-          const wrapped =
-            wrapFormat === "markdown"
-              ? `\n\n## ${heading}\n${inj.text}`
-              : `\n\n<${tag}>\n${inj.text}\n</${tag}>`;
-          const lastUserIdx = findLastIndex(finalMessages, "user");
-          if (lastUserIdx >= 0) {
-            const target = finalMessages[lastUserIdx]!;
-            finalMessages[lastUserIdx] = { ...target, content: target.content + wrapped };
-          } else {
-            const last = finalMessages[finalMessages.length - 1]!;
-            finalMessages[finalMessages.length - 1] = { ...last, content: last.content + wrapped };
-          }
+          appendSeparateAgentInjection(
+            inj.agentType as "knowledge-retrieval" | "knowledge-router",
+            inj.text,
+          );
         }
       }
 
