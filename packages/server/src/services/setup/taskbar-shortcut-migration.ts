@@ -54,6 +54,36 @@ function rewriteShortcut(lnkPath: string, exe: string, args: string, workDir: st
   return res.status === 0;
 }
 
+function readShortcutIconLocation(lnkPath: string): string | null {
+  const cmd =
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " +
+    "Write-Output $s.IconLocation";
+  const res = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd],
+    { encoding: "utf8", env: { ...process.env, LNK: lnkPath }, windowsHide: true },
+  );
+  if (res.status !== 0) return null;
+  return (res.stdout ?? "").trim() || null;
+}
+
+function repairShortcutIcon(lnkPath: string, icon: string): boolean {
+  const cmd =
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK); " +
+    "$s.IconLocation = $env:ICON; " +
+    "$s.Save()";
+  const res = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd],
+    {
+      encoding: "utf8",
+      env: { ...process.env, LNK: lnkPath, ICON: icon },
+      windowsHide: true,
+    },
+  );
+  return res.status === 0;
+}
+
 function stampAumid(launcherExe: string, lnkPath: string): boolean {
   const res = spawnSync(launcherExe, ["--stamp-lnk", lnkPath, AUMID], { windowsHide: true });
   return res.status === 0;
@@ -91,7 +121,12 @@ export function migrateTaskbarShortcuts(installDir: string): void {
     }
   }
 
-  const iconPath = join(installDir, "app-icon.ico");
+  // Icon source — sourced from installer/ subfolder which is always tracked in
+  // the repo. Earlier versions used a tracked copy at the repo root, but that
+  // collided with the untracked copy that the original installer wrote to
+  // $INSTDIR — blocking git pull for existing users. Sourcing from the
+  // subfolder avoids the path that the installer uses at the install root.
+  const iconPath = join(installDir, "installer", "app-icon.ico");
   const iconLocation = `${iconPath},0`;
   const argsLine = `${AUMID} "${startBat}" "${SHORTCUT_TITLE}"`;
   const workDir = installDir;
@@ -106,7 +141,20 @@ export function migrateTaskbarShortcuts(installDir: string): void {
     }
 
     if (pathsEqual(currentTarget, launcherExe)) {
-      logger.debug("Taskbar migration: %s already targets the launcher, skipping", lnk);
+      // Already migrated. Self-heal: if its IconLocation file no longer exists
+      // (e.g. an earlier migration pointed at $INSTDIR\app-icon.ico, which was
+      // tracked then later removed from the repo), repair it.
+      const currentIcon = readShortcutIconLocation(lnk);
+      const currentIconPath = (currentIcon ?? "").replace(/,\d+$/, "");
+      if (currentIconPath && !existsSync(currentIconPath) && existsSync(iconPath)) {
+        if (repairShortcutIcon(lnk, iconLocation)) {
+          logger.info("Repaired taskbar shortcut icon: %s", lnk);
+        } else {
+          logger.warn("Taskbar migration: failed to repair icon on %s", lnk);
+        }
+      } else {
+        logger.debug("Taskbar migration: %s already targets the launcher, skipping", lnk);
+      }
       continue;
     }
 
