@@ -478,12 +478,13 @@ const jannyProvider: ProviderConfig = {
         ],
       };
 
+      // NOTE: deliberately omitting credentials. JannyAI's MeiliSearch endpoint
+      // returns `Access-Control-Allow-Origin: *`, which the browser refuses to
+      // pair with `credentials: "include"` — that combination blocks the response
+      // entirely. cf_clearance won't ride along, but the upstream has historically
+      // let cross-origin requests with browser TLS + UA through anyway.
       const res = await fetch("https://search.jannyai.com/multi-search", {
         method: "POST",
-        // Cross-origin POST: required so the browser actually sends cf_clearance +
-        // any other jannyai.com cookies the user already has — that's what gets us
-        // past Cloudflare's bot challenge. Without this the workaround is a no-op.
-        credentials: "include",
         headers: {
           Accept: "*/*",
           "Content-Type": "application/json",
