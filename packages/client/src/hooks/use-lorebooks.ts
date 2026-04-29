@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Lorebook hooks
 // ──────────────────────────────────────────────
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import type { Lorebook, LorebookEntry } from "@marinara-engine/shared";
 
@@ -75,6 +75,24 @@ export function useLorebookEntries(lorebookId: string | null) {
     queryFn: () => api.get<LorebookEntry[]>(`/lorebooks/${lorebookId}/entries`),
     enabled: !!lorebookId,
   });
+}
+
+/**
+ * Fetch entries across multiple lorebooks in parallel. Each per-lorebook query
+ * is cached independently, so repeated calls with overlapping IDs reuse cached
+ * data. Returns the flattened entry array plus loading state — useful for the
+ * Knowledge Router's description-coverage badge.
+ */
+export function useEntriesAcrossLorebooks(lorebookIds: string[]) {
+  const queries = useQueries({
+    queries: lorebookIds.map((id) => ({
+      queryKey: lorebookKeys.entries(id),
+      queryFn: () => api.get<LorebookEntry[]>(`/lorebooks/${id}/entries`),
+    })),
+  });
+  const isLoading = queries.some((q) => q.isLoading);
+  const entries = queries.flatMap((q) => q.data ?? []);
+  return { entries, isLoading };
 }
 
 export function useLorebookEntry(lorebookId: string | null, entryId: string | null) {
