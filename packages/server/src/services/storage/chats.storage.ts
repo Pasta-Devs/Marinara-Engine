@@ -585,7 +585,7 @@ export function createChatsStorage(db: DB) {
         .select()
         .from(conversationNotes)
         .where(eq(conversationNotes.targetChatId, targetChatId))
-        .orderBy(desc(conversationNotes.createdAt));
+        .orderBy(desc(conversationNotes.createdAt), desc(conversationNotes.id));
 
       const toDelete: string[] = [];
       let total = 0;
@@ -603,13 +603,15 @@ export function createChatsStorage(db: DB) {
       return id;
     },
 
-    /** List all durable notes targeting a chat, oldest first (for stable prompt ordering). */
+    /** List all durable notes targeting a chat, oldest first (for stable prompt ordering).
+     *  `id` secondary sort gives deterministic ordering when timestamps tie (e.g. multiple
+     *  `<note>` tags emitted in a single character response within one millisecond). */
     async listNotes(targetChatId: string) {
       return db
         .select()
         .from(conversationNotes)
         .where(eq(conversationNotes.targetChatId, targetChatId))
-        .orderBy(conversationNotes.createdAt);
+        .orderBy(conversationNotes.createdAt, conversationNotes.id);
     },
 
     /** Delete a single note by id, scoped to its target chat. */
