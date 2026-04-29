@@ -1215,6 +1215,8 @@ export function ChatArea() {
   // Game mode — RPG surface with GM narration, map, party chat
   // ═══════════════════════════════════════════════
   if (chatMode === "game") {
+    if (!chat) return surfaceFallback;
+
     const gameCharacters = allCharacters
       ? (allCharacters as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>).map(
           (c) => {

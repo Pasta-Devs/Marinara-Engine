@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Message } from "@marinara-engine/shared";
@@ -7,13 +6,10 @@ import { useUIStore } from "../../stores/ui.store";
 import { playNotificationPing } from "../../lib/notification-sound";
 import { generateClientId } from "../../lib/utils";
 import { useAutonomousMessaging } from "../../hooks/use-autonomous-messaging";
-import { chatKeys } from "../../hooks/use-chats";
-import { characterKeys } from "../../hooks/use-characters";
 import type { CharacterMap } from "./chat-area.types";
 
 type ConversationAutonomousEffectsProps = {
   chatId: string;
-  chatCharIds: string[];
   messages: Message[] | undefined;
   characterMap: CharacterMap;
   chatMeta: Record<string, any>;
@@ -21,12 +17,10 @@ type ConversationAutonomousEffectsProps = {
 
 export function ConversationAutonomousEffects({
   chatId,
-  chatCharIds,
   messages,
   characterMap,
   chatMeta,
 }: ConversationAutonomousEffectsProps) {
-  const qc = useQueryClient();
   const autonomousEnabled = !!chatMeta.autonomousMessages;
   const exchangesEnabled = !!chatMeta.characterExchanges;
   const [notification, setNotification] = useState<{ name: string; id: string } | null>(null);
@@ -52,23 +46,12 @@ export function ConversationAutonomousEffects({
     [characterMap, chatId],
   );
 
-  const { recordUserActivity, recordAssistantActivity, ensureSchedules } = useAutonomousMessaging(
+  const { recordUserActivity, recordAssistantActivity } = useAutonomousMessaging(
     chatId,
     autonomousEnabled,
     exchangesEnabled,
     handleAutonomousMessage,
   );
-
-  const schedulesInitRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!chatId || chatCharIds.length === 0 || !autonomousEnabled) return;
-    if (schedulesInitRef.current === chatId) return;
-    schedulesInitRef.current = chatId;
-    ensureSchedules(chatCharIds).then(() => {
-      qc.invalidateQueries({ queryKey: characterKeys.list() });
-      qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
-    });
-  }, [autonomousEnabled, chatCharIds, chatId, ensureSchedules, qc]);
 
   const prevMsgCountRef = useRef<number | undefined>(undefined);
 

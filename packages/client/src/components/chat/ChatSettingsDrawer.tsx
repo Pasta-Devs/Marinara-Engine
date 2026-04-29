@@ -259,6 +259,13 @@ export function ChatSettingsDrawer({
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
   );
+  const hasGeneratedConversationSchedules =
+    !!metadata.characterSchedules &&
+    typeof metadata.characterSchedules === "object" &&
+    Object.keys(metadata.characterSchedules).length > 0;
+  const conversationSchedulesEnabled =
+    metadata.conversationSchedulesEnabled === true ||
+    (metadata.conversationSchedulesEnabled == null && hasGeneratedConversationSchedules);
   const activeLorebookIds: string[] = metadata.activeLorebookIds ?? [];
   const activeAgentIds: string[] = metadata.activeAgentIds ?? [];
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
@@ -661,6 +668,29 @@ export function ChatSettingsDrawer({
   // Synchronous lock to close the re-entry gap: React state commits are async, so two
   // fast clicks can both pass the `isRegeneratingSchedules` check before the state updates.
   const isRegeneratingSchedulesRef = useRef(false);
+  const generateConversationSchedules = useCallback(
+    async (forceRefresh = false) => {
+      if (isRegeneratingSchedulesRef.current) return;
+      isRegeneratingSchedulesRef.current = true;
+      setIsRegeneratingSchedules(true);
+      try {
+        const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        await api.post("/conversation/schedule/generate", {
+          chatId: chat.id,
+          characterIds: chatCharIds,
+          forceRefresh,
+          scheduleGenerationPreferences,
+        });
+        qc.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });
+      } catch {
+        // non-critical
+      } finally {
+        isRegeneratingSchedulesRef.current = false;
+        setIsRegeneratingSchedules(false);
+      }
+    },
+    [chat.id, chatCharIds, qc],
+  );
   const [scenePromptExpanded, setScenePromptExpanded] = useState(false);
   const [scenePromptDraft, setScenePromptDraft] = useState(metadata.sceneSystemPrompt ?? "");
   const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
@@ -2087,6 +2117,43 @@ export function ChatSettingsDrawer({
                   </button>
                 )}
 
+                {/* Conversation schedules toggle */}
+                <button
+                  onClick={() => {
+                    const nextEnabled = !conversationSchedulesEnabled;
+                    updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: nextEnabled });
+                    if (nextEnabled && !hasGeneratedConversationSchedules) {
+                      void generateConversationSchedules(false);
+                    }
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    conversationSchedulesEnabled
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">Schedules</span>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      Optional character routines for availability and delays
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      conversationSchedulesEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        conversationSchedulesEnabled && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
+
                 {/* Selfie Connection — connection picker for character selfies */}
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -2197,52 +2264,45 @@ export function ChatSettingsDrawer({
                   <CalendarClock size="0.875rem" className="text-[var(--muted-foreground)]" />
                   <div className="flex-1 min-w-0">
                     <span className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-                      {metadata.characterSchedules
-                        ? "Schedules generated — status is derived from character routines."
-                        : "Schedules will be generated when you start chatting."}
+                      {!conversationSchedulesEnabled
+                        ? "Schedules are off — autonomous messages will not create routines."
+                        : hasGeneratedConversationSchedules
+                          ? "Schedules generated — status is derived from character routines."
+                          : "Schedules enabled — generate routines when you're ready."}
                     </span>
                     <p className="text-[0.59375rem] text-[var(--muted-foreground)]/60 mt-0.5">
-                      Schedules are auto-generated each week.
+                      {conversationSchedulesEnabled
+                        ? "Schedules refresh only after you enable or regenerate them."
+                        : "Turn schedules on if you want character availability to matter."}
                     </p>
                   </div>
                   <button
                     onClick={async () => {
-                      if (isRegeneratingSchedulesRef.current) return;
-                      isRegeneratingSchedulesRef.current = true;
-                      setIsRegeneratingSchedules(true);
-                      try {
-                        const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
-                        await api.post("/conversation/schedule/generate", {
-                          chatId: chat.id,
-                          characterIds: chatCharIds,
-                          forceRefresh: true,
-                          scheduleGenerationPreferences,
-                        });
-                        // Refresh chat data to pick up new schedules
-                        qc.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });
-                      } catch {
-                        // non-critical
-                      } finally {
-                        isRegeneratingSchedulesRef.current = false;
-                        setIsRegeneratingSchedules(false);
+                      if (!conversationSchedulesEnabled) {
+                        updateMeta.mutate({ id: chat.id, conversationSchedulesEnabled: true });
                       }
+                      await generateConversationSchedules(true);
                     }}
-                    disabled={isRegeneratingSchedules}
+                    disabled={isRegeneratingSchedules || chatCharIds.length === 0}
                     className={cn(
                       "flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
-                      isRegeneratingSchedules
+                      isRegeneratingSchedules || chatCharIds.length === 0
                         ? "cursor-not-allowed text-[var(--muted-foreground)]/60"
                         : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                     )}
-                    title={isRegeneratingSchedules ? "Regenerating schedules…" : "Regenerate schedules"}
+                    title={isRegeneratingSchedules ? "Regenerating schedules…" : "Generate schedules"}
                   >
                     <RefreshCw size="0.6875rem" className={cn(isRegeneratingSchedules && "animate-spin")} />
-                    {isRegeneratingSchedules ? "Regenerating…" : "Regenerate"}
+                    {isRegeneratingSchedules
+                      ? "Regenerating…"
+                      : hasGeneratedConversationSchedules
+                        ? "Regenerate"
+                        : "Generate"}
                   </button>
                 </div>
 
                 {/* Schedule editor per character */}
-                {metadata.characterSchedules && (
+                {conversationSchedulesEnabled && hasGeneratedConversationSchedules && (
                   <ScheduleEditor
                     characterSchedules={metadata.characterSchedules}
                     chatCharIds={chatCharIds}

@@ -307,7 +307,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const [scheduleState, setScheduleState] = useState<"idle" | "generating" | "done">("idle");
   const [autonomousEnabled, setAutonomousEnabled] = useState(true);
-  const [generateSchedule, setGenerateSchedule] = useState(true);
+  const [generateSchedule, setGenerateSchedule] = useState(false);
 
   // Track whether the user has manually edited the chat name.
   // If not, auto-rename to match the selected character name(s).
@@ -452,6 +452,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
+      conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
       chatParameters: customizeParameters ? generationParameters : null,
       ...(savedPrompt ? { customSystemPrompt: savedPrompt } : {}),
     });
@@ -705,7 +706,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                   <div>
                     <span className="text-xs font-medium">Autonomous Messages</span>
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Characters can message you first based on their schedule
+                      Characters can message you first when you&apos;re inactive
                     </p>
                   </div>
                 </div>
@@ -743,7 +744,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                     <div>
                       <span className="text-xs font-medium">Generate Schedule</span>
                       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        Creates a schedule for each character that dictates their availability
+                        Optional routines for availability and delayed replies
                       </p>
                     </div>
                   </div>

@@ -137,6 +137,15 @@ export interface ChatMetadata {
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */
   impersonatePrompt?: string | null;
+
+  // ── Conversation Mode Fields ──
+  /** Whether conversation character schedules are enabled for this chat. */
+  conversationSchedulesEnabled?: boolean;
+  /** Chat-scoped generated schedules for conversation characters. */
+  characterSchedules?: Record<string, unknown>;
+  /** Week start timestamp for the current generated conversation schedules. */
+  scheduleWeekStart?: string;
+
   // ── Game Mode Fields ──
   /** UUID linking all sessions of one game */
   gameId?: string;

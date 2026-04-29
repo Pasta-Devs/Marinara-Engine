@@ -135,6 +135,21 @@ import { getMoraleTier, formatMoraleContext } from "../services/game/morale.serv
 import type { GameMap, GameNpc, LorebookEntry } from "@marinara-engine/shared";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 
+function hasConversationSchedules(value: unknown): value is Record<string, any> {
+  return !!value && typeof value === "object" && Object.keys(value as Record<string, unknown>).length > 0;
+}
+
+function areConversationSchedulesEnabled(meta: Record<string, any>): boolean {
+  if (typeof meta.conversationSchedulesEnabled === "boolean") return meta.conversationSchedulesEnabled;
+  return hasConversationSchedules(meta.characterSchedules);
+}
+
+function getEnabledConversationSchedules(meta: Record<string, any>): Record<string, any> {
+  return areConversationSchedulesEnabled(meta) && hasConversationSchedules(meta.characterSchedules)
+    ? meta.characterSchedules
+    : {};
+}
+
 function sanitizeConnectedGameTranscript(content: string): string {
   return stripGmCommandTags(content)
     .replace(/^\[(?:To the party|To the GM)\]\s*/i, "")
@@ -882,7 +897,10 @@ export async function generateRoutes(app: FastifyInstance) {
         // Gather character names and status for the prompt.
         // If schedules exist in chat metadata, derive status dynamically.
         const schedules: Record<string, import("../services/conversation/schedule.service.js").WeekSchedule> =
-          (chatMeta.characterSchedules as any) ?? {};
+          getEnabledConversationSchedules(chatMeta) as Record<
+            string,
+            import("../services/conversation/schedule.service.js").WeekSchedule
+          >;
         const convoCharInfo: {
           charId: string;
           name: string;
@@ -6739,7 +6757,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     typeof freshChat?.metadata === "string"
                       ? JSON.parse(freshChat.metadata)
                       : (freshChat?.metadata ?? {});
-                  const schedules: Record<string, any> = freshMeta.characterSchedules ?? {};
+                  const schedules: Record<string, any> = getEnabledConversationSchedules(freshMeta);
                   const schedule = schedules[characterId];
                   if (schedule) {
                     const nowDate = new Date();
@@ -6810,6 +6828,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         if (!cCharIds.includes(characterId)) continue;
                         const cMeta =
                           typeof c.metadata === "string" ? JSON.parse(c.metadata as string) : (c.metadata ?? {});
+                        if (!areConversationSchedulesEnabled(cMeta)) continue;
                         const cScheds = cMeta.characterSchedules ?? {};
                         cScheds[characterId] = schedule;
                         await chats.updateMetadata(c.id, { ...cMeta, characterSchedules: cScheds });

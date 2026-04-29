@@ -876,7 +876,6 @@ export function ConversationView({
           <ConversationAutonomousEffects
             key={chatId}
             chatId={chatId}
-            chatCharIds={chatCharIds}
             messages={messages}
             characterMap={characterMap}
             chatMeta={chatMeta}
