@@ -1420,7 +1420,7 @@ export function GameNarration({
   // Report active speaker to parent for sprite viewport
   // Guard against infinite re-render: skip callback if the resolved speaker hasn't changed,
   // even when dependency refs churn (e.g. unstable speakerAvatarInfos from store).
-  const lastReportedSpeakerRef = useRef<string | null>(undefined);
+  const lastReportedSpeakerRef = useRef<string | null>(null);
   useEffect(() => {
     if (!onActiveSpeakerChange) return;
 
@@ -1434,7 +1434,10 @@ export function GameNarration({
               : null;
           })();
 
-    const nextKey = next?.name ?? null;
+    // Composite key catches legitimate expression/avatar changes, not just name
+    const nextKey = next
+      ? `${next.name}|${next.expression ?? ""}|${next.avatarUrl ?? ""}`
+      : null;
     if (nextKey === lastReportedSpeakerRef.current) return;
     lastReportedSpeakerRef.current = nextKey;
     onActiveSpeakerChange(next);
