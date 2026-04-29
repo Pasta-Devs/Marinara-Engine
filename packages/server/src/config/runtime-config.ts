@@ -140,8 +140,61 @@ export function getEncryptionKeyOverride() {
   return normalizeEnvValue(process.env.ENCRYPTION_KEY);
 }
 
+export function getSpotifyRedirectUriOverride() {
+  return normalizeEnvValue(process.env.SPOTIFY_REDIRECT_URI);
+}
+
+function getLoopbackFallbackRedirectUri() {
+  return `http://127.0.0.1:${getPort()}/api/spotify/callback`;
+}
+
+function isLoopbackHost(host: string) {
+  const hostname = host.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+  return hostname === "127.0.0.1" || hostname === "::1";
+}
+
+type RedirectUriRequest = {
+  protocol?: string;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+function firstHeaderValue(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  const first = raw.split(",")[0]?.trim();
+  return first ? first : null;
+}
+
+export function buildSpotifyRedirectUri(req: RedirectUriRequest): string {
+  const override = getSpotifyRedirectUriOverride();
+  if (override) return override;
+
+  const forwardedProto = firstHeaderValue(req.headers["x-forwarded-proto"]);
+  const forwardedHost = firstHeaderValue(req.headers["x-forwarded-host"]);
+  const protocol = (forwardedProto ?? req.protocol ?? "http").toLowerCase();
+  const host = forwardedHost ?? firstHeaderValue(req.headers["host"]);
+
+  if (!host) return getLoopbackFallbackRedirectUri();
+
+  if (protocol === "https") {
+    return `https://${host}/api/spotify/callback`;
+  }
+
+  if (protocol === "http" && isLoopbackHost(host)) {
+    return `http://${host}/api/spotify/callback`;
+  }
+
+  return getLoopbackFallbackRedirectUri();
+}
+
+/**
+ * Legacy no-arg accessor. Returns the loopback fallback used when no request
+ * context is available. Prefer `buildSpotifyRedirectUri(req)` from route
+ * handlers so HTTPS deployments and explicit overrides are honoured.
+ */
 export function getSpotifyRedirectUri() {
-  return `${getServerProtocol()}://127.0.0.1:${getPort()}/api/spotify/callback`;
+  return getSpotifyRedirectUriOverride() ?? getLoopbackFallbackRedirectUri();
 }
 
 export function getCorsConfig() {

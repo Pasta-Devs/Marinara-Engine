@@ -1,20 +1,17 @@
 // ──────────────────────────────────────────────
 // Routes: Spotify OAuth (PKCE)
 // ──────────────────────────────────────────────
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import crypto from "node:crypto";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
-import { getSpotifyRedirectUri } from "../config/runtime-config.js";
+import { buildSpotifyRedirectUri } from "../config/runtime-config.js";
+import { logger } from "../lib/logger.js";
 
 // In-flight PKCE verifiers keyed by state param (short-lived, cleaned up on callback)
 const pendingAuth = new Map<
   string,
   { codeVerifier: string; agentId: string; redirectUri: string; createdAt: number }
 >();
-
-function getRedirectUri(): string {
-  return getSpotifyRedirectUri();
-}
 
 const SPOTIFY_SCOPES = [
   "user-modify-playback-state",
@@ -42,6 +39,10 @@ async function sha256Base64url(plain: string): Promise<string> {
   return hash.toString("base64url");
 }
 
+type ExchangeResult =
+  | { ok: true }
+  | { ok: false; status: number; reason: string };
+
 export async function spotifyAuthRoutes(app: FastifyInstance) {
   const storage = createAgentsStorage(app.db);
 
@@ -50,6 +51,82 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     const now = Date.now();
     for (const [key, entry] of pendingAuth) {
       if (now - entry.createdAt > 10 * 60_000) pendingAuth.delete(key);
+    }
+  }
+
+  /**
+   * Completes the PKCE token exchange against Spotify and persists tokens to
+   * agent settings. Used by both the redirect callback and the manual
+   * paste-back endpoint.
+   */
+  async function completeExchange(args: { code: string; state: string }): Promise<ExchangeResult> {
+    const { code, state } = args;
+    const pending = pendingAuth.get(state);
+    if (!pending) {
+      return { ok: false, status: 400, reason: "Authorization session expired or was already used." };
+    }
+
+    pendingAuth.delete(state);
+
+    const { codeVerifier, agentId, redirectUri } = pending;
+
+    const agent = await storage.getById(agentId);
+    if (!agent) return { ok: false, status: 404, reason: "Agent not found" };
+
+    const settings =
+      agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});
+    const clientId = settings.spotifyClientId as string;
+    if (!clientId) return { ok: false, status: 400, reason: "No Client ID configured" };
+
+    try {
+      const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: clientId,
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!tokenRes.ok) {
+        const body = await tokenRes.text();
+        return {
+          ok: false,
+          status: tokenRes.status,
+          reason: `Token exchange failed: ${body.slice(0, 200)}`,
+        };
+      }
+
+      const tokens = (await tokenRes.json()) as {
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        token_type: string;
+        scope: string;
+      };
+
+      await storage.update(agentId, {
+        settings: {
+          ...settings,
+          spotifyAccessToken: tokens.access_token,
+          spotifyRefreshToken: tokens.refresh_token,
+          spotifyExpiresAt: Date.now() + tokens.expires_in * 1000,
+          spotifyClientId: clientId,
+        },
+      });
+
+      return { ok: true };
+    } catch (err) {
+      logger.warn(err, "Spotify token exchange failed");
+      return {
+        ok: false,
+        status: 500,
+        reason: err instanceof Error ? err.message : "Unknown error",
+      };
     }
   }
 
@@ -69,7 +146,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     const codeChallenge = await sha256Base64url(codeVerifier);
     const state = generateRandomString(32);
 
-    const redirectUri = getRedirectUri();
+    const redirectUri = buildSpotifyRedirectUri(req as FastifyRequest);
     pendingAuth.set(state, { codeVerifier, agentId, redirectUri, createdAt: Date.now() });
 
     const params = new URLSearchParams({
@@ -83,13 +160,18 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     });
 
     const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    return { authUrl };
+    return { authUrl, redirectUri };
   });
 
   /**
    * GET /api/spotify/callback?code=xxx&state=yyy
    * Spotify redirects here after user authorizes. Exchanges code for tokens
    * and stores them in the agent settings.
+   *
+   * When Marinara is accessed from a different machine than the server (plain
+   * HTTP LAN install) the browser cannot reach the loopback callback. In that
+   * case the user pastes the redirected URL into the agent editor, which calls
+   * POST /exchange below — this handler stays for the localhost / HTTPS paths.
    */
   app.get<{ Querystring: { code?: string; error?: string; state?: string } }>("/callback", async (req, reply) => {
     const { code, error, state } = req.query;
@@ -106,110 +188,75 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
       );
     }
 
-    const pending = pendingAuth.get(state);
-    if (!pending) {
+    const result = await completeExchange({ code, state });
+    if (!result.ok) {
       return reply.type("text/html").send(
         `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
           <div style="text-align:center">
-            <h2 style="color:#f44">Invalid State</h2>
-            <p>Authorization session expired or was already used.</p>
-            <p style="color:#888">Please try connecting again.</p>
+            <h2 style="color:#f44">Spotify Authorization Failed</h2>
+            <p style="color:#888">${htmlEscape(result.reason)}</p>
+            <p style="color:#888">You can close this window and try again.</p>
           </div>
         </body></html>`,
       );
     }
 
-    pendingAuth.delete(state);
+    return reply.type("text/html").send(
+      `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+        <div style="text-align:center">
+          <h2 style="color:#1DB954">✓ Spotify Connected!</h2>
+          <p style="color:#888">You can close this window and return to the app.</p>
+          <script>window.close()</script>
+        </div>
+      </body></html>`,
+    );
+  });
 
-    const { codeVerifier, agentId, redirectUri } = pending;
+  /**
+   * POST /api/spotify/exchange
+   * Body: { callbackUrl?: string; code?: string; state?: string }
+   *
+   * Manual paste-back path for HTTP LAN/remote installs where the browser
+   * cannot reach the loopback callback. Accepts either the full redirected
+   * URL (preferred — user pastes their browser address bar) or pre-extracted
+   * code+state. The server validates state against pendingAuth and runs the
+   * same token exchange as the /callback handler.
+   */
+  app.post<{ Body: { callbackUrl?: string; code?: string; state?: string } }>("/exchange", async (req, reply) => {
+    const body = req.body ?? {};
+    let { code, state } = body;
 
-    // Retrieve the agent to get the clientId from settings
-    const agent = await storage.getById(agentId);
-    if (!agent) {
-      return reply.type("text/html").send(
-        `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-          <div style="text-align:center"><h2 style="color:#f44">Agent not found</h2></div>
-        </body></html>`,
-      );
-    }
-
-    const settings =
-      agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});
-    const clientId = settings.spotifyClientId as string;
-    if (!clientId) {
-      return reply.type("text/html").send(
-        `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-          <div style="text-align:center"><h2 style="color:#f44">No Client ID configured</h2></div>
-        </body></html>`,
-      );
-    }
-
-    // Exchange code for tokens
-    try {
-      const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: clientId,
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: redirectUri,
-          code_verifier: codeVerifier,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!tokenRes.ok) {
-        const body = await tokenRes.text();
-        return reply.type("text/html").send(
-          `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-            <div style="text-align:center">
-              <h2 style="color:#f44">Token Exchange Failed</h2>
-              <p style="color:#888">${htmlEscape(String(tokenRes.status))}: ${htmlEscape(body.slice(0, 200))}</p>
-              <p style="color:#888">You can close this window and try again.</p>
-            </div>
-          </body></html>`,
-        );
+    if (!code || !state) {
+      const callbackUrl = body.callbackUrl?.trim();
+      if (callbackUrl) {
+        try {
+          const parsed = new URL(callbackUrl);
+          const errParam = parsed.searchParams.get("error");
+          if (errParam) {
+            return reply.status(400).send({ error: `Spotify returned an error: ${errParam}` });
+          }
+          code = parsed.searchParams.get("code") ?? undefined;
+          state = parsed.searchParams.get("state") ?? undefined;
+        } catch {
+          return reply
+            .status(400)
+            .send({ error: "Could not parse the pasted URL. Make sure you copied the full address bar contents." });
+        }
       }
-
-      const tokens = (await tokenRes.json()) as {
-        access_token: string;
-        refresh_token: string;
-        expires_in: number;
-        token_type: string;
-        scope: string;
-      };
-
-      // Save tokens into agent settings
-      await storage.update(agentId, {
-        settings: {
-          ...settings,
-          spotifyAccessToken: tokens.access_token,
-          spotifyRefreshToken: tokens.refresh_token,
-          spotifyExpiresAt: Date.now() + tokens.expires_in * 1000,
-          spotifyClientId: clientId,
-        },
-      });
-
-      return reply.type("text/html").send(
-        `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-          <div style="text-align:center">
-            <h2 style="color:#1DB954">✓ Spotify Connected!</h2>
-            <p style="color:#888">You can close this window and return to the app.</p>
-            <script>window.close()</script>
-          </div>
-        </body></html>`,
-      );
-    } catch (err) {
-      return reply.type("text/html").send(
-        `<html><body style="font-family:system-ui;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-          <div style="text-align:center">
-            <h2 style="color:#f44">Connection Error</h2>
-            <p style="color:#888">${htmlEscape(err instanceof Error ? err.message : "Unknown error")}</p>
-          </div>
-        </body></html>`,
-      );
     }
+
+    if (!code || !state) {
+      return reply
+        .status(400)
+        .send({ error: "Missing code or state. Paste the full URL Spotify redirected your browser to." });
+    }
+
+    cleanupPending();
+    const result = await completeExchange({ code, state });
+    if (!result.ok) {
+      return reply.status(result.status).send({ error: result.reason });
+    }
+    return { success: true };
   });
 
   /**
@@ -295,7 +342,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
       connected: hasToken && hasRefresh,
       expired: isExpired,
       clientId: (settings.spotifyClientId as string) ?? null,
-      redirectUri: getRedirectUri(),
+      redirectUri: buildSpotifyRedirectUri(req as FastifyRequest),
     };
   });
 

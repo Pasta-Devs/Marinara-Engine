@@ -142,6 +142,10 @@ export function AgentEditor() {
     redirectUri: string | null;
   } | null>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyPasteOpen, setSpotifyPasteOpen] = useState(false);
+  const [spotifyPasteValue, setSpotifyPasteValue] = useState("");
+  const [spotifyPasteError, setSpotifyPasteError] = useState<string | null>(null);
+  const [spotifyPasteSubmitting, setSpotifyPasteSubmitting] = useState(false);
   const spotifyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const spotifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -941,6 +945,9 @@ export function AgentEditor() {
                                   redirectUri: status.redirectUri ?? null,
                                 });
                                 setSpotifyConnecting(false);
+                                setSpotifyPasteOpen(false);
+                                setSpotifyPasteValue("");
+                                setSpotifyPasteError(null);
                               }
                             } catch {
                               // keep polling
@@ -972,6 +979,96 @@ export function AgentEditor() {
                   </button>
                 )}
 
+                {/* Manual paste-back fallback (HTTP LAN/remote installs where the
+                    browser cannot reach the loopback callback). Only shown while
+                    a connection attempt is in flight. */}
+                {spotifyConnecting && !spotifyStatus?.connected && dbConfig?.id && (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-[0.6875rem] text-white/50 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSpotifyPasteOpen((v) => !v)}
+                      className="text-white/60 hover:text-white/80 transition-colors text-left w-full"
+                    >
+                      {spotifyPasteOpen ? "▾" : "▸"} Browser couldn&apos;t reach the callback?
+                    </button>
+                    {spotifyPasteOpen && (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-white/40 leading-relaxed">
+                          If you&apos;re running Marinara on a different machine, the popup probably failed to load
+                          (Spotify only allows <code className="text-white/50">127.0.0.1</code> or HTTPS callbacks).
+                          Copy the full URL from the popup&apos;s address bar and paste it here:
+                        </p>
+                        <textarea
+                          value={spotifyPasteValue}
+                          onChange={(e) => {
+                            setSpotifyPasteValue(e.target.value);
+                            setSpotifyPasteError(null);
+                          }}
+                          rows={3}
+                          placeholder="http://127.0.0.1:7860/api/spotify/callback?code=...&state=..."
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[0.6875rem] text-white placeholder-white/20 outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/20 font-mono"
+                        />
+                        {spotifyPasteError && (
+                          <p className="text-red-400/80 text-[0.625rem]">{spotifyPasteError}</p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={!spotifyPasteValue.trim() || spotifyPasteSubmitting}
+                          onClick={async () => {
+                            if (!dbConfig?.id || !spotifyPasteValue.trim()) return;
+                            setSpotifyPasteSubmitting(true);
+                            setSpotifyPasteError(null);
+                            try {
+                              const res = await fetch("/api/spotify/exchange", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ callbackUrl: spotifyPasteValue.trim() }),
+                              });
+                              const data = await res.json().catch(() => ({}));
+                              if (!res.ok || !data.success) {
+                                setSpotifyPasteError(data.error ?? `Request failed (${res.status})`);
+                              } else {
+                                if (spotifyPollRef.current) {
+                                  clearInterval(spotifyPollRef.current);
+                                  spotifyPollRef.current = null;
+                                }
+                                if (spotifyTimeoutRef.current) {
+                                  clearTimeout(spotifyTimeoutRef.current);
+                                  spotifyTimeoutRef.current = null;
+                                }
+                                const statusRes = await fetch(
+                                  `/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`,
+                                );
+                                const status = await statusRes.json().catch(() => null);
+                                setSpotifyStatus({
+                                  connected: status?.connected ?? true,
+                                  expired: status?.expired ?? false,
+                                  redirectUri: status?.redirectUri ?? null,
+                                });
+                                setSpotifyConnecting(false);
+                                setSpotifyPasteOpen(false);
+                                setSpotifyPasteValue("");
+                              }
+                            } catch (err) {
+                              setSpotifyPasteError(err instanceof Error ? err.message : "Submission failed");
+                            } finally {
+                              setSpotifyPasteSubmitting(false);
+                            }
+                          }}
+                          className={cn(
+                            "rounded-lg px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
+                            spotifyPasteValue.trim() && !spotifyPasteSubmitting
+                              ? "bg-[#1DB954] text-white hover:bg-[#1ed760] active:scale-95"
+                              : "bg-white/5 text-white/30 cursor-not-allowed",
+                          )}
+                        >
+                          {spotifyPasteSubmitting ? "Submitting..." : "Complete connection"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Setup instructions */}
                 <div className="rounded-lg border border-green-500/10 bg-green-500/5 p-3 text-[0.6875rem] text-white/50 space-y-2">
                   <p className="font-medium text-green-400/80">Setup:</p>
@@ -991,7 +1088,10 @@ export function AgentEditor() {
                     <li>
                       In Redirect URIs, add:{" "}
                       <code className="text-white/50 select-all">
-                        {spotifyStatus?.redirectUri ?? `http://127.0.0.1:7860/api/spotify/callback`}
+                        {spotifyStatus?.redirectUri ??
+                          (typeof window !== "undefined"
+                            ? `${window.location.origin}/api/spotify/callback`
+                            : `http://127.0.0.1:7860/api/spotify/callback`)}
                       </code>
                     </li>
                     <li>
@@ -1003,6 +1103,13 @@ export function AgentEditor() {
                   </ol>
                   <p className="text-[0.625rem] text-white/30 mt-1">
                     Requires Spotify Premium. Tokens refresh automatically — no need to reconnect.
+                  </p>
+                  <p className="text-[0.625rem] text-white/30 leading-relaxed">
+                    Spotify only accepts <code className="text-white/40">https://</code> redirect URIs or
+                    loopback (<code className="text-white/40">http://127.0.0.1</code>). If you&apos;re running
+                    Marinara on another machine over plain HTTP, register the loopback URI anyway and use the
+                    paste-back fallback that appears under the Connect button — or set{" "}
+                    <code className="text-white/40">SPOTIFY_REDIRECT_URI</code> to your HTTPS URL.
                   </p>
                 </div>
               </div>

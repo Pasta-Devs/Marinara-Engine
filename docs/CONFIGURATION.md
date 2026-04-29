@@ -24,6 +24,7 @@ cp .env.example .env
 | `SSL_KEY`                        | _(empty)_                                                | Path to the TLS private key.                                                                                                                                   |
 | `IP_ALLOWLIST`                   | _(empty)_                                                | Comma-separated IPs or CIDRs to allow. Loopback is always allowed.                                                                                             |
 | `GIPHY_API_KEY`                  | _(empty)_                                                | Optional Giphy API key. GIF search is unavailable when unset.                                                                                                  |
+| `SPOTIFY_REDIRECT_URI`           | _(empty; derived from request)_                          | Override for the Spotify OAuth callback URL. Leave empty to derive from the incoming request (HTTPS hosts and `127.0.0.1` auto-handled). Set explicitly when TLS is terminated upstream. Must match a Redirect URI registered in the Spotify Developer Dashboard.                                                              |
 
 ## Logging Levels
 
