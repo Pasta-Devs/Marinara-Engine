@@ -3538,10 +3538,6 @@ export function GameSurface({
 
   const handleInterruptRequest = useCallback(
     ({ messageId, truncatedContent }: { messageId: string | null; truncatedContent: string | null }) => {
-      // Pause the GM (abort any in-flight stream) so segments don't keep flying past
-      // while the modal is open. We don't truncate or send a system message yet —
-      // those land at commit-time inside `handleSendGameTurn`.
-      useChatStore.getState().stopGeneration();
       setInterruptCandidate({ chatId: activeChatId, messageId, truncatedContent });
       setInterruptModalOpen(true);
     },
@@ -3566,6 +3562,7 @@ export function GameSurface({
         setInterruptModalOpen(false);
         return;
       }
+      useChatStore.getState().stopGeneration();
       setPendingInterrupt({ ...interruptCandidate, mode });
       setInterruptModalOpen(false);
       setInterruptCandidate(null);
@@ -3584,11 +3581,23 @@ export function GameSurface({
       setPendingInterrupt(null);
       return;
     }
+    const latestAssistantId = latestAssistantMsg?.id ?? null;
+    if (pendingInterruptMessageId && latestAssistantId && pendingInterruptMessageId !== latestAssistantId) {
+      setPendingInterrupt(null);
+      return;
+    }
     if (pendingInterruptMessageId) {
       const stillExists = messages.some((m) => m.id === pendingInterruptMessageId);
       if (!stillExists) setPendingInterrupt(null);
     }
-  }, [activeChatId, messages, pendingInterrupt, pendingInterruptChatId, pendingInterruptMessageId]);
+  }, [
+    activeChatId,
+    latestAssistantMsg?.id,
+    messages,
+    pendingInterrupt,
+    pendingInterruptChatId,
+    pendingInterruptMessageId,
+  ]);
 
   // Same staleness rules apply to the unconfirmed candidate.
   useEffect(() => {
@@ -3596,14 +3605,21 @@ export function GameSurface({
     if (interruptCandidate.chatId !== activeChatId) {
       setInterruptCandidate(null);
       setInterruptModalOpen(false);
+      return;
     }
-  }, [activeChatId, interruptCandidate]);
+    const latestAssistantId = latestAssistantMsg?.id ?? null;
+    if (interruptCandidate.messageId && latestAssistantId && interruptCandidate.messageId !== latestAssistantId) {
+      setInterruptCandidate(null);
+      setInterruptModalOpen(false);
+    }
+  }, [activeChatId, interruptCandidate, latestAssistantMsg?.id]);
 
   // The narration pauses while the modal is open (pre-confirm) OR while a
   // pending interrupt is in flight (post-confirm, awaiting send/Resume).
   // `interruptCommitted` is the post-confirm subset — it gates the Resume button
   // and the early input reveal so neither shows behind the confirmation modal.
-  const interruptPending = (interruptModalOpen || !!pendingInterrupt) && (pendingInterrupt?.chatId ?? activeChatId) === activeChatId;
+  const interruptPending =
+    (interruptModalOpen || !!pendingInterrupt) && (pendingInterrupt?.chatId ?? activeChatId) === activeChatId;
   const interruptCommitted = !!pendingInterrupt && pendingInterrupt.chatId === activeChatId;
   const pendingInterruptMode = pendingInterrupt?.mode ?? null;
 
@@ -4452,21 +4468,16 @@ export function GameSurface({
       // so the server-side prompt build doesn't see segments the player never read. We
       // await so the PATCH (and the optional risky-mode system message) land before
       // /generate reads from the DB.
-      const activeInterrupt =
-        pendingInterrupt && pendingInterrupt.chatId === activeChatId ? pendingInterrupt : null;
-      if (
-        activeInterrupt &&
-        activeInterrupt.messageId &&
-        activeInterrupt.truncatedContent !== null
-      ) {
+      const activeInterrupt = pendingInterrupt && pendingInterrupt.chatId === activeChatId ? pendingInterrupt : null;
+      if (activeInterrupt && activeInterrupt.messageId && activeInterrupt.truncatedContent !== null) {
         try {
           await updateMessage.mutateAsync({
             messageId: activeInterrupt.messageId,
             content: activeInterrupt.truncatedContent,
           });
         } catch {
-          // If the truncation PATCH fails the optimistic cache rolls back; let the send
-          // proceed anyway — the player still gets to act on what they saw.
+          toast.error("Failed to commit the interrupt. Please try again.");
+          return;
         }
       }
       // Risky mode tells the GM about the interrupt via a one-line system message.
@@ -4480,8 +4491,8 @@ export function GameSurface({
               "[Interrupt] The player attempts to interrupt the Game Master mid-action. Their following turn cuts in before the GM's planned events could occur. Treat their interjection as an in-fiction interruption — the situation may resist them, and the attempt can fail depending on context. If the player includes a dice roll, let the result determine whether the interruption succeeds or how it lands.",
           });
         } catch {
-          // Best-effort: even if the system message fails to persist we still send the
-          // turn. The truncation alone preserves the soft-pause UX.
+          toast.error("Failed to mark the risky interrupt. Please try again.");
+          return;
         }
       }
       setPendingInterrupt(null);
@@ -6070,21 +6081,15 @@ export function GameSurface({
         />
       )}
 
-      <Modal
-        open={interruptModalOpen}
-        onClose={closeInterruptModal}
-        title="Attempt to Interrupt?"
-        width="max-w-md"
-      >
+      <Modal open={interruptModalOpen} onClose={closeInterruptModal} title="Attempt to Interrupt?" width="max-w-md">
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
               <AlertTriangle size="1.125rem" className="text-red-300" />
             </div>
             <p className="text-sm text-[var(--muted-foreground)]">
-              Interruption attempts can go badly depending on the situation. Force Interrupt cuts in
-              cleanly without telling the GM it was an interrupt — Yes attempts an in-fiction
-              interruption that the GM may resist.
+              Interruption attempts can go badly depending on the situation. Force Interrupt cuts in cleanly without
+              telling the GM it was an interrupt — Yes attempts an in-fiction interruption that the GM may resist.
             </p>
           </div>
 

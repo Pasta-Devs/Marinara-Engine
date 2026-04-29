@@ -1906,7 +1906,13 @@ export function GameNarration({
       if (editInfo && editInfo.messageId === latestAssistant.id) {
         const allSegs = parseNarrationSegments(latestAssistant, speakerColors);
         if (editInfo.segmentIndex < allSegs.length - 1) {
-          const next = truncateMessageContentAtSegment(latestAssistant.content || "", editInfo.segmentIndex);
+          let cutIndex = editInfo.segmentIndex;
+          while (cutIndex + 1 < allSegs.length) {
+            const nextSegment = allSegs[cutIndex + 1];
+            if (nextSegment?.partyType !== "side" && nextSegment?.partyType !== "extra") break;
+            cutIndex += 1;
+          }
+          const next = truncateMessageContentAtSegment(latestAssistant.content || "", cutIndex);
           if (next && next !== latestAssistant.content) {
             truncatedContent = next;
             truncatedMessageId = latestAssistant.id;
@@ -3144,6 +3150,125 @@ function normalizeInlineVnDialogueLines(source: string): string {
     );
 }
 
+type TruncationLine = {
+  text: string;
+  originalStart: number;
+  originalEnd: number;
+};
+
+function findReadableBlockEnd(source: string, start: number): number {
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    if (source[i] === "[") depth++;
+    else if (source[i] === "]") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function splitTextIntoBoundedLines(text: string, originalStart: number): TruncationLine[] {
+  const lines: TruncationLine[] = [];
+  let lineStart = 0;
+
+  for (let i = 0; i <= text.length; i++) {
+    if (i < text.length && text[i] !== "\n") continue;
+    const rawLine = text.slice(lineStart, i);
+    const lineText = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+    lines.push({
+      text: lineText,
+      originalStart: originalStart + lineStart,
+      originalEnd: originalStart + lineStart + lineText.length,
+    });
+    lineStart = i + 1;
+  }
+
+  return lines;
+}
+
+function splitInlineVnDialogueLineMetadata(line: TruncationLine): TruncationLine[] {
+  const headerRe = /\[[^\]]+\]\s*\[(?:main|side|extra|action|thought|whisper(?::[^\]]+)?)\]\s*(?:\[[^\]]+\])?\s*:/gi;
+  const pieces: TruncationLine[] = [];
+  let chunkStart = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = headerRe.exec(line.text))) {
+    if (match.index > chunkStart && /\s/.test(line.text[match.index - 1] ?? "")) {
+      pieces.push({
+        text: line.text.slice(chunkStart, match.index),
+        originalStart: line.originalStart + chunkStart,
+        originalEnd: line.originalStart + match.index,
+      });
+      chunkStart = match.index;
+    }
+  }
+  pieces.push({
+    text: line.text.slice(chunkStart),
+    originalStart: line.originalStart + chunkStart,
+    originalEnd: line.originalEnd,
+  });
+
+  return pieces.flatMap((piece) => {
+    const splitRe =
+      /^(\s*\[[^\]]+\]\s*\[(?:main|side|extra|whisper(?::[^\]]+)?)\]\s*(?:\[[^\]]+\])?\s*:\s*(?:"[^"]*"|“[^”]*”|«[^»]*»))\s+(?=\S)/i;
+    const split = splitRe.exec(piece.text);
+    if (!split || split[1].length >= piece.text.length) return [piece];
+
+    const splitAt = split[1].length;
+    return [
+      {
+        text: piece.text.slice(0, splitAt),
+        originalStart: piece.originalStart,
+        originalEnd: piece.originalStart + splitAt,
+      },
+      {
+        text: piece.text.slice(splitAt).trimStart(),
+        originalStart: piece.originalStart + splitAt + (piece.text.slice(splitAt).match(/^\s*/)?.[0].length ?? 0),
+        originalEnd: piece.originalEnd,
+      },
+    ];
+  });
+}
+
+function buildTruncationLines(rawContent: string): TruncationLine[] {
+  const chunks: TruncationLine[] = [];
+  const readableTagRe = /\[(?:Note|Book):/gi;
+  let cursor = 0;
+  let placeholderIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = readableTagRe.exec(rawContent))) {
+    const start = match.index;
+    const end = findReadableBlockEnd(rawContent, start);
+    if (end < 0) continue;
+
+    if (start > cursor) {
+      chunks.push(...splitTextIntoBoundedLines(rawContent.slice(cursor, start), cursor));
+    }
+    chunks.push({
+      text: `__READABLE_${placeholderIndex}__`,
+      originalStart: start,
+      originalEnd: end + 1,
+    });
+    placeholderIndex += 1;
+    cursor = end + 1;
+    readableTagRe.lastIndex = cursor;
+  }
+
+  if (cursor < rawContent.length) {
+    chunks.push(...splitTextIntoBoundedLines(rawContent.slice(cursor), cursor));
+  }
+
+  return chunks.flatMap((chunk) => {
+    if (/^__READABLE_\d+__$/.test(chunk.text)) return [chunk];
+    return splitInlineVnDialogueLineMetadata(chunk).map((line) => ({
+      ...line,
+      text: stripGmTagsKeepReadables(line.text),
+    }));
+  });
+}
+
 function parseNarrationSegments(message: NarrationMessage, speakerColors: Map<string, string>): NarrationSegment[] {
   // Use stripGmTagsKeepReadables so [Note:] and [Book:] stay inline for position-aware display.
   // Extract them first as placeholders so multi-line readables don't break line-based parsing.
@@ -3357,55 +3482,13 @@ function parseNarrationSegments(message: NarrationMessage, speakerColors: Map<st
  * the Interrupt feature so the model on the next turn can't see narration
  * the player never read.
  *
- * Caveats:
- *   - Walks the same line-based emission logic as `parseNarrationSegments`,
- *     including the inline-VN-line normalization and Note/Book placeholder
- *     extraction. GM tags stripped by `stripGmTagsKeepReadables` (Map, Asset,
- *     etc.) are dropped from the returned content; that's acceptable because
- *     they describe scene state already consumed by the time the player can
- *     hit Interrupt.
- *   - The `splitInlineDialogue` post-processing is line-ambiguous, so when
- *     the original message is plain prose with inline quotes the truncation
- *     point may snap to the nearest line boundary rather than the exact
- *     dialogue segment. Structured GM output is line-clean.
+ * The parser-facing text is normalized for segment detection, but the returned
+ * string is always a byte-for-byte prefix of the original raw content.
  */
 function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusive: number): string {
   if (segmentIndexInclusive < 0) return "";
-  const withReadables = stripGmTagsKeepReadables(rawContent || "");
-  const readableContents: Array<{ type: "note" | "book"; content: string }> = [];
-  let source = withReadables;
-  for (const tag of ["[Note:", "[Book:"] as const) {
-    const rType = tag === "[Note:" ? "note" : "book";
-    let searchFrom = 0;
-    while (true) {
-      const idx = source.toLowerCase().indexOf(tag.toLowerCase(), searchFrom);
-      if (idx === -1) break;
-      let depth = 0;
-      let end = -1;
-      for (let i = idx; i < source.length; i++) {
-        if (source[i] === "[") depth++;
-        else if (source[i] === "]") {
-          depth--;
-          if (depth === 0) {
-            end = i;
-            break;
-          }
-        }
-      }
-      if (end === -1) {
-        searchFrom = idx + 1;
-        continue;
-      }
-      const inner = source.slice(idx + tag.length, end).trim();
-      const placeholderIdx = readableContents.length;
-      readableContents.push({ type: rType, content: inner });
-      const placeholder = `__READABLE_${placeholderIdx}__`;
-      source = source.slice(0, idx) + placeholder + source.slice(end + 1);
-      searchFrom = idx + placeholder.length;
-    }
-  }
 
-  const lines = normalizeInlineVnDialogueLines(source).split(/\r?\n/);
+  const lines = buildTruncationLines(rawContent || "");
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
   const narrationRegex = /^\s*Narration\s*:\s*(.+)$/i;
   const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
@@ -3420,7 +3503,7 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
 
   for (let i = 0; i < lines.length; i++) {
     if (segmentCount >= target) break;
-    const line = lines[i]!.trim();
+    const line = lines[i]!.text.trim();
 
     if (!line) {
       if (pendingFallback) {
@@ -3452,15 +3535,7 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
   }
 
   if (lastIncludedLineIdx < 0) return rawContent;
-
-  let kept = lines.slice(0, lastIncludedLineIdx + 1).join("\n");
-  kept = kept.replace(/__READABLE_(\d+)__/g, (_, idxStr) => {
-    const r = readableContents[Number.parseInt(idxStr, 10)];
-    if (!r) return "";
-    return `[${r.type === "note" ? "Note" : "Book"}: ${r.content}]`;
-  });
-
-  return kept;
+  return rawContent.slice(0, lines[lastIncludedLineIdx]!.originalEnd);
 }
 
 /**

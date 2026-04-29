@@ -230,7 +230,8 @@ export function GameInput({
     <div
       className={cn(
         inline ? "" : "border-t border-[var(--border)] bg-[var(--card)]",
-        riskyInterrupt && "rounded-xl ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
+        riskyInterrupt &&
+          "rounded-xl ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
         forceInterrupt && "rounded-xl ring-1",
       )}
       style={
