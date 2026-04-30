@@ -3,7 +3,7 @@
 //
 // Timed choice overlay for combat/chase scenes.
 // GM emits [qte: action1 | action2, timer: 5s]
-// Picking fast gives a bonus modifier.
+// Picking fast gives a bonus modifier; timing out sends a penalty.
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "../../lib/utils";

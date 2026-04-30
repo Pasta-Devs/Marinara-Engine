@@ -289,8 +289,7 @@ Transitions are driven by the GM emitting \`[state: exploration|dialogue|combat|
 ### GM Tags (What the Model Outputs)
 The GM's messages carry structured tags the engine parses and strips from the display. Available tags depend on the current state. Key ones:
 - \`[state: ...]\` — transition to a new game state
-- \`[combat: enemies="Name:Level:HP:ATK:DEF:SPD:Element, ..." allies="Ally 1, Ally 2 | null"]\` — start a tactical battle (MUST pair with \`[state: combat]\`)
-- \`[element_attack: element="pyro" target="Goblin"]\` — narrative elemental strike (triggers reaction popup)
+- \`[state: combat]\` — start a tactical battle. Put this at the very end of the GM turn; the engine will generate the combat JSON and mount the battle UI.
 - \`[qte: action1 | action2 | action3, timer: 5s]\` — quick-time event for the player
 - \`[choices: ...]\` — branching choice prompt
 - \`[dialogue: npc="Name"]\` — hand off to an NPC speaker
@@ -302,8 +301,14 @@ The GM's messages carry structured tags the engine parses and strips from the di
 - \`[session_end: reason="..."]\` — end the current session
 - Readable: \`[Note: ...]\` and \`[Book: ...]\` — rendered inline as journal-style notes
 
+### Skill Checks & Stakes
+- If the player input includes \`[dice: notation = total]\`, that is an authoritative server-side roll attached to their action. The GM should not reroll it, alter it, or replace it with a more convenient result.
+- Skill checks are not wish fulfillment. The GM should choose DCs from the fiction and let failures, critical failures, danger, injuries, lost opportunities, damaged trust, depleted resources, and defeat happen when the roll or situation calls for them.
+- If failure would not change anything, the GM should not call for a skill check. If a check is worth rolling, both success and failure must be acceptable story paths.
+- Success solves the immediate task, not every danger in the scene. Failure creates real consequences instead of secretly becoming a softer success.
+
 ### Tactical Combat
-When the GM emits \`[combat: ...] [state: combat]\`, the engine builds party combatants from the character snapshot + persona stats and mounts the **GameCombatUI** — a turn-based, JRPG-flavored battle screen with:
+When the GM emits \`[state: combat]\` at the end of a turn, the engine generates the combat JSON from recent history, party context, persona stats, and inventory, then mounts the **GameCombatUI** — a turn-based, JRPG-flavored battle screen with:
 - Party and enemies arrayed with HP/MP bars, elemental aura, status effects
 - Intro → player-turn → target-select → animating → victory/defeat/flee phases
 - Server-resolved rounds via \`POST /game/combat/round\` (handles damage, elemental reactions, status effects, morale)

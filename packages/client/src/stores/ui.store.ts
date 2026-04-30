@@ -98,6 +98,13 @@ interface UIState {
   streamingSpeed: number;
   /** When true, Game mode narration segments are revealed in full as soon as they become active. */
   gameInstantTextReveal: boolean;
+  /**
+   * When true, the mouse wheel skips through past assistant turns in Game mode (up = back,
+   * down = forward) and clicking the scene background acts like the Next button. While
+   * scrolled into the past, the Next button changes to "Return" so the player can jump back
+   * to where they were reading.
+   */
+  gameMiddleMouseNav: boolean;
   /** Game narration text speed: 1 (very slow) to 100 (instant). Controls the typewriter in game mode. */
   gameTextSpeed: number;
   /** Delay in ms between auto-advancing narration segments when auto-play is enabled. */
@@ -243,6 +250,7 @@ interface UIState {
   setDebugMode: (v: boolean) => void;
   setStreamingSpeed: (v: number) => void;
   setGameInstantTextReveal: (v: boolean) => void;
+  setGameMiddleMouseNav: (v: boolean) => void;
   setGameTextSpeed: (v: number) => void;
   setGameAutoPlayDelay: (v: number) => void;
 
@@ -314,6 +322,7 @@ export function pickSyncedSettings(state: UIState) {
     enableStreaming: state.enableStreaming,
     streamingSpeed: state.streamingSpeed,
     gameInstantTextReveal: state.gameInstantTextReveal,
+    gameMiddleMouseNav: state.gameMiddleMouseNav,
     gameTextSpeed: state.gameTextSpeed,
     gameAutoPlayDelay: state.gameAutoPlayDelay,
 
@@ -388,6 +397,7 @@ export const useUIStore = create<UIState>()(
       debugMode: false,
       streamingSpeed: 50,
       gameInstantTextReveal: false,
+      gameMiddleMouseNav: false,
       gameTextSpeed: 50,
       gameAutoPlayDelay: 3000,
 
@@ -633,6 +643,7 @@ export const useUIStore = create<UIState>()(
       setDebugMode: (v) => set({ debugMode: v }),
       setStreamingSpeed: (v) => set({ streamingSpeed: Math.max(1, Math.min(100, v)) }),
       setGameInstantTextReveal: (v) => set({ gameInstantTextReveal: v }),
+      setGameMiddleMouseNav: (v) => set({ gameMiddleMouseNav: v }),
       setGameTextSpeed: (v) => set({ gameTextSpeed: Math.max(1, Math.min(100, v)) }),
       setGameAutoPlayDelay: (v) => set({ gameAutoPlayDelay: Math.max(200, Math.min(10000, Math.round(v))) }),
 
@@ -820,6 +831,7 @@ export const useUIStore = create<UIState>()(
         debugMode: state.debugMode,
         streamingSpeed: state.streamingSpeed,
         gameInstantTextReveal: state.gameInstantTextReveal,
+        gameMiddleMouseNav: state.gameMiddleMouseNav,
         gameTextSpeed: state.gameTextSpeed,
         gameAutoPlayDelay: state.gameAutoPlayDelay,
 

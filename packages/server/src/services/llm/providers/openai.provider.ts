@@ -30,6 +30,28 @@ type ChatCompletionsUsagePayload = {
     cached_tokens?: number;
     cache_write_tokens?: number;
   };
+  completion_tokens_details?: {
+    reasoning_tokens?: number;
+    audio_tokens?: number;
+    accepted_prediction_tokens?: number;
+    rejected_prediction_tokens?: number;
+  };
+};
+
+type ResponsesUsagePayload = {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  input_tokens_details?: {
+    cached_tokens?: number;
+    cache_write_tokens?: number;
+  };
+  output_tokens_details?: {
+    reasoning_tokens?: number;
+    audio_tokens?: number;
+    accepted_prediction_tokens?: number;
+    rejected_prediction_tokens?: number;
+  };
 };
 
 /**
@@ -301,6 +323,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       totalTokens: usage.total_tokens ?? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0),
       cachedPromptTokens: usage.prompt_tokens_details?.cached_tokens,
       cacheWritePromptTokens: usage.prompt_tokens_details?.cache_write_tokens,
+      completionReasoningTokens: usage.completion_tokens_details?.reasoning_tokens,
+      completionAudioTokens: usage.completion_tokens_details?.audio_tokens,
+      acceptedPredictionTokens: usage.completion_tokens_details?.accepted_prediction_tokens,
+      rejectedPredictionTokens: usage.completion_tokens_details?.rejected_prediction_tokens,
     };
   }
 
@@ -1433,12 +1459,18 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   /** Extract usage from a Responses API result */
   private extractResponsesUsage(json: Record<string, unknown>): LLMUsage | undefined {
-    const usage = json.usage as Record<string, number> | undefined;
+    const usage = json.usage as ResponsesUsagePayload | undefined;
     if (!usage) return undefined;
     return {
       promptTokens: usage.input_tokens ?? 0,
       completionTokens: usage.output_tokens ?? 0,
       totalTokens: usage.total_tokens ?? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+      cachedPromptTokens: usage.input_tokens_details?.cached_tokens,
+      cacheWritePromptTokens: usage.input_tokens_details?.cache_write_tokens,
+      completionReasoningTokens: usage.output_tokens_details?.reasoning_tokens,
+      completionAudioTokens: usage.output_tokens_details?.audio_tokens,
+      acceptedPredictionTokens: usage.output_tokens_details?.accepted_prediction_tokens,
+      rejectedPredictionTokens: usage.output_tokens_details?.rejected_prediction_tokens,
     };
   }
 

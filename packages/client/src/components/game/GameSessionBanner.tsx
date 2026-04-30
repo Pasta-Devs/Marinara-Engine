@@ -36,7 +36,7 @@ export function GameSessionBanner({
           History
         </button>
 
-        {sessionStatus === "active" ? (
+        {sessionStatus !== "concluded" ? (
           <button
             onClick={onConcludeSession}
             className="flex items-center gap-1 rounded bg-red-500/20 px-2 py-1 text-xs text-red-300 hover:bg-red-500/30 transition-colors"

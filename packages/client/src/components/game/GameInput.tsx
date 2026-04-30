@@ -6,6 +6,7 @@ import { Send, Dices, Paperclip, Smile, Users, MessageCircle, MessageSquare } fr
 import { cn } from "../../lib/utils";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { useUIStore } from "../../stores/ui.store";
+import type { DiceRollResult } from "@marinara-engine/shared";
 
 interface Attachment {
   type: string;
@@ -21,7 +22,7 @@ interface GameInputProps {
     attachments?: Array<{ type: string; data: string }>,
     options?: { commitPendingMove?: boolean },
   ) => void;
-  onRollDice: (notation: string) => void;
+  onRollDice: (notation: string) => Promise<DiceRollResult | null>;
   /** When true, allow "Talk to Party" in the address selector. */
   hasPartyMembers?: boolean;
   /** Pending staged destination from the map UI. */
@@ -45,6 +46,14 @@ interface GameInputProps {
 }
 
 const QUICK_DICE = ["d20", "d6", "2d6", "d10", "d100", "d4", "d8", "d12"];
+
+function formatDiceResultTag(result: DiceRollResult): string {
+  const rollDetail =
+    result.rolls.length > 1 || result.modifier !== 0
+      ? ` (${result.rolls.join(", ")}${result.modifier ? ` ${result.modifier > 0 ? "+" : ""}${result.modifier}` : ""})`
+      : "";
+  return `[dice: ${result.notation} = ${result.total}${rollDetail}]`;
+}
 
 export function GameInput({
   onSend,
@@ -72,6 +81,7 @@ export function GameInput({
   const [showDice, setShowDice] = useState(false);
   const [customDice, setCustomDice] = useState("");
   const [queuedDice, setQueuedDice] = useState<string | null>(null);
+  const [rollingQueuedDice, setRollingQueuedDice] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [addressMode, setAddressMode] = useState<AddressMode>("scene");
@@ -144,11 +154,11 @@ export function GameInput({
     inputRef.current?.focus();
   }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = text.trim();
     const commitPendingMove = !!pendingMoveLabel && addressMode === "scene";
     const hasTurnContent = trimmed.length > 0 || attachments.length > 0 || commitPendingMove || !!queuedDice;
-    if (!hasTurnContent || disabled) return;
+    if (!hasTurnContent || disabled || rollingQueuedDice) return;
 
     let body = trimmed;
     if (commitPendingMove && pendingMoveLabel) {
@@ -159,8 +169,16 @@ export function GameInput({
       attachments.length > 0 ? attachments.map((a) => ({ type: a.type, data: a.data })) : undefined;
 
     if (queuedDice) {
-      onRollDice(queuedDice);
-      body = body ? `${body}\n[dice: ${queuedDice}]` : `[dice: ${queuedDice}]`;
+      setRollingQueuedDice(true);
+      let diceResult: DiceRollResult | null = null;
+      try {
+        diceResult = await onRollDice(queuedDice);
+      } finally {
+        setRollingQueuedDice(false);
+      }
+      if (!diceResult) return;
+      const diceTag = formatDiceResultTag(diceResult);
+      body = body ? `${body}\n${diceTag}` : diceTag;
       setQueuedDice(null);
     }
 
@@ -183,7 +201,7 @@ export function GameInput({
     const shouldSend = enterToSend ? e.key === "Enter" && !e.shiftKey : e.key === "Enter" && (e.metaKey || e.ctrlKey);
     if (shouldSend) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -252,6 +270,7 @@ export function GameInput({
         <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-4 py-2">
           {QUICK_DICE.map((d) => (
             <button
+              type="button"
               key={d}
               onClick={() => handleDiceRoll(d)}
               className="rounded bg-[var(--muted)]/30 px-2 py-1 text-xs font-mono text-[var(--foreground)]/70 hover:bg-[var(--muted)]/50 transition-colors"
@@ -274,6 +293,7 @@ export function GameInput({
               }}
             />
             <button
+              type="button"
               onClick={() => {
                 if (customDice.trim()) {
                   handleDiceRoll(customDice.trim());
@@ -446,6 +466,7 @@ export function GameInput({
           <div className="flex items-center self-stretch rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 text-xs text-[var(--foreground)]/70">
             🎲 {queuedDice}
             <button
+              type="button"
               onClick={() => setQueuedDice(null)}
               className="ml-1 text-[var(--muted-foreground)]/60 transition-colors hover:text-[var(--foreground)]"
               title="Clear queued roll"
@@ -470,6 +491,7 @@ export function GameInput({
           </span>
         )}
         <button
+          type="button"
           onClick={() => setShowDice(!showDice)}
           className={cn(
             "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
@@ -487,6 +509,7 @@ export function GameInput({
 
         <div className="relative hidden sm:block">
           <button
+            type="button"
             ref={emojiButtonRef}
             onClick={() => setEmojiOpen((v) => !v)}
             className={cn(
@@ -509,15 +532,18 @@ export function GameInput({
         </div>
 
         <button
-          onClick={handleSend}
+          type="button"
+          onClick={() => void handleSend()}
           disabled={
             disabled ||
+            rollingQueuedDice ||
             (!text.trim() && attachments.length === 0 && !(pendingMoveLabel && addressMode === "scene") && !queuedDice)
           }
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90",
             (text.trim() || attachments.length > 0 || (pendingMoveLabel && addressMode === "scene") || queuedDice) &&
-              !disabled
+              !disabled &&
+              !rollingQueuedDice
               ? "text-[var(--primary)] hover:text-[var(--primary)]/80"
               : "text-[var(--muted-foreground)]/40",
           )}

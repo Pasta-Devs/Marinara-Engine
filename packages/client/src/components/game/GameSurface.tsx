@@ -43,6 +43,7 @@ import {
   parseGmTags,
   parseSegmentInventoryUpdates,
   type CombatEncounterTag,
+  type ElementAttackTag,
   type CombatStatusTag,
   type InventoryTag,
   type PartyChangeTag,
@@ -54,10 +55,24 @@ import { normalizeGameSegmentEdit, serializeGameSegmentEdit, type GameSegmentEdi
 import { useSceneAnalysis } from "../../hooks/use-scene-analysis";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { parsePartyDialogue } from "../../lib/party-dialogue-parser";
-import type { PartyDialogueLine, CombatSummary, GameMap, GameActiveState } from "@marinara-engine/shared";
+import type {
+  PartyDialogueLine,
+  CombatSummary,
+  GameMap,
+  GameActiveState,
+  CombatInitState,
+  CombatPartyMember,
+  CombatEnemy,
+  CombatDialogueCue,
+  CombatItemEffect,
+  CombatMechanic,
+  DiceRollResult,
+  EncounterInitResponse,
+  EncounterSettings,
+} from "@marinara-engine/shared";
 import type { SceneSegmentEffect } from "@marinara-engine/shared";
 import { scoreMusic, scoreAmbient } from "@marinara-engine/shared";
-import { GameNarration } from "./GameNarration";
+import { GameNarration, formatNarration } from "./GameNarration";
 import { GameInput } from "./GameInput";
 import { GameMapPanel, MobileMapButton } from "./GameMap";
 import { GamePartyBar } from "./GamePartyBar";
@@ -137,6 +152,28 @@ const GENERIC_NPC_NAME_LABELS = new Set([
   "girl",
 ]);
 
+const GENERIC_COMBAT_ENEMY_PATTERNS = [
+  /^(?:enemy|foe|monster|creature|beast|minion|summon|shadow|construct|automaton|drone|specter|slime)(?:\s+\d+|\s+[ivx]+)?$/i,
+  /^(?:guard|soldier|bandit|thug|raider|cultist|mercenary|assassin|archer|mage|warrior)(?:\s+\d+|\s+[ivx]+)?$/i,
+  /^(?:hilichurl|mitachurl|samachurl|treasure hoarder|fatui agent|ruin guard|ruin hunter|ruin sentinel)(?:\s+\d+|\s+[ivx]+)?$/i,
+];
+
+const GAME_COMBAT_GENERATION_SETTINGS = {
+  combatNarrative: {
+    tense: "present",
+    person: "third",
+    narration: "omniscient",
+    pov: "narrator",
+  },
+  summaryNarrative: {
+    tense: "past",
+    person: "third",
+    narration: "omniscient",
+    pov: "narrator",
+  },
+  historyDepth: 10,
+} satisfies EncounterSettings;
+
 type StoredNarrationProgress = {
   index: number;
   messageId: string | null;
@@ -168,6 +205,131 @@ function parseStoredNarrationProgress(raw: string | null): StoredNarrationProgre
 
 function normalizeSceneAssetName(value: string): string {
   return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+function isLikelyNamedCombatEnemy(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  const normalized = normalizeSceneAssetName(trimmed)
+    .replace(/\b(?:\d+|[ivx]+)\b/gi, "")
+    .trim();
+  if (!normalized || GENERIC_NPC_NAME_LABELS.has(normalized)) return false;
+  return !GENERIC_COMBAT_ENEMY_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function slugifyCombatantId(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "unknown"
+  );
+}
+
+function combatLevelFromHp(maxHp: number, fallbackLevel: number): number {
+  if (!Number.isFinite(maxHp) || maxHp <= 0) return fallbackLevel;
+  return Math.max(1, Math.round(maxHp / 20));
+}
+
+function combatStatusEffectsFromGenerated(
+  statuses: CombatPartyMember["statuses"] | CombatEnemy["statuses"] | undefined,
+): Combatant["statusEffects"] {
+  if (!Array.isArray(statuses)) return undefined;
+  const mapped = statuses
+    .filter((status) => status?.name)
+    .map((status) => ({
+      name: status.name,
+      modifier: typeof status.modifier === "number" ? status.modifier : 0,
+      stat: status.stat ?? ("hp" as const),
+      turnsLeft: Math.max(1, Number(status.duration) || 1),
+    }));
+  return mapped.length > 0 ? mapped : undefined;
+}
+
+function combatSkillsFromGeneratedAttacks(
+  attacks: CombatPartyMember["attacks"] | CombatEnemy["attacks"] | undefined,
+  level: number,
+): Combatant["skills"] {
+  if (!Array.isArray(attacks)) return undefined;
+  const seen = new Set<string>();
+  const skills: NonNullable<Combatant["skills"]> = [];
+  for (const [index, attack] of attacks.entries()) {
+    const name = typeof attack?.name === "string" ? attack.name.trim() : "";
+    if (!name || /^(attack|basic attack|strike)$/i.test(name)) continue;
+    const id = slugifyCombatantId(`${name}-${index}`);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    skills.push({
+      id,
+      name,
+      type: "attack",
+      mpCost: Math.max(4, Math.min(18, 5 + level)),
+      power:
+        typeof attack.power === "number" && Number.isFinite(attack.power)
+          ? Math.max(0.5, Math.min(3, attack.power))
+          : attack.type === "AoE"
+            ? 1.15
+            : 1.35,
+      description: attack.description || (attack.type === "AoE" ? "Area combat ability" : "Combat ability"),
+      cooldown: typeof attack.cooldown === "number" ? attack.cooldown : undefined,
+      element: attack.element || undefined,
+      statusEffect: attack.statusEffect || undefined,
+    });
+  }
+  return skills.length > 0 ? skills : undefined;
+}
+
+function generatedPartyMemberToCombatant(
+  member: CombatPartyMember,
+  index: number,
+  partyMembers: GamePartyMemberInfo[],
+  fallbackLevel: number,
+): Combatant {
+  const matchedPartyMember = findNamedEntry(partyMembers, member.name, (entry) => entry.name);
+  const maxHp = Math.max(1, Number(member.maxHp) || Number(member.hp) || 1);
+  const hp = Math.max(0, Math.min(maxHp, Number(member.hp) || maxHp));
+  const level = combatLevelFromHp(maxHp, fallbackLevel);
+  const element = member.attacks?.find((attack) => attack.element)?.element;
+  return {
+    id: matchedPartyMember?.id ?? `generated-party-${index}-${slugifyCombatantId(member.name)}`,
+    name: member.name || `Ally ${index + 1}`,
+    hp,
+    maxHp,
+    mp: 20 + level * 3,
+    maxMp: 20 + level * 3,
+    attack: 8 + level * 2,
+    defense: 5 + level,
+    speed: 6 + level,
+    level,
+    side: "player",
+    sprite: matchedPartyMember?.avatarUrl ?? undefined,
+    statusEffects: combatStatusEffectsFromGenerated(member.statuses),
+    skills: combatSkillsFromGeneratedAttacks(member.attacks, level),
+    element,
+  };
+}
+
+function generatedEnemyToCombatant(enemy: CombatEnemy, index: number, fallbackLevel: number): Combatant {
+  const maxHp = Math.max(1, Number(enemy.maxHp) || Number(enemy.hp) || 1);
+  const hp = Math.max(0, Math.min(maxHp, Number(enemy.hp) || maxHp));
+  const level = combatLevelFromHp(maxHp, fallbackLevel);
+  const element = enemy.attacks?.find((attack) => attack.element)?.element;
+  return {
+    id: `generated-enemy-${index}-${slugifyCombatantId(enemy.name)}`,
+    name: enemy.name || `Enemy ${index + 1}`,
+    hp,
+    maxHp,
+    attack: 9 + level * 2,
+    defense: 4 + level,
+    speed: 5 + level,
+    level,
+    side: "enemy",
+    sprite: enemy.sprite || undefined,
+    statusEffects: combatStatusEffectsFromGenerated(enemy.statuses),
+    skills: combatSkillsFromGeneratedAttacks(enemy.attacks, level),
+    element,
+  };
 }
 
 const TRAILING_NPC_REPUTATION_LABEL = /(devoted|allied|friendly|neutral|unfriendly|hostile|enemy)$/i;
@@ -418,31 +580,14 @@ function mergeSceneAssetNpcCandidates(
         : null;
     const existing = candidates.get(normalizedName);
 
-    if (existing) {
-      candidates.set(normalizedName, {
-        ...existing,
-        description: existing.description || description,
-        location: existing.location || currentLocation || "",
-        avatarUrl: existing.avatarUrl || avatarUrl,
-        met: true,
-      });
-      continue;
-    }
+    if (!existing) continue;
 
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
     candidates.set(normalizedName, {
-      id: slug || `npc-${normalizedName.replace(/\s+/g, "-")}`,
-      name,
-      emoji: "👤",
-      description,
-      location: currentLocation || "",
-      reputation: 0,
+      ...existing,
+      description: existing.description || description,
+      location: existing.location || currentLocation || "",
+      avatarUrl: existing.avatarUrl || avatarUrl,
       met: true,
-      notes: [],
-      avatarUrl,
     });
   }
 
@@ -451,29 +596,12 @@ function mergeSceneAssetNpcCandidates(
     if (!normalizedName) continue;
 
     const existing = candidates.get(normalizedName);
-    if (existing) {
-      candidates.set(normalizedName, {
-        ...existing,
-        description: existing.description || candidate.description,
-        met: true,
-      });
-      continue;
-    }
+    if (!existing) continue;
 
-    const slug = candidate.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
     candidates.set(normalizedName, {
-      id: slug || `npc-${normalizedName.replace(/\s+/g, "-")}`,
-      name: candidate.name,
-      emoji: "👤",
-      description: candidate.description,
-      location: currentLocation || "",
-      reputation: 0,
+      ...existing,
+      description: existing.description || candidate.description,
       met: true,
-      notes: [],
-      avatarUrl: null,
     });
   }
 
@@ -886,6 +1014,57 @@ function applyCombatStatusTagsToCombatants(
   return { party: nextParty, enemies: nextEnemies, appliedCount };
 }
 
+function normalizeCombatElement(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    fire: "pyro",
+    flame: "pyro",
+    ice: "cryo",
+    frost: "cryo",
+    lightning: "electro",
+    thunder: "electro",
+    water: "hydro",
+    wind: "anemo",
+    earth: "geo",
+    stone: "geo",
+    nature: "dendro",
+    plant: "dendro",
+  };
+  return aliases[normalized] ?? normalized;
+}
+
+function applyElementAttackTagsToCombatants(
+  party: Combatant[],
+  enemies: Combatant[],
+  tags: ElementAttackTag[],
+): { party: Combatant[]; enemies: Combatant[]; appliedCount: number } {
+  let appliedCount = 0;
+  const applyTag = (combatant: Combatant, tag: ElementAttackTag): Combatant => ({
+    ...combatant,
+    elementAura: {
+      element: normalizeCombatElement(tag.element),
+      gauge: 1,
+      sourceId: `gm:${normalizeCombatStatusKey(tag.target)}:${normalizeCombatElement(tag.element)}`,
+    },
+  });
+
+  const nextParty = party.map((combatant) => {
+    const tag = tags.find((candidate) => matchesCombatStatusTarget(candidate.target, combatant));
+    if (!tag) return combatant;
+    appliedCount += 1;
+    return applyTag(combatant, tag);
+  });
+
+  const nextEnemies = enemies.map((combatant) => {
+    const tag = tags.find((candidate) => matchesCombatStatusTarget(candidate.target, combatant));
+    if (!tag) return combatant;
+    appliedCount += 1;
+    return applyTag(combatant, tag);
+  });
+
+  return { party: nextParty, enemies: nextEnemies, appliedCount };
+}
+
 function renameInventoryItem<T extends { name: string; quantity: number }>(
   items: T[],
   currentName: string,
@@ -1055,6 +1234,33 @@ function sampleTags(tags: string[], max: number): string[] {
   return shuffled.slice(0, max);
 }
 
+function backgroundOptionKey(tag: string): string {
+  let slug = tag
+    .trim()
+    .toLowerCase()
+    .replace(/:/g, "-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const prefixPattern = /^(?:backgrounds|fantasy|modern|scifi|user|generated|illustrations|q-[a-z0-9]{6,})-+/;
+  while (prefixPattern.test(slug)) {
+    slug = slug.replace(prefixPattern, "");
+  }
+  return slug || tag.trim().toLowerCase();
+}
+
+function getSceneBackgroundTags(assetKeys: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const key of assetKeys) {
+    if (!key.startsWith("backgrounds:") || key.startsWith("backgrounds:illustrations:")) continue;
+    const dedupeKey = backgroundOptionKey(key);
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    result.push(key);
+  }
+  return result;
+}
+
 const RECENT_MUSIC_HISTORY_LIMIT = 8;
 
 function normalizeRecentMusicHistory(value: unknown): string[] {
@@ -1072,13 +1278,7 @@ function formatCombatLogContent(message: Message): string {
   if (message.role === "assistant" || message.role === "narrator") {
     return parseGmTags(content).cleanContent || content;
   }
-  return content
-    .replace(/^\[(?:To the party|To the GM)]\s*/i, "")
-    .replace(/\[combat_result]\s*([\s\S]*?)\s*\[\/combat_result]/gi, (_match, recap: string) => {
-      const cleaned = recap.trim();
-      return cleaned ? `Combat result:\n${cleaned}` : "";
-    })
-    .trim();
+  return content.replace(/^\[(?:To the party|To the GM)]\s*/i, "").trim();
 }
 
 function buildSegmentEditMap(chatMeta: Record<string, unknown>): Map<string, GameSegmentEdit> {
@@ -1137,6 +1337,8 @@ interface GameSurfaceProps {
     appearance?: string;
     tags?: string[];
     avatarCrop?: { zoom: number; offsetX: number; offsetY: number } | null;
+    nameColor?: string;
+    dialogueColor?: string;
   }>;
   personaInfo?: PersonaInfo;
   chatBackground?: string | null;
@@ -1198,6 +1400,8 @@ export function GameSurface({
   const gameTutorialDisabled = useUIStore((s) => s.gameTutorialDisabled);
   const setGameTutorialDisabled = useUIStore((s) => s.setGameTutorialDisabled);
   const gameAvatarScale = useUIStore((s) => s.gameAvatarScale);
+  const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
+  const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
   const chatCharacterIds = useMemo(() => getChatCharacterIds(chat.characterIds), [chat.characterIds]);
 
@@ -1322,6 +1526,7 @@ export function GameSurface({
   const [journalOpen, setJournalOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [combatLogsOpen, setCombatLogsOpen] = useState(false);
+  const combatLogScrolledRef = useRef(false);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [mobileRetryMenuOpen, setMobileRetryMenuOpen] = useState(false);
   const [confirmEndSessionOpen, setConfirmEndSessionOpen] = useState(false);
@@ -1340,6 +1545,11 @@ export function GameSurface({
   const [queuedEncounter, setQueuedEncounter] = useState<{ encounter: CombatEncounterTag; messageId: string } | null>(
     null,
   );
+  const [queuedCombatGeneration, setQueuedCombatGeneration] = useState<{ messageId: string } | null>(null);
+  const [combatGenerationPending, setCombatGenerationPending] = useState(false);
+  const [combatItemEffects, setCombatItemEffects] = useState<CombatItemEffect[]>([]);
+  const [combatMechanics, setCombatMechanics] = useState<CombatMechanic[]>([]);
+  const [combatDialogueCues, setCombatDialogueCues] = useState<CombatDialogueCue[]>([]);
   const [queuedCombatStatuses, setQueuedCombatStatuses] = useState<{
     statuses: CombatStatusTag[];
     messageId: string;
@@ -1359,6 +1569,7 @@ export function GameSurface({
     null,
   );
   const [combatSpriteSuggestion, setCombatSpriteSuggestion] = useState<{ name: string; pose: string } | null>(null);
+  const [combatStartMessageId, setCombatStartMessageId] = useState<string | null>(null);
   const [activeDirections, setActiveDirections] = useState<DirectionCommand[]>([]);
   const [partyDialogue, setPartyDialogue] = useState<PartyDialogueLine[]>([]);
   // Populated only from legacy `[party-chat]` history messages so existing saves
@@ -1392,6 +1603,7 @@ export function GameSurface({
   const startSessionGuardRef = useRef(false);
   const processedPartyChangeCommandsRef = useRef<Set<string>>(new Set());
   const appliedCombatStatusMessageIdsRef = useRef<Set<string>>(new Set());
+  const appliedCombatElementMessageIdsRef = useRef<Set<string>>(new Set());
   const recruitPartyMember = useRecruitPartyMember();
   const removePartyMember = useRemovePartyMember();
   const availableMaps = useMemo(() => (maps.length > 0 ? maps : currentMap ? [currentMap] : []), [currentMap, maps]);
@@ -1414,7 +1626,13 @@ export function GameSurface({
   useEffect(() => {
     processedPartyChangeCommandsRef.current.clear();
     appliedCombatStatusMessageIdsRef.current.clear();
+    appliedCombatElementMessageIdsRef.current.clear();
     setQueuedCombatStatuses(null);
+    setQueuedCombatGeneration(null);
+    setCombatGenerationPending(false);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
   }, [activeChatId]);
 
   const handlePartyChangeCommands = useCallback(
@@ -1498,6 +1716,7 @@ export function GameSurface({
     backgroundTag?: string;
     npcsNeedingAvatars?: Array<{ name: string; description: string }>;
     illustration?: import("@marinara-engine/shared").SceneIllustrationRequest;
+    debugMode?: boolean;
   } | null>(null);
   const [assetGenerationFailed, setAssetGenerationFailed] = useState(false);
   const [volumePopoverOpen, setVolumePopoverOpen] = useState(false);
@@ -1573,6 +1792,11 @@ export function GameSurface({
     setPartyChatMessageId(null);
     setQueuedQte(null);
     setQueuedEncounter(null);
+    setQueuedCombatGeneration(null);
+    setCombatGenerationPending(false);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
     setPendingEncounter(null);
     setCombatParty(null);
     setCombatEnemies(null);
@@ -1913,17 +2137,30 @@ export function GameSurface({
   ]);
 
   const librarySpeakerAvatars = useMemo(() => {
-    const map = new Map<string, { url: string; crop?: { zoom: number; offsetX: number; offsetY: number } | null }>();
+    const map = new Map<
+      string,
+      {
+        url: string;
+        crop?: { zoom: number; offsetX: number; offsetY: number } | null;
+        nameColor?: string;
+        dialogueColor?: string;
+      }
+    >();
     for (const entry of speakingLibraryCharacters) {
-      if (!entry.character.avatarUrl) continue;
-      const avatarInfo = { url: entry.character.avatarUrl, crop: entry.character.avatarCrop };
+      const fromMap = characterMap.get(entry.character.id);
+      const avatarInfo = {
+        url: entry.character.avatarUrl ?? "",
+        crop: entry.character.avatarCrop,
+        nameColor: entry.character.nameColor ?? fromMap?.nameColor,
+        dialogueColor: entry.character.dialogueColor ?? fromMap?.dialogueColor,
+      };
       map.set(entry.character.name.toLowerCase(), avatarInfo);
       for (const alias of entry.aliases) {
         map.set(alias.toLowerCase(), avatarInfo);
       }
     }
     return map;
-  }, [speakingLibraryCharacters]);
+  }, [characterMap, speakingLibraryCharacters]);
 
   const fullBodyTarget = useMemo(() => {
     if (gameState === "combat" && combatSpriteSuggestion) {
@@ -2028,10 +2265,21 @@ export function GameSurface({
           role: message.role,
           content: formatCombatLogContent(message),
         }))
-        .filter((entry) => entry.content.length > 0)
-        .slice(-40),
+        .filter((entry) => entry.content.length > 0),
     [messages],
   );
+  const combatLogPageSize = Math.max(1, messagesPerPage > 0 ? messagesPerPage : combatLogEntries.length || 20);
+  const [combatLogVisibleCount, setCombatLogVisibleCount] = useState(combatLogPageSize);
+  useEffect(() => {
+    if (!combatLogsOpen) return;
+    setCombatLogVisibleCount(combatLogPageSize);
+    combatLogScrolledRef.current = false;
+  }, [combatLogPageSize, combatLogsOpen]);
+  const visibleCombatLogEntries = useMemo(
+    () => combatLogEntries.slice(Math.max(0, combatLogEntries.length - combatLogVisibleCount)),
+    [combatLogEntries, combatLogVisibleCount],
+  );
+  const hiddenCombatLogCount = Math.max(0, combatLogEntries.length - visibleCombatLogEntries.length);
 
   const sceneAssetNpcs = useMemo(
     () =>
@@ -2115,7 +2363,7 @@ export function GameSurface({
       if (messageIndex < 0) return false;
       for (let i = messageIndex + 1; i < messages.length; i++) {
         const msg = messages[i]!;
-        if (msg.role === "user" && msg.content.includes("[qte_bonus:")) {
+        if (msg.role === "user" && (msg.content.includes("[qte_result:") || msg.content.includes("[qte_bonus:"))) {
           return true;
         }
       }
@@ -2201,6 +2449,8 @@ export function GameSurface({
       }
       if (tags.combatEncounter && !hasCombatResultAfterMessage(latestAssistantMsg.id)) {
         setQueuedEncounter({ encounter: tags.combatEncounter, messageId: latestAssistantMsg.id });
+      } else if (tags.stateChange === "combat" && !hasCombatResultAfterMessage(latestAssistantMsg.id)) {
+        setQueuedCombatGeneration({ messageId: latestAssistantMsg.id });
       }
       lastProcessedMsgRef.current = latestAssistantMsg.id;
       // Clear restored flag so subsequent new messages are processed normally
@@ -2440,6 +2690,10 @@ export function GameSurface({
     setPartyChatMessageId(null);
     setQueuedQte(null);
     setQueuedEncounter(null);
+    setQueuedCombatGeneration(null);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
     setPendingSegmentEffects([]);
     setPendingInventorySegmentUpdates([]);
     appliedSegmentsRef.current = new Set();
@@ -2480,9 +2734,13 @@ export function GameSurface({
       setActiveDirections(tags.directions);
     }
 
-    // Combat encounters always from the main model
+    // Combat starts are declared by the GM with [state: combat]. Legacy
+    // [combat: ...] payloads still seed directly for old saves/presets; new
+    // turns call the combat JSON generator after the narrated turn is read.
     if (tags.combatEncounter) {
       setQueuedEncounter({ encounter: tags.combatEncounter, messageId: msg.id });
+    } else if (tags.stateChange === "combat") {
+      setQueuedCombatGeneration({ messageId: msg.id });
     }
 
     // Skill checks from GM — prefer inline resolved results, otherwise resolve server-side
@@ -2517,6 +2775,15 @@ export function GameSurface({
         defenderName: ea.target,
         element: ea.element,
       });
+      const canApplyToActiveCombat = gameState === "combat" && !!combatParty && !!combatEnemies;
+      if (canApplyToActiveCombat && !appliedCombatElementMessageIdsRef.current.has(msg.id)) {
+        const applied = applyElementAttackTagsToCombatants(combatParty, combatEnemies, tags.elementAttacks);
+        if (applied.appliedCount > 0) {
+          setCombatParty(applied.party);
+          setCombatEnemies(applied.enemies);
+        }
+        appliedCombatElementMessageIdsRef.current.add(msg.id);
+      }
     }
 
     if (tags.combatStatuses.length > 0) {
@@ -2557,10 +2824,11 @@ export function GameSurface({
     // and triggers side effects (combat checkpoint, OOC influence).
     if (tags.stateChange) {
       const next = sceneAnalysisState;
-      const deferCombatTransition = next === "combat" && !!tags.combatEncounter;
+      const deferCombatTransition = next === "combat";
       if (deferCombatTransition) {
-        // Combat starts after the narrated turn is fully read; the queued encounter
-        // effect performs the transition when it activates the combat UI.
+        // Combat starts after the narrated turn is fully read; either the
+        // legacy queued encounter or the generated combat JSON effect performs
+        // the transition when it can mount a ready combat UI.
       } else {
         // Optimistic local update so the map icon flips immediately
         useGameModeStore.getState().setGameState(next);
@@ -2598,10 +2866,7 @@ export function GameSurface({
     // Only send assets the LLM actually picks from: backgrounds (capped 50) and SFX (capped 50).
     // Music and ambient are handled by deterministic server-side scoring — not sent.
     const assetKeys = Object.keys(assets ?? {});
-    const bgTags = sampleTags(
-      assetKeys.filter((k) => k.startsWith("backgrounds:")),
-      50,
-    );
+    const bgTags = sampleTags(getSceneBackgroundTags(assetKeys), 50);
     const sfxTags = sampleTags(
       assetKeys.filter((k) => k.startsWith("sfx:")),
       50,
@@ -2619,6 +2884,7 @@ export function GameSurface({
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? null,
+      canGenerateBackgrounds: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
       canGenerateIllustrations: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
       artStylePrompt:
         ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.artStylePrompt as string | undefined) ??
@@ -2775,6 +3041,7 @@ export function GameSurface({
 
   function applySceneResult(result: import("@marinara-engine/shared").SceneAnalysis, msg: { id: string }) {
     console.log("[scene-analysis] Result from model:", JSON.stringify(result, null, 2));
+    setSceneAnalysisFailed(false);
     // NOTE: Game state transitions are owned exclusively by the GM model via [state: ...] tags.
     // The scene model no longer emits stateChange to avoid conflicting state flips.
 
@@ -2900,7 +3167,11 @@ export function GameSurface({
       ].filter((t): t is string => !!t && t !== "black" && t !== "none");
 
       const generatedIllustrationTag = result.generatedIllustration?.tag;
-      const unresolvedBg = allBgTags.find((t) => t !== generatedIllustrationTag && !manifest.assets[t]);
+      const unresolvedBg = allBgTags.find((t) => {
+        if (t === generatedIllustrationTag || manifest.assets[t]) return false;
+        const resolved = resolveAssetTag(t, "backgrounds", manifest.assets);
+        return !manifest.assets[resolved];
+      });
       // Pre-cache portraits for any tracked named NPC with a description, even if not
       // met yet — by the time the party encounters them their avatar is ready, and the
       // /generate-assets schema already caps this at 10 per turn so cost stays bounded.
@@ -2911,6 +3182,7 @@ export function GameSurface({
           backgroundTag: unresolvedBg || undefined,
           illustration: pendingIllustration ?? undefined,
           npcsNeedingAvatars: npcsNeedingAvatars.length > 0 ? npcsNeedingAvatars : undefined,
+          debugMode: useUIStore.getState().debugMode,
         };
         setPendingAssetGeneration(assetPayload);
         setAssetGenerationFailed(false);
@@ -2983,6 +3255,7 @@ export function GameSurface({
         backgroundTag?: string;
         npcsNeedingAvatars?: Array<{ name: string; description: string }>;
         illustration?: import("@marinara-engine/shared").SceneIllustrationRequest;
+        debugMode?: boolean;
       },
       options?: { showSuccessToast?: boolean },
     ) => {
@@ -2994,7 +3267,7 @@ export function GameSurface({
           generatedBackground: string | null;
           generatedIllustration: { tag: string; segment?: number } | null;
           generatedNpcAvatars: Array<{ name: string; avatarUrl: string }>;
-        }>("/game/generate-assets", assetPayload);
+        }>("/game/generate-assets", { ...assetPayload, debugMode: useUIStore.getState().debugMode });
 
         setPendingAssetGeneration(null);
         if (res.generatedBackground) {
@@ -3179,6 +3452,11 @@ export function GameSurface({
     setQueuedQte(null);
     setPendingEncounter(null);
     setQueuedEncounter(null);
+    setQueuedCombatGeneration(null);
+    setCombatGenerationPending(false);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
     setActiveReadable(null);
     readableQueueRef.current = [];
     setPendingSegmentEffects([]);
@@ -3616,6 +3894,99 @@ export function GameSurface({
   );
 
   const [gameInputFocusToken, setGameInputFocusToken] = useState(0);
+
+  // Wheel-nav state. `messageOffset` is how many assistant turns back the player is
+  // currently reviewing (0 = present). `nextActionToken` is bumped each time a
+  // background click should fire the Next/Return action inside GameNarration.
+  const [messageOffset, setMessageOffset] = useState(0);
+  const [nextActionToken, setNextActionToken] = useState(0);
+  // Reset offset on chat switch so we never review the wrong chat's history.
+  useEffect(() => {
+    setMessageOffset(0);
+    setNextActionToken(0);
+  }, [activeChatId]);
+
+  // The actual wheel-nav clamp comes from GameNarration — it knows how many flat
+  // log entries exist. Until it reports, we conservatively cap at 0 (wheel-up no-op).
+  const [wheelNavMaxOffset, setWheelNavMaxOffset] = useState(0);
+  const handleMaxNavOffsetChange = useCallback((max: number) => setWheelNavMaxOffset(max), []);
+
+  // Click / Next while reviewing past: step ONE entry forward. Symmetric with
+  // wheel-down. The dedicated Return button (rendered separately) jumps home in one shot.
+  const handleStepForward = useCallback(() => {
+    setMessageOffset((curr) => Math.max(0, curr - 1));
+  }, []);
+  const handleReturnToLatest = useCallback(() => {
+    setMessageOffset(0);
+  }, []);
+
+  // Document-level wheel + click listener for game-mode wheel navigation.
+  // Window-level wheel + click listener for game-mode wheel navigation. Capture phase
+  // so nothing can stopPropagation us out of the loop. We skip events that originate
+  // inside any interactive UI element or overlay panel — buttons, links, inputs, ARIA
+  // roles, and any container marked `[data-game-skip-bg-nav="true"]`. Everything else
+  // (the chat card body, sprites, the bg image, empty space) navs.
+  const lastWheelAtRef = useRef(0);
+  useEffect(() => {
+    if (!gameMiddleMouseNav) return;
+    const max = wheelNavMaxOffset;
+
+    const SKIP_SELECTOR = [
+      "button",
+      "a",
+      "input",
+      "textarea",
+      "select",
+      "label",
+      '[role="button"]',
+      '[role="link"]',
+      '[role="dialog"]',
+      '[role="menu"]',
+      '[role="menuitem"]',
+      '[role="tab"]',
+      '[role="tablist"]',
+      '[role="slider"]',
+      '[role="checkbox"]',
+      '[role="switch"]',
+      '[role="combobox"]',
+      '[role="listbox"]',
+      '[role="option"]',
+      "[data-radix-popper-content-wrapper]",
+      '[data-game-skip-bg-nav="true"]',
+    ].join(",");
+    const inSkipUi = (target: EventTarget | null): Element | null => {
+      if (!(target instanceof Element)) return null;
+      return target.closest(SKIP_SELECTOR);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      if (inSkipUi(event.target)) return;
+      const now = Date.now();
+      // Throttle ~60ms so a single physical scroll-tick doesn't fire many times on touchpads.
+      if (now - lastWheelAtRef.current < 60) return;
+      lastWheelAtRef.current = now;
+      if (event.deltaY < 0) {
+        setMessageOffset((curr) => Math.min(curr + 1, max));
+      } else {
+        setMessageOffset((curr) => (curr > 0 ? curr - 1 : 0));
+      }
+    };
+
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      if (inSkipUi(event.target)) return;
+      setNextActionToken((t) => t + 1);
+    };
+
+    window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    window.addEventListener("click", onClick, { capture: true });
+    return () => {
+      window.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener("click", onClick, { capture: true } as EventListenerOptions);
+    };
+  }, [gameMiddleMouseNav, wheelNavMaxOffset]);
+
   // Two-stage interrupt:
   //   1. Player clicks Interrupt → narration pauses (modal pre-empts further reading)
   //      and we stash a *candidate* with the truncation we'd apply on commit.
@@ -3831,6 +4202,40 @@ export function GameSurface({
   const combatUiActive = gameState === "combat" && !!combatParty && !!combatEnemies;
   const topOverlayOffsetClass = "top-3";
 
+  const combatDialogueLines = useMemo(() => {
+    if (!combatUiActive || !latestAssistantMsg?.content || isStreaming) return [];
+    if (latestAssistantMsg.id === combatStartMessageId) return [];
+    const tags = parseGmTags(latestAssistantMsg.content);
+    if (!/^\s*\[[^\]]+]\s*\[/m.test(tags.cleanContent)) return [];
+    return parsePartyDialogue(tags.cleanContent).filter((line) => line.type !== "action" && line.content.trim());
+  }, [combatStartMessageId, combatUiActive, isStreaming, latestAssistantMsg?.content, latestAssistantMsg?.id]);
+
+  const voicedCombatSpeakerNames = useMemo(() => {
+    if (!combatParty || !combatEnemies) return [];
+    return [
+      ...combatParty.map((member) => member.name),
+      ...combatEnemies.filter((enemy) => isLikelyNamedCombatEnemy(enemy.name)).map((enemy) => enemy.name),
+    ];
+  }, [combatEnemies, combatParty]);
+
+  const hydrateGeneratedCombatState = useCallback(
+    (combatState: CombatInitState): { party: Combatant[]; enemies: Combatant[] } | null => {
+      const fallbackLevel = sessionNumber ?? 5;
+      const partyCombatants = Array.isArray(combatState.party)
+        ? combatState.party.map((member, index) =>
+            generatedPartyMemberToCombatant(member, index, partyMembers, fallbackLevel),
+          )
+        : [];
+      const enemyCombatants = Array.isArray(combatState.enemies)
+        ? combatState.enemies.map((enemy, index) => generatedEnemyToCombatant(enemy, index, fallbackLevel))
+        : [];
+
+      if (partyCombatants.length === 0 || enemyCombatants.length === 0) return null;
+      return { party: partyCombatants, enemies: enemyCombatants };
+    },
+    [partyMembers, sessionNumber],
+  );
+
   useEffect(() => {
     if (!queuedCombatStatuses || gameState !== "combat" || !combatParty || !combatEnemies) return;
 
@@ -3857,6 +4262,7 @@ export function GameSurface({
 
     useGameModeStore.getState().setGameState("combat");
     transitionGameState.mutate({ chatId: activeChatId, newState: "combat" });
+    setCombatStartMessageId(queuedEncounter.messageId);
     setPendingEncounter(queuedEncounter.encounter);
     setQueuedEncounter(null);
   }, [
@@ -3871,6 +4277,114 @@ export function GameSurface({
     directionsPlaying,
     latestNarrationText,
     narrationDone,
+    transitionGameState,
+  ]);
+
+  useEffect(() => {
+    if (!queuedCombatGeneration || !latestAssistantMsg?.id) return;
+    if (queuedCombatGeneration.messageId !== latestAssistantMsg.id) return;
+    if (pendingEncounter || combatUiActive || combatGenerationPending) return;
+    if (isStreaming || scenePreparing || pendingAssetGeneration || directionsPlaying) return;
+    if (latestNarrationText && !narrationDone) return;
+
+    setCombatGenerationPending(true);
+    api
+      .post<EncounterInitResponse>("/encounter/init", {
+        chatId: activeChatId,
+        connectionId: null,
+        settings: GAME_COMBAT_GENERATION_SETTINGS,
+        spellbookId: null,
+      })
+      .then((response) => {
+        const combatants = hydrateGeneratedCombatState(response.combatState);
+        if (!combatants) {
+          throw new Error("Combat generator returned an empty party or enemy list.");
+        }
+
+        const visuals = response.combatState.visuals;
+        const shouldGenerateBossVisuals = !!visuals?.isBossFight && !!chatMeta.enableSpriteGeneration;
+        if (shouldGenerateBossVisuals && (visuals.backgroundPrompt || visuals.illustrationPrompt)) {
+          const illustrationPrompt = visuals.illustrationPrompt?.trim() || "";
+          const assetPayload = {
+            chatId: activeChatId,
+            backgroundTag: visuals.backgroundPrompt?.trim()
+              ? `boss fight: ${visuals.backgroundPrompt.trim()}`
+              : undefined,
+            illustration:
+              illustrationPrompt.length >= 40
+                ? {
+                    prompt: illustrationPrompt,
+                    reason: "Boss fight splash illustration",
+                    slug: visuals.slug || "boss-fight",
+                    characters: [
+                      ...combatants.party.map((member) => member.name),
+                      ...combatants.enemies.map((enemy) => enemy.name),
+                    ].slice(0, 6),
+                  }
+                : undefined,
+            debugMode: useUIStore.getState().debugMode,
+          };
+          setPendingAssetGeneration(assetPayload);
+          setAssetGenerationFailed(false);
+          api
+            .post<{
+              generatedBackground: string | null;
+              generatedIllustration: { tag: string; segment?: number } | null;
+              generatedNpcAvatars: Array<{ name: string; avatarUrl: string }>;
+            }>("/game/generate-assets", assetPayload)
+            .then((res) => {
+              setPendingAssetGeneration(null);
+              if (res.generatedBackground) {
+                fetchManifest().then(() => {
+                  useGameAssetStore.getState().setCurrentBackground(res.generatedBackground!);
+                });
+              }
+              if (res.generatedIllustration) {
+                installGeneratedIllustration(res.generatedIllustration);
+              }
+            })
+            .catch(() => {
+              setPendingAssetGeneration(null);
+              setAssetGenerationFailed(true);
+            });
+        }
+
+        setCombatParty(combatants.party);
+        setCombatEnemies(combatants.enemies);
+        setCombatItemEffects(Array.isArray(response.combatState.itemEffects) ? response.combatState.itemEffects : []);
+        setCombatMechanics(Array.isArray(response.combatState.mechanics) ? response.combatState.mechanics : []);
+        setCombatDialogueCues(
+          Array.isArray(response.combatState.dialogueCues) ? response.combatState.dialogueCues : [],
+        );
+        setCombatStartMessageId(queuedCombatGeneration.messageId);
+        setQueuedCombatGeneration(null);
+        useGameModeStore.getState().setGameState("combat");
+        transitionGameState.mutate({ chatId: activeChatId, newState: "combat" });
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Combat generation failed.";
+        console.warn("[game-combat] Failed to generate combat state", err);
+        toast.error(message);
+        setQueuedCombatGeneration(null);
+      })
+      .finally(() => setCombatGenerationPending(false));
+  }, [
+    activeChatId,
+    combatGenerationPending,
+    combatUiActive,
+    directionsPlaying,
+    chatMeta.enableSpriteGeneration,
+    fetchManifest,
+    hydrateGeneratedCombatState,
+    installGeneratedIllustration,
+    isStreaming,
+    latestAssistantMsg?.id,
+    latestNarrationText,
+    narrationDone,
+    pendingAssetGeneration,
+    pendingEncounter,
+    queuedCombatGeneration,
+    scenePreparing,
     transitionGameState,
   ]);
 
@@ -4397,6 +4911,38 @@ export function GameSurface({
 
   const sessionStatus = (chatMeta.gameSessionStatus as string) || "active";
   const sessionInteractive = sessionStatus !== "concluded";
+  const handleCombatCustomInstruction = useCallback(
+    (instruction: string) => {
+      const cleanInstruction = instruction.trim();
+      if (!cleanInstruction) return;
+      if (!sessionInteractive || isStreaming) {
+        toast.error("Wait for the current GM response before attempting a special maneuver.");
+        return;
+      }
+
+      const formatCombatant = (combatant: Combatant) => {
+        const effects =
+          combatant.statusEffects && combatant.statusEffects.length > 0
+            ? `, effects: ${combatant.statusEffects.map((effect) => effect.name).join(", ")}`
+            : "";
+        const aura = combatant.elementAura ? `, aura: ${combatant.elementAura.element}` : "";
+        return `${combatant.name} ${combatant.hp}/${combatant.maxHp} HP${effects}${aura}`;
+      };
+      const partySnapshot = combatParty?.map(formatCombatant).join("; ") || "unknown";
+      const enemySnapshot = combatEnemies?.map(formatCombatant).join("; ") || "unknown";
+
+      sendMessage(
+        [
+          `I attempt a special combat maneuver: ${cleanInstruction}`,
+          ``,
+          `GM combat adjudication: Resolve this in your GM role using the current fiction and tactical state. If the maneuver creates a real combat condition, emit [status: target="Exact Name" effect="Effect Name" turns=1-3 stat="hp|attack|defense|speed" modifier="+/-N"]. If it applies an element, emit [element_attack: element="pyro|hydro|cryo|electro|anemo|geo|dendro|physical" target="Exact Name"]. Keep [state: combat] unless this action truly ends the fight.`,
+          ``,
+          `Current combat snapshot: Party: ${partySnapshot}. Enemies: ${enemySnapshot}.`,
+        ].join("\n"),
+      );
+    },
+    [combatEnemies, combatParty, isStreaming, sendMessage, sessionInteractive],
+  );
   const gameId = (chatMeta.gameId as string) || null;
   const sessionSummaries = (chatMeta.gamePreviousSessionSummaries as SessionSummary[]) || [];
   const displaySessionNumber =
@@ -4528,8 +5074,14 @@ export function GameSurface({
   );
 
   const handleRollDice = useCallback(
-    (notation: string) => {
-      rollDice.mutate({ chatId: activeChatId, notation });
+    async (notation: string): Promise<DiceRollResult | null> => {
+      try {
+        const response = await rollDice.mutateAsync({ chatId: activeChatId, notation });
+        return response.result;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to roll dice.");
+        return null;
+      }
     },
     [activeChatId, rollDice],
   );
@@ -4679,6 +5231,12 @@ export function GameSurface({
   useEffect(() => {
     setPendingMapMove(null);
     setViewedMapId(null);
+    setCombatStartMessageId(null);
+    setQueuedCombatGeneration(null);
+    setCombatGenerationPending(false);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
   }, [activeChatId]);
 
   useEffect(() => {
@@ -4764,8 +5322,8 @@ export function GameSurface({
     (action: string, timeRemaining: number) => {
       if (!sessionInteractive) return;
       setActiveQte(null);
-      const bonus = Math.ceil(timeRemaining);
-      sendMessage(`*${action}* [qte_bonus: ${bonus}]`);
+      const bonus = Math.min(5, Math.ceil(timeRemaining));
+      sendMessage(`*${action}* [qte_result: status="success" modifier="+${bonus}"]`);
     },
     [sendMessage, sessionInteractive],
   );
@@ -4773,7 +5331,7 @@ export function GameSurface({
   const handleQteTimeout = useCallback(() => {
     if (!sessionInteractive) return;
     setActiveQte(null);
-    sendMessage("*hesitates too long* [qte_bonus: 0]");
+    sendMessage('*hesitates too long* [qte_result: status="fail" modifier="-5"]');
   }, [sendMessage, sessionInteractive]);
 
   const handleReturnToPreCombatTurn = useCallback(() => {
@@ -4787,8 +5345,15 @@ export function GameSurface({
     setCombatEnemies(null);
     setPendingEncounter(null);
     setQueuedEncounter(null);
+    setQueuedCombatGeneration(null);
+    setCombatGenerationPending(false);
+    setCombatItemEffects([]);
+    setCombatMechanics([]);
+    setCombatDialogueCues([]);
     setQueuedCombatStatuses(null);
+    setCombatStartMessageId(null);
     appliedCombatStatusMessageIdsRef.current.clear();
+    appliedCombatElementMessageIdsRef.current.clear();
     useGameModeStore.getState().setGameState("exploration");
     if (activeChatId) {
       transitionGameState.mutate({ chatId: activeChatId, newState: "exploration" });
@@ -4796,13 +5361,25 @@ export function GameSurface({
     onDeleteMessage(latestAssistantMsg.id);
   }, [activeChatId, latestAssistantMsg?.id, onDeleteMessage, transitionGameState]);
 
+  const handleCombatantsChange = useCallback((nextParty: Combatant[], nextEnemies: Combatant[]) => {
+    setCombatParty(nextParty);
+    setCombatEnemies(nextEnemies);
+  }, []);
+
   // Combat end handler — clear combat state and notify GM
   const handleCombatEnd = useCallback(
     (outcome: "victory" | "defeat" | "flee", summary: CombatSummary) => {
       setCombatParty(null);
       setCombatEnemies(null);
+      setQueuedCombatGeneration(null);
+      setCombatGenerationPending(false);
+      setCombatItemEffects([]);
+      setCombatMechanics([]);
+      setCombatDialogueCues([]);
       setQueuedCombatStatuses(null);
+      setCombatStartMessageId(null);
       appliedCombatStatusMessageIdsRef.current.clear();
+      appliedCombatElementMessageIdsRef.current.clear();
 
       // Flip the server-side + local game state back to exploration immediately.
       // (The [state: exploration] tag in the user message below is a hint for the GM's
@@ -4840,6 +5417,10 @@ export function GameSurface({
       }
       recapLines.push(`Party: ${partyStatus.join("; ")}`);
       if (lootText) recapLines.push(`Loot: ${lootText}`);
+      else
+        recapLines.push(
+          'Rewards: If a reward is narratively appropriate, decide it now and add it with [inventory: action="add" item="..."].',
+        );
 
       const recap = recapLines.join("\n");
       let prefix: string;
@@ -4856,7 +5437,7 @@ export function GameSurface({
 
       // Journal: record combat outcome. The server's addCombatEntry only persists
       // (description, outcome) into JournalEntry.content, so fold the structured recap
-      // into the description itself to preserve rounds / party / loot for players.
+      // into the description itself to preserve rounds / party status for players.
       const journalDescLines: string[] = [];
       if (outcome === "victory") journalDescLines.push(`Victory (${roundsPhrase})`);
       else if (outcome === "defeat") journalDescLines.push(`The party was defeated (${roundsPhrase})`);
@@ -4955,10 +5536,7 @@ export function GameSurface({
     const tags = parseGmTags(latestAssistantMsg.content);
     const assets = assetManifest?.assets ?? null;
     const assetKeys = Object.keys(assets ?? {});
-    const bgTags = sampleTags(
-      assetKeys.filter((k) => k.startsWith("backgrounds:")),
-      50,
-    );
+    const bgTags = sampleTags(getSceneBackgroundTags(assetKeys), 50);
     const sfxTags = sampleTags(
       assetKeys.filter((k) => k.startsWith("sfx:")),
       50,
@@ -4980,6 +5558,7 @@ export function GameSurface({
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? null,
+      canGenerateBackgrounds: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
       canGenerateIllustrations: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
       artStylePrompt: (setupConfig?.artStylePrompt as string | undefined) ?? null,
     };
@@ -5427,7 +6006,7 @@ export function GameSurface({
                   >
                     <History size={14} />
                   </button>
-                  {sessionStatus === "active" ? (
+                  {sessionStatus !== "concluded" ? (
                     <button
                       onClick={handleRequestEndSession}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/80 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
@@ -5577,7 +6156,7 @@ export function GameSurface({
                         >
                           <History size={14} />
                         </button>
-                        {sessionStatus === "active" ? (
+                        {sessionStatus !== "concluded" ? (
                           <button
                             onClick={() => {
                               handleRequestEndSession();
@@ -5716,8 +6295,6 @@ export function GameSurface({
                 </div>
               </div>
 
-              {/* Dice roll result overlay */}
-              {diceRollResult && <GameDiceResult result={diceRollResult} onDismiss={handleDismissDice} />}
               {pendingReaction && (
                 <GameElementReaction reaction={pendingReaction} onDismiss={() => setPendingReaction(null)} />
               )}
@@ -5899,6 +6476,10 @@ export function GameSurface({
                     <GameSkillCheckResult result={pendingSkillCheck} onDismiss={() => setPendingSkillCheck(null)} />
                   ) : undefined;
 
+                  const diceResultSlot = diceRollResult ? (
+                    <GameDiceResult result={diceRollResult} onDismiss={handleDismissDice} />
+                  ) : undefined;
+
                   if (combatUiActive) {
                     const combatControlsSlot = (
                       <>
@@ -5933,9 +6514,18 @@ export function GameSurface({
                           inventoryItems={inventoryItems}
                           onCombatEnd={handleCombatEnd}
                           onInventoryItemUsed={handleUseCombatInventoryItem}
+                          onCombatantsChange={handleCombatantsChange}
                           onOpenInventory={() => setInventoryOpen(true)}
+                          onCustomInstruction={handleCombatCustomInstruction}
                           onSpriteSuggestionChange={setCombatSpriteSuggestion}
+                          _isStreaming={isStreaming}
                           narration="Combat starts!"
+                          combatDialogue={combatDialogueLines}
+                          combatDialogueCues={combatDialogueCues}
+                          combatItemEffects={combatItemEffects}
+                          combatMechanics={combatMechanics}
+                          voicedCombatSpeakerNames={voicedCombatSpeakerNames}
+                          gameVoiceVolume={effectiveGameVoiceVolume}
                           combatControlsSlot={combatControlsSlot}
                         />
                       </div>
@@ -5975,6 +6565,7 @@ export function GameSurface({
                           directionsActive={directionsPlaying}
                           widgetSlot={mobileWidgetSlot}
                           choicesSlot={choicesSlot}
+                          diceResultSlot={diceResultSlot}
                           skillCheckSlot={skillCheckSlot}
                           onOpenInventory={() => setInventoryOpen(true)}
                           inventoryCount={inventoryItems.length}
@@ -5988,6 +6579,11 @@ export function GameSurface({
                           onInterruptCancel={handleInterruptCancel}
                           interruptPending={interruptPending}
                           interruptCommitted={interruptCommitted}
+                          messageOffset={messageOffset}
+                          onStepForward={handleStepForward}
+                          onJumpToLatest={handleReturnToLatest}
+                          nextActionToken={nextActionToken}
+                          onMaxNavOffsetChange={handleMaxNavOffsetChange}
                           inputSlot={
                             <GameInput
                               onSend={handleSendGameTurn}
@@ -6039,6 +6635,7 @@ export function GameSurface({
                       directionsActive={directionsPlaying}
                       widgetSlot={mobileWidgetSlot}
                       choicesSlot={choicesSlot}
+                      diceResultSlot={diceResultSlot}
                       skillCheckSlot={skillCheckSlot}
                       onOpenInventory={() => setInventoryOpen(true)}
                       inventoryCount={inventoryItems.length}
@@ -6052,6 +6649,11 @@ export function GameSurface({
                       onInterruptCancel={handleInterruptCancel}
                       interruptPending={interruptPending}
                       interruptCommitted={interruptCommitted}
+                      messageOffset={messageOffset}
+                      onStepForward={handleStepForward}
+                      onJumpToLatest={handleReturnToLatest}
+                      nextActionToken={nextActionToken}
+                      onMaxNavOffsetChange={handleMaxNavOffsetChange}
                       inputSlot={
                         <GameInput
                           onSend={handleSendGameTurn}
@@ -6135,28 +6737,57 @@ export function GameSurface({
                           <X size={16} />
                         </button>
                       </div>
-                      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+                      <div
+                        className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
+                        ref={(el) => {
+                          if (el && !combatLogScrolledRef.current) {
+                            combatLogScrolledRef.current = true;
+                            requestAnimationFrame(() => {
+                              el.scrollTop = el.scrollHeight;
+                            });
+                          }
+                        }}
+                      >
                         {combatLogEntries.length === 0 ? (
                           <p className="text-sm text-[var(--muted-foreground)]">No logs yet.</p>
                         ) : (
-                          combatLogEntries.map((entry) => {
-                            const label =
-                              entry.role === "user"
-                                ? personaInfo?.name || "You"
-                                : entry.role === "assistant" || entry.role === "narrator"
-                                  ? "GM"
-                                  : "System";
-                            return (
-                              <div key={entry.id} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
-                                <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-white/45">
-                                  {label}
-                                </div>
-                                <div className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/80">
-                                  {entry.content}
-                                </div>
+                          <>
+                            {hiddenCombatLogCount > 0 && (
+                              <div className="flex justify-center pb-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    combatLogScrolledRef.current = true;
+                                    setCombatLogVisibleCount((current) =>
+                                      Math.min(combatLogEntries.length, current + combatLogPageSize),
+                                    );
+                                  }}
+                                  className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
+                                >
+                                  Show more older logs ({hiddenCombatLogCount})
+                                </button>
                               </div>
-                            );
-                          })
+                            )}
+                            {visibleCombatLogEntries.map((entry) => {
+                              const label =
+                                entry.role === "user"
+                                  ? personaInfo?.name || "You"
+                                  : entry.role === "assistant" || entry.role === "narrator"
+                                    ? "GM"
+                                    : "System";
+                              return (
+                                <div key={entry.id} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+                                  <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-white/45">
+                                    {label}
+                                  </div>
+                                  <div
+                                    className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/80"
+                                    dangerouslySetInnerHTML={{ __html: formatNarration(entry.content, false) }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </>
                         )}
                       </div>
                     </div>

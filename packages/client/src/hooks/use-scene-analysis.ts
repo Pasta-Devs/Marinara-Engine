@@ -29,6 +29,7 @@ interface AnalyzeSceneInput {
     currentAmbient: string | null;
     currentWeather: string | null;
     currentTimeOfDay: string | null;
+    canGenerateBackgrounds?: boolean;
     canGenerateIllustrations?: boolean;
     artStylePrompt?: string | null;
   };
@@ -76,6 +77,7 @@ async function analyzeScene(input: AnalyzeSceneInput): Promise<SceneAnalysis> {
       narration: input.narration,
       playerAction: input.playerAction,
       context: input.context,
+      debugMode,
     }),
   });
   if (!res.ok) {

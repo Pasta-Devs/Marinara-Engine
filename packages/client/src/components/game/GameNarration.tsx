@@ -108,6 +108,8 @@ interface NarrationSegment {
 type SpeakerAvatarInfo = {
   url: string;
   crop?: AvatarCrop | null;
+  nameColor?: string;
+  dialogueColor?: string;
 };
 
 type GameSegmentVoiceEntry =
@@ -129,6 +131,10 @@ type GameSideLine = PartyDialogueLine & {
 };
 
 const EMPTY_GAME_SIDE_LINES: GameSideLine[] = [];
+
+function isCombatResultMessage(message: NarrationMessage): boolean {
+  return message.role === "user" && /\[combat_result\]/i.test(message.content || "");
+}
 
 interface GameVoiceAudioJob {
   cacheKey: string;
@@ -196,6 +202,8 @@ interface GameNarrationProps {
   widgetSlot?: ReactNode;
   /** Slot rendered above the narration box for GM choice cards */
   choicesSlot?: ReactNode;
+  /** Slot rendered above the narration box for dice roll results */
+  diceResultSlot?: ReactNode;
   /** Slot rendered above the narration box for skill check results */
   skillCheckSlot?: ReactNode;
   /** Open the inventory panel */
@@ -251,6 +259,28 @@ interface GameNarrationProps {
    * modal is open this stays false so the input bar doesn't appear behind the modal.
    */
   interruptCommitted?: boolean;
+  /**
+   * Wheel-nav offset: 0 means show the latest assistant turn (default). >0 picks an
+   * older assistant message for review (1 = previous turn, 2 = the one before, …).
+   * While >0, narration is rendered instantly (no typewriter), auto-play is suppressed,
+   * and the Next button label switches to "Return".
+   */
+  messageOffset?: number;
+  /** Step ONE log entry forward (toward the present). Bound to Next / bg-click during review. */
+  onStepForward?: () => void;
+  /** Jump straight back to the present in one shot. Bound to the Return button during review. */
+  onJumpToLatest?: () => void;
+  /**
+   * Token bumped from the parent (background-click handler) when wheel-nav is enabled
+   * and the player clicks the bare scene background. GameNarration interprets it as
+   * a Next press at offset 0, or as a Return press at offset > 0.
+   */
+  nextActionToken?: number;
+  /**
+   * Reports the wheel-nav clamp to the parent — equal to the number of past log
+   * entries available to step into. When 0, wheel-up has no past to walk into.
+   */
+  onMaxNavOffsetChange?: (max: number) => void;
 }
 
 /** Regex matching explicit {effect:text} tags used by AnimatedText. */
@@ -341,6 +371,7 @@ function buildVoiceConfigSignature(config?: TTSConfig | null): string {
     JSON.stringify(config.npcDefaultFemaleVoices ?? []),
     config.speed,
     config.elevenLabsStability,
+    config.elevenLabsLanguageCode,
     config.dialogueOnly ? "dialogue" : "all-text",
     config.dialogueScope,
     config.dialogueCharacterName,
@@ -357,6 +388,7 @@ function buildVoiceLineTextCacheKey(
     config.model,
     config.speed,
     config.elevenLabsStability,
+    config.elevenLabsLanguageCode,
     job.voice ?? "",
     job.speaker ?? "",
     job.tone ?? "",
@@ -571,6 +603,7 @@ export function GameNarration({
   onNarrationComplete,
   widgetSlot,
   choicesSlot,
+  diceResultSlot,
   skillCheckSlot,
   onOpenInventory,
   inventoryCount,
@@ -589,11 +622,17 @@ export function GameNarration({
   onInterruptCancel,
   interruptPending,
   interruptCommitted,
+  messageOffset = 0,
+  onStepForward,
+  onJumpToLatest,
+  nextActionToken,
+  onMaxNavOffsetChange,
 }: GameNarrationProps) {
   const { translations, translating } = useTranslate();
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
+  const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const [editingContent, setEditingContent] = useState<string | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [editingLogSeg, setEditingLogSeg] = useState<{
@@ -643,11 +682,17 @@ export function GameNarration({
       const color = c.dialogueColor || c.nameColor;
       if (color) byName.set(c.name.toLowerCase(), color);
     }
+    if (speakerAvatarMap) {
+      for (const [name, info] of speakerAvatarMap) {
+        const color = info.dialogueColor || info.nameColor;
+        if (color) byName.set(name.toLowerCase(), color);
+      }
+    }
     if (personaInfo?.name && (personaInfo.dialogueColor || personaInfo.nameColor)) {
       byName.set(personaInfo.name.toLowerCase(), personaInfo.dialogueColor || personaInfo.nameColor || "");
     }
     return byName;
-  }, [activeCharacterEntries, personaInfo]);
+  }, [activeCharacterEntries, personaInfo, speakerAvatarMap]);
 
   /** Name-display colors (prefers nameColor which may be a gradient). */
   const speakerNameColors = useMemo(() => {
@@ -656,11 +701,17 @@ export function GameNarration({
       const color = c.nameColor || c.dialogueColor;
       if (color) byName.set(c.name.toLowerCase(), color);
     }
+    if (speakerAvatarMap) {
+      for (const [name, info] of speakerAvatarMap) {
+        const color = info.nameColor || info.dialogueColor;
+        if (color) byName.set(name.toLowerCase(), color);
+      }
+    }
     if (personaInfo?.name && (personaInfo.nameColor || personaInfo.dialogueColor)) {
       byName.set(personaInfo.name.toLowerCase(), personaInfo.nameColor || personaInfo.dialogueColor || "");
     }
     return byName;
-  }, [activeCharacterEntries, personaInfo]);
+  }, [activeCharacterEntries, personaInfo, speakerAvatarMap]);
 
   const gameNpcs = useGameModeStore((s) => s.npcs);
   const sourceMessagesById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
@@ -719,14 +770,74 @@ export function GameNarration({
   );
 
   const latestAssistant = useMemo(() => {
+    // Newest assistant/narrator turn (independent of wheel-nav offset). Used by the
+    // present-mode renderer (offset 0) and by everything keyed off "the GM's most
+    // recent turn" — segment edits, voice resolution, log builders, etc.
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]!;
-      if (msg.role === "assistant" || msg.role === "narrator") {
-        return msg;
-      }
+      if (msg.role === "assistant" || msg.role === "narrator") return msg;
     }
     return null;
   }, [messages]);
+
+  // Wheel-nav builds a flat chronological list of log entries — one per visible
+  // segment (parsed narration segments for assistant turns + a single player-dialogue
+  // line per user turn). Wheel-up steps backward through this list, matching the
+  // order the player sees in the Logs panel.
+  type FlatLogEntry =
+    | { kind: "assistant"; messageId: string; segmentIndex: number; segment: NarrationSegment; role: Message["role"] }
+    | { kind: "user"; messageId: string; segment: NarrationSegment };
+
+  const flatLogEntries = useMemo<FlatLogEntry[]>(() => {
+    const out: FlatLogEntry[] = [];
+    for (const msg of messages) {
+      if (msg.role === "system") continue;
+      if (msg.role === "user") {
+        if (!msg.content?.trim()) continue;
+        const playerName = personaInfo?.name || "You";
+        const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+        out.push({
+          kind: "user",
+          messageId: msg.id,
+          segment: {
+            id: `${msg.id}-player`,
+            type: "dialogue",
+            speaker: playerName,
+            content: msg.content,
+            color,
+            sourceMessageId: msg.id,
+            sourceSegmentIndex: 0,
+            sourceRole: "user",
+          },
+        });
+        continue;
+      }
+      if (msg.role !== "assistant" && msg.role !== "narrator") continue;
+      const segs = parseNarrationSegments(msg, speakerColors);
+      for (let si = 0; si < segs.length; si++) {
+        const seg = segs[si]!;
+        if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
+        if (seg.partyType === "side" || seg.partyType === "extra") continue;
+        out.push({ kind: "assistant", messageId: msg.id, segmentIndex: si, segment: seg, role: msg.role });
+      }
+    }
+    return out;
+  }, [messages, personaInfo, speakerColors, segmentDeletes]);
+
+  // Past-review entry the player is currently looking at. Each wheel-up bumps
+  // `messageOffset`; we step back that many entries from the most recent log entry.
+  const pastReviewEntry = useMemo<FlatLogEntry | null>(() => {
+    if (messageOffset <= 0) return null;
+    const idx = flatLogEntries.length - 1 - messageOffset;
+    if (idx < 0) return null;
+    return flatLogEntries[idx] ?? null;
+  }, [flatLogEntries, messageOffset]);
+
+  // Notify parent of the clamp it should enforce on wheel-up. Length-1 because the
+  // newest entry is "present" (offset 0) so it isn't reachable via wheel-up.
+  useEffect(() => {
+    onMaxNavOffsetChange?.(Math.max(0, flatLogEntries.length - 1));
+  }, [flatLogEntries.length, onMaxNavOffsetChange]);
 
   const partyChatInputMessageId = useMemo(() => {
     if (!partyChatMessageId || !partyChatInput) return null;
@@ -754,9 +865,14 @@ export function GameNarration({
       }
     }
     if (assistantIdx < 0) return null;
+    // While a hidden combat-result handoff is waiting for the GM continuation,
+    // keep showing the last GM narration rather than resurrecting the pre-combat
+    // player action as the active VN segment.
+    if (messages.slice(assistantIdx + 1).some(isCombatResultMessage)) return null;
     // Scan backwards from the assistant to find the preceding user message
     for (let i = assistantIdx - 1; i >= 0; i--) {
       const msg = messages[i]!;
+      if (isCombatResultMessage(msg)) continue;
       if (msg.role === "user") return msg;
       if (msg.role === "assistant" || msg.role === "narrator") break;
     }
@@ -793,6 +909,37 @@ export function GameNarration({
     const origIndices: number[] = [];
     const editInfos: Array<{ messageId: string; segmentIndex: number } | null> = [];
     const sourceMessageIds: Array<string | null> = [];
+
+    // Wheel-nav review mode: render exactly the ONE log entry the player is at.
+    // Each wheel-up steps back through the flat log (one per visible segment),
+    // matching the order shown in the Logs panel. Read-only — no edit overlays.
+    if (pastReviewEntry) {
+      if (pastReviewEntry.kind === "user") {
+        result.push(pastReviewEntry.segment);
+        origIndices.push(-1);
+        editInfos.push(null);
+        sourceMessageIds.push(pastReviewEntry.messageId);
+      } else {
+        result.push(
+          withSegmentSource(
+            pastReviewEntry.segment,
+            pastReviewEntry.messageId,
+            pastReviewEntry.segmentIndex,
+            pastReviewEntry.role,
+          ),
+        );
+        origIndices.push(pastReviewEntry.segmentIndex);
+        editInfos.push({ messageId: pastReviewEntry.messageId, segmentIndex: pastReviewEntry.segmentIndex });
+        sourceMessageIds.push(pastReviewEntry.messageId);
+      }
+      segmentOriginalIndices.current = origIndices;
+      segmentEditInfoRef.current = editInfos;
+      segmentSourceMessageIdsRef.current = sourceMessageIds;
+      partySegStartRef.current = -1;
+      partyLogBaseCutoffRef.current = [];
+      partyLogCutoffRef.current = [];
+      return result;
+    }
 
     // Prepend the user's action as a player dialogue segment when we're streaming or just got a response
     if (latestUserMessage?.content && latestAssistant) {
@@ -966,6 +1113,7 @@ export function GameNarration({
     return result;
   }, [
     latestAssistant,
+    pastReviewEntry,
     speakerColors,
     latestUserMessage,
     personaInfo,
@@ -1268,10 +1416,13 @@ export function GameNarration({
   const doneTyping = !!active && visibleChars >= activeDisplayLen;
   const narrationComplete = !isStreaming && segments.length > 0 && activeIndex === segments.length - 1 && doneTyping;
 
-  // Notify parent about narration completion state
+  // Notify parent about narration completion state. While reviewing the past via
+  // wheel-nav, the past message will look "complete" — but it's not the present, so
+  // suppress the notification to keep the parent's narrationDone state honest.
   useEffect(() => {
+    if (messageOffset > 0) return;
     onNarrationComplete?.(narrationComplete);
-  }, [narrationComplete, onNarrationComplete]);
+  }, [messageOffset, narrationComplete, onNarrationComplete]);
 
   // Build log entries from the LAST scene — includes party chat & player action.
   // Entries are stored chronologically (oldest first, newest last).
@@ -1512,6 +1663,24 @@ export function GameNarration({
     sourceMessagesById,
     doneTyping,
   ]);
+  const logPageSize = Math.max(1, messagesPerPage > 0 ? messagesPerPage : logEntries.length || 20);
+  const [visibleLogCount, setVisibleLogCount] = useState(logPageSize);
+  useEffect(() => {
+    if (!logsOpen) return;
+    setVisibleLogCount(logPageSize);
+    logScrolledRef.current = false;
+  }, [logPageSize, logsOpen]);
+  const visibleLogEntries = useMemo(
+    () => logEntries.slice(Math.max(0, logEntries.length - visibleLogCount)),
+    [logEntries, visibleLogCount],
+  );
+  const hiddenLogCount = Math.max(0, logEntries.length - visibleLogEntries.length);
+  const loadOlderLogs = useCallback(() => {
+    setVisibleLogCount((current) => Math.min(logEntries.length, current + logPageSize));
+  }, [logEntries.length, logPageSize]);
+  const showAllLogs = useCallback(() => {
+    setVisibleLogCount(logEntries.length);
+  }, [logEntries.length]);
 
   // Report active speaker to parent for sprite viewport
   // Guard against infinite re-render: skip callback if the resolved speaker hasn't changed,
@@ -1635,11 +1804,14 @@ export function GameNarration({
     setVisibleChars(effectDisplayLength(segments[restoredSegmentIndex]!.content));
   }, [segments.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persist segment index changes (skip until restore has settled or first message processed)
+  // Persist segment index changes (skip until restore has settled or first message processed).
+  // Suppress while reviewing the past via wheel-nav so the saved present-position isn't
+  // clobbered by the activeIndex jumps we make on offset transitions.
   useEffect(() => {
     if (!segmentChangeReady.current) return;
+    if (messageOffset > 0) return;
     onSegmentChange?.(activeIndex);
-  }, [activeIndex, onSegmentChange]);
+  }, [activeIndex, messageOffset, onSegmentChange]);
 
   // Notify parent when the active segment changes so segment-tied effects can fire
   useEffect(() => {
@@ -1981,7 +2153,14 @@ export function GameNarration({
     [editingLogSeg, onEditMessage, onEditSegment],
   );
 
-  const nextSegment = () => {
+  const nextSegment = useCallback(() => {
+    // While reviewing the past, Next / bg-click steps ONE log entry forward —
+    // symmetric with wheel-down. The player walks back to the present a step
+    // at a time instead of jumping all the way home.
+    if (messageOffset > 0) {
+      onStepForward?.();
+      return;
+    }
     if (!active) return;
     if (!doneTyping) {
       twRef.current.pos = activeDisplayLen; // sync so interval stops
@@ -1995,7 +2174,71 @@ export function GameNarration({
       setVisibleChars(getSegmentStartVisibleChars(nextIndex));
       playClickSfx();
     }
-  };
+  }, [
+    active,
+    activeDisplayLen,
+    activeIndex,
+    doneTyping,
+    getSegmentStartVisibleChars,
+    messageOffset,
+    onStepForward,
+    playClickSfx,
+    segments.length,
+  ]);
+
+  // Background-click forwarding: parent bumps `nextActionToken` whenever the
+  // player clicks the bare scene background (with wheel-nav enabled). We treat
+  // it as a programmatic press of the Next button.
+  const lastNextActionTokenRef = useRef(0);
+  useEffect(() => {
+    if (!nextActionToken) return;
+    if (lastNextActionTokenRef.current === nextActionToken) return;
+    lastNextActionTokenRef.current = nextActionToken;
+    nextSegment();
+  }, [nextActionToken, nextSegment]);
+
+  // Wheel-nav offset transitions:
+  //   • 0 → >0: save where the player was reading so Return can land them back there.
+  //              Snap auto-play off and jump activeIndex to the last segment of the
+  //              past turn (the "ending" of that turn) with visibleChars filled in.
+  //   • >0 → >0 (different): re-snap to last segment of the newly-shown past turn.
+  //   • >0 → 0: restore the saved activeIndex/visibleChars in the latest turn.
+  const prevMessageOffsetRef = useRef(0);
+  const savedPresentSegmentRef = useRef<{ index: number; visibleChars: number } | null>(null);
+  useEffect(() => {
+    const prev = prevMessageOffsetRef.current;
+    const next = messageOffset;
+    prevMessageOffsetRef.current = next;
+    if (prev === next) return;
+
+    if (prev === 0 && next > 0) {
+      savedPresentSegmentRef.current = { index: activeIndex, visibleChars };
+      setAutoPlay(false);
+    }
+
+    if (next > 0) {
+      const lastIdx = Math.max(0, segments.length - 1);
+      setActiveIndex(lastIdx);
+      const seg = segments[lastIdx];
+      const dispLen = seg ? effectDisplayLength(seg.content) : 0;
+      setVisibleChars(dispLen);
+      twRef.current.pos = dispLen;
+      return;
+    }
+
+    if (prev > 0 && next === 0) {
+      const saved = savedPresentSegmentRef.current;
+      savedPresentSegmentRef.current = null;
+      if (saved && saved.index < segments.length) {
+        setActiveIndex(saved.index);
+        setVisibleChars(saved.visibleChars);
+        twRef.current.pos = saved.visibleChars;
+      }
+    }
+    // Intentionally only react to messageOffset changes — segments/activeIndex
+    // are read at transition time and we don't want to re-fire on each segment tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messageOffset]);
 
   // Auto-advance to the next segment after a delay when auto-play is on
   useEffect(() => {
@@ -2123,25 +2366,29 @@ export function GameNarration({
   // The red Interrupt button swaps to a yellow Resume button only AFTER the player
   // confirms in the modal (interruptCommitted). While the modal is still open we keep
   // the red button visible so it doesn't look like the interrupt already happened.
-  const showInterruptControls = !narrationComplete && !partyTurnPending && !!onInterruptRequest;
-  const showNav = !narrationComplete && !isStreaming && !interruptPending;
+  // While reviewing the past (messageOffset > 0), interrupt controls are hidden and
+  // the Next button is forced visible so the player can see and press "Return".
+  const reviewingPast = messageOffset > 0;
+  const showInterruptControls = !reviewingPast && !narrationComplete && !partyTurnPending && !!onInterruptRequest;
+  const showNav = reviewingPast || (!narrationComplete && !isStreaming && !interruptPending);
   const navControls =
     !showInterruptControls && !showNav ? null : (
       <div className="flex items-stretch gap-1">
         {showInterruptControls && !interruptCommitted && (
           <button
             onClick={handleInterrupt}
-            className={cn(NARRATION_ICON_META_BTN, "text-red-300 hover:text-red-200 dark:text-red-300")}
+            className="flex items-center gap-1 self-stretch rounded-lg border border-red-500/40 bg-red-500/15 px-2 text-xs font-semibold text-red-200 transition-colors hover:bg-red-500/25 hover:text-red-50 sm:px-2.5 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-200 dark:hover:bg-red-500/25"
             title="Pause the GM so you can write back. Nothing is committed until you send."
             aria-label="Interrupt"
           >
-            <Square size={11} className="text-white" fill="currentColor" />
+            <Square size={11} fill="currentColor" />
+            <span className="hidden sm:inline">Interrupt!</span>
           </button>
         )}
         {showInterruptControls && interruptCommitted && (
           <button
             onClick={handleResume}
-            className={cn(NARRATION_META_BTN, "font-semibold text-amber-200 hover:text-amber-100 dark:text-amber-200")}
+            className="flex items-center gap-1 self-stretch rounded-lg border border-amber-400/40 bg-amber-400/15 px-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 hover:text-amber-50 sm:px-2.5 dark:border-amber-400/40 dark:bg-amber-400/15 dark:text-amber-100 dark:hover:bg-amber-400/25"
             title="Resume narration — your interrupt has not been committed."
             aria-label="Resume"
           >
@@ -2151,18 +2398,31 @@ export function GameNarration({
         )}
         {showNav && (
           <>
-            <button
-              onClick={() => setAutoPlay((v) => !v)}
-              className={cn(
-                "flex items-center justify-center self-stretch rounded-lg border px-2 text-xs transition-colors",
-                autoPlay
-                  ? "border-[var(--primary)]/40 bg-[var(--primary)]/20 text-[var(--primary)]"
-                  : "border-[var(--border)] bg-[var(--muted)]/20 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10",
-              )}
-              title={autoPlay ? "Pause auto-play" : "Auto-play segments"}
-            >
-              {autoPlay ? <Pause size={12} /> : <Play size={12} />}
-            </button>
+            {!reviewingPast && (
+              <button
+                onClick={() => setAutoPlay((v) => !v)}
+                className={cn(
+                  "flex items-center justify-center self-stretch rounded-lg border px-2 text-xs transition-colors",
+                  autoPlay
+                    ? "border-[var(--primary)]/40 bg-[var(--primary)]/20 text-[var(--primary)]"
+                    : "border-[var(--border)] bg-[var(--muted)]/20 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10",
+                )}
+                title={autoPlay ? "Pause auto-play" : "Auto-play segments"}
+              >
+                {autoPlay ? <Pause size={12} /> : <Play size={12} />}
+              </button>
+            )}
+            {reviewingPast && onJumpToLatest && (
+              <button
+                onClick={onJumpToLatest}
+                className="flex items-center gap-1 self-stretch rounded-lg border border-amber-400/40 bg-amber-400/15 px-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 hover:text-amber-50 sm:px-2.5 dark:border-amber-400/40 dark:bg-amber-400/15 dark:text-amber-100 dark:hover:bg-amber-400/25"
+                title="Jump back to the present"
+                aria-label="Return to present"
+              >
+                <span className="hidden sm:inline">Return</span>
+                <span className="sm:hidden">⤴</span>
+              </button>
+            )}
             <button
               onClick={nextSegment}
               className="flex items-center justify-center self-stretch rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 text-xs font-semibold text-[var(--foreground)]/75 transition-colors hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
@@ -2215,6 +2475,9 @@ export function GameNarration({
 
         {/* Skill check result — shown above the narration box until dismissed */}
         {skillCheckSlot}
+
+        {/* Dice roll result — shown closest to the narration box until dismissed */}
+        {diceResultSlot}
 
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 backdrop-blur-md shadow-[0_16px_38px_rgba(0,0,0,0.45)] dark:border-white/15 dark:bg-black/50">
           {/* Scene preparation gate: wait for effects before showing narration */}
@@ -2609,8 +2872,11 @@ export function GameNarration({
           {/* Inline input — appears inside the narration box once all segments are read,
               or after the player has CONFIRMED an interrupt (not just opened the modal).
               Gating on `interruptCommitted` (not `interruptPending`) keeps the input bar
-              from showing in the background while the confirmation modal is still open. */}
+              from showing in the background while the confirmation modal is still open.
+              While reviewing the past via wheel-nav, the input is hidden — the player is
+              looking at history, not typing. */}
           {!scenePreparing &&
+            !reviewingPast &&
             (narrationComplete || interruptCommitted) &&
             !isStreaming &&
             !partyTurnPending &&
@@ -2647,6 +2913,9 @@ export function GameNarration({
       {logsOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          data-game-skip-bg-nav="true"
+          role="dialog"
+          aria-modal="true"
           onClick={() => {
             setLogsOpen(false);
             setEditingLogSeg(null);
@@ -2657,21 +2926,54 @@ export function GameNarration({
             className="relative mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl border border-white/15 bg-[var(--card)] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h3 className="text-sm font-semibold text-white">Session Logs</h3>
-              <button
-                onClick={() => {
-                  setLogsOpen(false);
-                  setEditingLogSeg(null);
-                  logScrolledRef.current = false;
-                }}
-                className="rounded-lg p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <X size={16} />
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-white">Session Logs</h3>
+                {logEntries.length > 0 && (
+                  <p className="text-[0.65rem] text-white/45">
+                    Showing {visibleLogEntries.length} of {logEntries.length}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {hiddenLogCount > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={loadOlderLogs}
+                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
+                      title="Load older logs"
+                    >
+                      Older ({hiddenLogCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={showAllLogs}
+                      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.65rem] font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"
+                      title="Load the entire session log"
+                    >
+                      All
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => {
+                    setLogsOpen(false);
+                    setEditingLogSeg(null);
+                    logScrolledRef.current = false;
+                  }}
+                  className="rounded-lg p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
             <div
               className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
+              onScroll={(e) => {
+                if (hiddenLogCount <= 0) return;
+                if (e.currentTarget.scrollTop <= 8) loadOlderLogs();
+              }}
               ref={(el) => {
                 // Auto-scroll to bottom once so the user sees the most recent logs
                 if (el && !logScrolledRef.current) {
@@ -2685,7 +2987,21 @@ export function GameNarration({
               {logEntries.length === 0 && (
                 <p className="text-sm text-[var(--muted-foreground)]">No previous logs yet.</p>
               )}
-              {logEntries.map((entry) => {
+              {hiddenLogCount > 0 && (
+                <div className="flex justify-center pb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logScrolledRef.current = true;
+                      loadOlderLogs();
+                    }}
+                    className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    Show more older logs ({hiddenLogCount})
+                  </button>
+                </div>
+              )}
+              {visibleLogEntries.map((entry) => {
                 const sourceMessage = sourceMessagesById.get(entry.messageId) ?? null;
                 const translatedEntryText = sourceMessage ? translations[entry.messageId] : undefined;
                 const entryIsTranslating = sourceMessage ? !!translating[entry.messageId] : false;
@@ -3773,19 +4089,163 @@ function splitInlineDialogue(
   return result;
 }
 
-function formatNarration(content: string, boldDialogue = true): string {
+function commandBadge(className: string, label: string, detail?: string): string {
+  return `<span class="inline-flex max-w-full flex-wrap items-center gap-1 rounded px-1.5 py-0.5 text-xs ${className}">${label}${
+    detail ? ` <span class="opacity-75">${detail}</span>` : ""
+  }</span>`;
+}
+
+function parseCommandAttributes(source: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  const attrRe = /(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^,\s]+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = attrRe.exec(source)) !== null) {
+    attrs[match[1]!] = match[2] ?? match[3] ?? match[4] ?? "";
+  }
+  return attrs;
+}
+
+function formatSignedNumber(value: string): string {
+  const numeric = Number(value.trim());
+  if (!Number.isFinite(numeric)) return value.trim();
+  return numeric > 0 ? `+${numeric}` : String(numeric);
+}
+
+export function formatNarration(content: string, boldDialogue = true): string {
   let html = content
+    .replace(/\[combat_result]\s*([\s\S]*?)\s*\[\/combat_result]/gi, (_match, recap: string) => {
+      const cleaned = recap.trim();
+      return `${commandBadge("bg-red-500/15 text-red-200 ring-1 ring-red-400/20", "⚔ Combat Result")}${
+        cleaned ? `\n${cleaned}` : ""
+      }`;
+    })
+    .replace(
+      /\[dice:\s*((?:\d+)?d\d+(?:[+-]\d+)?)\s*=\s*(-?\d+)(?:\s*\([^\]]+\))?\]/gi,
+      (_match, notation: string, total: string) =>
+        commandBadge("bg-white/10 text-white/60 font-mono", "🎲", `${notation} → ${total}`),
+    )
+    .replace(/\[qte_bonus:\s*(-?\d+)\]/gi, (_match, bonus: string) =>
+      commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE Bonus", formatSignedNumber(bonus)),
+    )
+    .replace(/\[qte_result:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      const status = attrs.status === "fail" ? "Fail" : attrs.status === "success" ? "Success" : "Result";
+      const modifier = attrs.modifier ? formatSignedNumber(attrs.modifier) : "";
+      return commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", `⏱ QTE ${status}`, modifier);
+    })
+    .replace(/\[skill_check:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      const skill = attrs.skill || "Skill";
+      const dc = attrs.dc ? `DC ${attrs.dc}` : "";
+      const total = attrs.total ? `total ${attrs.total}` : "";
+      const result = attrs.result ? attrs.result.replace(/_/g, " ") : "";
+      return commandBadge(
+        "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20",
+        "🎯 Skill Check",
+        [skill, dc, total, result].filter(Boolean).join(" · "),
+      );
+    })
+    .replace(/\[combat:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-red-500/15 text-red-200 ring-1 ring-red-400/20",
+        "⚔ Combat",
+        attrs.enemies || rawAttrs.trim(),
+      );
+    })
+    .replace(/\[status:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      const modifier = attrs.modifier ? `${attrs.stat || "modifier"} ${formatSignedNumber(attrs.modifier)}` : "";
+      const turns = attrs.turns || attrs.duration ? `${attrs.turns || attrs.duration} turns` : "";
+      return commandBadge(
+        "bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/20",
+        "✦ Status",
+        [attrs.effect || attrs.name || "Effect", attrs.target ? `on ${attrs.target}` : "", turns, modifier]
+          .filter(Boolean)
+          .join(" · "),
+      );
+    })
+    .replace(/\[element_attack:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-orange-500/15 text-orange-200 ring-1 ring-orange-400/20",
+        "✦ Element",
+        [attrs.element, attrs.target ? `on ${attrs.target}` : ""].filter(Boolean).join(" · ") || rawAttrs.trim(),
+      );
+    })
+    .replace(/\[qte:\s*([^\]]+)\]/gi, (_match, body: string) =>
+      commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE", body.trim()),
+    )
+    .replace(/\[choices:\s*([^\]]+)\]/gi, (_match, body: string) =>
+      commandBadge("bg-indigo-500/15 text-indigo-200 ring-1 ring-indigo-400/20", "☑ Choices", body.trim()),
+    )
+    .replace(/\[inventory:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-lime-500/15 text-lime-200 ring-1 ring-lime-400/20",
+        "🎒 Inventory",
+        [attrs.action, attrs.item].filter(Boolean).join(": "),
+      );
+    })
+    .replace(/\[map_update:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/20",
+        "🗺 Map",
+        attrs.new_location || rawAttrs.trim(),
+      );
+    })
+    .replace(/\[reputation:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-400/20",
+        "◆ Reputation",
+        [attrs.npc, attrs.action].filter(Boolean).join(": "),
+      );
+    })
+    .replace(/\[party_change:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/20",
+        "👥 Party",
+        [attrs.change, attrs.character].filter(Boolean).join(": "),
+      );
+    })
+    .replace(/\[party_add:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/20",
+        "👥 Party",
+        attrs.character || rawAttrs.trim(),
+      );
+    })
+    .replace(/\[session_end:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge("bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20", "🏁 Session End", attrs.reason);
+    })
+    .replace(/\[(music|sfx|bg|ambient):\s*([^\]]+)\]/gi, (_match, kind: string, body: string) =>
+      commandBadge("bg-slate-500/15 text-slate-200 ring-1 ring-slate-400/20", kind.toUpperCase(), body.trim()),
+    )
+    .replace(/\[direction:\s*([^\]]+)\]/gi, (_match, body: string) =>
+      commandBadge("bg-zinc-500/15 text-zinc-200 ring-1 ring-zinc-400/20", "Direction", body.trim()),
+    )
+    .replace(/\[widget:\s*([^\]]+)\]/gi, (_match, body: string) =>
+      commandBadge("bg-teal-500/15 text-teal-200 ring-1 ring-teal-400/20", "Widget", body.trim()),
+    )
+    .replace(/\[dialogue:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
+      const attrs = parseCommandAttributes(rawAttrs);
+      return commandBadge(
+        "bg-blue-500/15 text-blue-200 ring-1 ring-blue-400/20",
+        "Dialogue",
+        attrs.npc || rawAttrs.trim(),
+      );
+    })
+    .replace(/\[state:\s*(\w+)\]/gi, (_match, state: string) =>
+      commandBadge("bg-sky-500/20 text-sky-300", "⚡ State", state),
+    )
     .replace(/\*\*(.+?)\*\*/gs, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/gs, "<em>$1</em>")
-    .replace(/\n/g, "<br />")
-    .replace(
-      /\[dice:(\d+d\d+[+-]?\d*)\s*=\s*(\d+)\]/g,
-      '<span class="inline-flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-xs text-white/60 font-mono">🎲 $1 → $2</span>',
-    )
-    .replace(
-      /\[state:\s*(\w+)\]/g,
-      '<span class="inline-flex items-center gap-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-xs text-sky-300">⚡ $1</span>',
-    );
+    .replace(/\n/g, "<br />");
 
   if (boldDialogue) {
     const narrationQuoteRe = new RegExp(`(?<![=\\w])(?:${HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE})`, "g");

@@ -4,8 +4,8 @@
 // (with persona group support)
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder } from "lucide-react";
-import { useConnections } from "../../hooks/use-connections";
+import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Check } from "lucide-react";
+import { useConnections, useUpdateConnection } from "../../hooks/use-connections";
 import { usePersonas, usePersonaGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
@@ -44,11 +44,15 @@ export function QuickSwitcherMobile() {
   const { data: rawPersonaGroups } = usePersonaGroups();
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
+  const updateConnection = useUpdateConnection();
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
   const activePersonaId = (chat as unknown as Record<string, unknown>)?.personaId as string | null;
+  const isRandom = activeConnectionId === "random";
 
-  const sortedConnections = ((connections ?? []) as Array<{ id: string; name: string }>)
+  const sortedConnections = (
+    (connections ?? []) as Array<{ id: string; name: string; useForRandom?: string }>
+  )
     .slice()
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
@@ -111,6 +115,18 @@ export function QuickSwitcherMobile() {
       setOpen(false);
     },
     [activeChatId, updateChat],
+  );
+
+  const handleToggleRandom = useCallback(() => {
+    if (!activeChatId) return;
+    updateChat.mutate({ id: activeChatId, connectionId: isRandom ? null : "random" });
+  }, [activeChatId, isRandom, updateChat]);
+
+  const handleTogglePool = useCallback(
+    (connId: string, inPool: boolean) => {
+      updateConnection.mutate({ id: connId, useForRandom: !inPool });
+    },
+    [updateConnection],
   );
 
   const handleSwitchPersona = useCallback(
@@ -256,29 +272,58 @@ export function QuickSwitcherMobile() {
             {tab === "connections" && (
               <>
                 <button
-                  onClick={() => handleSwitchConnection("random")}
+                  onClick={handleToggleRandom}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
-                    activeConnectionId === "random" && "text-foreground font-semibold",
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors",
+                    isRandom
+                      ? "bg-amber-400/15 text-amber-400 font-semibold ring-1 ring-amber-400/40"
+                      : "hover:bg-[var(--accent)]",
                   )}
+                  title={isRandom ? "Random pool active — click to disable" : "Use random connection from pool"}
                 >
                   <span>🎲 Random</span>
-                  {activeConnectionId === "random" && <span className="ml-auto text-[0.6875rem]">✓</span>}
+                  {isRandom && <span className="ml-auto text-[0.6875rem]">active</span>}
                 </button>
                 <div className="mx-2 my-1 h-px bg-[var(--border)]" />
-                {sortedConnections.map((conn) => (
-                  <button
-                    key={conn.id}
-                    onClick={() => handleSwitchConnection(conn.id)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
-                      activeConnectionId === conn.id && "text-foreground font-semibold",
-                    )}
-                  >
-                    <span>{conn.name || conn.id}</span>
-                    {activeConnectionId === conn.id && <span className="ml-auto text-[0.6875rem]">✓</span>}
-                  </button>
-                ))}
+                {sortedConnections.map((conn) => {
+                  const inPool = conn.useForRandom === "true";
+                  const isActive = activeConnectionId === conn.id;
+                  if (isRandom) {
+                    return (
+                      <button
+                        key={conn.id}
+                        onClick={() => handleTogglePool(conn.id, inPool)}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
+                        title={inPool ? "In random pool — click to remove" : "Click to add to random pool"}
+                      >
+                        <span className="flex-1 truncate">{conn.name || conn.id}</span>
+                        <span
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                            inPool
+                              ? "border-amber-400/60 bg-amber-400/20 text-amber-400"
+                              : "border-[var(--border)] bg-transparent",
+                          )}
+                        >
+                          {inPool && <Check size="0.625rem" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      key={conn.id}
+                      onClick={() => handleSwitchConnection(conn.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
+                        isActive && "text-foreground font-semibold",
+                      )}
+                    >
+                      <span className="flex-1 truncate">{conn.name || conn.id}</span>
+                      {isActive && <span className="text-[0.6875rem]">✓</span>}
+                    </button>
+                  );
+                })}
                 {sortedConnections.length === 0 && (
                   <div className="px-3 py-4 text-center text-[0.6875rem] italic text-[var(--muted-foreground)]">
                     No connections found.

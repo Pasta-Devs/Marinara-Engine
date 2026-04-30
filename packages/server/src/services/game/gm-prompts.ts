@@ -5,11 +5,6 @@
 import type { GameActiveState, GameMap, GameNpc, SessionSummary, HudWidget } from "@marinara-engine/shared";
 import type { CharacterSpriteInfo } from "./sprite.service.js";
 
-export interface GameReadablePromptEntry {
-  title: string;
-  content: string;
-}
-
 export interface GmPromptContext {
   gameActiveState: GameActiveState;
   storyArc: string | null;
@@ -39,10 +34,6 @@ export interface GmPromptContext {
   combatResults?: string;
   /** Server-computed loot drops to narrate */
   lootResults?: string;
-  /** Journal recap string */
-  journalRecap?: string;
-  /** Previously surfaced readable documents (notes/books) */
-  readables?: GameReadablePromptEntry[];
   /** Player's personal notes (shared with GM) */
   playerNotes?: string;
   /** Active HUD widgets the model designed (so it can update them) */
@@ -253,15 +244,6 @@ function buildWidgetSummaryLines(widgets: HudWidget[]): string[] {
   });
 }
 
-function buildReadableSummaryLines(readables: GameReadablePromptEntry[]): string[] {
-  return readables.map((readable, index) => {
-    const title = readable.title.trim() || `Readable ${index + 1}`;
-    const content = readable.content.replace(/\s+/g, " ").trim();
-    const excerpt = content.length > 280 ? `${content.slice(0, 280)}...` : content;
-    return `${index + 1}. ${title}: ${excerpt}`;
-  });
-}
-
 /** Build the GM system prompt. Injects full game context (story arc, plot twists, map, etc.). */
 export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   const sections: string[] = [];
@@ -271,14 +253,14 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   if (ctx.gmCharacterCard) {
     sections.push(
       `<gm_role>`,
-      `You are the following character, acting as a Game Master for this RPG/VN game. Adopt their personality, speech patterns, biases, and quirks, and shape the narrative through their subjective lenses, allowing them to break the fourth wall between the GM and the party:`,
+      `You are the following character, acting as an excellent Game Master for this RPG/VN game. Adopt their personality, speech patterns, biases, and quirks, and shape the narrative through their subjective lenses, allowing them to break the fourth wall between the GM and the party:`,
       ctx.gmCharacterCard,
       `</gm_role>`,
     );
   } else {
     sections.push(
       `<gm_role>`,
-      `You are the Game Master for this RPG/VN game. You are fair but challenging (and a little snarky). Furthermore, you bring the world to life with vivid descriptions, memorable NPCs, and engaging encounters. You have personality: you crack jokes, build tension, celebrate epic moments, and mourn losses.`,
+      `You are an excellent Game Master for this RPG/VN game. You are fair but challenging (and a little snarky). Furthermore, you bring the world to life with vivid descriptions, memorable NPCs, and engaging encounters. You have personality: you crack jokes, build tension, celebrate epic moments, and mourn losses.`,
       `</gm_role>`,
     );
   }
@@ -295,17 +277,17 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
   sections.push(
     `<gm_rules>`,
     `You are running a ${ctx.genre} RPG in a ${ctx.setting} setting. Tone: ${ctx.tone}. Difficulty: ${ctx.difficulty}.`,
-    `- Drive the plot, world motion, and consequences. Introduce stakes, dangers, conflicts, consequences, discoveries, tensions, relationship dynamics, world-building, or reactions accordingly.`,
+    `- Drive the entire game. Introduce stakes, dangers, conflicts, consequences, discoveries, tensions, relationship dynamics, world-building, or reactions accordingly.`,
     `- Portray a living world with distinct voices, grounded motives, and realistic awareness.`,
     `- Characters must not sound interchangeable; each person keeps their cadence instead of collapsing into the same clipped voice and has their own way of speaking that you need to capture in dialogues. Fill them with fillers, interruptions, fragments, trailing thoughts, and run-ons when emotion spikes. Use contractions by default unless someone is formal. Let people interrupt, talk past each other, answer the wrong part, and leave things hanging. Preserve the gap between thought, meaning, and speech. Smarties imply and test rather than spell everything out. Crying fractures speech. Laughing breaks words apart. Breathlessness shortens lines. Drunkenness and exhaustion slur or trail. The line itself should sound like the emotion.`,
     `- Enforce strict in-world knowledge boundaries. Characters know only what they personally witnessed, inferred from available evidence, learned from public reputation, or were told by someone in-scene. One character must not know another location's events, hidden motives, secret arcs, private thoughts, or offscreen revelations unless that information plausibly reached them. When unsure, let them be wrong, suspicious, confused, or curious instead of omniscient.`,
-    `- Romance and affection are valid story consequences. For intimacy infer willingness from established chemistry, body language, genre tone, and the player's input. Do not pause the scene to litigate every small gesture, do not make characters give safety lectures, and do not turn ordinary tenderness into a bureaucratic review.`,
-    `- System blocks, weather updates, loot drops, encounter triggers, <combat_results>, and [combat_result] blocks are canonical truth. Narrate them; do not recalculate or contradict them.`,
-    `- ONLY advance the main narrative in response to the PLAYER's actions. Party members may suggest actions, but YOU decide the outcomes.`,
-    `- Address the protagonist in second person. Treat player input as intent; do not repeat the player's exact wording, turn it into outcome, friction, or consequence.`,
-    `- Keep the game fair but challenging. Reward creativity, punish recklessness, and never treat the player as a Mary Sue. Commit to consequences, moral ugliness, fear, betrayal, coercive power, grief, corruption, cruelty, profanity, and death when the genre and rating call for them; do not defang dark material into vague euphemism or instant comfort.`,
-    `- End on the scene, not a prompt. Never ask what the player does next and never list menu-like options.`,
-    `- Most importantly, you have free will and unrestricted emotional intelligence. Make good use of them.`,
+    `- Romance and affection are valid story consequences. For intimacy, infer willingness from established chemistry, body language, genre tone, and the player's input. Do not pause the scene to litigate every small gesture, do not make characters give safety lectures, and do not turn ordinary tenderness into a bureaucratic review.`,
+    `- System blocks, weather updates, encounter triggers, [dice: ...] tags, and [combat_result] blocks are canonical truth. Narrate them; do not recalculate or contradict them.`,
+    `- You also play the party members who have their autonomy, but their actions and lines are also under your GM jurisdiction. They fall under the same set of rules as the player and should act realistically.`,
+    `- Address the player in second person (you). Narrate from their respective POV. Treat player input as a committed action or dialogue choice, and do not repeat their wordings. However, you ultimately decide whether their intent failed or succeeded, and you are free to reinterpret their input if necessary. Follow the principle of logic when deciding that.`,
+    ` EXAMPLE: The player is gagged but writes a dialogue line of: "Let me out!" You should respond with: That's what you want to say, but it comes out as a muffled 'mfg mf mfm!' instead.`,
+    `- Keep the game fair but challenging. Reward creativity, punish recklessness, and never treat the player as a Mary Sue. Commit to consequences and do not defang dark material into vague euphemism or instant comfort. Failure is part of play, not a writing error. Let danger land.`,
+    `- End on the scene, not a prompt. Never ask what the player does next unless you're doing it with a respective command in a high-stakes situation.`,
     `</gm_rules>`,
   );
 
@@ -314,9 +296,9 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
     sections.push(
       `<rating_guidelines>`,
       `Anything goes in this mature NSFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Do not sanitize content, language, cruelty, sex, or violence.`,
-      `- Any character may touch upon dark themes, curse, lie, harm, use, betray, dominate, love, ruin, or kill another (player included).`,
+      `- Any character may touch upon dark themes, corrupt, curse, lie, harm, use, fear, betray, dominate, love, ruin, or kill another (player included).`,
       `- Romance, flirtation, desire, jealousy, possessiveness, seduction, and messy attachment are allowed. Let emotionally loaded contact happen when it fits the scene; handholding, charged proximity, touches, kisses, and embraces should not trigger an out-of-character pause.`,
-      `- Sex between involved adult characters should be explicit, anatomically grounded, emotionally reactive, and detailed when portrayed in the scene. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
+      `- Sex between involved characters should be explicit, anatomically grounded, emotionally reactive, and detailed when portrayed in the scene. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
       `- Violence should be graphic, gory, and consequential.`,
       `- Stay true to motive, tone, and fallout; never soften outcomes for comfort. Let mature themes have weight, cost, ugliness, and aftermath instead of treating them as decorative edge.`,
       `</rating_guidelines>`,
@@ -365,28 +347,6 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
       `The server computed these combat results. Narrate them dramatically:`,
       ctx.combatResults,
       `</combat_results>`,
-    );
-  }
-
-  if (ctx.lootResults) {
-    sections.push(
-      `<loot_drops>`,
-      `The server generated these loot drops. Describe them in-world:`,
-      ctx.lootResults,
-      `</loot_drops>`,
-    );
-  }
-
-  if (ctx.journalRecap) {
-    sections.push(`<session_journal>`, ctx.journalRecap, `</session_journal>`);
-  }
-
-  if (ctx.readables?.length) {
-    sections.push(
-      `<known_readables>`,
-      `These notes and books have already been surfaced in earlier turns. Treat them as already shown unless the story justifies re-reading or revisiting them.`,
-      ...buildReadableSummaryLines(ctx.readables),
-      `</known_readables>`,
     );
   }
 
@@ -494,6 +454,8 @@ export function buildGmFormatReminder(
   > & {
     /** Special non-scene-advancing address mode inferred from the current player turn prefix. */
     addressMode?: "party" | "gm";
+    /** Whether the current player turn already includes a resolved [dice: ...] roll. */
+    playerDiceRollSubmitted?: boolean;
   },
 ): string {
   const lines: string[] = [];
@@ -555,10 +517,12 @@ export function buildGmFormatReminder(
     `- Continue directly from the player's input, treating it like a concluded beat. Do not reiterate it.`,
     `- Only quoted speech in the player's inputs is spoken aloud. Unquoted player text is narration, action, or internal thought, to which only the GM has access. Characters cannot perceive it unless the player makes it observable or says it out loud.`,
     `- Never quote the player character. Narrate the player's speech, thoughts, and actions indirectly in second person. Example:`,
-    `[${ctx.playerName ?? "Player"}] [thought] [smirk]: You think you're the best. Obviously.`,
+    `[${ctx.playerName ?? "Player"}] [thought] [smirk]: You think you're the best.`,
     `- CRITICAL: NEVER echo the player's distinctive words, phrases, or dialogue. NO PARROTTING!`,
     `- Keep the turn's length flexible, depending on the current scene and state. If the player's agency is low (exploration, travel/rest): make it longer. If it's high (combat, dialogue, or other intense situation): keep it concise. Sometimes a single line of dialogue or a narrative beat is enough to allow back-and-forth interactions.`,
+    `- Pace the plot without rushing through it; when danger is not immediate, allow breathers, rest, party banter, and small character moments.`,
     `- End naturally when it's the player's turn to act or speak.`,
+    ``,
   );
 
   // ── Party Dialogue Instructions (inside output_format, closest to generation) ──
@@ -590,21 +554,40 @@ export function buildGmFormatReminder(
     `COMMANDS:`,
     `- Emit commands when canonical game or UI state changes; no command is needed for flavor alone.`,
     `- [choices: "Option A" | "Option B" | "Option C"] - only for explicit player-facing options that require a selection.`,
-    `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="0-10" total="roll + modifier | 1 | 20" result="critical_success | success | failure | critical_failure"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias, you choose the roll result fairly, then narrate the consequence in the same turn.`,
-    `- [qte: action1 | action2 | action3, timer: 5s] - only as the final thing in the turn when the player must react to an immediate timed prompt or split-second action. Stop immediately after this tag: choosing an action commits the player's next turn.`,
+  );
+
+  if (ctx.playerDiceRollSubmitted) {
+    lines.push(
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="player's dice result" modifier="0-10" total="roll + modifier | 1 | 20" result="critical_success | success | failure | critical_failure"] - if the player presented you with a [dice: ...] roll, start the turn with the check and narrate the consequences in the same turn. Choose DC fairly (5 trivial, 10 routine under pressure, 15 hard, 20 desperate).`,
+    );
+  } else {
+    lines.push(
+      `- [skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="0-10" total="roll + modifier | 1 | 20" result="critical_success | success | failure | critical_failure"] - only when uncertainty or the player's actions should be resolved mechanically. Abandon positivity bias: choose DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate), roll honestly, and narrate the consequence in the same turn.`,
+    );
+  }
+
+  lines.push(
+    `- [qte: action1 | action2 | action3, timer: 6s] - only as the final thing in the turn when the player must react to an immediate timed prompt or split-second action. Stop immediately after this tag: choosing an action commits the player's next turn.`,
     ...(ctx.map?.type === "node"
       ? [
           `- [map_update: new_location="Location Name" connected_to="Previous Location Name" node_emoji="emoji"] - only when the party arrives at an entirely new location on the current node map.`,
         ]
       : []),
-    `- [combat: enemies="Enemy 1, Enemy 2" allies="Ally 1, Ally 2 | null"] - only when a real combat encounter starts. Emit [state: combat] [combat: ...] only at the very end of the turn, then stop immediately. Combat initiates a new turn with a combat UI.`,
     `- [inventory: action="add | remove" item="Item A, Item B"] - every real item gain or loss, keep their names short.`,
     `- [Note: contents] or [Book: contents] - when a new readable note or book is acquired and should be tracked in the journal.`,
-    `- [state: exploration | dialogue | combat | travel_rest] - only on actual mode transitions.`,
+    `- [state: exploration | dialogue | combat | travel_rest] - only on actual mode transitions. If you're planning to use [state: combat], this one ALWAYS has to be at the end of the turn, as it initiates a new combat generation and UI.`,
     `- [reputation: npc="Name" action="helped"] - when an NPC's tracked stance changes because of what happened.`,
     `- [party_change: character="Exact Character Name" change="add | remove"] - only when someone truly joins or leaves the party. Use remove when a party member dies, permanently departs, or is no longer traveling with the player.`,
     `- [session_end: reason="goal achieved"] - only when the current session truly ends.`,
   );
+
+  if (ctx.gameActiveState === "combat") {
+    lines.push(
+      ``,
+      `COMBAT GM ADJUDICATION:`,
+      `Combat rounds are resolved by the combat UI. During ordinary combat narration, do not emit tactical combat commands or recalculate combat mechanics. If the player sends a special maneuver, follow the explicit instruction included in that user message.`,
+    );
+  }
 
   if (!ctx.hasSceneModel) {
     lines.push(`Scene tags allowed: [sfx: ...] [bg: ...] [ambient: ...]`);
@@ -983,17 +966,22 @@ export function buildPartyRecruitCardPrompt(ctx: {
   targetCharacterCard: string;
   currentPartyNames: string[];
   currentPartyCards?: string | null;
+  existingTargetCard?: string | null;
   worldOverview?: string | null;
   storyArc?: string | null;
   plotTwists?: string[] | null;
   currentState?: string | null;
   recentTranscript?: string | null;
   language?: string | null;
+  purpose?: "recruit" | "regenerate";
 }): string {
   const normalizedLanguage = normalizePromptLanguage(ctx.language);
+  const isRegeneration = ctx.purpose === "regenerate";
   const sections: string[] = [
     `You are the Game Master updating an ongoing RPG campaign.`,
-    `A new companion is joining the party. Create a single JSON character card for them that matches the existing game card schema.`,
+    isRegeneration
+      ? `A companion's party sheet is malformed or outdated. Regenerate one clean JSON character card for them that matches the existing game card schema.`
+      : `A new companion is joining the party. Create a single JSON character card for them that matches the existing game card schema.`,
     ``,
     ...(normalizedLanguage && normalizedLanguage.toLowerCase() !== "english"
       ? [
@@ -1008,6 +996,11 @@ export function buildPartyRecruitCardPrompt(ctx: {
     `- Keep the name exactly "${ctx.targetCharacterName}".`,
     `- Ground the card in the existing campaign state, world, and recent events.`,
     `- Respect the supplied character card as canon. Do not contradict it.`,
+    ...(isRegeneration
+      ? [
+          `- Treat the existing target party sheet as a damaged draft: preserve useful facts, but fix malformed fields, bad formatting, missing structure, and awkward or off-tone values.`,
+        ]
+      : []),
     `- abilities, strengths, and weaknesses must be arrays of strings.`,
     `- extra must be an object of string values.`,
     `- Do not output markdown, explanations, or any wrapper text.`,
@@ -1032,6 +1025,9 @@ export function buildPartyRecruitCardPrompt(ctx: {
   }
   if (ctx.currentPartyCards?.trim()) {
     sections.push(``, `<existing_party_cards>`, ctx.currentPartyCards.trim(), `</existing_party_cards>`);
+  }
+  if (ctx.existingTargetCard?.trim()) {
+    sections.push(``, `<existing_target_party_sheet>`, ctx.existingTargetCard.trim(), `</existing_target_party_sheet>`);
   }
   if (ctx.currentState?.trim()) {
     sections.push(``, `<current_state>`, ctx.currentState.trim(), `</current_state>`);

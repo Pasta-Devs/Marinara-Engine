@@ -406,6 +406,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         ? `${elevenLabsApiRoot(base)}/v1/text-to-speech/${encodeURIComponent(requestVoice)}?output_format=mp3_44100_128`
         : `${base}/audio/speech`;
     const providerText = cfg.source === "elevenlabs" ? buildElevenLabsTextInput(text, tone) : text;
+    const elevenLabsLanguageCode = cfg.elevenLabsLanguageCode?.trim();
     const speechInstructions =
       cfg.source === "openai" && openAiModelSupportsSpeechInstructions(cfg.model)
         ? buildSpeechInstructions({ speaker, tone })
@@ -421,6 +422,7 @@ export async function ttsRoutes(app: FastifyInstance) {
             ? JSON.stringify({
                 text: providerText,
                 model_id: model,
+                ...(elevenLabsLanguageCode ? { language_code: elevenLabsLanguageCode } : {}),
                 voice_settings: {
                   stability: cfg.elevenLabsStability,
                   speed: cfg.speed,
