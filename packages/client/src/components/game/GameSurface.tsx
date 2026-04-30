@@ -1198,6 +1198,7 @@ export function GameSurface({
   const gameTutorialDisabled = useUIStore((s) => s.gameTutorialDisabled);
   const setGameTutorialDisabled = useUIStore((s) => s.setGameTutorialDisabled);
   const gameAvatarScale = useUIStore((s) => s.gameAvatarScale);
+  const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
   const chatCharacterIds = useMemo(() => getChatCharacterIds(chat.characterIds), [chat.characterIds]);
 
@@ -3616,6 +3617,99 @@ export function GameSurface({
   );
 
   const [gameInputFocusToken, setGameInputFocusToken] = useState(0);
+
+  // Wheel-nav state. `messageOffset` is how many assistant turns back the player is
+  // currently reviewing (0 = present). `nextActionToken` is bumped each time a
+  // background click should fire the Next/Return action inside GameNarration.
+  const [messageOffset, setMessageOffset] = useState(0);
+  const [nextActionToken, setNextActionToken] = useState(0);
+  // Reset offset on chat switch so we never review the wrong chat's history.
+  useEffect(() => {
+    setMessageOffset(0);
+    setNextActionToken(0);
+  }, [activeChatId]);
+
+  // The actual wheel-nav clamp comes from GameNarration — it knows how many flat
+  // log entries exist. Until it reports, we conservatively cap at 0 (wheel-up no-op).
+  const [wheelNavMaxOffset, setWheelNavMaxOffset] = useState(0);
+  const handleMaxNavOffsetChange = useCallback((max: number) => setWheelNavMaxOffset(max), []);
+
+  // Click / Next while reviewing past: step ONE entry forward. Symmetric with
+  // wheel-down. The dedicated Return button (rendered separately) jumps home in one shot.
+  const handleStepForward = useCallback(() => {
+    setMessageOffset((curr) => Math.max(0, curr - 1));
+  }, []);
+  const handleReturnToLatest = useCallback(() => {
+    setMessageOffset(0);
+  }, []);
+
+  // Document-level wheel + click listener for game-mode wheel navigation.
+  // Window-level wheel + click listener for game-mode wheel navigation. Capture phase
+  // so nothing can stopPropagation us out of the loop. We skip events that originate
+  // inside any interactive UI element or overlay panel — buttons, links, inputs, ARIA
+  // roles, and any container marked `[data-game-skip-bg-nav="true"]`. Everything else
+  // (the chat card body, sprites, the bg image, empty space) navs.
+  const lastWheelAtRef = useRef(0);
+  useEffect(() => {
+    if (!gameMiddleMouseNav) return;
+    const max = wheelNavMaxOffset;
+
+    const SKIP_SELECTOR = [
+      "button",
+      "a",
+      "input",
+      "textarea",
+      "select",
+      "label",
+      '[role="button"]',
+      '[role="link"]',
+      '[role="dialog"]',
+      '[role="menu"]',
+      '[role="menuitem"]',
+      '[role="tab"]',
+      '[role="tablist"]',
+      '[role="slider"]',
+      '[role="checkbox"]',
+      '[role="switch"]',
+      '[role="combobox"]',
+      '[role="listbox"]',
+      '[role="option"]',
+      '[data-radix-popper-content-wrapper]',
+      '[data-game-skip-bg-nav="true"]',
+    ].join(",");
+    const inSkipUi = (target: EventTarget | null): Element | null => {
+      if (!(target instanceof Element)) return null;
+      return target.closest(SKIP_SELECTOR);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      if (inSkipUi(event.target)) return;
+      const now = Date.now();
+      // Throttle ~60ms so a single physical scroll-tick doesn't fire many times on touchpads.
+      if (now - lastWheelAtRef.current < 60) return;
+      lastWheelAtRef.current = now;
+      if (event.deltaY < 0) {
+        setMessageOffset((curr) => Math.min(curr + 1, max));
+      } else {
+        setMessageOffset((curr) => (curr > 0 ? curr - 1 : 0));
+      }
+    };
+
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      if (inSkipUi(event.target)) return;
+      setNextActionToken((t) => t + 1);
+    };
+
+    window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    window.addEventListener("click", onClick, { capture: true });
+    return () => {
+      window.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener("click", onClick, { capture: true } as EventListenerOptions);
+    };
+  }, [gameMiddleMouseNav, wheelNavMaxOffset]);
+
   // Two-stage interrupt:
   //   1. Player clicks Interrupt → narration pauses (modal pre-empts further reading)
   //      and we stash a *candidate* with the truncation we'd apply on commit.
@@ -5988,6 +6082,11 @@ export function GameSurface({
                           onInterruptCancel={handleInterruptCancel}
                           interruptPending={interruptPending}
                           interruptCommitted={interruptCommitted}
+                          messageOffset={messageOffset}
+                          onStepForward={handleStepForward}
+                          onJumpToLatest={handleReturnToLatest}
+                          nextActionToken={nextActionToken}
+                          onMaxNavOffsetChange={handleMaxNavOffsetChange}
                           inputSlot={
                             <GameInput
                               onSend={handleSendGameTurn}
@@ -6052,6 +6151,11 @@ export function GameSurface({
                       onInterruptCancel={handleInterruptCancel}
                       interruptPending={interruptPending}
                       interruptCommitted={interruptCommitted}
+                      messageOffset={messageOffset}
+                      onStepForward={handleStepForward}
+                      onJumpToLatest={handleReturnToLatest}
+                      nextActionToken={nextActionToken}
+                      onMaxNavOffsetChange={handleMaxNavOffsetChange}
                       inputSlot={
                         <GameInput
                           onSend={handleSendGameTurn}
