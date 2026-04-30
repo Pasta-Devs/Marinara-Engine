@@ -170,18 +170,13 @@ export function ConversationView({
     return () => clearInterval(timer);
   }, [chatId, qc]);
 
-  // Global conversation gradient from settings
+  // Per-scheme conversation gradient from settings
+  const convoGradient = useUIStore((s) => s.convoGradient);
   const theme = useUIStore((s) => s.theme);
-  const convoGradientFrom = useUIStore((s) => s.convoGradientFrom);
-  const convoGradientTo = useUIStore((s) => s.convoGradientTo);
   const gradientStyle = useMemo(() => {
-    // In light mode, only apply the gradient if the user has customized it away from the dark default.
-    // Otherwise use a subtle tinted lavender so the chat surface stands out from the page bg
-    // (matches the slightly-darker tone the RP surface has in light mode).
-    const isDefaultDark = convoGradientFrom === "#0a0a0e" && convoGradientTo === "#1c2133";
-    if (theme === "light" && isDefaultDark) return { background: "var(--secondary)" };
-    return { background: `linear-gradient(135deg, ${convoGradientFrom}, ${convoGradientTo})` };
-  }, [convoGradientFrom, convoGradientTo, theme]);
+    const g = convoGradient[theme];
+    return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
+  }, [convoGradient, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
 
   const scrollRef = useRef<HTMLDivElement>(null);

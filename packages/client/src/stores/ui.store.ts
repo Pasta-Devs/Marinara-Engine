@@ -136,9 +136,11 @@ interface UIState {
   // ── Visual Theme ──
   visualTheme: VisualTheme;
 
-  // ── Conversation Gradient ──
-  convoGradientFrom: string;
-  convoGradientTo: string;
+  // ── Conversation Gradient (per color-scheme) ──
+  convoGradient: {
+    dark: { from: string; to: string };
+    light: { from: string; to: string };
+  };
 
   // ── Sound ──
   convoNotificationSound: boolean;
@@ -265,8 +267,7 @@ interface UIState {
   setTextStrokeColor: (v: string) => void;
   setCenterCompact: (v: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
-  setConvoGradientFrom: (v: string) => void;
-  setConvoGradientTo: (v: string) => void;
+  setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;
   setRpNotificationSound: (v: boolean) => void;
   setCustomConversationPrompt: (v: string | null) => void;
@@ -335,8 +336,7 @@ export function pickSyncedSettings(state: UIState) {
     textStrokeWidth: state.textStrokeWidth,
     textStrokeColor: state.textStrokeColor,
     visualTheme: state.visualTheme,
-    convoGradientFrom: state.convoGradientFrom,
-    convoGradientTo: state.convoGradientTo,
+    convoGradient: state.convoGradient,
     enterToSendRP: state.enterToSendRP,
     enterToSendConvo: state.enterToSendConvo,
     weatherEffects: state.weatherEffects,
@@ -409,8 +409,10 @@ export const useUIStore = create<UIState>()(
       textStrokeWidth: 0.5,
       textStrokeColor: "#000000",
       visualTheme: "default" as VisualTheme,
-      convoGradientFrom: "#0a0a0e",
-      convoGradientTo: "#1c2133",
+      convoGradient: {
+        dark: { from: "#0a0a0e", to: "#1c2133" },
+        light: { from: "#f2eff7", to: "#eae6f0" },
+      },
       convoNotificationSound: true,
       rpNotificationSound: true,
       customConversationPrompt: null,
@@ -655,8 +657,13 @@ export const useUIStore = create<UIState>()(
       setTextStrokeColor: (v) => set({ textStrokeColor: v }),
       setCenterCompact: (v) => set({ centerCompact: v }),
       setVisualTheme: (v) => set({ visualTheme: v }),
-      setConvoGradientFrom: (v) => set({ convoGradientFrom: v }),
-      setConvoGradientTo: (v) => set({ convoGradientTo: v }),
+      setConvoGradientField: (scheme, field, value) =>
+        set((s) => ({
+          convoGradient: {
+            ...s.convoGradient,
+            [scheme]: { ...s.convoGradient[scheme], [field]: value },
+          },
+        })),
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
       setCustomConversationPrompt: (v) => set({ customConversationPrompt: v }),
@@ -698,7 +705,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 10,
+      version: 11,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -804,6 +811,19 @@ export const useUIStore = create<UIState>()(
             persisted.gameAvatarScale = 1;
           }
         }
+        // v10 → v11: convert flat convoGradientFrom/To into per-scheme nested object.
+        if (version <= 10) {
+          if ("convoGradientFrom" in persisted || "convoGradientTo" in persisted) {
+            const oldFrom = persisted.convoGradientFrom ?? "#0a0a0e";
+            const oldTo = persisted.convoGradientTo ?? "#1c2133";
+            persisted.convoGradient = {
+              dark: { from: oldFrom, to: oldTo },
+              light: { from: "#f2eff7", to: "#eae6f0" },
+            };
+            delete persisted.convoGradientFrom;
+            delete persisted.convoGradientTo;
+          }
+        }
         return persisted;
       },
       partialize: (state) => ({
@@ -841,8 +861,7 @@ export const useUIStore = create<UIState>()(
         textStrokeWidth: state.textStrokeWidth,
         textStrokeColor: state.textStrokeColor,
         visualTheme: state.visualTheme,
-        convoGradientFrom: state.convoGradientFrom,
-        convoGradientTo: state.convoGradientTo,
+        convoGradient: state.convoGradient,
         enterToSendRP: state.enterToSendRP,
         enterToSendConvo: state.enterToSendConvo,
         enterToSendGame: state.enterToSendGame,
