@@ -300,6 +300,7 @@ export function GameMapPanel({
   return (
     <motion.div
       data-tour="game-map"
+      data-game-skip-bg-nav="true"
       drag={!locked}
       dragMomentum={false}
       dragElastic={0}

@@ -298,6 +298,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
                 key={w.id}
                 className="w-40 overflow-hidden rounded-lg border bg-black/70 backdrop-blur-md transition-all"
                 style={{ borderColor: `${accent}30` }}
+                data-game-skip-bg-nav="true"
               >
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left">
                   {w.icon && <span className="text-xs">{w.icon}</span>}
@@ -377,6 +378,7 @@ function WidgetCard({
       dragConstraints={constraintsRef as RefObject<Element>}
       onDragEnd={handleDragEnd}
       style={{ x, y, borderColor: `${accent}30` }}
+      data-game-skip-bg-nav="true"
       className={cn(
         "w-full overflow-hidden rounded-lg border bg-black/60 backdrop-blur-md transition-colors",
         !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
