@@ -55,6 +55,8 @@ async function getSpriteCapabilities() {
 }
 import { generateImage } from "../services/image/image-generation.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
+import { loadPrompt, SPRITES_EXPRESSION_SHEET } from "../services/prompt-overrides/index.js";
 
 const SPRITES_ROOT = join(DATA_DIR, "sprites");
 const ROUTE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -637,19 +639,14 @@ export async function spritesRoutes(app: FastifyInstance) {
         `no grid, no panel borders, no text, no labels, no watermark`,
       ].join(" ");
     } else {
-      prompt = [
-        `character expression sheet with EXACTLY ${expressions.length} total portrait cells,`,
-        `strict ${cols} columns by ${rows} rows grid, no extra rows, no extra columns, no extra panels,`,
-        `${expressions.length} equally sized square cells arranged in a perfectly uniform grid,`,
-        `solid white background, thin straight lines separating each cell,`,
-        `same character in every cell, consistent art style,`,
-        `expressions left-to-right top-to-bottom: ${expressionList},`,
-        `${body.appearance?.trim() || ""},`,
-        `each cell shows head and shoulders portrait with a different facial expression,`,
-        `all cells same size, perfectly aligned, no overlapping, no merged cells,`,
-        `the final image must stop after the ${rows} row; do not draw a fourth row or bonus expressions,`,
-        `no text, no labels, no numbers`,
-      ].join(" ");
+      const promptOverridesStorage = createPromptOverridesStorage(app.db);
+      prompt = await loadPrompt(promptOverridesStorage, SPRITES_EXPRESSION_SHEET, {
+        cols,
+        rows,
+        expressionCount: expressions.length,
+        expressionList,
+        appearance: body.appearance?.trim() || "",
+      });
     }
 
     // Parse reference images to raw base64 (supports data URL, raw base64, or local avatar URL)

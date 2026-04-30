@@ -16,3 +16,4 @@ export * from "./regex-scripts.js";
 export * from "./gallery.js";
 export * from "./themes.js";
 export * from "./app-settings.js";
+export * from "./prompt-overrides.js";

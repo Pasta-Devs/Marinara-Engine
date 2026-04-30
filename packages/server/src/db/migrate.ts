@@ -385,6 +385,12 @@ const CREATE_TABLES: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS prompt_overrides (
+    key TEXT PRIMARY KEY NOT NULL,
+    template TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL
+  )`,
 ];
 
 // ── Column migrations (ALTER TABLE for schema evolution) ──
