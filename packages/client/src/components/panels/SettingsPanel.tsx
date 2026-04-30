@@ -1087,7 +1087,7 @@ function AppearanceSettings() {
               className={cn(
                 "rounded-md px-2 py-1 transition-colors",
                 activeGradientScheme === "dark"
-                  ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
                   : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
               )}
             >
@@ -1099,7 +1099,7 @@ function AppearanceSettings() {
               className={cn(
                 "rounded-md px-2 py-1 transition-colors",
                 activeGradientScheme === "light"
-                  ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
                   : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
               )}
             >
