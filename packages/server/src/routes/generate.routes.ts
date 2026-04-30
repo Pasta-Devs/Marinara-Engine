@@ -886,7 +886,12 @@ export async function generateRoutes(app: FastifyInstance) {
           // Persist updated per-chat entry state overrides (ephemeral countdown)
           if (assembled.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = assembled.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: assembled.updatedEntryStateOverrides,
+            });
           }
         }
       }
@@ -2043,7 +2048,12 @@ export async function generateRoutes(app: FastifyInstance) {
           // Persist updated per-chat entry state overrides (ephemeral countdown)
           if (lorebookResult.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+            });
           }
           const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
             .filter(Boolean)
@@ -2084,7 +2094,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
         if (lorebookResult.updatedEntryStateOverrides) {
           chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-          await chats.updateMetadata(input.chatId, chatMeta);
+          const freshChat = await chats.getById(input.chatId);
+          const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+          await chats.updateMetadata(input.chatId, {
+            ...freshMeta,
+            entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+          });
         }
         const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter].filter(Boolean).join("\n");
         if (loreContent) {
@@ -2846,7 +2861,9 @@ export async function generateRoutes(app: FastifyInstance) {
         // Persist current position for next turn comparison
         if (currentMapPos && JSON.stringify(lastMapPos) !== JSON.stringify(currentMapPos)) {
           chatMeta.lastMapPosition = currentMapPos;
-          await chats.updateMetadata(input.chatId, chatMeta);
+          const freshChat = await chats.getById(input.chatId);
+          const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+          await chats.updateMetadata(input.chatId, { ...freshMeta, lastMapPosition: currentMapPos });
         }
 
         // ── Passive perception hints ──
@@ -2962,7 +2979,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
           if (lorebookResult.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+            });
           }
           const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
             .filter(Boolean)
@@ -5922,7 +5944,16 @@ export async function generateRoutes(app: FastifyInstance) {
               const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
               if (syncedGameMap && syncedGameMap !== existingGameMap) {
                 Object.assign(chatMeta, syncedMeta);
-                await chats.updateMetadata(input.chatId, chatMeta);
+                // Re-fetch fresh metadata before write so we don't clobber concurrent updates
+                // (e.g. /game/start flipping gameSessionStatus from "ready" to "active").
+                const freshChat = await chats.getById(input.chatId);
+                const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+                await chats.updateMetadata(input.chatId, {
+                  ...freshMeta,
+                  gameMap: syncedMeta.gameMap,
+                  gameMaps: syncedMeta.gameMaps,
+                  activeGameMapId: syncedMeta.activeGameMapId,
+                });
                 sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
               } else if (getGameMapsFromMeta(syncedMeta).length > 0) {
                 Object.assign(chatMeta, syncedMeta);
@@ -6374,7 +6405,10 @@ export async function generateRoutes(app: FastifyInstance) {
               const csData = result.data as Record<string, unknown>;
               const newText = ((csData.summary as string) ?? "").trim();
               if (newText) {
-                const existingMeta = parseExtra(chat.metadata);
+                // Re-fetch fresh metadata so concurrent writes (e.g. /game/start flipping
+                // gameSessionStatus to "active") aren't clobbered by stale captured chat.metadata.
+                const freshChat = await chats.getById(input.chatId);
+                const existingMeta = freshChat ? parseExtra(freshChat.metadata) : parseExtra(chat.metadata);
                 const existing = ((existingMeta.summary as string) ?? "").trim();
                 const combined = existing ? `${existing}\n\n${newText}` : newText;
                 const merged = { ...existingMeta, summary: combined };
@@ -7553,8 +7587,12 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
 
                   if (fetchedContent) {
-                    // Persist to chatMeta.mariContext so it's available in subsequent messages
-                    const currentMeta = parseExtra(chat.metadata) as Record<string, unknown>;
+                    // Persist to chatMeta.mariContext so it's available in subsequent messages.
+                    // Re-fetch fresh metadata so concurrent writes (e.g. /game/start) aren't clobbered.
+                    const freshChat = await chats.getById(input.chatId);
+                    const currentMeta = freshChat
+                      ? (parseExtra(freshChat.metadata) as Record<string, unknown>)
+                      : (parseExtra(chat.metadata) as Record<string, unknown>);
                     const mariContext = (currentMeta.mariContext as Record<string, string>) ?? {};
                     mariContext[contextKey] = fetchedContent;
                     currentMeta.mariContext = mariContext;
