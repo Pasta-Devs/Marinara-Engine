@@ -102,6 +102,14 @@ export interface LLMUsage {
   totalTokens: number;
   cachedPromptTokens?: number;
   cacheWritePromptTokens?: number;
+  /** Hidden reasoning tokens included in completion/output tokens by reasoning models. */
+  completionReasoningTokens?: number;
+  /** Audio output tokens included in completion/output tokens, when reported. */
+  completionAudioTokens?: number;
+  /** Predicted output tokens accepted by the model, when reported. */
+  acceptedPredictionTokens?: number;
+  /** Predicted output tokens rejected by the model but still counted in output usage. */
+  rejectedPredictionTokens?: number;
 }
 
 /** Result from a non-streaming chat call that may include tool calls */

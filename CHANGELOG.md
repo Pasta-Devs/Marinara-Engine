@@ -21,6 +21,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - You can now link Personas to Lorebooks.
 - Drag-and-drop Lorebook entries.
 - Added ElevenLabs for TTS support.
+- TTS now supports character and NPC voices.
 - You can now see spoilers for Game mode and edit the plot accordingly to your needs in the History section.
 - Upon ending the Game session, you can now optionally include what you want to happen in the next session.
 - Separate volume levels for different sounds in Game mode.

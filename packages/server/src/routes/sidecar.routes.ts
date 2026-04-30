@@ -246,13 +246,24 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
       currentAmbient: z.string().nullable().optional(),
       currentWeather: z.string().nullable().optional(),
       currentTimeOfDay: z.string().nullable().optional(),
+      canGenerateBackgrounds: z.boolean().optional(),
       canGenerateIllustrations: z.boolean().optional(),
       artStylePrompt: z.string().nullable().optional(),
     }),
+    debugMode: z.boolean().optional().default(false),
   });
 
   app.post("/analyze-scene", async (req, reply) => {
     const body = sceneBodySchema.parse(req.body);
+    const requestDebug = body.debugMode === true;
+    const debugLogsEnabled = requestDebug || logger.isLevelEnabled("debug");
+    const debugLog = (message: string, ...args: any[]) => {
+      if (requestDebug) {
+        console.log(message, ...args);
+      } else {
+        logger.debug(message, ...args);
+      }
+    };
     const available = await isInferenceAvailable();
     if (!available) {
       return reply.status(503).send({ error: "Sidecar model is not available" });
@@ -266,11 +277,32 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     const userPrompt = buildSceneAnalyzerUserPrompt(body.narration, body.playerAction, sceneCtx);
 
     try {
+      if (debugLogsEnabled) {
+        debugLog(
+          "[debug/game/scene-analysis:sidecar] request narrationChars=%d playerActionChars=%d state=%s bgOptions=%d sfxOptions=%d widgets=%d npcs=%d generateBackgrounds=%s generateIllustration=%s",
+          body.narration.length,
+          body.playerAction?.length ?? 0,
+          body.context.currentState ?? "unknown",
+          bgTags.length,
+          sfxTags.length,
+          body.context.activeWidgets?.length ?? 0,
+          body.context.trackedNpcs?.length ?? 0,
+          !!body.context.canGenerateBackgrounds,
+          !!body.context.canGenerateIllustrations,
+        );
+        debugLog("[debug/game/scene-analysis:sidecar] system prompt:\n%s", systemPrompt);
+        debugLog("[debug/game/scene-analysis:sidecar] user prompt:\n%s", userPrompt);
+      }
+
       const raw = await analyzeScene(systemPrompt, userPrompt);
+      if (debugLogsEnabled) {
+        debugLog("[debug/game/scene-analysis:sidecar] parsed model response:\n%s", JSON.stringify(raw, null, 2));
+      }
 
       const ppCtx: PostProcessContext = {
         availableBackgrounds: bgTags,
         availableSfx: sfxTags,
+        canGenerateBackgrounds: !!body.context.canGenerateBackgrounds,
         validWidgetIds: new Set(
           (body.context.activeWidgets ?? [])
             .map((widget) =>
@@ -310,6 +342,10 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
         background: result.background ?? body.context.currentBackground,
       });
       result.ambient = scoredAmbient ?? null;
+
+      if (debugLogsEnabled) {
+        debugLog("[debug/game/scene-analysis:sidecar] final result:\n%s", JSON.stringify(result, null, 2));
+      }
 
       return { result };
     } catch (error) {

@@ -111,12 +111,7 @@ import {
   addNpcEntry,
   type Journal,
 } from "../services/game/journal.service.js";
-import {
-  buildGmSystemPrompt,
-  buildGmFormatReminder,
-  type GmPromptContext,
-  type GameReadablePromptEntry,
-} from "../services/game/gm-prompts.js";
+import { buildGmSystemPrompt, buildGmFormatReminder, type GmPromptContext } from "../services/game/gm-prompts.js";
 import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
@@ -148,6 +143,22 @@ function getEnabledConversationSchedules(meta: Record<string, any>): Record<stri
   return areConversationSchedulesEnabled(meta) && hasConversationSchedules(meta.characterSchedules)
     ? meta.characterSchedules
     : {};
+}
+
+function getHiddenCompletionTokens(usage: LLMUsage | undefined): number | undefined {
+  if (!usage) return undefined;
+  const hiddenParts = [
+    usage.completionReasoningTokens,
+    usage.completionAudioTokens,
+    usage.rejectedPredictionTokens,
+  ].filter((value): value is number => typeof value === "number");
+  if (hiddenParts.length === 0) return undefined;
+  return hiddenParts.reduce((sum, value) => sum + value, 0);
+}
+
+function getVisibleCompletionTokens(usage: LLMUsage | undefined): number | undefined {
+  if (!usage || typeof usage.completionTokens !== "number") return undefined;
+  return Math.max(0, usage.completionTokens - (getHiddenCompletionTokens(usage) ?? 0));
 }
 
 function sanitizeConnectedGameTranscript(content: string): string {
@@ -2661,15 +2672,6 @@ export async function generateRoutes(app: FastifyInstance) {
         const gameNpcs = (chatMeta.gameNpcs as import("@marinara-engine/shared").GameNpc[]) || [];
         const sessionSummaries =
           (chatMeta.gamePreviousSessionSummaries as import("@marinara-engine/shared").SessionSummary[]) || [];
-        const gameJournal = (chatMeta.gameJournal as Journal | null) ?? createJournal();
-        const knownReadables: GameReadablePromptEntry[] = gameJournal.entries
-          .filter((entry) => entry.type === "note")
-          .slice(-8)
-          .map((entry) => ({
-            title: typeof entry.title === "string" ? entry.title : "Note",
-            content: typeof entry.content === "string" ? entry.content : "",
-          }))
-          .filter((entry) => entry.content.trim().length > 0);
         const playerNotes = typeof chatMeta.gamePlayerNotes === "string" ? chatMeta.gamePlayerNotes.trim() : undefined;
 
         // Resolve GM character card if in "character" GM mode
@@ -2891,7 +2893,6 @@ export async function generateRoutes(app: FastifyInstance) {
           map: gameMap,
           npcs: gameNpcs,
           sessionSummaries,
-          readables: knownReadables.length > 0 ? knownReadables : undefined,
           sessionNumber,
           partyNames,
           partyCards,
@@ -3014,6 +3015,7 @@ export async function generateRoutes(app: FastifyInstance) {
           : latestUserContent.startsWith("[To the GM]")
             ? "gm"
             : undefined;
+        const playerDiceRollSubmitted = /\[dice\b/i.test(latestUserContent);
         const formatReminder = buildGmFormatReminder({
           hasSceneModel,
           hudWidgets: gmCtx.hudWidgets,
@@ -3028,6 +3030,7 @@ export async function generateRoutes(app: FastifyInstance) {
           language: gmCtx.language,
           rating: gmCtx.rating,
           addressMode,
+          playerDiceRollSubmitted,
           playerInventory: (() => {
             try {
               const inv = (chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? [];
@@ -5177,10 +5180,13 @@ export async function generateRoutes(app: FastifyInstance) {
               debugLog("[debug] Thinking tokens (%d chars):\n%s", fullThinking.length, fullThinking);
             }
             if (usage) {
+              const visibleCompletionTokens = getVisibleCompletionTokens(usage);
               debugLog(
-                "[debug] Token usage — prompt: %s  completion: %s  total: %s  cached: %s  cacheWrite: %s  finish: %s",
+                "[debug] Token usage — prompt: %s  completion: %s  visibleCompletion: %s  reasoning: %s  total: %s  cached: %s  cacheWrite: %s  finish: %s",
                 usage.promptTokens ?? "N/A",
                 usage.completionTokens ?? "N/A",
+                visibleCompletionTokens ?? "N/A",
+                usage.completionReasoningTokens ?? "N/A",
                 usage.totalTokens ?? "N/A",
                 usage.cachedPromptTokens ?? "N/A",
                 usage.cacheWritePromptTokens ?? "N/A",
@@ -5310,6 +5316,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 verbosity: verbosity ?? null,
                 tokensPrompt: usage?.promptTokens ?? null,
                 tokensCompletion: usage?.completionTokens ?? null,
+                tokensVisibleCompletion: getVisibleCompletionTokens(usage) ?? null,
+                tokensReasoning: usage?.completionReasoningTokens ?? null,
+                tokensCompletionAudio: usage?.completionAudioTokens ?? null,
+                tokensRejectedPrediction: usage?.rejectedPredictionTokens ?? null,
                 tokensCachedPrompt: usage?.cachedPromptTokens ?? null,
                 tokensCacheWritePrompt: usage?.cacheWritePromptTokens ?? null,
                 durationMs,

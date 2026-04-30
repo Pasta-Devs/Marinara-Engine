@@ -23,7 +23,7 @@ import { useCharacters } from "../../../hooks/use-characters";
 import { ttsService } from "../../../lib/tts-service";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type { TTSConfig, TTSSource, TTSVoiceAssignment, TTSVoiceMode } from "@marinara-engine/shared";
-import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
+import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "@marinara-engine/shared";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 
 // ── Sub-components ───────────────────────────────
@@ -291,6 +291,7 @@ export function TTSConfigCard() {
   const [npcDefaultFemaleVoices, setNpcDefaultFemaleVoices] = useState<string[]>([]);
   const [speed, setSpeed] = useState(1.0);
   const [elevenLabsStability, setElevenLabsStability] = useState(0.5);
+  const [elevenLabsLanguageCode, setElevenLabsLanguageCode] = useState("");
   const [autoplayRP, setAutoplayRP] = useState(false);
   const [autoplayConvo, setAutoplayConvo] = useState(false);
   const [autoplayGame, setAutoplayGame] = useState(false);
@@ -331,6 +332,7 @@ export function TTSConfigCard() {
     setNpcDefaultFemaleVoices(savedConfig.npcDefaultFemaleVoices ?? []);
     setSpeed(savedConfig.speed);
     setElevenLabsStability(savedConfig.elevenLabsStability ?? 0.5);
+    setElevenLabsLanguageCode(savedConfig.elevenLabsLanguageCode ?? "");
     setAutoplayRP(savedConfig.autoplayRP);
     setAutoplayConvo(savedConfig.autoplayConvo);
     setAutoplayGame(savedConfig.autoplayGame);
@@ -372,6 +374,7 @@ export function TTSConfigCard() {
     npcDefaultFemaleVoices,
     speed,
     elevenLabsStability,
+    elevenLabsLanguageCode,
     autoplayRP,
     autoplayConvo,
     autoplayGame,
@@ -421,6 +424,7 @@ export function TTSConfigCard() {
     setNpcDefaultVoicesEnabled(false);
     setNpcDefaultMaleVoices([]);
     setNpcDefaultFemaleVoices([]);
+    setElevenLabsLanguageCode("");
     mark({
       source: nextSource,
       baseUrl: defaults.baseUrl,
@@ -432,6 +436,7 @@ export function TTSConfigCard() {
       npcDefaultVoicesEnabled: false,
       npcDefaultMaleVoices: [],
       npcDefaultFemaleVoices: [],
+      elevenLabsLanguageCode: "",
     });
   };
 
@@ -533,6 +538,9 @@ export function TTSConfigCard() {
       : voice || (source === "elevenlabs" ? "No voice selected" : selectedSource.voice);
   const previewVoice =
     voiceMode === "per-character" ? (voiceAssignments.find((assignment) => assignment.voice)?.voice ?? voice) : voice;
+  const selectedLanguage =
+    ELEVENLABS_TTS_LANGUAGE_OPTIONS.find((option) => option.code === elevenLabsLanguageCode) ??
+    ELEVENLABS_TTS_LANGUAGE_OPTIONS[0];
   const previewDisabled = !enabled || ttsState === "loading" || (source === "elevenlabs" && !previewVoice);
   const previewTitle =
     source === "elevenlabs" && !previewVoice
@@ -981,6 +989,34 @@ export function TTSConfigCard() {
               <span>4.0×</span>
             </div>
           </FieldRow>
+
+          {source === "elevenlabs" && (
+            <FieldRow
+              label="Language"
+              help="Optional ElevenLabs language_code. Auto lets ElevenLabs detect the language; choose a language to force pronunciation and text normalization. The selected model must support that language."
+            >
+              <select
+                value={elevenLabsLanguageCode}
+                onChange={(e) => {
+                  setElevenLabsLanguageCode(e.target.value);
+                  mark({ elevenLabsLanguageCode: e.target.value });
+                }}
+                className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
+              >
+                {ELEVENLABS_TTS_LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.code || "auto"} value={option.code}>
+                    {option.code ? `${option.label} (${option.code})` : option.label}
+                  </option>
+                ))}
+              </select>
+              {elevenLabsLanguageCode && (
+                <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                  Forcing {selectedLanguage.label}; ElevenLabs may reject this if the selected model does not support
+                  it.
+                </p>
+              )}
+            </FieldRow>
+          )}
 
           {source === "elevenlabs" && (
             <FieldRow

@@ -300,6 +300,7 @@ export function GameMapPanel({
   return (
     <motion.div
       data-tour="game-map"
+      data-game-skip-bg-nav="true"
       drag={!locked}
       dragMomentum={false}
       dragElastic={0}
@@ -476,7 +477,7 @@ export function MobileMapButton({
     activeMap &&
     !disabled &&
     selectedNode != null &&
-    (adjacentIds.has(selectedNode) || selectedNode === currentNode?.id);
+    (selectedNodeData?.discovered || adjacentIds.has(selectedNode) || selectedNode === currentNode?.id);
 
   return (
     <>

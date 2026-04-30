@@ -70,7 +70,7 @@ export function useChat(id: string | null) {
   });
 }
 
-export function useChatMessages(chatId: string | null, pageSize: number = 0) {
+export function useChatMessages(chatId: string | null, pageSize: number = 0, enabled = true) {
   return useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {
@@ -85,7 +85,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0) {
       if (pageSize <= 0 || lastPage.length < pageSize) return undefined;
       return lastPage[0]?.createdAt;
     },
-    enabled: !!chatId,
+    enabled: !!chatId && enabled,
   });
 }
 

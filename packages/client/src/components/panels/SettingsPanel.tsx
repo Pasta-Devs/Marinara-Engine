@@ -216,6 +216,8 @@ function GeneralSettings() {
   const setStreamingSpeed = useUIStore((s) => s.setStreamingSpeed);
   const gameInstantTextReveal = useUIStore((s) => s.gameInstantTextReveal);
   const setGameInstantTextReveal = useUIStore((s) => s.setGameInstantTextReveal);
+  const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
+  const setGameMiddleMouseNav = useUIStore((s) => s.setGameMiddleMouseNav);
   const gameTextSpeed = useUIStore((s) => s.gameTextSpeed);
   const setGameTextSpeed = useUIStore((s) => s.setGameTextSpeed);
   const gameAutoPlayDelay = useUIStore((s) => s.gameAutoPlayDelay);
@@ -364,6 +366,13 @@ function GeneralSettings() {
         checked={gameInstantTextReveal}
         onChange={setGameInstantTextReveal}
         help="When enabled, Game mode narration segments appear fully as soon as you enter them. This skips the typewriter effect and hides the narration speed control."
+      />
+
+      <ToggleSetting
+        label="Mouse-wheel + click navigation"
+        checked={gameMiddleMouseNav}
+        onChange={setGameMiddleMouseNav}
+        help="In Game mode, scroll the mouse wheel up to step back through past assistant turns and down to step forward. Clicking the scene background acts like the Next button. While reviewing the past, Next becomes Return — clicking the background or pressing Return jumps you back to where you were reading."
       />
 
       {/* Game Narration Text Speed */}
