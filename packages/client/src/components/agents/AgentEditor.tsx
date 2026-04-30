@@ -957,7 +957,7 @@ export function AgentEditor() {
                             // keep polling
                           }
                         }, 2000);
-                        // Stop polling after 10 minutes to match the server-side pendingAuth TTL
+                        // Stop polling after the server-side pendingAuth TTL
                         spotifyTimeoutRef.current = setTimeout(() => {
                           if (spotifyPollRef.current) {
                             clearInterval(spotifyPollRef.current);
@@ -987,9 +987,7 @@ export function AgentEditor() {
                   <p className="text-[0.6875rem] text-red-400/80">{spotifyConnectError}</p>
                 )}
 
-                {/* Manual paste-back fallback (HTTP LAN/remote installs where the
-                    browser cannot reach the loopback callback). Only shown while
-                    a connection attempt is in flight. */}
+                {/* Paste-back fallback for installs where the browser can't reach the loopback callback. */}
                 {spotifyConnecting && !spotifyStatus?.connected && dbConfig?.id && (
                   <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-[0.6875rem] text-white/50 space-y-2">
                     <button

@@ -171,16 +171,6 @@ type RedirectUriRequest = {
   headers: Record<string, string | string[] | undefined>;
 };
 
-/**
- * Builds the Spotify OAuth redirect URI for an incoming request.
- *
- * `X-Forwarded-*` headers are intentionally not read directly here: Fastify
- * already honours those when the operator opts in to `trustProxy`, and reading
- * them unconditionally would let any client spoof the URI shown in the agent
- * editor. We rely on `req.protocol` / `req.hostname` so deployments behind a
- * reverse proxy must enable `trustProxy` for HTTPS auto-derivation to kick in;
- * everyone else gets the safe loopback fallback (or the explicit env override).
- */
 export function buildSpotifyRedirectUri(req: RedirectUriRequest): string {
   const override = getSpotifyRedirectUriOverride();
   if (override) return override;
@@ -190,28 +180,13 @@ export function buildSpotifyRedirectUri(req: RedirectUriRequest): string {
   const hostname = req.hostname ?? (hostHeader ? stripPort(hostHeader) : null);
 
   if (!hostname) return getLoopbackFallbackRedirectUri();
-
-  // Fastify's req.hostname strips the port; the Host header preserves it. Spotify
-  // expects the exact registered URI including port, so prefer the header when
-  // available and fall back to hostname-only otherwise.
   const host = hostHeader ?? hostname;
 
-  if (protocol === "https") {
-    return `https://${host}/api/spotify/callback`;
-  }
-
-  if (protocol === "http" && isLoopbackHost(host)) {
-    return `http://${host}/api/spotify/callback`;
-  }
-
+  if (protocol === "https") return `https://${host}/api/spotify/callback`;
+  if (protocol === "http" && isLoopbackHost(host)) return `http://${host}/api/spotify/callback`;
   return getLoopbackFallbackRedirectUri();
 }
 
-/**
- * Legacy no-arg accessor. Returns the loopback fallback used when no request
- * context is available. Prefer `buildSpotifyRedirectUri(req)` from route
- * handlers so HTTPS deployments and explicit overrides are honoured.
- */
 export function getSpotifyRedirectUri() {
   return getSpotifyRedirectUriOverride() ?? getLoopbackFallbackRedirectUri();
 }

@@ -54,23 +54,13 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     }
   }
 
-  /**
-   * Completes the PKCE token exchange against Spotify and persists tokens to
-   * agent settings. Used by both the redirect callback and the manual
-   * paste-back endpoint.
-   */
+  /** Exchange code for tokens and persist them. Shared by /callback and /exchange. */
   async function completeExchange(args: { code: string; state: string }): Promise<ExchangeResult> {
     const { code, state } = args;
     const pending = pendingAuth.get(state);
-    if (!pending) {
-      return { ok: false, status: 400, reason: "Authorization session expired or was already used." };
-    }
-
-    // Enforce the TTL here too: /callback never triggers cleanupPending(), so
-    // without this check a stale state could still be exchanged long after the
-    // advertised 10-minute window if no other request happens to evict it.
-    if (Date.now() - pending.createdAt > 10 * 60_000) {
-      pendingAuth.delete(state);
+    const expired = pending && Date.now() - pending.createdAt > 10 * 60_000;
+    if (!pending || expired) {
+      if (expired) pendingAuth.delete(state);
       return { ok: false, status: 400, reason: "Authorization session expired or was already used." };
     }
 
@@ -78,12 +68,6 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
 
     const { codeVerifier, clientId, agentId, redirectUri } = pending;
 
-    // Existence-only check up front; the settings blob used for the merge is
-    // re-read immediately before storage.update below. storage.update
-    // serialises settings as a whole JSON column (see agents.storage.ts), so
-    // anything written between the early read and the post-network write would
-    // be silently clobbered. Re-reading right before write narrows the race
-    // window from the OAuth round-trip duration to a single tick.
     const agent = await storage.getById(agentId);
     if (!agent) return { ok: false, status: 404, reason: "Agent not found" };
 
@@ -183,11 +167,6 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
    * GET /api/spotify/callback?code=xxx&state=yyy
    * Spotify redirects here after user authorizes. Exchanges code for tokens
    * and stores them in the agent settings.
-   *
-   * When Marinara is accessed from a different machine than the server (plain
-   * HTTP LAN install) the browser cannot reach the loopback callback. In that
-   * case the user pastes the redirected URL into the agent editor, which calls
-   * POST /exchange below — this handler stays for the localhost / HTTPS paths.
    */
   app.get<{ Querystring: { code?: string; error?: string; state?: string } }>("/callback", async (req, reply) => {
     const { code, error, state } = req.query;
@@ -231,12 +210,8 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
   /**
    * POST /api/spotify/exchange
    * Body: { callbackUrl?: string; code?: string; state?: string }
-   *
-   * Manual paste-back path for HTTP LAN/remote installs where the browser
-   * cannot reach the loopback callback. Accepts either the full redirected
-   * URL (preferred — user pastes their browser address bar) or pre-extracted
-   * code+state. The server validates state against pendingAuth and runs the
-   * same token exchange as the /callback handler.
+   * Manual paste-back path for installs where the browser can't reach the
+   * loopback callback. Accepts the full redirected URL or pre-extracted code+state.
    */
   app.post<{ Body: { callbackUrl?: string; code?: string; state?: string } }>("/exchange", async (req, reply) => {
     const body = req.body ?? {};
