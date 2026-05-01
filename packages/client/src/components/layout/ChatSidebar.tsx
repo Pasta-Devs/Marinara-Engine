@@ -1260,14 +1260,33 @@ function FolderRow({
             />
           ) : (
             <span
+              role="button"
+              tabIndex={0}
               onClick={() => onToggleCollapse(folder)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggleCollapse(folder);
+                }
+              }}
               className="flex-1 cursor-pointer truncate text-xs font-medium text-[var(--muted-foreground)]"
             >
               {folder.name}
             </span>
           )}
           {entries.length > 0 && (
-            <span onClick={() => onToggleCollapse(folder)} className="text-[0.5625rem] text-[var(--muted-foreground)]">{entries.length}</span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={() => onToggleCollapse(folder)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggleCollapse(folder);
+                }
+              }}
+              className="text-[0.5625rem] text-[var(--muted-foreground)]"
+            >{entries.length}</span>
           )}
           <button
             onClick={(e) => {
