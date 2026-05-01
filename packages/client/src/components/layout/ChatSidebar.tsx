@@ -1208,7 +1208,7 @@ function FolderRow({
       {/* Folder header (draggable) */}
       <Reorder.Item value={folder.id} dragListener={false} dragControls={dragControls} as="div">
         <div
-          className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40"
+          className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 focus-within:bg-[var(--sidebar-accent)]/40"
         >
           <div
             onPointerDown={(e) => {
