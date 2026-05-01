@@ -17,6 +17,7 @@ export type CharacterMap = Map<
     avatarCrop?: { zoom: number; offsetX: number; offsetY: number } | null;
     conversationStatus?: "online" | "idle" | "dnd" | "offline";
     conversationActivity?: string;
+    extensions?: Record<string, unknown>;
   }
 >;
 

@@ -2044,6 +2044,7 @@ export function ChatSettingsDrawer({
           {/* Autonomous Messaging — conversation mode only */}
           {isConversation && (
             <Section
+              id="autonomous-messaging"
               label="Autonomous Messaging"
               icon={<Bot size="0.875rem" />}
               help="Characters can message you unprompted based on their personality and schedule. Chatty characters will reach out sooner when you're inactive."
@@ -4250,18 +4251,20 @@ function Section({
   icon,
   count,
   help,
+  id,
   children,
 }: {
   label: string;
   icon?: React.ReactNode;
   count?: number;
   help?: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-b border-[var(--border)]">
+    <div id={id} className="border-b border-[var(--border)]">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--accent)]/50"

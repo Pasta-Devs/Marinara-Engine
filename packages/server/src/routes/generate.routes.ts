@@ -931,15 +931,22 @@ export async function generateRoutes(app: FastifyInstance) {
             const schedule = schedules[cid];
             if (schedule) {
               const schedSvc = await import("../services/conversation/schedule.service.js");
-              const derived = schedSvc.getCurrentStatus(schedule);
-              status = derived.status;
-              activity = derived.activity;
-              todaySchedule = schedSvc.getTodaySchedule(schedule);
-              // Sync status to character DB so sidebar/header dots stay in sync
-              const prevStatus = d.extensions?.conversationStatus;
-              if (prevStatus !== status) {
-                const extensions = { ...(d.extensions ?? {}), conversationStatus: status };
-                await chars.update(cid, { extensions } as any).catch(() => {});
+              const overrides = (chatMeta.statusOverrides ?? {}) as Record<string, { status: string; activity: string }>;
+              if (overrides[cid]) {
+                status = overrides[cid]!.status;
+                activity = overrides[cid]!.activity;
+                todaySchedule = schedSvc.getTodaySchedule(schedule);
+              } else {
+                const derived = schedSvc.getCurrentStatus(schedule);
+                status = derived.status;
+                activity = derived.activity;
+                todaySchedule = schedSvc.getTodaySchedule(schedule);
+                // Sync status to character DB so sidebar/header dots stay in sync
+                const prevStatus = d.extensions?.conversationStatus;
+                if (prevStatus !== status) {
+                  const extensions = { ...(d.extensions ?? {}), conversationStatus: status };
+                  await chars.update(cid, { extensions } as any).catch(() => {});
+                }
               }
             }
             convoCharInfo.push({ charId: cid, name: d.name ?? "Unknown", status, activity, todaySchedule });

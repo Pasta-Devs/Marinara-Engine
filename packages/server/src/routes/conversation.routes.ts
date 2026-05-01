@@ -289,9 +289,32 @@ export async function conversationRoutes(app: FastifyInstance) {
       typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
 
     const now = new Date();
+    const statusOverrides: Record<string, { status: string; activity: string }> = meta.statusOverrides ?? {};
     const statuses: Record<string, { status: string; activity: string; schedule?: WeekSchedule }> = {};
 
     for (const charId of characterIds) {
+      // Manual override takes precedence — sync it to extensions and skip schedule logic
+      const override = statusOverrides[charId];
+      if (override) {
+        const charRow = await chars.getById(charId);
+        if (charRow) {
+          const charData = JSON.parse(charRow.data as string) as CharacterData;
+          if (
+            charData.extensions?.conversationStatus !== override.status ||
+            charData.extensions?.conversationActivity !== override.activity
+          ) {
+            const extensions = {
+              ...(charData.extensions ?? {}),
+              conversationStatus: override.status,
+              conversationActivity: override.activity,
+            };
+            await chars.update(charId, { extensions } as Partial<CharacterData>);
+          }
+        }
+        statuses[charId] = { status: override.status, activity: override.activity };
+        continue;
+      }
+
       const schedule = schedules[charId];
       if (!schedule) {
         const charRow = await chars.getById(charId);
@@ -377,8 +400,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
     const isGroup = characterIds.length > 1;
 
-    // Update each character's conversationStatus to match current schedule
+    const statusOverrides: Record<string, { status: string; activity: string }> = meta.statusOverrides ?? {};
+
+    // Update each character's conversationStatus to match current schedule (skip if overridden)
     for (const cid of characterIds) {
+      if (statusOverrides[cid]) continue;
       const schedule = schedules[cid];
       if (!schedule) continue;
       const { status } = getCurrentStatus(schedule);
@@ -411,7 +437,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       return reply.send({ shouldTrigger: false, characterIds: [], reason: "scene_active", inactivityMs: 0 });
     }
 
-    const result = checkAutonomousMessaging(chatId, filteredSchedules, isGroup);
+    const result = checkAutonomousMessaging(chatId, filteredSchedules, isGroup, statusOverrides);
 
     if (result.shouldTrigger) {
       markGenerationInProgress(chatId);
@@ -422,6 +448,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     // This catches the case where user sent messages while character was offline.
     // Now that they're online, trigger a catch-up generation.
     const onlineCharIds = characterIds.filter((cid) => {
+      if (statusOverrides[cid]) return statusOverrides[cid]!.status !== "offline";
       const schedule = schedules[cid];
       if (!schedule) return true; // No schedule = assume online
       const { status } = getCurrentStatus(schedule);
@@ -457,6 +484,15 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    const statusOverrides: Record<string, { status: string; activity: string }> = meta.statusOverrides ?? {};
+    const override = statusOverrides[characterId];
+    if (override) {
+      const schedules: CharacterSchedules = getEnabledConversationSchedules(meta);
+      const schedule = schedules[characterId];
+      const delayMs = schedule ? getBusyDelay(override.status as "online" | "idle" | "dnd" | "offline", schedule) : 0;
+      return reply.send({ delayMs, status: override.status, activity: override.activity });
+    }
+
     const schedules: CharacterSchedules = getEnabledConversationSchedules(meta);
     const schedule = schedules[characterId];
 
@@ -501,10 +537,38 @@ export async function conversationRoutes(app: FastifyInstance) {
       messages as Array<{ role: string; createdAt?: string; characterId?: string | null }>,
     );
 
-    const result = checkCharacterExchange(chatId, lastSpeakerCharId, schedules);
+    const statusOverrides: Record<string, { status: string; activity: string }> = meta.statusOverrides ?? {};
+    const result = checkCharacterExchange(chatId, lastSpeakerCharId, schedules, statusOverrides);
     if (result.shouldTrigger) {
       markGenerationInProgress(chatId);
     }
     return reply.send(result);
+  });
+
+  // ─────────────────────────────────────────────
+  // POST /status-override/:chatId — Set or clear a manual status override for a character
+  // Body: { characterId, status, activity } — pass status: null to clear
+  // ─────────────────────────────────────────────
+  app.post<{
+    Params: { chatId: string };
+    Body: { characterId: string; status: string | null; activity?: string };
+  }>("/status-override/:chatId", async (req, reply) => {
+    const { chatId } = req.params;
+    const { characterId, status, activity = "" } = req.body;
+
+    const chat = await chats.getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    const overrides: Record<string, { status: string; activity: string }> = meta.statusOverrides ?? {};
+
+    if (status === null) {
+      delete overrides[characterId];
+    } else {
+      overrides[characterId] = { status, activity };
+    }
+
+    await chats.updateMetadata(chatId, { ...meta, statusOverrides: overrides });
+    return reply.send({ ok: true });
   });
 }

@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { Suspense, lazy, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, ChevronUp, Settings2, FolderOpen, Image as ImageIcon, ArrowRightLeft } from "lucide-react";
+import { Loader2, ChevronUp, Settings2, FolderOpen, Image as ImageIcon, ArrowRightLeft, Save, CalendarClock, X } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
@@ -12,7 +12,8 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { playNotificationPing } from "../../lib/notification-sound";
 import { getAvatarCropStyle } from "../../lib/utils";
-import { characterKeys } from "../../hooks/use-characters";
+import { characterKeys, useUpdateCharacter } from "../../hooks/use-characters";
+import { useGenerate } from "../../hooks/use-generate";
 import { api } from "../../lib/api-client";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import type { Message } from "@marinara-engine/shared";
@@ -144,6 +145,14 @@ export function ConversationView({
   onAbandonScene,
 }: ConversationViewProps) {
   const qc = useQueryClient();
+  const updateCharacter = useUpdateCharacter();
+  const { generate } = useGenerate();
+  const [editingCharId, setEditingCharId] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<"online" | "idle" | "dnd" | "offline">("online");
+  const [editActivity, setEditActivity] = useState("");
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const statusPopoverRef = useRef<HTMLDivElement>(null);
+
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreaming = useChatStore((s) => s.isStreaming) && streamingChatId === chatId;
   const streamBuffer = useChatStore((s) => s.streamBuffer);
@@ -169,6 +178,18 @@ export function ConversationView({
     const timer = setInterval(refreshStatus, 60_000);
     return () => clearInterval(timer);
   }, [chatId, qc]);
+
+  // Close status popover on outside click
+  useEffect(() => {
+    if (!editingCharId) return;
+    const handler = (e: MouseEvent) => {
+      if (statusPopoverRef.current && !statusPopoverRef.current.contains(e.target as Node)) {
+        setEditingCharId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [editingCharId]);
 
   // Global conversation gradient from settings
   const theme = useUIStore((s) => s.theme);
@@ -560,6 +581,7 @@ export function ConversationView({
               avatarCrop?: { zoom: number; offsetX: number; offsetY: number } | null;
               conversationStatus?: "online" | "idle" | "dnd" | "offline";
               conversationActivity?: string;
+              extensions?: Record<string, unknown>;
             }>;
             if (chars.length === 0) return <div />;
 
@@ -574,10 +596,130 @@ export function ConversationView({
                     : "bg-gray-400";
             };
 
+            const statusLabel = (s?: string) => {
+              const st = s ?? "online";
+              return st === "online" ? "Online" : st === "idle" ? "Away" : st === "dnd" ? "Busy" : "Offline";
+            };
+
+            const openStatus = (charId: string, c: (typeof chars)[number]) => {
+              setEditStatus(c.conversationStatus ?? "online");
+              setEditActivity(c.conversationActivity ?? "");
+              setEditingCharId(charId);
+            };
+
+            const renderStatusPopover = (charId: string, c: (typeof chars)[number]) => {
+              if (editingCharId !== charId) return null;
+              const doSave = async () => {
+                setIsSavingStatus(true);
+                try {
+                  await api.post(`/conversation/status-override/${chatId}`, { characterId: charId, status: editStatus, activity: editActivity });
+                  updateCharacter.mutate({ id: charId, data: { extensions: { ...c.extensions, conversationStatus: editStatus, conversationActivity: editActivity } } });
+                  qc.invalidateQueries({ queryKey: characterKeys.list() });
+                  // Trigger an immediate response when unblocking the character:
+                  // - abort a pending delayed generation, or
+                  // - wake a character that was offline
+                  const wasStreaming = useChatStore.getState().isStreaming;
+                  const wasOffline = (c.conversationStatus ?? "online") === "offline";
+                  const isNowAvailable = editStatus !== "offline";
+                  if (wasStreaming) {
+                    useChatStore.getState().stopGeneration();
+                    await new Promise((r) => setTimeout(r, 300));
+                  }
+                  if (wasStreaming || (wasOffline && isNowAvailable)) {
+                    void generate({ chatId, connectionId: null });
+                  }
+                  setEditingCharId(null);
+                } catch {
+                  // Keep popover open so the user knows the save failed
+                } finally {
+                  setIsSavingStatus(false);
+                }
+              };
+              return (
+                <div
+                  ref={statusPopoverRef}
+                  className="absolute left-0 top-full z-50 mt-1.5 w-56 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg"
+                >
+                  <div className="mb-3 grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        { value: "online", label: "Online", color: "bg-green-500" },
+                        { value: "idle", label: "Away", color: "bg-yellow-500" },
+                        { value: "dnd", label: "Busy", color: "bg-red-500" },
+                        { value: "offline", label: "Offline", color: "bg-gray-400" },
+                      ] as const
+                    ).map(({ value, label, color }) => (
+                      <button
+                        key={value}
+                        onClick={() => setEditStatus(value)}
+                        className={`flex items-center gap-1.5 rounded px-2 py-1 text-[0.7rem] transition-colors ${editStatus === value ? "bg-[var(--accent)] font-medium text-[var(--foreground)]" : "text-[var(--foreground)]/60 hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"}`}
+                      >
+                        <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${color}`} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editActivity}
+                    onChange={(e) => setEditActivity(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isSavingStatus) void doSave();
+                      else if (e.key === "Escape") setEditingCharId(null);
+                    }}
+                    placeholder="Activity…"
+                    className="mb-2 w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.75rem] text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--ring)]"
+                  />
+                  <div className="mb-2 flex justify-start">
+                    <button
+                      onClick={() => {
+                        setEditingCharId(null);
+                        onOpenSettings();
+                        setTimeout(() => {
+                          const el = document.getElementById("autonomous-messaging");
+                          if (!el) return;
+                          if (el.children.length < 2) {
+                            (el.querySelector("button") as HTMLButtonElement | null)?.click();
+                          }
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 150);
+                      }}
+                      className="flex items-center gap-1 text-[0.7rem] text-[var(--foreground)]/50 underline hover:text-[var(--foreground)]"
+                    >
+                      <CalendarClock size={11} />
+                      Edit schedule
+                    </button>
+                  </div>
+                  <div className="flex justify-end gap-1.5">
+                    <button
+                      onClick={() => setEditingCharId(null)}
+                      className="flex items-center gap-1 rounded px-2 py-0.5 text-[0.7rem] text-[var(--foreground)]/60 transition-colors hover:text-[var(--foreground)]"
+                    >
+                      <X size={11} />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => void doSave()}
+                      disabled={isSavingStatus}
+                      className="flex items-center gap-1 rounded bg-[var(--primary)] px-2 py-0.5 text-[0.7rem] text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-50"
+                    >
+                      {isSavingStatus ? (
+                        <><Loader2 size={11} className="animate-spin" /><span>Saving…</span></>
+                      ) : (
+                        <><Save size={11} /><span>Save</span></>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            };
+
             if (chars.length === 1) {
               const c = chars[0]!;
+              const charId = chatCharIds[0]!;
               return (
-                <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+                <div className="relative flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
                       <span className="block h-5 w-5 overflow-hidden rounded-full">
@@ -597,12 +739,16 @@ export function ConversationView({
                       className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
                     />
                   </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[0.75rem] font-medium text-foreground/90">{c.name}</span>
-                    {c.conversationActivity && (
-                      <span className="text-[0.5625rem] text-foreground/50">{c.conversationActivity}</span>
-                    )}
-                  </div>
+                  <button
+                    className="group flex flex-col leading-tight text-left"
+                    onClick={() => openStatus(charId, c)}
+                  >
+                    <span className="text-[0.75rem] font-medium text-foreground/90 transition-colors group-hover:text-foreground">{c.name}</span>
+                    <span className="text-[0.5625rem] text-foreground/50 transition-colors group-hover:text-foreground/70">
+                      {c.conversationActivity || statusLabel(c.conversationStatus)}
+                    </span>
+                  </button>
+                  {renderStatusPopover(charId, c)}
                 </div>
               );
             }
@@ -614,31 +760,41 @@ export function ConversationView({
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
                 >
-                  {chars.slice(0, 3).map((c, i) => (
-                    <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
-                      <div className="relative">
-                        {c.avatarUrl ? (
-                          <span className="block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
-                            <img
-                              src={c.avatarUrl}
-                              alt={c.name}
-                              className="h-full w-full object-cover"
-                              style={getAvatarCropStyle(c.avatarCrop)}
-                            />
-                          </span>
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
-                            {c.name[0]}
-                          </div>
-                        )}
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
-                        />
+                  {chars.slice(0, 3).map((c, i) => {
+                    const charId = chatCharIds[i]!;
+                    return (
+                      <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
+                        <div className="relative">
+                          <button
+                            className="relative block rounded-full focus:outline-none"
+                            onClick={() => openStatus(charId, c)}
+                            title={c.name}
+                          >
+                            {c.avatarUrl ? (
+                              <span className="block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
+                                <img
+                                  src={c.avatarUrl}
+                                  alt={c.name}
+                                  className="h-full w-full object-cover"
+                                  style={getAvatarCropStyle(c.avatarCrop)}
+                                />
+                              </span>
+                            ) : (
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
+                                {c.name[0]}
+                              </div>
+                            )}
+                          </button>
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                          />
+                        </div>
+                        {renderStatusPopover(charId, c)}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90">
+                <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90" title="Click an avatar to edit status">
                   {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}
                 </span>
               </div>

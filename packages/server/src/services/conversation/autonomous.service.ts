@@ -127,6 +127,7 @@ export function checkAutonomousMessaging(
   chatId: string,
   characterSchedules: Record<string, WeekSchedule>,
   isGroupChat: boolean,
+  statusOverrides?: Record<string, { status: string; activity: string }>,
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -160,7 +161,7 @@ export function checkAutonomousMessaging(
   const MAX_FOLLOWUPS = 3;
 
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
-    const { status } = getCurrentStatus(schedule);
+    const { status } = statusOverrides?.[charId] ?? getCurrentStatus(schedule);
 
     // Can't send if offline or sleeping
     if (status === "offline") continue;
@@ -235,6 +236,7 @@ export function checkCharacterExchange(
   chatId: string,
   lastSpeakerCharId: string,
   characterSchedules: Record<string, WeekSchedule>,
+  statusOverrides?: Record<string, { status: string; activity: string }>,
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -262,7 +264,7 @@ export function checkCharacterExchange(
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
     if (charId === lastSpeakerCharId) continue;
 
-    const { status } = getCurrentStatus(schedule);
+    const { status } = statusOverrides?.[charId] ?? getCurrentStatus(schedule);
     if (status === "offline") continue;
     if (status === "dnd") continue; // Busy characters don't join casual exchanges
 

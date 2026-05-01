@@ -216,6 +216,7 @@ export function ChatArea() {
           avatarCrop: parsed.extensions?.avatarCrop || null,
           conversationStatus: parsed.extensions?.conversationStatus || undefined,
           conversationActivity: parsed.extensions?.conversationActivity || undefined,
+          extensions: parsed.extensions ?? {},
         });
       } catch {
         map.set(char.id, { name: "Unknown", avatarUrl: null });
