@@ -4,11 +4,20 @@
 // Set BASIC_AUTH_USER and BASIC_AUTH_PASS to enable HTTP Basic Authentication
 // on every request from non-loopback, non-allowlisted IPs.
 //
-// When credentials are NOT configured, this middleware refuses remote
-// connections by default (returns 403). This protects users who accidentally
-// expose the port to the public internet without setting up a password.
-// To opt back into the legacy "anyone can connect" behaviour, set
-// ALLOW_UNAUTHENTICATED_REMOTE=true.
+// When credentials are NOT configured, this middleware refuses connections
+// from PUBLIC internet IPs (returns 403). Loopback, private networks
+// (RFC 1918 LANs, Docker bridges, Kubernetes pod ranges, Tailscale CGNAT,
+// IPv6 ULA / link-local), and explicit IP_ALLOWLIST entries continue to
+// work without a password. This protects accidentally-exposed ports while
+// keeping LAN / phone / container access "just works" by default.
+//
+// Note: the private-network exemption applies ONLY when no Basic Auth is
+// configured. If you set BASIC_AUTH_USER/PASS, the password is required
+// from every IP except loopback and explicit IP_ALLOWLIST matches —
+// because if you went out of your way to set a password, you mean it.
+//
+// To opt back into the legacy "anyone can connect" behaviour from public
+// IPs too, set ALLOW_UNAUTHENTICATED_REMOTE=true.
 //
 // Optional:
 //   BASIC_AUTH_REALM            — string shown in the browser password prompt
@@ -31,7 +40,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import { getBasicAuthConfig, isUnauthenticatedRemoteAllowed } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
-import { isInIpAllowlist, isLoopbackIp } from "./ip-allowlist.js";
+import { isInIpAllowlist, isLoopbackIp, isPrivateNetworkIp } from "./ip-allowlist.js";
 
 interface CachedConfig {
   user: string;
@@ -94,9 +103,10 @@ function sendLockdown(reply: FastifyReply) {
   reply.status(403).send({
     error: "Forbidden",
     message:
-      "Remote access is disabled because no authentication is configured. " +
+      "Public-internet access is disabled because no authentication is configured. " +
       "Set BASIC_AUTH_USER and BASIC_AUTH_PASS, add this IP to IP_ALLOWLIST, " +
-      "or set ALLOW_UNAUTHENTICATED_REMOTE=true to allow unauthenticated remote connections.",
+      "or set ALLOW_UNAUTHENTICATED_REMOTE=true to allow unauthenticated public access. " +
+      "(Loopback, LAN, Docker, Kubernetes, and Tailscale traffic is allowed automatically.)",
   });
 }
 
@@ -115,13 +125,17 @@ export function basicAuthHook(request: FastifyRequest, reply: FastifyReply, done
 
   const config = loadConfig();
 
-  // No credentials configured → safe-by-default lockdown for remote IPs.
-  // Opt out via ALLOW_UNAUTHENTICATED_REMOTE=true for legacy open-access behaviour.
+  // No credentials configured → safe-by-default lockdown for PUBLIC IPs only.
+  // Private networks (LAN, Docker bridge, Kubernetes pod, Tailscale CGNAT) pass
+  // through so the common "phone on Wi-Fi" / "container-to-container" cases
+  // keep working. Opt out via ALLOW_UNAUTHENTICATED_REMOTE=true to allow
+  // unauthenticated PUBLIC IPs too (legacy open-access behaviour).
   if (!config) {
+    if (isPrivateNetworkIp(ip)) return done();
     if (isUnauthenticatedRemoteAllowed()) return done();
     if (!lockdownAnnounced) {
       logger.warn(
-        `[basic-auth] Refused remote connection from ${ip}. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS, IP_ALLOWLIST, or ALLOW_UNAUTHENTICATED_REMOTE=true.`,
+        `[basic-auth] Refused public-internet connection from ${ip}. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS, add the IP to IP_ALLOWLIST, or set ALLOW_UNAUTHENTICATED_REMOTE=true.`,
       );
       lockdownAnnounced = true;
     }

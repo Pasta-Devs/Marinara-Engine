@@ -27,7 +27,7 @@ cp .env.example .env
 | `BASIC_AUTH_USER`                | _(empty)_                                                | Username for HTTP Basic Auth. Set both `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` to require a password on every request. Leave either empty to disable auth.     |
 | `BASIC_AUTH_PASS`                | _(empty)_                                                | Password for HTTP Basic Auth. Use a strong, random value.                                                                                                      |
 | `BASIC_AUTH_REALM`               | `Marinara Engine`                                        | Realm string shown in the browser password prompt.                                                                                                             |
-| `ALLOW_UNAUTHENTICATED_REMOTE`   | `false`                                                  | When neither Basic Auth nor an `IP_ALLOWLIST` entry vouches for a remote IP, requests are refused by default. Set to `true` to allow unauthenticated remote access (NOT recommended on internet-facing servers). |
+| `ALLOW_UNAUTHENTICATED_REMOTE`   | `false`                                                  | When neither Basic Auth nor an `IP_ALLOWLIST` entry vouches for a public-internet IP, requests are refused by default. Private-network IPs (RFC 1918, CGNAT, IPv6 ULA / link-local) are always allowed. Set to `true` to allow unauthenticated **public** access (NOT recommended on internet-facing servers). |
 | `GIPHY_API_KEY`                  | _(empty)_                                                | Optional Giphy API key. GIF search is unavailable when unset.                                                                                                  |
 
 ## Logging Levels
@@ -68,13 +68,23 @@ Marinara Engine ships with layered access-control mechanisms designed for users 
 
 ### Safe-by-default lockdown
 
-By default, when no Basic Auth credentials are configured, the server **refuses connections from any remote IP** that is not in `IP_ALLOWLIST`. Loopback (`127.0.0.1`, `::1`) is always allowed, so local use is unaffected. This protects users who accidentally expose port 7860 to the public internet without setting up authentication.
+By default, when no Basic Auth credentials are configured, the server **refuses connections from public-internet IPs**. Local and private-network traffic continues to work without any configuration:
 
-Remote callers in this state receive a `403 Forbidden` with a message describing the three ways out:
+- Loopback (`127.0.0.1`, `::1`) — always allowed.
+- RFC 1918 private networks: `10.0.0.0/8`, `172.16.0.0/12` (covers Docker default bridge `172.17.0.0/16`), `192.168.0.0/16` — allowed automatically.
+- Link-local (`169.254.0.0/16`) and IPv6 ULA / link-local (`fc00::/7`, `fe80::/10`) — allowed automatically.
+- CGNAT range `100.64.0.0/10` (Tailscale, carrier NAT) — allowed automatically.
+- Anything in `IP_ALLOWLIST` — allowed.
+
+This means Docker containers, Kubernetes pods, your phone on the LAN, and Tailscale peers all "just work" without any extra config. Only requests from genuinely public IPs are blocked, which is the case that needs protecting when a port gets accidentally exposed.
+
+Public callers in the locked-down state receive a `403 Forbidden` with a message describing the three ways out:
 
 1. Set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` (recommended for internet-facing servers).
-2. Add the remote IP / network to `IP_ALLOWLIST` (recommended for trusted LANs and VPNs like Tailscale).
-3. Set `ALLOW_UNAUTHENTICATED_REMOTE=true` to opt back into the legacy "anyone can connect" behaviour. Only do this if the network itself is already trusted (e.g. an isolated lab subnet).
+2. Add the public IP / network to `IP_ALLOWLIST`.
+3. Set `ALLOW_UNAUTHENTICATED_REMOTE=true` to opt back into the legacy "anyone can connect" behaviour for public IPs as well. Only do this if the network itself is already trusted.
+
+> Note: the private-network exemption applies only to the lockdown. Once you set Basic Auth credentials, the password is required from every IP except loopback and explicit `IP_ALLOWLIST` matches — including from your LAN. This matches the principle of least surprise: if you set a password, you mean it.
 
 ### IP Allowlist
 

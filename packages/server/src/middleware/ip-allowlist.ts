@@ -127,6 +127,20 @@ function matchesCIDR(ipBytes: number[], cidr: CIDREntry): boolean {
 // ── Loopback CIDRs (always allowed) ──
 const LOOPBACK_CIDRS: CIDREntry[] = [parseCIDR("127.0.0.1")!, parseCIDR("::1")!];
 
+// ── Private / non-routable network CIDRs ──
+// Used by the safe-by-default Basic Auth lockdown to avoid breaking
+// LAN, Docker bridge, Kubernetes pod, and Tailscale traffic when no
+// auth is configured. Public IPs are NOT in this list.
+const PRIVATE_NETWORK_CIDRS: CIDREntry[] = [
+  parseCIDR("10.0.0.0/8")!, // RFC 1918
+  parseCIDR("172.16.0.0/12")!, // RFC 1918 (covers Docker default bridge 172.17.0.0/16)
+  parseCIDR("192.168.0.0/16")!, // RFC 1918
+  parseCIDR("169.254.0.0/16")!, // RFC 3927 link-local
+  parseCIDR("100.64.0.0/10")!, // RFC 6598 CGNAT (Tailscale, carrier NAT)
+  parseCIDR("fc00::/7")!, // RFC 4193 unique local (IPv6 ULA)
+  parseCIDR("fe80::/10")!, // RFC 4291 IPv6 link-local
+];
+
 // ── Build allowlist on startup ──
 
 function buildAllowlist(raw: string | null): CIDREntry[] | null {
@@ -180,6 +194,19 @@ export function isLoopbackIp(ip: string): boolean {
   if (!bytes) return false;
   for (const lb of LOOPBACK_CIDRS) {
     if (matchesCIDR(bytes, lb)) return true;
+  }
+  return false;
+}
+
+/**
+ * True if the given IP belongs to a private / non-routable range
+ * (RFC 1918, CGNAT, IPv6 ULA, link-local). Public internet IPs return false.
+ */
+export function isPrivateNetworkIp(ip: string): boolean {
+  const bytes = ipToBytes(ip);
+  if (!bytes) return false;
+  for (const cidr of PRIVATE_NETWORK_CIDRS) {
+    if (matchesCIDR(bytes, cidr)) return true;
   }
   return false;
 }
