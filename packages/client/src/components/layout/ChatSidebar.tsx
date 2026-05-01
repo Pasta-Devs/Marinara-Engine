@@ -1294,7 +1294,7 @@ function FolderRow({
               setRenameValue(folder.name);
               setRenaming(true);
             }}
-            className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--accent)] group-hover:opacity-100 max-md:opacity-100"
+            className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--accent)] group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-md:opacity-100"
             title="Rename folder"
           >
             <Pencil size="0.75rem" className="text-[var(--muted-foreground)]" />
@@ -1304,7 +1304,7 @@ function FolderRow({
               e.stopPropagation();
               onDelete(folder.id);
             }}
-            className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 max-md:opacity-100"
+            className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-md:opacity-100"
           >
             <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
           </button>
