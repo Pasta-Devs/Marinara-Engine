@@ -170,11 +170,18 @@ export function ConversationView({
     return () => clearInterval(timer);
   }, [chatId, qc]);
 
-  // Per-scheme conversation gradient from settings
+  // Per-scheme conversation gradient from settings.
+  // When a scheme's values are still the defaults (user hasn't customized), use
+  // a CSS variable so custom themes can override the conversation background.
   const convoGradient = useUIStore((s) => s.convoGradient);
   const theme = useUIStore((s) => s.theme);
   const gradientStyle = useMemo(() => {
     const g = convoGradient[theme];
+    const isDefaultDark = convoGradient.dark.from === "#0a0a0e" && convoGradient.dark.to === "#1c2133";
+    const isDefaultLight = convoGradient.light.from === "#f2eff7" && convoGradient.light.to === "#eae6f0";
+    if ((theme === "dark" && isDefaultDark) || (theme === "light" && isDefaultLight)) {
+      return { background: "var(--secondary)" };
+    }
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
