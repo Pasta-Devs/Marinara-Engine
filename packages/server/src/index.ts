@@ -44,6 +44,11 @@ async function main() {
     await app.listen({ port, host });
     app.log.info(`Marinara Engine server listening on ${protocol}://${host}:${port}`);
   } catch (err) {
+    if (isShuttingDown) {
+      app.log.info("Startup interrupted by shutdown");
+      return;
+    }
+
     app.log.error(err);
     process.exit(1);
   }
