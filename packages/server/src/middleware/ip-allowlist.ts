@@ -12,7 +12,7 @@
 // so you can never lock yourself out of local access.
 
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { getIpAllowlist } from "../config/runtime-config.js";
+import { getIpAllowlist, getTrustedPrivateNetworksOverride } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
 
 // ── CIDR helpers ──
@@ -127,6 +127,58 @@ function matchesCIDR(ipBytes: number[], cidr: CIDREntry): boolean {
 // ── Loopback CIDRs (always allowed) ──
 const LOOPBACK_CIDRS: CIDREntry[] = [parseCIDR("127.0.0.1")!, parseCIDR("::1")!];
 
+// ── Private / non-routable network CIDRs ──
+// Used by the safe-by-default Basic Auth lockdown to avoid breaking
+// LAN, Docker bridge, Kubernetes pod, and Tailscale traffic when no
+// auth is configured. Public IPs are NOT in this list.
+//
+// These are *defaults* — operators can override the entire list via the
+// TRUSTED_PRIVATE_NETWORKS env var (comma-separated IPs / CIDRs) to
+// strip ranges they consider untrusted (e.g. a publicly-routable
+// corporate /16) or to substitute their own list entirely.
+const DEFAULT_PRIVATE_NETWORK_CIDRS: CIDREntry[] = [
+  parseCIDR("10.0.0.0/8")!, // RFC 1918
+  parseCIDR("172.16.0.0/12")!, // RFC 1918 (covers Docker default bridge 172.17.0.0/16)
+  parseCIDR("192.168.0.0/16")!, // RFC 1918
+  parseCIDR("169.254.0.0/16")!, // RFC 3927 link-local
+  parseCIDR("100.64.0.0/10")!, // RFC 6598 CGNAT (Tailscale, carrier NAT)
+  parseCIDR("fc00::/7")!, // RFC 4193 unique local (IPv6 ULA)
+  parseCIDR("fe80::/10")!, // RFC 4291 IPv6 link-local
+];
+
+let cachedPrivateNetworks: { raw: string | null; entries: CIDREntry[]; announced: boolean } | null = null;
+
+function getPrivateNetworkCidrs(): CIDREntry[] {
+  const raw = getTrustedPrivateNetworksOverride();
+  if (!cachedPrivateNetworks || cachedPrivateNetworks.raw !== raw) {
+    if (!raw) {
+      cachedPrivateNetworks = { raw: null, entries: DEFAULT_PRIVATE_NETWORK_CIDRS, announced: true };
+    } else {
+      const entries: CIDREntry[] = [];
+      for (const part of raw.split(",")) {
+        const trimmed = part.trim();
+        if (!trimmed) continue;
+        const cidr = parseCIDR(trimmed);
+        if (!cidr) {
+          logger.warn(`[trusted-private-networks] Ignoring invalid entry: "${trimmed}"`);
+          continue;
+        }
+        entries.push(cidr);
+      }
+      cachedPrivateNetworks = { raw, entries, announced: false };
+    }
+  }
+
+  if (cachedPrivateNetworks.raw && !cachedPrivateNetworks.announced) {
+    logger.info(
+      `[trusted-private-networks] Overriding default private-network list with: ${cachedPrivateNetworks.raw}`,
+    );
+    cachedPrivateNetworks.announced = true;
+  }
+
+  return cachedPrivateNetworks.entries;
+}
+
 // ── Build allowlist on startup ──
 
 function buildAllowlist(raw: string | null): CIDREntry[] | null {
@@ -170,6 +222,48 @@ function getAllowlist() {
   }
 
   return cachedAllowlist.entries;
+}
+
+// ── Reusable predicates (shared with basic-auth) ──
+
+/** True if the given IP string is a loopback address. */
+export function isLoopbackIp(ip: string): boolean {
+  const bytes = ipToBytes(ip);
+  if (!bytes) return false;
+  for (const lb of LOOPBACK_CIDRS) {
+    if (matchesCIDR(bytes, lb)) return true;
+  }
+  return false;
+}
+
+/**
+ * True if the given IP belongs to a trusted private / non-routable range.
+ * Defaults to RFC 1918, CGNAT, link-local, and IPv6 ULA — but the operator
+ * can override the entire list via the TRUSTED_PRIVATE_NETWORKS env var.
+ */
+export function isPrivateNetworkIp(ip: string): boolean {
+  const bytes = ipToBytes(ip);
+  if (!bytes) return false;
+  for (const cidr of getPrivateNetworkCidrs()) {
+    if (matchesCIDR(bytes, cidr)) return true;
+  }
+  return false;
+}
+
+/**
+ * True if the given IP is configured in the active IP_ALLOWLIST.
+ * Returns false when no allowlist is configured (so callers can decide
+ * what to do with "no list" vs "list says no").
+ */
+export function isInIpAllowlist(ip: string): boolean {
+  const allowlist = getAllowlist();
+  if (!allowlist) return false;
+  const bytes = ipToBytes(ip);
+  if (!bytes) return false;
+  for (const entry of allowlist) {
+    if (matchesCIDR(bytes, entry)) return true;
+  }
+  return false;
 }
 
 // ── Fastify onRequest hook ──
