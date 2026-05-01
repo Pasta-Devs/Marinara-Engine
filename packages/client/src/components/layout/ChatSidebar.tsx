@@ -1208,7 +1208,6 @@ function FolderRow({
       {/* Folder header (draggable) */}
       <Reorder.Item value={folder.id} dragListener={false} dragControls={dragControls} as="div">
         <div
-          onClick={() => onToggleCollapse(folder)}
           className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40"
         >
           <div
@@ -1221,15 +1220,23 @@ function FolderRow({
           >
             <GripVertical size="0.625rem" className="text-[var(--muted-foreground)]" />
           </div>
-          <ChevronRight
-            size="0.75rem"
-            className={cn("text-[var(--muted-foreground)] transition-transform", !folder.collapsed && "rotate-90")}
-          />
           <div
-            className="h-2 w-2 rounded-full flex-shrink-0 cursor-pointer"
-            style={{ backgroundColor: folder.color || "#6b7280" }}
-            title={folder.name}
-          />
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapse(folder);
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <ChevronRight
+              size="0.75rem"
+              className={cn("text-[var(--muted-foreground)] transition-transform", !folder.collapsed && "rotate-90")}
+            />
+            <div
+              className="h-2 w-2 rounded-full flex-shrink-0 cursor-pointer"
+              style={{ backgroundColor: folder.color || "#6b7280" }}
+              title={folder.name}
+            />
+          </div>
           {renaming ? (
             <input
               autoFocus
@@ -1252,12 +1259,15 @@ function FolderRow({
               className="flex-1 bg-transparent text-xs font-medium text-[var(--foreground)] outline-none"
             />
           ) : (
-            <span className="flex-1 cursor-pointer truncate text-xs font-medium text-[var(--muted-foreground)]">
+            <span
+              onClick={() => onToggleCollapse(folder)}
+              className="flex-1 cursor-pointer truncate text-xs font-medium text-[var(--muted-foreground)]"
+            >
               {folder.name}
             </span>
           )}
           {entries.length > 0 && (
-            <span className="text-[0.5625rem] text-[var(--muted-foreground)]">{entries.length}</span>
+            <span onClick={() => onToggleCollapse(folder)} className="text-[0.5625rem] text-[var(--muted-foreground)]">{entries.length}</span>
           )}
           <button
             onClick={(e) => {
