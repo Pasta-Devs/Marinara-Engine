@@ -1262,6 +1262,7 @@ function FolderRow({
             <span
               role="button"
               tabIndex={0}
+              aria-expanded={!folder.collapsed}
               onClick={() => onToggleCollapse(folder)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -1278,6 +1279,7 @@ function FolderRow({
             <span
               role="button"
               tabIndex={0}
+              aria-expanded={!folder.collapsed}
               onClick={() => onToggleCollapse(folder)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
