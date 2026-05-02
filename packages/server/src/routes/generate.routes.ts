@@ -3533,10 +3533,15 @@ export async function generateRoutes(app: FastifyInstance) {
       // ── Interval gating: Narrative Director only intervenes every N assistant messages ──
       const directorAgent = resolvedAgents.find((a) => a.type === "director");
       if (directorAgent) {
-        const runInterval =
-          (directorAgent.settings.runInterval as number) ??
-          (getDefaultBuiltInAgentSettings("director").runInterval as number) ??
-          5;
+        const rawInterval = (directorAgent.settings as { runInterval?: unknown }).runInterval;
+        const parsed =
+          typeof rawInterval === "number"
+            ? rawInterval
+            : typeof rawInterval === "string"
+              ? Number(rawInterval)
+              : NaN;
+        const fallback = (getDefaultBuiltInAgentSettings("director").runInterval as number) ?? 5;
+        const runInterval = Number.isFinite(parsed) && parsed >= 1 ? Math.min(100, Math.floor(parsed)) : fallback;
         if (runInterval > 1) {
           const lastRun = await agentsStore.getLastSuccessfulRunByType("director", input.chatId);
           if (lastRun) {
@@ -6099,6 +6104,31 @@ export async function generateRoutes(app: FastifyInstance) {
           parallelResults = await parallelPromise;
         } catch {
           // Non-critical — parallel agents may fail independently
+        }
+      }
+
+      // Persist successful Narrative Director runs.
+      // Interval gating uses getLastSuccessfulRunByType("director", …); those rows were
+      // never inserted because only post_generation results were saved below. Pre-gen runs
+      // before the assistant message exists — anchor each run to this turn's saved message id.
+      const preGenAnchorMessageId = (lastSavedMsg as any)?.id ?? "";
+      if (preGenAnchorMessageId && !abortController.signal.aborted) {
+        const preGenSuccessful = pipeline.results.filter((r) => {
+          if (!r.success || r.agentType !== "director") return false;
+          const cfg = pipelineAgents.find((a) => a.type === r.agentType);
+          return cfg?.phase === "pre_generation";
+        });
+        for (const result of preGenSuccessful) {
+          try {
+            await agentsStore.saveRun({
+              agentConfigId: result.agentId,
+              chatId: input.chatId,
+              messageId: preGenAnchorMessageId,
+              result,
+            });
+          } catch (err) {
+            logger.warn(err, "[agents] Failed to persist Narrative Director run");
+          }
         }
       }
 
