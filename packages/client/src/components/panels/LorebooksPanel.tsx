@@ -22,17 +22,21 @@ import {
   X,
   Wand2,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { useLorebooks, useDeleteLorebook, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import type { Lorebook, LorebookCategory } from "@marinara-engine/shared";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
+import { getChatCharacterIds } from "../../lib/chat-macros";
 
-const CATEGORIES: Array<{ id: LorebookCategory | "all"; label: string; icon: typeof Globe }> = [
+const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string; icon: typeof Globe }> = [
   { id: "all", label: "All", icon: Layers },
+  { id: "active", label: "Active", icon: Zap },
   { id: "world", label: "World", icon: Globe },
   { id: "character", label: "Character", icon: Users },
   { id: "npc", label: "NPC", icon: UserRound },
@@ -50,7 +54,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export function LorebooksPanel() {
-  const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all">("all");
+  const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all" | "active">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<"name-asc" | "name-desc" | "newest" | "oldest" | "tokens">("name-asc");
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -59,7 +63,26 @@ export function LorebooksPanel() {
   const [selectedLorebookIds, setSelectedLorebookIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
 
-  const { data: lorebooks, isLoading } = useLorebooks(activeCategory === "all" ? undefined : activeCategory);
+  // Active chat context for the "Active" filter
+  const activeChat = useChatStore((s) => s.activeChat);
+  const activeChatMetadata = activeChat?.metadata;
+  const activeLorebookIds: string[] = useMemo(() => {
+    if (!activeChatMetadata) return [];
+    try {
+      const meta = typeof activeChatMetadata === "string" ? JSON.parse(activeChatMetadata) : activeChatMetadata;
+      return Array.isArray(meta.activeLorebookIds) ? meta.activeLorebookIds : [];
+    } catch {
+      return [];
+    }
+  }, [activeChatMetadata]);
+  const activeCharacterIds = useMemo(() => getChatCharacterIds(activeChat), [activeChat]);
+  const activePersonaId = activeChat?.personaId ?? null;
+  const activeChatId = activeChat?.id ?? null;
+
+  // When "active" category is selected, fetch all lorebooks (no category filter) — we filter client-side
+  const { data: lorebooks, isLoading } = useLorebooks(
+    activeCategory === "active" || activeCategory === "all" ? undefined : activeCategory,
+  );
   const { data: rawCharacters } = useCharacters();
   const { data: rawPersonas } = usePersonas();
   const deleteLorebook = useDeleteLorebook();
@@ -141,6 +164,18 @@ export function LorebooksPanel() {
   const filtered = useMemo(() => {
     if (!lorebooks) return [];
     let list = lorebooks as Lorebook[];
+    // "Active" filter: show lorebooks active in the current chat
+    // Mirrors server-side filterRelevantLorebooks: pinned + character-linked + persona-linked + chat-scoped
+    if (activeCategory === "active") {
+      list = list.filter(
+        (lb) =>
+          lb.enabled &&
+          (activeLorebookIds.includes(lb.id) ||
+            (lb.characterId && activeCharacterIds.includes(lb.characterId)) ||
+            (lb.personaId && lb.personaId === activePersonaId) ||
+            (lb.chatId && lb.chatId === activeChatId)),
+      );
+    }
     if (activeTag) {
       list = list.filter((lb) => parseTags(lb).includes(activeTag));
     }
@@ -154,7 +189,18 @@ export function LorebooksPanel() {
         (lb.personaId ? (personaNameById.get(lb.personaId) ?? "").toLowerCase().includes(q) : false) ||
         parseTags(lb).some((t) => t.toLowerCase().includes(q)),
     );
-  }, [lorebooks, searchQuery, activeTag, characterNameById, personaNameById]);
+  }, [
+    lorebooks,
+    activeCategory,
+    activeLorebookIds,
+    activeCharacterIds,
+    activePersonaId,
+    activeChatId,
+    searchQuery,
+    activeTag,
+    characterNameById,
+    personaNameById,
+  ]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];

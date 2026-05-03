@@ -20,6 +20,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Custom agents can now maintain durable chat memory with read/append summary tools, metadata patch streaming, and configurable trigger cadence.
 - Prompt override APIs can now customize image-generation templates for sprites, NPC portraits, backgrounds, scene illustrations, and conversation selfies.
 - New Knowledge Router agent.
+- Active filter in the Lorebooks panel for lorebooks currently relevant to the selected chat.
 - You can now link Personas to Lorebooks.
 - Drag-and-drop Lorebook entries.
 - Added ElevenLabs for TTS support.
