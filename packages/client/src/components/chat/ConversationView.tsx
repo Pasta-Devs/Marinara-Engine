@@ -908,17 +908,19 @@ export function ConversationView({
         }
         chatCharacters={
           chatCharIds.length > 1
-            ? chatCharIds.map((id) => {
-                const info = characterMap.get(id);
-                return {
-                  id,
-                  name: info?.name ?? "Unknown",
-                  avatarUrl: info?.avatarUrl ?? null,
-                  avatarCrop: info?.avatarCrop ?? null,
-                  conversationStatus: info?.conversationStatus,
-                  conversationActivity: info?.conversationActivity,
-                };
-              })
+            ? chatCharIds
+                .filter((id) => characterMap.has(id))
+                .map((id) => {
+                  const info = characterMap.get(id)!;
+                  return {
+                    id,
+                    name: info.name,
+                    avatarUrl: info.avatarUrl ?? null,
+                    avatarCrop: info.avatarCrop ?? null,
+                    conversationStatus: info.conversationStatus,
+                    conversationActivity: info.conversationActivity,
+                  };
+                })
             : undefined
         }
       />

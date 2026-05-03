@@ -1124,15 +1124,17 @@ export function ChatRoleplaySurface({
                   }
                   chatCharacters={
                     chatCharIds.length > 1
-                      ? chatCharIds.map((id) => {
-                          const info = characterMap.get(id);
-                          return {
-                            id,
-                            name: info?.name ?? "Unknown",
-                            avatarUrl: info?.avatarUrl ?? null,
-                            avatarCrop: info?.avatarCrop ?? null,
-                          };
-                        })
+                      ? chatCharIds
+                          .filter((id) => characterMap.has(id))
+                          .map((id) => {
+                            const info = characterMap.get(id)!;
+                            return {
+                              id,
+                              name: info.name,
+                              avatarUrl: info.avatarUrl ?? null,
+                              avatarCrop: info.avatarCrop ?? null,
+                            };
+                          })
                       : undefined
                   }
                 />
