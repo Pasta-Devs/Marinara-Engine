@@ -2391,7 +2391,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Connected Chat"
               icon={<ArrowRightLeft size="0.875rem" />}
-              help="Link this conversation to a roleplay or game chat. OOC context flows between them — conversation characters can influence the linked chat, and linked events can flow back into the conversation."
+              help="Link this conversation to a roleplay or game. Recent messages from the linked chat are pulled into context here automatically. To send something the other direction, the character uses `<influence>` (steers the next linked turn, one-shot) or `<note>` (persists on every future linked turn until cleared)."
             >
               {chat.connectedChatId ? (
                 (() => {
@@ -2463,7 +2463,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Connected Conversation"
               icon={<ArrowRightLeft size="0.875rem" />}
-              help="This chat is linked to a conversation. OOC influences from that chat will be injected into context, and game events or roleplay moments can flow back."
+              help="Linked to a conversation. `<influence>` tags from the conversation steer the next turn here (one-shot, then consumed). `<note>` tags persist on every turn until cleared. Raw conversation messages are not injected — use `<note>` for facts this chat should keep remembering."
             >
               {(() => {
                 const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
@@ -2495,7 +2495,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Connected Conversation"
               icon={<ArrowRightLeft size="0.875rem" />}
-              help="Link this game to an OOC conversation. Game events can flow to the conversation and player discussions can influence the game."
+              help="Link this game to an OOC conversation. The conversation character uses `<influence>` (one-shot) or `<note>` (durable) to bridge content into the game; raw conversation messages are not injected. Game events and roleplay moments flow back into the conversation automatically."
             >
               {!showConnectionPicker ? (
                 <button
