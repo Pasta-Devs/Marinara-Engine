@@ -1,0 +1,746 @@
+// ──────────────────────────────────────────────
+// Lorebook Entry Row
+// Compact one-line row with inline controls + expandable drawer.
+// Replaces the previous "click to navigate to entry sub-view" pattern.
+// Inspired by SillyTavern's World Info card layout.
+// ──────────────────────────────────────────────
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
+import {
+  ChevronDown,
+  FileText,
+  GripVertical,
+  Hash,
+  Key,
+  Lock,
+  Save,
+  Settings2,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+} from "lucide-react";
+import { cn } from "../../lib/utils";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { useUpdateLorebookEntry, useDeleteLorebookEntry } from "../../hooks/use-lorebooks";
+import type { LorebookEntry, LorebookFolder } from "@marinara-engine/shared";
+import {
+  ExpandableTextarea,
+  FieldGroup,
+  KeysEditor,
+  NumberField,
+  ToggleButton,
+  estimateTokens,
+} from "./LorebookFormFields";
+
+interface Props {
+  entry: LorebookEntry;
+  lorebookId: string;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  /**
+   * All folders in the parent lorebook. Used to populate the folder selector
+   * on the row. May be empty — when empty, the selector is hidden because
+   * "(none)" → "(none)" is meaningless.
+   */
+  folders: LorebookFolder[];
+  // Drag-and-drop wiring (lifted in the parent because cross-row state).
+  draggable: boolean;
+  isDragging: boolean;
+  isDragReady: boolean;
+  onDragHandleMouseDown: () => void;
+  onDragHandleMouseUp: () => void;
+  onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: ReactDragEvent<HTMLDivElement>) => void;
+  onDrop: (e: ReactDragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+}
+
+/** Maps the (constant, selective) boolean pair into a single status enum for the inline select. */
+type EntryStatus = "constant" | "selective" | "normal";
+
+function deriveStatus(entry: LorebookEntry): EntryStatus {
+  if (entry.constant) return "constant";
+  if (entry.selective) return "selective";
+  return "normal";
+}
+
+function statusToFlags(status: EntryStatus): { constant: boolean; selective: boolean } {
+  switch (status) {
+    case "constant":
+      return { constant: true, selective: false };
+    case "selective":
+      return { constant: false, selective: true };
+    case "normal":
+    default:
+      return { constant: false, selective: false };
+  }
+}
+
+const STATUS_LABEL: Record<EntryStatus, string> = {
+  constant: "Constant",
+  selective: "Selective",
+  normal: "Normal",
+};
+
+const STATUS_DOT_COLOR: Record<EntryStatus, string> = {
+  constant: "bg-amber-400",
+  selective: "bg-violet-400",
+  normal: "bg-emerald-400",
+};
+
+/** A compact lorebook-entry list row with inline-editable status / position / depth / order /
+ *  probability / enable, plus an expandable drawer with the rest of the entry editor.
+ */
+export function LorebookEntryRow({
+  entry,
+  lorebookId,
+  isExpanded,
+  onToggleExpand,
+  folders,
+  draggable,
+  isDragging,
+  isDragReady,
+  onDragHandleMouseDown,
+  onDragHandleMouseUp,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: Props) {
+  const updateEntry = useUpdateLorebookEntry();
+  const deleteEntry = useDeleteLorebookEntry();
+
+  // ── Inline-control optimistic state ──
+  // We keep a local mirror of the entry's fields so the inputs feel snappy
+  // while the mutation flushes. React Query invalidation will reconcile.
+  const [localEnabled, setLocalEnabled] = useState(entry.enabled);
+  const [localStatus, setLocalStatus] = useState<EntryStatus>(deriveStatus(entry));
+  const [localPosition, setLocalPosition] = useState(entry.position);
+  const [localDepth, setLocalDepth] = useState(entry.depth);
+  const [localOrder, setLocalOrder] = useState(entry.order);
+  const [localProbability, setLocalProbability] = useState<number>(entry.probability ?? 100);
+  const [localName, setLocalName] = useState(entry.name);
+
+  // Re-sync local state when the upstream entry changes (e.g. after refetch)
+  // so we don't show stale values, but avoid clobbering an in-flight edit.
+  const lastSyncedRef = useRef(entry);
+  useEffect(() => {
+    if (lastSyncedRef.current === entry) return;
+    lastSyncedRef.current = entry;
+    setLocalEnabled(entry.enabled);
+    setLocalStatus(deriveStatus(entry));
+    setLocalPosition(entry.position);
+    setLocalDepth(entry.depth);
+    setLocalOrder(entry.order);
+    setLocalProbability(entry.probability ?? 100);
+    setLocalName(entry.name);
+  }, [entry]);
+
+  const patch = useCallback(
+    (changes: Partial<LorebookEntry>) => {
+      updateEntry.mutate({ lorebookId, entryId: entry.id, ...changes });
+    },
+    [lorebookId, entry.id, updateEntry],
+  );
+
+  const handleStatusChange = useCallback(
+    (next: EntryStatus) => {
+      setLocalStatus(next);
+      patch(statusToFlags(next));
+    },
+    [patch],
+  );
+
+  const handleEnableToggle = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      const next = !localEnabled;
+      setLocalEnabled(next);
+      patch({ enabled: next });
+    },
+    [localEnabled, patch],
+  );
+
+  const handleNameCommit = useCallback(() => {
+    if (localName.trim() && localName !== entry.name) {
+      patch({ name: localName.trim() });
+    } else if (!localName.trim()) {
+      // Don't allow empty names — revert.
+      setLocalName(entry.name);
+    }
+  }, [localName, entry.name, patch]);
+
+  const handleDelete = useCallback(
+    async (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      if (
+        !(await showConfirmDialog({
+          title: "Delete Entry",
+          message: "Delete this lorebook entry?",
+          confirmLabel: "Delete",
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
+      deleteEntry.mutate({ lorebookId, entryId: entry.id });
+    },
+    [lorebookId, entry.id, deleteEntry],
+  );
+
+  const showDepthInput = localPosition === 2;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-all",
+        isExpanded ? "ring-amber-400/40" : "hover:ring-amber-400/30",
+        isDragging && "opacity-40",
+      )}
+      draggable={draggable && isDragReady}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      {/* ── Compact row ── */}
+      <div className="group flex cursor-pointer items-center gap-2 px-2 py-1.5" onClick={onToggleExpand}>
+        {/* Drag handle */}
+        <button
+          type="button"
+          className={cn(
+            "shrink-0 rounded p-0.5 text-[var(--muted-foreground)] transition-colors",
+            draggable
+              ? "cursor-grab hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:cursor-grabbing"
+              : "cursor-not-allowed opacity-40",
+          )}
+          title={draggable ? "Drag to reorder" : "Use Order sort and clear search to reorder"}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            if (draggable) onDragHandleMouseDown();
+          }}
+          onMouseUp={(e) => {
+            e.stopPropagation();
+            onDragHandleMouseUp();
+          }}
+        >
+          <GripVertical size="0.875rem" />
+        </button>
+
+        {/* Expand chevron */}
+        <button
+          type="button"
+          aria-label={isExpanded ? "Collapse entry" : "Expand entry"}
+          className="shrink-0 rounded p-0.5 text-[var(--muted-foreground)] transition-transform hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpand();
+          }}
+        >
+          <ChevronDown size="0.875rem" className={cn("transition-transform", isExpanded ? "rotate-0" : "-rotate-90")} />
+        </button>
+
+        {/* Enable toggle */}
+        <button
+          type="button"
+          aria-label={localEnabled ? "Disable entry" : "Enable entry"}
+          title={localEnabled ? "Entry enabled" : "Entry disabled"}
+          onClick={handleEnableToggle}
+          className="shrink-0"
+        >
+          {localEnabled ? (
+            <ToggleRight size="1.125rem" className="text-amber-400" />
+          ) : (
+            <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
+          )}
+        </button>
+
+        {/* Status dot + name */}
+        <span
+          className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT_COLOR[localStatus])}
+          title={STATUS_LABEL[localStatus]}
+        />
+        <input
+          value={localName}
+          onChange={(e) => setLocalName(e.target.value)}
+          onBlur={handleNameCommit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          placeholder="Untitled entry"
+          className="min-w-0 flex-1 truncate bg-transparent px-1 text-sm font-medium outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] rounded"
+        />
+
+        {/* Lock badge (display-only on the row; toggled inside the drawer) */}
+        {entry.locked && (
+          <span className="hidden shrink-0 items-center rounded bg-sky-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400 sm:inline-flex">
+            <Lock size="0.5rem" className="mr-0.5" />
+            LOCKED
+          </span>
+        )}
+
+        {/* ── Inline editable controls cluster ── */}
+        {/* Hidden on very narrow viewports to keep the row from overflowing.
+            Users on mobile can expand the drawer to access them. */}
+        <div className="hidden shrink-0 items-center gap-1 md:flex" onClick={(e) => e.stopPropagation()}>
+          <CompactSelect
+            value={localStatus}
+            onChange={(v) => handleStatusChange(v as EntryStatus)}
+            title="Trigger mode: Constant always fires, Selective uses primary+secondary key logic, Normal fires on any primary key match."
+            options={[
+              { value: "normal", label: "Normal" },
+              { value: "constant", label: "Const" },
+              { value: "selective", label: "Selective" },
+            ]}
+          />
+          <CompactSelect
+            value={String(localPosition)}
+            onChange={(v) => {
+              const n = Number(v);
+              setLocalPosition(n);
+              patch({ position: n });
+            }}
+            title="Position in the prompt: Before Chat, After Chat, or @ Depth (injected into chat history)."
+            options={[
+              { value: "0", label: "↑Char" },
+              { value: "1", label: "↓Char" },
+              { value: "2", label: "@Depth" },
+            ]}
+          />
+          {showDepthInput && (
+            <CompactNumber
+              value={localDepth}
+              onCommit={(n) => {
+                setLocalDepth(n);
+                patch({ depth: n });
+              }}
+              title="Depth (messages back from the latest) where this entry is injected."
+              ariaLabel="Depth"
+              prefix="d"
+              min={0}
+              max={9999}
+            />
+          )}
+          <CompactNumber
+            value={localOrder}
+            onCommit={(n) => {
+              setLocalOrder(n);
+              patch({ order: n });
+            }}
+            title="Insertion order when multiple entries activate (lower = earlier in prompt)."
+            ariaLabel="Order"
+            prefix="ord"
+          />
+          <CompactNumber
+            value={localProbability}
+            onCommit={(n) => {
+              const clamped = Math.max(0, Math.min(100, n));
+              setLocalProbability(clamped);
+              // null = always-fire is the schema default. Save 100 as null
+              // for parity with how new entries are created.
+              patch({ probability: clamped === 100 ? null : clamped });
+            }}
+            title="Trigger probability (0–100%). 100% always fires when keys match."
+            ariaLabel="Trigger probability"
+            prefix="p"
+            suffix="%"
+            min={0}
+            max={100}
+          />
+          {folders.length > 0 && (
+            <CompactSelect
+              value={entry.folderId ?? ""}
+              onChange={(v) => patch({ folderId: v === "" ? null : v })}
+              title="Move this entry to a different folder. (none) = root level."
+              options={[
+                { value: "", label: "(none)" },
+                ...folders.map((f) => ({ value: f.id, label: f.name })),
+              ]}
+            />
+          )}
+        </div>
+
+        {/* Token estimate (compact) */}
+        <span
+          className="hidden shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] lg:inline-flex"
+          title={`~${estimateTokens(entry.content).toLocaleString()} tokens (estimated)`}
+        >
+          <Hash size="0.5625rem" />
+          {estimateTokens(entry.content).toLocaleString()}
+        </span>
+
+        {/* Delete button (visible on hover, always on mobile) */}
+        <button
+          type="button"
+          aria-label="Delete entry"
+          onClick={handleDelete}
+          className="shrink-0 rounded p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover:opacity-100 max-md:opacity-100"
+        >
+          <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+        </button>
+      </div>
+
+      {/* ── Expanded drawer ── */}
+      {isExpanded && <ExpandedDrawer entry={entry} lorebookId={lorebookId} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────
+
+function CompactSelect({
+  value,
+  onChange,
+  options,
+  title,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+  title?: string;
+}) {
+  return (
+    <select
+      value={value}
+      title={title}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-6 rounded-md bg-[var(--secondary)] px-1.5 text-[0.6875rem] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] hover:ring-amber-400/40 transition-colors"
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function CompactNumber({
+  value,
+  onCommit,
+  title,
+  ariaLabel,
+  prefix,
+  suffix,
+  min,
+  max,
+}: {
+  value: number;
+  onCommit: (v: number) => void;
+  title?: string;
+  ariaLabel: string;
+  prefix?: string;
+  suffix?: string;
+  min?: number;
+  max?: number;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  // Keep draft synced when external value changes
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = parseInt(draft, 10);
+    if (Number.isNaN(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    let clamped = parsed;
+    if (min !== undefined && clamped < min) clamped = min;
+    if (max !== undefined && clamped > max) clamped = max;
+    if (clamped !== value) {
+      setDraft(String(clamped));
+      onCommit(clamped);
+    } else if (clamped !== parsed) {
+      setDraft(String(clamped));
+    }
+  };
+
+  return (
+    <label
+      className="flex h-6 items-center gap-0.5 rounded-md bg-[var(--secondary)] px-1.5 text-[0.6875rem] ring-1 ring-[var(--border)] hover:ring-amber-400/40 transition-colors focus-within:ring-2 focus-within:ring-[var(--ring)]"
+      title={title}
+    >
+      {prefix && <span className="text-[var(--muted-foreground)]">{prefix}:</span>}
+      <input
+        type="number"
+        aria-label={ariaLabel}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.currentTarget as HTMLInputElement).blur();
+          }
+        }}
+        min={min}
+        max={max}
+        className="w-10 bg-transparent text-right tabular-nums outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      {suffix && <span className="text-[var(--muted-foreground)]">{suffix}</span>}
+    </label>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// Expanded drawer — keys, content, advanced toggles, timing, group/tag.
+// Manages its own dirty state and Save button so users see explicit commit
+// for the heavier fields (especially the content textarea).
+// ─────────────────────────────────────────────────────
+
+function ExpandedDrawer({ entry, lorebookId }: { entry: LorebookEntry; lorebookId: string }) {
+  const updateEntry = useUpdateLorebookEntry();
+  const [form, setForm] = useState<Partial<LorebookEntry>>(() => ({ ...entry }));
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loadedEntryIdRef = useRef(entry.id);
+
+  // If the underlying entry changes (e.g. due to an inline-control patch), refresh
+  // the drawer form unless the user is in the middle of editing.
+  useEffect(() => {
+    const switched = loadedEntryIdRef.current !== entry.id;
+    if (switched || !dirty) {
+      setForm({ ...entry });
+      setDirty(false);
+      loadedEntryIdRef.current = entry.id;
+    }
+  }, [entry, dirty]);
+
+  const update = useCallback((patch: Partial<LorebookEntry>) => {
+    setDirty(true);
+    setForm((curr) => ({ ...curr, ...patch }));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await updateEntry.mutateAsync({
+        lorebookId,
+        entryId: entry.id,
+        name: form.name,
+        content: form.content,
+        description: form.description,
+        keys: form.keys,
+        secondaryKeys: form.secondaryKeys,
+        selectiveLogic: form.selectiveLogic,
+        matchWholeWords: form.matchWholeWords,
+        caseSensitive: form.caseSensitive,
+        useRegex: form.useRegex,
+        role: form.role,
+        sticky: form.sticky,
+        cooldown: form.cooldown,
+        delay: form.delay,
+        ephemeral: form.ephemeral,
+        group: form.group,
+        tag: form.tag,
+        locked: form.locked,
+        preventRecursion: form.preventRecursion,
+      });
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  }, [form, entry.id, lorebookId, updateEntry]);
+
+  return (
+    <div className="space-y-5 border-t border-[var(--border)] px-4 py-4">
+      {/* Description */}
+      <FieldGroup
+        label="Description"
+        icon={FileText}
+        help="Brief summary of what this entry is about. Used by the Knowledge Router agent to decide whether to inject this entry — not sent to the main AI as content."
+      >
+        <textarea
+          value={form.description ?? ""}
+          onChange={(e) => update({ description: e.target.value })}
+          rows={2}
+          className="w-full resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          placeholder="Brief summary of what this entry is about (used by Knowledge Router agent)."
+        />
+      </FieldGroup>
+
+      {/* Keys */}
+      <FieldGroup
+        label="Primary Keys"
+        icon={Key}
+        help="Keywords that trigger this entry. When any of these words appear in the chat, this entry's content is injected into the AI's context."
+      >
+        <KeysEditor keys={form.keys ?? []} onChange={(keys) => update({ keys })} />
+      </FieldGroup>
+
+      {/* Secondary Keys + Logic */}
+      <FieldGroup
+        label="Secondary Keys"
+        icon={Key}
+        help="Additional keywords used with AND/OR/NOT logic. 'AND' means both primary AND secondary must match. 'NOT' means primary must match but secondary must NOT."
+      >
+        <KeysEditor keys={form.secondaryKeys ?? []} onChange={(keys) => update({ secondaryKeys: keys })} />
+        <div className="mt-2 flex items-center gap-3">
+          <label className="text-[0.6875rem] text-[var(--muted-foreground)]">Logic:</label>
+          {(["and", "or", "not"] as const).map((logic) => (
+            <button
+              key={logic}
+              onClick={() => update({ selectiveLogic: logic })}
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
+                form.selectiveLogic === logic
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]",
+              )}
+            >
+              {logic.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </FieldGroup>
+
+      {/* Content */}
+      <FieldGroup
+        label="Content"
+        icon={FileText}
+        help="The text that gets injected into the AI's context when this entry activates. Write it as you'd want the AI to know it."
+      >
+        <ExpandableTextarea
+          value={form.content ?? ""}
+          onChange={(v) => update({ content: v })}
+          rows={6}
+          placeholder="The content that will be injected into the prompt when this entry activates…"
+          title="Edit Content"
+        />
+        <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          <Hash size="0.5625rem" />~{estimateTokens(form.content ?? "").toLocaleString()} tokens
+        </p>
+      </FieldGroup>
+
+      {/* Toggles row — note: enable / constant / selective are now on the row header,
+          so they are intentionally omitted from this block to avoid duplication. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ToggleButton label="Regex" value={form.useRegex ?? false} onChange={(v) => update({ useRegex: v })} />
+        <ToggleButton
+          label="Whole Words"
+          value={form.matchWholeWords ?? false}
+          onChange={(v) => update({ matchWholeWords: v })}
+        />
+        <ToggleButton
+          label="Case Sensitive"
+          value={form.caseSensitive ?? false}
+          onChange={(v) => update({ caseSensitive: v })}
+        />
+        <ToggleButton
+          label="Locked"
+          value={form.locked ?? false}
+          onChange={(v) => update({ locked: v })}
+          tooltip="Prevents the Lorebook Keeper agent from modifying this entry."
+        />
+        <ToggleButton
+          label="No Recursion"
+          value={form.preventRecursion ?? false}
+          onChange={(v) => update({ preventRecursion: v })}
+          tooltip="When enabled, this entry's content won't trigger additional entries during recursive scanning."
+        />
+      </div>
+
+      {/* Role (position/depth/order/probability live on the row header). */}
+      <FieldGroup
+        label="Role"
+        icon={Settings2}
+        help="Which role this entry's content is attributed to in the prompt (only meaningful when injected at depth)."
+      >
+        <select
+          value={form.role ?? "system"}
+          onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
+          className="w-full max-w-xs rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+        >
+          <option value="system">System</option>
+          <option value="user">User</option>
+          <option value="assistant">Assistant</option>
+        </select>
+      </FieldGroup>
+
+      {/* Timing */}
+      <FieldGroup
+        label="Timing"
+        icon={Settings2}
+        help="Sticky = stays active for N messages after triggering. Cooldown = waits N messages before it can trigger again. Delay = waits N messages before first activation. Ephemeral = auto-disables after N activations (0 = unlimited)."
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <NumberField
+            label="Sticky"
+            value={form.sticky ?? 0}
+            onChange={(v) => update({ sticky: v || null })}
+            min={0}
+          />
+          <NumberField
+            label="Cooldown"
+            value={form.cooldown ?? 0}
+            onChange={(v) => update({ cooldown: v || null })}
+            min={0}
+          />
+          <NumberField label="Delay" value={form.delay ?? 0} onChange={(v) => update({ delay: v || null })} min={0} />
+          <NumberField
+            label="Ephemeral"
+            value={form.ephemeral ?? 0}
+            onChange={(v) => update({ ephemeral: v || null })}
+            min={0}
+          />
+        </div>
+      </FieldGroup>
+
+      {/* Group & Tag */}
+      <FieldGroup
+        label="Group & Tag"
+        icon={Settings2}
+        help="Group entries together so only one from the group activates at a time. Tags are for your own organization."
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Group</label>
+            <input
+              value={form.group ?? ""}
+              onChange={(e) => update({ group: e.target.value })}
+              className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              placeholder="Group name"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Tag</label>
+            <input
+              value={form.tag ?? ""}
+              onChange={(e) => update({ tag: e.target.value })}
+              className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              placeholder="e.g. location, item, lore"
+            />
+          </div>
+        </div>
+      </FieldGroup>
+
+      {/* Save bar — only shows when there are unsaved changes in this drawer. */}
+      <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
+        {dirty && <span className="text-[0.6875rem] text-[var(--muted-foreground)]">Unsaved changes</span>}
+        <button
+          onClick={handleSave}
+          disabled={!dirty || saving}
+          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-50"
+        >
+          <Save size="0.75rem" />
+          {saving ? "Saving…" : "Save Entry"}
+        </button>
+      </div>
+    </div>
+  );
+}
