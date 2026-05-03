@@ -55,6 +55,14 @@ async function getSpriteCapabilities() {
 }
 import { generateImage } from "../services/image/image-generation.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
+import {
+  loadPrompt,
+  SPRITES_EXPRESSION_SHEET,
+  SPRITES_SINGLE_PORTRAIT,
+  SPRITES_SINGLE_FULL_BODY,
+  SPRITES_FULL_BODY_SHEET,
+} from "../services/prompt-overrides/index.js";
 
 const SPRITES_ROOT = join(DATA_DIR, "sprites");
 const ROUTE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -600,56 +608,35 @@ export async function spritesRoutes(app: FastifyInstance) {
     const singleFullBody = body.spriteType === "full-body" && expressions.length === 1 && cols === 1 && rows === 1;
     const generateExpressionsIndividually =
       body.spriteType !== "full-body" && !singlePortrait && isOpenAIGptImageModel(imgModel);
+    const promptOverridesStorage = createPromptOverridesStorage(app.db);
+    const trimmedAppearance = body.appearance?.trim() || "";
     let prompt = "";
     if (singleFullBody) {
-      prompt = [
-        `single full-body character sprite, one character only,`,
-        `entire body visible from head to toe, centered in frame, no cropping,`,
-        `solid white studio background,`,
-        `${body.appearance?.trim() || ""},`,
-        `pose/action: ${expressions[0] ?? "idle"},`,
-        `anime/game sprite style, consistent character design,`,
-        `no grid, no panel borders, no text, no labels, no watermark`,
-      ].join(" ");
+      prompt = await loadPrompt(promptOverridesStorage, SPRITES_SINGLE_FULL_BODY, {
+        appearance: trimmedAppearance,
+        pose: expressions[0] ?? "idle",
+      });
     } else if (body.spriteType === "full-body") {
-      prompt = [
-        `full-body character sprite sheet with EXACTLY ${expressions.length} total pose cells,`,
-        `strict ${cols} columns by ${rows} rows grid, no extra rows, no extra columns, no extra panels,`,
-        `${expressions.length} equally sized tall cells arranged in a perfectly uniform grid,`,
-        `solid white background, thin straight lines separating each cell,`,
-        `same character in every cell, consistent art style and outfit,`,
-        `poses left-to-right top-to-bottom: ${expressionList},`,
-        `${body.appearance?.trim() || ""},`,
-        `each cell shows the entire body from head to toe, centered, no cropping,`,
-        `leave enough whitespace around each full-body pose so feet, hair, weapons, and hands are fully visible,`,
-        `all cells same size, perfectly aligned, no overlapping, no merged cells,`,
-        `the final image must stop after the ${rows} row; do not draw a bonus row or bonus poses,`,
-        `no text, no labels, no numbers`,
-      ].join(" ");
+      prompt = await loadPrompt(promptOverridesStorage, SPRITES_FULL_BODY_SHEET, {
+        cols,
+        rows,
+        poseCount: expressions.length,
+        poseList: expressionList,
+        appearance: trimmedAppearance,
+      });
     } else if (singlePortrait) {
-      prompt = [
-        `single character portrait sprite, one character only,`,
-        `head and shoulders portrait, centered in frame, no cropping,`,
-        `solid white studio background,`,
-        `${body.appearance?.trim() || ""},`,
-        `facial expression: ${expressions[0] ?? "neutral"},`,
-        `anime/game sprite style, consistent character design,`,
-        `no grid, no panel borders, no text, no labels, no watermark`,
-      ].join(" ");
+      prompt = await loadPrompt(promptOverridesStorage, SPRITES_SINGLE_PORTRAIT, {
+        appearance: trimmedAppearance,
+        expression: expressions[0] ?? "neutral",
+      });
     } else {
-      prompt = [
-        `character expression sheet with EXACTLY ${expressions.length} total portrait cells,`,
-        `strict ${cols} columns by ${rows} rows grid, no extra rows, no extra columns, no extra panels,`,
-        `${expressions.length} equally sized square cells arranged in a perfectly uniform grid,`,
-        `solid white background, thin straight lines separating each cell,`,
-        `same character in every cell, consistent art style,`,
-        `expressions left-to-right top-to-bottom: ${expressionList},`,
-        `${body.appearance?.trim() || ""},`,
-        `each cell shows head and shoulders portrait with a different facial expression,`,
-        `all cells same size, perfectly aligned, no overlapping, no merged cells,`,
-        `the final image must stop after the ${rows} row; do not draw a fourth row or bonus expressions,`,
-        `no text, no labels, no numbers`,
-      ].join(" ");
+      prompt = await loadPrompt(promptOverridesStorage, SPRITES_EXPRESSION_SHEET, {
+        cols,
+        rows,
+        expressionCount: expressions.length,
+        expressionList,
+        appearance: trimmedAppearance,
+      });
     }
 
     // Parse reference images to raw base64 (supports data URL, raw base64, or local avatar URL)
@@ -667,15 +654,10 @@ export async function spritesRoutes(app: FastifyInstance) {
 
         for (const expression of expressions) {
           try {
-            const expressionPrompt = [
-              `single character portrait sprite, one character only,`,
-              `head and shoulders portrait, centered in frame, no cropping,`,
-              `solid white studio background,`,
-              `${body.appearance?.trim() || ""},`,
-              `facial expression: ${expression},`,
-              `anime/game sprite style, consistent character design,`,
-              `no grid, no panel borders, no text, no labels, no watermark`,
-            ].join(" ");
+            const expressionPrompt = await loadPrompt(promptOverridesStorage, SPRITES_SINGLE_PORTRAIT, {
+              appearance: trimmedAppearance,
+              expression,
+            });
 
             const targetSize = 1024;
             const imageResult = await generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {

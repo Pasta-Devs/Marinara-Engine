@@ -95,6 +95,7 @@ import {
   readAvatarBase64,
 } from "../services/game/game-asset-generation.js";
 import { saveImageToDisk } from "../services/image/image-generation.js";
+import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -4716,6 +4717,7 @@ export async function gameRoutes(app: FastifyInstance) {
                 imgService: imgServiceHint,
                 imgComfyWorkflow,
                 debugLog: debugLogsEnabled ? debugLog : undefined,
+                promptOverridesStorage: createPromptOverridesStorage(app.db),
               });
               if (generatedTag) {
                 await addGeneratedIllustrationToGallery({
@@ -4780,6 +4782,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgApiKey,
                   imgService: imgServiceHint,
                   debugLog: debugLogsEnabled ? debugLog : undefined,
+                  promptOverridesStorage: createPromptOverridesStorage(app.db),
                 });
 
                 if (generatedTag) {
@@ -4826,6 +4829,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgApiKey,
                   imgService: imgServiceHint,
                   debugLog: debugLogsEnabled ? debugLog : undefined,
+                  promptOverridesStorage: createPromptOverridesStorage(app.db),
                 });
 
                 if (generatedTag) {
@@ -5032,6 +5036,7 @@ export async function gameRoutes(app: FastifyInstance) {
         imgService: imgServiceHint,
         imgComfyWorkflow,
         debugLog: debugLogsEnabled ? debugLog : undefined,
+        promptOverridesStorage: createPromptOverridesStorage(app.db),
       });
       generatedBackground = tag;
     }
@@ -5090,6 +5095,7 @@ export async function gameRoutes(app: FastifyInstance) {
           imgService: imgServiceHint,
           imgComfyWorkflow,
           debugLog: debugLogsEnabled ? debugLog : undefined,
+          promptOverridesStorage: createPromptOverridesStorage(app.db),
         });
 
         if (tag) {
@@ -5179,6 +5185,7 @@ export async function gameRoutes(app: FastifyInstance) {
           imgService: imgServiceHint,
           imgComfyWorkflow,
           debugLog: debugLogsEnabled ? debugLog : undefined,
+          promptOverridesStorage: createPromptOverridesStorage(app.db),
         });
         if (avatarUrl) {
           generatedNpcAvatars.push({ name: npc.name, avatarUrl });

@@ -30,6 +30,8 @@ import { createGameStateStorage } from "../services/storage/game-state.storage.j
 import { createCustomToolsStorage } from "../services/storage/custom-tools.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
+import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
+import { loadPrompt, CONVERSATION_SELFIE } from "../services/prompt-overrides/index.js";
 import { processLorebooks } from "../services/lorebook/index.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -7092,28 +7094,23 @@ export async function generateRoutes(app: FastifyInstance) {
                       conn.openrouterProvider,
                       conn.maxTokensOverride,
                     );
+                    const selfieSystemPrompt = await loadPrompt(
+                      createPromptOverridesStorage(app.db),
+                      CONVERSATION_SELFIE,
+                      {
+                        appearance,
+                        charName,
+                        selfieTagsBlock:
+                          selfieTags.length > 0
+                            ? `\n\nAlways include these tags/modifiers in the prompt: ${selfieTags.join(", ")}`
+                            : "",
+                      },
+                    );
                     const promptResult = await promptBuilder.chatComplete(
                       [
                         {
                           role: "system",
-                          content: [
-                            `You are an image prompt generator. Create a concise, detailed image generation prompt for a selfie photo.`,
-                            `The character's appearance: ${appearance}`,
-                            `Character name: ${charName}`,
-                            ``,
-                            `Generate a prompt that describes a selfie photo of this character. Include:`,
-                            `- Physical appearance details (face, hair, eyes, skin)`,
-                            `- What they're wearing`,
-                            `- Expression and pose (selfie angle)`,
-                            `- Setting/background from context`,
-                            `- Lighting and mood`,
-                            ``,
-                            `Infer the appropriate art style from the character. For example, anime/game characters should use anime/illustration style, realistic characters should use photorealistic style. Match the style to the character's origin.`,
-                            ...(selfieTags.length > 0
-                              ? [``, `Always include these tags/modifiers in the prompt: ${selfieTags.join(", ")}`]
-                              : []),
-                            `Output ONLY the prompt text, nothing else.`,
-                          ].join("\n"),
+                          content: selfieSystemPrompt,
                         },
                         {
                           role: "user",

@@ -18,6 +18,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Pinnable taskbar shortcut via custom launcher.
 - Universal Tool Support for agents.
 - Custom agents can now maintain durable chat memory with read/append summary tools, metadata patch streaming, and configurable trigger cadence.
+- Prompt override APIs can now customize image-generation templates for sprites, NPC portraits, backgrounds, scene illustrations, and conversation selfies.
 - New Knowledge Router agent.
 - You can now link Personas to Lorebooks.
 - Drag-and-drop Lorebook entries.
