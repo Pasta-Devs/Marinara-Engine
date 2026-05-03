@@ -1021,9 +1021,12 @@ export function LorebookEditor() {
 
             {activeTab === "entries" && (
               <div className="space-y-3">
-                {/* Search + Sort + Add */}
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+                {/* Search + Sort + Add — flex-wrap so the row collapses
+                    gracefully on narrow viewports. Search keeps a 12rem
+                    (~192px) flex-basis so it stays usable; the buttons tile
+                    onto the next row instead of being clipped at ~400px. */}
+                <div className="flex flex-wrap items-stretch gap-2">
+                  <div className="relative min-w-0 flex-[1_1_12rem]">
                     <Search
                       size="0.8125rem"
                       className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
@@ -1036,7 +1039,7 @@ export function LorebookEditor() {
                       className="w-full rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-3 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                     />
                   </div>
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <ArrowUpDown
                       size="0.8125rem"
                       className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
@@ -1055,7 +1058,7 @@ export function LorebookEditor() {
                   </div>
                   <button
                     onClick={handleAddFolder}
-                    className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
                     title="Create a new folder to group entries"
                   >
                     <FolderPlus size="0.8125rem" />
@@ -1063,7 +1066,7 @@ export function LorebookEditor() {
                   </button>
                   <button
                     onClick={handleAddEntry}
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
                   >
                     <Plus size="0.8125rem" />
                     Add Entry
@@ -1129,6 +1132,14 @@ export function LorebookEditor() {
                               {showFolderDropBefore && (
                                 <div className="mx-2 mb-1 h-0.5 rounded-full bg-amber-400" />
                               )}
+                              {/*
+                                When an entry from a different container is being
+                                dragged toward this folder, paint a faint amber ring
+                                around the header to mirror the root drop-zone hint.
+                                The ring goes ON the wrapper div above the folder row
+                                because LorebookFolderRow already manages its own ring
+                                state for collapse/dragging visuals.
+                              */}
                               <LorebookFolderRow
                                 folder={folder}
                                 lorebookId={lorebookId}
@@ -1179,16 +1190,25 @@ export function LorebookEditor() {
                                     const isDropTarget =
                                       dropTargetContainer === folder.id && draggingEntryIdx !== null;
                                     const sameContainer = dragSourceContainer === folder.id;
+                                    // Position bars only render for SAME-container drops because
+                                    // cross-container moves deliberately preserve the entry's
+                                    // existing Order (per the user's spec). Showing a bar
+                                    // between two entries during a cross-container drag would
+                                    // promise a position the move won't honor — the folder
+                                    // header's amber ring carries the "drop into this folder"
+                                    // affordance instead.
                                     const showDropBefore =
                                       isDropTarget &&
+                                      sameContainer &&
                                       entryDropIdx === eIdx &&
-                                      (!sameContainer ||
-                                        (draggingEntryIdx !== eIdx && draggingEntryIdx !== eIdx - 1));
+                                      draggingEntryIdx !== eIdx &&
+                                      draggingEntryIdx !== eIdx - 1;
                                     const showDropAfter =
                                       isDropTarget &&
+                                      sameContainer &&
                                       eIdx === folderEntries.length - 1 &&
                                       entryDropIdx === folderEntries.length &&
-                                      (!sameContainer || draggingEntryIdx !== eIdx);
+                                      draggingEntryIdx !== eIdx;
                                     return (
                                       <div key={entry.id}>
                                         {showDropBefore && (
@@ -1282,15 +1302,22 @@ export function LorebookEditor() {
                           const rootList = entriesByContainer.get(null) ?? [];
                           const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
                           const sameContainer = dragSourceContainer === null;
+                          // Same rule as inside folders: only show the position bar for
+                          // same-container drops because cross-container moves preserve
+                          // Order. The amber ring on the root drop zone (added for Issue
+                          // 2) handles the cross-container affordance.
                           const showDropBefore =
                             isDropTarget &&
+                            sameContainer &&
                             entryDropIdx === idx &&
-                            (!sameContainer || (draggingEntryIdx !== idx && draggingEntryIdx !== idx - 1));
+                            draggingEntryIdx !== idx &&
+                            draggingEntryIdx !== idx - 1;
                           const showDropAfter =
                             isDropTarget &&
+                            sameContainer &&
                             idx === rootList.length - 1 &&
                             entryDropIdx === rootList.length &&
-                            (!sameContainer || draggingEntryIdx !== idx);
+                            draggingEntryIdx !== idx;
                           return (
                             <div key={entry.id}>
                               {showDropBefore && <div className="mx-2 mb-1 h-0.5 rounded-full bg-amber-400" />}

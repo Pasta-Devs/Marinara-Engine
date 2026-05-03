@@ -80,9 +80,22 @@ export function LorebookFolderRow({
   const handleEnableToggle = useCallback(
     (e: ReactMouseEvent) => {
       e.stopPropagation();
-      const next = !localEnabled;
+      const previous = localEnabled;
+      const next = !previous;
+      // Optimistic flip — but if the PATCH fails, restore the previous value
+      // so the row doesn't lie about the server state. This matters most for
+      // `enabled`: the activation gate runs server-side, so a failed flip
+      // would mean the row says "off" while entries still activate (or vice
+      // versa).
       setLocalEnabled(next);
-      updateFolder.mutate({ lorebookId, folderId: folder.id, enabled: next });
+      updateFolder.mutate(
+        { lorebookId, folderId: folder.id, enabled: next },
+        {
+          onError: () => {
+            setLocalEnabled(previous);
+          },
+        },
+      );
     },
     [localEnabled, lorebookId, folder.id, updateFolder],
   );
@@ -94,7 +107,18 @@ export function LorebookFolderRow({
       return;
     }
     if (trimmed !== folder.name) {
-      updateFolder.mutate({ lorebookId, folderId: folder.id, name: trimmed });
+      const previous = folder.name;
+      updateFolder.mutate(
+        { lorebookId, folderId: folder.id, name: trimmed },
+        {
+          onError: () => {
+            // Roll the displayed name back to whatever the server still has
+            // so the row doesn't continue showing a renamed folder that the
+            // server never accepted.
+            setLocalName(previous);
+          },
+        },
+      );
     }
   }, [localName, folder.name, lorebookId, folder.id, updateFolder]);
 
