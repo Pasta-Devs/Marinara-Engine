@@ -104,9 +104,20 @@ const CREATE_TABLES: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS lorebook_folders (
+    id TEXT PRIMARY KEY NOT NULL,
+    lorebook_id TEXT NOT NULL REFERENCES lorebooks(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    enabled TEXT NOT NULL DEFAULT 'true',
+    parent_folder_id TEXT,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS lorebook_entries (
     id TEXT PRIMARY KEY NOT NULL,
     lorebook_id TEXT NOT NULL REFERENCES lorebooks(id) ON DELETE CASCADE,
+    folder_id TEXT,
     name TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
@@ -559,8 +570,17 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
     column: "description",
     definition: "TEXT NOT NULL DEFAULT ''",
   },
+  {
+    table: "lorebook_entries",
+    column: "folder_id",
+    definition: "TEXT",
+  },
 ];
 
+/**
+ * Applies idempotent SQLite schema repairs on startup so upgraded installs can
+ * use the current Drizzle schema before any routes or seeders touch the DB.
+ */
 export async function runMigrations(db: DB) {
   // 1. Create all tables if they don't exist
   for (const stmt of CREATE_TABLES) {
