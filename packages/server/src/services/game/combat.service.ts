@@ -7,7 +7,7 @@
 // ──────────────────────────────────────────────
 
 import { rollDice } from "./dice.service.js";
-import type { CombatSkill } from "@marinara-engine/shared";
+import type { CombatItemEffect, CombatMechanic, CombatSkill } from "@marinara-engine/shared";
 import type { ElementAura, ReactionResult } from "./element-reactions.service.js";
 import { resolveElementApplication, applyReactionDamage } from "./element-reactions.service.js";
 
@@ -42,6 +42,27 @@ export interface StatusEffect {
   stat: "attack" | "defense" | "speed" | "hp";
   /** Turns remaining */
   turnsLeft: number;
+}
+
+function toStatusEffect(status: CombatItemEffect["status"] | undefined, fallbackName: string): StatusEffect {
+  return {
+    name: status?.name?.trim() || fallbackName,
+    modifier: typeof status?.modifier === "number" ? status.modifier : -2,
+    stat: status?.stat ?? "defense",
+    turnsLeft: Math.max(1, Number(status?.duration) || 2),
+  };
+}
+
+function applyNamedStatus(target: CombatantStats, effect: StatusEffect) {
+  if (!target.statusEffects) target.statusEffects = [];
+  const existing = target.statusEffects.find((candidate) => candidate.name.toLowerCase() === effect.name.toLowerCase());
+  if (existing) {
+    existing.turnsLeft = Math.max(existing.turnsLeft, effect.turnsLeft);
+    existing.modifier = effect.modifier;
+    existing.stat = effect.stat;
+  } else {
+    target.statusEffects.push(effect);
+  }
 }
 
 export interface InitiativeEntry {
@@ -124,13 +145,98 @@ function resolveSkillAction(
   const skilledAttacker: CombatantStats = {
     ...attacker,
     attack: Math.max(1, Math.floor(attacker.attack * Math.max(skill.power, 1))),
+    element: skill.element || attacker.element,
   };
   const result = resolveAttack(skilledAttacker, target, difficulty, elementPreset);
+  if (!result.isMiss && skill.statusEffect) {
+    applyNamedStatus(target, {
+      name: skill.statusEffect,
+      modifier: -2,
+      stat: "defense",
+      turnsLeft: Math.max(1, Number(skill.cooldown) || 2),
+    });
+  }
   return { ...result, skillName: skill.name };
 }
 
-function resolveItemAction(attacker: CombatantStats, target: CombatantStats, itemId?: string): AttackResult {
+function resolveItemAction(
+  attacker: CombatantStats,
+  target: CombatantStats,
+  itemId?: string,
+  itemEffect?: CombatItemEffect,
+  elementPreset?: string,
+): AttackResult {
   const itemName = itemId?.trim() || "Item";
+  const effectType = itemEffect?.type;
+  if (itemEffect && effectType && effectType !== "heal") {
+    const power = Math.max(0.05, Math.min(2.5, Number(itemEffect.power) || 0.25));
+    const element = itemEffect.element || attacker.element;
+
+    if (effectType === "damage" || effectType === "status" || effectType === "debuff") {
+      const finalDamage =
+        effectType === "damage" ? Math.max(1, Math.floor(Math.max(attacker.attack, target.maxHp) * power)) : 0;
+      const remainingHp = Math.max(0, target.hp - finalDamage);
+
+      if (itemEffect.status || effectType === "status" || effectType === "debuff") {
+        applyNamedStatus(target, toStatusEffect(itemEffect.status, itemEffect.status?.name || itemName));
+      }
+
+      let reaction: ReactionResult | null = null;
+      if (element && finalDamage > 0) {
+        const { reaction: r, newAura } = resolveElementApplication(
+          target.elementAura ?? null,
+          element,
+          attacker.id,
+          elementPreset,
+        );
+        target.elementAura = newAura;
+        if (r) reaction = r;
+      }
+
+      return {
+        attackerId: attacker.id,
+        defenderId: target.id,
+        attackRoll: 0,
+        defenseRoll: 0,
+        rawDamage: finalDamage,
+        mitigated: 0,
+        finalDamage: reaction ? applyReactionDamage(finalDamage, reaction) : finalDamage,
+        isCritical: false,
+        isMiss: false,
+        remainingHp: reaction ? Math.max(0, target.hp - applyReactionDamage(finalDamage, reaction)) : remainingHp,
+        isKo: (reaction ? Math.max(0, target.hp - applyReactionDamage(finalDamage, reaction)) : remainingHp) <= 0,
+        skillName: itemName,
+        element,
+        reaction,
+      };
+    }
+
+    if (effectType === "buff") {
+      applyNamedStatus(target, {
+        ...toStatusEffect(itemEffect.status, itemName),
+        modifier: Math.abs(itemEffect.status?.modifier ?? 2),
+        stat: itemEffect.status?.stat ?? "defense",
+      });
+      return {
+        attackerId: attacker.id,
+        defenderId: target.id,
+        attackRoll: 0,
+        defenseRoll: 0,
+        rawDamage: 0,
+        mitigated: 0,
+        finalDamage: 0,
+        isCritical: false,
+        isMiss: false,
+        remainingHp: target.hp,
+        isKo: target.hp <= 0,
+        isHeal: true,
+        skillName: itemName,
+        element,
+        reaction: null,
+      };
+    }
+  }
+
   const lowerName = itemName.toLowerCase();
   const potency = /mega|greater|large|strong|elixir|max/.test(lowerName)
     ? 0.5
@@ -164,8 +270,13 @@ function chooseAutoSkill(
   attacker: CombatantStats,
   allies: CombatantStats[],
   enemies: CombatantStats[],
+  round: number,
 ): { skill: CombatSkill; target: CombatantStats } | null {
-  const usableSkills = (attacker.skills ?? []).filter((skill) => (attacker.mp ?? 0) >= skill.mpCost);
+  const usableSkills = (attacker.skills ?? []).filter((skill) => {
+    if ((attacker.mp ?? 0) < skill.mpCost) return false;
+    const cooldown = Math.max(0, Math.floor(Number(skill.cooldown) || 0));
+    return cooldown <= 1 || round % cooldown === 0;
+  });
   if (usableSkills.length === 0) return null;
 
   const injuredAlly = allies
@@ -347,6 +458,104 @@ export interface PlayerAction {
   targetId?: string;
   skillId?: string;
   itemId?: string;
+  itemEffect?: CombatItemEffect;
+}
+
+function normalizeCombatName(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+function resolveMechanicActions(
+  combatants: (CombatantStats & { side?: "player" | "enemy" })[],
+  round: number,
+  mechanics: CombatMechanic[] | undefined,
+  elementPreset: string | undefined,
+  defendingIds: Set<string>,
+): { actions: AttackResult[]; reactions: CombatRoundResult["reactions"] } {
+  if (!mechanics?.length) return { actions: [], reactions: [] };
+
+  const actions: AttackResult[] = [];
+  const reactions: CombatRoundResult["reactions"] = [];
+  for (const mechanic of mechanics) {
+    const ownerName = normalizeCombatName(mechanic.ownerName);
+    const owner =
+      combatants.find((combatant) => combatant.hp > 0 && normalizeCombatName(combatant.name) === ownerName) ??
+      combatants.find((combatant) => combatant.hp > 0 && combatant.side === "enemy") ??
+      combatants.find((combatant) => combatant.hp > 0);
+    if (!owner) continue;
+
+    const interval = Math.max(0, Math.floor(Number(mechanic.interval) || 0));
+    const hpThreshold = Math.max(0, Math.min(100, Number(mechanic.hpThreshold) || 0));
+    const ownerHpPercent = owner.maxHp > 0 ? (owner.hp / owner.maxHp) * 100 : 100;
+    const shouldTrigger =
+      (mechanic.trigger === "round_interval" && interval > 0 && round % interval === 0) ||
+      (mechanic.trigger === "hp_threshold" && hpThreshold > 0 && ownerHpPercent <= hpThreshold);
+    if (!shouldTrigger) continue;
+
+    const ownerSide = owner.side;
+    const targetPool =
+      mechanic.effectType === "buff_self"
+        ? [owner]
+        : combatants.filter((combatant) => combatant.hp > 0 && combatant.side !== ownerSide);
+    const selectedTargets = mechanic.effectType === "damage_one" ? targetPool.slice(0, 1) : targetPool;
+    const power = Math.max(0.05, Math.min(3, Number(mechanic.power) || 0.35));
+
+    for (const target of selectedTargets) {
+      if (mechanic.status || mechanic.effectType?.startsWith("status") || mechanic.effectType?.startsWith("debuff")) {
+        applyNamedStatus(target, toStatusEffect(mechanic.status, mechanic.status?.name || mechanic.name));
+      }
+
+      let damage = mechanic.effectType?.startsWith("damage")
+        ? Math.max(1, Math.floor(Math.max(owner.attack, target.maxHp) * power))
+        : 0;
+      if (defendingIds.has(target.id)) damage = Math.floor(damage * 0.45);
+
+      let reaction: ReactionResult | null = null;
+      if (mechanic.element && damage > 0) {
+        const { reaction: r, newAura } = resolveElementApplication(
+          target.elementAura ?? null,
+          mechanic.element,
+          owner.id,
+          elementPreset,
+        );
+        target.elementAura = newAura;
+        if (r) {
+          reaction = r;
+          damage = applyReactionDamage(damage, r);
+        }
+      }
+
+      const remainingHp = Math.max(0, target.hp - damage);
+      const action: AttackResult = {
+        attackerId: owner.id,
+        defenderId: target.id,
+        attackRoll: 0,
+        defenseRoll: 0,
+        rawDamage: damage,
+        mitigated: 0,
+        finalDamage: damage,
+        isCritical: damage > Math.max(1, target.maxHp * 0.25),
+        isMiss: false,
+        remainingHp,
+        isKo: remainingHp <= 0,
+        skillName: mechanic.name,
+        element: mechanic.element || owner.element,
+        reaction,
+      };
+      actions.push(action);
+      if (reaction) {
+        reactions.push({
+          attackerId: owner.id,
+          defenderId: target.id,
+          reaction: reaction.reaction,
+          description: reaction.description,
+        });
+      }
+      target.hp = remainingHp;
+    }
+  }
+
+  return { actions, reactions };
 }
 
 /** Run a full combat round. Modifies combatants in place and returns round result. */
@@ -356,6 +565,7 @@ export function resolveCombatRound(
   difficulty: string = "normal",
   elementPreset?: string,
   playerAction?: PlayerAction,
+  mechanics?: CombatMechanic[],
 ): CombatRoundResult {
   const alive = combatants.filter((c) => c.hp > 0);
   const initiative = rollInitiative(alive);
@@ -418,9 +628,21 @@ export function resolveCombatRound(
         }
 
         if (playerAction.type === "item") {
-          let target = playerAction.targetId ? allies.find((c) => c.id === playerAction.targetId) : undefined;
-          if (!target) target = attacker;
-          const result = resolveItemAction(attacker, target, playerAction.itemId);
+          const itemTargetPool =
+            playerAction.itemEffect?.target === "enemy"
+              ? opposingSide
+              : playerAction.itemEffect?.target === "any"
+                ? [...allies, ...opposingSide]
+                : allies;
+          let target = playerAction.targetId ? itemTargetPool.find((c) => c.id === playerAction.targetId) : undefined;
+          if (!target) target = playerAction.itemEffect?.target === "enemy" ? (opposingSide[0] ?? attacker) : attacker;
+          const result = resolveItemAction(
+            attacker,
+            target,
+            playerAction.itemId,
+            playerAction.itemEffect,
+            elementPreset,
+          );
           pushResult(target, result);
           continue;
         }
@@ -428,7 +650,7 @@ export function resolveCombatRound(
         continue;
       }
 
-      const autoSkill = chooseAutoSkill(attacker, allies, opposingSide);
+      const autoSkill = chooseAutoSkill(attacker, allies, opposingSide, round);
       if (autoSkill) {
         pushResult(
           autoSkill.target,
@@ -449,7 +671,9 @@ export function resolveCombatRound(
     });
     if (opposingSide.length === 0) break;
 
-    const target = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
+    const fallbackTarget = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
+    const enemyAutoSkill = chooseAutoSkill(attacker, [attacker], opposingSide, round);
+    const target = enemyAutoSkill?.target ?? fallbackTarget;
 
     // Apply defend bonus: if target is defending, temporarily boost defense
     const originalDefense = target.defense;
@@ -457,7 +681,9 @@ export function resolveCombatRound(
       target.defense = Math.floor(target.defense * 1.5);
     }
 
-    const result = resolveAttack(attacker, target, difficulty, elementPreset);
+    const result = enemyAutoSkill
+      ? resolveSkillAction(attacker, enemyAutoSkill.target, enemyAutoSkill.skill, difficulty, elementPreset)
+      : resolveAttack(attacker, target, difficulty, elementPreset);
     actions.push(result);
 
     // Restore original defense after calculation
@@ -476,6 +702,10 @@ export function resolveCombatRound(
     // Apply damage
     target.hp = result.remainingHp;
   }
+
+  const mechanicResult = resolveMechanicActions(combatants, round, mechanics, elementPreset, defendingIds);
+  actions.push(...mechanicResult.actions);
+  reactions.push(...mechanicResult.reactions);
 
   // Tick status effects at end of round
   for (const c of combatants) {

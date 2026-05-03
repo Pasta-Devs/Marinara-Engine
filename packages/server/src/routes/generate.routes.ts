@@ -58,6 +58,7 @@ import {
   type SelfieCommand,
   type MemoryCommand,
   type InfluenceCommand,
+  type NoteCommand,
   type SceneCommand,
   type HapticCommand,
   type CreatePersonaCommand,
@@ -111,12 +112,7 @@ import {
   addNpcEntry,
   type Journal,
 } from "../services/game/journal.service.js";
-import {
-  buildGmSystemPrompt,
-  buildGmFormatReminder,
-  type GmPromptContext,
-  type GameReadablePromptEntry,
-} from "../services/game/gm-prompts.js";
+import { buildGmSystemPrompt, buildGmFormatReminder, type GmPromptContext } from "../services/game/gm-prompts.js";
 import {
   applyMapUpdateCommand,
   getGameMapsFromMeta,
@@ -148,6 +144,22 @@ function getEnabledConversationSchedules(meta: Record<string, any>): Record<stri
   return areConversationSchedulesEnabled(meta) && hasConversationSchedules(meta.characterSchedules)
     ? meta.characterSchedules
     : {};
+}
+
+function getHiddenCompletionTokens(usage: LLMUsage | undefined): number | undefined {
+  if (!usage) return undefined;
+  const hiddenParts = [
+    usage.completionReasoningTokens,
+    usage.completionAudioTokens,
+    usage.rejectedPredictionTokens,
+  ].filter((value): value is number => typeof value === "number");
+  if (hiddenParts.length === 0) return undefined;
+  return hiddenParts.reduce((sum, value) => sum + value, 0);
+}
+
+function getVisibleCompletionTokens(usage: LLMUsage | undefined): number | undefined {
+  if (!usage || typeof usage.completionTokens !== "number") return undefined;
+  return Math.max(0, usage.completionTokens - (getHiddenCompletionTokens(usage) ?? 0));
 }
 
 function sanitizeConnectedGameTranscript(content: string): string {
@@ -1898,6 +1910,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 ``,
                 `Influences are injected into the roleplay's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the roleplay.`,
                 `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                ``,
+                `If something said in this conversation should durably persist in the roleplay's context across many turns (a fact the character should keep remembering, a promise made, a secret revealed, a name learned), create a note tag instead of an influence:`,
+                `<note>fact, decision, or detail the roleplay character should keep remembering</note>`,
+                `Notes are shown to the roleplay character on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every roleplay turn.`,
+                `The note tag is stripped from your visible message.`,
                 `</connected_roleplay_instructions>`,
               ].join("\n");
           } else if (connectedChat && connectedChat.mode === "game") {
@@ -1990,6 +2007,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 ``,
                 `Influences are injected into the game's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the game.`,
                 `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                ``,
+                `If something said in this conversation should durably persist in the game's context across many turns (an established world fact, an ongoing party dynamic, a recurring NPC trait, a secret the GM should keep remembering), create a note tag instead of an influence:`,
+                `<note>fact, decision, or detail the game should keep remembering</note>`,
+                `Notes are shown to the game on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every game turn.`,
+                `The note tag is stripped from your visible message.`,
                 `</connected_game_instructions>`,
               ].join("\n");
           }
@@ -2140,6 +2162,37 @@ export async function generateRoutes(app: FastifyInstance) {
           // Mark influences as consumed
           for (const inf of pendingInfluences) {
             await chats.markInfluenceConsumed(inf.id);
+          }
+        }
+      }
+
+      // ── Roleplay/Game: inject durable conversation notes (persist until cleared) ──
+      // Same scene bypass as influences — scenes are self-contained.
+      if ((chatMode === "roleplay" || chatMode === "game") && chat.connectedChatId && !isSceneChat) {
+        const persistentNotes = await chats.listNotes(input.chatId);
+        if (persistentNotes.length > 0) {
+          const noteLines = persistentNotes
+            .map((n: any) => stripConversationPromptTimestamps(String(n.content ?? "")))
+            .filter((content: string) => content.length > 0)
+            .map((content: string) => `- ${content}`);
+
+          if (noteLines.length > 0) {
+            const noteBlock = [
+              `<conversation_notes>`,
+              chatMode === "game"
+                ? `Durable notes from a connected conversation. These persist across every turn until the user clears them and represent things the players have established as ongoing truth — character knowledge, world facts, recurring dynamics. Use them to inform NPC behavior, world state, and scene framing — don't reference them explicitly as "notes" in the narrative.`
+                : `Durable notes from a connected conversation. These persist across every turn until the user clears them and represent things the character has been told to durably remember about themselves, the user, or the world. Use them to inform behavior, knowledge, and reactions naturally — don't reference them explicitly as "notes" in the narrative.`,
+              ...noteLines,
+              `</conversation_notes>`,
+            ].join("\n");
+
+            // Inject before the last user message (parallel to the influence block)
+            const lastUserIdx = finalMessages.map((m) => m.role).lastIndexOf("user");
+            if (lastUserIdx >= 0) {
+              finalMessages.splice(lastUserIdx, 0, { role: "system" as const, content: noteBlock });
+            } else {
+              finalMessages.push({ role: "system" as const, content: noteBlock });
+            }
           }
         }
       }
@@ -2661,15 +2714,6 @@ export async function generateRoutes(app: FastifyInstance) {
         const gameNpcs = (chatMeta.gameNpcs as import("@marinara-engine/shared").GameNpc[]) || [];
         const sessionSummaries =
           (chatMeta.gamePreviousSessionSummaries as import("@marinara-engine/shared").SessionSummary[]) || [];
-        const gameJournal = (chatMeta.gameJournal as Journal | null) ?? createJournal();
-        const knownReadables: GameReadablePromptEntry[] = gameJournal.entries
-          .filter((entry) => entry.type === "note")
-          .slice(-8)
-          .map((entry) => ({
-            title: typeof entry.title === "string" ? entry.title : "Note",
-            content: typeof entry.content === "string" ? entry.content : "",
-          }))
-          .filter((entry) => entry.content.trim().length > 0);
         const playerNotes = typeof chatMeta.gamePlayerNotes === "string" ? chatMeta.gamePlayerNotes.trim() : undefined;
 
         // Resolve GM character card if in "character" GM mode
@@ -2891,7 +2935,6 @@ export async function generateRoutes(app: FastifyInstance) {
           map: gameMap,
           npcs: gameNpcs,
           sessionSummaries,
-          readables: knownReadables.length > 0 ? knownReadables : undefined,
           sessionNumber,
           partyNames,
           partyCards,
@@ -3014,6 +3057,7 @@ export async function generateRoutes(app: FastifyInstance) {
           : latestUserContent.startsWith("[To the GM]")
             ? "gm"
             : undefined;
+        const playerDiceRollSubmitted = /\[dice\b/i.test(latestUserContent);
         const formatReminder = buildGmFormatReminder({
           hasSceneModel,
           hudWidgets: gmCtx.hudWidgets,
@@ -3028,6 +3072,7 @@ export async function generateRoutes(app: FastifyInstance) {
           language: gmCtx.language,
           rating: gmCtx.rating,
           addressMode,
+          playerDiceRollSubmitted,
           playerInventory: (() => {
             try {
               const inv = (chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? [];
@@ -5177,10 +5222,13 @@ export async function generateRoutes(app: FastifyInstance) {
               debugLog("[debug] Thinking tokens (%d chars):\n%s", fullThinking.length, fullThinking);
             }
             if (usage) {
+              const visibleCompletionTokens = getVisibleCompletionTokens(usage);
               debugLog(
-                "[debug] Token usage — prompt: %s  completion: %s  total: %s  cached: %s  cacheWrite: %s  finish: %s",
+                "[debug] Token usage — prompt: %s  completion: %s  visibleCompletion: %s  reasoning: %s  total: %s  cached: %s  cacheWrite: %s  finish: %s",
                 usage.promptTokens ?? "N/A",
                 usage.completionTokens ?? "N/A",
+                visibleCompletionTokens ?? "N/A",
+                usage.completionReasoningTokens ?? "N/A",
                 usage.totalTokens ?? "N/A",
                 usage.cachedPromptTokens ?? "N/A",
                 usage.cacheWritePromptTokens ?? "N/A",
@@ -5310,6 +5358,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 verbosity: verbosity ?? null,
                 tokensPrompt: usage?.promptTokens ?? null,
                 tokensCompletion: usage?.completionTokens ?? null,
+                tokensVisibleCompletion: getVisibleCompletionTokens(usage) ?? null,
+                tokensReasoning: usage?.completionReasoningTokens ?? null,
+                tokensCompletionAudio: usage?.completionAudioTokens ?? null,
+                tokensRejectedPrediction: usage?.rejectedPredictionTokens ?? null,
                 tokensCachedPrompt: usage?.cachedPromptTokens ?? null,
                 tokensCacheWritePrompt: usage?.cacheWritePromptTokens ?? null,
                 durationMs,
@@ -7113,6 +7165,23 @@ export async function generateRoutes(app: FastifyInstance) {
                   );
                 } else {
                   logger.warn("[commands] Influence command used but no connected chat");
+                }
+              }
+
+              if (command.type === "note") {
+                // ── Note: persist a durable note in the connected roleplay's prompt ──
+                const noteCmd = command as NoteCommand;
+                const freshChat = await chats.getById(input.chatId);
+                const connectedId = freshChat?.connectedChatId as string | null;
+                if (connectedId) {
+                  const noteContent = stripConversationPromptTimestamps(noteCmd.content);
+                  if (!noteContent) continue;
+                  await chats.createNote(input.chatId, connectedId, noteContent, messageId);
+                  logger.info(
+                    `[commands] Conversation note saved for connected chat ${connectedId}: "${noteContent.slice(0, 80)}..."`,
+                  );
+                } else {
+                  logger.warn("[commands] Note command used but no connected chat");
                 }
               }
 

@@ -2424,6 +2424,113 @@ summary[class*="cursor-pointer"],
   }
 }
 
+.game-combat-scene--hit {
+  animation: combat-shake 160ms ease-out;
+}
+
+.game-combat-scene--critical {
+  animation: combat-shake 280ms ease-out;
+}
+
+.game-combat-scene--reaction {
+  animation: combat-shake 220ms ease-out;
+}
+
+@keyframes combat-impact-flash {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.game-combat-impact-flash {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.2), transparent 34%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: combat-impact-flash 360ms ease-out forwards;
+  mix-blend-mode: screen;
+}
+
+.game-combat-impact-flash--critical {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(248, 113, 113, 0.42), transparent 36%),
+    linear-gradient(90deg, rgba(127, 29, 29, 0.18), rgba(255, 255, 255, 0.18), rgba(127, 29, 29, 0.18));
+}
+
+.game-combat-impact-flash--reaction {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(253, 224, 71, 0.38), transparent 36%),
+    linear-gradient(90deg, rgba(251, 191, 36, 0.14), rgba(255, 255, 255, 0.18), rgba(251, 191, 36, 0.14));
+}
+
+.game-combat-impact-flash--heal {
+  background: radial-gradient(circle at 50% 55%, rgba(52, 211, 153, 0.34), transparent 38%);
+}
+
+.game-combatant-impact--hit {
+  animation:
+    combat-shake 180ms ease-out,
+    combat-flash-hit 280ms ease-out;
+}
+
+.game-combatant-impact--critical {
+  animation:
+    combat-shake 320ms ease-out,
+    combat-flash-hit 420ms ease-out;
+  box-shadow:
+    0 0 0 1px rgba(248, 113, 113, 0.4),
+    0 0 26px rgba(248, 113, 113, 0.4);
+}
+
+.game-combatant-impact--reaction {
+  animation:
+    combat-shake 260ms ease-out,
+    combat-flash-hit 360ms ease-out;
+  box-shadow:
+    0 0 0 1px rgba(253, 224, 71, 0.34),
+    0 0 24px rgba(253, 224, 71, 0.32);
+}
+
+.game-combatant-impact--heal {
+  animation: combat-flash-hit 420ms ease-out;
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.32),
+    0 0 22px rgba(52, 211, 153, 0.34);
+}
+
+.game-combatant-impact--miss {
+  animation: combat-shake 120ms ease-out;
+  opacity: 0.72;
+}
+
+.game-combat-action-bark {
+  transform-origin: 1.25rem 50%;
+}
+
+.game-combat-action-bark--shout {
+  animation: text-shake 420ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-combat-scene--hit,
+  .game-combat-scene--critical,
+  .game-combat-scene--reaction,
+  .game-combat-impact-flash,
+  .game-combatant-impact--hit,
+  .game-combatant-impact--critical,
+  .game-combatant-impact--reaction,
+  .game-combatant-impact--heal,
+  .game-combatant-impact--miss,
+  .game-combat-action-bark--shout {
+    animation: none !important;
+  }
+}
+
 /* ── Animated / Expressive Text ── */
 
 /* Shake — anger, impacts, rage */

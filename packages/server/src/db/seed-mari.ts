@@ -136,7 +136,8 @@ Scenes are mini-roleplays that branch off from conversation chats. They let conv
 ### Connected Chats & OOC System
 Conversation and roleplay chats can be linked together bidirectionally via the "connected chat" feature:
 
-- **Influence tags** (conversation → roleplay): When a character in a conversation chat wraps text in \`<influence>text</influence>\`, that text is stored and injected into the connected roleplay's next generation as \`<ooc_influences>\`. This lets conversation characters subtly steer the roleplay.
+- **Influence tags** (conversation → roleplay, one-shot): When a character in a conversation chat wraps text in \`<influence>text</influence>\`, that text is stored and injected into the connected roleplay's next generation as \`<ooc_influences>\`, then consumed. This lets conversation characters subtly steer the roleplay for a single turn.
+- **Note tags** (conversation → roleplay, durable): When a character in a conversation chat wraps text in \`<note>text</note>\`, that text is saved against the connected roleplay and injected as \`<conversation_notes>\` on every generation until the user clears it from the chat settings drawer. Use this for things the roleplay character should durably remember (a fact learned, a promise made, an established trait). Notes are capped to a total character budget per roleplay; oldest are pruned when the cap is reached.
 - **OOC tags** (roleplay → conversation): When a character in a roleplay wraps text in \`<ooc>comment</ooc>\`, that text is stripped from the roleplay message and posted as an assistant message in the connected conversation chat. This lets roleplay characters "break character" to chat casually.
 - **Connected roleplay context**: The conversation prompt includes a summary and recent messages from the connected roleplay, so conversation characters stay aware of what's happening in the story.
 
@@ -289,8 +290,7 @@ Transitions are driven by the GM emitting \`[state: exploration|dialogue|combat|
 ### GM Tags (What the Model Outputs)
 The GM's messages carry structured tags the engine parses and strips from the display. Available tags depend on the current state. Key ones:
 - \`[state: ...]\` — transition to a new game state
-- \`[combat: enemies="Name:Level:HP:ATK:DEF:SPD:Element, ..." allies="Ally 1, Ally 2 | null"]\` — start a tactical battle (MUST pair with \`[state: combat]\`)
-- \`[element_attack: element="pyro" target="Goblin"]\` — narrative elemental strike (triggers reaction popup)
+- \`[state: combat]\` — start a tactical battle. Put this at the very end of the GM turn; the engine will generate the combat JSON and mount the battle UI.
 - \`[qte: action1 | action2 | action3, timer: 5s]\` — quick-time event for the player
 - \`[choices: ...]\` — branching choice prompt
 - \`[dialogue: npc="Name"]\` — hand off to an NPC speaker
@@ -302,8 +302,14 @@ The GM's messages carry structured tags the engine parses and strips from the di
 - \`[session_end: reason="..."]\` — end the current session
 - Readable: \`[Note: ...]\` and \`[Book: ...]\` — rendered inline as journal-style notes
 
+### Skill Checks & Stakes
+- If the player input includes \`[dice: notation = total]\`, that is an authoritative server-side roll attached to their action. The GM should not reroll it, alter it, or replace it with a more convenient result.
+- Skill checks are not wish fulfillment. The GM should choose DCs from the fiction and let failures, critical failures, danger, injuries, lost opportunities, damaged trust, depleted resources, and defeat happen when the roll or situation calls for them.
+- If failure would not change anything, the GM should not call for a skill check. If a check is worth rolling, both success and failure must be acceptable story paths.
+- Success solves the immediate task, not every danger in the scene. Failure creates real consequences instead of secretly becoming a softer success.
+
 ### Tactical Combat
-When the GM emits \`[combat: ...] [state: combat]\`, the engine builds party combatants from the character snapshot + persona stats and mounts the **GameCombatUI** — a turn-based, JRPG-flavored battle screen with:
+When the GM emits \`[state: combat]\` at the end of a turn, the engine generates the combat JSON from recent history, party context, persona stats, and inventory, then mounts the **GameCombatUI** — a turn-based, JRPG-flavored battle screen with:
 - Party and enemies arrayed with HP/MP bars, elemental aura, status effects
 - Intro → player-turn → target-select → animating → victory/defeat/flee phases
 - Server-resolved rounds via \`POST /game/combat/round\` (handles damage, elemental reactions, status effects, morale)

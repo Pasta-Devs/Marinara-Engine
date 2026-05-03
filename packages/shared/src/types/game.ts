@@ -2,6 +2,7 @@
 // Game Mode Types
 // ──────────────────────────────────────────────
 import type { GenerationParameters } from "./prompt.js";
+import type { CombatItemEffect } from "./combat-encounter.js";
 
 /** The four main states a game can be in during a session. */
 export type GameActiveState = "exploration" | "dialogue" | "combat" | "travel_rest";
@@ -259,6 +260,9 @@ export interface CombatSkill {
   /** Multiplier against base stat */
   power: number;
   description?: string;
+  cooldown?: number;
+  element?: string;
+  statusEffect?: string;
 }
 
 /** Element presets for the elemental reaction system */
@@ -315,7 +319,12 @@ export interface CombatRoundResult {
 export type CombatPlayerAction =
   | { type: "attack"; targetId: string }
   | { type: "skill"; skillId: string; targetId: string }
-  | { type: "item"; itemId: string; targetId?: string }
+  | {
+      type: "item";
+      itemId: string;
+      targetId?: string;
+      itemEffect?: CombatItemEffect;
+    }
   | { type: "defend" }
   | { type: "flee" };
 

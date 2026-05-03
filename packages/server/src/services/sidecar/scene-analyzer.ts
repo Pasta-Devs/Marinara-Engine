@@ -38,6 +38,8 @@ export interface SceneAnalyzerContext {
   currentTimeOfDay: string | null;
   /** Whether image generation is configured and this turn is allowed to request a rare CG illustration. */
   canGenerateIllustrations?: boolean;
+  /** Whether image generation is configured for missing location/background assets. */
+  canGenerateBackgrounds?: boolean;
   /** Unified image style for generated game art. */
   artStylePrompt?: string | null;
 }
@@ -46,6 +48,36 @@ export interface SceneAnalyzerContext {
  *  budget goes to the user message where the actual choices live. */
 export function buildSceneAnalyzerSystemPrompt(_ctx: SceneAnalyzerContext): string {
   return `You are a game state analyzer. Read the narration, then fill in the JSON template using ONLY the exact tags provided as options. Output valid JSON only.`;
+}
+
+function backgroundOptionKey(tag: string): string {
+  let slug = tag
+    .trim()
+    .toLowerCase()
+    .replace(/:/g, "-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const prefixPattern = /^(?:backgrounds|fantasy|modern|scifi|user|generated|illustrations|q-[a-z0-9]{6,})-+/;
+  while (prefixPattern.test(slug)) {
+    slug = slug.replace(prefixPattern, "");
+  }
+  return slug || tag.trim().toLowerCase();
+}
+
+function buildBackgroundOptions(ctx?: SceneAnalyzerContext): string[] {
+  const seen = new Set<string>();
+  const options: string[] = [];
+  for (const tag of ctx?.availableBackgrounds ?? []) {
+    if (!tag || tag.startsWith("backgrounds:illustrations:")) continue;
+    const key = backgroundOptionKey(tag);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push(tag);
+  }
+  if (ctx?.canGenerateBackgrounds) {
+    options.push("backgrounds:generated:<short-location-slug>");
+  }
+  return options;
 }
 
 /** Map a widget to its update syntax hint for the JSON template. */
@@ -114,6 +146,7 @@ export function buildSceneAnalyzerUserPrompt(
 ): string {
   const parts: string[] = [];
   const canGenerateIllustrations = !!ctx?.canGenerateIllustrations;
+  const canGenerateBackgrounds = !!ctx?.canGenerateBackgrounds;
 
   // ── 1. Narration (longest — furthest from generation) ──
 
@@ -150,20 +183,25 @@ export function buildSceneAnalyzerUserPrompt(
     `   - "directions": rare cinematic effects at the exact beat they should happen, usually paired with a meaningful sound or reveal`,
     `   - "background": a DIFFERENT background tag if the characters move to a new location at that beat. The background stays the same until the NEXT segment that changes it, so only set "background" on the beat where characters actually arrive at a new location. Do NOT repeat the current background.`,
     `   Only include segments that HAVE at least one effect — omit empty segments.`,
+    ...(canGenerateBackgrounds
+      ? [
+          `4. GENERATED LOCATION BACKGROUNDS — If the narration enters a new location and none of the listed background tags fit, use backgrounds:generated:<short-location-slug>. This requests a normal reusable location background image.`,
+        ]
+      : []),
     ...((ctx?.turnNumber ?? 1) > 1
       ? [
-          `4. CINEMATIC DIRECTIONS — If the whole turn warrants an opening/establishing visual effect, include it. Otherwise empty array. Available: fade_from_black, fade_to_black, flash, screen_shake, blur, vignette, letterbox, color_grade (presets: warm, cold_blue, horror, noir, vintage, neon, dreamy), focus, pulse, slow_zoom, impact_zoom, tilt, desaturate, chromatic_aberration, film_grain, rain_streaks, spotlight.`,
+          `${canGenerateBackgrounds ? "5" : "4"}. CINEMATIC DIRECTIONS — If the whole turn warrants an opening/establishing visual effect, include it. Otherwise empty array. Available: fade_from_black, fade_to_black, flash, screen_shake, blur, vignette, letterbox, color_grade (presets: warm, cold_blue, horror, noir, vintage, neon, dreamy), focus, pulse, slow_zoom, impact_zoom, tilt, desaturate, chromatic_aberration, film_grain, rain_streaks, spotlight.`,
         ]
       : []),
     ...(canGenerateIllustrations
       ? [
-          `${(ctx?.turnNumber ?? 1) > 1 ? "5" : "4"}. RARE ILLUSTRATION — You may request ONE generated VN CG background only for a major, story-defining moment: first kiss, duel climax, major revelation, sacrifice, council confrontation, boss entrance, or emotional peak. Do not request one for routine travel, normal dialogue, regular combat blows, room changes, shopping, exposition, or scenery.`,
+          `${(ctx?.turnNumber ?? 1) > 1 ? (canGenerateBackgrounds ? "6" : "5") : canGenerateBackgrounds ? "5" : "4"}. RARE SPECIAL-SCENE CG BACKGROUND — You may request ONE generated VN CG illustration only for a major, story-defining moment: first kiss, duel climax, major revelation, sacrifice, council confrontation, boss entrance, or emotional peak. Do not request one for routine travel, normal dialogue, regular combat blows, room changes, shopping, exposition, or scenery.`,
           `   The image must be from the player protagonist's POV, in the game's established art style${ctx?.artStylePrompt ? ` (${ctx.artStylePrompt})` : ""}. The protagonist should not be visible except hands/arms when the narration explicitly requires it.`,
         ]
       : []),
     ``,
     `RULES:`,
-    `- Use ONLY the exact tags listed in the template below.`,
+    `- Use ONLY the exact tags listed in the template below. If backgrounds:generated:<short-location-slug> is listed, replace <short-location-slug> with a short concrete location slug.`,
     `- Expressions and widget updates are handled by the GM model. Do NOT include them in your output.`,
     `- segmentEffects can be an EMPTY array [] when nothing changed.`,
     `- Cinematic directions are spice, not punctuation. Use at most 2 total directions per turn, and never more than 1 direction in any 3-beat span. Prefer none for routine dialogue.`,
@@ -174,7 +212,11 @@ export function buildSceneAnalyzerUserPrompt(
           `- Use "illustration" rarely. Most turns MUST keep it null. If you request it, the prompt must describe the exact illustrated moment, visible characters, player POV, mood, lighting, and composition.`,
           `- "illustration.characters" should list only visible named characters in the image so their reference pictures can be attached.`,
         ]
-      : [`- Do not include image-generation or illustration requests.`]),
+      : canGenerateBackgrounds
+        ? [
+            `- Do not include the rare "illustration" object this turn. Generated reusable location backgrounds are still allowed via backgrounds:generated:<short-location-slug>.`,
+          ]
+        : [`- Do not include image-generation or illustration requests.`]),
     ...(ctx?.currentBackground
       ? [`- Current background is "${ctx.currentBackground}". Keep it unless the characters move to a new location.`]
       : [
@@ -184,10 +226,10 @@ export function buildSceneAnalyzerUserPrompt(
     ``,
   );
 
-  // Build background options
-  const bgOptions = ctx?.availableBackgrounds?.length
-    ? ctx.availableBackgrounds.join(" | ") + ` | backgrounds:generated:<slug>`
-    : `backgrounds:generated:<slug>`;
+  // Build background options once. The JSON template refers back to this list
+  // instead of duplicating it for top-level and per-segment background fields.
+  const backgroundOptions = buildBackgroundOptions(ctx);
+  const bgOptions = backgroundOptions.length ? backgroundOptions.join(" | ") : "null";
 
   // Ambient — handled automatically by scoreAmbient(), excluded from prompt
 
@@ -200,7 +242,7 @@ export function buildSceneAnalyzerUserPrompt(
   const sfxLine = ctx?.availableSfx?.length ? `      "sfx": ["<${ctx.availableSfx.join(" | ")}>"]` : null;
 
   // Background options for segment effects (optional per-segment override)
-  const bgLine = `      "background": "<${bgOptions}>"`;
+  const bgLine = `      "background": "<one BACKGROUND OPTIONS value>"`;
 
   // Build ONE segment example showing the range
   const segmentFields: string[] = [];
@@ -213,8 +255,10 @@ export function buildSceneAnalyzerUserPrompt(
   const segmentBody = segmentFields.join(",\n");
 
   parts.push(
+    `BACKGROUND OPTIONS: <${bgOptions}>`,
+    ``,
     `{`,
-    `  "background": "<${bgOptions}>",`,
+    `  "background": "<one BACKGROUND OPTIONS value | null>",`,
     `  "weather": "<clear | cloudy | foggy | rainy | stormy | snowy | windy | frost | null>",`,
     `  "timeOfDay": "<dawn | morning | noon | afternoon | evening | night | midnight | null>",`,
     `  "reputationChanges": ${reputationHint},`,

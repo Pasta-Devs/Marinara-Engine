@@ -103,7 +103,8 @@ export function GameNodeMap({
           const isCurrent = node.id === currentNodeId;
           const isSelected = node.id === selectedNodeId;
           const isAdjacent = adjacentIds.has(node.id);
-          const isClickable = !disabled && (isCurrent || isAdjacent);
+          const isDiscovered = !!node.discovered;
+          const isClickable = !disabled && (isCurrent || isAdjacent || isDiscovered);
           const isHovered = hoveredNodeId === node.id;
 
           return (
@@ -128,7 +129,15 @@ export function GameNodeMap({
                         : "rgba(50, 50, 50, 0.4)"
                 }
                 stroke={
-                  isCurrent ? "#ffffff" : isSelected ? "#38bdf8" : isAdjacent && !disabled ? "#a8a29e" : "transparent"
+                  isCurrent
+                    ? "#ffffff"
+                    : isSelected
+                      ? "#38bdf8"
+                      : isAdjacent && !disabled
+                        ? "#a8a29e"
+                        : isDiscovered && !disabled
+                          ? "rgba(148, 163, 184, 0.45)"
+                          : "transparent"
                 }
                 strokeWidth={isCurrent || isSelected ? 2 : 1}
               />

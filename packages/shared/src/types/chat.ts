@@ -185,6 +185,12 @@ export interface ChatMetadata {
   gameSetupConfig?: import("./game.js").GameSetupConfig | null;
   /** Tracked NPCs with reputation */
   gameNpcs?: import("./game.js").GameNpc[];
+  /** Current-session turn number when the last rare generated scene illustration was created. */
+  gameLastIllustrationTurn?: number;
+  /** Session number where the last rare generated scene illustration was created. */
+  gameLastIllustrationSessionNumber?: number | null;
+  /** Background tag for the last rare generated scene illustration. */
+  gameLastIllustrationTag?: string;
 
   // ── Conversation-Mode Auto-Summarization ──
   /** Per-day auto-generated conversation summaries (key: "DD.MM.YYYY"). */
@@ -293,5 +299,15 @@ export interface OocInfluence {
   content: string;
   anchorMessageId: string;
   consumed: boolean;
+  createdAt: string;
+}
+
+/** A durable note emitted from a conversation chat that persists in the connected roleplay's prompt until cleared. */
+export interface ConversationNote {
+  id: string;
+  sourceChatId: string;
+  targetChatId: string;
+  content: string;
+  anchorMessageId: string;
   createdAt: string;
 }

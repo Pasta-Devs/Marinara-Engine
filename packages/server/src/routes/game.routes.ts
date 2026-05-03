@@ -15,7 +15,7 @@ import { createGameStateStorage } from "../services/storage/game-state.storage.j
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { extractLeadingThinkingBlocks } from "../services/llm/inline-thinking.js";
 import { fitMessagesToContext, type ChatMessage, type ChatOptions } from "../services/llm/base-provider.js";
-import { rollDice } from "../services/game/dice.service.js";
+import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
 import { validateTransition } from "../services/game/state-machine.service.js";
 import {
   buildSetupPrompt,
@@ -136,10 +136,39 @@ function findCharAvatarFuzzy(npcName: string, charAvatarByName: Map<string, stri
   return undefined;
 }
 
-const ILLUSTRATION_COOLDOWN_TURNS = 3;
+const ILLUSTRATION_COOLDOWN_TURNS = 2;
 
-function isIllustrationAllowed(meta: Record<string, unknown>, turnNumber: number): boolean {
+function currentGameSessionNumber(meta: Record<string, unknown>): number | null {
+  return typeof meta.gameSessionNumber === "number" && Number.isFinite(meta.gameSessionNumber)
+    ? meta.gameSessionNumber
+    : null;
+}
+
+function isIllustrationAllowed(
+  meta: Record<string, unknown>,
+  turnNumber: number,
+  sessionNumber?: number | null,
+): boolean {
   const lastTurn = typeof meta.gameLastIllustrationTurn === "number" ? meta.gameLastIllustrationTurn : 0;
+  const lastSession =
+    typeof meta.gameLastIllustrationSessionNumber === "number" &&
+    Number.isFinite(meta.gameLastIllustrationSessionNumber)
+      ? meta.gameLastIllustrationSessionNumber
+      : null;
+  if (lastSession !== null && sessionNumber !== null && sessionNumber !== undefined && lastSession !== sessionNumber) {
+    return true;
+  }
+  // Legacy metadata did not record the session. In multi-session games, assume
+  // that old shape came from a carried previous session and let the new session
+  // establish a fresh session-aware cooldown.
+  if (lastSession === null && sessionNumber !== null && sessionNumber !== undefined && sessionNumber > 1) {
+    return true;
+  }
+  // Older metadata stored only a turn number. If the current session turn count
+  // restarted below it, the saved cooldown came from a previous session.
+  if (lastSession === null && lastTurn > turnNumber) {
+    return true;
+  }
   return lastTurn <= 0 || turnNumber - lastTurn >= ILLUSTRATION_COOLDOWN_TURNS;
 }
 
@@ -231,6 +260,20 @@ function applyGeneratedIllustration(
   } else {
     sceneResult.background = generatedTag;
   }
+}
+
+function generatedBackgroundSlug(value: string): string {
+  let slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/:/g, "-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const prefixPattern = /^(?:backgrounds|fantasy|modern|scifi|user|generated|illustrations|q-[a-z0-9]{6,})-+/;
+  while (prefixPattern.test(slug)) {
+    slug = slug.replace(prefixPattern, "");
+  }
+  return slug || "scene";
 }
 
 async function addGeneratedIllustrationToGallery(opts: {
@@ -346,11 +389,7 @@ const removePartyMemberSchema = z.object({
 
 const diceRollSchema = z.object({
   chatId: z.string().min(1),
-  notation: z
-    .string()
-    .min(1)
-    .max(50)
-    .regex(/^\d+d\d+([+-]\d+)?$/, "Invalid dice notation"),
+  notation: z.string().min(1).max(50).refine(isDiceNotation, "Invalid dice notation"),
   context: z.string().max(500).optional(),
 });
 
@@ -2434,11 +2473,17 @@ export async function gameRoutes(app: FastifyInstance) {
         normalizeGameInventoryItems(prevMeta.gameInventory),
         inventoryFromPlayerStats(previousPlayerStats),
       );
+      const {
+        gameLastIllustrationTurn: _previousIllustrationTurn,
+        gameLastIllustrationSessionNumber: _previousIllustrationSessionNumber,
+        gameLastIllustrationTag: _previousIllustrationTag,
+        ...carryMeta
+      } = prevMeta;
 
       const newMeta = parseMeta(newChat.metadata);
       const updatedNewMeta = {
         ...newMeta,
-        ...prevMeta,
+        ...carryMeta,
         gameId,
         gameSessionNumber: sessionNumber,
         gameSessionStatus: "ready",
@@ -3691,6 +3736,9 @@ export async function gameRoutes(app: FastifyInstance) {
                 mpCost: z.number(),
                 power: z.number(),
                 description: z.string().optional(),
+                cooldown: z.number().optional(),
+                element: z.string().optional(),
+                statusEffect: z.string().optional(),
               }),
             )
             .optional(),
@@ -3722,10 +3770,57 @@ export async function gameRoutes(app: FastifyInstance) {
           targetId: z.string().optional(),
           skillId: z.string().optional(),
           itemId: z.string().optional(),
+          itemEffect: z
+            .object({
+              name: z.string(),
+              target: z.enum(["self", "ally", "enemy", "any"]),
+              type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]),
+              description: z.string(),
+              power: z.number().optional(),
+              element: z.string().optional(),
+              status: z
+                .object({
+                  name: z.string(),
+                  emoji: z.string(),
+                  duration: z.number(),
+                  modifier: z.number().optional(),
+                  stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
+                })
+                .optional(),
+              consumes: z.boolean().optional(),
+            })
+            .optional(),
         })
         .optional(),
+      mechanics: z
+        .array(
+          z.object({
+            name: z.string(),
+            description: z.string(),
+            ownerName: z.string().optional(),
+            trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
+            interval: z.number().optional(),
+            hpThreshold: z.number().optional(),
+            counterplay: z.string().optional(),
+            effectType: z
+              .enum(["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"])
+              .optional(),
+            power: z.number().optional(),
+            element: z.string().optional(),
+            status: z
+              .object({
+                name: z.string(),
+                emoji: z.string(),
+                duration: z.number(),
+                modifier: z.number().optional(),
+                stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
+              })
+              .optional(),
+          }),
+        )
+        .optional(),
     });
-    const { chatId, combatants, round, playerAction } = schema.parse(req.body);
+    const { chatId, combatants, round, playerAction, mechanics } = schema.parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
@@ -3739,6 +3834,7 @@ export async function gameRoutes(app: FastifyInstance) {
       difficulty,
       elementPreset,
       playerAction,
+      mechanics,
     );
 
     return { result, combatants };
@@ -4339,6 +4435,9 @@ export async function gameRoutes(app: FastifyInstance) {
       currentAmbient: z.string().nullable().optional().default(null),
       currentWeather: z.string().nullable(),
       currentTimeOfDay: z.string().nullable(),
+      canGenerateBackgrounds: z.boolean().optional(),
+      canGenerateIllustrations: z.boolean().optional(),
+      artStylePrompt: z.string().nullable().optional(),
     }),
     /** Override connection (falls back to scene connection → GM connection). */
     connectionId: z.string().optional(),
@@ -4347,6 +4446,15 @@ export async function gameRoutes(app: FastifyInstance) {
 
   app.post("/scene-wrap", async (req) => {
     const input = sceneWrapSchema.parse(req.body);
+    const requestDebug = input.debugMode === true;
+    const debugLogsEnabled = requestDebug || isDebugAgentsEnabled() || logger.isLevelEnabled("debug");
+    const debugLog = (message: string, ...args: any[]) => {
+      if (requestDebug) {
+        console.log(message, ...args);
+      } else {
+        logger.debug(message, ...args);
+      }
+    };
     const chats = createChatsStorage(app.db);
     const connections = createConnectionsStorage(app.db);
 
@@ -4369,10 +4477,13 @@ export async function gameRoutes(app: FastifyInstance) {
     // Compute approximate turn number: count user messages + 1 (current turn)
     const allMsgs = await chats.listMessages(input.chatId);
     const approxTurnNumber = Math.max(1, allMsgs.filter((m) => m.role === "user").length + 1);
+    const sessionNumber = currentGameSessionNumber(meta);
     const sceneCtx = {
       ...(input.context as unknown as SceneAnalyzerContext),
       turnNumber: approxTurnNumber,
-      canGenerateIllustrations: enableGen && !!imgConnId && isIllustrationAllowed(meta, approxTurnNumber),
+      canGenerateBackgrounds: enableGen && !!imgConnId,
+      canGenerateIllustrations:
+        enableGen && !!imgConnId && isIllustrationAllowed(meta, approxTurnNumber, sessionNumber),
       artStylePrompt: artStyleForScene || null,
     };
 
@@ -4383,6 +4494,26 @@ export async function gameRoutes(app: FastifyInstance) {
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ];
+
+    if (debugLogsEnabled) {
+      debugLog(
+        "[debug/game/scene-analysis:connection] request chatId=%s model=%s narrationChars=%d playerActionChars=%d state=%s bgOptions=%d sfxOptions=%d widgets=%d npcs=%d streaming=%s generateBackgrounds=%s generateIllustration=%s",
+        input.chatId,
+        conn.model ?? "",
+        input.narration.length,
+        input.playerAction?.length ?? 0,
+        input.context.currentState,
+        input.context.availableBackgrounds.length,
+        input.context.availableSfx.length,
+        input.context.activeWidgets.length,
+        input.context.trackedNpcs.length,
+        input.streaming,
+        !!sceneCtx.canGenerateBackgrounds,
+        !!sceneCtx.canGenerateIllustrations,
+      );
+      debugLog("[debug/game/scene-analysis:connection] system prompt:\n%s", systemPrompt);
+      debugLog("[debug/game/scene-analysis:connection] user prompt:\n%s", userPrompt);
+    }
 
     const provider = createLLMProvider(
       conn.provider,
@@ -4426,10 +4557,9 @@ export async function gameRoutes(app: FastifyInstance) {
       sceneWrapExtraction = extractLeadingThinkingBlocks(streamed);
       raw = sceneWrapExtraction.content;
     }
-    const debugLogsEnabled = input.debugMode || isDebugAgentsEnabled();
     if (debugLogsEnabled) {
-      logger.debug(
-        "[game/scene-wrap/raw] chatId=%s model=%s chars=%d\n%s",
+      debugLog(
+        "[debug/game/scene-analysis:connection] raw response chatId=%s model=%s chars=%d\n%s",
         input.chatId,
         conn.model ?? "",
         raw.length,
@@ -4453,6 +4583,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const ppCtx: PostProcessContext = {
         availableBackgrounds: input.context.availableBackgrounds,
         availableSfx: input.context.availableSfx,
+        canGenerateBackgrounds: !!sceneCtx.canGenerateBackgrounds,
         validWidgetIds: new Set(
           input.context.activeWidgets
             .map((widget) =>
@@ -4504,9 +4635,16 @@ export async function gameRoutes(app: FastifyInstance) {
         (parsed as unknown as Record<string, unknown>).illustration = null;
       }
 
-      // ── On-the-fly asset generation ──
-      // When enableSpriteGeneration is on and an image connection is configured,
-      // generate missing NPC portraits and location backgrounds automatically.
+      // ── Scene asset preparation ──
+      // When sprite generation is enabled, scene-wrap may resolve cheap local
+      // assets such as character-library portraits.
+      //
+      // Keep image generation out of /scene-wrap. This route is the scene-analysis
+      // response path; if an image provider stalls here, the client can hit its
+      // scene-analysis timeout even though the analyzer already returned valid JSON.
+      // Missing/generated assets are handled by the follow-up /game/generate-assets
+      // request, which reports asset failures separately.
+      const generateSceneWrapAssetsInline = false;
       if (!enableGen) {
         logger.debug("[game/scene-wrap] asset-gen skipped: enableSpriteGeneration=false");
       } else if (!imgConnId) {
@@ -4551,7 +4689,7 @@ export async function gameRoutes(app: FastifyInstance) {
             }
 
             const illustration = sceneResult.illustration as SceneIllustrationRequest | null | undefined;
-            if (illustration && sceneCtx.canGenerateIllustrations) {
+            if (illustration && sceneCtx.canGenerateIllustrations && generateSceneWrapAssetsInline) {
               const illustrationAssets = collectIllustrationCharacterAssets({
                 illustration,
                 characterNames: input.context.characterNames ?? [],
@@ -4577,6 +4715,7 @@ export async function gameRoutes(app: FastifyInstance) {
                 imgApiKey,
                 imgService: imgServiceHint,
                 imgComfyWorkflow,
+                debugLog: debugLogsEnabled ? debugLog : undefined,
               });
               if (generatedTag) {
                 await addGeneratedIllustrationToGallery({
@@ -4595,6 +4734,7 @@ export async function gameRoutes(app: FastifyInstance) {
                     await chats.updateMetadata(input.chatId, {
                       ...latestMeta,
                       gameLastIllustrationTurn: approxTurnNumber,
+                      gameLastIllustrationSessionNumber: sessionNumber,
                       gameLastIllustrationTag: generatedTag,
                     });
                   }
@@ -4602,6 +4742,8 @@ export async function gameRoutes(app: FastifyInstance) {
                   /* non-fatal */
                 }
               }
+            } else if (illustration && sceneCtx.canGenerateIllustrations) {
+              logger.debug("[game/scene-wrap] illustration generation deferred to /game/generate-assets");
             }
 
             // ── Background generation ──
@@ -4618,18 +4760,12 @@ export async function gameRoutes(app: FastifyInstance) {
               if (tagExists) {
                 logger.debug(`[game/scene-wrap] bg "${chosenBg}" already in manifest, skipping generation`);
               } else {
-                logger.debug(`[game/scene-wrap] bg "${chosenBg}" not in manifest, generating…`);
+                logger.debug(`[game/scene-wrap] bg "${chosenBg}" not in manifest; generation will be deferred`);
               }
 
-              if (!tagExists) {
+              if (!tagExists && generateSceneWrapAssetsInline) {
                 // The scene model wanted a bg that doesn't exist — generate one
-                const slug =
-                  chosenBg
-                    .replace(/^backgrounds:/i, "")
-                    .replace(/:/g, "-")
-                    .toLowerCase()
-                    .replace(/[^a-z0-9-]+/g, "-")
-                    .replace(/(^-|-$)/g, "") || "scene";
+                const slug = generatedBackgroundSlug(chosenBg);
 
                 const generatedTag = await generateBackground({
                   chatId: input.chatId,
@@ -4643,6 +4779,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgBaseUrl,
                   imgApiKey,
                   imgService: imgServiceHint,
+                  debugLog: debugLogsEnabled ? debugLog : undefined,
                 });
 
                 if (generatedTag) {
@@ -4657,11 +4794,13 @@ export async function gameRoutes(app: FastifyInstance) {
                     }
                   }
                 }
+              } else if (!tagExists) {
+                logger.debug('[game/scene-wrap] bg "%s" generation deferred to /game/generate-assets', chosenBg);
               }
             }
 
             // Also check segmentEffects for additional bg tags
-            if (Array.isArray(sceneResult.segmentEffects)) {
+            if (Array.isArray(sceneResult.segmentEffects) && generateSceneWrapAssetsInline) {
               const manifest = getAssetManifest();
               for (const fx of sceneResult.segmentEffects as Record<string, unknown>[]) {
                 const segBg = fx.background as string | null;
@@ -4672,13 +4811,7 @@ export async function gameRoutes(app: FastifyInstance) {
                 );
                 if (segTagExists) continue;
 
-                const slug =
-                  segBg
-                    .replace(/^backgrounds:/i, "")
-                    .replace(/:/g, "-")
-                    .toLowerCase()
-                    .replace(/[^a-z0-9-]+/g, "-")
-                    .replace(/(^-|-$)/g, "") || "scene";
+                const slug = generatedBackgroundSlug(segBg);
 
                 const generatedTag = await generateBackground({
                   chatId: input.chatId,
@@ -4692,6 +4825,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgBaseUrl,
                   imgApiKey,
                   imgService: imgServiceHint,
+                  debugLog: debugLogsEnabled ? debugLog : undefined,
                 });
 
                 if (generatedTag) {
@@ -4766,6 +4900,10 @@ export async function gameRoutes(app: FastifyInstance) {
         }
       }
 
+      if (debugLogsEnabled) {
+        debugLog("[debug/game/scene-analysis:connection] final result:\n%s", JSON.stringify(parsed, null, 2));
+      }
+
       return { result: parsed };
     } catch (err) {
       logger.warn(err, "[game/scene-wrap] Failed to parse LLM response as JSON: %s", raw.slice(0, 200));
@@ -4799,10 +4937,20 @@ export async function gameRoutes(app: FastifyInstance) {
         slug: z.string().max(80).optional(),
       })
       .optional(),
+    debugMode: z.boolean().optional().default(false),
   });
 
   app.post("/generate-assets", async (req) => {
     const input = generateAssetsSchema.parse(req.body);
+    const requestDebug = input.debugMode === true;
+    const debugLogsEnabled = requestDebug || isDebugAgentsEnabled() || logger.isLevelEnabled("debug");
+    const debugLog = (message: string, ...args: any[]) => {
+      if (requestDebug) {
+        console.log(message, ...args);
+      } else {
+        logger.debug(message, ...args);
+      }
+    };
     const chats = createChatsStorage(app.db);
     const connections = createConnectionsStorage(app.db);
 
@@ -4812,6 +4960,21 @@ export async function gameRoutes(app: FastifyInstance) {
       input.backgroundTag ?? "none",
       input.npcsNeedingAvatars?.length ?? 0,
     );
+    if (debugLogsEnabled) {
+      debugLog(
+        "[debug/game/generate-assets] request payload:\n%s",
+        JSON.stringify(
+          {
+            chatId: input.chatId,
+            backgroundTag: input.backgroundTag ?? null,
+            npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
+            illustration: input.illustration ?? null,
+          },
+          null,
+          2,
+        ),
+      );
+    }
 
     const chat = await chats.getById(input.chatId);
     if (!chat) throw new Error("Chat not found");
@@ -4853,13 +5016,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
     // ── Generate background ──
     if (input.backgroundTag) {
-      const slug =
-        input.backgroundTag
-          .replace(/^backgrounds:/i, "")
-          .replace(/:/g, "-")
-          .toLowerCase()
-          .replace(/[^a-z0-9-]+/g, "-")
-          .replace(/(^-|-$)/g, "") || "scene";
+      const slug = generatedBackgroundSlug(input.backgroundTag);
 
       const tag = await generateBackground({
         chatId: input.chatId,
@@ -4874,6 +5031,7 @@ export async function gameRoutes(app: FastifyInstance) {
         imgApiKey,
         imgService: imgServiceHint,
         imgComfyWorkflow,
+        debugLog: debugLogsEnabled ? debugLog : undefined,
       });
       generatedBackground = tag;
     }
@@ -4882,7 +5040,8 @@ export async function gameRoutes(app: FastifyInstance) {
     if (input.illustration) {
       const allMsgs = await chats.listMessages(input.chatId);
       const approxTurnNumber = Math.max(1, allMsgs.filter((message) => message.role === "user").length + 1);
-      if (!isIllustrationAllowed(meta, approxTurnNumber)) {
+      const sessionNumber = currentGameSessionNumber(meta);
+      if (!isIllustrationAllowed(meta, approxTurnNumber, sessionNumber)) {
         console.log("[game/generate-assets] illustration skipped: cooldown active");
       } else {
         const charStore = createCharactersStorage(app.db);
@@ -4930,6 +5089,7 @@ export async function gameRoutes(app: FastifyInstance) {
           imgApiKey,
           imgService: imgServiceHint,
           imgComfyWorkflow,
+          debugLog: debugLogsEnabled ? debugLog : undefined,
         });
 
         if (tag) {
@@ -4950,6 +5110,7 @@ export async function gameRoutes(app: FastifyInstance) {
             await chats.updateMetadata(input.chatId, {
               ...latestMeta,
               gameLastIllustrationTurn: approxTurnNumber,
+              gameLastIllustrationSessionNumber: sessionNumber,
               gameLastIllustrationTag: tag,
             });
           }
@@ -5017,6 +5178,7 @@ export async function gameRoutes(app: FastifyInstance) {
           imgApiKey,
           imgService: imgServiceHint,
           imgComfyWorkflow,
+          debugLog: debugLogsEnabled ? debugLog : undefined,
         });
         if (avatarUrl) {
           generatedNpcAvatars.push({ name: npc.name, avatarUrl });
@@ -5047,6 +5209,12 @@ export async function gameRoutes(app: FastifyInstance) {
       generatedIllustration?.tag ?? "none",
       generatedNpcAvatars.length,
     );
+    if (debugLogsEnabled) {
+      debugLog(
+        "[debug/game/generate-assets] result payload:\n%s",
+        JSON.stringify({ generatedBackground, generatedIllustration, generatedNpcAvatars }, null, 2),
+      );
+    }
 
     return { generatedBackground, generatedIllustration, generatedNpcAvatars };
   });
