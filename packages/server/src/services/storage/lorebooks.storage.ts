@@ -262,10 +262,25 @@ export function createLorebooksStorage(db: DB) {
     async createEntry(input: CreateLorebookEntryInput) {
       const id = newId();
       const timestamp = now();
+      // If a folderId is supplied, the folder must exist AND live in the same
+      // lorebook. Without this check, the route layer accepts any string and
+      // we'd silently create orphaned entries that disappear from the editor's
+      // grouped view and bypass the disabled-folder activation gate.
+      const requestedFolderId = input.folderId ?? null;
+      if (requestedFolderId !== null) {
+        const folderRows = await db
+          .select({ lorebookId: lorebookFolders.lorebookId })
+          .from(lorebookFolders)
+          .where(eq(lorebookFolders.id, requestedFolderId));
+        const folderRow = folderRows[0];
+        if (!folderRow || folderRow.lorebookId !== input.lorebookId) {
+          throw new Error("folderId does not belong to this lorebook");
+        }
+      }
       await db.insert(lorebookEntries).values({
         id,
         lorebookId: input.lorebookId,
-        folderId: input.folderId ?? null,
+        folderId: requestedFolderId,
         name: input.name,
         content: input.content ?? "",
         description: input.description ?? "",
@@ -308,7 +323,30 @@ export function createLorebooksStorage(db: DB) {
       if (input.name !== undefined) updates.name = input.name;
       if (input.content !== undefined) updates.content = input.content;
       if (input.description !== undefined) updates.description = input.description;
-      if (input.folderId !== undefined) updates.folderId = input.folderId;
+      if (input.folderId !== undefined) {
+        if (input.folderId !== null) {
+          // Resolve the entry's lorebook so we can check the folder belongs to
+          // the same lorebook. The route layer doesn't carry the lorebookId
+          // through the update payload, so we look it up here.
+          const entryRows = await db
+            .select({ lorebookId: lorebookEntries.lorebookId })
+            .from(lorebookEntries)
+            .where(eq(lorebookEntries.id, id));
+          const entryRow = entryRows[0];
+          if (!entryRow) {
+            throw new Error("entry not found");
+          }
+          const folderRows = await db
+            .select({ lorebookId: lorebookFolders.lorebookId })
+            .from(lorebookFolders)
+            .where(eq(lorebookFolders.id, input.folderId));
+          const folderRow = folderRows[0];
+          if (!folderRow || folderRow.lorebookId !== entryRow.lorebookId) {
+            throw new Error("folderId does not belong to this lorebook");
+          }
+        }
+        updates.folderId = input.folderId;
+      }
       if (input.keys !== undefined) updates.keys = JSON.stringify(input.keys);
       if (input.secondaryKeys !== undefined) updates.secondaryKeys = JSON.stringify(input.secondaryKeys);
       if (input.enabled !== undefined) updates.enabled = String(input.enabled);
@@ -425,8 +463,18 @@ export function createLorebooksStorage(db: DB) {
       return rows.map((r) => parseFolderRow(r as Record<string, unknown>));
     },
 
-    async getFolder(folderId: string) {
-      const rows = await db.select().from(lorebookFolders).where(eq(lorebookFolders.id, folderId));
+    /**
+     * Look up a folder. When `lorebookId` is provided, the lookup is also
+     * scoped to that lorebook — needed because the route layer accepts both
+     * `:id` (lorebook) and `:folderId` and the two should always agree.
+     * Without this scope, `/lorebooks/A/folders/B` would happily return a
+     * folder belonging to lorebook `X`.
+     */
+    async getFolder(folderId: string, lorebookId?: string) {
+      const conditions = lorebookId
+        ? and(eq(lorebookFolders.id, folderId), eq(lorebookFolders.lorebookId, lorebookId))
+        : eq(lorebookFolders.id, folderId);
+      const rows = await db.select().from(lorebookFolders).where(conditions);
       const row = rows[0];
       return row ? parseFolderRow(row as Record<string, unknown>) : null;
     },
@@ -459,33 +507,47 @@ export function createLorebooksStorage(db: DB) {
         createdAt: timestamp,
         updatedAt: timestamp,
       });
-      return this.getFolder(id);
+      return this.getFolder(id, lorebookId);
     },
 
-    async updateFolder(folderId: string, input: UpdateLorebookFolderInput) {
+    /**
+     * Update a folder. `lorebookId` is required so a malicious or buggy
+     * caller can't reach folders in a different lorebook by guessing the
+     * folder ID; the WHERE clause requires both to match.
+     */
+    async updateFolder(folderId: string, input: UpdateLorebookFolderInput, lorebookId?: string) {
       const updates: Record<string, unknown> = { updatedAt: now() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.enabled !== undefined) updates.enabled = String(input.enabled);
       if (input.parentFolderId !== undefined) updates.parentFolderId = input.parentFolderId;
       if (input.order !== undefined) updates.order = input.order;
-      await db.update(lorebookFolders).set(updates).where(eq(lorebookFolders.id, folderId));
-      return this.getFolder(folderId);
+      const whereClause = lorebookId
+        ? and(eq(lorebookFolders.id, folderId), eq(lorebookFolders.lorebookId, lorebookId))
+        : eq(lorebookFolders.id, folderId);
+      await db.update(lorebookFolders).set(updates).where(whereClause);
+      return this.getFolder(folderId, lorebookId);
     },
 
     /**
      * Remove a folder. Entries inside the folder are NOT deleted — their
      * `folderId` is reset to NULL (root level) so the user doesn't lose
      * data when they remove a folder by accident.
+     *
+     * `lorebookId` scopes the lookup so a request to
+     * `/lorebooks/A/folders/B` cannot reach a folder belonging to lorebook
+     * `X` and accidentally reparent that other lorebook's entries.
      */
-    async removeFolder(folderId: string) {
-      const folder = (await this.getFolder(folderId)) as Record<string, unknown> | null;
+    async removeFolder(folderId: string, lorebookId?: string) {
+      const folder = (await this.getFolder(folderId, lorebookId)) as Record<string, unknown> | null;
       if (!folder) return;
-      const lorebookId = folder.lorebookId as string;
+      const ownerLorebookId = folder.lorebookId as string;
       await db
         .update(lorebookEntries)
         .set({ folderId: null, updatedAt: now() })
-        .where(and(eq(lorebookEntries.lorebookId, lorebookId), eq(lorebookEntries.folderId, folderId)));
-      await db.delete(lorebookFolders).where(eq(lorebookFolders.id, folderId));
+        .where(and(eq(lorebookEntries.lorebookId, ownerLorebookId), eq(lorebookEntries.folderId, folderId)));
+      await db
+        .delete(lorebookFolders)
+        .where(and(eq(lorebookFolders.id, folderId), eq(lorebookFolders.lorebookId, ownerLorebookId)));
     },
 
     /** Renumber folders within a lorebook to match `folderIds` left-to-right. */
