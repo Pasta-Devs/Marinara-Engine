@@ -660,6 +660,12 @@ export function ConnectionEditor() {
                     setLocalBaseUrl(info.defaultBaseUrl);
                     // Clear model if switching provider
                     setLocalModel("");
+                    // Claude (Subscription) ignores the API key field and
+                    // disables the input — clear any previously typed value
+                    // so a stale key from another provider doesn't get saved.
+                    if (key === "claude_subscription") {
+                      setLocalApiKey("");
+                    }
                     markDirty();
                   }}
                   className={cn(
