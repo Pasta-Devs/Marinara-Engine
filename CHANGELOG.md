@@ -61,6 +61,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Minor adjustments to some agent widgets.
 - Game mode now supports multiple maps.
 - Debug mode restored.
+- Expression Engine retries now load available sprites, validate returned expressions, and persist the corrected sprite state.
 
 ## [1.5.5]
 
