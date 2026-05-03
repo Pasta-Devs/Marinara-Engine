@@ -109,6 +109,7 @@ async function resolvePersonaContext(
 }
 
 async function buildRetryAgentContext(args: {
+  cyoaAgentWillRun: boolean;
   chatId: string;
   chat: any;
   chatMeta: Record<string, unknown>;
@@ -121,6 +122,7 @@ async function buildRetryAgentContext(args: {
   streaming: boolean;
 }) {
   const {
+    cyoaAgentWillRun,
     chatId,
     chat,
     chatMeta,
@@ -231,6 +233,16 @@ async function buildRetryAgentContext(args: {
   const latestGS = await gameStateStore.getLatestCommitted(chatId);
   if (latestGS) {
     agentContext.gameState = parseGameStateRow(latestGS as Record<string, unknown>);
+  }
+
+  // CYOA re-rolls: inject the previous choices so the agent generates a fresh,
+  // meaningfully different set instead of repeating the last batch. Mirrors
+  // the same injection in the main generate route.
+  if (cyoaAgentWillRun && lastAssistant) {
+    const lastExtra = parseExtra((lastAssistant as any).extra);
+    if (lastExtra.cyoaChoices) {
+      agentContext.memory._lastCyoaChoices = lastExtra.cyoaChoices;
+    }
   }
 
   return agentContext;
@@ -674,6 +686,38 @@ async function applyRetryResultEffects(args: {
       }
     }
 
+    // Persist re-rolled CYOA choices onto the last assistant message + active swipe
+    // so they survive a page refresh, and broadcast them to the client store.
+    if (result.success && result.type === "cyoa_choices" && result.data && typeof result.data === "object") {
+      try {
+        const cyoaData = result.data as { choices?: Array<{ label: string; text: string }> };
+        if (retryMessageId && cyoaData.choices && cyoaData.choices.length > 0) {
+          await chats.updateSwipeExtra(retryMessageId, retrySwipeIndex, { cyoaChoices: cyoaData.choices });
+          const msgRow = await chats.getMessage(retryMessageId);
+          if (msgRow && (msgRow.activeSwipeIndex ?? 0) === retrySwipeIndex) {
+            await chats.updateMessageExtra(retryMessageId, { cyoaChoices: cyoaData.choices });
+            logger.info(
+              "[retry-agents] CYOA choices persisted chatId=%s messageId=%s choiceCount=%d",
+              chatId,
+              retryMessageId,
+              cyoaData.choices.length,
+            );
+          } else {
+            logger.info(
+              "[retry-agents] CYOA choices persisted to swipe only (active swipe changed) chatId=%s messageId=%s retrySwipeIndex=%d activeSwipeIndex=%s choiceCount=%d",
+              chatId,
+              retryMessageId,
+              retrySwipeIndex,
+              msgRow?.activeSwipeIndex ?? "null",
+              cyoaData.choices.length,
+            );
+          }
+        }
+      } catch (err) {
+        logger.warn(err, "[retry-agents] CYOA choices persistence failed chatId=%s messageId=%s", chatId, retryMessageId);
+      }
+    }
+
     if (result.success && result.type === "custom_tracker_update" && result.data && typeof result.data === "object") {
       try {
         const ctData = result.data as Record<string, unknown>;
@@ -936,7 +980,9 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
           conns,
           agentsStore,
         });
+        const cyoaAgentWillRun = resolvedAgents.some((e) => e.resolved.type === "cyoa");
         const agentContext = await buildRetryAgentContext({
+          cyoaAgentWillRun,
           chatId,
           chat,
           chatMeta,
@@ -952,6 +998,13 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         sendSseEvent(reply, { type: "agent_start", data: { phase: "retry" } });
         const lorebookKeeperAgent = resolvedAgents.find((entry) => entry.resolved.type === "lorebook-keeper") ?? null;
         const nonLorebookAgents = resolvedAgents.filter((entry) => entry.resolved.type !== "lorebook-keeper");
+        if (cyoaAgentWillRun) {
+          logger.info(
+            "[retry-agents] CYOA re-roll chatId=%s assistantMessageId=%s",
+            chatId,
+            lastAssistant?.id ?? "none",
+          );
+        }
         const results = nonLorebookAgents.length > 0 ? await executeRetryBatches(agentContext, nonLorebookAgents) : [];
         const lorebookKeeperRunEntries = lorebookKeeperAgent
           ? await executeLorebookKeeperRetries({
@@ -982,6 +1035,13 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
               durationMs: result.durationMs,
             },
           });
+        }
+
+        if (cyoaAgentWillRun) {
+          const cyoaRetry = results.find((r) => r.agentType === "cyoa");
+          if (cyoaRetry && !cyoaRetry.success) {
+            logger.warn("[retry-agents] CYOA re-roll failed chatId=%s: %s", chatId, cyoaRetry.error ?? "unknown");
+          }
         }
 
         for (const entry of lorebookKeeperRunEntries) {
