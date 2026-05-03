@@ -621,12 +621,19 @@ function AppearanceSettings() {
   );
   const fontFamily = useUIStore((s) => s.fontFamily);
   const setFontFamily = useUIStore((s) => s.setFontFamily);
-  const convoGradientFrom = useUIStore((s) => s.convoGradientFrom);
-  const setConvoGradientFrom = useUIStore((s) => s.setConvoGradientFrom);
-  const convoGradientTo = useUIStore((s) => s.convoGradientTo);
-  const setConvoGradientTo = useUIStore((s) => s.setConvoGradientTo);
-  const [draftFrom, setDraftFrom] = useState(convoGradientFrom);
-  const [draftTo, setDraftTo] = useState(convoGradientTo);
+  const convoGradient = useUIStore((s) => s.convoGradient);
+  const setConvoGradientField = useUIStore((s) => s.setConvoGradientField);
+  const [activeGradientScheme, setActiveGradientScheme] = useState<"dark" | "light">(theme);
+  const currentGradient = convoGradient[activeGradientScheme];
+  const [draftFrom, setDraftFrom] = useState(currentGradient.from);
+  const [draftTo, setDraftTo] = useState(currentGradient.to);
+
+  // Sync draft inputs when switching between scheme tabs so the text fields
+  // always reflect the stored value for the active scheme.
+  useEffect(() => {
+    setDraftFrom(currentGradient.from);
+    setDraftTo(currentGradient.to);
+  }, [activeGradientScheme, currentGradient.from, currentGradient.to]);
   const fontSize = useUIStore((s) => s.fontSize);
   const setFontSize = useUIStore((s) => s.setFontSize);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
@@ -1073,26 +1080,55 @@ function AppearanceSettings() {
         </p>
       </div>
 
-      {/* ── Conversation Gradient ── */}
+      {/* ── Conversation Gradient (per color-scheme) ── */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5">
-          <Palette size="0.75rem" className="text-[var(--muted-foreground)]" />
-          <span className="text-xs font-medium">Conversation Theme</span>
-          <HelpTooltip text="Set a background gradient for all Conversation-mode chats, similar to Discord." />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Palette size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <span className="text-xs font-medium">Conversation Theme</span>
+            <HelpTooltip text="Set a background gradient for all Conversation-mode chats, separately for dark and light color schemes." />
+          </div>
+          {/* Scheme tabs */}
+          <div className="flex rounded-lg bg-[var(--secondary)] p-0.5 text-[0.625rem]">
+            <button
+              type="button"
+              onClick={() => setActiveGradientScheme("dark")}
+              className={cn(
+                "rounded-md px-2 py-1 transition-colors",
+                activeGradientScheme === "dark"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+              )}
+            >
+              Dark
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveGradientScheme("light")}
+              className={cn(
+                "rounded-md px-2 py-1 transition-colors",
+                activeGradientScheme === "light"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+              )}
+            >
+              Light
+            </button>
+          </div>
         </div>
         {/* Preview */}
         <div
           className="h-16 rounded-lg ring-1 ring-[var(--border)]"
-          style={{ background: `linear-gradient(135deg, ${convoGradientFrom}, ${convoGradientTo})` }}
+          style={{ background: `linear-gradient(135deg, ${currentGradient.from}, ${currentGradient.to})` }}
         />
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={convoGradientFrom}
+                value={currentGradient.from}
                 onChange={(e) => {
-                  setConvoGradientFrom(e.target.value);
+                  setConvoGradientField(activeGradientScheme, "from", e.target.value);
                   setDraftFrom(e.target.value);
                 }}
                 className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
@@ -1102,9 +1138,10 @@ function AppearanceSettings() {
                 value={draftFrom}
                 onChange={(e) => {
                   setDraftFrom(e.target.value);
-                  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) setConvoGradientFrom(e.target.value);
+                  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
+                    setConvoGradientField(activeGradientScheme, "from", e.target.value);
                 }}
-                onBlur={() => setDraftFrom(convoGradientFrom)}
+                onBlur={() => setDraftFrom(currentGradient.from)}
                 className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
               />
             </div>
@@ -1113,9 +1150,9 @@ function AppearanceSettings() {
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={convoGradientTo}
+                value={currentGradient.to}
                 onChange={(e) => {
-                  setConvoGradientTo(e.target.value);
+                  setConvoGradientField(activeGradientScheme, "to", e.target.value);
                   setDraftTo(e.target.value);
                 }}
                 className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
@@ -1125,24 +1162,30 @@ function AppearanceSettings() {
                 value={draftTo}
                 onChange={(e) => {
                   setDraftTo(e.target.value);
-                  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) setConvoGradientTo(e.target.value);
+                  if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
+                    setConvoGradientField(activeGradientScheme, "to", e.target.value);
                 }}
-                onBlur={() => setDraftTo(convoGradientTo)}
+                onBlur={() => setDraftTo(currentGradient.to)}
                 className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
               />
             </div>
           </label>
         </div>
         <button
+          type="button"
           onClick={() => {
-            setConvoGradientFrom("#0a0a0e");
-            setConvoGradientTo("#1c2133");
-            setDraftFrom("#0a0a0e");
-            setDraftTo("#1c2133");
+            const defaults =
+              activeGradientScheme === "dark"
+                ? { from: "#0a0a0e", to: "#1c2133" }
+                : { from: "#f2eff7", to: "#eae6f0" };
+            setConvoGradientField(activeGradientScheme, "from", defaults.from);
+            setConvoGradientField(activeGradientScheme, "to", defaults.to);
+            setDraftFrom(defaults.from);
+            setDraftTo(defaults.to);
           }}
           className="text-[0.625rem] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors self-start"
         >
-          Reset to default
+          Reset {activeGradientScheme === "dark" ? "Dark" : "Light"} to default
         </button>
       </div>
 

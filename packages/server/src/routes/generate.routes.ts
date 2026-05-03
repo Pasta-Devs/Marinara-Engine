@@ -58,6 +58,7 @@ import {
   type SelfieCommand,
   type MemoryCommand,
   type InfluenceCommand,
+  type NoteCommand,
   type SceneCommand,
   type HapticCommand,
   type CreatePersonaCommand,
@@ -897,7 +898,12 @@ export async function generateRoutes(app: FastifyInstance) {
           // Persist updated per-chat entry state overrides (ephemeral countdown)
           if (assembled.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = assembled.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: assembled.updatedEntryStateOverrides,
+            });
           }
         }
       }
@@ -1992,6 +1998,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 ``,
                 `Influences are injected into the roleplay's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the roleplay.`,
                 `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                ``,
+                `If something said in this conversation should durably persist in the roleplay's context across many turns (a fact the character should keep remembering, a promise made, a secret revealed, a name learned), create a note tag instead of an influence:`,
+                `<note>fact, decision, or detail the roleplay character should keep remembering</note>`,
+                `Notes are shown to the roleplay character on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every roleplay turn.`,
+                `The note tag is stripped from your visible message.`,
                 `</connected_roleplay_instructions>`,
               ].join("\n");
           } else if (connectedChat && connectedChat.mode === "game") {
@@ -2084,6 +2095,11 @@ export async function generateRoutes(app: FastifyInstance) {
                 ``,
                 `Influences are injected into the game's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the game.`,
                 `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                ``,
+                `If something said in this conversation should durably persist in the game's context across many turns (an established world fact, an ongoing party dynamic, a recurring NPC trait, a secret the GM should keep remembering), create a note tag instead of an influence:`,
+                `<note>fact, decision, or detail the game should keep remembering</note>`,
+                `Notes are shown to the game on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every game turn.`,
+                `The note tag is stripped from your visible message.`,
                 `</connected_game_instructions>`,
               ].join("\n");
           }
@@ -2137,7 +2153,12 @@ export async function generateRoutes(app: FastifyInstance) {
           // Persist updated per-chat entry state overrides (ephemeral countdown)
           if (lorebookResult.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+            });
           }
           const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
             .filter(Boolean)
@@ -2178,7 +2199,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
         if (lorebookResult.updatedEntryStateOverrides) {
           chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-          await chats.updateMetadata(input.chatId, chatMeta);
+          const freshChat = await chats.getById(input.chatId);
+          const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+          await chats.updateMetadata(input.chatId, {
+            ...freshMeta,
+            entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+          });
         }
         const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter].filter(Boolean).join("\n");
         if (loreContent) {
@@ -2234,6 +2260,37 @@ export async function generateRoutes(app: FastifyInstance) {
           // Mark influences as consumed
           for (const inf of pendingInfluences) {
             await chats.markInfluenceConsumed(inf.id);
+          }
+        }
+      }
+
+      // ── Roleplay/Game: inject durable conversation notes (persist until cleared) ──
+      // Same scene bypass as influences — scenes are self-contained.
+      if ((chatMode === "roleplay" || chatMode === "game") && chat.connectedChatId && !isSceneChat) {
+        const persistentNotes = await chats.listNotes(input.chatId);
+        if (persistentNotes.length > 0) {
+          const noteLines = persistentNotes
+            .map((n: any) => stripConversationPromptTimestamps(String(n.content ?? "")))
+            .filter((content: string) => content.length > 0)
+            .map((content: string) => `- ${content}`);
+
+          if (noteLines.length > 0) {
+            const noteBlock = [
+              `<conversation_notes>`,
+              chatMode === "game"
+                ? `Durable notes from a connected conversation. These persist across every turn until the user clears them and represent things the players have established as ongoing truth — character knowledge, world facts, recurring dynamics. Use them to inform NPC behavior, world state, and scene framing — don't reference them explicitly as "notes" in the narrative.`
+                : `Durable notes from a connected conversation. These persist across every turn until the user clears them and represent things the character has been told to durably remember about themselves, the user, or the world. Use them to inform behavior, knowledge, and reactions naturally — don't reference them explicitly as "notes" in the narrative.`,
+              ...noteLines,
+              `</conversation_notes>`,
+            ].join("\n");
+
+            // Inject before the last user message (parallel to the influence block)
+            const lastUserIdx = finalMessages.map((m) => m.role).lastIndexOf("user");
+            if (lastUserIdx >= 0) {
+              finalMessages.splice(lastUserIdx, 0, { role: "system" as const, content: noteBlock });
+            } else {
+              finalMessages.push({ role: "system" as const, content: noteBlock });
+            }
           }
         }
       }
@@ -2931,7 +2988,9 @@ export async function generateRoutes(app: FastifyInstance) {
         // Persist current position for next turn comparison
         if (currentMapPos && JSON.stringify(lastMapPos) !== JSON.stringify(currentMapPos)) {
           chatMeta.lastMapPosition = currentMapPos;
-          await chats.updateMetadata(input.chatId, chatMeta);
+          const freshChat = await chats.getById(input.chatId);
+          const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+          await chats.updateMetadata(input.chatId, { ...freshMeta, lastMapPosition: currentMapPos });
         }
 
         // ── Passive perception hints ──
@@ -3046,7 +3105,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
           if (lorebookResult.updatedEntryStateOverrides) {
             chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-            await chats.updateMetadata(input.chatId, chatMeta);
+            const freshChat = await chats.getById(input.chatId);
+            const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+            await chats.updateMetadata(input.chatId, {
+              ...freshMeta,
+              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+            });
           }
           const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
             .filter(Boolean)
@@ -6015,7 +6079,16 @@ export async function generateRoutes(app: FastifyInstance) {
               const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
               if (syncedGameMap && syncedGameMap !== existingGameMap) {
                 Object.assign(chatMeta, syncedMeta);
-                await chats.updateMetadata(input.chatId, chatMeta);
+                // Re-fetch fresh metadata before write so we don't clobber concurrent updates
+                // (e.g. /game/start flipping gameSessionStatus from "ready" to "active").
+                const freshChat = await chats.getById(input.chatId);
+                const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
+                await chats.updateMetadata(input.chatId, {
+                  ...freshMeta,
+                  gameMap: syncedMeta.gameMap,
+                  gameMaps: syncedMeta.gameMaps,
+                  activeGameMapId: syncedMeta.activeGameMapId,
+                });
                 sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
               } else if (getGameMapsFromMeta(syncedMeta).length > 0) {
                 Object.assign(chatMeta, syncedMeta);
@@ -6467,7 +6540,10 @@ export async function generateRoutes(app: FastifyInstance) {
               const csData = result.data as Record<string, unknown>;
               const newText = ((csData.summary as string) ?? "").trim();
               if (newText) {
-                const existingMeta = parseExtra(chat.metadata);
+                // Re-fetch fresh metadata so concurrent writes (e.g. /game/start flipping
+                // gameSessionStatus to "active") aren't clobbered by stale captured chat.metadata.
+                const freshChat = await chats.getById(input.chatId);
+                const existingMeta = freshChat ? parseExtra(freshChat.metadata) : parseExtra(chat.metadata);
                 const existing = ((existingMeta.summary as string) ?? "").trim();
                 const combined = existing ? `${existing}\n\n${newText}` : newText;
                 const merged = { ...existingMeta, summary: combined };
@@ -7209,6 +7285,23 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
               }
 
+              if (command.type === "note") {
+                // ── Note: persist a durable note in the connected roleplay's prompt ──
+                const noteCmd = command as NoteCommand;
+                const freshChat = await chats.getById(input.chatId);
+                const connectedId = freshChat?.connectedChatId as string | null;
+                if (connectedId) {
+                  const noteContent = stripConversationPromptTimestamps(noteCmd.content);
+                  if (!noteContent) continue;
+                  await chats.createNote(input.chatId, connectedId, noteContent, messageId);
+                  logger.info(
+                    `[commands] Conversation note saved for connected chat ${connectedId}: "${noteContent.slice(0, 80)}..."`,
+                  );
+                } else {
+                  logger.warn("[commands] Note command used but no connected chat");
+                }
+              }
+
               if (command.type === "haptic") {
                 // ── Haptic: send command to connected intimate devices ──
                 const hapCmd = command as HapticCommand;
@@ -7646,8 +7739,12 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
 
                   if (fetchedContent) {
-                    // Persist to chatMeta.mariContext so it's available in subsequent messages
-                    const currentMeta = parseExtra(chat.metadata) as Record<string, unknown>;
+                    // Persist to chatMeta.mariContext so it's available in subsequent messages.
+                    // Re-fetch fresh metadata so concurrent writes (e.g. /game/start) aren't clobbered.
+                    const freshChat = await chats.getById(input.chatId);
+                    const currentMeta = freshChat
+                      ? (parseExtra(freshChat.metadata) as Record<string, unknown>)
+                      : (parseExtra(chat.metadata) as Record<string, unknown>);
                     const mariContext = (currentMeta.mariContext as Record<string, string>) ?? {};
                     mariContext[contextKey] = fetchedContent;
                     currentMeta.mariContext = mariContext;

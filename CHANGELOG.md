@@ -29,6 +29,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added manual mode in Conversations that only makes the character respond when you ping them with `@name`.
 - Resizing sprites in game mode.
 - Conversation auto-summarization now has a Day Rollover Hour (so a late-night session doesn't get cut in half when calendar midnight passes) and a Recent Message Tail (keeps the last N messages verbatim across the day boundary so characters wake up remembering the actual flow of last night, not just the gist). Defaults: 4 AM rollover, 10-message tail.
+- Conversation characters can now emit durable `<note>...</note>` tags for connected roleplay and game chats. Notes persist in the target chat's prompt until cleared from Chat Settings.
 
 ### Fixed
 

@@ -78,6 +78,18 @@ export function useSettingsSync() {
           try {
             const parsed = JSON.parse(data.value);
             if (parsed && typeof parsed === "object") {
+              // Migrate old flat gradient fields → per-scheme nested (v10 → v11).
+              if ("convoGradientFrom" in parsed || "convoGradientTo" in parsed) {
+                parsed.convoGradient = {
+                  dark: {
+                    from: parsed.convoGradientFrom ?? "#0a0a0e",
+                    to: parsed.convoGradientTo ?? "#1c2133",
+                  },
+                  light: { from: "#f2eff7", to: "#eae6f0" },
+                };
+                delete parsed.convoGradientFrom;
+                delete parsed.convoGradientTo;
+              }
               useUIStore.setState(parsed);
               lastPushed = JSON.stringify(pickSyncedSettings(useUIStore.getState()));
             }

@@ -1067,11 +1067,13 @@ const datacatProvider: ProviderConfig = {
   search: async (p) => {
     await loadDatacatTags();
     const tagIds = p.includeTags.length > 0 ? datacatTagNamesToIds(p.includeTags) : [];
+    const trimmedQuery = p.query.trim();
 
-    // Fresh = trending, Relevance = recent-public (which is the "Characters" tab on
-    // datacat.run — supports tag filtering and shows the full library). DataCat
-    // has no free-text search endpoint, so `p.query` is ignored for this provider.
-    const useFresh = p.sort === "fresh" && tagIds.length === 0;
+    // Fresh = trending (24h window), Relevance = recent-public (the "Characters"
+    // tab on datacat.run — supports tag filtering, free-text search via the
+    // `search` param, and shows the full library). The /fresh endpoint has no
+    // text-search support, so any user query forces the recent-public path.
+    const useFresh = p.sort === "fresh" && tagIds.length === 0 && trimmedQuery.length === 0;
 
     let list: any[] = [];
     let totalCount = 0;
@@ -1098,17 +1100,13 @@ const datacatProvider: ProviderConfig = {
       const offset = Math.max(0, (p.page - 1) * 80);
       const params = new URLSearchParams({ limit: "80", offset: String(offset) });
       if (tagIds.length > 0) params.set("tagIds", tagIds.join(","));
+      if (trimmedQuery) params.set("q", trimmedQuery);
       const res = await fetch(`/api/bot-browser/datacat/recent?${params}`);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       list = data?.characters || [];
       totalCount = data?.totalCount || list.length;
     }
-
-    // No client-side query filter for DataCat: upstream has no full-text search
-    // endpoint, and filtering only the current 80-row page would be misleading
-    // (a character on page 2 would still show "no results" on page 1). The UI
-    // disables the search input for this provider — see the search input render.
 
     // DataCat is NSFW-only — every character is tagged NSFW upstream, so filtering
     // by nsfw=false would always return an empty list. Skip the filter entirely.
@@ -1902,22 +1900,12 @@ export function BotBrowserView() {
                   />
                   <input
                     type="text"
-                    value={sourceId === "datacat" ? "" : query}
+                    value={query}
                     onChange={(e) => {
                       setQuery(e.target.value);
                       setPage(1);
                     }}
-                    disabled={sourceId === "datacat"}
-                    placeholder={
-                      sourceId === "datacat"
-                        ? "DataCat doesn't support text search — filter by tag instead"
-                        : "Search characters..."
-                    }
-                    title={
-                      sourceId === "datacat"
-                        ? "DataCat has no full-text search endpoint. Use tags to narrow results."
-                        : undefined
-                    }
+                    placeholder="Search characters..."
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] py-2 pl-9 pr-8 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none transition-colors focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   {query && (
