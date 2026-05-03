@@ -136,7 +136,11 @@ async function importPersona(data: unknown, db: DB) {
 
 async function importLorebook(data: unknown, db: DB) {
   const storage = createLorebooksStorage(db);
-  const d = data as { lorebook?: Record<string, unknown>; entries?: Record<string, unknown>[] };
+  const d = data as {
+    lorebook?: Record<string, unknown>;
+    entries?: Record<string, unknown>[];
+    folders?: Record<string, unknown>[];
+  };
   if (!d?.lorebook) {
     return { success: false, type: "marinara_lorebook" as const, error: "Invalid lorebook data" };
   }
@@ -155,36 +159,58 @@ async function importLorebook(data: unknown, db: DB) {
     readTimestampOverrides(lb),
   )) as Record<string, unknown> | null;
 
+  // Re-create folders first so we can remap old folder IDs → new folder IDs
+  // before mapping entries. Older exports without `folders` simply skip this
+  // step and every entry lands at root.
+  const folderIdRemap = new Map<string, string>();
+  if (newLb && Array.isArray(d.folders) && d.folders.length > 0) {
+    for (const f of d.folders) {
+      const oldId = typeof f.id === "string" ? f.id : null;
+      const created = (await storage.createFolder(newLb.id as string, {
+        name: String(f.name ?? "Folder"),
+        enabled: f.enabled !== false,
+        parentFolderId: null, // v1 ignores nesting on import
+        order: Number(f.order ?? 0),
+      })) as Record<string, unknown> | null;
+      if (oldId && created?.id) folderIdRemap.set(oldId, created.id as string);
+    }
+  }
+
   if (newLb && Array.isArray(d.entries) && d.entries.length > 0) {
-    const entries = d.entries.map((e) => ({
-      name: String(e.name ?? ""),
-      content: String(e.content ?? ""),
-      keys: Array.isArray(e.keys) ? e.keys.map(String) : [],
-      secondaryKeys: Array.isArray(e.secondaryKeys) ? e.secondaryKeys.map(String) : [],
-      enabled: e.enabled !== false,
-      constant: Boolean(e.constant),
-      selective: Boolean(e.selective),
-      selectiveLogic: (e.selectiveLogic as any) ?? "and",
-      probability: e.probability != null ? Number(e.probability) : null,
-      scanDepth: e.scanDepth != null ? Number(e.scanDepth) : null,
-      matchWholeWords: Boolean(e.matchWholeWords),
-      caseSensitive: Boolean(e.caseSensitive),
-      useRegex: Boolean(e.useRegex),
-      position: Number(e.position ?? 0),
-      depth: Number(e.depth ?? 4),
-      order: Number(e.order ?? 100),
-      role: (e.role as any) ?? "system",
-      sticky: e.sticky != null ? Number(e.sticky) : null,
-      cooldown: e.cooldown != null ? Number(e.cooldown) : null,
-      delay: e.delay != null ? Number(e.delay) : null,
-      group: String(e.group ?? ""),
-      groupWeight: e.groupWeight != null ? Number(e.groupWeight) : null,
-      tag: String(e.tag ?? ""),
-      relationships: (e.relationships as any) ?? {},
-      dynamicState: (e.dynamicState as any) ?? {},
-      activationConditions: (e.activationConditions as any) ?? [],
-      schedule: (e.schedule as any) ?? null,
-    }));
+    const entries = d.entries.map((e) => {
+      const oldFolderId = typeof e.folderId === "string" ? e.folderId : null;
+      const newFolderId = oldFolderId ? (folderIdRemap.get(oldFolderId) ?? null) : null;
+      return {
+        name: String(e.name ?? ""),
+        content: String(e.content ?? ""),
+        keys: Array.isArray(e.keys) ? e.keys.map(String) : [],
+        secondaryKeys: Array.isArray(e.secondaryKeys) ? e.secondaryKeys.map(String) : [],
+        enabled: e.enabled !== false,
+        constant: Boolean(e.constant),
+        selective: Boolean(e.selective),
+        selectiveLogic: (e.selectiveLogic as any) ?? "and",
+        probability: e.probability != null ? Number(e.probability) : null,
+        scanDepth: e.scanDepth != null ? Number(e.scanDepth) : null,
+        matchWholeWords: Boolean(e.matchWholeWords),
+        caseSensitive: Boolean(e.caseSensitive),
+        useRegex: Boolean(e.useRegex),
+        position: Number(e.position ?? 0),
+        depth: Number(e.depth ?? 4),
+        order: Number(e.order ?? 100),
+        role: (e.role as any) ?? "system",
+        sticky: e.sticky != null ? Number(e.sticky) : null,
+        cooldown: e.cooldown != null ? Number(e.cooldown) : null,
+        delay: e.delay != null ? Number(e.delay) : null,
+        group: String(e.group ?? ""),
+        groupWeight: e.groupWeight != null ? Number(e.groupWeight) : null,
+        folderId: newFolderId,
+        tag: String(e.tag ?? ""),
+        relationships: (e.relationships as any) ?? {},
+        dynamicState: (e.dynamicState as any) ?? {},
+        activationConditions: (e.activationConditions as any) ?? [],
+        schedule: (e.schedule as any) ?? null,
+      };
+    });
     await storage.bulkCreateEntries(newLb.id as string, entries);
   }
 
