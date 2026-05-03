@@ -7,6 +7,8 @@ import {
   updateLorebookSchema,
   createLorebookEntrySchema,
   updateLorebookEntrySchema,
+  createLorebookFolderSchema,
+  updateLorebookFolderSchema,
 } from "@marinara-engine/shared";
 import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -77,11 +79,12 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const lb = (await storage.getById(req.params.id)) as Record<string, unknown> | null;
     if (!lb) return reply.status(404).send({ error: "Lorebook not found" });
     const entries = await storage.listEntries(req.params.id);
+    const folders = await storage.listFolders(req.params.id);
     const envelope: ExportEnvelope = {
       type: "marinara_lorebook",
       version: 1,
       exportedAt: new Date().toISOString(),
-      data: { lorebook: lb, entries },
+      data: { lorebook: lb, entries, folders },
     };
     return reply
       .header(
@@ -103,11 +106,12 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       const lb = (await storage.getById(id)) as Record<string, unknown> | null;
       if (!lb) continue;
       const entries = await storage.listEntries(id);
+      const folders = await storage.listFolders(id);
       const envelope: ExportEnvelope = {
         type: "marinara_lorebook",
         version: 1,
         exportedAt: new Date().toISOString(),
-        data: { lorebook: lb, entries },
+        data: { lorebook: lb, entries, folders },
       };
       zip.addFile(
         `${toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`)}.marinara.json`,
@@ -176,14 +180,64 @@ export async function lorebooksRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string } }>("/:id/entries/reorder", async (req, reply) => {
-    const body = req.body as { entryIds?: unknown };
+    const body = req.body as { entryIds?: unknown; folderId?: unknown };
     const entryIds = Array.isArray(body.entryIds)
       ? body.entryIds.filter((id): id is string => typeof id === "string")
       : [];
     if (entryIds.length === 0) {
       return reply.status(400).send({ error: "entryIds array is required" });
     }
-    return storage.reorderEntries(req.params.id, entryIds);
+    // folderId scopes the reorder to a single container:
+    //   undefined → legacy behaviour (renumber every entry in the lorebook)
+    //   null      → root-level entries only
+    //   string    → entries inside that folder only
+    let folderId: string | null | undefined;
+    if (body.folderId === null) folderId = null;
+    else if (typeof body.folderId === "string") folderId = body.folderId;
+    else folderId = undefined;
+    return storage.reorderEntries(req.params.id, entryIds, folderId);
+  });
+
+  // ── Folders ──
+
+  app.get<{ Params: { id: string } }>("/:id/folders", async (req) => {
+    return storage.listFolders(req.params.id);
+  });
+
+  app.post<{ Params: { id: string } }>("/:id/folders", async (req, reply) => {
+    const input = createLorebookFolderSchema.parse(req.body);
+    if (input.parentFolderId !== null) {
+      // v1 reserves nesting for a follow-up PR. Accept the field shape but
+      // refuse to persist non-null values rather than silently dropping them.
+      return reply.status(400).send({ error: "Nested folders are not supported in this version" });
+    }
+    return storage.createFolder(req.params.id, input);
+  });
+
+  app.patch<{ Params: { id: string; folderId: string } }>("/:id/folders/:folderId", async (req, reply) => {
+    const input = updateLorebookFolderSchema.parse(req.body);
+    if (input.parentFolderId !== undefined && input.parentFolderId !== null) {
+      return reply.status(400).send({ error: "Nested folders are not supported in this version" });
+    }
+    const updated = await storage.updateFolder(req.params.folderId, input);
+    if (!updated) return reply.status(404).send({ error: "Folder not found" });
+    return updated;
+  });
+
+  app.delete<{ Params: { id: string; folderId: string } }>("/:id/folders/:folderId", async (req, reply) => {
+    await storage.removeFolder(req.params.folderId);
+    return reply.status(204).send();
+  });
+
+  app.put<{ Params: { id: string } }>("/:id/folders/reorder", async (req, reply) => {
+    const body = req.body as { folderIds?: unknown };
+    const folderIds = Array.isArray(body.folderIds)
+      ? body.folderIds.filter((id): id is string => typeof id === "string")
+      : [];
+    if (folderIds.length === 0) {
+      return reply.status(400).send({ error: "folderIds array is required" });
+    }
+    return storage.reorderFolders(req.params.id, folderIds);
   });
 
   // ── Search ──
