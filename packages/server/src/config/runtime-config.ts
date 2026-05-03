@@ -170,8 +170,55 @@ export function getEncryptionKeyOverride() {
   return normalizeEnvValue(process.env.ENCRYPTION_KEY);
 }
 
+export function getSpotifyRedirectUriOverride() {
+  return normalizeEnvValue(process.env.SPOTIFY_REDIRECT_URI);
+}
+
+function getLoopbackFallbackRedirectUri() {
+  return `http://127.0.0.1:${getPort()}/api/spotify/callback`;
+}
+
+function stripPort(host: string) {
+  return host.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+}
+
+function isLoopbackHost(host: string) {
+  const hostname = stripPort(host);
+  return hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function firstHeaderValue(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  const first = raw.split(",")[0]?.trim();
+  return first ? first : null;
+}
+
+type RedirectUriRequest = {
+  protocol?: string;
+  hostname?: string;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+export function buildSpotifyRedirectUri(req: RedirectUriRequest): string {
+  const override = getSpotifyRedirectUriOverride();
+  if (override) return override;
+
+  const protocol = (req.protocol ?? "http").toLowerCase();
+  const hostHeader = firstHeaderValue(req.headers["host"]);
+  const hostname = req.hostname ?? (hostHeader ? stripPort(hostHeader) : null);
+
+  if (!hostname) return getLoopbackFallbackRedirectUri();
+  const host = hostHeader ?? hostname;
+
+  if (protocol === "https") return `https://${host}/api/spotify/callback`;
+  if (protocol === "http" && isLoopbackHost(host)) return `http://${host}/api/spotify/callback`;
+  return getLoopbackFallbackRedirectUri();
+}
+
 export function getSpotifyRedirectUri() {
-  return `${getServerProtocol()}://127.0.0.1:${getPort()}/api/spotify/callback`;
+  return getSpotifyRedirectUriOverride() ?? getLoopbackFallbackRedirectUri();
 }
 
 export function getCorsConfig() {

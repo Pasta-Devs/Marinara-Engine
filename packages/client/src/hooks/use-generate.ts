@@ -1527,6 +1527,13 @@ export function useGenerate() {
                   const reactions = (d.reactions as Array<{ characterName: string; reaction: string }>) ?? [];
                   for (const r of reactions) addEchoMessage(r.characterName, r.reaction);
                 }
+                // CYOA re-roll: push the freshly generated choices into the store
+                // so the buttons in CyoaChoices.tsx swap in immediately.
+                if (result.agentType === "cyoa") {
+                  const d = result.data as Record<string, unknown>;
+                  const choices = (d.choices as Array<{ label: string; text: string }>) ?? [];
+                  if (choices.length > 0 && isActiveChat()) setCyoaChoices(choices);
+                }
                 if (result.resultType === "background_change") {
                   const bg = result.data as { chosen?: string | null };
                   if (bg.chosen) {
@@ -1682,6 +1689,7 @@ export function useGenerate() {
       enqueuePendingCardUpdate,
       clearFailedAgentTypes,
       clearThoughtBubbles,
+      setCyoaChoices,
       setFailedAgentTypes,
       setProcessing,
       setGameState,

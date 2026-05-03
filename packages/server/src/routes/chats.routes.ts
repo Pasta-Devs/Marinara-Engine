@@ -161,12 +161,30 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     await storage.disconnectChat(req.params.id);
     await storage.deleteInfluencesForChat(req.params.id);
+    await storage.deleteNotesForChat(req.params.id);
     return { disconnected: true };
   });
 
   // List pending OOC influences for a chat
   app.get<{ Params: { id: string } }>("/:id/influences", async (req) => {
     return storage.listPendingInfluences(req.params.id);
+  });
+
+  // List durable conversation notes targeting a chat
+  app.get<{ Params: { id: string } }>("/:id/notes", async (req) => {
+    return storage.listNotes(req.params.id);
+  });
+
+  // Delete a single conversation note (scoped to the target chat to prevent cross-chat deletion)
+  app.delete<{ Params: { id: string; noteId: string } }>("/:id/notes/:noteId", async (req, reply) => {
+    await storage.deleteNoteForChat(req.params.id, req.params.noteId);
+    return reply.status(204).send();
+  });
+
+  // Clear every conversation note targeting a chat
+  app.delete<{ Params: { id: string } }>("/:id/notes", async (req, reply) => {
+    await storage.clearNotes(req.params.id);
+    return reply.status(204).send();
   });
 
   // Delete all chats in a group (all branches)
@@ -1169,7 +1187,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     // (preserved) timestamp, so after the loop the branched chat's updatedAt is
     // the last source message's original time. Reset it to now so the branch
     // appears at the top of the chat list as a freshly created chat.
-    await storage.update(newChat.id, {});
+    // Also inherit the source chat's folder so the branch stays inside the
+    // same categorization tree (the new branch becomes the most-recently-
+    // updated row in its group, so the sidebar reads its folderId).
+    await storage.update(newChat.id, { folderId: sourceChat.folderId ?? null });
 
     // Copy game-state snapshots from the source chat for every copied message.
     // Each snapshot is keyed by (chatId, messageId, swipeIndex), so we must re-associate
