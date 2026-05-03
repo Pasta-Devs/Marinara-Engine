@@ -145,15 +145,19 @@ test("GM format reminder reinforces native-language output quality near generati
     language: "Polski",
   });
 
-  assert.match(prompt, /Write every player-visible line in native Polish\./);
-  assert.match(prompt, /The English examples below are format-only; do not imitate their wording or syntax\./);
+  assert.match(prompt, /Write prose directly in Polish like a native speaker\./);
+  assert.match(prompt, /Think in it from the start, don't translate from English\./);
   assert.match(
     prompt,
-    /Before finalizing, silently copy-edit for grammar, word order, punctuation, orthography, and language-specific agreement, removing calques, mixed-language scaffolding, and untranslated filler\./,
+    /The English examples below are for formatting only; ignore their wording and syntax\./,
   );
   assert.match(
     prompt,
-    /Only tags, commands, field names, and deliberate proper nouns or code terms may remain in English\./,
+    /After drafting, reread each sentence and fix: inflection and agreement, verb aspect, word order, prepositions, and anything that sounds translated even if grammatical\./,
+  );
+  assert.match(
+    prompt,
+    /Only tags, commands, field names, and intentional proper nouns stay in English\./,
   );
   assert.doesNotMatch(prompt, /native Polski/);
 });
@@ -191,7 +195,10 @@ test("GM format reminder documents the simplified resolved skill_check command",
     /\[skill_check: skill="Skill Name" dc="1-20" rolls="1-20" modifier="0-10" total="roll \+ modifier \| 1 \| 20" result="critical_success \| success \| failure \| critical_failure"\]/,
   );
   assert.match(prompt, /when uncertainty or the player's actions should be resolved mechanically\./);
-  assert.match(prompt, /You choose the roll result fairly, then narrate the consequence in the same turn\./);
+  assert.match(
+    prompt,
+    /Abandon positivity bias: choose DC \(5 trivial, 10 routine under pressure, 15 hard, 20 desperate\), roll honestly, and narrate the consequence in the same turn\./,
+  );
   assert.doesNotMatch(prompt, /Legacy fallback:/);
   assert.doesNotMatch(prompt, /\bused=/);
   assert.doesNotMatch(prompt, /\bmode=/);
