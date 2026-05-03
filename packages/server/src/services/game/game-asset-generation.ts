@@ -15,6 +15,46 @@ import { generateImage, type ImageGenRequest } from "../image/image-generation.j
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
 
 const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
+const GAME_BACKGROUND_WIDTH = 1024;
+const GAME_BACKGROUND_HEIGHT = 576;
+
+// sharp is optional in the server package. Generated game backgrounds should be
+// stored at the VN canvas ratio when possible, but generation must still work on
+// platforms where sharp is unavailable.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SharpFn = any;
+let _sharp: SharpFn | null = null;
+let _sharpLoadFailed = false;
+
+async function getSharp(): Promise<SharpFn | null> {
+  if (_sharp) return _sharp;
+  if (_sharpLoadFailed) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - optional native dependency
+    const mod = await import("sharp");
+    _sharp = (mod.default ?? mod) as SharpFn;
+    return _sharp;
+  } catch {
+    _sharpLoadFailed = true;
+    return null;
+  }
+}
+
+async function gameBackgroundBuffer(base64: string): Promise<Buffer> {
+  const input = Buffer.from(base64, "base64");
+  const sharp = await getSharp();
+  if (!sharp) return input;
+  try {
+    return await sharp(input)
+      .resize(GAME_BACKGROUND_WIDTH, GAME_BACKGROUND_HEIGHT, { fit: "cover", position: "centre" })
+      .png()
+      .toBuffer();
+  } catch (err) {
+    logger.warn(err, "[game-asset-gen] Failed to resize generated game background; saving original image");
+    return input;
+  }
+}
 
 export function readAvatarBase64(avatarPath: string | null | undefined): string | undefined {
   if (!avatarPath) return undefined;
@@ -92,6 +132,7 @@ export interface NpcPortraitRequest {
   imgApiKey: string;
   imgService?: string | null;
   imgComfyWorkflow?: string | undefined;
+  debugLog?: (message: string, ...args: any[]) => void;
 }
 
 /**
@@ -111,6 +152,13 @@ export async function generateNpcPortrait(req: NpcPortraitRequest): Promise<stri
   }
 
   const prompt = buildNpcPortraitPrompt(req);
+  req.debugLog?.(
+    "[debug/game/image-generation] NPC portrait request name=%s model=%s source=%s size=512x512 prompt:\n%s",
+    req.npcName,
+    req.imgModel,
+    req.imgSource || req.imgService || "",
+    prompt,
+  );
 
   try {
     const result = await generateImage(
@@ -131,6 +179,12 @@ export async function generateNpcPortrait(req: NpcPortraitRequest): Promise<stri
     writeFileSync(avatarPath, Buffer.from(result.base64, "base64"));
 
     const url = `/api/avatars/npc/${req.chatId}/${slug}.png`;
+    req.debugLog?.(
+      "[debug/game/image-generation] NPC portrait result name=%s bytes=%d url=%s",
+      req.npcName,
+      Buffer.byteLength(result.base64, "base64"),
+      url,
+    );
     logger.info(`[game-asset-gen] Generated NPC portrait for "${req.npcName}" → ${url}`);
     return url;
   } catch (err) {
@@ -168,6 +222,7 @@ export interface BackgroundGenRequest {
   imgApiKey: string;
   imgService?: string | null;
   imgComfyWorkflow?: string | undefined;
+  debugLog?: (message: string, ...args: any[]) => void;
 }
 
 export interface SceneIllustrationGenRequest {
@@ -187,6 +242,7 @@ export interface SceneIllustrationGenRequest {
   imgApiKey: string;
   imgService?: string | null;
   imgComfyWorkflow?: string | undefined;
+  debugLog?: (message: string, ...args: any[]) => void;
 }
 
 /**
@@ -216,6 +272,15 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
       0,
       1000,
     );
+  req.debugLog?.(
+    "[debug/game/image-generation] background request slug=%s model=%s source=%s targetSize=%dx%d prompt:\n%s",
+    slug,
+    req.imgModel,
+    req.imgSource || req.imgService || "",
+    GAME_BACKGROUND_WIDTH,
+    GAME_BACKGROUND_HEIGHT,
+    prompt,
+  );
 
   try {
     const result = await generateImage(
@@ -226,19 +291,26 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
       {
         prompt,
         model: req.imgModel,
-        width: 1024,
-        height: 576,
+        width: GAME_BACKGROUND_WIDTH,
+        height: GAME_BACKGROUND_HEIGHT,
         comfyWorkflow: req.imgComfyWorkflow || undefined,
       },
     );
 
     if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
-    writeFileSync(targetPath, Buffer.from(result.base64, "base64"));
+    const imageBuffer = await gameBackgroundBuffer(result.base64);
+    writeFileSync(targetPath, imageBuffer);
 
     // Rebuild manifest so the new tag is available immediately
     buildAssetManifest();
 
     logger.info(`[game-asset-gen] Generated background "${slug}" → tag: ${tag}`);
+    req.debugLog?.(
+      "[debug/game/image-generation] background result slug=%s bytes=%d tag=%s",
+      slug,
+      imageBuffer.byteLength,
+      tag,
+    );
     return tag;
   } catch (err) {
     logger.warn(err, '[game-asset-gen] Failed to generate background "%s"', slug);
@@ -277,6 +349,16 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
     .filter(Boolean)
     .join("\n")
     .slice(0, 2200);
+  req.debugLog?.(
+    "[debug/game/image-generation] scene illustration request slug=%s model=%s source=%s targetSize=%dx%d refs=%d prompt:\n%s",
+    slug,
+    req.imgModel,
+    req.imgSource || req.imgService || "",
+    GAME_BACKGROUND_WIDTH,
+    GAME_BACKGROUND_HEIGHT,
+    req.referenceImages?.length ?? 0,
+    prompt,
+  );
 
   try {
     const result = await generateImage(
@@ -287,18 +369,25 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
       {
         prompt,
         model: req.imgModel,
-        width: 1024,
-        height: 576,
+        width: GAME_BACKGROUND_WIDTH,
+        height: GAME_BACKGROUND_HEIGHT,
         comfyWorkflow: req.imgComfyWorkflow || undefined,
         referenceImages: req.referenceImages?.length ? req.referenceImages.slice(0, 4) : undefined,
       },
     );
 
     if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
-    writeFileSync(targetPath, Buffer.from(result.base64, "base64"));
+    const imageBuffer = await gameBackgroundBuffer(result.base64);
+    writeFileSync(targetPath, imageBuffer);
     buildAssetManifest();
 
     console.log(`[game-asset-gen] Generated scene illustration "${slug}" -> tag: ${tag}`);
+    req.debugLog?.(
+      "[debug/game/image-generation] scene illustration result slug=%s bytes=%d tag=%s",
+      slug,
+      imageBuffer.byteLength,
+      tag,
+    );
     return tag;
   } catch (err) {
     console.warn(`[game-asset-gen] Failed to generate scene illustration "${slug}":`, err);

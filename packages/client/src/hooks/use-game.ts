@@ -77,6 +77,12 @@ interface RecruitPartyMemberResponse {
   cardCreated: boolean;
 }
 
+interface RegeneratePartyCardResponse {
+  sessionChat: Chat;
+  characterName: string;
+  gameCard: unknown;
+}
+
 interface RemovePartyMemberResponse {
   sessionChat: Chat;
   removed: boolean;
@@ -106,6 +112,33 @@ interface MapMoveResponse {
 
 interface UpdateGameWidgetsResponse {
   ok: boolean;
+}
+
+function patchChatMetadata(chat: Chat | null | undefined, patch: Record<string, unknown>): Chat | null {
+  if (!chat) return null;
+  const rawMetadata = chat.metadata as unknown;
+  const metadata =
+    typeof rawMetadata === "string"
+      ? (() => {
+          try {
+            const parsed = JSON.parse(rawMetadata);
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+              ? (parsed as Record<string, unknown>)
+              : {};
+          } catch {
+            return {};
+          }
+        })()
+      : rawMetadata && typeof rawMetadata === "object" && !Array.isArray(rawMetadata)
+        ? (rawMetadata as Record<string, unknown>)
+        : {};
+  return {
+    ...chat,
+    metadata: {
+      ...metadata,
+      ...patch,
+    } as Chat["metadata"],
+  };
 }
 
 // ── Mutations ──
@@ -167,6 +200,14 @@ export function useStartGame() {
     onSuccess: () => {
       const sessionChatId = store.getState().activeSessionChatId;
       if (sessionChatId) {
+        const queryKey = chatKeys.detail(sessionChatId);
+        const patched = patchChatMetadata(qc.getQueryData<Chat>(queryKey), { gameSessionStatus: "active" });
+        if (patched) {
+          qc.setQueryData(queryKey, patched);
+          if (useChatStore.getState().activeChatId === sessionChatId) {
+            useChatStore.getState().setActiveChat(patched);
+          }
+        }
         qc.invalidateQueries({ queryKey: chatKeys.detail(sessionChatId) });
       }
     },
@@ -192,7 +233,9 @@ export function useStartSession() {
       store.getState().setActiveGame(variables.gameId, res.sessionChat.id, null);
       store.getState().setSessionNumber(res.sessionNumber);
       qc.setQueryData(chatKeys.detail(res.sessionChat.id), res.sessionChat);
-      useChatStore.getState().setActiveChatId(res.sessionChat.id);
+      const chatStore = useChatStore.getState();
+      chatStore.setActiveChatId(res.sessionChat.id);
+      chatStore.setActiveChat(res.sessionChat);
       toast.success(`Session ${res.sessionNumber} is ready.`, {
         id: `game-session-start:${variables.gameId}`,
       });
@@ -313,6 +356,25 @@ export function useRecruitPartyMember() {
     onError: (err) => {
       console.error("[recruitPartyMember] Error:", err);
       toast.error(err.message || "Failed to recruit party member.");
+    },
+  });
+}
+
+export function useRegeneratePartyCard() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { chatId: string; characterName: string; characterId?: string; connectionId?: string }) =>
+      api.post<RegeneratePartyCardResponse>("/game/party/card/regenerate", data),
+    onSuccess: (res, variables) => {
+      qc.setQueryData(chatKeys.detail(variables.chatId), res.sessionChat);
+      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      toast.success(`${res.characterName}'s sheet was regenerated.`);
+    },
+    onError: (err) => {
+      console.error("[regeneratePartyCard] Error:", err);
+      toast.error(err.message || "Failed to regenerate party sheet.");
     },
   });
 }
@@ -528,6 +590,7 @@ export function useCombatRound() {
       combatants: Array<Omit<Combatant, "sprite">>;
       round: number;
       playerAction?: CombatPlayerAction;
+      mechanics?: import("@marinara-engine/shared").CombatMechanic[];
     }) => api.post<{ result: CombatRoundResult; combatants: Combatant[] }>("/game/combat/round", data),
   });
 }

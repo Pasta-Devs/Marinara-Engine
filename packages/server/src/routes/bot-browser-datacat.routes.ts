@@ -102,16 +102,20 @@ async function dcFetch(path: string): Promise<unknown> {
 }
 
 export async function botBrowserDatacatRoutes(app: FastifyInstance) {
-  // ── Recent public browse / tag-filtered browse ──
+  // ── Recent public browse / tag-filtered browse / text search ──
+  // Upstream `/api/characters/recent-public` accepts an optional `search` query
+  // param that does substring matching across the character library; pass it
+  // through when present so the client can run free-text searches.
   app.get<{
     Querystring: {
       limit?: string;
       offset?: string;
       min_tokens?: string;
       tagIds?: string;
+      q?: string;
     };
   }>("/datacat/recent", async (req) => {
-    const { limit = "80", offset = "0", min_tokens = String(DEFAULT_MIN_TOTAL_TOKENS), tagIds } = req.query;
+    const { limit = "80", offset = "0", min_tokens = String(DEFAULT_MIN_TOTAL_TOKENS), tagIds, q } = req.query;
     const params = new URLSearchParams();
     params.set("limit", limit);
     params.set("offset", offset);
@@ -124,6 +128,8 @@ export async function botBrowserDatacatRoutes(app: FastifyInstance) {
         .filter(Boolean);
       if (ids.length > 0) params.set("tagIds", ids.join(","));
     }
+    const trimmed = q?.trim();
+    if (trimmed) params.set("search", trimmed);
     return dcFetch(`/api/characters/recent-public?${params}`);
   });
 

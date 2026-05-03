@@ -9,11 +9,21 @@
 const CROSSFADE_MS = 2000;
 const SFX_POOL_SIZE = 8;
 
+type AssetMap = Record<string, { path: string }>;
+
 /** Release an audio element without triggering an "Invalid URI" console error. */
 function releaseAudio(el: HTMLAudioElement): void {
   el.pause();
   el.removeAttribute("src");
   el.load();
+}
+
+function normalizeAssetTag(tag: string): string {
+  return tag.trim().replace(/\\/g, "/").replace(/\//g, ":");
+}
+
+function assetTagToPath(tag: string): string {
+  return normalizeAssetTag(tag).replace(/:/g, "/");
 }
 
 /** Singleton audio manager for game mode. */
@@ -23,6 +33,7 @@ class GameAudioManager {
   private ambientElement: HTMLAudioElement | null = null;
   private sfxPool: HTMLAudioElement[] = [];
   private sfxIndex = 0;
+  private sfxAudioContext: AudioContext | null = null;
   private musicVolume = 0.5;
   private sfxVolume = 0.5;
   private ambientVolume = 0.35;
@@ -105,17 +116,150 @@ class GameAudioManager {
   private resolveUrl(tag: string): string {
     // Tag format: "category:subcategory:name" → path: "category/subcategory/name.*"
     // The manifest stores the full relative path with extension
-    // For now, convert tag colons to slashes
-    const path = tag.replace(/:/g, "/");
+    const path = assetTagToPath(tag);
     return `/api/game-assets/file/${path}`;
   }
 
   /** Try to find the full path from manifest, falling back to tag-based URL. */
-  resolveAssetUrl(tag: string, manifest?: Record<string, { path: string }> | null): string {
-    if (manifest && manifest[tag]) {
-      return `/api/game-assets/file/${manifest[tag]!.path}`;
+  resolveAssetUrl(tag: string, manifest?: AssetMap | null): string {
+    const normalizedTag = normalizeAssetTag(tag);
+    const manifestEntry = manifest?.[tag] ?? manifest?.[normalizedTag];
+    if (manifestEntry) {
+      return `/api/game-assets/file/${manifestEntry.path}`;
     }
     return this.resolveUrl(tag);
+  }
+
+  private getSfxAudioContext(): AudioContext | null {
+    if (typeof window === "undefined") return null;
+    if (!this.sfxAudioContext) {
+      const AudioContextCtor =
+        window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return null;
+      this.sfxAudioContext = new AudioContextCtor();
+    }
+    if (this.sfxAudioContext.state === "suspended") {
+      void this.sfxAudioContext.resume();
+    }
+    return this.sfxAudioContext;
+  }
+
+  private playTone(
+    ctx: AudioContext,
+    startOffset: number,
+    duration: number,
+    fromFrequency: number,
+    toFrequency: number,
+    volume: number,
+    type: OscillatorType = "sine",
+  ): void {
+    const now = ctx.currentTime + startOffset;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(fromFrequency, now);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, toFrequency), now + duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * this.sfxVolume), now + duration * 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  }
+
+  private playNoise(
+    ctx: AudioContext,
+    startOffset: number,
+    duration: number,
+    volume: number,
+    filterType: BiquadFilterType = "highpass",
+    frequency = 900,
+  ): void {
+    const now = ctx.currentTime + startOffset;
+    const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      const decay = 1 - i / length;
+      data[i] = (Math.random() * 2 - 1) * decay;
+    }
+    const source = ctx.createBufferSource();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    filter.type = filterType;
+    filter.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(Math.max(0.0001, volume * this.sfxVolume), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(now);
+  }
+
+  private playProceduralSfx(tag: string): boolean {
+    if (this.isMuted || this.sfxVolume <= 0 || !this.userHasInteracted) return false;
+    const ctx = this.getSfxAudioContext();
+    if (!ctx) return false;
+    const normalizedTag = normalizeAssetTag(tag);
+
+    if (/menu-hover$/.test(normalizedTag)) {
+      this.playTone(ctx, 0, 0.04, 760, 920, 0.08, "triangle");
+      return true;
+    }
+    if (/(menu-confirm|menu-select|click)$/.test(normalizedTag)) {
+      this.playTone(ctx, 0, 0.045, 520, 760, 0.1, "triangle");
+      this.playTone(ctx, 0.04, 0.055, 760, 1040, 0.08, "triangle");
+      return true;
+    }
+    if (/(coin-pickup|victory)$/.test(normalizedTag)) {
+      [523, 659, 784, 1047].forEach((freq, index) => {
+        this.playTone(ctx, index * 0.07, 0.12, freq, freq * 1.01, 0.1, "triangle");
+      });
+      return true;
+    }
+    if (/(menu-cancel|defeat)$/.test(normalizedTag)) {
+      this.playTone(ctx, 0, 0.16, 220, 110, 0.13, "sawtooth");
+      return true;
+    }
+    if (/(magic-cast)$/.test(normalizedTag)) {
+      [440, 660, 880].forEach((freq, index) => {
+        this.playTone(ctx, index * 0.035, 0.16, freq, freq * 1.35, 0.07, "sine");
+      });
+      return true;
+    }
+    if (/(spell-hit)$/.test(normalizedTag)) {
+      this.playTone(ctx, 0, 0.16, 150, 70, 0.12, "sawtooth");
+      this.playNoise(ctx, 0, 0.12, 0.08, "lowpass", 800);
+      return true;
+    }
+    if (/(sword-swing-2)$/.test(normalizedTag)) {
+      this.playNoise(ctx, 0, 0.18, 0.13, "highpass", 1200);
+      this.playTone(ctx, 0.02, 0.14, 280, 520, 0.09, "square");
+      return true;
+    }
+    if (/(sword-swing-3)$/.test(normalizedTag)) {
+      this.playNoise(ctx, 0, 0.12, 0.09, "highpass", 1600);
+      return true;
+    }
+    if (/(sword-swing|sword-unsheathe)$/.test(normalizedTag)) {
+      this.playNoise(ctx, 0, 0.14, 0.1, "highpass", 1300);
+      this.playTone(ctx, 0.015, 0.08, 360, 620, 0.06, "triangle");
+      return true;
+    }
+    if (/(chainmail|metal-ring)$/.test(normalizedTag)) {
+      this.playNoise(ctx, 0, 0.1, 0.08, "bandpass", 1800);
+      this.playTone(ctx, 0.02, 0.11, 520, 460, 0.07, "square");
+      return true;
+    }
+    if (/(potion|item)$/.test(normalizedTag)) {
+      this.playTone(ctx, 0, 0.08, 420, 560, 0.08, "sine");
+      this.playTone(ctx, 0.07, 0.09, 560, 740, 0.07, "sine");
+      return true;
+    }
+
+    return false;
   }
 
   /** Play background music with crossfade. */
@@ -248,16 +392,22 @@ class GameAudioManager {
   }
 
   /** Play a one-shot sound effect. */
-  playSfx(tag: string, manifest?: Record<string, { path: string }> | null): void {
+  playSfx(tag: string, manifest?: AssetMap | null): void {
     if (this.isMuted || this.sfxVolume <= 0 || !this.userHasInteracted) return;
     const url = this.resolveAssetUrl(tag, manifest);
     const audio = this.sfxPool[this.sfxIndex % SFX_POOL_SIZE]!;
     this.sfxIndex++;
+    audio.onerror = () => {
+      audio.onerror = null;
+      this.playProceduralSfx(tag);
+    };
     audio.src = url;
     audio.volume = this.sfxVolume;
     audio.muted = false;
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => {
+      this.playProceduralSfx(tag);
+    });
   }
 
   /** Set looping ambient sound. */

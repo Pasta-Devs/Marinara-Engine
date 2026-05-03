@@ -2,11 +2,12 @@
 // Routes: Chat Gallery (upload, list, delete, serve)
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
-import { existsSync, mkdirSync, unlinkSync, readdirSync } from "fs";
+import { existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, extname } from "path";
 import { pipeline } from "stream/promises";
 import { createWriteStream } from "fs";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
+import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { newId } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 
@@ -21,16 +22,46 @@ function ensureDir(chatId: string) {
   return dir;
 }
 
+function parseChatMetadata(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+}
+
+function buildGalleryImageUrl(image: { filePath: string }, fallbackChatId: string) {
+  const parts = image.filePath.split("/").filter(Boolean);
+  const ownerChatId = parts.length > 1 ? parts[0]! : fallbackChatId;
+  const filename = parts[parts.length - 1] ?? image.filePath;
+  return `/api/gallery/file/${encodeURIComponent(ownerChatId)}/${encodeURIComponent(filename)}`;
+}
+
 export async function galleryRoutes(app: FastifyInstance) {
   const storage = createGalleryStorage(app.db);
+  const chats = createChatsStorage(app.db);
 
   // List all images for a chat
   app.get<{ Params: { chatId: string } }>("/:chatId", async (req) => {
     const { chatId } = req.params;
-    const images = await storage.listByChatId(chatId);
+    const chat = await chats.getById(chatId);
+    const meta = parseChatMetadata(chat?.metadata);
+    const gameId = typeof meta.gameId === "string" && meta.gameId.trim() ? meta.gameId.trim() : chat?.groupId;
+    const gameSessionIds =
+      chat?.mode === "game" && gameId
+        ? (await chats.listByGroup(gameId)).filter((session) => session.mode === "game").map((session) => session.id)
+        : [chatId];
+    const imageChatIds = Array.from(new Set([...gameSessionIds, chatId]));
+    const images =
+      imageChatIds.length > 1 ? await storage.listByChatIds(imageChatIds) : await storage.listByChatId(chatId);
     return images.map((img) => ({
       ...img,
-      url: `/api/gallery/file/${chatId}/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
+      url: buildGalleryImageUrl(img, chatId),
     }));
   });
 
@@ -73,7 +104,7 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     return {
       ...image,
-      url: `/api/gallery/file/${chatId}/${encodeURIComponent(filename)}`,
+      url: buildGalleryImageUrl({ filePath: `${chatId}/${filename}` }, chatId),
     };
   });
 

@@ -35,7 +35,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useDeleteAgent } from "../../hooks/use-agents";
-import { useLorebooks } from "../../hooks/use-lorebooks";
+import { useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import {
   useKnowledgeSources,
   useUploadKnowledgeSource,
@@ -253,7 +253,43 @@ export function AgentEditor() {
   const isKnowledgeRetrievalAgent = agentDetailId === "knowledge-retrieval" || dbConfig?.type === "knowledge-retrieval";
   // Knowledge Router agent — also uses the lorebook source selector (file picker stays Retrieval-only)
   const isKnowledgeRouterAgent = agentDetailId === "knowledge-router" || dbConfig?.type === "knowledge-router";
+
+  // Detect when both knowledge agents will actually run in parallel. Shows a
+  // soft warning so users don't accidentally do overlapping work that bloats
+  // the prompt with two injection blocks. Requires BOTH agents to have saved
+  // config rows AND be enabled — a saved-but-disabled config doesn't run, so
+  // pairing one disabled config with one active config wouldn't actually
+  // produce the parallel-run problem the warning is about.
+  const bothKnowledgeAgentsConfigured = useMemo(() => {
+    if (!agentConfigs) return false;
+    if (!isKnowledgeRouterAgent && !isKnowledgeRetrievalAgent) return false;
+    const rows = agentConfigs as AgentConfigRow[];
+    const enabledTypes = new Set(rows.filter((c) => c.enabled === "true").map((c) => c.type));
+    return enabledTypes.has("knowledge-router") && enabledTypes.has("knowledge-retrieval");
+  }, [agentConfigs, isKnowledgeRetrievalAgent, isKnowledgeRouterAgent]);
+
   const { data: allLorebooks } = useLorebooks();
+
+  // For the router only: compute description coverage across the selected source
+  // lorebooks. Used to render the coverage badge that tells users whether their
+  // selected lorebooks are well-described enough for routing precision.
+  const {
+    entries: routerSourceEntries,
+    isLoading: routerEntriesLoading,
+    isError: routerEntriesError,
+  } = useEntriesAcrossLorebooks(isKnowledgeRouterAgent ? localSourceLorebookIds : []);
+  // `descriptionCoverage` is non-null whenever there's something to display —
+  // including the zero-entry case (renders as "No entries yet"). Returns null
+  // when there's no selection, when entries are still loading/erroring (so the
+  // hook hasn't given us a complete set yet), or when the agent isn't the router.
+  const descriptionCoverage = useMemo(() => {
+    if (localSourceLorebookIds.length === 0) return null;
+    if (!routerSourceEntries) return null; // hook returned undefined → still loading or errored
+    const total = routerSourceEntries.length;
+    const withDescription = routerSourceEntries.filter((e) => e.description?.trim().length > 0).length;
+    const ratio = total > 0 ? withDescription / total : 0;
+    return { withDescription, total, ratio };
+  }, [localSourceLorebookIds.length, routerSourceEntries]);
   const { data: allKnowledgeSources } = useKnowledgeSources();
   const uploadSource = useUploadKnowledgeSource();
   const deleteSource = useDeleteKnowledgeSource();
@@ -523,6 +559,20 @@ export function AgentEditor() {
           <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
             <X size="0.75rem" />
           </button>
+        </div>
+      )}
+
+      {/* Both-knowledge-agents-configured warning. Both can run in parallel
+          without crashing, but they do overlapping work and bloat the prompt
+          with two injection blocks. The warning surfaces this so users either
+          choose one or knowingly accept the cost. */}
+      {bothKnowledgeAgentsConfigured && (
+        <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+          <AlertCircle size="0.8125rem" />
+          <span className="flex-1">
+            {isKnowledgeRouterAgent ? "Knowledge Retrieval" : "Knowledge Router"} is also configured. Both agents will
+            run in parallel and inject overlapping context. Consider disabling one for cleaner prompts.
+          </span>
         </div>
       )}
 
@@ -1144,9 +1194,49 @@ export function AgentEditor() {
               <div className="space-y-4">
                 {/* ── Lorebooks ── */}
                 <div className="space-y-1.5">
-                  <p className="text-[0.6875rem] font-medium text-white/60">Lorebooks</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Lorebooks</p>
+                    {/* Description coverage badge — Knowledge Router only.
+                        Tells the user how many entries in their selected source lorebooks
+                        have descriptions filled in. Routing precision drops sharply when
+                        coverage is low because the router falls back to content snippets.
+                        Hidden during loading and on fetch errors (showing partial data
+                        from succeeded queries would silently mislead the user about
+                        coverage). Distinguishes the zero-entries case from loading by
+                        rendering an explicit "No entries yet" pill. */}
+                    {isKnowledgeRouterAgent &&
+                      descriptionCoverage &&
+                      !routerEntriesLoading &&
+                      !routerEntriesError &&
+                      (descriptionCoverage.total === 0 ? (
+                        <div className="flex items-center gap-1.5 text-[0.625rem]">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[var(--muted-foreground)] opacity-50" />
+                          <span className="text-[var(--muted-foreground)]">No entries yet</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[0.625rem]">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              descriptionCoverage.ratio >= 0.75
+                                ? "bg-emerald-400"
+                                : descriptionCoverage.ratio >= 0.25
+                                  ? "bg-amber-400"
+                                  : "bg-red-400",
+                            )}
+                          />
+                          <span className="text-[var(--muted-foreground)]">
+                            {Math.round(descriptionCoverage.ratio * 100)}% described
+                            <span className="opacity-70">
+                              {" "}
+                              ({descriptionCoverage.withDescription}/{descriptionCoverage.total})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                   {allLorebooks && allLorebooks.length > 0 ? (
-                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-white/[0.02] p-2">
+                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 p-2">
                       {allLorebooks.map((lb) => {
                         const selected = localSourceLorebookIds.includes(lb.id);
                         return (
@@ -1163,13 +1253,15 @@ export function AgentEditor() {
                               "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all text-xs",
                               selected
                                 ? "bg-amber-500/10 border border-amber-500/20 text-amber-300"
-                                : "bg-white/[0.02] border border-transparent text-white/60 hover:bg-white/5 hover:text-white/80",
+                                : "bg-[var(--secondary)] border border-transparent text-[var(--foreground)] hover:bg-[var(--accent)]",
                             )}
                           >
                             <div
                               className={cn(
                                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                                selected ? "border-amber-500/50 bg-amber-500/20" : "border-white/20 bg-white/5",
+                                selected
+                                  ? "border-amber-500/50 bg-amber-500/20"
+                                  : "border-[var(--border)] bg-[var(--background)]",
                               )}
                             >
                               {selected && <Check size="0.625rem" />}
@@ -1177,7 +1269,9 @@ export function AgentEditor() {
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">{lb.name}</p>
                               {lb.description && (
-                                <p className="truncate text-[0.625rem] text-white/40">{lb.description}</p>
+                                <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                                  {lb.description}
+                                </p>
                               )}
                             </div>
                           </button>
@@ -1185,7 +1279,17 @@ export function AgentEditor() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-[0.625rem] text-white/40">No lorebooks available.</p>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">No lorebooks available.</p>
+                  )}
+                  {/* Router-only tip explaining the description fallback behavior.
+                      Without this, users have no way to know that filling in entry
+                      descriptions improves routing precision — the fallback to a
+                      content snippet works invisibly. */}
+                  {isKnowledgeRouterAgent && localSourceLorebookIds.length > 0 && (
+                    <p className="text-[0.625rem] italic text-[var(--muted-foreground)]">
+                      Tip: entries without a description fall back to a short content snippet. Adding tight one-line
+                      descriptions to your most important entries improves routing precision.
+                    </p>
                   )}
                 </div>
 

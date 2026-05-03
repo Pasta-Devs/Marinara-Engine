@@ -203,6 +203,7 @@ export interface PostProcessContext {
   availableSfx: string[];
   validWidgetIds: Set<string>;
   characterNames: string[];
+  canGenerateBackgrounds?: boolean;
 }
 
 /**
@@ -215,14 +216,14 @@ function postProcessSegment(seg: SceneSegmentEffect, ctx: PostProcessContext): S
   // Background — fuzzy-match or synthesise generated tag
   if (out.background && out.background !== "null") {
     if (!ctx.availableBackgrounds.includes(out.background)) {
-      if (out.background.startsWith("backgrounds:generated:")) {
+      if (out.background.startsWith("backgrounds:generated:") && ctx.canGenerateBackgrounds) {
         // Already valid generated format
       } else {
         const matched = bestMatch(out.background, ctx.availableBackgrounds);
         if (matched) {
           logger.debug(`[postprocess] seg[${seg.segment}] bg: "${out.background}" → "${matched}"`);
           out.background = matched;
-        } else {
+        } else if (ctx.canGenerateBackgrounds) {
           const slug = out.background
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
@@ -231,6 +232,9 @@ function postProcessSegment(seg: SceneSegmentEffect, ctx: PostProcessContext): S
           const gen = `backgrounds:generated:${slug}`;
           logger.debug(`[postprocess] seg[${seg.segment}] bg: "${out.background}" → "${gen}" (no tag match)`);
           out.background = gen;
+        } else {
+          logger.debug(`[postprocess] seg[${seg.segment}] bg: "${out.background}" → dropped (generation unavailable)`);
+          out.background = undefined;
         }
       }
     }
@@ -329,14 +333,14 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
   // ── Background ──
   if (result.background && !ctx.availableBackgrounds.includes(result.background)) {
     // If the model already output a backgrounds:generated:* tag, leave it as-is
-    if (result.background.startsWith("backgrounds:generated:")) {
+    if (result.background.startsWith("backgrounds:generated:") && ctx.canGenerateBackgrounds) {
       // Already valid generated format — no change needed
     } else {
       const matched = bestMatch(result.background, ctx.availableBackgrounds);
       if (matched) {
         logger.debug(`[postprocess] bg: "${result.background}" → "${matched}"`);
         result.background = matched;
-      } else {
+      } else if (ctx.canGenerateBackgrounds) {
         // Synthesise a generated-background slug the client can render
         const slug = result.background
           .toLowerCase()
@@ -346,6 +350,9 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
         const gen = `backgrounds:generated:${slug}`;
         logger.debug(`[postprocess] bg: "${result.background}" → "${gen}" (no tag match)`);
         result.background = gen;
+      } else {
+        logger.debug(`[postprocess] bg: "${result.background}" → null (generation unavailable)`);
+        result.background = null;
       }
     }
   }

@@ -24,6 +24,8 @@ import type {
 // Helpers
 // ──────────────────────────────────────────────
 
+const COMBAT_BLUEPRINT_OUTPUT_TOKENS = 12000;
+
 /** Resolve a connection (handles "random" pool + baseUrl fallback). */
 async function resolveConnection(
   connections: ReturnType<typeof createConnectionsStorage>,
@@ -214,14 +216,14 @@ function buildInitPrompt(
 
   // Init instruction
   let inst = `</history>\n\nThe combat starts now.\n\n`;
-  inst += `Based on everything above, generate the initial combat state. Analyze who is in the party fighting alongside ${personaName} (if anyone), and who the enemies are. Return ONLY a JSON object with the following structure:\n\n`;
+  inst += `Based on everything above, generate the initial combat state and a compact battle design blueprint. Analyze who is in the party fighting alongside ${personaName} (if anyone), who the enemies are, what the inventory can do here, and whether this is a boss or story-significant encounter. Return ONLY a JSON object with the following structure:\n\n`;
   inst += `{\n`;
   inst += `  "party": [\n`;
   inst += `    {\n`;
   inst += `      "name": "${personaName}",\n`;
   inst += `      "hp": X,\n`;
   inst += `      "maxHp": X,\n`;
-  inst += `      "attacks": [{"name": "Attack", "type": "single-target|AoE|both"}],\n`;
+  inst += `      "attacks": [{"name": "Attack", "type": "single-target|AoE|both", "description": "what it does", "power": 1.2, "cooldown": 0, "element": "optional", "statusEffect": "optional"}],\n`;
   inst += `      "items": ["Item Name x3"],\n`;
   inst += `      "statuses": [],\n`;
   inst += `      "isPlayer": true\n`;
@@ -232,7 +234,7 @@ function buildInitPrompt(
   inst += `      "name": "Enemy Name",\n`;
   inst += `      "hp": X,\n`;
   inst += `      "maxHp": X,\n`;
-  inst += `      "attacks": [{"name": "Attack1", "type": "single-target|AoE|both"}],\n`;
+  inst += `      "attacks": [{"name": "Attack1", "type": "single-target|AoE|both", "description": "what it does", "power": 1.3, "cooldown": 2, "element": "optional", "statusEffect": "optional"}],\n`;
   inst += `      "statuses": [],\n`;
   inst += `      "description": "Brief enemy description",\n`;
   inst += `      "sprite": "emoji or brief visual description"\n`;
@@ -244,12 +246,27 @@ function buildInitPrompt(
   inst += `    "atmosphere": "bright|dark|foggy|stormy|calm|eerie|chaotic|peaceful",\n`;
   inst += `    "timeOfDay": "dawn|day|dusk|night|twilight",\n`;
   inst += `    "weather": "clear|rainy|snowy|windy|stormy|overcast"\n`;
-  inst += `  }\n`;
+  inst += `  },\n`;
+  inst += `  "itemEffects": [\n`;
+  inst += `    {"name":"Inventory item name","target":"self|ally|enemy|any","type":"heal|damage|buff|debuff|status|utility","description":"what this item does in this fight","power":0.3,"element":"optional","status":{"name":"Wet","emoji":"💧","duration":2,"modifier":-2,"stat":"defense"},"consumes":true}\n`;
+  inst += `  ],\n`;
+  inst += `  "mechanics": [\n`;
+  inst += `    {"name":"Boss mechanic name","description":"clear rule and stakes","ownerName":"Boss name","trigger":"round_interval|hp_threshold|on_hit|on_attack|passive","interval":5,"hpThreshold":50,"counterplay":"how the player can respond","effectType":"damage_all|damage_one|buff_self|debuff_party|status_party|status_enemy","power":0.45,"element":"optional","status":{"name":"Stunned","emoji":"⚡","duration":1,"modifier":-3,"stat":"speed"}}\n`;
+  inst += `  ],\n`;
+  inst += `  "dialogueCues": [\n`;
+  inst += `    {"speaker":"Named ally or named enemy","type":"main|side|extra|thought|whisper","expression":"angry","content":"A short battle line.","trigger":"intro|round|attack|hit|charge|phase_75|phase_50|phase_25|low_hp|victory|defeat","round":2,"everyNRounds":5}\n`;
+  inst += `  ],\n`;
+  inst += `  "visuals": {"isBossFight": false, "enemyImagePrompts": [{"name":"Enemy Name","prompt":"portrait prompt"}], "backgroundPrompt": "optional boss arena background prompt", "illustrationPrompt": "optional boss fight splash illustration prompt", "slug": "optional-short-slug"}\n`;
   inst += `}\n\n`;
   inst += `IMPORTANT NOTES:\n`;
-  inst += `- attacks: each has "name" and "type" (single-target, AoE, or both)\n`;
-  inst += `- items: include quantities "Item Name xN". If consumed to 0, remove.\n`;
-  inst += `- statuses: format {"name":"Status","emoji":"💀","duration":X}\n`;
+  inst += `- attacks: each has "name" and "type" (single-target, AoE, or both). Add cooldown/status/element only when useful.\n`;
+  inst += `- allies: include ${personaName} and any party members or nearby NPCs clearly fighting on ${personaName}'s side. Give allies battle-specific attacks inspired by their cards/context.\n`;
+  inst += `- enemies: weak enemies can have one simple attack; bosses and elites should have multiple attacks and one memorable mechanic.\n`;
+  inst += `- items: DO NOT invent inventory. itemEffects must only describe how existing inventory items from context work in this encounter. Examples: potion heals, bottle of alcohol can wet/prime a target for fire.\n`;
+  inst += `- mechanics: use sparingly. Boss charge attacks should include interval, counterplay, effectType, and a matching dialogueCue with trigger "charge".\n`;
+  inst += `- dialogueCues: optional, short, and only for named allies, named enemies, bosses, or important NPCs. Generic unnamed enemies should not get voiced lines.\n`;
+  inst += `- visuals: set isBossFight true only for bosses/story-significant enemies. backgroundPrompt/illustrationPrompt are optional and only for important fights.\n`;
+  inst += `- statuses: format {"name":"Status","emoji":"💀","duration":X,"modifier":-2,"stat":"attack|defense|speed|hp"}\n`;
   inst += `- Use the player's stats/inventory from the context to populate their data.\n`;
   inst += `- Ensure HP values are realistic for the setting. Return ONLY the JSON.\n`;
   inst += `- Write ALL text values (environment, descriptions, attack names, item names, etc.) in the same language the chat history is written in.\n`;
@@ -442,7 +459,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       const result = await provider.chatComplete(prompt, {
         model: conn.model,
         temperature: 0.8,
-        maxTokens: 8192,
+        maxTokens: COMBAT_BLUEPRINT_OUTPUT_TOKENS,
       });
 
       if (!result.content) {

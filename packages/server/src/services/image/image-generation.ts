@@ -139,6 +139,30 @@ function isOpenAIGptImageModel(model?: string): boolean {
   return !!model && /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(model.trim());
 }
 
+function openAIImageSize(request: ImageGenRequest): string {
+  const width = request.width ?? 1024;
+  const height = request.height ?? 1024;
+  const requested = `${width}x${height}`;
+  const model = request.model?.trim() ?? "";
+  const ratio = width / Math.max(1, height);
+
+  if (/dall-e-2/i.test(model)) {
+    return width === height && [256, 512, 1024].includes(width) ? requested : "1024x1024";
+  }
+
+  if (/dall-e-3/i.test(model)) {
+    if (ratio > 1.12) return "1792x1024";
+    if (ratio < 0.88) return "1024x1792";
+    return "1024x1024";
+  }
+
+  // GPT Image models reject small custom dimensions such as 1024x576.
+  // Use the closest supported canvas and let callers crop/resize if needed.
+  if (ratio > 1.12) return "1536x1024";
+  if (ratio < 0.88) return "1024x1536";
+  return "1024x1024";
+}
+
 function imageDataUrlFromReference(reference: string): string {
   const trimmed = reference.trim();
   if (trimmed.startsWith("data:")) return trimmed;
@@ -220,7 +244,7 @@ async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGen
   const body: Record<string, unknown> = {
     prompt: request.prompt,
     n: 1,
-    size: `${request.width ?? 1024}x${request.height ?? 1024}`,
+    size: openAIImageSize(request),
   };
   if (request.model) body.model = request.model;
   if (usesGptImageApi) {

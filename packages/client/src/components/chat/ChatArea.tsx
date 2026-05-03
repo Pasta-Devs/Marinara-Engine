@@ -115,19 +115,27 @@ export function ChatArea() {
   // Game mode loads ALL messages (no pagination) so the in-game log
   // shows the full session history instead of only the latest page.
   const isGameChat = (chat as unknown as { mode?: string })?.mode === "game";
+  const messagePageSize = isGameChat ? 0 : messagesPerPage;
   const {
     data: msgData,
     isLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useChatMessages(activeChatId, isGameChat ? 0 : messagesPerPage);
+    refetch: refetchMessages,
+  } = useChatMessages(activeChatId, messagePageSize, !!chat);
   const messages = useMemo<MessageWithSwipes[] | undefined>(
     () => (msgData ? [...msgData.pages].reverse().flat() : undefined),
     [msgData],
   );
   const { data: messageCountData } = useChatMessageCount(activeChatId);
   const totalMessageCount = messageCountData?.count ?? messages?.length ?? 0;
+  const loadedMessageCount = messages?.length ?? 0;
+  useEffect(() => {
+    if (!isGameChat || loadedMessageCount <= 0) return;
+    if (totalMessageCount <= loadedMessageCount) return;
+    void refetchMessages();
+  }, [isGameChat, loadedMessageCount, refetchMessages, totalMessageCount]);
   const messageOffset = messages ? totalMessageCount - messages.length : 0;
   const messageIdByOrderIndex = useMemo(() => {
     const map = new Map<number, string>();
@@ -700,6 +708,16 @@ export function ChatArea() {
     await retryAgents(activeChatId, types);
   }, [activeChatId, isStreaming, agentProcessing, enabledAgentTypes, retryAgents]);
 
+  const handleRerunSingleTracker = useCallback(
+    async (agentType: string) => {
+      if (!activeChatId || isStreaming || agentProcessing) return;
+      const trackerIds = new Set(BUILT_IN_AGENTS.filter((a) => a.category === "tracker").map((a) => a.id));
+      if (!trackerIds.has(agentType) || !enabledAgentTypes.has(agentType)) return;
+      await retryAgents(activeChatId, [agentType]);
+    },
+    [activeChatId, isStreaming, agentProcessing, enabledAgentTypes, retryAgents],
+  );
+
   const handleSetActiveSwipe = useCallback(
     (messageId: string, index: number) => {
       setActiveSwipe.mutate(
@@ -1229,6 +1247,8 @@ export function ChatArea() {
                 comment: display.comment,
                 avatarUrl: c.avatarPath ?? undefined,
                 avatarCrop: parsed.extensions?.avatarCrop || null,
+                nameColor: parsed.extensions?.nameColor || undefined,
+                dialogueColor: parsed.extensions?.dialogueColor || undefined,
                 description: parsed.description ?? "",
                 personality: parsed.personality ?? "",
                 backstory: parsed.extensions?.backstory ?? "",
@@ -1456,6 +1476,7 @@ export function ChatArea() {
           onToggleSelectMessage={handleToggleSelectMessage}
           onSummaryContextSizeChange={handleSummaryContextSizeChange}
           onRerunTrackers={handleRerunTrackers}
+          onRerunSingleTracker={handleRerunSingleTracker}
           onStartEncounter={() => startEncounter()}
           onConcludeScene={() => concludeScene(activeChatId)}
           onAbandonScene={() => abandonScene(activeChatId)}
