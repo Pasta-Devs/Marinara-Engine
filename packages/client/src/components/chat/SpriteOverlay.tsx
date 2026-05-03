@@ -98,6 +98,8 @@ export function SpriteOverlay({
 
   // When agent result arrives, prefer it over keyword detection
   useEffect(() => {
+    // Full-body sprites use poses from spriteExpressions (game mode); the facial-expression agent would overwrite them with values like "happy" that don't match any full_* sprite.
+    if (fullBodyOnly) return;
     if (expressionResult?.success && expressionResult.data && expressionResult !== appliedResultRef.current) {
       const data = expressionResult.data as {
         expressions?: Array<{ characterId: string; expression: string; transition?: string }>;
@@ -127,7 +129,7 @@ export function SpriteOverlay({
         return;
       }
     }
-  }, [expressionResult, onExpressionChange]);
+  }, [expressionResult, onExpressionChange, fullBodyOnly]);
 
   // Apply saved per-swipe expressions whenever the prop changes (e.g. user swipes).
   // This runs independently of the agent store so swiping always updates the sprite.
@@ -150,6 +152,8 @@ export function SpriteOverlay({
 
   // Fallback: keyword-based detection when no agent result.
   useEffect(() => {
+    // Same reason as the agent effect: keyword detection produces facial expressions, not full-body poses.
+    if (fullBodyOnly) return;
     if (!messages?.length) return;
     // Only skip fallback when the current agent result has already been applied
     if (expressionResult?.success && expressionResult === appliedResultRef.current) return;
@@ -180,7 +184,7 @@ export function SpriteOverlay({
     }
 
     setStates(newStates);
-  }, [messages, characterIds, expressionResult, spriteExpressions]);
+  }, [messages, characterIds, expressionResult, spriteExpressions, fullBodyOnly]);
 
   const visibleChars = characterIds.slice(0, 3);
   const resolvedPlacements = useMemo(() => {
