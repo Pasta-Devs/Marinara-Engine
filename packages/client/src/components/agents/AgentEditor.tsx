@@ -35,7 +35,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useDeleteAgent } from "../../hooks/use-agents";
-import { useLorebooks } from "../../hooks/use-lorebooks";
+import { useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import {
   useKnowledgeSources,
   useUploadKnowledgeSource,
@@ -65,6 +65,17 @@ function createCustomAgentType(name: string): string {
       ? globalThis.crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   return `custom-${slug}-${suffix}`;
+}
+
+// Mirrors the server's buildSpotifyRedirectUri rule: Spotify only accepts
+// https:// or http://127.0.0.1, so fall back to loopback whenever the page
+// is served over plain HTTP from a non-loopback host.
+function getDisplayedSpotifyRedirectUri(): string {
+  if (typeof window === "undefined") return "http://127.0.0.1:7860/api/spotify/callback";
+  const { protocol, hostname, origin, port } = window.location;
+  const isLoopback = hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+  if (protocol === "https:" || isLoopback) return `${origin}/api/spotify/callback`;
+  return `http://127.0.0.1:${port || "7860"}/api/spotify/callback`;
 }
 
 // ═══════════════════════════════════════════════
@@ -142,6 +153,11 @@ export function AgentEditor() {
     redirectUri: string | null;
   } | null>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyConnectError, setSpotifyConnectError] = useState<string | null>(null);
+  const [spotifyPasteOpen, setSpotifyPasteOpen] = useState(false);
+  const [spotifyPasteValue, setSpotifyPasteValue] = useState("");
+  const [spotifyPasteError, setSpotifyPasteError] = useState<string | null>(null);
+  const [spotifyPasteSubmitting, setSpotifyPasteSubmitting] = useState(false);
   const spotifyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const spotifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -237,7 +253,43 @@ export function AgentEditor() {
   const isKnowledgeRetrievalAgent = agentDetailId === "knowledge-retrieval" || dbConfig?.type === "knowledge-retrieval";
   // Knowledge Router agent — also uses the lorebook source selector (file picker stays Retrieval-only)
   const isKnowledgeRouterAgent = agentDetailId === "knowledge-router" || dbConfig?.type === "knowledge-router";
+
+  // Detect when both knowledge agents will actually run in parallel. Shows a
+  // soft warning so users don't accidentally do overlapping work that bloats
+  // the prompt with two injection blocks. Requires BOTH agents to have saved
+  // config rows AND be enabled — a saved-but-disabled config doesn't run, so
+  // pairing one disabled config with one active config wouldn't actually
+  // produce the parallel-run problem the warning is about.
+  const bothKnowledgeAgentsConfigured = useMemo(() => {
+    if (!agentConfigs) return false;
+    if (!isKnowledgeRouterAgent && !isKnowledgeRetrievalAgent) return false;
+    const rows = agentConfigs as AgentConfigRow[];
+    const enabledTypes = new Set(rows.filter((c) => c.enabled === "true").map((c) => c.type));
+    return enabledTypes.has("knowledge-router") && enabledTypes.has("knowledge-retrieval");
+  }, [agentConfigs, isKnowledgeRetrievalAgent, isKnowledgeRouterAgent]);
+
   const { data: allLorebooks } = useLorebooks();
+
+  // For the router only: compute description coverage across the selected source
+  // lorebooks. Used to render the coverage badge that tells users whether their
+  // selected lorebooks are well-described enough for routing precision.
+  const {
+    entries: routerSourceEntries,
+    isLoading: routerEntriesLoading,
+    isError: routerEntriesError,
+  } = useEntriesAcrossLorebooks(isKnowledgeRouterAgent ? localSourceLorebookIds : []);
+  // `descriptionCoverage` is non-null whenever there's something to display —
+  // including the zero-entry case (renders as "No entries yet"). Returns null
+  // when there's no selection, when entries are still loading/erroring (so the
+  // hook hasn't given us a complete set yet), or when the agent isn't the router.
+  const descriptionCoverage = useMemo(() => {
+    if (localSourceLorebookIds.length === 0) return null;
+    if (!routerSourceEntries) return null; // hook returned undefined → still loading or errored
+    const total = routerSourceEntries.length;
+    const withDescription = routerSourceEntries.filter((e) => e.description?.trim().length > 0).length;
+    const ratio = total > 0 ? withDescription / total : 0;
+    return { withDescription, total, ratio };
+  }, [localSourceLorebookIds.length, routerSourceEntries]);
   const { data: allKnowledgeSources } = useKnowledgeSources();
   const uploadSource = useUploadKnowledgeSource();
   const deleteSource = useDeleteKnowledgeSource();
@@ -507,6 +559,20 @@ export function AgentEditor() {
           <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
             <X size="0.75rem" />
           </button>
+        </div>
+      )}
+
+      {/* Both-knowledge-agents-configured warning. Both can run in parallel
+          without crashing, but they do overlapping work and bloat the prompt
+          with two injection blocks. The warning surfaces this so users either
+          choose one or knowingly accept the cost. */}
+      {bothKnowledgeAgentsConfigured && (
+        <div className="flex items-center gap-2 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+          <AlertCircle size="0.8125rem" />
+          <span className="flex-1">
+            {isKnowledgeRouterAgent ? "Knowledge Retrieval" : "Knowledge Router"} is also configured. Both agents will
+            run in parallel and inject overlapping context. Consider disabling one for cleaner prompts.
+          </span>
         </div>
       )}
 
@@ -894,6 +960,7 @@ export function AgentEditor() {
                     onClick={async () => {
                       if (!localSpotifyClientId.trim() || !dbConfig?.id) return;
                       setSpotifyConnecting(true);
+                      setSpotifyConnectError(null);
                       try {
                         // Save clientId first if dirty
                         if (dirty) {
@@ -915,48 +982,53 @@ export function AgentEditor() {
                             agentId: dbConfig.id,
                           })}`,
                         );
-                        const data = await res.json();
-                        if (data.authUrl) {
-                          window.open(data.authUrl, "_blank", "width=500,height=700");
-                          // Clear any existing poll before starting a new one
-                          if (spotifyPollRef.current) clearInterval(spotifyPollRef.current);
-                          if (spotifyTimeoutRef.current) clearTimeout(spotifyTimeoutRef.current);
-                          // Poll for connection status
-                          spotifyPollRef.current = setInterval(async () => {
-                            try {
-                              const statusRes = await fetch(
-                                `/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`,
-                              );
-                              const status = await statusRes.json();
-                              if (status.connected) {
-                                clearInterval(spotifyPollRef.current!);
-                                spotifyPollRef.current = null;
-                                if (spotifyTimeoutRef.current) {
-                                  clearTimeout(spotifyTimeoutRef.current);
-                                  spotifyTimeoutRef.current = null;
-                                }
-                                setSpotifyStatus({
-                                  connected: true,
-                                  expired: false,
-                                  redirectUri: status.redirectUri ?? null,
-                                });
-                                setSpotifyConnecting(false);
-                              }
-                            } catch {
-                              // keep polling
-                            }
-                          }, 2000);
-                          // Stop polling after 5 minutes
-                          spotifyTimeoutRef.current = setTimeout(() => {
-                            if (spotifyPollRef.current) {
-                              clearInterval(spotifyPollRef.current);
-                              spotifyPollRef.current = null;
-                            }
-                            spotifyTimeoutRef.current = null;
-                            setSpotifyConnecting(false);
-                          }, 5 * 60_000);
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok || !data.authUrl) {
+                          throw new Error(data.error ?? `Authorize request failed (${res.status})`);
                         }
-                      } catch {
+                        window.open(data.authUrl, "_blank", "width=500,height=700");
+                        // Clear any existing poll before starting a new one
+                        if (spotifyPollRef.current) clearInterval(spotifyPollRef.current);
+                        if (spotifyTimeoutRef.current) clearTimeout(spotifyTimeoutRef.current);
+                        // Poll for connection status
+                        spotifyPollRef.current = setInterval(async () => {
+                          try {
+                            const statusRes = await fetch(
+                              `/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`,
+                            );
+                            const status = await statusRes.json();
+                            if (status.connected) {
+                              clearInterval(spotifyPollRef.current!);
+                              spotifyPollRef.current = null;
+                              if (spotifyTimeoutRef.current) {
+                                clearTimeout(spotifyTimeoutRef.current);
+                                spotifyTimeoutRef.current = null;
+                              }
+                              setSpotifyStatus({
+                                connected: true,
+                                expired: false,
+                                redirectUri: status.redirectUri ?? null,
+                              });
+                              setSpotifyConnecting(false);
+                              setSpotifyPasteOpen(false);
+                              setSpotifyPasteValue("");
+                              setSpotifyPasteError(null);
+                            }
+                          } catch {
+                            // keep polling
+                          }
+                        }, 2000);
+                        // Stop polling after the server-side pendingAuth TTL
+                        spotifyTimeoutRef.current = setTimeout(() => {
+                          if (spotifyPollRef.current) {
+                            clearInterval(spotifyPollRef.current);
+                            spotifyPollRef.current = null;
+                          }
+                          spotifyTimeoutRef.current = null;
+                          setSpotifyConnecting(false);
+                        }, 10 * 60_000);
+                      } catch (err) {
+                        setSpotifyConnectError(err instanceof Error ? err.message : "Failed to start Spotify auth");
                         setSpotifyConnecting(false);
                       }
                     }}
@@ -970,6 +1042,98 @@ export function AgentEditor() {
                     <Music size="0.875rem" />
                     {spotifyConnecting ? "Waiting for authorization..." : "Connect Spotify Account"}
                   </button>
+                )}
+
+                {spotifyConnectError && !spotifyStatus?.connected && (
+                  <p className="text-[0.6875rem] text-red-400/80">{spotifyConnectError}</p>
+                )}
+
+                {/* Paste-back fallback for installs where the browser can't reach the loopback callback. */}
+                {spotifyConnecting && !spotifyStatus?.connected && dbConfig?.id && (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-[0.6875rem] text-white/50 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSpotifyPasteOpen((v) => !v)}
+                      className="text-white/60 hover:text-white/80 transition-colors text-left w-full"
+                    >
+                      {spotifyPasteOpen ? "▾" : "▸"} Browser couldn&apos;t reach the callback?
+                    </button>
+                    {spotifyPasteOpen && (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-white/40 leading-relaxed">
+                          If you&apos;re running Marinara on a different machine, the popup probably failed to load
+                          (Spotify only allows <code className="text-white/50">127.0.0.1</code> or HTTPS callbacks).
+                          Copy the full URL from the popup&apos;s address bar and paste it here:
+                        </p>
+                        <textarea
+                          value={spotifyPasteValue}
+                          onChange={(e) => {
+                            setSpotifyPasteValue(e.target.value);
+                            setSpotifyPasteError(null);
+                          }}
+                          rows={3}
+                          placeholder="http://127.0.0.1:7860/api/spotify/callback?code=...&state=..."
+                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[0.6875rem] text-white placeholder-white/20 outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/20 font-mono"
+                        />
+                        {spotifyPasteError && (
+                          <p className="text-red-400/80 text-[0.625rem]">{spotifyPasteError}</p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={!spotifyPasteValue.trim() || spotifyPasteSubmitting}
+                          onClick={async () => {
+                            if (!dbConfig?.id || !spotifyPasteValue.trim()) return;
+                            setSpotifyPasteSubmitting(true);
+                            setSpotifyPasteError(null);
+                            try {
+                              const res = await fetch("/api/spotify/exchange", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ callbackUrl: spotifyPasteValue.trim() }),
+                              });
+                              const data = await res.json().catch(() => ({}));
+                              if (!res.ok || !data.success) {
+                                setSpotifyPasteError(data.error ?? `Request failed (${res.status})`);
+                              } else {
+                                if (spotifyPollRef.current) {
+                                  clearInterval(spotifyPollRef.current);
+                                  spotifyPollRef.current = null;
+                                }
+                                if (spotifyTimeoutRef.current) {
+                                  clearTimeout(spotifyTimeoutRef.current);
+                                  spotifyTimeoutRef.current = null;
+                                }
+                                const statusRes = await fetch(
+                                  `/api/spotify/status?agentId=${encodeURIComponent(dbConfig.id)}`,
+                                );
+                                const status = await statusRes.json().catch(() => null);
+                                setSpotifyStatus({
+                                  connected: status?.connected ?? true,
+                                  expired: status?.expired ?? false,
+                                  redirectUri: status?.redirectUri ?? null,
+                                });
+                                setSpotifyConnecting(false);
+                                setSpotifyPasteOpen(false);
+                                setSpotifyPasteValue("");
+                              }
+                            } catch (err) {
+                              setSpotifyPasteError(err instanceof Error ? err.message : "Submission failed");
+                            } finally {
+                              setSpotifyPasteSubmitting(false);
+                            }
+                          }}
+                          className={cn(
+                            "rounded-lg px-3 py-1.5 text-[0.6875rem] font-medium transition-all",
+                            spotifyPasteValue.trim() && !spotifyPasteSubmitting
+                              ? "bg-[#1DB954] text-white hover:bg-[#1ed760] active:scale-95"
+                              : "bg-white/5 text-white/30 cursor-not-allowed",
+                          )}
+                        >
+                          {spotifyPasteSubmitting ? "Submitting..." : "Complete connection"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Setup instructions */}
@@ -991,7 +1155,7 @@ export function AgentEditor() {
                     <li>
                       In Redirect URIs, add:{" "}
                       <code className="text-white/50 select-all">
-                        {spotifyStatus?.redirectUri ?? `http://127.0.0.1:7860/api/spotify/callback`}
+                        {spotifyStatus?.redirectUri ?? getDisplayedSpotifyRedirectUri()}
                       </code>
                     </li>
                     <li>
@@ -1003,6 +1167,13 @@ export function AgentEditor() {
                   </ol>
                   <p className="text-[0.625rem] text-white/30 mt-1">
                     Requires Spotify Premium. Tokens refresh automatically — no need to reconnect.
+                  </p>
+                  <p className="text-[0.625rem] text-white/30 leading-relaxed">
+                    Spotify only accepts <code className="text-white/40">https://</code> redirect URIs or
+                    loopback (<code className="text-white/40">http://127.0.0.1</code>). If you&apos;re running
+                    Marinara on another machine over plain HTTP, register the loopback URI anyway and use the
+                    paste-back fallback that appears under the Connect button — or set{" "}
+                    <code className="text-white/40">SPOTIFY_REDIRECT_URI</code> to your HTTPS URL.
                   </p>
                 </div>
               </div>
@@ -1023,9 +1194,49 @@ export function AgentEditor() {
               <div className="space-y-4">
                 {/* ── Lorebooks ── */}
                 <div className="space-y-1.5">
-                  <p className="text-[0.6875rem] font-medium text-white/60">Lorebooks</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Lorebooks</p>
+                    {/* Description coverage badge — Knowledge Router only.
+                        Tells the user how many entries in their selected source lorebooks
+                        have descriptions filled in. Routing precision drops sharply when
+                        coverage is low because the router falls back to content snippets.
+                        Hidden during loading and on fetch errors (showing partial data
+                        from succeeded queries would silently mislead the user about
+                        coverage). Distinguishes the zero-entries case from loading by
+                        rendering an explicit "No entries yet" pill. */}
+                    {isKnowledgeRouterAgent &&
+                      descriptionCoverage &&
+                      !routerEntriesLoading &&
+                      !routerEntriesError &&
+                      (descriptionCoverage.total === 0 ? (
+                        <div className="flex items-center gap-1.5 text-[0.625rem]">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[var(--muted-foreground)] opacity-50" />
+                          <span className="text-[var(--muted-foreground)]">No entries yet</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[0.625rem]">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              descriptionCoverage.ratio >= 0.75
+                                ? "bg-emerald-400"
+                                : descriptionCoverage.ratio >= 0.25
+                                  ? "bg-amber-400"
+                                  : "bg-red-400",
+                            )}
+                          />
+                          <span className="text-[var(--muted-foreground)]">
+                            {Math.round(descriptionCoverage.ratio * 100)}% described
+                            <span className="opacity-70">
+                              {" "}
+                              ({descriptionCoverage.withDescription}/{descriptionCoverage.total})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                   {allLorebooks && allLorebooks.length > 0 ? (
-                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-white/[0.02] p-2">
+                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 p-2">
                       {allLorebooks.map((lb) => {
                         const selected = localSourceLorebookIds.includes(lb.id);
                         return (
@@ -1042,13 +1253,15 @@ export function AgentEditor() {
                               "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all text-xs",
                               selected
                                 ? "bg-amber-500/10 border border-amber-500/20 text-amber-300"
-                                : "bg-white/[0.02] border border-transparent text-white/60 hover:bg-white/5 hover:text-white/80",
+                                : "bg-[var(--secondary)] border border-transparent text-[var(--foreground)] hover:bg-[var(--accent)]",
                             )}
                           >
                             <div
                               className={cn(
                                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                                selected ? "border-amber-500/50 bg-amber-500/20" : "border-white/20 bg-white/5",
+                                selected
+                                  ? "border-amber-500/50 bg-amber-500/20"
+                                  : "border-[var(--border)] bg-[var(--background)]",
                               )}
                             >
                               {selected && <Check size="0.625rem" />}
@@ -1056,7 +1269,9 @@ export function AgentEditor() {
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">{lb.name}</p>
                               {lb.description && (
-                                <p className="truncate text-[0.625rem] text-white/40">{lb.description}</p>
+                                <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                                  {lb.description}
+                                </p>
                               )}
                             </div>
                           </button>
@@ -1064,7 +1279,17 @@ export function AgentEditor() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-[0.625rem] text-white/40">No lorebooks available.</p>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">No lorebooks available.</p>
+                  )}
+                  {/* Router-only tip explaining the description fallback behavior.
+                      Without this, users have no way to know that filling in entry
+                      descriptions improves routing precision — the fallback to a
+                      content snippet works invisibly. */}
+                  {isKnowledgeRouterAgent && localSourceLorebookIds.length > 0 && (
+                    <p className="text-[0.625rem] italic text-[var(--muted-foreground)]">
+                      Tip: entries without a description fall back to a short content snippet. Adding tight one-line
+                      descriptions to your most important entries improves routing precision.
+                    </p>
                   )}
                 </div>
 

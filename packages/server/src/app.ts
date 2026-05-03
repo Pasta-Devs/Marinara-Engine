@@ -5,10 +5,11 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
-import { getDB, type DB } from "./db/connection.js";
+import { getDB, closeDB, type DB } from "./db/connection.js";
 import { registerRoutes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { ipAllowlistHook } from "./middleware/ip-allowlist.js";
+import { basicAuthHook } from "./middleware/basic-auth.js";
 import { runMigrations } from "./db/migrate.js";
 import { seedDefaultPreset } from "./db/seed.js";
 import { seedProfessorMari } from "./db/seed-mari.js";
@@ -59,6 +60,15 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── Database ──
   const db = await getDB();
   app.decorate("db", db);
+  app.addHook("onClose", async () => {
+    try {
+      await sidecarProcessService.stop();
+    } catch (err) {
+      app.log.error(err, "Failed to stop sidecar during shutdown");
+    } finally {
+      await closeDB();
+    }
+  });
 
   // ── Migrations (add missing columns to existing tables) ──
   await runMigrations(db);
@@ -102,6 +112,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── IP Allowlist ──
   app.addHook("onRequest", ipAllowlistHook);
+
+  // ── HTTP Basic Auth ──
+  app.addHook("onRequest", basicAuthHook);
 
   // ── Prevent caching of API JSON responses ──
   // Without explicit Cache-Control, browsers apply heuristic caching which

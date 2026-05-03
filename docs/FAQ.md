@@ -47,6 +47,10 @@ Tools like [Tailscale](https://tailscale.com/) give each device a stable IP addr
 - Check that no firewall is blocking the configured port (default `7860`).
 - See the [Troubleshooting](TROUBLESHOOTING.md#app-not-loading-on-mobile--another-device) page for more help.
 
+### Using the Spotify DJ agent on a LAN install?
+
+Spotify's OAuth rules only allow `https://` or `http://127.0.0.1` redirect URIs, so the agent editor will show a `127.0.0.1` URI even when you're accessing Marinara from another device. Either put the server behind HTTPS or use the paste-back fallback in the agent editor — both flows are covered in [Spotify DJ login fails on a remote or LAN install](TROUBLESHOOTING.md#spotify-dj-login-fails-on-a-remote-or-lan-install).
+
 </details>
 
 ---

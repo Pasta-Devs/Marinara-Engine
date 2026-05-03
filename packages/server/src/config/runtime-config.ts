@@ -120,7 +120,37 @@ export function getDatabaseFilePath() {
 }
 
 export function getIpAllowlist() {
+  // Explicit off-switch lets users keep their list configured but
+  // temporarily disable enforcement without deleting the entries.
+  if (isDisabledFlag(process.env.IP_ALLOWLIST_ENABLED)) return null;
   return normalizeEnvValue(process.env.IP_ALLOWLIST);
+}
+
+export function getBasicAuthConfig() {
+  return {
+    user: normalizeEnvValue(process.env.BASIC_AUTH_USER),
+    pass: normalizeEnvValue(process.env.BASIC_AUTH_PASS),
+    realm: normalizeEnvValue(process.env.BASIC_AUTH_REALM) ?? "Marinara Engine",
+  };
+}
+
+/**
+ * Opt-in switch that lets the server accept unauthenticated remote
+ * connections (i.e. neither loopback nor IP_ALLOWLIST nor Basic Auth).
+ * Default false — protects users who accidentally expose the port.
+ */
+export function isUnauthenticatedRemoteAllowed() {
+  const value = (process.env.ALLOW_UNAUTHENTICATED_REMOTE ?? "").trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(value);
+}
+
+/**
+ * Optional override for the no-auth-lockdown private-network exemption list.
+ * Comma-separated IPs / CIDRs. When set, REPLACES the built-in defaults
+ * (RFC 1918, CGNAT, link-local, IPv6 ULA). When unset, defaults are used.
+ */
+export function getTrustedPrivateNetworksOverride() {
+  return normalizeEnvValue(process.env.TRUSTED_PRIVATE_NETWORKS);
 }
 
 export function isDebugAgentsEnabled() {
@@ -140,8 +170,55 @@ export function getEncryptionKeyOverride() {
   return normalizeEnvValue(process.env.ENCRYPTION_KEY);
 }
 
+export function getSpotifyRedirectUriOverride() {
+  return normalizeEnvValue(process.env.SPOTIFY_REDIRECT_URI);
+}
+
+function getLoopbackFallbackRedirectUri() {
+  return `http://127.0.0.1:${getPort()}/api/spotify/callback`;
+}
+
+function stripPort(host: string) {
+  return host.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+}
+
+function isLoopbackHost(host: string) {
+  const hostname = stripPort(host);
+  return hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function firstHeaderValue(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  const first = raw.split(",")[0]?.trim();
+  return first ? first : null;
+}
+
+type RedirectUriRequest = {
+  protocol?: string;
+  hostname?: string;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+export function buildSpotifyRedirectUri(req: RedirectUriRequest): string {
+  const override = getSpotifyRedirectUriOverride();
+  if (override) return override;
+
+  const protocol = (req.protocol ?? "http").toLowerCase();
+  const hostHeader = firstHeaderValue(req.headers["host"]);
+  const hostname = req.hostname ?? (hostHeader ? stripPort(hostHeader) : null);
+
+  if (!hostname) return getLoopbackFallbackRedirectUri();
+  const host = hostHeader ?? hostname;
+
+  if (protocol === "https") return `https://${host}/api/spotify/callback`;
+  if (protocol === "http" && isLoopbackHost(host)) return `http://${host}/api/spotify/callback`;
+  return getLoopbackFallbackRedirectUri();
+}
+
 export function getSpotifyRedirectUri() {
-  return `${getServerProtocol()}://127.0.0.1:${getPort()}/api/spotify/callback`;
+  return getSpotifyRedirectUriOverride() ?? getLoopbackFallbackRedirectUri();
 }
 
 export function getCorsConfig() {
