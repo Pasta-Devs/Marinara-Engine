@@ -80,6 +80,12 @@ export function resolveAssetTag(
   // Collect tags in this category
   const categoryTags = Object.keys(manifest).filter((k) => k.startsWith(category + ":"));
 
+  // Generated background tags are already canonical even before the asset
+  // exists in the manifest; do not fuzzy-match them back onto library entries.
+  if (category === "backgrounds" && tag.startsWith("backgrounds:generated:")) {
+    return tag;
+  }
+
   // Try fuzzy match
   const matched = bestMatch(tag, categoryTags, category);
   if (matched) {
