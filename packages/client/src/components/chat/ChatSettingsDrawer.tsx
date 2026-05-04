@@ -118,8 +118,12 @@ import {
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_TOOLS,
   DEFAULT_AGENT_MAX_TOKENS,
+  DEFAULT_AGENT_PROMPTS,
   MAX_AGENT_MAX_TOKENS,
   MIN_AGENT_MAX_TOKENS,
+  estimateAgentLoadCost,
+  AGENT_COST_HIGH_CALLS,
+  AGENT_COST_HIGH_TOKENS,
   getDefaultBuiltInAgentSettings,
 } from "@marinara-engine/shared";
 import type { Chat, CharacterGroup } from "@marinara-engine/shared";
@@ -271,7 +275,7 @@ export function ChatSettingsDrawer({
     metadata.conversationSchedulesEnabled === true ||
     (metadata.conversationSchedulesEnabled == null && hasGeneratedConversationSchedules);
   const activeLorebookIds: string[] = metadata.activeLorebookIds ?? [];
-  const activeAgentIds: string[] = metadata.activeAgentIds ?? [];
+  const activeAgentIds = useMemo<string[]>(() => metadata.activeAgentIds ?? [], [metadata.activeAgentIds]);
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
   const gameLorebookKeeperLorebookId =
@@ -339,6 +343,31 @@ export function ChatSettingsDrawer({
     }
     return agents;
   }, [agentConfigs, agentConfigsByType]);
+
+  // Estimate the per-turn cost of the active agent loadout — feeds the readout
+  // in the agents picker header and the per-row token badges. Approximate; see
+  // `estimateAgentLoadCost` doc comment for what's counted vs not.
+  const agentLoadCost = useMemo(() => {
+    const inputs = activeAgentIds.flatMap((id) => {
+      const meta = availableAgents.find((a) => a.id === id);
+      if (!meta) return [];
+      const cfg = agentConfigsByType.get(id);
+      const promptTemplate = cfg?.promptTemplate ?? DEFAULT_AGENT_PROMPTS[id] ?? "";
+      return [
+        {
+          type: id,
+          phase: meta.phase,
+          connectionId: cfg?.connectionId ?? null,
+          promptTemplate,
+        },
+      ];
+    });
+    const tokensByType = new Map<string, number>(inputs.map((i) => [i.type, Math.ceil(i.promptTemplate.length / 4)]));
+    return {
+      cost: estimateAgentLoadCost(inputs, chat.connectionId ?? null),
+      tokensByType,
+    };
+  }, [activeAgentIds, availableAgents, agentConfigsByType, chat.connectionId]);
 
   const lorebookKeeperConfig = agentConfigsByType.get("lorebook-keeper") ?? null;
   const lorebookKeeperEnabledByDefault = isEnabledFlag(lorebookKeeperConfig?.enabled);
@@ -3288,6 +3317,29 @@ export function ChatSettingsDrawer({
                       </div>
                     ) : (
                       <>
+                        {/* Approximate per-turn cost of the active agent loadout. */}
+                        <div
+                          className={cn(
+                            "flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[0.6875rem] ring-1",
+                            agentLoadCost.cost.level === "high"
+                              ? "bg-amber-400/10 text-amber-400/90 ring-amber-400/30"
+                              : "bg-[var(--secondary)]/60 text-[var(--muted-foreground)] ring-[var(--border)]",
+                          )}
+                          title={`Approximate. Each call also carries chat context (recent messages, characters, persona, lorebook), so real per-turn token use is higher. Smaller models may slow down or fail past ~${AGENT_COST_HIGH_CALLS} calls or ~${AGENT_COST_HIGH_TOKENS.toLocaleString()} instruction tokens.`}
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {agentLoadCost.cost.level === "high" && (
+                              <AlertTriangle size="0.75rem" className="shrink-0" />
+                            )}
+                            <span className="truncate">
+                              ~{agentLoadCost.cost.instructionTokens.toLocaleString()} tokens of agent instructions
+                              {" · "}~{agentLoadCost.cost.extraCalls} extra call
+                              {agentLoadCost.cost.extraCalls === 1 ? "" : "s"}/turn
+                            </span>
+                          </span>
+                          <span className="shrink-0 cursor-help text-[0.625rem] opacity-70">ⓘ</span>
+                        </div>
+
                         {activeAgentIds.length === 0 && (
                           <p className="text-[0.6875rem] text-[var(--muted-foreground)] px-1">
                             No per-chat agent overrides. Workspace default agents will be used for this chat.
@@ -3335,27 +3387,38 @@ export function ChatSettingsDrawer({
                               {/* Active agents in this category */}
                               {activeInCat.length > 0 && (
                                 <div className="flex flex-col gap-1 mb-1.5">
-                                  {activeInCat.map((agent) => (
-                                    <div
-                                      key={agent.id}
-                                      className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                                    >
-                                      <Sparkles size="0.875rem" className="text-[var(--primary)]" />
-                                      <div className="flex-1 min-w-0">
-                                        <span className="block truncate text-xs">{agent.name}</span>
-                                        <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
-                                          {agent.description}
-                                        </span>
-                                      </div>
-                                      <button
-                                        onClick={() => toggleAgent(agent.id)}
-                                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                        title="Remove from chat"
+                                  {activeInCat.map((agent) => {
+                                    const tokenEst = agentLoadCost.tokensByType.get(agent.id);
+                                    return (
+                                      <div
+                                        key={agent.id}
+                                        className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                                       >
-                                        <Trash2 size="0.6875rem" />
-                                      </button>
-                                    </div>
-                                  ))}
+                                        <Sparkles size="0.875rem" className="text-[var(--primary)]" />
+                                        <div className="flex-1 min-w-0">
+                                          <span className="block truncate text-xs">{agent.name}</span>
+                                          <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
+                                            {agent.description}
+                                          </span>
+                                        </div>
+                                        {tokenEst ? (
+                                          <span
+                                            className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
+                                            title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
+                                          >
+                                            ~{tokenEst.toLocaleString()}
+                                          </span>
+                                        ) : null}
+                                        <button
+                                          onClick={() => toggleAgent(agent.id)}
+                                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                                          title="Remove from chat"
+                                        >
+                                          <Trash2 size="0.6875rem" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                               {/* Available agents to add */}
@@ -3401,24 +3464,35 @@ export function ChatSettingsDrawer({
                             >
                               {activeCustom.length > 0 && (
                                 <div className="flex flex-col gap-1 mb-1.5">
-                                  {activeCustom.map((agent) => (
-                                    <div
-                                      key={agent.id}
-                                      className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                                    >
-                                      <Sparkles size="0.875rem" className="text-[var(--primary)]" />
-                                      <div className="flex-1 min-w-0">
-                                        <span className="block truncate text-xs">{agent.name}</span>
-                                      </div>
-                                      <button
-                                        onClick={() => toggleAgent(agent.id)}
-                                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                        title="Remove from chat"
+                                  {activeCustom.map((agent) => {
+                                    const tokenEst = agentLoadCost.tokensByType.get(agent.id);
+                                    return (
+                                      <div
+                                        key={agent.id}
+                                        className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                                       >
-                                        <Trash2 size="0.6875rem" />
-                                      </button>
-                                    </div>
-                                  ))}
+                                        <Sparkles size="0.875rem" className="text-[var(--primary)]" />
+                                        <div className="flex-1 min-w-0">
+                                          <span className="block truncate text-xs">{agent.name}</span>
+                                        </div>
+                                        {tokenEst ? (
+                                          <span
+                                            className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
+                                            title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
+                                          >
+                                            ~{tokenEst.toLocaleString()}
+                                          </span>
+                                        ) : null}
+                                        <button
+                                          onClick={() => toggleAgent(agent.id)}
+                                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                                          title="Remove from chat"
+                                        >
+                                          <Trash2 size="0.6875rem" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                               {inactiveCustom.length > 0 && (
