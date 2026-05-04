@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
+import { getAdminSecretHeader } from "../../lib/api-client";
 
 interface Props {
   open: boolean;
@@ -77,6 +78,30 @@ type Phase = "input" | "scanning" | "preview" | "importing" | "done";
 type CategoryKey = "characters" | "chats" | "groupChats" | "presets" | "lorebooks" | "backgrounds" | "personas";
 type SelectionState = Record<CategoryKey, string[]>;
 
+type ApiErrorPayload = {
+  error?: unknown;
+  message?: unknown;
+};
+
+async function readJsonResponse<T>(res: Response): Promise<{ data: T | null; raw: string }> {
+  const raw = await res.text().catch(() => "");
+  if (!raw.trim()) return { data: null, raw };
+
+  try {
+    return { data: JSON.parse(raw) as T, raw };
+  } catch {
+    return { data: null, raw };
+  }
+}
+
+function describeResponseError(res: Response, data: ApiErrorPayload | null, raw: string, fallback: string): string {
+  const status = [res.status, res.statusText].filter(Boolean).join(" ");
+  const detail =
+    typeof data?.error === "string" ? data.error : typeof data?.message === "string" ? data.message : raw.trim();
+
+  return `${fallback}${status ? ` (${status})` : ""}${detail ? `: ${detail.slice(0, 500)}` : ""}`;
+}
+
 function buildInitialSelection(scan: ScanResult): SelectionState {
   return {
     characters: scan.characters.map((item) => item.id),
@@ -102,6 +127,7 @@ function formatModifiedAt(value: string | null) {
 
 export function STBulkImportModal({ open, onClose }: Props) {
   const [folderPath, setFolderPath] = useState("");
+  const [folderToken, setFolderToken] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("input");
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selection, setSelection] = useState<SelectionState>({
@@ -121,6 +147,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const reset = useCallback(() => {
     setPhase("input");
     setScanResult(null);
+    setFolderToken(null);
     setSelection({
       characters: [],
       chats: [],
@@ -148,23 +175,26 @@ export function STBulkImportModal({ open, onClose }: Props) {
     try {
       const res = await fetch("/api/import/st-bulk/scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderPath: folderPath.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminSecretHeader(),
+        },
+        body: JSON.stringify({ folderPath: folderPath.trim(), folderToken }),
       });
-      const data = (await res.json()) as ScanResult;
-      if (data.success) {
+      const { data, raw } = await readJsonResponse<ScanResult>(res);
+      if (res.ok && data?.success) {
         setScanResult(data);
         setSelection(buildInitialSelection(data));
         setPhase("preview");
       } else {
-        setError(data.error ?? "Scan failed");
+        setError(describeResponseError(res, data, raw, "Scan failed"));
         setPhase("input");
       }
-    } catch {
-      setError("Failed to connect to server");
+    } catch (err) {
+      setError(err instanceof Error ? `Failed to connect to server: ${err.message}` : "Failed to connect to server");
       setPhase("input");
     }
-  }, [folderPath]);
+  }, [folderPath, folderToken]);
 
   const [picking, setPicking] = useState(false);
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
@@ -177,28 +207,59 @@ export function STBulkImportModal({ open, onClose }: Props) {
     try {
       const res = await fetch("/api/import/list-directory", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminSecretHeader(),
+        },
         body: JSON.stringify({ path: dirPath || "" }),
       });
-      const data = (await res.json()) as { success: boolean; path?: string; folders?: string[] };
-      if (data.success && data.path) {
-        setBrowserPath(data.path);
-        setBrowserFolders(data.folders ?? []);
+      const { data, raw } = await readJsonResponse<{
+        success: boolean;
+        path?: string;
+        folderToken?: string;
+        folders?: string[];
+        error?: string;
+      }>(res);
+      if (!res.ok || !data?.success || !data.path) {
+        setBrowserFolders([]);
+        setFolderToken(null);
+        setError(describeResponseError(res, data, raw, "Unable to list directories"));
+        return;
       }
-    } catch {
-      // Silent fallback
+      setBrowserPath(data.path);
+      setFolderToken(data.folderToken ?? null);
+      setBrowserFolders(data.folders ?? []);
+    } catch (err) {
+      setBrowserFolders([]);
+      setFolderToken(null);
+      setError(err instanceof Error ? err.message : "Unable to list directories");
+    } finally {
+      setBrowserLoading(false);
     }
-    setBrowserLoading(false);
   }, []);
 
   const handleBrowse = useCallback(async () => {
     setPicking(true);
     setError("");
     try {
-      const res = await fetch("/api/import/pick-folder", { method: "POST" });
-      const data = (await res.json()) as { success: boolean; path?: string; error?: string };
-      if (data.success && data.path) {
+      const res = await fetch("/api/import/pick-folder", {
+        method: "POST",
+        headers: getAdminSecretHeader(),
+      });
+      const { data, raw } = await readJsonResponse<{
+        success: boolean;
+        path?: string;
+        folderToken?: string;
+        error?: string;
+      }>(res);
+      if (!res.ok) {
+        setError(describeResponseError(res, data, raw, "Unable to open folder picker"));
+        setPicking(false);
+        return;
+      }
+      if (data?.success && data.path) {
         setFolderPath(data.path);
+        setFolderToken(data.folderToken ?? null);
         setPicking(false);
         return;
       }
@@ -232,12 +293,22 @@ export function STBulkImportModal({ open, onClose }: Props) {
     try {
       const res = await fetch("/api/import/st-bulk/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderPath: folderPath.trim(), options: selection }),
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminSecretHeader(),
+        },
+        body: JSON.stringify({ folderPath: folderPath.trim(), folderToken, options: selection }),
       });
 
-      if (!res.ok || !res.body) {
-        setError("Import failed — server error");
+      if (!res.ok) {
+        const { data, raw } = await readJsonResponse<ApiErrorPayload>(res);
+        setError(describeResponseError(res, data, raw, "Import failed"));
+        setPhase("preview");
+        return;
+      }
+
+      if (!res.body) {
+        setError("Import failed: server returned no response stream");
         setPhase("preview");
         return;
       }
@@ -277,11 +348,11 @@ export function STBulkImportModal({ open, onClose }: Props) {
           }
         }
       }
-    } catch {
-      setError("Import failed — server error");
+    } catch (err) {
+      setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
       setPhase("preview");
     }
-  }, [folderPath, qc, selection]);
+  }, [folderPath, folderToken, qc, selection]);
 
   const hasAnySelected = Object.values(selection).some((ids) => ids.length > 0);
   const builtinPresetCount = scanResult?.presets.filter((item) => item.isBuiltin).length ?? 0;
@@ -302,7 +373,10 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <input
                   type="text"
                   value={folderPath}
-                  onChange={(e) => setFolderPath(e.target.value)}
+                  onChange={(e) => {
+                    setFolderPath(e.target.value);
+                    setFolderToken(null);
+                  }}
                   placeholder="/path/to/SillyTavern"
                   disabled={phase === "scanning"}
                   className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"

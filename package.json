@@ -6,10 +6,10 @@
   "author": "Marianna",
   "license": "AGPL-3.0",
   "type": "module",
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@10.33.2",
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": ">=24 <26",
+    "pnpm": ">=10.33.2"
   },
   "scripts": {
     "dev": "pnpm build:shared && pnpm --filter @marinara-engine/server --filter @marinara-engine/client -r --parallel run dev",
@@ -32,8 +32,8 @@
     "clean": "pnpm -r --if-present run clean && node ./scripts/clean-workspace.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.27.3",
-    "prettier": "^3.8.1"
+    "esbuild": "^0.27.7",
+    "prettier": "^3.8.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -45,7 +45,10 @@
     "overrides": {
       "onnxruntime-common": "1.24.3",
       "onnxruntime-node": "1.24.3",
-      "onnxruntime-web": "1.24.3"
+      "onnxruntime-web": "1.24.3",
+      "protobufjs": "7.5.5",
+      "brace-expansion": "5.0.5",
+      "@anthropic-ai/sdk": "0.91.1"
     }
   }
 }

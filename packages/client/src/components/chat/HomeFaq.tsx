@@ -96,7 +96,7 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     bullets: [
       "Install pnpm globally with npm install -g pnpm, or use the EXE installer if you want the guided path.",
       "On Android or Termux, a long pause at Corepack alignment is a recurring pain point rather than a special Marinara-only error.",
-      "If Termux hangs specifically on 'Aligning pnpm to 10.30.3 via Corepack', let it finish before assuming it is dead.",
+      "If Termux hangs specifically on 'Aligning pnpm via Corepack', let it finish before assuming it is dead.",
     ],
   },
   {
@@ -405,14 +405,14 @@ export function HomeFaq() {
 
   return (
     <section className="w-full max-w-md">
-      <div className="overflow-hidden rounded-[1.25rem] border border-[var(--border)]/60 bg-[var(--card)] shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl dark:bg-[linear-gradient(180deg,rgba(18,14,23,0.92),rgba(11,10,16,0.86))]">
+      <div className="overflow-hidden rounded-[1rem] border border-[var(--border)]/60 bg-[var(--card)] shadow-[0_14px_38px_rgba(0,0,0,0.24)] backdrop-blur-xl dark:bg-[linear-gradient(180deg,rgba(18,14,23,0.92),rgba(11,10,16,0.86))]">
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:items-center sm:gap-3 sm:px-4"
+          className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:items-center sm:gap-3 sm:px-4"
           aria-expanded={expanded}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--primary)]/25 bg-[linear-gradient(135deg,rgba(235,137,81,0.18),rgba(77,229,221,0.14))] text-[var(--primary)] shadow-[0_0_24px_rgba(235,137,81,0.12)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--primary)]/25 bg-[linear-gradient(135deg,rgba(235,137,81,0.18),rgba(77,229,221,0.14))] text-[var(--primary)] shadow-[0_0_20px_rgba(235,137,81,0.1)]">
             <HelpCircle size="1rem" />
           </div>
           <div className="min-w-0 flex-1">
@@ -422,7 +422,7 @@ export function HomeFaq() {
                 {HOME_FAQ_ITEMS.length} answers
               </span>
             </div>
-            <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/80">
+            <p className="mt-0.5 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]/80">
               The recurring setup, model, Game Mode, image, and agent questions people keep asking.
             </p>
           </div>

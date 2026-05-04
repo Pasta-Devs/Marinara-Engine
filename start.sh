@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 # ── Check Node.js ──
 if ! command -v node &> /dev/null; then
     echo "  [ERROR] Node.js is not installed."
-    echo "  Please install Node.js 20+ from https://nodejs.org"
+    echo "  Please install Node.js 24 LTS or newer from https://nodejs.org"
     echo "  Or via homebrew:  brew install node"
     exit 1
 fi
@@ -24,12 +24,14 @@ fi
 NODE_VERSION=$(node -v | cut -d'.' -f1 | tr -d 'v')
 echo "  [OK] Node.js $(node -v) found"
 
-if [ "$NODE_VERSION" -lt 20 ]; then
-    echo "  [WARN] Node.js 20+ is recommended. You have v${NODE_VERSION}."
+if [ "$NODE_VERSION" -lt 24 ]; then
+    echo "  [ERROR] Node.js 24 LTS or newer is required. You have v${NODE_VERSION}."
+    echo "          Please update Node.js from https://nodejs.org"
+    exit 1
 fi
 
 # ── Check pnpm ──
-PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.30.3'")
+PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'")
 PNPM_RUNNER="pnpm"
 
 run_pnpm() {

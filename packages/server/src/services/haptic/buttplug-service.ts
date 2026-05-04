@@ -28,7 +28,7 @@ const CAPABILITY_TYPES: Array<{ type: OutputType; cap: HapticCapability }> = [
   { type: OutputType.Constrict, cap: "constrict" },
   { type: OutputType.Inflate, cap: "inflate" },
   { type: OutputType.Position, cap: "position" },
-  { type: OutputType.PositionWithDuration, cap: "position" },
+  { type: OutputType.HwPositionWithDuration, cap: "position" },
 ];
 
 /** Map our action strings to buttplug OutputType. */
@@ -38,7 +38,7 @@ const ACTION_TO_OUTPUT: Record<string, OutputType> = {
   oscillate: OutputType.Oscillate,
   constrict: OutputType.Constrict,
   inflate: OutputType.Inflate,
-  position: OutputType.PositionWithDuration,
+  position: OutputType.HwPositionWithDuration,
 };
 
 /** Helper: get all devices from the client Map as an array. */

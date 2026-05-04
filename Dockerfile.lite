@@ -4,7 +4,7 @@
 # Three-stage build using Chainguard Wolfi images:
 #   1. Builder  — full dev toolchain, compiles TS and bundles client
 #   2. Deps     — production-only node_modules (stripped of heavy native deps)
-#   3. Runtime  — minimal Wolfi base + Node.js 22 binary only
+#   3. Runtime  — minimal Wolfi base + Node.js 24 binary only
 #
 # Disabled features (MARINARA_LITE):
 #   • Local sidecar model (llama-server / Gemma)
@@ -13,13 +13,13 @@
 # ──────────────────────────────────────────────
 
 # ── Stage 1: Build ──
-# Uses wolfi-base + nodejs-22 + npm so Node ABI matches across all stages.
+# Uses wolfi-base + nodejs-24 + npm so Node ABI matches across all stages.
 FROM cgr.dev/chainguard/wolfi-base AS builder
 ARG BUILD_COMMIT
 WORKDIR /app
 
-RUN apk add --no-cache nodejs-22 npm && \
-    npm install -g pnpm@10.30.3
+RUN apk add --no-cache nodejs-24 npm && \
+    npm install -g pnpm@10.33.2
 
 ENV MARINARA_LITE=true
 ENV VITE_MARINARA_LITE=true
@@ -54,8 +54,8 @@ RUN if [ -n "$BUILD_COMMIT" ]; then \
 FROM cgr.dev/chainguard/wolfi-base AS deps
 WORKDIR /app
 
-RUN apk add --no-cache nodejs-22 npm && \
-    npm install -g pnpm@10.30.3
+RUN apk add --no-cache nodejs-24 npm && \
+    npm install -g pnpm@10.33.2
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
@@ -86,11 +86,11 @@ RUN tar cf /tmp/node_modules.tar \
     packages/server/node_modules 2>/dev/null; true
 
 # ── Stage 3: Minimal Wolfi runtime ──
-# Only the Node.js 22 binary — no npm, no build tools, no shell bloat.
+# Only the Node.js 24 binary — no npm, no build tools, no shell bloat.
 FROM cgr.dev/chainguard/wolfi-base AS production
 WORKDIR /app
 
-RUN apk add --no-cache nodejs-22-minimal && \
+RUN apk add --no-cache nodejs-24-minimal && \
     # Drop the package manager cache to save space
     rm -rf /var/cache/apk/*
 
@@ -111,7 +111,8 @@ COPY --from=builder /app/packages/server/dist packages/server/dist
 COPY --from=builder /app/packages/client/dist packages/client/dist
 
 # Ensure data directory exists
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && \
+    chown -R nonroot:nonroot /app
 
 # Runtime feature flag
 ENV MARINARA_LITE=true
@@ -122,5 +123,7 @@ ENV NODE_ENV=production
 
 VOLUME /app/data
 EXPOSE 7860
+
+USER nonroot
 
 CMD ["node", "packages/server/dist/index.js"]

@@ -152,6 +152,7 @@ import { useTranslationStore } from "../stores/translation.store";
 import { useUIStore } from "../stores/ui.store";
 import { chatKeys } from "./use-chats";
 import { characterKeys } from "./use-characters";
+import { lorebookKeys } from "./use-lorebooks";
 import { playNotificationPing } from "../lib/notification-sound";
 import { stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import type { Chat, GameMap, Message } from "@marinara-engine/shared";
@@ -592,7 +593,7 @@ export function useGenerate() {
       };
 
       try {
-        const { userStatus, userActivity, debugMode } = useUIStore.getState();
+        const { userStatus, userActivity, debugMode, trimIncompleteModelOutput } = useUIStore.getState();
 
         // Flush any pending game-state widget edits so the server sees them before committing
         const flushPatch = useGameStateStore.getState().flushPatch;
@@ -600,7 +601,7 @@ export function useGenerate() {
 
         for await (const event of api.streamEvents(
           "/generate",
-          { ...params, userStatus, userActivity, debugMode, streaming: transportStreaming },
+          { ...params, userStatus, userActivity, debugMode, trimIncompleteModelOutput, streaming: transportStreaming },
           abortController.signal,
         )) {
           switch (event.type) {
@@ -1164,6 +1165,12 @@ export function useGenerate() {
               } else if (actionData.action === "character_updated") {
                 toast(`Updated character: ${actionData.name}`, { icon: "✏️" });
                 qc.invalidateQueries({ queryKey: characterKeys.list() });
+              } else if (actionData.action === "lorebook_created") {
+                const entryCount = Number(actionData.entryCount ?? 0);
+                toast(`Created lorebook: ${actionData.name}${entryCount > 0 ? ` (${entryCount} entries)` : ""}`, {
+                  icon: "📚",
+                });
+                qc.invalidateQueries({ queryKey: lorebookKeys.all });
               } else if (actionData.action === "chat_created") {
                 toast(`Started ${actionData.mode} chat with ${actionData.characterName}`, { icon: "💬" });
                 qc.invalidateQueries({ queryKey: ["chats"] });

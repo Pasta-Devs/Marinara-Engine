@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { parsePngCharacterCard } from "../../lib/png-parser";
+import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
 import { toast } from "sonner";
 
 interface Props {
@@ -61,6 +62,35 @@ const SORT_OPTIONS = [
   { value: "default", label: "Trending" },
   { value: "created_at", label: "Newest" },
 ] as const;
+
+function hasLorebookEntries(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const entries = (value as Record<string, unknown>).entries;
+  if (Array.isArray(entries)) return entries.length > 0;
+  return !!entries && typeof entries === "object" && Object.keys(entries).length > 0;
+}
+
+function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, embeddedLorebook: unknown) {
+  if (!hasLorebookEntries(embeddedLorebook)) return raw;
+
+  const cloned: Record<string, unknown> = { ...raw };
+  const target =
+    (cloned.spec === "chara_card_v2" || cloned.spec === "chara_card_v3") &&
+    cloned.data &&
+    typeof cloned.data === "object"
+      ? { ...(cloned.data as Record<string, unknown>) }
+      : cloned;
+
+  if (!target.character_book) {
+    target.character_book = embeddedLorebook;
+  }
+
+  if (target !== cloned) {
+    cloned.data = target;
+  }
+
+  return cloned;
+}
 
 export function BotBrowserModal({ open, onClose }: Props) {
   const qc = useQueryClient();
@@ -153,11 +183,27 @@ export function BotBrowserModal({ open, onClose }: Props) {
       const file = new File([blob], "character.png", { type: "image/png" });
 
       const { json, imageDataUrl } = await parsePngCharacterCard(file);
+      let cardDetail = detail?.fullPath === fullPath ? detail : null;
+      if (!cardDetail) {
+        const detailRes = await fetch(`/api/bot-browser/chub/character/${fullPath}`);
+        if (detailRes.ok) {
+          const rawDetail = await detailRes.json();
+          cardDetail = rawDetail?.data?.node ?? rawDetail?.node ?? null;
+        }
+      }
+      const importJson = attachEmbeddedLorebookToCharacterJson(
+        json as Record<string, unknown>,
+        cardDetail?.definition?.embedded_lorebook,
+      );
+      const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
+        cardDetail?.name ?? "This character",
+        cardDetail?.definition?.embedded_lorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
+      );
 
       const importRes = await fetch("/api/import/st-character", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...json, _avatarDataUrl: imageDataUrl }),
+        body: JSON.stringify({ ...importJson, _avatarDataUrl: imageDataUrl, importEmbeddedLorebook }),
       });
       const data = await importRes.json();
 

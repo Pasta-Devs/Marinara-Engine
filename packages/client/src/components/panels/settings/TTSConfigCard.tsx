@@ -61,11 +61,19 @@ const TTS_SOURCE_DEFAULTS: Record<
     voice: "",
     idleText: "ElevenLabs TTS",
   },
+  pockettts: {
+    label: "PocketTTS",
+    baseUrl: "http://localhost:8000",
+    model: "pocket-tts",
+    voice: "alba",
+    idleText: "Local PocketTTS",
+  },
 };
 
 const TTS_SOURCE_OPTIONS: Array<{ value: TTSSource; label: string }> = [
   { value: "openai", label: "OpenAI-compatible" },
   { value: "elevenlabs", label: "ElevenLabs" },
+  { value: "pockettts", label: "PocketTTS" },
 ];
 
 const ELEVENLABS_TTS_MODELS = [
@@ -645,7 +653,7 @@ export function TTSConfigCard() {
           <div className="text-sm font-medium">Text to Speech</div>
           <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
             {enabled
-              ? `${selectedSource.label} · ${model || selectedSource.model} · ${selectedVoiceLabel}${voicesFromProvider || source === "elevenlabs" ? "" : " (built-in voices)"}`
+              ? `${selectedSource.label} · ${model || selectedSource.model} · ${selectedVoiceLabel}${voicesFromProvider || source !== "openai" ? "" : " (built-in voices)"}`
               : selectedSource.idleText}
           </div>
         </div>
@@ -703,7 +711,9 @@ export function TTSConfigCard() {
             help={
               source === "elevenlabs"
                 ? "The ElevenLabs API root. Use the default unless you proxy ElevenLabs through another server."
-                : "The OpenAI-compatible TTS API endpoint. Use the default for OpenAI or point to a self-hosted server."
+                : source === "pockettts"
+                  ? "The PocketTTS server root. Start it with pocket-tts serve, then use http://localhost:8000 unless you changed the port."
+                  : "The OpenAI-compatible TTS API endpoint. Use the default for OpenAI or point to a self-hosted server."
             }
           >
             <div className="relative">
@@ -749,7 +759,9 @@ export function TTSConfigCard() {
             help={
               source === "elevenlabs"
                 ? "ElevenLabs model_id to use. Use eleven_v3 for Eleven v3 speech; eleven_ttv_v3 is a voice-design model and cannot generate TTS."
-                : "TTS model to use. e.g. tts-1, tts-1-hd, gpt-4o-mini-tts, or any model your provider supports."
+                : source === "pockettts"
+                  ? "PocketTTS selects its language/model when you start the local server. This field is kept for clarity and future compatible servers."
+                  : "TTS model to use. e.g. tts-1, tts-1-hd, gpt-4o-mini-tts, or any model your provider supports."
             }
           >
             <input
@@ -771,7 +783,8 @@ export function TTSConfigCard() {
                 </datalist>
                 <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                   Eleven v3 speech uses <code className="font-mono">eleven_v3</code>. IDs containing{" "}
-                  <code className="font-mono">ttv</code> are Text to Voice / voice design models.
+                  <code className="font-mono">ttv</code> are Text to Voice / voice design models. NanoGPT proxies use{" "}
+                  <code className="font-mono">Elevenlabs-V3</code>.
                 </p>
               </>
             )}
@@ -802,35 +815,57 @@ export function TTSConfigCard() {
               help={
                 source === "elevenlabs"
                   ? "ElevenLabs voices are fetched by name and saved by voice ID."
-                  : "Voice to use for synthesis. Fetched from your configured provider when available."
+                  : source === "pockettts"
+                    ? "PocketTTS built-in voice name or a voice URL/path accepted by your PocketTTS server."
+                    : "Voice to use for synthesis. Fetched from your configured provider when available."
               }
             >
               <div className="flex gap-2">
-                <select
-                  value={voice}
-                  onChange={(e) => {
-                    setVoice(e.target.value);
-                    mark({ voice: e.target.value });
-                  }}
-                  disabled={fetchingVoices || voiceOptions.length === 0}
-                  className={cn(INPUT_CLS, "flex-1 cursor-pointer appearance-none")}
-                >
-                  {source === "elevenlabs" && <option value="">Select an ElevenLabs voice</option>}
-                  {fetchingVoices && <option value="">Loading voices…</option>}
-                  {!fetchingVoices && voiceOptions.length === 0 && !voicesError && (
-                    <option value="">
-                      {source === "elevenlabs"
-                        ? "Enter API key, save, then refresh voices"
-                        : "Save config to load voices"}
-                    </option>
-                  )}
-                  {!fetchingVoices && voicesError && <option value="">Could not load voices</option>}
-                  {voiceOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name === option.id ? option.id : `${option.name} (${option.id})`}
-                    </option>
-                  ))}
-                </select>
+                {source === "pockettts" ? (
+                  <>
+                    <input
+                      value={voice}
+                      list="pockettts-voices"
+                      onChange={(e) => {
+                        setVoice(e.target.value);
+                        mark({ voice: e.target.value });
+                      }}
+                      className={cn(INPUT_CLS, "flex-1")}
+                      placeholder="alba or a voice URL/path"
+                    />
+                    <datalist id="pockettts-voices">
+                      {voiceOptions.map((option) => (
+                        <option key={option.id} value={option.id} />
+                      ))}
+                    </datalist>
+                  </>
+                ) : (
+                  <select
+                    value={voice}
+                    onChange={(e) => {
+                      setVoice(e.target.value);
+                      mark({ voice: e.target.value });
+                    }}
+                    disabled={fetchingVoices || voiceOptions.length === 0}
+                    className={cn(INPUT_CLS, "flex-1 cursor-pointer appearance-none")}
+                  >
+                    {source === "elevenlabs" && <option value="">Select an ElevenLabs voice</option>}
+                    {fetchingVoices && <option value="">Loading voices…</option>}
+                    {!fetchingVoices && voiceOptions.length === 0 && !voicesError && (
+                      <option value="">
+                        {source === "elevenlabs"
+                          ? "Enter API key, save, then refresh voices"
+                          : "Save config to load voices"}
+                      </option>
+                    )}
+                    {!fetchingVoices && voicesError && <option value="">Could not load voices</option>}
+                    {voiceOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name === option.id ? option.id : `${option.name} (${option.id})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   onClick={() => void refetchVoices()}
                   disabled={fetchingVoices || !savedConfig?.enabled}
@@ -848,6 +883,11 @@ export function TTSConfigCard() {
               {!voicesFromProvider && source === "elevenlabs" && !fetchingVoices && (
                 <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                   ElevenLabs voices load after the connection is saved with an API key
+                </p>
+              )}
+              {!voicesFromProvider && source === "pockettts" && voices.length > 0 && (
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  Showing PocketTTS built-in voices. You can type a custom voice URL or path accepted by your server.
                 </p>
               )}
             </FieldRow>

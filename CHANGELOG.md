@@ -6,6 +6,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Guide for Game mode.
+- Professor Mari can now create Lorebooks for you.
+- Days tracker in Game mode that you can edit.
+- Lorebook entry trigger mode can now be changed directly from the entry status dot.
 - Game mode interrupt button that allows you to interrupt the GM (with or without consequences to your game).
 - Various improvements to the Game mode's combat and inventory systems, more cinematic battles, better UI handling, and more overall mechanics.
 - Game mode map scaling.
@@ -35,13 +39,36 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Allowed token size outputs in agents.
 - Lorebook folders.
 - Game mode setup remembers custom genre, tone, setting, and goal options from previous games.
+- Optional trimming for incomplete model endings before generated messages are saved.
+- Draft translation button option in chat Translation settings for Conversation, Roleplay, and Game modes.
+- Native vs compatible export choices for profile, character, persona, and lorebook exports.
+- PocketTTS is now available as a local TTS provider.
+- Optional speech-to-text microphone buttons can be enabled for Conversation, Roleplay, and Game input fields.
+- Character imports now ask before extracting embedded character-card lorebooks into standalone Marinara lorebooks.
+- Home Assistant HACS integration that syncs Marinara custom tools and a Home Assistant agent for smart-home control.
+- Updated the supported toolchain to Node.js 24 LTS and pnpm 10.33.2 across launchers, installers, Docker images, docs, and CI, plus refreshed dependencies within their compatible ranges.
+- Lorebook entries can now be scoped by active characters, character tags, and generation triggers, and can scan selected character/persona fields as extra keyword-matching sources.
+
+### Security
+
+- Hardened default network access so loopback remains convenient while non-loopback private-network traffic fails closed unless Basic Auth, an allowlist, or an explicit unsafe opt-in is configured.
+- Added global unsafe-method CSRF/origin protections, security headers, route throttling, and shared privileged-route gates for admin, update, backup/import, sidecar, haptics, and custom-tool operations.
+- Added SSRF, path containment, upload validation, bulk-import capability tokens, and response-size guards around high-risk URL, file, and archive flows.
+- Disabled or gated risky execution paths by default, including API-driven update apply, custom script tools, sidecar runtime installs, and remote haptic control.
+- Removed the seeded default provider key, encrypted Spotify token storage, and redacted obvious secrets from profile export.
+- Hardened chat HTML sanitization and SVG/image handling, then upgraded vulnerable production and build dependencies.
+- Hardened Docker, Android WebView/backup, GitHub Actions action references, and Windows installer dependency verification.
+- Breaking/default changes: privileged routes now require `ADMIN_SECRET`, Docker binds to localhost by default, and update apply, custom script tools, and sidecar runtime installs are disabled until operators opt in with the documented environment switches.
+- Operators who intentionally need the old exposure model must set `ADMIN_SECRET`, choose a remote bind address for Docker/launchers, and explicitly enable only the required flows such as `UPDATES_APPLY_ENABLED`, `CUSTOM_TOOL_SCRIPT_ENABLED`, or `SIDECAR_RUNTIME_INSTALL_ENABLED`.
 
 ### Fixed
 
+- Addressed various security concerns.
 - Game mode dark screen error addressed.
 - Removed the persistent SQLite database as the default live storage path, reducing release-to-release migration failures.
 - File-backed migration now merges every known legacy database location and performs a one-time repair for snapshots that missed chats during early v1.5.7 testing.
 - On mobile Roleplay, the branch quick-switcher now lives inside the three-dot toolbar menu, so it no longer overlaps the Agents' controls.
+- Settings Debug Mode now prints prompt, scene-analysis, party-turn, and game asset debug logs even when `LOG_LEVEL` is not set to `debug`.
 - Switching chats doesn't stop the generation of the previously triggered one.
 - Cross-conversations confusions addressed.
 - {{user}} and {{char}} macros now work in all modes.
@@ -65,6 +92,13 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Deleting one saved character card version now leaves the rest of the version history intact.
 - Removed the legacy database setup step from the installer flow.
 - Fresh installs no longer install the old `better-sqlite3` or `sql.js` SQLite fallback packages.
+- Browser-tab character imports now preserve embedded Chub lorebooks as linked Marinara lorebooks.
+- OpenRouter Claude reasoning is requested with OpenRouter's unified `reasoning` payload again, restoring thinking capture for Sonnet/Opus reasoning models.
+- Sprite sheet prompts now more explicitly require complete slicable grids for expression and full-body pose generation.
+- Loopback LLM provider URLs are allowed by default again, so local model servers on `127.0.0.1`, `::1`, or `localhost` do not require the broad private-network URL opt-in.
+- Restored the animated Marinara logo on the home screen while keeping the static logo as the inactive-page fallback.
+- Tightened the home screen spacing so the logo, FAQ, credits, and special thanks fit more comfortably on desktop and mobile.
+- Windows installer updates now force-refresh the release tag and verify the resolved tag commit instead of aborting on legitimate v1.5.7 hotfix retags.
 - Various minor UI bugs.
 
 ## [1.5.6]

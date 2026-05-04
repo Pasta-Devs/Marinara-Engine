@@ -33,6 +33,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { getChatCharacterIds } from "../../lib/chat-macros";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string; icon: typeof Globe }> = [
   { id: "all", label: "All", icon: Layers },
@@ -62,6 +63,7 @@ export function LorebooksPanel() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLorebookIds, setSelectedLorebookIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Active chat context for the "Active" filter
   const activeChat = useChatStore((s) => s.activeChat);
@@ -247,18 +249,26 @@ export function LorebooksPanel() {
     });
   }, []);
 
-  const handleExportSelected = useCallback(async () => {
-    if (selectedLorebookIds.size === 0) return;
-    setExportingSelected(true);
-    try {
-      await api.downloadPost("/lorebooks/export-bulk", { ids: [...selectedLorebookIds] }, "marinara-lorebooks.zip");
-      toast.success(`Exported ${selectedLorebookIds.size} lorebook${selectedLorebookIds.size === 1 ? "" : "s"}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export lorebooks");
-    } finally {
-      setExportingSelected(false);
-    }
-  }, [selectedLorebookIds]);
+  const handleExportSelected = useCallback(
+    async (format: ExportFormatChoice) => {
+      if (selectedLorebookIds.size === 0) return;
+      setExportingSelected(true);
+      setExportDialogOpen(false);
+      try {
+        await api.downloadPost(
+          "/lorebooks/export-bulk",
+          { ids: [...selectedLorebookIds], format },
+          format === "compatible" ? "compatible-lorebooks.zip" : "marinara-lorebooks.zip",
+        );
+        toast.success(`Exported ${selectedLorebookIds.size} lorebook${selectedLorebookIds.size === 1 ? "" : "s"}`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to export lorebooks");
+      } finally {
+        setExportingSelected(false);
+      }
+    },
+    [selectedLorebookIds],
+  );
 
   const handleDeleteSelected = useCallback(async () => {
     const ids = [...selectedLorebookIds];
@@ -362,7 +372,7 @@ export function LorebooksPanel() {
             Delete
           </button>
           <button
-            onClick={handleExportSelected}
+            onClick={() => setExportDialogOpen(true)}
             disabled={selectedLorebookIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
@@ -377,6 +387,14 @@ export function LorebooksPanel() {
           </button>
         </div>
       )}
+
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Lorebooks"
+        description="Native keeps Marinara folders and entry fields. Compatible exports a folderless World Info JSON for other roleplay tools."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={handleExportSelected}
+      />
 
       {/* Search + Sort */}
       <div className="flex gap-1.5">

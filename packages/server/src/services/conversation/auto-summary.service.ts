@@ -183,11 +183,9 @@ function parseSummaryResponse(raw: string): DaySummaryEntry {
 function dailySummarySystemPrompt(date: string, scope: string): string {
   return [
     `You are a conversation memory assistant. You will receive ${scope} DM conversation from ${date}.`,
-    `Produce a JSON object with two fields:`,
+    `Produce a JSON object with two fields, in this order:`,
     ``,
-    `1. "summary" — A brief narrative paragraph (2-4 sentences, third person) covering what happened: topics discussed, key moments, emotional tone, and important exchanges.`,
-    ``,
-    `2. "keyDetails" — An array of short, specific strings listing things the characters MUST remember going forward. Include:`,
+    `1. "keyDetails" — An array of short, specific strings listing things the characters MUST remember going forward. Include:`,
     `   - Promises or commitments made ("Alice promised to call Bob tomorrow morning")`,
     `   - Plans or appointments ("They agreed to watch a movie together on Friday")`,
     `   - Unresolved questions or topics left hanging ("Bob asked about Alice's job interview — she said she'd tell him later")`,
@@ -196,7 +194,18 @@ function dailySummarySystemPrompt(date: string, scope: string): string {
     `   - Requests or things someone said they'd do ("Alice said she'd send the recipe")`,
     `   If nothing important needs to be carried forward, use an empty array.`,
     ``,
+    `2. "summary" — A few short atmospheric notes (1-3 brief sentences, third person). These are terse field notes, NOT prose — no flourishes, no literary phrasing. The summary is consumed by a weekly summarizer that builds a relational arc, so focus on things that aggregate meaningfully across days:`,
+    `   - Setting: when they talked (time of day, how long), where each character was, what they were doing`,
+    `   - Physical or emotional state of each character during the talk ("Alice was sleepy in bed the whole time", "Bob was buzzing with excitement")`,
+    `   - Tonal register and how it shifted ("started playful, turned tender when he opened up")`,
+    `   - The character of events as experienced ("heated argument about boundaries", "quiet check-in", "rapid-fire flirting")`,
+    `   Do NOT restate items already in keyDetails — the summary's job is the felt experience AROUND the facts, not the facts themselves.`,
+    `   Avoid: "A buoyant exchange where the energy bloomed from initial pleasantries into a tender celebration."`,
+    `   Prefer: "Buoyant evening chat. Mood warm throughout, lots of mutual hype."`,
+    `   If the day was uneventful, a single sentence is fine.`,
+    ``,
     `Respond with ONLY valid JSON. No markdown fences, no extra text.`,
+    `Example: { "keyDetails": ["Alice promised to send Bob the recipe for pasta", "They planned to meet for coffee on Saturday", "Alice mentioned her sister Clara is visiting next week"], "summary": "Evening chat after work. Bob still at the office, Alice in pajamas at home. Warm and easy throughout, Alice tired by the end but in good spirits." }`,
   ].join("\n");
 }
 
@@ -292,18 +301,26 @@ async function summarizeDayBucket(
 
 function weekSummarySystemPrompt(rangeLabel: string): string {
   return [
-    `You are a conversation memory assistant. You will receive daily conversation summaries for the week of ${rangeLabel}.`,
-    `Produce a JSON object with two fields:`,
+    `You are a conversation memory assistant. You will receive a week's worth of daily entries (date, terse atmospheric notes, key facts) for the week of ${rangeLabel}.`,
+    `Produce a JSON object with two fields, in this order:`,
     ``,
-    `1. "summary" — A cohesive narrative paragraph (3-6 sentences, third person) covering the week: major topics, relationship developments, emotional arc, and significant events. Weave the days together naturally — don't just list each day separately.`,
-    ``,
-    `2. "keyDetails" — A consolidated array of short, specific strings listing things the characters MUST still remember going forward. Review the daily key details and:`,
+    `1. "keyDetails" — A consolidated array of short, specific strings listing things the characters MUST still remember going forward. Review the daily key details and:`,
     `   - KEEP details that are still relevant (upcoming plans, ongoing commitments, unresolved topics)`,
     `   - MERGE duplicates or evolving items into their latest state`,
     `   - DROP details that were already resolved during the week (e.g. "promised to send recipe" if it was sent later that week)`,
     `   - ADD any overarching patterns or relationship developments worth remembering`,
     ``,
+    `2. "summary" — A few terse atmospheric notes (3-5 brief sentences, third person) capturing the week's ARC, not its events. These are field notes, NOT prose — no flourishes, no literary phrasing. The daily entries already cover what felt like what each day; your job is to find the shape across them. Focus on:`,
+    `   - Tonal evolution across the week ("started distant, warmed up by Wednesday")`,
+    `   - Recurring patterns or rhythms ("late-night chats most evenings", "she kept circling back to her recordings")`,
+    `   - Relationship developments worth remembering ("noticeably more openly affectionate by week's end")`,
+    `   - Significant emotional shifts or turning points`,
+    `   Do NOT restate items already in keyDetails — the summary's job is the felt arc AROUND the facts, not the facts themselves. Do not chronicle "Monday they did X, Tuesday they did Y" — that's a list, not an arc.`,
+    `   Avoid: "The week unfolded as a tender progression from initial pleasantries into deeply intimate confessions, with their bond visibly deepening."`,
+    `   Prefer: "Mostly late-evening chats. Tone shifted from playful to tender mid-week after a vulnerable confession. Both more openly affectionate by Sunday."`,
+    ``,
     `Respond with ONLY valid JSON. No markdown fences, no extra text.`,
+    `Example: { "keyDetails": ["Alice's sister Clara visiting next weekend", "Bob still off alcohol after the tequila incidents", "They agreed to weekend plans on Saturday"], "summary": "Mostly late-evening chats, often past midnight. Alice leaning on him through some recurring work doubts. Tone shifted from playful to tender mid-week after a vulnerable confession. Both more openly affectionate by Sunday." }`,
   ].join("\n");
 }
 

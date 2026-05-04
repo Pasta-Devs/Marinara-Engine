@@ -14,7 +14,7 @@ The installer creates a git-based checkout, so it auto-updates the same way as a
 
 You need **Node.js** and **Git** installed.
 
-**Install Node.js v20+:**
+**Install Node.js v24 LTS+:**
 
 Download the installer from [nodejs.org](https://nodejs.org/en/download) and run it.
 
@@ -25,7 +25,7 @@ Download from [git-scm.com](https://git-scm.com/download/win) and run the instal
 Verify both are installed:
 
 ```bat
-node -v        :: should show v20 or higher
+node -v        :: should show v24 or higher
 git --version  :: should show git version 2.x+
 ```
 

@@ -16,20 +16,166 @@ import { getDataDir } from "../utils/data-dir.js";
 import { getDatabaseFilePath, getFileStorageDir } from "../config/runtime-config.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { flushDB } from "../db/connection.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { assertInsideDir } from "../utils/security.js";
 
 /** Directories inside DATA_DIR that should be included in every backup. */
 const BACKUP_DIRS = ["storage", "avatars", "sprites", "backgrounds", "gallery", "fonts", "knowledge-sources"];
 const PROFILE_IMPORT_BODY_LIMIT_BYTES = 256 * 1024 * 1024;
 
+type ExportFormat = "native" | "compatible";
+
 function resolveBackupDir(dataDir: string, dirName: string) {
   return dirName === "storage" ? getFileStorageDir() : join(dataDir, dirName);
+}
+
+function toSafeExportName(name: string, fallback: string) {
+  const sanitized = name
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return sanitized || fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      return value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function stSelectiveLogic(value: unknown): number {
+  return value === "or" ? 1 : value === "not" ? 2 : 0;
+}
+
+function stRole(value: unknown): number {
+  return value === "user" ? 1 : value === "assistant" ? 2 : 0;
+}
+
+function buildCompatibleLorebookExport(lb: Record<string, any>) {
+  const entries: Record<string, Record<string, unknown>> = {};
+  (Array.isArray(lb.entries) ? lb.entries : []).forEach((entry: Record<string, unknown>, index: number) => {
+    entries[String(index)] = {
+      uid: index,
+      key: asStringArray(entry.keys),
+      keysecondary: asStringArray(entry.secondaryKeys),
+      comment: String(entry.name ?? `Entry ${index + 1}`),
+      content: String(entry.content ?? ""),
+      disable: entry.enabled === false,
+      constant: entry.constant === true,
+      selective: entry.selective === true,
+      selectiveLogic: stSelectiveLogic(entry.selectiveLogic),
+      order: Number(entry.order ?? 100),
+      position: Number(entry.position ?? 0),
+      depth: Number(entry.depth ?? 4),
+      probability: entry.probability ?? null,
+      scanDepth: entry.scanDepth ?? null,
+      matchWholeWords: entry.matchWholeWords === true,
+      caseSensitive: entry.caseSensitive === true,
+      role: stRole(entry.role),
+      group: String(entry.group ?? ""),
+      groupWeight: entry.groupWeight ?? null,
+      sticky: entry.sticky ?? null,
+      cooldown: entry.cooldown ?? null,
+      delay: entry.delay ?? null,
+    };
+  });
+
+  return {
+    name: String(lb.name ?? "Lorebook"),
+    extensions: {
+      marinara: {
+        exportedAt: new Date().toISOString(),
+        source: "Marinara Engine compatibility export",
+      },
+    },
+    entries,
+  };
+}
+
+async function buildCompatibleProfileZip(app: FastifyInstance) {
+  const envelope = await buildProfileExportEnvelope(app);
+  const data = envelope.data as Record<string, any>;
+  const zip = new AdmZip();
+
+  for (const [index, character] of (Array.isArray(data.characters) ? data.characters : []).entries()) {
+    const charData = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+    zip.addFile(
+      `characters/${toSafeExportName(String(charData?.name ?? "character"), `character-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify({ spec: "chara_card_v2", spec_version: "2.0", data: charData }, null, 2), "utf8"),
+    );
+  }
+
+  for (const [index, persona] of (Array.isArray(data.personas) ? data.personas : []).entries()) {
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      avatarPath: _avatarPath,
+      avatarBase64: _avatarBase64,
+      isActive: _isActive,
+      ...personaData
+    } = persona as Record<string, unknown>;
+    zip.addFile(
+      `personas/${toSafeExportName(String(personaData.name ?? "persona"), `persona-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify(personaData, null, 2), "utf8"),
+    );
+  }
+
+  for (const [index, lorebook] of (Array.isArray(data.lorebooks) ? data.lorebooks : []).entries()) {
+    zip.addFile(
+      `lorebooks/${toSafeExportName(String(lorebook.name ?? "lorebook"), `lorebook-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify(buildCompatibleLorebookExport(lorebook), null, 2), "utf8"),
+    );
+  }
+
+  return zip;
 }
 
 function resolveAvatarWritePath(dataDir: string, avatarPath: unknown) {
   if (typeof avatarPath !== "string" || !avatarPath.trim()) return null;
   const filename = avatarPath.split("?")[0]?.split("/").filter(Boolean).pop();
   if (!filename) return null;
-  return join(dataDir, "avatars", filename);
+  return assertInsideDir(join(dataDir, "avatars"), join(dataDir, "avatars", filename));
+}
+
+function redactAgentSecrets(agent: any) {
+  const SECRET_KEY_RE = /token|secret|password|api[_-]?key/i;
+
+  const redactSettings = (settings: unknown): unknown => {
+    if (Array.isArray(settings)) return settings.map(redactSettings);
+    if (!settings || typeof settings !== "object") return settings;
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(settings)) {
+      if (SECRET_KEY_RE.test(key)) {
+        out[key] = null;
+      } else if (value && typeof value === "object") {
+        out[key] = redactSettings(value);
+      } else {
+        out[key] = value;
+      }
+    }
+    return out;
+  };
+
+  if (typeof agent.settings === "string") {
+    try {
+      return { ...agent, settings: redactSettings(JSON.parse(agent.settings)) };
+    } catch {
+      return { ...agent, settings: null };
+    }
+  }
+
+  return { ...agent, settings: redactSettings(agent.settings) };
 }
 
 async function buildProfileExportEnvelope(app: FastifyInstance): Promise<ExportEnvelope> {
@@ -83,7 +229,7 @@ async function buildProfileExportEnvelope(app: FastifyInstance): Promise<ExportE
     }),
   );
 
-  const allAgents = await agents.list();
+  const allAgents = (await agents.list()).map(redactAgentSecrets);
   const allThemes = await themes.list();
 
   return {
@@ -118,7 +264,8 @@ function buildBackupRestoreNotes() {
 
 export async function backupRoutes(app: FastifyInstance) {
   // Create a full backup folder
-  app.post("/", async (_req, reply) => {
+  app.post("/", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup creation" })) return;
     await flushDB();
     const dataDir = getDataDir();
     const dbPath = getDatabaseFilePath();
@@ -162,7 +309,8 @@ export async function backupRoutes(app: FastifyInstance) {
   // Download a full backup as a single zip — client-side saves to a
   // user-chosen location via the browser's Save dialog / File System Access
   // API. Preferred on Android where the on-disk data folder isn't reachable.
-  app.post("/download", async (_req, reply) => {
+  app.post("/download", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
     await flushDB();
     const dataDir = getDataDir();
     const dbPath = getDatabaseFilePath();
@@ -234,6 +382,7 @@ export async function backupRoutes(app: FastifyInstance) {
 
   // Delete a backup
   app.delete<{ Params: { name: string } }>("/:name", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Backup deletion" })) return;
     const { name } = req.params;
     // Sanitize: only allow backup folder names
     if (!/^marinara-backup-[\w-]+$/.test(name)) {
@@ -256,7 +405,19 @@ export async function backupRoutes(app: FastifyInstance) {
   // ── Profile Export ──
   // Returns a portable JSON envelope with characters, personas, lorebooks,
   // presets (+ groups/sections/choices), agent configs, and synced custom themes.
-  app.get("/export-profile", async (_req, reply) => {
+  app.get<{ Querystring: { format?: ExportFormat } }>("/export-profile", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Profile export" })) return;
+
+    if (req.query.format === "compatible") {
+      const zip = await buildCompatibleProfileZip(app);
+      const buffer = zip.toBuffer();
+      return reply
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", `attachment; filename="marinara-compatible-export.zip"`)
+        .header("Content-Length", buffer.length.toString())
+        .send(buffer);
+    }
+
     const envelope = await buildProfileExportEnvelope(app);
 
     return reply
@@ -268,6 +429,7 @@ export async function backupRoutes(app: FastifyInstance) {
   // ── Profile Import ──
   // Accepts a profile JSON envelope and creates all entities.
   app.post("/import-profile", { bodyLimit: PROFILE_IMPORT_BODY_LIMIT_BYTES }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
     const envelope = req.body as ExportEnvelope;
     if (!envelope || envelope.type !== "marinara_profile" || envelope.version !== 1) {
       return reply.status(400).send({ error: "Invalid profile export" });

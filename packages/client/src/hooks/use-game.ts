@@ -175,7 +175,11 @@ export function useGameSetup() {
 
   return useMutation({
     mutationFn: (data: { chatId: string; connectionId?: string; preferences: string }) =>
-      api.post<SetupResponse>("/game/setup", { ...data, streaming: useUIStore.getState().enableStreaming }),
+      api.post<SetupResponse>("/game/setup", {
+        ...data,
+        streaming: useUIStore.getState().enableStreaming,
+        debugMode: useUIStore.getState().debugMode,
+      }),
     onSuccess: () => {
       store.getState().setSetupActive(false);
       const sessionChatId = store.getState().activeSessionChatId;

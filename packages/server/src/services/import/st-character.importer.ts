@@ -22,18 +22,36 @@ function ensureAvatarDir() {
   }
 }
 
+function countEmbeddedLorebookEntries(book: unknown): number {
+  if (!book || typeof book !== "object") return 0;
+  const entries = (book as Record<string, unknown>).entries;
+  if (Array.isArray(entries)) return entries.length;
+  if (entries && typeof entries === "object") return Object.keys(entries).length;
+  return 0;
+}
+
 /**
  * Import a SillyTavern character card (JSON format).
  * Handles V1, V2, Pygmalion, and RisuAI formats.
  * If _avatarDataUrl is present, saves the avatar image.
  */
-export async function importSTCharacter(
-  raw: Record<string, unknown>,
-  db: DB,
-  options?: { timestampOverrides?: TimestampOverrides | null },
-) {
+export interface STCharacterImportPreview {
+  success: boolean;
+  name?: string;
+  hasEmbeddedLorebook: boolean;
+  embeddedLorebookEntries: number;
+  error?: string;
+}
+
+export interface STCharacterImportOptions {
+  timestampOverrides?: TimestampOverrides | null;
+  importEmbeddedLorebook?: boolean;
+}
+
+export async function importSTCharacter(raw: Record<string, unknown>, db: DB, options?: STCharacterImportOptions) {
   const storage = createCharactersStorage(db);
   const normalizedTimestamps = normalizeTimestampOverrides(options?.timestampOverrides);
+  const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
 
   // Extract avatar data URL if present (from PNG import)
   const avatarDataUrl = raw._avatarDataUrl as string | null;
@@ -43,22 +61,7 @@ export async function importSTCharacter(
   const botBrowserSource = raw._botBrowserSource as string | null;
   delete raw._botBrowserSource;
 
-  let data: CharacterData;
-
-  // Detect format
-  if ((raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3") && raw.data) {
-    // V2 / V3 format — extract from data wrapper
-    data = normalizeV2(raw.data as Record<string, unknown>);
-  } else if (raw.char_name || raw.name) {
-    // V1 / Pygmalion format — convert to V2
-    data = convertV1toV2(raw);
-  } else if (raw.type === "character" && raw.data) {
-    // RisuAI format
-    data = convertRisuToV2((raw.data as Record<string, unknown>) ?? {});
-  } else {
-    // Try treating the whole object as character data
-    data = normalizeV2(raw);
-  }
+  const data = normalizeCharacterData(raw);
 
   // Tag with browser source if imported from browser
   if (botBrowserSource) {
@@ -70,7 +73,8 @@ export async function importSTCharacter(
       ? (data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)
       : {};
   const cardSpecMetadata = buildCardSpecMetadata(raw);
-  const hasEmbeddedLorebook = !!data.character_book?.entries?.length;
+  const embeddedLorebookEntries = countEmbeddedLorebookEntries(data.character_book);
+  const hasEmbeddedLorebook = embeddedLorebookEntries > 0;
   data.extensions[IMPORT_METADATA_KEY] = {
     ...existingImportMetadata,
     ...(cardSpecMetadata ? { card: cardSpecMetadata } : {}),
@@ -103,7 +107,7 @@ export async function importSTCharacter(
 
   // Extract character_book into a standalone lorebook linked to this character
   let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
-  if (data.character_book && charId) {
+  if (shouldImportEmbeddedLorebook && data.character_book && charId) {
     const bookRaw = data.character_book as unknown as Record<string, unknown>;
     // ST character_book uses the same shape as World Info
     const wiData: Record<string, unknown> = {
@@ -149,24 +153,46 @@ export async function importSTCharacter(
     success: true,
     characterId: charId,
     name: data.name,
+    embeddedLorebook: {
+      hasEmbeddedLorebook,
+      entries: embeddedLorebookEntries,
+      imported: !!lorebookResult,
+      skipped: hasEmbeddedLorebook && !shouldImportEmbeddedLorebook,
+    },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
   };
+}
+
+export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImportPreview {
+  try {
+    const data = normalizeCharacterData(raw);
+    const embeddedLorebookEntries = countEmbeddedLorebookEntries(data.character_book);
+    return {
+      success: true,
+      name: data.name,
+      hasEmbeddedLorebook: embeddedLorebookEntries > 0,
+      embeddedLorebookEntries,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      hasEmbeddedLorebook: false,
+      embeddedLorebookEntries: 0,
+      error: error instanceof Error ? error.message : "Invalid character card",
+    };
+  }
 }
 
 /**
  * Import a CharX (.charx) file — RisuAI Character Card V3 zip format.
  * Extracts card.json and the main icon asset from the zip.
  */
-export async function importCharX(buf: Buffer, db: DB, options?: { timestampOverrides?: TimestampOverrides | null }) {
+export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImportOptions) {
   const zip = new AdmZip(buf);
 
   // Extract card.json from root of the zip
-  const cardEntry = zip.getEntry("card.json");
-  if (!cardEntry) {
-    return { success: false, error: "Invalid .charx file: missing card.json at root." };
-  }
-
-  const cardJson = JSON.parse(cardEntry.getData().toString("utf-8")) as Record<string, unknown>;
+  const cardJson = readCharXCardJson(zip);
+  if (!cardJson) return { success: false, error: "Invalid .charx file: missing card.json at root." };
 
   // Resolve the main icon asset from the zip
   let avatarDataUrl: string | null = null;
@@ -208,6 +234,53 @@ export async function importCharX(buf: Buffer, db: DB, options?: { timestampOver
   }
 
   return importSTCharacter(cardJson as Record<string, unknown>, db, options);
+}
+
+export function inspectCharX(buf: Buffer): STCharacterImportPreview {
+  try {
+    const zip = new AdmZip(buf);
+    const cardJson = readCharXCardJson(zip);
+    if (!cardJson) {
+      return {
+        success: false,
+        hasEmbeddedLorebook: false,
+        embeddedLorebookEntries: 0,
+        error: "Invalid .charx file: missing card.json at root.",
+      };
+    }
+    return inspectSTCharacter(cardJson);
+  } catch (error) {
+    return {
+      success: false,
+      hasEmbeddedLorebook: false,
+      embeddedLorebookEntries: 0,
+      error: error instanceof Error ? error.message : "Invalid .charx file",
+    };
+  }
+}
+
+function readCharXCardJson(zip: AdmZip): Record<string, unknown> | null {
+  const cardEntry = zip.getEntry("card.json");
+  if (!cardEntry) return null;
+  return JSON.parse(cardEntry.getData().toString("utf-8")) as Record<string, unknown>;
+}
+
+function normalizeCharacterData(raw: Record<string, unknown>): CharacterData {
+  // Detect format
+  if ((raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3") && raw.data) {
+    // V2 / V3 format — extract from data wrapper
+    return normalizeV2(raw.data as Record<string, unknown>);
+  }
+  if (raw.char_name || raw.name) {
+    // V1 / Pygmalion format — convert to V2
+    return convertV1toV2(raw);
+  }
+  if (raw.type === "character" && raw.data) {
+    // RisuAI format
+    return convertRisuToV2((raw.data as Record<string, unknown>) ?? {});
+  }
+  // Try treating the whole object as character data
+  return normalizeV2(raw);
 }
 
 function buildCardSpecMetadata(raw: Record<string, unknown>) {

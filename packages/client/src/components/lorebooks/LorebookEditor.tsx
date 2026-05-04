@@ -59,6 +59,7 @@ import type { Lorebook, LorebookEntry, LorebookFolder, LorebookCategory } from "
 import { LorebookEntryRow } from "./LorebookEntryRow";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { estimateTokens } from "./LorebookFormFields";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not
@@ -136,16 +137,21 @@ export function LorebookEditor() {
   const entries = useMemo(() => (rawEntries ?? []) as LorebookEntry[], [rawEntries]);
   const folders = useMemo(() => (rawFolders ?? []) as LorebookFolder[], [rawFolders]);
   const characters = useMemo(() => {
-    if (!rawCharacters) return [] as Array<{ id: string; name: string }>;
+    if (!rawCharacters) return [] as Array<{ id: string; name: string; tags: string[] }>;
     return (rawCharacters as Array<{ id: string; data: string | Record<string, unknown> }>).map((c) => {
       try {
         const parsed = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
-        return { id: c.id, name: parsed?.name ?? "Unknown" };
+        const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
+        return { id: c.id, name: parsed?.name ?? "Unknown", tags };
       } catch {
-        return { id: c.id, name: "Unknown" };
+        return { id: c.id, name: "Unknown", tags: [] };
       }
     });
   }, [rawCharacters]);
+  const characterTags = useMemo(
+    () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
+    [characters],
+  );
   const personas = useMemo(() => {
     if (!rawPersonas) return [] as Array<{ id: string; name: string; comment?: string | null }>;
     return (rawPersonas as Array<{ id: string; name: string; comment?: string | null }>).map((p) => ({
@@ -158,6 +164,7 @@ export function LorebookEditor() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [lorebookDirty, setLorebookDirty] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(lorebookDirty);
@@ -614,6 +621,18 @@ export function LorebookEditor() {
   // ── Main editor ──
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Lorebook"
+        description="Native keeps Marinara folders and entry fields. Compatible exports a folderless World Info JSON for other roleplay tools."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={(format: ExportFormatChoice) => {
+          if (!lorebookId) return;
+          setExportDialogOpen(false);
+          void api.download(`/lorebooks/${lorebookId}/export?format=${format}`);
+        }}
+      />
+
       {/* Unsaved warning banner */}
       {showUnsavedWarning && (
         <div className="flex items-center gap-3 bg-amber-500/10 px-4 py-2.5 text-xs">
@@ -671,7 +690,7 @@ export function LorebookEditor() {
           {saving ? "Saving…" : "Save"}
         </button>
         <button
-          onClick={() => api.download(`/lorebooks/${lorebookId}/export`)}
+          onClick={() => setExportDialogOpen(true)}
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export lorebook"
         >
@@ -1171,7 +1190,7 @@ export function LorebookEditor() {
                               />
                               {!isCollapsed && (
                                 <div
-                                  className="ml-4 space-y-1.5 border-l-2 border-[var(--border)] pl-3"
+                                  className="ml-4 space-y-1.5 border-l border-[var(--border)] pl-3"
                                   onDragOver={(e) => handleFolderBodyDragOver(folder.id, e)}
                                   onDrop={(e) => {
                                     e.stopPropagation();
@@ -1215,6 +1234,8 @@ export function LorebookEditor() {
                                           lorebookId={lorebookId}
                                           isExpanded={expandedEntryId === entry.id}
                                           onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                                          characters={characters}
+                                          characterTags={characterTags}
                                           folders={folders}
                                           draggable={canReorderEntries}
                                           isDragging={sameContainer && draggingEntryIdx === eIdx}
@@ -1312,6 +1333,8 @@ export function LorebookEditor() {
                               lorebookId={lorebookId}
                               isExpanded={expandedEntryId === entry.id}
                               onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                              characters={characters}
+                              characterTags={characterTags}
                               folders={folders}
                               draggable={canReorderEntries}
                               isDragging={sameContainer && draggingEntryIdx === idx}
@@ -1352,6 +1375,8 @@ export function LorebookEditor() {
                         lorebookId={lorebookId}
                         isExpanded={expandedEntryId === entry.id}
                         onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                        characters={characters}
+                        characterTags={characterTags}
                         folders={folders}
                         draggable={false}
                         isDragging={false}
