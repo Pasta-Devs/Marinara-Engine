@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const ttsSourceSchema = z.enum(["openai", "elevenlabs"]);
+export const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts"]);
 export type TTSSource = z.infer<typeof ttsSourceSchema>;
 
 export const ttsDialogueScopeSchema = z.enum(["all", "character"]);

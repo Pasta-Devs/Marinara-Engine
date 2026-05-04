@@ -3,11 +3,11 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { existsSync, mkdirSync, readdirSync, unlinkSync, readFileSync, writeFileSync, renameSync } from "fs";
+import { writeFile } from "fs/promises";
 import { join, extname, basename, parse as parsePath } from "path";
-import { pipeline } from "stream/promises";
-import { createWriteStream } from "fs";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { buildAssetManifest } from "../services/game/asset-manifest.service.js";
+import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const META_PATH = join(BG_DIR, "meta.json");
@@ -41,6 +41,7 @@ function writeMeta(meta: MetaMap) {
 }
 
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
+const BACKGROUND_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 
 /** Sanitise a filename: keep alphanumeric, spaces, hyphens, underscores, dots. */
 function sanitizeFilename(name: string): string {
@@ -86,7 +87,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
   // Upload a new background (preserves original filename)
   app.post("/upload", async (req, reply) => {
     ensureDir();
-    const data = await req.file();
+    const data = await req.file({ limits: { fileSize: BACKGROUND_UPLOAD_MAX_BYTES } });
     if (!data) {
       return reply.status(400).send({ error: "No file uploaded" });
     }
@@ -99,9 +100,20 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     // Use the original filename (sanitised) instead of a UUID
     const sanitized = sanitizeFilename(basename(data.filename));
     const safeName = sanitized ? uniqueFilename(sanitized) : uniqueFilename(`background${ext}`);
-    const filePath = join(BG_DIR, safeName);
-
-    await pipeline(data.file, createWriteStream(filePath));
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
+    let buffer: Buffer;
+    try {
+      buffer = await data.toBuffer();
+    } catch (err) {
+      if ((err as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE") {
+        return reply.status(413).send({ error: "Background image is too large" });
+      }
+      throw err;
+    }
+    if (!isAllowedImageBuffer(buffer, ext)) {
+      return reply.status(400).send({ error: "Unsupported or invalid image file" });
+    }
+    await writeFile(filePath, buffer);
 
     // Store metadata
     const meta = readMeta();
@@ -127,7 +139,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = join(BG_DIR, filename);
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
     if (!existsSync(filePath)) {
       return reply.status(404).send({ error: "Not found" });
     }
@@ -166,7 +178,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = join(BG_DIR, filename);
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
     if (!existsSync(filePath)) {
       return reply.status(404).send({ error: "Not found" });
     }
@@ -189,7 +201,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     }
 
     const newFilename = uniqueFilename(desired);
-    const newPath = join(BG_DIR, newFilename);
+    const newPath = assertInsideDir(BG_DIR, join(BG_DIR, newFilename));
 
     renameSync(filePath, newPath);
 
@@ -222,7 +234,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = join(BG_DIR, filename);
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
     if (!existsSync(filePath)) {
       return reply.status(404).send({ error: "Not found" });
     }
@@ -254,7 +266,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = join(BG_DIR, filename);
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
     if (!existsSync(filePath)) {
       return reply.status(404).send({ error: "Not found" });
     }

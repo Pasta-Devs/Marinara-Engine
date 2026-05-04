@@ -273,6 +273,15 @@ export function ChatSettingsDrawer({
   const activeLorebookIds: string[] = metadata.activeLorebookIds ?? [];
   const activeAgentIds: string[] = metadata.activeAgentIds ?? [];
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
+  const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
+  const gameLorebookKeeperLorebookId =
+    typeof metadata.gameLorebookKeeperLorebookId === "string" ? metadata.gameLorebookKeeperLorebookId : null;
+  const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
+    ? ((lorebooks ?? []) as Array<{ id: string; name: string }>).find(
+        (book) => book.id === gameLorebookKeeperLorebookId,
+      )
+    : null;
+  const gameAgentFeatureCount = (metadata.enableAgents ? 1 : 0) + (gameLorebookKeeperEnabled ? 1 : 0);
   const spriteCharacterIds: string[] = Array.isArray(metadata.spriteCharacterIds) ? metadata.spriteCharacterIds : [];
   const spritePosition: "left" | "right" = metadata.spritePosition === "right" ? "right" : "left";
   const spriteScale = normalizeSpriteDisplayValue(metadata.spriteScale, 1, 0.5, 1.75);
@@ -2691,7 +2700,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Agents"
               icon={<Sparkles size="0.875rem" />}
-              count={activeAgentIds.length}
+              count={isGame ? gameAgentFeatureCount : activeAgentIds.length}
               help="When enabled, AI agents run automatically during generation to enrich the chat with world state tracking, expression detection, and more."
             >
               <div className="space-y-2">
@@ -2769,6 +2778,51 @@ export function ChatSettingsDrawer({
                         ))}
                     </select>
                   </div>
+                )}
+
+                {isGame && (
+                  <button
+                    onClick={() => {
+                      updateMeta.mutate({
+                        id: chat.id,
+                        gameLorebookKeeperEnabled: !gameLorebookKeeperEnabled,
+                      });
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      gameLorebookKeeperEnabled
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 text-xs font-medium">
+                        <BookOpen size="0.75rem" className="text-[var(--primary)]" />
+                        <span>Game Lorebook Keeper</span>
+                      </div>
+                      <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                        Updates a game-scoped lorebook after End Session finishes and attaches it only to this game.
+                      </p>
+                      {gameLorebookKeeperLorebook && (
+                        <p className="mt-0.5 truncate text-[0.55rem] text-[var(--primary)]/70">
+                          Target: {gameLorebookKeeperLorebook.name}
+                        </p>
+                      )}
+                    </div>
+                    <div
+                      className={cn(
+                        "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        gameLorebookKeeperEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          gameLorebookKeeperEnabled && "translate-x-3.5",
+                        )}
+                      />
+                    </div>
+                  </button>
                 )}
 
                 {metadata.enableAgents && !isGame && (
@@ -3875,6 +3929,39 @@ export function ChatSettingsDrawer({
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
                       metadata.translateInput && "translate-x-3.5",
+                    )}
+                  />
+                </div>
+              </button>
+
+              {/* Draft translate button toggle */}
+              <button
+                onClick={() => {
+                  updateMeta.mutate({ id: chat.id, showInputTranslateButton: !metadata.showInputTranslateButton });
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                  metadata.showInputTranslateButton
+                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="text-[0.6875rem] font-medium">Show Draft Translate Button</span>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    Add a translate button beside Send so you can translate and edit your message before sending it.
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                    metadata.showInputTranslateButton ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      metadata.showInputTranslateButton && "translate-x-3.5",
                     )}
                   />
                 </div>

@@ -1,11 +1,14 @@
 // ──────────────────────────────────────────────
 // Game: Input Bar (send message, roll dice, attach files, emoji)
 // ──────────────────────────────────────────────
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
-import { Send, Dices, Paperclip, Smile, Users, MessageCircle, MessageSquare } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
+import { Send, Dices, Paperclip, Smile, Users, MessageCircle, MessageSquare, Languages, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EmojiPicker } from "../ui/EmojiPicker";
+import { SpeechToTextButton } from "../ui/SpeechToTextButton";
 import { useUIStore } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
+import { translateDraftText } from "../../lib/draft-translation";
 import type { DiceRollResult } from "@marinara-engine/shared";
 
 interface Attachment {
@@ -69,6 +72,7 @@ export function GameInput({
   interruptMode,
 }: GameInputProps) {
   const enterToSend = useUIStore((s) => s.enterToSendGame);
+  const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const storageKey = draftKey ? `game-input-draft:${draftKey}` : null;
   const [text, setText] = useState(() => {
     if (!storageKey) return "";
@@ -83,6 +87,7 @@ export function GameInput({
   const [queuedDice, setQueuedDice] = useState<string | null>(null);
   const [rollingQueuedDice, setRollingQueuedDice] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [addressMode, setAddressMode] = useState<AddressMode>("scene");
   const [addressMenuOpen, setAddressMenuOpen] = useState(false);
@@ -92,6 +97,17 @@ export function GameInput({
   const inputBarRef = useRef<HTMLDivElement>(null);
   const addressButtonRef = useRef<HTMLButtonElement>(null);
   const addressMenuRef = useRef<HTMLDivElement>(null);
+  const activeChat = useChatStore((s) => s.activeChat);
+  const chatMetadata = useMemo(() => {
+    if (!activeChat?.metadata) return {};
+    if (typeof activeChat.metadata !== "string") return activeChat.metadata as Record<string, unknown>;
+    try {
+      return JSON.parse(activeChat.metadata) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }, [activeChat?.metadata]);
+  const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
 
   useEffect(() => {
     if (addressMode !== "party" || hasPartyMembers) return;
@@ -236,6 +252,50 @@ export function GameInput({
       requestAnimationFrame(() => {
         el.selectionStart = el.selectionEnd = start + emoji.length;
         el.focus();
+      });
+    },
+    [updateText],
+  );
+
+  const handleTranslateDraft = useCallback(async () => {
+    if (disabled || isTranslatingDraft || !text.trim()) return;
+    setIsTranslatingDraft(true);
+    try {
+      const translated = await translateDraftText(text);
+      if (!translated) return;
+      updateText(translated);
+      requestAnimationFrame(() => {
+        if (!inputRef.current) return;
+        inputRef.current.style.height = "auto";
+        inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+        inputRef.current.focus();
+      });
+    } finally {
+      setIsTranslatingDraft(false);
+    }
+  }, [disabled, isTranslatingDraft, text, updateText]);
+
+  const handleSpeechTranscript = useCallback(
+    (transcript: string) => {
+      const el = inputRef.current;
+      if (!el) return;
+      const currentText = el.value;
+      const start = el.selectionStart ?? currentText.length;
+      const end = el.selectionEnd ?? start;
+      const before = currentText.slice(0, start);
+      const after = currentText.slice(end);
+      const prefix = before && !/\s$/.test(before) ? " " : "";
+      const suffix = after && !/^\s/.test(after) ? " " : "";
+      const nextValue = `${before}${prefix}${transcript}${suffix}${after}`;
+      const nextCursor = before.length + prefix.length + transcript.length;
+
+      updateText(nextValue);
+      requestAnimationFrame(() => {
+        if (!inputRef.current) return;
+        inputRef.current.selectionStart = inputRef.current.selectionEnd = nextCursor;
+        inputRef.current.style.height = "auto";
+        inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+        inputRef.current.focus();
       });
     },
     [updateText],
@@ -530,6 +590,27 @@ export function GameInput({
             containerRef={inputBarRef}
           />
         </div>
+
+        {showDraftTranslateButton && (
+          <button
+            type="button"
+            onClick={() => void handleTranslateDraft()}
+            disabled={disabled || !text.trim() || isTranslatingDraft}
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90",
+              !disabled && text.trim() && !isTranslatingDraft
+                ? "text-[var(--foreground)]/50 hover:bg-foreground/10 hover:text-[var(--foreground)]/70"
+                : "text-[var(--muted-foreground)]/40",
+            )}
+            title="Translate draft"
+          >
+            {isTranslatingDraft ? <Loader2 size={18} className="animate-spin" /> : <Languages size={18} />}
+          </button>
+        )}
+
+        {speechToTextEnabled && (
+          <SpeechToTextButton disabled={disabled} onTranscript={handleSpeechTranscript} iconSize={18} />
+        )}
 
         <button
           type="button"

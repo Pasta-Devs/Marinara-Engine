@@ -8,8 +8,9 @@ import { execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { promisify } from "util";
-import { getMonorepoRoot } from "../config/runtime-config.js";
+import { getMonorepoRoot, isUpdatesApplyEnabled, isUpdatesRemoteApplyAllowed } from "../config/runtime-config.js";
 import { getBuildCommit, getBuildLabel } from "../config/build-info.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +22,7 @@ const GITHUB_RELEASE_BY_TAG_API = (tag: string) => `${GITHUB_API_BASE}/releases/
 const UPDATE_REMOTE = "origin";
 const UPDATE_BRANCH = "main";
 const UPDATE_REF = `${UPDATE_REMOTE}/${UPDATE_BRANCH}`;
-const DEFAULT_PNPM_VERSION = "10.30.3";
+const DEFAULT_PNPM_VERSION = "10.33.2";
 
 // ── Cached release info (15-min TTL) ──
 let cachedRelease: {
@@ -193,6 +194,21 @@ async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
       return { command: "corepack", prefixArgs: [`pnpm@${pnpmVersion}`] };
     }
   } catch {
+    // Fall through to an already-installed pnpm. Some older Corepack builds
+    // cannot resolve newer pnpm package signatures, but a user's global pnpm
+    // may still be perfectly capable of installing this workspace.
+  }
+
+  try {
+    const { stdout } = await execFileAsync("pnpm", ["--version"], {
+      cwd: root,
+      timeout: 10_000,
+      shell,
+    });
+    if (stdout.trim()) {
+      return { command: "pnpm", prefixArgs: [] };
+    }
+  } catch {
     // Fall through to npx.
   }
 
@@ -206,10 +222,12 @@ async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
       return { command: "npx", prefixArgs: ["--yes", `pnpm@${pnpmVersion}`] };
     }
   } catch {
-    // Fall through to the final error below.
+    // Fall through to the user-facing error below.
   }
 
-  throw new Error(`Could not start pnpm ${pnpmVersion} via Corepack or npx.`);
+  throw new Error(
+    `Could not start pnpm ${pnpmVersion}. Enable Corepack, install pnpm manually, or run the update manually.`,
+  );
 }
 
 async function runPinnedPnpm(root: string, args: string[], timeout: number) {
@@ -275,6 +293,15 @@ async function resolveLatestReleaseFromGitHub(signal: AbortSignal) {
   };
 }
 
+type ApplyUpdateBody = {
+  confirm?: boolean;
+  currentVersion?: string;
+  currentBuild?: string | null;
+  currentCommit?: string | null;
+  targetRef?: string;
+  targetCommit?: string;
+};
+
 export async function updatesRoutes(app: FastifyInstance) {
   // ── Check for updates ──
   // GET /api/updates/check
@@ -311,6 +338,8 @@ export async function updatesRoutes(app: FastifyInstance) {
         versionUpdate,
         commitsBehind: commitsBehind ?? 0,
         installType: gitInstall ? "git" : "standalone",
+        targetRef: UPDATE_REF,
+        targetCommit: gitInstall ? await resolveGitRef(getMonorepoRoot(), UPDATE_REF) : null,
       };
     }
 
@@ -334,6 +363,8 @@ export async function updatesRoutes(app: FastifyInstance) {
         versionUpdate,
         commitsBehind: commitsBehind ?? 0,
         installType: gitInstall ? "git" : "standalone",
+        targetRef: UPDATE_REF,
+        targetCommit: gitInstall ? await resolveGitRef(getMonorepoRoot(), UPDATE_REF) : null,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -351,7 +382,23 @@ export async function updatesRoutes(app: FastifyInstance) {
   // ── Apply update (git installs only) ──
   // POST /api/updates/apply
   // Fast-forwards to origin/main, installs, rebuilds, then signals the process to restart.
-  app.post("/apply", async (_req, reply) => {
+  app.post<{ Body: ApplyUpdateBody }>("/apply", async (req, reply) => {
+    if (!isUpdatesApplyEnabled()) {
+      return reply.status(403).send({
+        error: "Auto-update apply is disabled",
+        message: "Set UPDATES_APPLY_ENABLED=true to enable server-side update application.",
+      });
+    }
+
+    if (
+      !requirePrivilegedAccess(req, reply, {
+        feature: "Update apply",
+        loopbackOnly: !isUpdatesRemoteApplyAllowed(),
+      })
+    ) {
+      return;
+    }
+
     if (!isGitInstall()) {
       return reply.status(400).send({
         error:
@@ -363,6 +410,21 @@ export async function updatesRoutes(app: FastifyInstance) {
     const root = getMonorepoRoot();
 
     try {
+      const body = req.body ?? {};
+      if (body.confirm !== true) {
+        return reply.status(400).send({ error: "Must send { confirm: true } to apply an update" });
+      }
+      if (body.currentVersion !== APP_VERSION) {
+        return reply.status(409).send({ error: "Current version confirmation does not match the running server" });
+      }
+      const buildCommit = getBuildCommit();
+      if (buildCommit && body.currentCommit && body.currentCommit !== buildCommit) {
+        return reply.status(409).send({ error: "Current commit confirmation does not match the running server" });
+      }
+      if (body.targetRef && body.targetRef !== UPDATE_REF) {
+        return reply.status(400).send({ error: `Update target ref must be ${UPDATE_REF}` });
+      }
+
       const currentBranch = await getCurrentBranch(root);
       const oldHead = await resolveGitRef(root, "HEAD");
       if (!oldHead) {
@@ -373,6 +435,12 @@ export async function updatesRoutes(app: FastifyInstance) {
       const targetHead = await resolveGitRef(root, UPDATE_REF);
       if (!targetHead) {
         throw new Error(`Could not resolve ${UPDATE_REF}.`);
+      }
+      if (!body.targetCommit || body.targetCommit !== targetHead) {
+        return reply.status(409).send({
+          error: "Update target commit confirmation does not match the latest checked target",
+          expectedTargetCommit: targetHead,
+        });
       }
 
       // Step 0: stash local tracked changes so the fast-forward does not fail.
@@ -466,7 +534,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       const pnpmVersion = getPinnedPnpmVersion(root);
       return reply.status(500).send({
         error: `Update failed: ${message}`,
-        hint: `You can try running the update manually: git fetch ${UPDATE_REMOTE} ${UPDATE_BRANCH} && git merge --ff-only ${UPDATE_REF} && npx --yes pnpm@${pnpmVersion} install --frozen-lockfile && npx --yes pnpm@${pnpmVersion} --filter @marinara-engine/shared build && npx --yes pnpm@${pnpmVersion} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build`,
+        hint: `You can try running the update manually: git fetch ${UPDATE_REMOTE} ${UPDATE_BRANCH} && git merge --ff-only ${UPDATE_REF} && pnpm install --frozen-lockfile && pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build. If pnpm is unavailable, run npm install -g pnpm@${pnpmVersion} first.`,
       });
     }
   });

@@ -49,6 +49,7 @@ import {
 } from "../../hooks/use-characters";
 import { useQueryClient } from "@tanstack/react-query";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 // ── Tabs ──
 const TABS = [
@@ -118,6 +119,7 @@ export function PersonaEditor() {
   const [formData, setFormData] = useState<PersonaFormData | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const loadedPersonaIdRef = useRef<string | null>(null);
   const latestAvatarUploadTokenRef = useRef<string | null>(null);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
@@ -267,6 +269,19 @@ export function PersonaEditor() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Persona"
+        description="Native keeps Marinara persona metadata. Compatible exports simple persona JSON for other tools."
+        compatibleDescription="Exports persona fields directly without the Marinara wrapper."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={(format: ExportFormatChoice) => {
+          if (!personaId) return;
+          setExportDialogOpen(false);
+          void api.download(`/characters/personas/${personaId}/export?format=${format}`);
+        }}
+      />
+
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
         <button
@@ -314,7 +329,7 @@ export function PersonaEditor() {
 
         {/* Export */}
         <button
-          onClick={() => api.download(`/characters/personas/${personaId}/export`)}
+          onClick={() => setExportDialogOpen(true)}
           className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export persona"
         >

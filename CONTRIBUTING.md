@@ -16,7 +16,7 @@ This is the canonical contributor guide for Marinara Engine. Use it with `README
 
 Prerequisites:
 
-- Node.js 20+
+- Node.js 24 LTS+
 - Git
 - pnpm via the repo-pinned `packageManager` if you are not using the launchers
 

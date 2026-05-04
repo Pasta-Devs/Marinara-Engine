@@ -12,7 +12,7 @@ import {
   resolveMacros,
   summariesPatchSchema,
 } from "@marinara-engine/shared";
-import type { ChatMemoryChunk } from "@marinara-engine/shared";
+import type { CharacterData, ChatMemoryChunk } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -32,6 +32,33 @@ import { parseExtra } from "./generate/generate-route-utils.js";
 
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
+
+  const clearConversationScheduleState = async (chat: Awaited<ReturnType<typeof storage.getById>>) => {
+    if (!chat) return;
+    const characterIds: string[] =
+      typeof chat.characterIds === "string"
+        ? JSON.parse(chat.characterIds)
+        : Array.isArray(chat.characterIds)
+          ? chat.characterIds
+          : [];
+    if (characterIds.length === 0) return;
+
+    const characterStorage = createCharactersStorage(app.db);
+    for (const characterId of characterIds) {
+      const row = await characterStorage.getById(characterId);
+      if (!row) continue;
+      const data = JSON.parse(row.data as string) as CharacterData;
+      const currentExtensions = (data.extensions ?? {}) as Record<string, unknown>;
+      if (currentExtensions.conversationStatus === "online" && currentExtensions.conversationActivity == null) {
+        continue;
+      }
+      const extensions: Record<string, unknown> = { ...currentExtensions, conversationStatus: "online" };
+      delete extensions.conversationActivity;
+      await characterStorage.update(characterId, { extensions } as Partial<CharacterData>, undefined, {
+        skipVersionSnapshot: true,
+      });
+    }
+  };
 
   // List all chats
   app.get("/", async () => {
@@ -116,6 +143,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       incoming.discordWebhookUrl = url;
     }
     const merged = { ...existing, ...incoming };
+    if (incoming.conversationSchedulesEnabled === false) {
+      delete merged.characterSchedules;
+      delete merged.scheduleWeekStart;
+      await clearConversationScheduleState(chat);
+    }
     return storage.updateMetadata(req.params.id, merged);
   });
 

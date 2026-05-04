@@ -43,6 +43,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 type PersonaRow = {
   id: string;
@@ -92,6 +93,7 @@ export function PersonasPanel() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Groups state
   const [groupsExpanded, setGroupsExpanded] = useState(true);
@@ -283,22 +285,26 @@ export function PersonasPanel() {
     });
   }, []);
 
-  const handleExportSelected = useCallback(async () => {
-    if (selectedPersonaIds.size === 0) return;
-    setExportingSelected(true);
-    try {
-      await api.downloadPost(
-        "/characters/personas/export-bulk",
-        { ids: [...selectedPersonaIds] },
-        "marinara-personas.zip",
-      );
-      toast.success(`Exported ${selectedPersonaIds.size} persona${selectedPersonaIds.size === 1 ? "" : "s"}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export personas");
-    } finally {
-      setExportingSelected(false);
-    }
-  }, [selectedPersonaIds]);
+  const handleExportSelected = useCallback(
+    async (format: ExportFormatChoice) => {
+      if (selectedPersonaIds.size === 0) return;
+      setExportingSelected(true);
+      setExportDialogOpen(false);
+      try {
+        await api.downloadPost(
+          "/characters/personas/export-bulk",
+          { ids: [...selectedPersonaIds], format },
+          format === "compatible" ? "compatible-personas.zip" : "marinara-personas.zip",
+        );
+        toast.success(`Exported ${selectedPersonaIds.size} persona${selectedPersonaIds.size === 1 ? "" : "s"}`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to export personas");
+      } finally {
+        setExportingSelected(false);
+      }
+    },
+    [selectedPersonaIds],
+  );
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -491,7 +497,7 @@ export function PersonasPanel() {
             Clear
           </button>
           <button
-            onClick={handleExportSelected}
+            onClick={() => setExportDialogOpen(true)}
             disabled={selectedPersonaIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
@@ -506,6 +512,15 @@ export function PersonasPanel() {
           </button>
         </div>
       )}
+
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Personas"
+        description="Native keeps Marinara persona metadata. Compatible exports simple persona JSON for other tools."
+        compatibleDescription="Exports persona fields directly without the Marinara wrapper."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={handleExportSelected}
+      />
 
       {/* Hidden file input for avatar uploads */}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />

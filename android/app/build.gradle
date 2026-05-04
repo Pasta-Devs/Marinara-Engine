@@ -3,6 +3,12 @@ plugins {
 }
 
 def marinaraPort = (project.findProperty("marinaraPort") ?: "7860").toString()
+def releaseKeystorePath = System.getenv("ANDROID_SIGNING_KEYSTORE")
+def releaseKeystorePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
+def releaseKeystoreType = System.getenv("ANDROID_SIGNING_STORE_TYPE") ?: "pkcs12"
+def releaseKeyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("ANDROID_SIGNING_KEY_PASSWORD")
+def hasReleaseSigning = releaseKeystorePath && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword
 
 android {
     namespace 'com.marinara.engine'
@@ -16,14 +22,27 @@ android {
         applicationId "com.marinara.engine"
         minSdk 24
         targetSdk 34
-        versionCode 12
+        versionCode 14
         versionName "1.5.7"
         buildConfigField "String", "MARINARA_SERVER_URL", "\"http://127.0.0.1:${marinaraPort}\""
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                storeType releaseKeystoreType
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
         }
         debug {

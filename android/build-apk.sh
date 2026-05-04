@@ -64,13 +64,13 @@ fi
 
 if [ "$BUILD_TYPE" = "release" ]; then
     $GRADLE_CMD "${GRADLE_ARGS[@]}" assembleRelease
-    APK_PATH="app/build/outputs/apk/release/app-release-unsigned.apk"
+    APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
 else
     $GRADLE_CMD "${GRADLE_ARGS[@]}" assembleDebug
     APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
 fi
 
-if [ -f "$APK_PATH" ]; then
+if [ -n "${APK_PATH:-}" ] && [ -f "$APK_PATH" ]; then
     SIZE=$(du -h "$APK_PATH" | cut -f1)
     echo ""
     echo "✓ APK built successfully ($SIZE)"

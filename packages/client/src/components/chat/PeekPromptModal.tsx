@@ -378,7 +378,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
     const pills: Array<{ label: string; value: string }> = [];
     if (gen) {
       if (gen.temperature != null) pills.push({ label: "Temperature", value: String(gen.temperature) });
-      if (gen.maxTokens != null) pills.push({ label: "Max Tokens", value: fmtTokens(gen.maxTokens) });
+      if (gen.maxTokens != null) pills.push({ label: "Max Output Tokens", value: fmtTokens(gen.maxTokens) });
       if (gen.showThoughts) pills.push({ label: "Thinking", value: "On" });
       if (gen.reasoningEffort) pills.push({ label: "Reasoning", value: gen.reasoningEffort });
       if (gen.verbosity) pills.push({ label: "Verbosity", value: gen.verbosity });
@@ -388,7 +388,8 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
       if (params.topP != null && params.topP !== 1) pills.push({ label: "Top P", value: String(params.topP) });
       if (params.topK != null && params.topK !== 0) pills.push({ label: "Top K", value: String(params.topK) });
       if (params.minP != null && params.minP !== 0) pills.push({ label: "Min P", value: String(params.minP) });
-      if (params.maxTokens != null) pills.push({ label: "Max Tokens", value: fmtTokens(params.maxTokens as number) });
+      if (params.maxTokens != null)
+        pills.push({ label: "Max Output Tokens", value: fmtTokens(params.maxTokens as number) });
       if (params.frequencyPenalty != null && params.frequencyPenalty !== 0)
         pills.push({ label: "Freq Penalty", value: String(params.frequencyPenalty) });
       if (params.presencePenalty != null && params.presencePenalty !== 0)

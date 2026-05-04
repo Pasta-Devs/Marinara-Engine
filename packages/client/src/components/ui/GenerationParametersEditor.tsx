@@ -132,7 +132,7 @@ export function GenerationParametersFields({
           step={0.05}
         />
         <ParamInput
-          label="Max Tokens"
+          label="Max Output Tokens"
           help="The maximum number of tokens the model can generate in a single response. Higher values allow longer replies."
           value={value.maxTokens}
           onChange={(nextValue) => set("maxTokens", nextValue)}

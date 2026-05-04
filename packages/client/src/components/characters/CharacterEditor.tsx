@@ -76,6 +76,7 @@ import { api } from "../../lib/api-client";
 import { ColorPicker } from "../ui/ColorPicker";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { Modal } from "../ui/Modal";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import type { CharacterCardVersion, CharacterData, RPGStatsConfig } from "@marinara-engine/shared";
 
 // ── Tabs ──
@@ -126,6 +127,7 @@ export function CharacterEditor() {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
   const [saving, setSaving] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -358,11 +360,7 @@ export function CharacterEditor() {
         {formData.extensions.fav ? <Star size="1rem" fill="currentColor" /> : <StarOff size="1rem" />}
       </button>
 
-      <button
-        onClick={() => api.download(`/characters/${characterId}/export`)}
-        className={headerActionButtonClass}
-        title="Export character"
-      >
+      <button onClick={() => setExportDialogOpen(true)} className={headerActionButtonClass} title="Export character">
         <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M10 13V3m0 0l-4 4m4-4l4 4"
@@ -423,6 +421,19 @@ export function CharacterEditor() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Character"
+        description="Native keeps Marinara metadata. Compatible exports direct Chara Card V2 JSON for other platforms."
+        compatibleDescription="Exports direct Chara Card V2 JSON without the Marinara wrapper."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={(format: ExportFormatChoice) => {
+          if (!characterId) return;
+          setExportDialogOpen(false);
+          void api.download(`/characters/${characterId}/export?format=${format}`);
+        }}
+      />
+
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
         <div className="flex min-w-0 flex-1 items-center gap-3 max-md:min-w-full">

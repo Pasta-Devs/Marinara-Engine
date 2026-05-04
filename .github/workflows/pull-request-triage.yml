@@ -17,7 +17,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Label by title or branch
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const labels = {
@@ -62,7 +62,7 @@ jobs:
               });
             }
       - name: Label by path
-        uses: actions/labeler@v5
+        uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6.0.1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml

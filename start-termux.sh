@@ -22,7 +22,7 @@ for pkg_name in git; do
 done
 
 # ── Fix platform detection for native binaries ──
-# Node.js 22+ on Termux reports process.platform = "android", but Termux uses
+# Node.js 24+ on Termux reports process.platform = "android", but Termux uses
 # the Linux kernel and Linux ARM64 native binaries work perfectly. Tell pnpm to
 # install both android AND linux optional dependencies so build tools like
 # rollup, lightningcss, and tailwindcss oxide resolve correctly.
@@ -65,13 +65,24 @@ fi
 
 echo "  [OK] Node.js $(node -v) found"
 
-if [ "$NODE_VERSION" -lt 20 ]; then
-    echo "  [WARN] Node.js 20+ is recommended. You have v${NODE_VERSION}."
-    echo "         Run:  pkg upgrade nodejs-lts"
+if [ "$NODE_VERSION" -lt 24 ]; then
+    echo "  [..] Node.js 24 LTS or newer is required. You have v${NODE_VERSION}; upgrading nodejs-lts..."
+    pkg upgrade -y nodejs-lts || pkg install -y nodejs-lts
+    if ! NODE_VERSION=$(node -v 2>/dev/null | cut -d'.' -f1 | tr -d 'v'); then
+        echo "  [ERR] Node.js is still not working after upgrade."
+        echo "        Try:  pkg upgrade && pkg install nodejs-lts"
+        exit 1
+    fi
+    if [ -z "$NODE_VERSION" ] || [ "$NODE_VERSION" -lt 24 ]; then
+        echo "  [ERR] Node.js 24 LTS or newer is required. Current version: $(node -v 2>/dev/null || echo unknown)"
+        echo "        Try:  pkg upgrade && pkg install nodejs-lts"
+        exit 1
+    fi
+    echo "  [OK] Node.js $(node -v) ready"
 fi
 
 # ── Check pnpm ──
-PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.30.3'")
+PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'")
 PNPM_RUNNER="pnpm"
 
 run_pnpm() {
@@ -94,8 +105,8 @@ fi
 
 if [ "$PNPM_RUNNER" = "pnpm" ]; then
     CURRENT_PNPM_VERSION=$(pnpm --version 2>/dev/null || true)
-    if [ "$CURRENT_PNPM_VERSION" != "$PNPM_VERSION" ]; then
-        CURRENT_PNPM_VERSION=""
+    if [ -n "$CURRENT_PNPM_VERSION" ]; then
+        echo "  [..] Using installed pnpm ${CURRENT_PNPM_VERSION}"
     fi
 fi
 
@@ -107,7 +118,7 @@ if [ -z "$CURRENT_PNPM_VERSION" ]; then
     fi
 fi
 
-if [ -z "$CURRENT_PNPM_VERSION" ] || [ "$CURRENT_PNPM_VERSION" != "$PNPM_VERSION" ]; then
+if [ -z "$CURRENT_PNPM_VERSION" ]; then
     echo "  [ERROR] Failed to make pnpm ${PNPM_VERSION} available."
     exit 1
 fi

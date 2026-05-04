@@ -15,3 +15,13 @@ export const logger = pino({
   level: getLogLevel(),
   transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
 });
+
+export function logDebugOverride(overrideEnabled: boolean, message: string, ...args: any[]) {
+  if (overrideEnabled && !logger.isLevelEnabled("debug")) {
+    // Default LOG_LEVEL is warn, so explicit UI debug mode must log at warn to be visible.
+    logger.warn(message, ...args);
+    return;
+  }
+
+  logger.debug(message, ...args);
+}

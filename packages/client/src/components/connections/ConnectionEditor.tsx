@@ -1311,10 +1311,10 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
-          {/* ── Max Tokens Override ── */}
+          {/* ── Max Output Tokens Override ── */}
           {localProvider !== "image_generation" && localProvider !== "claude_subscription" && (
             <FieldGroup
-              label="Max Tokens Override"
+              label="Max Output Tokens Override"
               icon={<Zap size="0.875rem" className="text-amber-400" />}
               help="Hard cap on max_tokens for the API response (limiting output size). Use this for providers that enforce a lower limit than what the engine calculates (e.g. DeepSeek caps at 8192). Leave empty to let the engine decide."
             >

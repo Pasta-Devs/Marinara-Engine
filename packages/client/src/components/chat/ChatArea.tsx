@@ -1055,9 +1055,9 @@ export function ChatArea() {
       <>
         <div
           data-component="ChatArea.EmptyState"
-          className="flex flex-1 flex-col items-center overflow-y-auto p-4 sm:p-8"
+          className="flex flex-1 flex-col items-center overflow-y-auto p-3 sm:p-5 lg:p-6"
         >
-          <div className="flex w-full max-w-md flex-col items-center gap-4 sm:gap-6 my-auto py-4">
+          <div className="flex w-full max-w-2xl flex-col items-center gap-3 py-2 sm:gap-4 sm:py-3 lg:pt-4 lg:pb-5">
             {/* Central hero */}
             <div className="relative">
               <div
@@ -1069,7 +1069,13 @@ export function ChatArea() {
                 <img
                   src={showEmptyStateEffects ? "/logo-splash.gif" : "/logo.png"}
                   alt="Marinara Engine"
-                  className="h-full w-full object-cover"
+                  width={80}
+                  height={80}
+                  decoding="async"
+                  className={cn(
+                    "h-full w-full",
+                    showEmptyStateEffects ? "object-cover" : "object-contain p-1.5 sm:p-2",
+                  )}
                 />
               </div>
             </div>
@@ -1126,40 +1132,42 @@ export function ChatArea() {
             />
 
             {/* Footer */}
-            <div className="mt-2 flex flex-col items-center gap-3">
-              <p className="text-xs text-[var(--muted-foreground)]/60">
-                Created by{" "}
-                <a
-                  href="https://spicymarinara.github.io/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline decoration-[var(--muted-foreground)]/30 hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40 transition-colors"
-                >
-                  Marinara
-                </a>
-              </p>
-              <p className="text-[0.625rem] text-[var(--muted-foreground)]/50">
-                Partnered with{" "}
-                <a
-                  href="https://linkapi.ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline decoration-[var(--muted-foreground)]/30 hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40 transition-colors"
-                >
-                  LinkAPI
-                </a>
-              </p>
-              <p className="text-[0.625rem] text-[var(--muted-foreground)]/50">
-                Art and logo by{" "}
-                <a
-                  href="https://huntercolliex.carrd.co/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline decoration-[var(--muted-foreground)]/30 hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40 transition-colors"
-                >
-                  Huntercolliex
-                </a>
-              </p>
+            <div className="flex w-full max-w-2xl flex-col items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight text-[var(--muted-foreground)]/55 sm:text-xs">
+                <span>
+                  Created by{" "}
+                  <a
+                    href="https://spicymarinara.github.io/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                  >
+                    Marinara
+                  </a>
+                </span>
+                <span>
+                  Partnered with{" "}
+                  <a
+                    href="https://linkapi.ai/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                  >
+                    LinkAPI
+                  </a>
+                </span>
+                <span>
+                  Art and logo by{" "}
+                  <a
+                    href="https://huntercolliex.carrd.co/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                  >
+                    Huntercolliex
+                  </a>
+                </span>
+              </div>
               <div className="flex gap-2">
                 <a
                   href="https://discord.com/invite/KdAkTg94ME"
@@ -1186,7 +1194,7 @@ export function ChatArea() {
               </div>
 
               {/* Special thanks */}
-              <p className="mt-1 max-w-xs text-center text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/40">
+              <p className="max-w-[42rem] px-1 text-center text-[0.625rem] leading-snug text-[var(--muted-foreground)]/40 sm:max-w-[46rem]">
                 Special thanks to Jorge, Cha1latte, Javedz678, Teuku, Shadota, Romu, Mm14141, MagicGoddess, John,
                 Pwildani, Romu, Felor, MuniMuni, Guybrush01, Joshellis625, LukaTheHero, Coxde, JorgeLTE, Seele The Seal
                 King, Loungemeister, Kale, Tabris, GREGOR OVECH, Coins, Tacoman, Jorge, Promansis, Kitsumiro, Sheep,
@@ -1197,14 +1205,14 @@ export function ChatArea() {
               {/* Restart tutorial */}
               <button
                 onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
-                className="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]/40 transition-colors hover:text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)]/40 transition-colors hover:bg-[var(--secondary)]/60 hover:text-[var(--muted-foreground)]"
                 title="Replay tutorial"
               >
                 <HelpCircle size="0.75rem" />
                 Replay Tutorial
               </button>
 
-              <p className="mt-2 text-[0.625rem] tracking-wide text-[var(--muted-foreground)]/30">v{APP_VERSION}</p>
+              <p className="text-[0.625rem] tracking-wide text-[var(--muted-foreground)]/30">v{APP_VERSION}</p>
             </div>
           </div>
         </div>

@@ -2,16 +2,17 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
-import { createClient } from "@libsql/client";
 import { and, eq } from "drizzle-orm";
 import { characterCardVersions, characters, chats, lorebookFolders, lorebooks } from "../src/db/schema/index.js";
 import { createFileNativeDB } from "../src/db/file-backed-store.js";
 
 async function writeLegacyDb(path: string, rows: Array<{ id: string; name: string; updatedAt: string }>) {
-  const db = createClient({ url: `file:${path}` });
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(path);
   try {
-    await db.execute(`CREATE TABLE chats (
+    db.exec(`CREATE TABLE chats (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     mode TEXT NOT NULL,
@@ -21,13 +22,11 @@ async function writeLegacyDb(path: string, rows: Array<{ id: string; name: strin
     updated_at TEXT NOT NULL
   )`);
 
+    const insert = db.prepare(`INSERT INTO chats
+      (id, name, mode, character_ids, metadata, created_at, updated_at)
+      VALUES (?, ?, 'roleplay', '[]', '{}', ?, ?)`);
     for (const row of rows) {
-      await db.execute({
-        sql: `INSERT INTO chats
-          (id, name, mode, character_ids, metadata, created_at, updated_at)
-          VALUES (?, ?, 'roleplay', '[]', '{}', ?, ?)`,
-        args: [row.id, row.name, row.updatedAt, row.updatedAt],
-      });
+      insert.run(row.id, row.name, row.updatedAt, row.updatedAt);
     }
   } finally {
     db.close();
@@ -58,6 +57,24 @@ function withEnv<T>(name: string, value: string, fn: () => Promise<T>) {
   });
 }
 
+async function removeTempDir(path: string) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (!["EBUSY", "ENOTEMPTY", "EPERM"].includes(code ?? "")) {
+        throw err;
+      }
+      if (attempt === 7) {
+        throw err;
+      }
+      await delay(50 * (attempt + 1));
+    }
+  }
+}
+
 test("file-native import merges chats from every known legacy database source", async () => {
   const root = mkdtempSync(join(tmpdir(), "marinara-file-import-"));
   try {
@@ -71,17 +88,19 @@ test("file-native import merges chats from every known legacy database source", 
       { id: "chat-regression", name: "Regression DB Chat", updatedAt: "2026-05-02T00:00:00.000Z" },
     ]);
 
-    await withFileStorageDir(storageDir, async () => {
-      const db = await createFileNativeDB([firstDb, secondDb]);
-      try {
-        const rows = await db.select().from(chats);
-        assert.deepEqual(rows.map((row) => row.id).sort(), ["chat-default", "chat-regression"]);
-      } finally {
-        await db._fileStore.close();
-      }
-    });
+    await withEnv("MARINARA_DISABLE_LIBSQL_LEGACY_READER", "true", () =>
+      withFileStorageDir(storageDir, async () => {
+        const db = await createFileNativeDB([firstDb, secondDb]);
+        try {
+          const rows = await db.select().from(chats);
+          assert.deepEqual(rows.map((row) => row.id).sort(), ["chat-default", "chat-regression"]);
+        } finally {
+          await db._fileStore.close();
+        }
+      }),
+    );
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -109,7 +128,7 @@ test("file-native import falls back to node:sqlite when libSQL is unavailable", 
       }),
     );
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -138,23 +157,25 @@ test("file-native storage repairs existing snapshots that missed legacy chats", 
       { id: "recovered-chat", name: "Recovered Chat", updatedAt: "2026-05-03T00:00:00.000Z" },
     ]);
 
-    await withFileStorageDir(storageDir, async () => {
-      const db = await createFileNativeDB([legacyDb]);
-      try {
-        const rows = await db.select().from(chats);
-        assert.equal(
-          rows.some((row) => row.id === "recovered-chat"),
-          true,
-        );
-      } finally {
-        await db._fileStore.close();
-      }
-    });
+    await withEnv("MARINARA_DISABLE_LIBSQL_LEGACY_READER", "true", () =>
+      withFileStorageDir(storageDir, async () => {
+        const db = await createFileNativeDB([legacyDb]);
+        try {
+          const rows = await db.select().from(chats);
+          assert.equal(
+            rows.some((row) => row.id === "recovered-chat"),
+            true,
+          );
+        } finally {
+          await db._fileStore.close();
+        }
+      }),
+    );
 
     const manifest = JSON.parse(readFileSync(join(storageDir, "manifest.json"), "utf8"));
     assert.equal(manifest.legacyRepair.tables.chats, 1);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -188,23 +209,25 @@ test("file-native storage retries old empty repair markers from unavailable read
       { id: "retry-recovered-chat", name: "Retry Recovered Chat", updatedAt: "2026-05-03T00:00:00.000Z" },
     ]);
 
-    await withFileStorageDir(storageDir, async () => {
-      const db = await createFileNativeDB([legacyDb]);
-      try {
-        const rows = await db.select().from(chats);
-        assert.equal(
-          rows.some((row) => row.id === "retry-recovered-chat"),
-          true,
-        );
-      } finally {
-        await db._fileStore.close();
-      }
-    });
+    await withEnv("MARINARA_DISABLE_LIBSQL_LEGACY_READER", "true", () =>
+      withFileStorageDir(storageDir, async () => {
+        const db = await createFileNativeDB([legacyDb]);
+        try {
+          const rows = await db.select().from(chats);
+          assert.equal(
+            rows.some((row) => row.id === "retry-recovered-chat"),
+            true,
+          );
+        } finally {
+          await db._fileStore.close();
+        }
+      }),
+    );
 
     const manifest = JSON.parse(readFileSync(join(storageDir, "manifest.json"), "utf8"));
     assert.equal(manifest.legacyRepair.tables.chats, 1);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -262,7 +285,7 @@ test("file-native storage supports lorebook folders", async () => {
     const folderRows = JSON.parse(readFileSync(join(storageDir, "tables", "lorebook_folders.json"), "utf8"));
     assert.deepEqual(folderRows, []);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -313,6 +336,6 @@ test("file-native storage deletes only the requested character card version", as
       }
     });
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });

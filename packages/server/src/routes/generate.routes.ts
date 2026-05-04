@@ -20,6 +20,7 @@ import type {
   APIProvider,
   CharacterStat,
   GameState,
+  HapticDeviceCommand,
   PlayerStats,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -34,10 +35,12 @@ import { createRegexScriptsStorage } from "../services/storage/regex-scripts.sto
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { loadPrompt, CONVERSATION_SELFIE } from "../services/prompt-overrides/index.js";
 import { processLorebooks } from "../services/lorebook/index.js";
+import { lorebookEntryPassesContextFilters } from "../services/lorebook/keyword-scanner.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
+import { decryptApiKey, encryptApiKey } from "../utils/crypto.js";
 import { extractLeadingThinkingBlocks } from "../services/llm/inline-thinking.js";
 import {
   assemblePrompt,
@@ -75,6 +78,7 @@ import {
   type CreateCharacterCommand,
   type UpdateCharacterCommand,
   type UpdatePersonaCommand,
+  type CreateLorebookCommand,
   type CreateChatCommand,
   type NavigateCommand,
   type FetchCommand,
@@ -109,7 +113,7 @@ import {
   wrapFields,
   type SimpleMessage,
 } from "./generate/generate-route-utils.js";
-import { logger } from "../lib/logger.js";
+import { logger, logDebugOverride } from "../lib/logger.js";
 import {
   buildHistoricalLorebookKeeperContext,
   getLorebookKeeperAutomaticPendingCount,
@@ -150,6 +154,22 @@ import { getMoraleTier, formatMoraleContext } from "../services/game/morale.serv
 import type { GameMap, GameNpc, LorebookEntry } from "@marinara-engine/shared";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 
+function isEncryptedToken(value: string): boolean {
+  const parts = value.split(":");
+  return (
+    parts.length === 3 &&
+    parts.every((part) => /^[0-9a-f]+$/i.test(part)) &&
+    parts[0]?.length === 24 &&
+    parts[2]?.length === 32
+  );
+}
+
+function decryptStoredToken(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  const decrypted = decryptApiKey(value);
+  return decrypted || (isEncryptedToken(value) ? null : value);
+}
+
 function bumpCharacterVersion(value: unknown): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "1.1";
@@ -175,6 +195,72 @@ function getEnabledConversationSchedules(meta: Record<string, any>): Record<stri
   return areConversationSchedulesEnabled(meta) && hasConversationSchedules(meta.characterSchedules)
     ? meta.characterSchedules
     : {};
+}
+
+function normalizeHapticAgentAction(action: unknown): HapticDeviceCommand["action"] | null {
+  if (typeof action !== "string") return null;
+  const key = action
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  if (key === "positionwithduration" || key === "hwpositionwithduration" || key === "linear") return "position";
+  if (key === "vibrate") return "vibrate";
+  if (key === "rotate") return "rotate";
+  if (key === "oscillate") return "oscillate";
+  if (key === "constrict") return "constrict";
+  if (key === "inflate") return "inflate";
+  if (key === "position") return "position";
+  if (key === "stop") return "stop";
+  return null;
+}
+
+function normalizeHapticAgentNumber(value: unknown): number | undefined {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function normalizeHapticAgentDeviceIndex(value: unknown): HapticDeviceCommand["deviceIndex"] {
+  if (value === "all" || value === undefined || value === null) return "all";
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(numeric) && numeric >= 0 ? numeric : "all";
+}
+
+function normalizeHapticAgentCommand(command: Record<string, unknown>): HapticDeviceCommand | null {
+  const action = normalizeHapticAgentAction(command.action);
+  if (!action) return null;
+
+  return {
+    deviceIndex: normalizeHapticAgentDeviceIndex(command.deviceIndex),
+    action,
+    intensity: normalizeHapticAgentNumber(command.intensity),
+    duration: normalizeHapticAgentNumber(command.duration),
+  };
+}
+
+const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›]*$/;
+const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›]+)?(?=\s|$)/g;
+
+function trimIncompleteModelEnding(content: string): string {
+  const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";
+  const body = content.trimEnd();
+  if (!body || COMPLETE_OUTPUT_END_RE.test(body)) return content;
+
+  let lastCompleteEnd = -1;
+  for (const match of body.matchAll(COMPLETE_SENTENCE_RE)) {
+    lastCompleteEnd = (match.index ?? 0) + match[0].length;
+  }
+  if (lastCompleteEnd <= 0) return content;
+
+  const tail = body.slice(lastCompleteEnd).trim();
+  if (!tail) return content;
+
+  const tailWithoutCommands = tail
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .trim();
+  if (!tailWithoutCommands) return content;
+
+  return body.slice(0, lastCompleteEnd).trimEnd() + trailingWhitespace;
 }
 
 function getHiddenCompletionTokens(usage: LLMUsage | undefined): number | undefined {
@@ -210,6 +296,28 @@ function prefixConversationUserTurn(content: string, personaName: string): strin
 
 function formatConversationPromptTurn(content: string, role: string, personaName: string): string {
   return role === "user" ? prefixConversationUserTurn(content, personaName) : content.trim();
+}
+
+function resolveLorebookGenerationTriggers(
+  input: { impersonate?: boolean; regenerateMessageId?: string | null; userMessage?: string | null },
+  chatMode: string,
+): string[] {
+  const triggers = new Set<string>();
+  triggers.add(chatMode === "game" ? "game" : chatMode);
+
+  if (input.impersonate) {
+    triggers.add("impersonate");
+  } else if (input.regenerateMessageId) {
+    triggers.add("swipe");
+    triggers.add("regenerate");
+  } else if (!input.userMessage?.trim()) {
+    triggers.add("continue");
+    triggers.add("autonomous");
+  } else {
+    triggers.add("chat");
+  }
+
+  return Array.from(triggers);
 }
 
 function normalizePartyLookupName(value: string): string {
@@ -442,11 +550,7 @@ export async function generateRoutes(app: FastifyInstance) {
     const input = generateRequestSchema.parse(req.body);
     const requestDebug = input.debugMode === true;
     const debugLog = (message: string, ...args: any[]) => {
-      if (requestDebug) {
-        console.log(message, ...args);
-      } else {
-        app.log.debug(message, ...args);
-      }
+      logDebugOverride(requestDebug, message, ...args);
     };
 
     // Resolve the chat
@@ -585,6 +689,7 @@ export async function generateRoutes(app: FastifyInstance) {
       const allChatMessages = await chats.listMessages(input.chatId);
       const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
       const chatMode = requestChatMode;
+      const lorebookGenerationTriggers = resolveLorebookGenerationTriggers(input, chatMode);
       const supportsHiddenFromAI = chatMode === "roleplay" || chatMode === "visual_novel";
 
       // ── Conversation-start filter: find the latest "isConversationStart" marker ──
@@ -941,6 +1046,7 @@ export async function generateRoutes(app: FastifyInstance) {
             entryStateOverrides:
               (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
               undefined,
+            generationTriggers: lorebookGenerationTriggers,
             groupScenarioOverrideText:
               typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
                 ? (chatMeta.groupScenarioText as string).trim()
@@ -2004,6 +2110,7 @@ export async function generateRoutes(app: FastifyInstance) {
             entryStateOverrides:
               (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
               undefined,
+            generationTriggers: lorebookGenerationTriggers,
           });
 
           // Persist updated per-chat entry state overrides (ephemeral countdown)
@@ -2057,6 +2164,7 @@ export async function generateRoutes(app: FastifyInstance) {
           entryStateOverrides:
             (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
             undefined,
+          generationTriggers: lorebookGenerationTriggers,
         });
 
         if (lorebookResult.updatedEntryStateOverrides) {
@@ -2492,6 +2600,7 @@ export async function generateRoutes(app: FastifyInstance) {
         mesExample: string;
         firstMes: string;
         postHistoryInstructions: string;
+        tags: string[];
         talkativeness: number;
         avatarPath: string | null;
       }> = [];
@@ -2517,6 +2626,7 @@ export async function generateRoutes(app: FastifyInstance) {
             mesExample: charData.mes_example ?? "",
             firstMes: charData.first_mes ?? "",
             postHistoryInstructions: charData.post_history_instructions ?? "",
+            tags: Array.isArray(charData.tags) ? charData.tags.map(String).filter(Boolean) : [],
             talkativeness: Math.max(0, Math.min(1, Number(charData.extensions?.talkativeness ?? 0.5))),
             avatarPath: (charRow.avatarPath as string) ?? null,
           });
@@ -3062,6 +3172,7 @@ export async function generateRoutes(app: FastifyInstance) {
             entryStateOverrides:
               (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
               undefined,
+            generationTriggers: lorebookGenerationTriggers,
           });
 
           if (lorebookResult.updatedEntryStateOverrides) {
@@ -3681,6 +3792,8 @@ export async function generateRoutes(app: FastifyInstance) {
             //   - Constant entries (already injected unconditionally by the standard
             //     activation pipeline — routing them would duplicate work).
             //   - Exhausted ephemeral entries (countdown reached 0 in this chat).
+            //   - Entries excluded by character/tag/generation-trigger filters.
+            const activeCharacterTags = Array.from(new Set(charInfo.flatMap((character) => character.tags)));
             knowledgeRouterEntries = entries
               .filter((e: LorebookEntry) => {
                 const ov = entryStateOverrides[e.id];
@@ -3690,6 +3803,15 @@ export async function generateRoutes(app: FastifyInstance) {
                 // the per-chat remaining count, not the stale global default.
                 const effectiveEphemeral = ov?.ephemeral !== undefined ? ov.ephemeral : e.ephemeral;
                 if (effectiveEphemeral === 0) return false;
+                if (
+                  !lorebookEntryPassesContextFilters(e, {
+                    activeCharacterIds: promptCharacterIds,
+                    activeCharacterTags,
+                    generationTriggers: lorebookGenerationTriggers,
+                  })
+                ) {
+                  return false;
+                }
                 return true;
               })
               .map((e: LorebookEntry) => {
@@ -4101,8 +4223,8 @@ export async function generateRoutes(app: FastifyInstance) {
       if (spotifyAgent) {
         const sSettings =
           typeof spotifyAgent.settings === "string" ? JSON.parse(spotifyAgent.settings) : spotifyAgent.settings || {};
-        spotifyAccessToken = (sSettings.spotifyAccessToken as string) || null;
-        const spotifyRefreshToken = (sSettings.spotifyRefreshToken as string) || null;
+        spotifyAccessToken = decryptStoredToken(sSettings.spotifyAccessToken);
+        const spotifyRefreshToken = decryptStoredToken(sSettings.spotifyRefreshToken);
         const spotifyClientId = (sSettings.spotifyClientId as string) || null;
         spotifyExpiresAt = (sSettings.spotifyExpiresAt as number) ?? 0;
 
@@ -4131,13 +4253,14 @@ export async function generateRoutes(app: FastifyInstance) {
               const refreshedExpiresAt = Date.now() + tokens.expires_in * 1000;
               spotifyAccessToken = tokens.access_token;
               spotifyExpiresAt = refreshedExpiresAt;
+              const nextRefreshToken = tokens.refresh_token ?? spotifyRefreshToken;
               // Persist refreshed tokens in background (don't await)
               agentsStore
                 .update(spotifyAgent.id, {
                   settings: {
                     ...sSettings,
-                    spotifyAccessToken: tokens.access_token,
-                    spotifyRefreshToken: tokens.refresh_token ?? spotifyRefreshToken,
+                    spotifyAccessToken: encryptApiKey(tokens.access_token),
+                    spotifyRefreshToken: nextRefreshToken ? encryptApiKey(nextRefreshToken) : null,
                     spotifyExpiresAt: refreshedExpiresAt,
                   },
                 })
@@ -5513,14 +5636,14 @@ export async function generateRoutes(app: FastifyInstance) {
           const durationMs = Date.now() - genStartTime;
 
           if (input.debugMode && chatMode === "game") {
-            console.log(
+            debugLog(
               "[generate/game/raw] chatId=%s characterId=%s chars=%d BEGIN",
               input.chatId,
               targetCharId ?? "gm",
               fullResponse.length,
             );
-            console.log(fullResponse);
-            console.log("[generate/game/raw] chatId=%s characterId=%s END", input.chatId, targetCharId ?? "gm");
+            debugLog("[generate/game/raw] %s", fullResponse);
+            debugLog("[generate/game/raw] chatId=%s characterId=%s END", input.chatId, targetCharId ?? "gm");
           }
 
           // Some models inline reasoning blocks instead of using provider-native
@@ -5633,6 +5756,20 @@ export async function generateRoutes(app: FastifyInstance) {
               .trim();
             if (fullResponse !== beforeStrip) {
               contentReplaced = true;
+            }
+          }
+
+          if (input.trimIncompleteModelOutput && !input.impersonate) {
+            const beforeTrim = fullResponse;
+            fullResponse = trimIncompleteModelEnding(fullResponse);
+            if (fullResponse !== beforeTrim) {
+              contentReplaced = true;
+              logger.debug(
+                "[generate] Trimmed incomplete model ending for chat %s (%d -> %d chars)",
+                input.chatId,
+                beforeTrim.length,
+                fullResponse.length,
+              );
             }
           }
 
@@ -5766,7 +5903,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       sendSseEvent(reply, { type: "game_state_patch", data: { location: latestLocation } });
                     }
 
-                    console.log(
+                    logger.info(
                       "[generate/game/map_update] chatId=%s applied=%d location=%s",
                       input.chatId,
                       mapUpdates.length,
@@ -5774,7 +5911,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     );
                   }
                 } catch (err) {
-                  console.warn("[generate/game/map_update] Failed to apply map_update:", err);
+                  logger.warn(err, "[generate/game/map_update] Failed to apply map_update");
                 }
               }
             }
@@ -6786,18 +6923,37 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (cmds && cmds.length > 0) {
                   const { hapticService } = await import("../services/haptic/buttplug-service.js");
                   if (hapticService.connected) {
+                    const executedCommands: HapticDeviceCommand[] = [];
                     for (const cmd of cmds) {
-                      await hapticService.executeCommand({
-                        deviceIndex: (cmd.deviceIndex as number | "all") ?? "all",
-                        action: (cmd.action as string) ?? "vibrate",
-                        intensity: typeof cmd.intensity === "number" ? cmd.intensity : 0.5,
-                        duration: typeof cmd.duration === "number" ? cmd.duration : undefined,
-                      } as any);
+                      const hapticCommand = normalizeHapticAgentCommand(cmd);
+                      if (!hapticCommand) {
+                        logger.warn("[haptic] Agent produced unsupported command action: %s", String(cmd.action));
+                        continue;
+                      }
+
+                      try {
+                        await hapticService.executeCommand(hapticCommand);
+                        executedCommands.push(hapticCommand);
+                      } catch (commandErr) {
+                        logger.warn(commandErr, "[haptic] Agent command %s skipped", hapticCommand.action);
+                      }
                     }
-                    reply.raw.write(
-                      `data: ${JSON.stringify({ type: "haptic_command", data: { commands: cmds, reasoning: hData.reasoning } })}\n\n`,
-                    );
-                    logger.info(`[haptic] Agent executed ${cmds.length} command(s): ${hData.reasoning ?? ""}`);
+                    if (executedCommands.length > 0) {
+                      reply.raw.write(
+                        `data: ${JSON.stringify({ type: "haptic_command", data: { commands: executedCommands, reasoning: hData.reasoning } })}\n\n`,
+                      );
+                      logger.info(
+                        "[haptic] Agent executed %d command(s): %s",
+                        executedCommands.length,
+                        hData.reasoning ?? "",
+                      );
+                    } else {
+                      logger.warn(
+                        "[haptic] Agent produced %d command(s), but none could be executed: %s",
+                        cmds.length,
+                        hData.reasoning ?? "",
+                      );
+                    }
                   } else {
                     logger.warn(
                       `[haptic] Agent produced ${cmds.length} command(s) but Intiface Central is disconnected — commands dropped`,
@@ -7122,6 +7278,7 @@ export async function generateRoutes(app: FastifyInstance) {
           "create_character",
           "update_character",
           "update_persona",
+          "create_lorebook",
           "create_chat",
           "navigate",
           "fetch",
@@ -7800,6 +7957,68 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
                 } catch (err) {
                   logger.error(err, "[commands] Update persona failed");
+                }
+              }
+
+              if (command.type === "create_lorebook") {
+                const clCmd = command as CreateLorebookCommand;
+                try {
+                  const category =
+                    clCmd.category === "character" ||
+                    clCmd.category === "world" ||
+                    clCmd.category === "npc" ||
+                    clCmd.category === "spellbook"
+                      ? clCmd.category
+                      : "uncategorized";
+                  const created = await lorebooksStore.create({
+                    name: clCmd.name,
+                    description: clCmd.description ?? "",
+                    category,
+                    tags: clCmd.tags ?? [],
+                    enabled: true,
+                    generatedBy: "agent",
+                    sourceAgentId: PROFESSOR_MARI_ID,
+                  });
+
+                  if (created) {
+                    const createdLorebook = created as unknown as { id: string };
+                    let entryCount = 0;
+                    for (const entry of clCmd.entries ?? []) {
+                      await lorebooksStore.createEntry({
+                        lorebookId: createdLorebook.id,
+                        name: entry.name,
+                        content: entry.content ?? "",
+                        description: entry.description ?? "",
+                        keys: entry.keys ?? [],
+                        secondaryKeys: entry.secondaryKeys ?? [],
+                        tag: entry.tag ?? "",
+                        constant: entry.constant ?? false,
+                        selective: entry.selective ?? false,
+                        enabled: true,
+                      });
+                      entryCount += 1;
+                    }
+
+                    reply.raw.write(
+                      `data: ${JSON.stringify({
+                        type: "assistant_action",
+                        data: {
+                          action: "lorebook_created",
+                          id: createdLorebook.id,
+                          name: clCmd.name,
+                          entryCount,
+                        },
+                      })}\n\n`,
+                    );
+                    logger.info(
+                      '[commands] Assistant created lorebook: "%s" (%s) with %d entries',
+                      clCmd.name,
+                      createdLorebook.id,
+                      entryCount,
+                    );
+                  }
+                } catch (err) {
+                  logger.error(err, "[commands] Create lorebook failed");
                 }
               }
 

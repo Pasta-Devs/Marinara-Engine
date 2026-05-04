@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { buildSpotifyRedirectUri } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
+import { decryptApiKey, encryptApiKey } from "../utils/crypto.js";
 
 // In-flight PKCE verifiers keyed by state param (short-lived, cleaned up on callback)
 const pendingAuth = new Map<
@@ -42,6 +43,22 @@ async function sha256Base64url(plain: string): Promise<string> {
 }
 
 type ExchangeResult = { ok: true } | { ok: false; status: number; reason: string };
+
+function isEncryptedToken(value: string): boolean {
+  const parts = value.split(":");
+  return (
+    parts.length === 3 &&
+    parts.every((part) => /^[0-9a-f]+$/i.test(part)) &&
+    parts[0]?.length === 24 &&
+    parts[2]?.length === 32
+  );
+}
+
+function decryptStoredToken(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  const decrypted = decryptApiKey(value);
+  return decrypted || (isEncryptedToken(value) ? "" : value);
+}
 
 export async function spotifyAuthRoutes(app: FastifyInstance) {
   const storage = createAgentsStorage(app.db);
@@ -112,8 +129,8 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
       await storage.update(agentId, {
         settings: {
           ...latestSettings,
-          spotifyAccessToken: tokens.access_token,
-          spotifyRefreshToken: tokens.refresh_token,
+          spotifyAccessToken: encryptApiKey(tokens.access_token),
+          spotifyRefreshToken: encryptApiKey(tokens.refresh_token),
           spotifyExpiresAt: Date.now() + tokens.expires_in * 1000,
           spotifyClientId: clientId,
         },
@@ -271,7 +288,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     const settings =
       agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});
 
-    const refreshToken = settings.spotifyRefreshToken as string;
+    const refreshToken = decryptStoredToken(settings.spotifyRefreshToken);
     const clientId = settings.spotifyClientId as string;
     if (!refreshToken || !clientId) {
       return reply.status(400).send({ error: "No Spotify refresh token or client ID configured" });
@@ -303,9 +320,9 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
       await storage.update(agentId, {
         settings: {
           ...settings,
-          spotifyAccessToken: tokens.access_token,
+          spotifyAccessToken: encryptApiKey(tokens.access_token),
           // Spotify may rotate refresh tokens
-          spotifyRefreshToken: tokens.refresh_token ?? refreshToken,
+          spotifyRefreshToken: encryptApiKey(tokens.refresh_token ?? refreshToken),
           spotifyExpiresAt: Date.now() + tokens.expires_in * 1000,
         },
       });
@@ -330,8 +347,8 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     const settings =
       agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});
 
-    const hasToken = !!settings.spotifyAccessToken;
-    const hasRefresh = !!settings.spotifyRefreshToken;
+    const hasToken = !!decryptStoredToken(settings.spotifyAccessToken);
+    const hasRefresh = !!decryptStoredToken(settings.spotifyRefreshToken);
     const expiresAt = (settings.spotifyExpiresAt as number) ?? 0;
     const isExpired = expiresAt > 0 && Date.now() > expiresAt;
 

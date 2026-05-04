@@ -19,6 +19,7 @@ import { join } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { createWriteStream, existsSync, rmSync, unlinkSync } from "fs";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
+import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import AdmZip from "adm-zip";
 import { extname } from "path";
@@ -41,6 +42,73 @@ function toSafeExportName(name: string, fallback: string) {
     .replace(/\s+/g, " ")
     .trim();
   return sanitized || fallback;
+}
+
+type ExportFormat = "native" | "compatible";
+
+function buildNativeCharacterEnvelope(
+  char: { createdAt: string; updatedAt: string; comment?: string | null },
+  data: any,
+) {
+  return {
+    type: "marinara_character",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      spec: "chara_card_v2",
+      spec_version: "2.0",
+      data,
+      metadata: {
+        createdAt: char.createdAt,
+        updatedAt: char.updatedAt,
+        comment: char.comment ?? "",
+      },
+    },
+  } satisfies ExportEnvelope;
+}
+
+function buildCompatibleCharacterExport(data: any) {
+  return {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data,
+  };
+}
+
+function buildNativePersonaEnvelope(persona: Record<string, unknown>) {
+  const { id: _id, createdAt, updatedAt, avatarPath: _avatarPath, isActive: _isActive, ...personaData } = persona;
+  return {
+    type: "marinara_persona",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      ...personaData,
+      metadata: {
+        createdAt,
+        updatedAt,
+      },
+    },
+  } satisfies ExportEnvelope;
+}
+
+function buildCompatiblePersonaExport(persona: Record<string, unknown>) {
+  const {
+    id: _id,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    avatarPath: _avatarPath,
+    isActive: _isActive,
+    ...personaData
+  } = persona;
+  return {
+    ...personaData,
+    extensions: {
+      marinara: {
+        exportedAt: new Date().toISOString(),
+        source: "Marinara Engine compatibility export",
+      },
+    },
+  };
 }
 
 export async function charactersRoutes(app: FastifyInstance) {
@@ -217,35 +285,24 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   // ── Export ──
 
-  app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { format?: ExportFormat } }>("/:id/export", async (req, reply) => {
     const char = await storage.getById(req.params.id);
     if (!char) return reply.status(404).send({ error: "Character not found" });
     const charData = JSON.parse(char.data);
-    const envelope: ExportEnvelope = {
-      type: "marinara_character",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: {
-        spec: "chara_card_v2",
-        spec_version: "2.0",
-        data: charData,
-        metadata: {
-          createdAt: char.createdAt,
-          updatedAt: char.updatedAt,
-          comment: char.comment ?? "",
-        },
-      },
-    };
+    const compatible = req.query.format === "compatible";
+    const payload = compatible
+      ? buildCompatibleCharacterExport(charData)
+      : buildNativeCharacterEnvelope(char, charData);
     return reply
       .header(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(charData.name || "character")}.marinara.json"`,
+        `attachment; filename="${encodeURIComponent(charData.name || "character")}.${compatible ? "json" : "marinara.json"}"`,
       )
-      .send(envelope);
+      .send(payload);
   });
 
   app.post("/export-bulk", async (req, reply) => {
-    const { ids } = req.body as { ids?: string[] };
+    const { ids, format = "native" } = req.body as { ids?: string[]; format?: ExportFormat };
     if (!Array.isArray(ids) || ids.length === 0) {
       return reply.status(400).send({ error: "ids array is required" });
     }
@@ -256,24 +313,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       const char = await storage.getById(id);
       if (!char) continue;
       const charData = JSON.parse(char.data);
-      const envelope: ExportEnvelope = {
-        type: "marinara_character",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        data: {
-          spec: "chara_card_v2",
-          spec_version: "2.0",
-          data: charData,
-          metadata: {
-            createdAt: char.createdAt,
-            updatedAt: char.updatedAt,
-            comment: char.comment ?? "",
-          },
-        },
-      };
+      const payload =
+        format === "compatible"
+          ? buildCompatibleCharacterExport(charData)
+          : buildNativeCharacterEnvelope(char, charData);
       zip.addFile(
-        `${toSafeExportName(String(charData.name ?? "character"), `character-${exportedCount + 1}`)}.marinara.json`,
-        Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),
+        `${toSafeExportName(String(charData.name ?? "character"), `character-${exportedCount + 1}`)}.${format === "compatible" ? "json" : "marinara.json"}`,
+        Buffer.from(JSON.stringify(payload, null, 2), "utf-8"),
       );
       exportedCount++;
     }
@@ -284,7 +330,10 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     return reply
       .header("Content-Type", "application/zip")
-      .header("Content-Disposition", 'attachment; filename="marinara-characters.zip"')
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${format === "compatible" ? "compatible-characters.zip" : "marinara-characters.zip"}"`,
+      )
       .send(zip.toBuffer());
   });
 
@@ -409,12 +458,16 @@ export async function charactersRoutes(app: FastifyInstance) {
         base64 = base64.slice(base64.indexOf(",") + 1);
       }
     }
+    const imageBuffer = Buffer.from(base64, "base64");
+    const imageInfo = isAllowedImageBuffer(imageBuffer, `.${ext}`);
+    if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
+    ext = extensionFromImageMime(imageInfo.mimeType);
 
     const avatarsDir = join(DATA_DIR, "avatars");
     await mkdir(avatarsDir, { recursive: true });
     const filename = `character-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filepath = join(avatarsDir, filename);
-    await writeFile(filepath, Buffer.from(base64, "base64"));
+    const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+    await writeFile(filepath, imageBuffer);
 
     const avatarPath = `/api/avatars/file/${filename}`;
     return storage.updateAvatar(id, avatarPath);
@@ -464,12 +517,20 @@ export async function charactersRoutes(app: FastifyInstance) {
     const body = req.body as { avatar?: string; filename?: string };
     if (!body.avatar) return reply.status(400).send({ error: "No avatar data" });
     let base64 = body.avatar;
+    let hintedExt = ".png";
+    if (base64.startsWith("data:")) {
+      const match = base64.match(/^data:image\/([\w+]+);base64,/);
+      if (match?.[1]) hintedExt = `.${match[1].replace("+xml", "")}`;
+    }
     if (base64.includes(",")) base64 = base64.split(",")[1]!;
-    const filename = body.filename ?? `persona-${req.params.id}-${Date.now()}.png`;
+    const imageBuffer = Buffer.from(base64, "base64");
+    const imageInfo = isAllowedImageBuffer(imageBuffer, hintedExt);
+    if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
+    const filename = `persona-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${imageInfo.ext}`;
     const avatarsDir = join(DATA_DIR, "avatars");
     await mkdir(avatarsDir, { recursive: true });
-    const filepath = join(avatarsDir, filename);
-    await writeFile(filepath, Buffer.from(base64, "base64"));
+    const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+    await writeFile(filepath, imageBuffer);
     const avatarPath = `/api/avatars/file/${filename}`;
     return storage.updatePersona(req.params.id, { avatarPath });
   });
@@ -493,39 +554,26 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   // ── Persona Export ──
 
-  app.get<{ Params: { id: string } }>("/personas/:id/export", async (req, reply) => {
-    const persona = await storage.getPersona(req.params.id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
-    const {
-      id: _id,
-      createdAt: _c,
-      updatedAt: _u,
-      avatarPath: _a,
-      isActive: _ia,
-      ...personaData
-    } = persona as Record<string, unknown>;
-    const envelope: ExportEnvelope = {
-      type: "marinara_persona",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: {
-        ...personaData,
-        metadata: {
-          createdAt: persona.createdAt,
-          updatedAt: persona.updatedAt,
-        },
-      },
-    };
-    return reply
-      .header(
-        "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(String(persona.name || "persona"))}.marinara.json"`,
-      )
-      .send(envelope);
-  });
+  app.get<{ Params: { id: string }; Querystring: { format?: ExportFormat } }>(
+    "/personas/:id/export",
+    async (req, reply) => {
+      const persona = await storage.getPersona(req.params.id);
+      if (!persona) return reply.status(404).send({ error: "Persona not found" });
+      const compatible = req.query.format === "compatible";
+      const payload = compatible
+        ? buildCompatiblePersonaExport(persona as Record<string, unknown>)
+        : buildNativePersonaEnvelope(persona as Record<string, unknown>);
+      return reply
+        .header(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(String(persona.name || "persona"))}.${compatible ? "json" : "marinara.json"}"`,
+        )
+        .send(payload);
+    },
+  );
 
   app.post("/personas/export-bulk", async (req, reply) => {
-    const { ids } = req.body as { ids?: string[] };
+    const { ids, format = "native" } = req.body as { ids?: string[]; format?: ExportFormat };
     if (!Array.isArray(ids) || ids.length === 0) {
       return reply.status(400).send({ error: "ids array is required" });
     }
@@ -535,29 +583,13 @@ export async function charactersRoutes(app: FastifyInstance) {
     for (const id of ids) {
       const persona = await storage.getPersona(id);
       if (!persona) continue;
-      const {
-        id: _id,
-        createdAt: _createdAt,
-        updatedAt: _updatedAt,
-        avatarPath: _avatarPath,
-        isActive: _isActive,
-        ...personaData
-      } = persona as Record<string, unknown>;
-      const envelope: ExportEnvelope = {
-        type: "marinara_persona",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        data: {
-          ...personaData,
-          metadata: {
-            createdAt: persona.createdAt,
-            updatedAt: persona.updatedAt,
-          },
-        },
-      };
+      const payload =
+        format === "compatible"
+          ? buildCompatiblePersonaExport(persona as Record<string, unknown>)
+          : buildNativePersonaEnvelope(persona as Record<string, unknown>);
       zip.addFile(
-        `${toSafeExportName(String(persona.name ?? "persona"), `persona-${exportedCount + 1}`)}.marinara.json`,
-        Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),
+        `${toSafeExportName(String(persona.name ?? "persona"), `persona-${exportedCount + 1}`)}.${format === "compatible" ? "json" : "marinara.json"}`,
+        Buffer.from(JSON.stringify(payload, null, 2), "utf-8"),
       );
       exportedCount++;
     }
@@ -568,7 +600,10 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     return reply
       .header("Content-Type", "application/zip")
-      .header("Content-Disposition", 'attachment; filename="marinara-personas.zip"')
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${format === "compatible" ? "compatible-personas.zip" : "marinara-personas.zip"}"`,
+      )
       .send(zip.toBuffer());
   });
 

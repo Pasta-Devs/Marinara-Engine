@@ -18,13 +18,19 @@
 !define APP_URL "https://github.com/Pasta-Devs/Marinara-Engine"
 !define REPO_URL "https://github.com/Pasta-Devs/Marinara-Engine.git"
 !define DEFAULT_DIR "$LOCALAPPDATA\MarinaraEngine"
-!define PNPM_VERSION "10.30.3"
+!define PNPM_VERSION "10.33.2"
 
 ; ── Prerequisite download URLs ──
 ; Pin to known-good versions so the installer is deterministic and doesn't
 ; need PowerShell/GitHub API calls (a major AV false-positive trigger).
-!define GIT_DOWNLOAD_URL "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe"
-!define NODE_DOWNLOAD_URL "https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi"
+!define GIT_DOWNLOAD_URL "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe"
+!define NODE_DOWNLOAD_URL "https://nodejs.org/dist/v24.15.0/node-v24.15.0-x64.msi"
+!define GIT_SHA256 "2b96e7854f0520f0f6b709c21041d9801b1be44d5e1a0d9fa621b2fbc40f1983"
+!define NODE_SHA256 "feffb8e5cb5ac47f793666636d496ef3e975be82c84c4da5d20e6aa8fa4eb806"
+!define RELEASE_TAG "v1.5.7"
+!ifndef RELEASE_COMMIT
+!define RELEASE_COMMIT ""
+!endif
 
 Name "${APP_NAME}"
 OutFile "Marinara-Engine-Installer-${APP_VERSION}.exe"
@@ -143,9 +149,9 @@ Section "Install" SecInstall
     DetailPrint "Git not found — attempting automatic install..."
     DetailPrint "Downloading Git for Windows (this may take a minute)..."
     ; Download Git installer via PowerShell (known-working path used by the v1.4.7 installer)
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ''${GIT_DOWNLOAD_URL}'' -OutFile ''$TEMP\git-install.exe'' -UseBasicParsing"'
+    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ""${GIT_DOWNLOAD_URL}"" -OutFile ""$TEMP\git-install.exe"" -UseBasicParsing"'
     Pop $0
-    ${If} $0 != "OK"
+    ${If} $0 != 0
       MessageBox MB_YESNO|MB_ICONEXCLAMATION "\
 Git could not be downloaded automatically.$\r$\n$\r$\n\
 Would you like to open the Git download page to install it manually?" IDYES openGit IDNO abortGit
@@ -155,6 +161,14 @@ Would you like to open the Git download page to install it manually?" IDYES open
         Abort
       abortGit:
         Abort "Installation cancelled — Git is required."
+    ${EndIf}
+    DetailPrint "Verifying Git installer integrity..."
+    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath ""$TEMP\git-install.exe"").Hash).ToLowerInvariant() -ne ''${GIT_SHA256}'') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath ""$TEMP\git-install.exe"").Status -ne ''Valid'') { exit 1 }"'
+    Pop $0
+    ${If} $0 != 0
+      Delete "$TEMP\git-install.exe"
+      MessageBox MB_OK|MB_ICONSTOP "The downloaded Git installer failed integrity or signature verification.$\r$\n$\r$\nInstallation was stopped before running it."
+      Abort
     ${EndIf}
     DetailPrint "Installing Git (this may request admin permissions)..."
     nsExec::ExecToLog '"$TEMP\git-install.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"'
@@ -183,21 +197,42 @@ Please restart your computer and run this installer again."
   nsExec::ExecToStack 'where node'
   Pop $NODE_OK
   Pop $1
+  ${If} $NODE_OK == 0
+    nsExec::ExecToStack 'cmd /c node -p "process.versions.node.match(/^\d+/)[0]"'
+    Pop $NODE_OK
+    Pop $1
+    ${If} $NODE_OK != 0
+      DetailPrint "Node.js was found but its version could not be checked."
+    ${ElseIf} $1 < 24
+      DetailPrint "Node.js $1 found — Node.js 24 LTS or newer is required."
+      StrCpy $NODE_OK 1
+    ${Else}
+      StrCpy $NODE_OK 0
+    ${EndIf}
+  ${EndIf}
   ${If} $NODE_OK != 0
-    DetailPrint "Node.js not found — attempting automatic install..."
+    DetailPrint "Node.js 24 LTS or newer not found — attempting automatic install..."
     DetailPrint "Downloading Node.js LTS (this may take a minute)..."
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ''${NODE_DOWNLOAD_URL}'' -OutFile ''$TEMP\node-install.msi'' -UseBasicParsing"'
+    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ""${NODE_DOWNLOAD_URL}"" -OutFile ""$TEMP\node-install.msi"" -UseBasicParsing"'
     Pop $0
-    ${If} $0 != "OK"
+    ${If} $0 != 0
       MessageBox MB_YESNO|MB_ICONEXCLAMATION "\
 Node.js could not be downloaded automatically.$\r$\n$\r$\n\
 Would you like to open the Node.js download page to install it manually?" IDYES openNode IDNO abortNode
       openNode:
         ExecShell "open" "https://nodejs.org/en/download"
-        MessageBox MB_OK "Please install Node.js 20+, then run this installer again."
+        MessageBox MB_OK "Please install Node.js 24 LTS or newer, then run this installer again."
         Abort
       abortNode:
         Abort "Installation cancelled — Node.js is required."
+    ${EndIf}
+    DetailPrint "Verifying Node.js installer integrity..."
+    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath ""$TEMP\node-install.msi"").Hash).ToLowerInvariant() -ne ''${NODE_SHA256}'') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath ""$TEMP\node-install.msi"").Status -ne ''Valid'') { exit 1 }"'
+    Pop $0
+    ${If} $0 != 0
+      Delete "$TEMP\node-install.msi"
+      MessageBox MB_OK|MB_ICONSTOP "The downloaded Node.js installer failed integrity or signature verification.$\r$\n$\r$\nInstallation was stopped before running it."
+      Abort
     ${EndIf}
     DetailPrint "Installing Node.js LTS (this may request admin permissions)..."
     nsExec::ExecToLog 'msiexec /i "$TEMP\node-install.msi" /qb'
@@ -238,22 +273,28 @@ Please restart your computer and run this installer again."
     ${EndIf}
   ${EndIf}
   ${If} $PNPM_RUNNER == ""
-    DetailPrint "Falling back to temporary pnpm ${PNPM_VERSION} via npx..."
+    DetailPrint "Corepack pnpm ${PNPM_VERSION} unavailable; trying installed pnpm..."
+    nsExec::ExecToStack 'cmd /c pnpm --version'
+    Pop $PNPM_OK
+    Pop $1
+    ${If} $PNPM_OK == 0
+      StrCpy $PNPM_RUNNER "pnpm"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PNPM_RUNNER == ""
+    DetailPrint "Installed pnpm unavailable; trying temporary pnpm ${PNPM_VERSION} via npx..."
     nsExec::ExecToStack 'cmd /c npx --yes pnpm@${PNPM_VERSION} --version'
     Pop $PNPM_OK
     Pop $1
     ${If} $PNPM_OK == 0
       StrCpy $PNPM_RUNNER "npx"
-    ${Else}
-      MessageBox MB_OK|MB_ICONSTOP "pnpm ${PNPM_VERSION} could not be started via Corepack or npx.$\r$\n$\r$\nPlease install Node.js 20+ and run the installer again."
-      Abort
     ${EndIf}
   ${EndIf}
   ${If} $PNPM_RUNNER == ""
-    MessageBox MB_OK|MB_ICONSTOP "pnpm ${PNPM_VERSION} is still unavailable after setup.$\r$\n$\r$\nPlease restart your computer and run the installer again."
+    MessageBox MB_OK|MB_ICONSTOP "pnpm ${PNPM_VERSION} could not be started.$\r$\n$\r$\nPlease enable Corepack or install pnpm manually, then run the installer again."
     Abort
   ${EndIf}
-  DetailPrint "pnpm ${PNPM_VERSION} ready."
+  DetailPrint "pnpm ready."
   DetailPrint "All prerequisites satisfied."
 
   ; ── Step 2: Download / update repository ──
@@ -261,11 +302,11 @@ Please restart your computer and run this installer again."
   DetailPrint "═══ Step 2/6: Downloading ${APP_NAME} ═══"
   DetailPrint ""
   ${If} ${FileExists} "$INSTDIR\.git\*.*"
-    DetailPrint "Existing installation found — fetching latest version..."
-    nsExec::ExecToLog 'git fetch origin main --quiet'
+    DetailPrint "Existing installation found — fetching ${RELEASE_TAG}..."
+    nsExec::ExecToLog 'git fetch --quiet --force origin refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}'
     Pop $0
     ${If} $0 != 0
-      MessageBox MB_OK|MB_ICONSTOP "Failed to fetch latest repository changes.$\r$\n$\r$\nPlease check your internet connection and run the installer again."
+      MessageBox MB_OK|MB_ICONSTOP "Failed to fetch release ${RELEASE_TAG}.$\r$\n$\r$\nPlease check your internet connection and run the installer again."
       Abort
     ${EndIf}
 
@@ -284,7 +325,33 @@ Please restart your computer and run this installer again."
       ${EndIf}
     ${EndIf}
 
-    nsExec::ExecToLog 'git merge --ff-only origin/main'
+    nsExec::ExecToStack 'git rev-parse ${RELEASE_TAG}^{commit}'
+    Pop $0
+    Pop $3
+    ${If} $0 != 0
+      ${If} $5 == "1"
+        nsExec::ExecToLog 'git stash apply -q'
+        Pop $1
+      ${EndIf}
+      MessageBox MB_OK|MB_ICONSTOP "Could not resolve release ${RELEASE_TAG} after fetching it.$\r$\n$\r$\nInstallation was stopped before updating files."
+      Abort
+    ${EndIf}
+
+    ${If} $3 == ""
+      ${If} $5 == "1"
+        nsExec::ExecToLog 'git stash apply -q'
+        Pop $1
+      ${EndIf}
+      MessageBox MB_OK|MB_ICONSTOP "Release ${RELEASE_TAG} resolved to an empty commit.$\r$\n$\r$\nInstallation was stopped before updating files."
+      Abort
+    ${EndIf}
+
+    ${If} "${RELEASE_COMMIT}" != ""
+    ${AndIf} $3 != "${RELEASE_COMMIT}"
+      DetailPrint "Warning: ${RELEASE_TAG} resolved to $3, not the installer-expected ${RELEASE_COMMIT}. Continuing with fetched tag."
+    ${EndIf}
+
+    nsExec::ExecToLog 'git checkout --detach $3'
     Pop $0
     ${If} $0 != 0
       ${If} $5 == "1"
@@ -295,17 +362,14 @@ Please restart your computer and run this installer again."
           Pop $1
         ${EndIf}
       ${EndIf}
-      MessageBox MB_OK|MB_ICONSTOP "Failed to fast-forward the existing installation to origin/main.$\r$\n$\r$\nYour files were left in place. Please resolve local changes or reinstall into a clean folder."
+      MessageBox MB_OK|MB_ICONSTOP "Failed to check out release ${RELEASE_TAG}.$\r$\n$\r$\nYour files were left in place. Please resolve local changes or reinstall into a clean folder."
       Abort
     ${EndIf}
 
     nsExec::ExecToStack 'git rev-parse HEAD'
     Pop $0
     Pop $2
-    nsExec::ExecToStack 'git rev-parse origin/main'
-    Pop $0
-    Pop $3
-    ${If} $2 != $3
+    ${If} $2 != "$3"
       ${If} $5 == "1"
         nsExec::ExecToLog 'git stash apply -q'
         Pop $1
@@ -314,7 +378,7 @@ Please restart your computer and run this installer again."
           Pop $1
         ${EndIf}
       ${EndIf}
-      MessageBox MB_OK|MB_ICONSTOP "Repository update did not land on origin/main.$\r$\n$\r$\nPlease run the installer again after resolving local repository state."
+      MessageBox MB_OK|MB_ICONSTOP "Repository update did not land on the expected ${RELEASE_TAG} commit.$\r$\n$\r$\nPlease run the installer again after resolving local repository state."
       Abort
     ${EndIf}
 
@@ -388,8 +452,8 @@ Please restart your computer and run this installer again."
       Abort
     ${EndIf}
     StrCpy $STAGE_DIR_CREATED "1"
-    ; Clone with --depth 1 for faster initial download, then unshallow
-    nsExec::ExecToLog 'git clone --depth 1 "${REPO_URL}" "$CLONE_DIR"'
+    ; Clone the pinned release tag instead of mutable origin/main.
+    nsExec::ExecToLog 'git clone --branch ${RELEASE_TAG} --depth 1 "${REPO_URL}" "$CLONE_DIR"'
     Pop $0
     ${If} $0 != 0
       ; Retry without depth limit in case shallow clone failed
@@ -397,7 +461,7 @@ Please restart your computer and run this installer again."
       ${If} $CLONE_DIR_CREATED == "1"
         RMDir /r "$CLONE_DIR"
       ${EndIf}
-      nsExec::ExecToLog 'git clone "${REPO_URL}" "$CLONE_DIR"'
+      nsExec::ExecToLog 'git clone --branch ${RELEASE_TAG} "${REPO_URL}" "$CLONE_DIR"'
       Pop $0
       ${If} $0 != 0
         ${If} $CLONE_DIR_CREATED == "1"
@@ -413,6 +477,33 @@ If the problem persists, try downloading manually from:$\r$\n\
 ${APP_URL}"
         Abort
       ${EndIf}
+    ${EndIf}
+    nsExec::ExecToStack 'cmd /c cd /d "$CLONE_DIR" && git rev-parse HEAD'
+    Pop $0
+    Pop $2
+    ${If} $0 != 0
+      ${If} $CLONE_DIR_CREATED == "1"
+        RMDir /r "$CLONE_DIR"
+      ${EndIf}
+      ${If} $STAGE_DIR_CREATED == "1"
+        RMDir /r "$STAGE_DIR"
+      ${EndIf}
+      MessageBox MB_OK|MB_ICONSTOP "Downloaded release ${RELEASE_TAG} could not be verified.$\r$\n$\r$\nInstallation was stopped before publishing files."
+      Abort
+    ${EndIf}
+    ${If} $2 == ""
+      ${If} $CLONE_DIR_CREATED == "1"
+        RMDir /r "$CLONE_DIR"
+      ${EndIf}
+      ${If} $STAGE_DIR_CREATED == "1"
+        RMDir /r "$STAGE_DIR"
+      ${EndIf}
+      MessageBox MB_OK|MB_ICONSTOP "Downloaded release ${RELEASE_TAG} resolved to an empty commit.$\r$\n$\r$\nInstallation was stopped before publishing files."
+      Abort
+    ${EndIf}
+    ${If} "${RELEASE_COMMIT}" != ""
+    ${AndIf} $2 != "${RELEASE_COMMIT}"
+      DetailPrint "Warning: ${RELEASE_TAG} resolved to $2, not the installer-expected ${RELEASE_COMMIT}. Continuing with fetched tag."
     ${EndIf}
     DetailPrint "Staging downloaded files..."
     ; robocopy returns 0-7 for success, 8+ for errors
@@ -464,9 +555,6 @@ ${APP_URL}"
     ${EndIf}
     StrCpy $STAGE_DIR_CREATED "0"
     SetOutPath "$INSTDIR"
-    ; Unshallow so future git pull works
-    nsExec::ExecToLog 'git fetch --unshallow'
-    Pop $0
     DetailPrint "Download complete."
   ${EndIf}
 
@@ -478,8 +566,13 @@ ${APP_URL}"
   ${If} $PNPM_RUNNER == "corepack"
     nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} install'
     Pop $0
-  ${Else}
+  ${EndIf}
+  ${If} $PNPM_RUNNER == "npx"
     nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} install'
+    Pop $0
+  ${EndIf}
+  ${If} $PNPM_RUNNER == "pnpm"
+    nsExec::ExecToLog 'cmd /c pnpm install'
     Pop $0
   ${EndIf}
   ${If} $0 != 0
@@ -493,8 +586,13 @@ Would you like to retry?" IDYES retryInstall IDNO skipRetryInstall
       ${If} $PNPM_RUNNER == "corepack"
         nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} install'
         Pop $0
-      ${Else}
+      ${EndIf}
+      ${If} $PNPM_RUNNER == "npx"
         nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} install'
+        Pop $0
+      ${EndIf}
+      ${If} $PNPM_RUNNER == "pnpm"
+        nsExec::ExecToLog 'cmd /c pnpm install'
         Pop $0
       ${EndIf}
     skipRetryInstall:
@@ -517,11 +615,20 @@ Would you like to retry?" IDYES retryInstall IDNO skipRetryInstall
       nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build'
       Pop $0
     ${EndIf}
-  ${Else}
+  ${EndIf}
+  ${If} $PNPM_RUNNER == "npx"
     nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --filter @marinara-engine/shared build'
     Pop $0
     ${If} $0 == 0
       nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build'
+      Pop $0
+    ${EndIf}
+  ${EndIf}
+  ${If} $PNPM_RUNNER == "pnpm"
+    nsExec::ExecToLog 'cmd /c pnpm --filter @marinara-engine/shared build'
+    Pop $0
+    ${If} $0 == 0
+      nsExec::ExecToLog 'cmd /c pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build'
       Pop $0
     ${EndIf}
   ${EndIf}

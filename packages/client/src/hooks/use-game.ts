@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, isJsonRepairApiError } from "../lib/api-client";
 import { chatKeys } from "./use-chats";
+import { lorebookKeys } from "./use-lorebooks";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useChatStore } from "../stores/chat.store";
@@ -58,6 +59,12 @@ interface ConcludeSessionResponse {
 
 interface RegenerateSessionConclusionResponse {
   summary: SessionSummary;
+}
+
+interface RegenerateSessionLorebookResponse {
+  sessionNumber: number;
+  lorebookId: string;
+  entryCount: number;
 }
 
 interface UpdateCampaignProgressionResponse {
@@ -175,7 +182,11 @@ export function useGameSetup() {
 
   return useMutation({
     mutationFn: (data: { chatId: string; connectionId?: string; preferences: string }) =>
-      api.post<SetupResponse>("/game/setup", { ...data, streaming: useUIStore.getState().enableStreaming }),
+      api.post<SetupResponse>("/game/setup", {
+        ...data,
+        streaming: useUIStore.getState().enableStreaming,
+        debugMode: useUIStore.getState().debugMode,
+      }),
     onSuccess: () => {
       store.getState().setSetupActive(false);
       const sessionChatId = store.getState().activeSessionChatId;
@@ -322,6 +333,37 @@ export function useRegenerateSessionConclusion() {
       toast.error(err.message || "Failed to regenerate session conclusion.", {
         id: `game-session-regenerate:${variables.chatId}:${variables.sessionNumber}`,
       });
+    },
+  });
+}
+
+export function useRegenerateSessionLorebook() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { chatId: string; sessionNumber: number; connectionId?: string }) =>
+      api.post<RegenerateSessionLorebookResponse>("/game/session/regenerate-lorebook", data),
+    onMutate: (variables) => {
+      toast.loading(`Regenerating session ${variables.sessionNumber} lorebook...`, {
+        id: `game-session-lorebook:${variables.chatId}:${variables.sessionNumber}`,
+      });
+    },
+    onSuccess: (result, variables) => {
+      toast.success(`Lorebook updated with ${result.entryCount} entr${result.entryCount === 1 ? "y" : "ies"}.`, {
+        id: `game-session-lorebook:${variables.chatId}:${variables.sessionNumber}`,
+      });
+      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
+      qc.invalidateQueries({ queryKey: lorebookKeys.all });
+      if (result.lorebookId) {
+        qc.invalidateQueries({ queryKey: lorebookKeys.entries(result.lorebookId) });
+      }
+    },
+    onError: (err, variables) => {
+      console.error("[game/session/regenerate-lorebook] Error:", err);
+      toast.error(err.message || "Failed to regenerate session lorebook.", {
+        id: `game-session-lorebook:${variables.chatId}:${variables.sessionNumber}`,
+      });
+      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
     },
   });
 }

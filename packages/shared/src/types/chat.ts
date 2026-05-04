@@ -141,6 +141,8 @@ export interface ChatMetadata {
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */
   impersonatePrompt?: string | null;
+  /** Show a manual draft translation button beside the send control. */
+  showInputTranslateButton?: boolean;
 
   // ── Conversation Mode Fields ──
   /** Whether conversation character schedules are enabled for this chat. */
@@ -195,6 +197,19 @@ export interface ChatMetadata {
   gameLastIllustrationSessionNumber?: number | null;
   /** Background tag for the last rare generated scene illustration. */
   gameLastIllustrationTag?: string;
+  /** Run Game Lorebook Keeper after a session is concluded. */
+  gameLorebookKeeperEnabled?: boolean;
+  /** Chat-scoped lorebook maintained by Game Lorebook Keeper. */
+  gameLorebookKeeperLorebookId?: string | null;
+  /** Status of the most recent Game Lorebook Keeper session-end run. */
+  gameLorebookKeeperLastRun?: {
+    sessionNumber: number;
+    status: "running" | "success" | "failed";
+    updatedAt: string;
+    lorebookId?: string | null;
+    entryCount?: number;
+    error?: string;
+  } | null;
 
   // ── Conversation-Mode Auto-Summarization ──
   /** Per-day auto-generated conversation summaries (key: "DD.MM.YYYY"). */

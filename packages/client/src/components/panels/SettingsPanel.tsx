@@ -11,7 +11,7 @@ import {
 } from "../../stores/ui.store";
 import { cn, generateClientId } from "../../lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../lib/api-client";
+import { ADMIN_SECRET_STORAGE_KEY, api, getAdminSecretHeader } from "../../lib/api-client";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
@@ -59,6 +59,8 @@ import { chatKeys } from "../../hooks/use-chats";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
+import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 
 const TABS = [
   { id: "general", label: "General" },
@@ -104,6 +106,23 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
     description: "Backgrounds, avatars, sprites, gallery items, fonts, and knowledge-source files.",
   },
 ];
+
+async function readSettingsResponseError(res: Response, fallback: string) {
+  const contentType = res.headers.get("content-type") ?? "";
+
+  try {
+    if (contentType.includes("application/json")) {
+      const payload = (await res.json()) as { error?: unknown; message?: unknown };
+      const message = typeof payload.message === "string" ? payload.message : payload.error;
+      return typeof message === "string" && message.trim() ? message : fallback;
+    }
+
+    const text = (await res.text()).trim();
+    return text ? text.slice(0, 500) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
@@ -303,6 +322,10 @@ function GeneralSettings() {
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
   const setBoldDialogue = useUIStore((s) => s.setBoldDialogue);
+  const trimIncompleteModelOutput = useUIStore((s) => s.trimIncompleteModelOutput);
+  const setTrimIncompleteModelOutput = useUIStore((s) => s.setTrimIncompleteModelOutput);
+  const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
+  const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
   const rescanGameAssets = useGameAssetStore((s) => s.rescanAssets);
   const assetFileRef = useRef<HTMLInputElement>(null);
   const [assetCategory, setAssetCategory] = useState<GameAssetCategoryId>("backgrounds");
@@ -562,6 +585,20 @@ function GeneralSettings() {
         help={
           'When on, text inside dialogue quotation marks ("like this", 「like this」, or 『like this』) is bolded in addition to its dialogue highlight color. Turn it off to keep the color without bold.'
         }
+      />
+
+      <ToggleSetting
+        label="Trim incomplete model endings"
+        checked={trimIncompleteModelOutput}
+        onChange={setTrimIncompleteModelOutput}
+        help="When on, Marinara trims a trailing unfinished sentence from AI responses before saving the message. It leaves complete responses and command-only endings alone."
+      />
+
+      <ToggleSetting
+        label="Speech-to-text microphone"
+        checked={speechToTextEnabled}
+        onChange={setSpeechToTextEnabled}
+        help="When on, chat input bars show a microphone button for browser dictation. Handy still works independently by pasting into the focused input field."
       />
 
       <div className="rounded-xl bg-[var(--secondary)]/50 p-4 ring-1 ring-[var(--border)]">
@@ -2180,7 +2217,10 @@ function ImportSettings() {
       }
       const res = await fetch("/api/backup/import-profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminSecretHeader(),
+        },
         body: text,
       });
       const data = await res.json();
@@ -2290,9 +2330,21 @@ function ImportButton({
     if (!file) return;
     try {
       let res: Response;
+      let importEmbeddedLorebook: boolean | undefined;
 
       // "auto" mode: send binary files (PNG) as multipart, JSON files as JSON body
       const effectiveMode = mode === "auto" ? (file.name.toLowerCase().endsWith(".json") ? "json" : "file") : mode;
+      if (endpoint === "/import/st-character") {
+        const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
+        const preview = previews[0];
+        if (preview) {
+          importEmbeddedLorebook = window.confirm(
+            `${preview.name ?? file.name} includes an embedded lorebook with ${preview.embeddedLorebookEntries} entr${
+              preview.embeddedLorebookEntries === 1 ? "y" : "ies"
+            }.\n\nImport it as a standalone Marinara lorebook too?`,
+          );
+        }
+      }
 
       if (effectiveMode === "json") {
         const text = await file.text();
@@ -2301,6 +2353,9 @@ function ImportButton({
         if (endpoint.includes("lorebook") || endpoint.includes("preset")) {
           json.__filename = file.name.replace(/\.json$/i, "");
         }
+        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
+          json.importEmbeddedLorebook = importEmbeddedLorebook;
+        }
         res = await fetch(`/api${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2308,6 +2363,9 @@ function ImportButton({
         });
       } else {
         const formData = new FormData();
+        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
+          formData.append("importEmbeddedLorebook", String(importEmbeddedLorebook));
+        }
         formData.append("file", file);
         res = await fetch(`/api${endpoint}`, {
           method: "POST",
@@ -2358,23 +2416,28 @@ function AdvancedSettings() {
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
   const [confirmAction, setConfirmAction] = useState<"selected" | "all" | null>(null);
   const [exportingProfile, setExportingProfile] = useState(false);
+  const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
+  const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
 
-  const handleExportProfile = async () => {
+  const handleExportProfile = async (format: ExportFormatChoice) => {
     setExportingProfile(true);
+    setExportProfileDialogOpen(false);
     try {
-      const res = await fetch("/api/backup/export-profile");
-      if (!res.ok) throw new Error("Export failed");
+      const res = await fetch(`/api/backup/export-profile?format=${format}`, {
+        headers: getAdminSecretHeader(),
+      });
+      if (!res.ok) throw new Error(await readSettingsResponseError(res, "Export failed"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "marinara-profile.json";
+      a.download = format === "compatible" ? "marinara-compatible-export.zip" : "marinara-profile.json";
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Profile exported!");
-    } catch {
-      toast.error("Failed to export profile");
+      toast.success(format === "compatible" ? "Compatible export created!" : "Profile exported!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to export profile");
     } finally {
       setExportingProfile(false);
     }
@@ -2411,8 +2474,11 @@ function AdvancedSettings() {
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
-      const res = await fetch("/api/backup/download", { method: "POST" });
-      if (!res.ok) throw new Error("Backup failed");
+      const res = await fetch("/api/backup/download", {
+        method: "POST",
+        headers: getAdminSecretHeader(),
+      });
+      if (!res.ok) throw new Error(await readSettingsResponseError(res, "Backup failed"));
 
       // Pull the filename from Content-Disposition if provided
       const disposition = res.headers.get("content-disposition") ?? "";
@@ -2466,8 +2532,8 @@ function AdvancedSettings() {
       URL.revokeObjectURL(url);
       toast.success("Backup downloaded!");
       qc.invalidateQueries({ queryKey: ["backups"] });
-    } catch {
-      toast.error("Failed to create backup");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create backup");
     } finally {
       setCreatingBackup(false);
     }
@@ -2498,10 +2564,23 @@ function AdvancedSettings() {
     },
   });
 
+  const saveAdminSecret = useCallback(() => {
+    const trimmed = adminSecret.trim();
+    if (trimmed) {
+      localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, trimmed);
+      toast.success("Admin secret saved for this browser");
+    } else {
+      localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
+      toast.info("Admin secret cleared");
+    }
+  }, [adminSecret]);
+
   const updateCheck = useQuery<{
     currentVersion: string;
     currentCommit: string | null;
     currentBuild: string;
+    targetRef: string;
+    targetCommit: string | null;
     latestVersion: string;
     updateAvailable: boolean;
     versionUpdate?: boolean;
@@ -2518,7 +2597,15 @@ function AdvancedSettings() {
   });
 
   const applyUpdate = useMutation({
-    mutationFn: () => api.post<{ status: string; message: string }>("/updates/apply"),
+    mutationFn: () =>
+      api.post<{ status: string; message: string }>("/updates/apply", {
+        confirm: true,
+        currentVersion: updateCheck.data?.currentVersion ?? health.data?.version ?? APP_VERSION,
+        currentCommit: updateCheck.data?.currentCommit ?? health.data?.commit ?? null,
+        currentBuild: updateCheck.data?.currentBuild ?? health.data?.build ?? null,
+        targetRef: updateCheck.data?.targetRef,
+        targetCommit: updateCheck.data?.targetCommit,
+      }),
     onSuccess: (data) => {
       if (data.status === "already_up_to_date") {
         toast.info(data.message);
@@ -2563,7 +2650,40 @@ function AdvancedSettings() {
 
   return (
     <div className="flex flex-col gap-3">
+      <ExportFormatDialog
+        open={exportProfileDialogOpen}
+        title="Export Profile"
+        description="Native creates a Marinara profile JSON for restoring your data in Marinara. Compatible creates a ZIP of folderless JSON files for other platforms."
+        nativeDescription="Keeps Marinara fields, lorebook folders, character/persona metadata, presets, agents, and themes for re-import."
+        compatibleDescription="Exports direct character JSON, simple persona JSON, and folderless lorebooks for other roleplay tools."
+        onClose={() => setExportProfileDialogOpen(false)}
+        onSelect={handleExportProfile}
+      />
+
       <div className="text-xs text-[var(--muted-foreground)]">Advanced settings for power users.</div>
+
+      <div className="flex flex-col gap-2 rounded-lg bg-[var(--secondary)]/40 p-2.5 ring-1 ring-[var(--border)]">
+        <div className="flex items-center gap-1.5">
+          <Power size="0.75rem" className="text-[var(--muted-foreground)]" />
+          <span className="text-xs font-medium">Admin Access</span>
+        </div>
+        <div className="flex gap-2 max-sm:flex-col">
+          <input
+            type="password"
+            value={adminSecret}
+            onChange={(e) => setAdminSecret(e.target.value)}
+            placeholder="ADMIN_SECRET"
+            className="flex-1 rounded-lg bg-[var(--background)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+          />
+          <button
+            onClick={saveAdminSecret}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95"
+          >
+            <Save size="0.75rem" />
+            Save
+          </button>
+        </div>
+      </div>
 
       {/* ── Updates ── */}
       <div className="flex flex-col gap-2">
@@ -2771,7 +2891,7 @@ function AdvancedSettings() {
           )}
         </button>
         <button
-          onClick={handleExportProfile}
+          onClick={() => setExportProfileDialogOpen(true)}
           disabled={exportingProfile}
           className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium ring-1 ring-[var(--border)] transition-all hover:bg-[var(--secondary)]/80 active:scale-95 disabled:opacity-50"
         >

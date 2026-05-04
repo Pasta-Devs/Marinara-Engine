@@ -34,6 +34,7 @@ import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
 
 // ════════════════════════════════════════════════
 // Types
@@ -118,6 +119,7 @@ interface CardDetail {
   alternateGreetings?: string[];
   creatorNotes?: string;
   hasLorebook?: boolean;
+  embeddedLorebook?: unknown;
   extra?: { title: string; content: string }[];
 }
 
@@ -139,6 +141,35 @@ const STAT_ICONS = {
   message: MessageSquare,
   hash: Hash,
 };
+
+function hasLorebookEntries(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const entries = (value as Record<string, unknown>).entries;
+  if (Array.isArray(entries)) return entries.length > 0;
+  return !!entries && typeof entries === "object" && Object.keys(entries).length > 0;
+}
+
+function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, embeddedLorebook: unknown) {
+  if (!hasLorebookEntries(embeddedLorebook)) return raw;
+
+  const cloned: Record<string, unknown> = { ...raw };
+  const target =
+    (cloned.spec === "chara_card_v2" || cloned.spec === "chara_card_v3") &&
+    cloned.data &&
+    typeof cloned.data === "object"
+      ? { ...(cloned.data as Record<string, unknown>) }
+      : cloned;
+
+  if (!target.character_book) {
+    target.character_book = embeddedLorebook;
+  }
+
+  if (target !== cloned) {
+    cloned.data = target;
+  }
+
+  return cloned;
+}
 
 // ════════════════════════════════════════════════
 // LocalStorage persistence helpers
@@ -385,6 +416,7 @@ const chubProvider: ProviderConfig = {
       alternateGreetings: def.alternate_greetings || [],
       creatorNotes: def.description || undefined,
       hasLorebook: !!def.embedded_lorebook,
+      embeddedLorebook: def.embedded_lorebook,
     };
   },
   importCard: async () => {},
@@ -1472,10 +1504,24 @@ export function BotBrowserView() {
         const blob = await res.blob();
         const file = new File([blob], "character.png", { type: "image/png" });
         const { json, imageDataUrl } = await parsePngCharacterCard(file);
+        const cardDetail = sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card))) : detail;
+        const importJson = attachEmbeddedLorebookToCharacterJson(
+          json as Record<string, unknown>,
+          cardDetail?.embeddedLorebook,
+        );
+        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
+          card.name,
+          cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
+        );
         const importRes = await fetch("/api/import/st-character", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...json, _avatarDataUrl: imageDataUrl, _botBrowserSource: `${sourceId}:${card.id}` }),
+          body: JSON.stringify({
+            ...importJson,
+            _avatarDataUrl: imageDataUrl,
+            _botBrowserSource: `${sourceId}:${card.id}`,
+            importEmbeddedLorebook,
+          }),
         });
         const data = await importRes.json();
         if (data.success) {
@@ -1486,6 +1532,7 @@ export function BotBrowserView() {
       } else {
         let cardDetail = detail;
         if (!cardDetail) cardDetail = await provider.fetchDetail(card);
+        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(card.name, cardDetail?.embeddedLorebook);
         // For extracted JanitorAI data, description contains the full personality definition
         const descriptionText = cardDetail?.description || "";
         const personalityText = cardDetail?.personality || "";
@@ -1502,7 +1549,11 @@ export function BotBrowserView() {
           alternate_greetings: cardDetail?.alternateGreetings || [],
           extensions: { [`${sourceId}`]: { id: card.id } },
           _botBrowserSource: `${sourceId}:${card.id}`,
+          importEmbeddedLorebook,
         };
+        if (hasLorebookEntries(cardDetail?.embeddedLorebook)) {
+          v2.character_book = cardDetail?.embeddedLorebook;
+        }
         const avatarSrc = card.avatarUrl;
         if (avatarSrc) {
           try {
@@ -2150,7 +2201,7 @@ export function BotBrowserView() {
                             />
                           </div>
                           <div className="flex items-center gap-2">
-                            <label className="w-24 text-xs text-[var(--muted-foreground)]">Max Tokens</label>
+                            <label className="w-24 text-xs text-[var(--muted-foreground)]">Max Output Tokens</label>
                             <input
                               type="number"
                               value={maxTokens}
@@ -2640,6 +2691,9 @@ function DetailView({
         alternate_greetings: d?.alternateGreetings || [],
         extensions: { [`${provider.id}`]: { id: card.id } },
       };
+      if (hasLorebookEntries(d?.embeddedLorebook)) {
+        charData.character_book = d?.embeddedLorebook;
+      }
 
       const blob = await buildCharacterCardPng(card.avatarUrl, charData);
 

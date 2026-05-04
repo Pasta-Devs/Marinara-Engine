@@ -11,8 +11,8 @@ If you see an error like `EPERM: operation not permitted, open 'C:\Program Files
 **Fix — pick one:**
 
 1. **Run as Administrator** — Right-click your terminal (CMD or PowerShell), select "Run as administrator", then run `start.bat` again.
-2. **Install pnpm manually** — Run `npm install -g pnpm`, then run `start.bat` again.
-3. **Update corepack** — Run `npm install -g corepack`, `corepack enable`, and `corepack prepare pnpm@10.30.3 --activate` in an Administrator terminal.
+2. **Install pnpm manually** — Run `npm install -g pnpm`, then run `start.bat` again. A newer pnpm is fine; the launcher no longer requires Corepack to provide one exact patch version.
+3. **Update corepack** — Run `npm install -g corepack`, `corepack enable`, and `corepack prepare pnpm@10.33.2 --activate` in an Administrator terminal.
 
 ---
 
@@ -34,6 +34,11 @@ Look for `storage/manifest.json` first. If it does not exist, look for `marinara
 If you're accessing Marinara Engine from a phone or tablet on the same network and it won't connect:
 
 - Make sure the server is bound to `0.0.0.0`, not `127.0.0.1`. The shell launchers (`start.sh`, `start-termux.sh`) default to `0.0.0.0`. If you started manually with `pnpm start`, set `HOST=0.0.0.0` in `.env` first.
+- Configure `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` for non-loopback access. Loopback remains passwordless, but LAN/Docker/Tailscale/private-network clients now fail closed by default when Basic Auth is unset.
+- If you need privileged features from that device, set `ADMIN_SECRET` on the server and save it in **Settings -> Advanced -> Admin Access**.
+- On mixed-trust networks, prefer `IP_ALLOWLIST` for specific trusted LAN/Docker/Tailscale/private-network client IPs or CIDRs instead of enabling the global `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` compatibility switch. Configure it on the server and keep `ADMIN_SECRET` set for privileged actions.
+- The compatibility switch `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores old unauthenticated LAN behavior, but only use it on a trusted private network.
+- If sending a message shows `Request origin is not trusted`, set `CSRF_TRUSTED_ORIGINS` to the exact URL you open in the browser, including Docker's mapped host port, for example `CSRF_TRUSTED_ORIGINS=http://192.168.1.10:3004`. Use `*` only on a fully trusted private setup.
 - Verify both devices are on the same Wi-Fi network.
 - Check that no firewall is blocking port `7860` (or your configured `PORT`).
 
@@ -46,6 +51,14 @@ See the [LAN / mobile access FAQ](FAQ.md#how-do-i-access-marinara-engine-from-my
 - Clear the browser cache or do a hard refresh (`Ctrl+Shift+R` / `Cmd+Shift+R`).
 - If you're using the PWA, unregister the service worker in DevTools → Application → Service Workers, then reload.
 - Confirm the client was built successfully — run `pnpm build` and check for errors.
+
+---
+
+## Backup or Export Profile Returns 403
+
+Loopback/local browser sessions can create backups and profile exports without an `ADMIN_SECRET` by default. If you are accessing Marinara from another device, Docker host, LAN address, or Tailscale address, privileged actions still require `ADMIN_SECRET` on the server plus the same value saved in **Settings -> Advanced -> Admin Access**.
+
+If you intentionally want loopback to require the same secret, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
 
 ---
 
@@ -72,6 +85,7 @@ If you'd prefer to avoid the paste-back step on a LAN install, the cleanest fix 
 
 If a Docker or Podman container fails with permission errors on the data volume:
 
+- **Non-root container user:** The full image now runs as the `node` user. Named volumes work automatically. For bind mounts, make the host directory writable by UID/GID `1000`, or use a named volume.
 - **SELinux (Fedora, RHEL):** Add the `:Z` suffix to the volume mount — e.g., `-v marinara-data:/app/data:Z`.
 - **Rootless Podman:** Make sure the host directory is owned by your user, or use a named volume instead of a bind mount.
 

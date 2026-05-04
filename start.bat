@@ -13,15 +13,30 @@ echo.
 where node >nul 2>&1
 if errorlevel 1 (
     echo  [ERROR] Node.js is not installed or not in PATH.
-    echo  Please install Node.js 20+ from https://nodejs.org
+    echo  Please install Node.js 24 LTS or newer from https://nodejs.org
+    echo.
+    pause
+    exit /b 1
+)
+
+for /f "tokens=1 delims=." %%a in ('node -v') do set "NODE_RAW=%%a"
+set "NODE_MAJOR=!NODE_RAW:v=!"
+if not defined NODE_MAJOR (
+    echo  [ERROR] Could not determine Node.js version.
+    pause
+    exit /b 1
+)
+if !NODE_MAJOR! LSS 24 (
+    echo  [ERROR] Node.js 24 LTS or newer is required. You have v!NODE_MAJOR!.
+    echo  Please update Node.js from https://nodejs.org
     echo.
     pause
     exit /b 1
 )
 
 :: Resolve the repo-pinned pnpm version from package.json
-set "PNPM_VERSION=10.30.3"
-for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.30.3'"`) do set "PNPM_VERSION=%%i"
+set "PNPM_VERSION=10.33.2"
+for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'"`) do set "PNPM_VERSION=%%i"
 set "PNPM_RUNNER=pnpm"
 set "CURRENT_PNPM_VERSION="
 
@@ -41,8 +56,8 @@ if not defined CURRENT_PNPM_VERSION (
     where pnpm >nul 2>&1
     if not errorlevel 1 (
         for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if /I not "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-            set "CURRENT_PNPM_VERSION="
+        if defined CURRENT_PNPM_VERSION (
+            echo  [..] Using installed pnpm !CURRENT_PNPM_VERSION!
         )
     )
 )
