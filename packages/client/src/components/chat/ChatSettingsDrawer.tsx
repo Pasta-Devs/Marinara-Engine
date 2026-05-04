@@ -3403,7 +3403,7 @@ export function ChatSettingsDrawer({
                                             {agent.description}
                                           </span>
                                         </div>
-                                        {tokenEst ? (
+                                        {tokenEst != null ? (
                                           <span
                                             className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
                                             title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
@@ -3477,7 +3477,7 @@ export function ChatSettingsDrawer({
                                         <div className="flex-1 min-w-0">
                                           <span className="block truncate text-xs">{agent.name}</span>
                                         </div>
-                                        {tokenEst ? (
+                                        {tokenEst != null ? (
                                           <span
                                             className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
                                             title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
