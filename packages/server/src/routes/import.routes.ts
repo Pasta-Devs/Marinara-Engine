@@ -60,7 +60,10 @@ function isHomeContained(pathValue: string) {
   }
 }
 
-function resolveImportFolder(body: { folderPath?: unknown; folderToken?: unknown }): { ok: true; path: string } | { ok: false; error: string } {
+function resolveImportFolder(body: {
+  folderPath?: unknown;
+  folderToken?: unknown;
+}): { ok: true; path: string } | { ok: false; error: string } {
   const rawPath = typeof body.folderPath === "string" ? body.folderPath.trim() : "";
   const token = typeof body.folderToken === "string" ? body.folderToken.trim() : "";
   cleanupFolderTokens();
@@ -72,7 +75,10 @@ function resolveImportFolder(body: { folderPath?: unknown; folderToken?: unknown
       return { ok: false, error: "Folder token does not match folderPath" };
     }
     if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
-      return { ok: false, error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS." };
+      return {
+        ok: false,
+        error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
+      };
     }
     return { ok: true, path: entry.path };
   }
@@ -80,7 +86,10 @@ function resolveImportFolder(body: { folderPath?: unknown; folderToken?: unknown
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
   if (!isAllowedImportRoot(resolved)) {
-    return { ok: false, error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS." };
+    return {
+      ok: false,
+      error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
+    };
   }
   return { ok: true, path: resolved };
 }

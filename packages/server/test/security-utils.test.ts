@@ -95,7 +95,15 @@ test("safeFetch can return a streaming capped response without buffering", async
     bufferResponse: false,
     policy: { allowLocal: true },
     dispatcher: {
-      dispatch(_options: unknown, handler: { onConnect: (abort: () => void) => void; onHeaders: (status: number, headers: string[], resume: () => void) => void; onData: (chunk: Buffer) => void; onComplete: (trailers: string[]) => void }) {
+      dispatch(
+        _options: unknown,
+        handler: {
+          onConnect: (abort: () => void) => void;
+          onHeaders: (status: number, headers: string[], resume: () => void) => void;
+          onData: (chunk: Buffer) => void;
+          onComplete: (trailers: string[]) => void;
+        },
+      ) {
         handler.onConnect(() => undefined);
         handler.onHeaders(200, ["content-type", "text/plain"], () => undefined);
         setTimeout(() => {
@@ -120,7 +128,14 @@ test("safeFetch rejects missing content-type when a content gate is configured",
         policy: { allowLocal: true },
         allowedContentTypes: ["image/"],
         dispatcher: {
-          dispatch(_options: unknown, handler: { onConnect: (abort: () => void) => void; onHeaders: (status: number, headers: string[], resume: () => void) => void; onComplete: (trailers: string[]) => void }) {
+          dispatch(
+            _options: unknown,
+            handler: {
+              onConnect: (abort: () => void) => void;
+              onHeaders: (status: number, headers: string[], resume: () => void) => void;
+              onComplete: (trailers: string[]) => void;
+            },
+          ) {
             handler.onConnect(() => undefined);
             handler.onHeaders(200, [], () => undefined);
             handler.onComplete([]);

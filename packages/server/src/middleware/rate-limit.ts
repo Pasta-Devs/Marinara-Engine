@@ -16,7 +16,10 @@ const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_0
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
   { pattern: /^\/api\/generate(?:\/|$)/, rule: { key: "generate", limit: 60, windowMs: 60_000 } },
   { pattern: /^\/api\/tts(?:\/|$)/, rule: { key: "tts", limit: 90, windowMs: 60_000 } },
-  { pattern: /^\/api\/connections\/[^/]+\/test-image(?:\?|$)/, rule: { key: "image-test", limit: 20, windowMs: 60_000 } },
+  {
+    pattern: /^\/api\/connections\/[^/]+\/test-image(?:\?|$)/,
+    rule: { key: "image-test", limit: 20, windowMs: 60_000 },
+  },
   { pattern: /^\/api\/import\/st-bulk(?:\/|$)/, rule: { key: "bulk-import", limit: 20, windowMs: 60_000 } },
   { pattern: /^\/api\/backup(?:\/|$)/, rule: { key: "backup", limit: 30, windowMs: 60_000 } },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },

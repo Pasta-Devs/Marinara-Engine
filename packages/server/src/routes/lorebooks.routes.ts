@@ -29,6 +29,78 @@ function toSafeExportName(name: string, fallback: string) {
   return sanitized || fallback;
 }
 
+type ExportFormat = "native" | "compatible";
+
+function resolveExportFormat(query: unknown, fallback: ExportFormat = "native"): ExportFormat {
+  const raw = query && typeof query === "object" ? (query as Record<string, unknown>).format : undefined;
+  return raw === "compatible" ? "compatible" : fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      return value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function stSelectiveLogic(value: unknown): number {
+  return value === "or" ? 1 : value === "not" ? 2 : 0;
+}
+
+function stRole(value: unknown): number {
+  return value === "user" ? 1 : value === "assistant" ? 2 : 0;
+}
+
+function buildCompatibleLorebookExport(lb: Record<string, unknown>, entries: Array<Record<string, unknown>>) {
+  const exportedEntries: Record<string, Record<string, unknown>> = {};
+  entries.forEach((entry, index) => {
+    exportedEntries[String(index)] = {
+      uid: index,
+      key: asStringArray(entry.keys),
+      keysecondary: asStringArray(entry.secondaryKeys),
+      comment: String(entry.name ?? `Entry ${index + 1}`),
+      content: String(entry.content ?? ""),
+      disable: entry.enabled === false,
+      constant: entry.constant === true,
+      selective: entry.selective === true,
+      selectiveLogic: stSelectiveLogic(entry.selectiveLogic),
+      order: Number(entry.order ?? 100),
+      position: Number(entry.position ?? 0),
+      depth: Number(entry.depth ?? 4),
+      probability: entry.probability ?? null,
+      scanDepth: entry.scanDepth ?? null,
+      matchWholeWords: entry.matchWholeWords === true,
+      caseSensitive: entry.caseSensitive === true,
+      role: stRole(entry.role),
+      group: String(entry.group ?? ""),
+      groupWeight: entry.groupWeight ?? null,
+      sticky: entry.sticky ?? null,
+      cooldown: entry.cooldown ?? null,
+      delay: entry.delay ?? null,
+    };
+  });
+
+  return {
+    name: String(lb.name ?? "Lorebook"),
+    extensions: {
+      marinara: {
+        exportedAt: new Date().toISOString(),
+        source: "Marinara Engine compatibility export",
+      },
+    },
+    entries: exportedEntries,
+  };
+}
+
 export async function lorebooksRoutes(app: FastifyInstance) {
   const storage = createLorebooksStorage(app.db);
 
@@ -75,11 +147,20 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   // ── Export ──
 
-  app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { format?: ExportFormat } }>("/:id/export", async (req, reply) => {
     const lb = (await storage.getById(req.params.id)) as Record<string, unknown> | null;
     if (!lb) return reply.status(404).send({ error: "Lorebook not found" });
-    const entries = await storage.listEntries(req.params.id);
+    const entries = (await storage.listEntries(req.params.id)) as Array<Record<string, unknown>>;
     const folders = await storage.listFolders(req.params.id);
+    const format = resolveExportFormat(req.query);
+    if (format === "compatible") {
+      return reply
+        .header(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(String(lb.name || "lorebook"))}.json"`,
+        )
+        .send(buildCompatibleLorebookExport(lb, entries));
+    }
     const envelope: ExportEnvelope = {
       type: "marinara_lorebook",
       version: 1,
@@ -95,7 +176,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
   });
 
   app.post("/export-bulk", async (req, reply) => {
-    const { ids } = req.body as { ids?: string[] };
+    const { ids, format = "native" } = req.body as { ids?: string[]; format?: ExportFormat };
     if (!Array.isArray(ids) || ids.length === 0) {
       return reply.status(400).send({ error: "ids array is required" });
     }
@@ -105,8 +186,16 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     for (const id of ids) {
       const lb = (await storage.getById(id)) as Record<string, unknown> | null;
       if (!lb) continue;
-      const entries = await storage.listEntries(id);
+      const entries = (await storage.listEntries(id)) as Array<Record<string, unknown>>;
       const folders = await storage.listFolders(id);
+      if (format === "compatible") {
+        zip.addFile(
+          `${toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`)}.json`,
+          Buffer.from(JSON.stringify(buildCompatibleLorebookExport(lb, entries), null, 2), "utf-8"),
+        );
+        exportedCount++;
+        continue;
+      }
       const envelope: ExportEnvelope = {
         type: "marinara_lorebook",
         version: 1,
@@ -126,7 +215,10 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
     return reply
       .header("Content-Type", "application/zip")
-      .header("Content-Disposition", 'attachment; filename="marinara-lorebooks.zip"')
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${format === "compatible" ? "compatible-lorebooks.zip" : "marinara-lorebooks.zip"}"`,
+      )
       .send(zip.toBuffer());
   });
 

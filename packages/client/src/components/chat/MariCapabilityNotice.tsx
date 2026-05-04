@@ -73,7 +73,9 @@ export const MariCapabilityNotice = memo(function MariCapabilityNotice() {
       <p className="flex-1 leading-relaxed">
         Mari can edit your characters and personas directly when you ask her to update them. Character edits keep a
         recoverable version snapshot you can roll back to from the character's history.{" "}
-        <strong className="font-semibold">Persona edits overwrite without a snapshot — back up the persona first</strong>{" "}
+        <strong className="font-semibold">
+          Persona edits overwrite without a snapshot — back up the persona first
+        </strong>{" "}
         if you want to keep the old version.
       </p>
       <button

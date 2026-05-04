@@ -91,11 +91,25 @@ const STATUS_LABEL: Record<EntryStatus, string> = {
   normal: "Normal",
 };
 
+const STATUS_DESCRIPTION: Record<EntryStatus, string> = {
+  normal: "This entry is currently set to trigger normally, when key words are detected.",
+  constant: "This entry is constantly injected into the context.",
+  selective:
+    "This entry uses selective matching: primary keys must match with the secondary-key logic below before it is injected.",
+};
+
 const STATUS_DOT_COLOR: Record<EntryStatus, string> = {
   constant: "bg-amber-400",
   selective: "bg-violet-400",
   normal: "bg-emerald-400",
 };
+
+const ENTRY_STATUS_ORDER: EntryStatus[] = ["normal", "constant", "selective"];
+
+function getNextStatus(status: EntryStatus): EntryStatus {
+  const index = ENTRY_STATUS_ORDER.indexOf(status);
+  return ENTRY_STATUS_ORDER[(index + 1) % ENTRY_STATUS_ORDER.length] ?? "normal";
+}
 
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /
  *  probability / enable, plus an expandable drawer with the rest of the entry editor.
@@ -160,6 +174,14 @@ export function LorebookEntryRow({
       patch(statusToFlags(next));
     },
     [patch],
+  );
+
+  const handleStatusCycle = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      handleStatusChange(getNextStatus(localStatus));
+    },
+    [handleStatusChange, localStatus],
   );
 
   const handleEnableToggle = useCallback(
@@ -295,10 +317,15 @@ export function LorebookEntryRow({
         </button>
 
         {/* Status dot + name */}
-        <span
-          className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT_COLOR[localStatus])}
-          title={STATUS_LABEL[localStatus]}
-        />
+        <button
+          type="button"
+          onClick={handleStatusCycle}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          title={`${STATUS_LABEL[localStatus]} entry. Tap to switch to ${STATUS_LABEL[getNextStatus(localStatus)]}.`}
+          aria-label={`${STATUS_LABEL[localStatus]} entry. Tap to switch to ${STATUS_LABEL[getNextStatus(localStatus)]}.`}
+        >
+          <span className={cn("h-2.5 w-2.5 rounded-full", STATUS_DOT_COLOR[localStatus])} />
+        </button>
         <input
           value={localName}
           onChange={(e) => setLocalName(e.target.value)}
@@ -340,16 +367,6 @@ export function LorebookEntryRow({
         {/* Hidden on very narrow viewports to keep the row from overflowing.
             Users on mobile can expand the drawer to access them. */}
         <div className="hidden shrink-0 items-center gap-1 md:flex" onClick={(e) => e.stopPropagation()}>
-          <CompactSelect
-            value={localStatus}
-            onChange={(v) => handleStatusChange(v as EntryStatus)}
-            title="Trigger mode: Constant always fires, Selective uses primary+secondary key logic, Normal fires on any primary key match."
-            options={[
-              { value: "normal", label: "Normal" },
-              { value: "constant", label: "Const" },
-              { value: "selective", label: "Selective" },
-            ]}
-          />
           <CompactSelect
             value={String(localPosition)}
             onChange={(v) => {
@@ -552,6 +569,7 @@ function ExpandedDrawer({ entry, lorebookId }: { entry: LorebookEntry; lorebookI
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const loadedEntryIdRef = useRef(entry.id);
+  const drawerStatus = deriveStatus(entry);
 
   // If the underlying entry changes (e.g. due to an inline-control patch), refresh
   // the drawer form unless the user is in the middle of editing.
@@ -602,6 +620,11 @@ function ExpandedDrawer({ entry, lorebookId }: { entry: LorebookEntry; lorebookI
 
   return (
     <div className="space-y-5 border-t border-[var(--border)] px-4 py-4">
+      <div className="flex items-start gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/55 px-3 py-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+        <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", STATUS_DOT_COLOR[drawerStatus])} />
+        <p>{STATUS_DESCRIPTION[drawerStatus]}</p>
+      </div>
+
       {/* Description */}
       <FieldGroup
         label="Description"
@@ -670,7 +693,7 @@ function ExpandedDrawer({ entry, lorebookId }: { entry: LorebookEntry; lorebookI
         </p>
       </FieldGroup>
 
-      {/* Toggles row — note: enable / regex / constant / selective are now on the row header,
+      {/* Toggles row — note: enable / regex / trigger mode are now on the row header,
           so they are intentionally omitted from this block to avoid duplication. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <ToggleButton

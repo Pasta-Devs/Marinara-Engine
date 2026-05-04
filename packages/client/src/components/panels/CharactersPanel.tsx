@@ -47,6 +47,7 @@ import {
 import { getCharacterTitle } from "../../lib/character-display";
 import { useUIStore } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 type CharacterRow = {
   id: string;
@@ -435,18 +436,28 @@ export function CharactersPanel() {
     setSelectedCharacterIds(new Set(sortedCharacters.map((char) => char.id)));
   }, [sortedCharacters]);
 
-  const handleExportSelected = useCallback(async () => {
-    if (selectedCharacterIds.size === 0) return;
-    setExportingSelected(true);
-    try {
-      await api.downloadPost("/characters/export-bulk", { ids: [...selectedCharacterIds] }, "marinara-characters.zip");
-      toast.success(`Exported ${selectedCharacterIds.size} character${selectedCharacterIds.size === 1 ? "" : "s"}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to export characters");
-    } finally {
-      setExportingSelected(false);
-    }
-  }, [selectedCharacterIds]);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+  const handleExportSelected = useCallback(
+    async (format: ExportFormatChoice) => {
+      if (selectedCharacterIds.size === 0) return;
+      setExportingSelected(true);
+      setExportDialogOpen(false);
+      try {
+        await api.downloadPost(
+          "/characters/export-bulk",
+          { ids: [...selectedCharacterIds], format },
+          format === "compatible" ? "compatible-characters.zip" : "marinara-characters.zip",
+        );
+        toast.success(`Exported ${selectedCharacterIds.size} character${selectedCharacterIds.size === 1 ? "" : "s"}`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to export characters");
+      } finally {
+        setExportingSelected(false);
+      }
+    },
+    [selectedCharacterIds],
+  );
 
   const handleDeleteSelected = useCallback(async () => {
     const ids = [...selectedCharacterIds];
@@ -682,7 +693,7 @@ export function CharactersPanel() {
             Delete
           </button>
           <button
-            onClick={handleExportSelected}
+            onClick={() => setExportDialogOpen(true)}
             disabled={selectedCharacterIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-40"
           >
@@ -697,6 +708,15 @@ export function CharactersPanel() {
           </button>
         </div>
       )}
+
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Characters"
+        description="Native keeps Marinara metadata. Compatible exports direct Chara Card V2 JSON for other platforms."
+        compatibleDescription="Exports direct Chara Card V2 JSON files without the Marinara wrapper."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={handleExportSelected}
+      />
 
       {/* ── Groups Section ── */}
       <div className="mt-1">

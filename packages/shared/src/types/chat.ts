@@ -141,6 +141,8 @@ export interface ChatMetadata {
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */
   impersonatePrompt?: string | null;
+  /** Show a manual draft translation button beside the send control. */
+  showInputTranslateButton?: boolean;
 
   // ── Conversation Mode Fields ──
   /** Whether conversation character schedules are enabled for this chat. */

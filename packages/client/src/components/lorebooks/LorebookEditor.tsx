@@ -59,6 +59,7 @@ import type { Lorebook, LorebookEntry, LorebookFolder, LorebookCategory } from "
 import { LorebookEntryRow } from "./LorebookEntryRow";
 import { LorebookFolderRow } from "./LorebookFolderRow";
 import { estimateTokens } from "./LorebookFormFields";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not
@@ -158,6 +159,7 @@ export function LorebookEditor() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [lorebookDirty, setLorebookDirty] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
     setEditorDirty(lorebookDirty);
@@ -614,6 +616,18 @@ export function LorebookEditor() {
   // ── Main editor ──
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      <ExportFormatDialog
+        open={exportDialogOpen}
+        title="Export Lorebook"
+        description="Native keeps Marinara folders and entry fields. Compatible exports a folderless World Info JSON for other roleplay tools."
+        onClose={() => setExportDialogOpen(false)}
+        onSelect={(format: ExportFormatChoice) => {
+          if (!lorebookId) return;
+          setExportDialogOpen(false);
+          void api.download(`/lorebooks/${lorebookId}/export?format=${format}`);
+        }}
+      />
+
       {/* Unsaved warning banner */}
       {showUnsavedWarning && (
         <div className="flex items-center gap-3 bg-amber-500/10 px-4 py-2.5 text-xs">
@@ -671,7 +685,7 @@ export function LorebookEditor() {
           {saving ? "Saving…" : "Save"}
         </button>
         <button
-          onClick={() => api.download(`/lorebooks/${lorebookId}/export`)}
+          onClick={() => setExportDialogOpen(true)}
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Export lorebook"
         >

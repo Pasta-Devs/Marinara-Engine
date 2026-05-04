@@ -177,6 +177,10 @@ interface UIState {
   messagesPerPage: number;
   /** Bold quoted dialogue in chat messages; color highlighting can still remain when this is off */
   boldDialogue: boolean;
+  /** When true, model responses are trimmed back to the last complete sentence before saving. */
+  trimIncompleteModelOutput: boolean;
+  /** When true, chat inputs show a microphone button for browser speech-to-text dictation. */
+  speechToTextEnabled: boolean;
 
   // ── Text Appearance ──
   /** Color for narrator text in RP mode (empty = default amber) */
@@ -330,6 +334,8 @@ interface UIState {
   setConfirmBeforeDelete: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
+  setTrimIncompleteModelOutput: (v: boolean) => void;
+  setSpeechToTextEnabled: (v: boolean) => void;
   setNarrationFontColor: (v: string) => void;
   setNarrationOpacity: (v: number) => void;
   setChatFontColor: (v: string) => void;
@@ -411,6 +417,8 @@ export function pickSyncedSettings(state: UIState) {
     confirmBeforeDelete: state.confirmBeforeDelete,
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
+    trimIncompleteModelOutput: state.trimIncompleteModelOutput,
+    speechToTextEnabled: state.speechToTextEnabled,
     narrationFontColor: state.narrationFontColor,
     narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
@@ -495,6 +503,8 @@ export const useUIStore = create<UIState>()(
       confirmBeforeDelete: true,
       messagesPerPage: 20,
       boldDialogue: true,
+      trimIncompleteModelOutput: false,
+      speechToTextEnabled: false,
       narrationFontColor: "",
       narrationOpacity: 80,
       chatFontColor: "",
@@ -762,6 +772,8 @@ export const useUIStore = create<UIState>()(
       setConfirmBeforeDelete: (v) => set({ confirmBeforeDelete: v }),
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
+      setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
+      setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setNarrationFontColor: (v) => set({ narrationFontColor: v }),
       setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
@@ -833,7 +845,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 15,
+      version: 16,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -982,6 +994,12 @@ export const useUIStore = create<UIState>()(
             persisted.learnedGameSetupOptions = DEFAULT_GAME_SETUP_LEARNED_OPTIONS;
           }
         }
+        // v15 -> v16: opt-in output cleanup for incomplete final sentences.
+        if (version <= 15) {
+          if (persisted.trimIncompleteModelOutput === undefined) {
+            persisted.trimIncompleteModelOutput = false;
+          }
+        }
         return persisted;
       },
       partialize: (state) => ({
@@ -1019,6 +1037,8 @@ export const useUIStore = create<UIState>()(
         confirmBeforeDelete: state.confirmBeforeDelete,
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,
+        trimIncompleteModelOutput: state.trimIncompleteModelOutput,
+        speechToTextEnabled: state.speechToTextEnabled,
         narrationFontColor: state.narrationFontColor,
         narrationOpacity: state.narrationOpacity,
         chatFontColor: state.chatFontColor,

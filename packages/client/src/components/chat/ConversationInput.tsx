@@ -2,7 +2,7 @@
 // Chat: Conversation Input — Discord-style
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Send, Smile, StopCircle, X, Plus, ImagePlay, AtSign, Users } from "lucide-react";
+import { Send, Smile, StopCircle, X, Plus, ImagePlay, AtSign, Users, Languages, Loader2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,11 +20,13 @@ import {
 } from "../../lib/slash-commands";
 import { isPromptPreviewMacro, resolveInputMacrosForChat } from "../../lib/chat-macros";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { translateDraftText } from "../../lib/draft-translation";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { GifPicker } from "../ui/GifPicker";
+import { SpeechToTextButton } from "../ui/SpeechToTextButton";
 import { MariThinkingIndicator } from "./MariThinkingIndicator";
 import { MariCapabilityNotice } from "./MariCapabilityNotice";
 import { SlashCommandFeedback } from "./SlashCommandFeedback";
@@ -103,6 +105,7 @@ export function ConversationInput({
   const [selectedCompletion, setSelectedCompletion] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -137,6 +140,7 @@ export function ConversationInput({
   const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendConvo);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
+  const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const createMessage = useCreateMessage(activeChatId);
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -665,6 +669,63 @@ export function ConversationInput({
   }, [charPickerOpen]);
 
   const showCharPicker = groupResponseOrder === "manual" && !!chatCharacters && chatCharacters.length > 1;
+  const chatMetadata = activeChat?.metadata
+    ? typeof activeChat.metadata === "string"
+      ? (() => {
+          try {
+            return JSON.parse(activeChat.metadata) as Record<string, unknown>;
+          } catch {
+            return {};
+          }
+        })()
+      : (activeChat.metadata as Record<string, unknown>)
+    : {};
+  const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
+
+  const handleTranslateDraft = useCallback(async () => {
+    if (!activeChatId || isTranslatingDraft) return;
+    const raw = textareaRef.current?.value ?? "";
+    if (!raw.trim()) return;
+
+    setIsTranslatingDraft(true);
+    try {
+      const translated = await translateDraftText(raw);
+      if (!translated || !textareaRef.current) return;
+      textareaRef.current.value = translated;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+      syncInputState(translated);
+      setInputDraft(activeChatId, translated);
+      textareaRef.current.focus();
+    } finally {
+      setIsTranslatingDraft(false);
+    }
+  }, [activeChatId, isTranslatingDraft, setInputDraft, syncInputState]);
+
+  const handleSpeechTranscript = useCallback(
+    (transcript: string) => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? start;
+      const before = el.value.slice(0, start);
+      const after = el.value.slice(end);
+      const prefix = before && !/\s$/.test(before) ? " " : "";
+      const suffix = after && !/^\s/.test(after) ? " " : "";
+      const nextValue = `${before}${prefix}${transcript}${suffix}${after}`;
+      const nextCursor = before.length + prefix.length + transcript.length;
+
+      el.value = nextValue;
+      el.setSelectionRange(nextCursor, nextCursor);
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+      syncInputState(nextValue);
+      if (activeChatId) setInputDraft(activeChatId, nextValue);
+      el.focus();
+    },
+    [activeChatId, setInputDraft, syncInputState],
+  );
+
   const statusDotClass = (status?: string) =>
     status === "offline"
       ? "bg-gray-400"
@@ -890,6 +951,32 @@ export function ConversationInput({
             >
               <Users size="1rem" />
             </button>
+          )}
+
+          {showDraftTranslateButton && (
+            <button
+              type="button"
+              onClick={() => void handleTranslateDraft()}
+              disabled={!activeChatId || !hasInput || isTranslatingDraft}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                hasInput && !isTranslatingDraft
+                  ? "text-foreground/70 hover:bg-foreground/10 hover:text-foreground"
+                  : "text-foreground/25",
+              )}
+              title="Translate draft"
+            >
+              {isTranslatingDraft ? <Loader2 size="1rem" className="animate-spin" /> : <Languages size="1rem" />}
+            </button>
+          )}
+
+          {speechToTextEnabled && (
+            <SpeechToTextButton
+              disabled={!activeChatId}
+              onTranscript={handleSpeechTranscript}
+              className="rounded-full"
+              iconSize={16}
+            />
           )}
 
           <button

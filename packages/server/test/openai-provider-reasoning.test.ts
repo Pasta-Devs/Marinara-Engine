@@ -125,6 +125,26 @@ test("OpenAI reasoning models still receive reasoning_effort", async () => {
   assert.equal("enable_thinking" in body, false);
 });
 
+test("OpenRouter Claude models receive unified reasoning config", async () => {
+  const body = await captureChatRequestBody("anthropic/claude-sonnet-4.6", {}, "https://openrouter.ai/api/v1");
+
+  assert.deepEqual(body.reasoning, { effort: "high" });
+  assert.equal("reasoning_effort" in body, false);
+  assert.equal("enable_thinking" in body, false);
+});
+
+test("OpenRouter Claude chatComplete receives unified reasoning config", async () => {
+  const body = await captureChatCompleteRequestBody(
+    "anthropic/claude-opus-4.7",
+    { reasoningEffort: "xhigh" },
+    "https://openrouter.ai/api/v1",
+  );
+
+  assert.deepEqual(body.reasoning, { effort: "xhigh" });
+  assert.equal("reasoning_effort" in body, false);
+  assert.equal("enable_thinking" in body, false);
+});
+
 test("gpt-5.5 uses Chat Completions reasoning and verbosity payloads", async () => {
   const body = await captureChatRequestBody("gpt-5.5", {
     reasoningEffort: "xhigh",

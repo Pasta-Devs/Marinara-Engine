@@ -46,7 +46,12 @@ type ExchangeResult = { ok: true } | { ok: false; status: number; reason: string
 
 function isEncryptedToken(value: string): boolean {
   const parts = value.split(":");
-  return parts.length === 3 && parts.every((part) => /^[0-9a-f]+$/i.test(part)) && parts[0]?.length === 24 && parts[2]?.length === 32;
+  return (
+    parts.length === 3 &&
+    parts.every((part) => /^[0-9a-f]+$/i.test(part)) &&
+    parts[0]?.length === 24 &&
+    parts[2]?.length === 32
+  );
 }
 
 function decryptStoredToken(value: unknown): string {

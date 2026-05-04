@@ -23,8 +23,122 @@ import { assertInsideDir } from "../utils/security.js";
 const BACKUP_DIRS = ["storage", "avatars", "sprites", "backgrounds", "gallery", "fonts", "knowledge-sources"];
 const PROFILE_IMPORT_BODY_LIMIT_BYTES = 256 * 1024 * 1024;
 
+type ExportFormat = "native" | "compatible";
+
 function resolveBackupDir(dataDir: string, dirName: string) {
   return dirName === "storage" ? getFileStorageDir() : join(dataDir, dirName);
+}
+
+function toSafeExportName(name: string, fallback: string) {
+  const sanitized = name
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return sanitized || fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      return value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function stSelectiveLogic(value: unknown): number {
+  return value === "or" ? 1 : value === "not" ? 2 : 0;
+}
+
+function stRole(value: unknown): number {
+  return value === "user" ? 1 : value === "assistant" ? 2 : 0;
+}
+
+function buildCompatibleLorebookExport(lb: Record<string, any>) {
+  const entries: Record<string, Record<string, unknown>> = {};
+  (Array.isArray(lb.entries) ? lb.entries : []).forEach((entry: Record<string, unknown>, index: number) => {
+    entries[String(index)] = {
+      uid: index,
+      key: asStringArray(entry.keys),
+      keysecondary: asStringArray(entry.secondaryKeys),
+      comment: String(entry.name ?? `Entry ${index + 1}`),
+      content: String(entry.content ?? ""),
+      disable: entry.enabled === false,
+      constant: entry.constant === true,
+      selective: entry.selective === true,
+      selectiveLogic: stSelectiveLogic(entry.selectiveLogic),
+      order: Number(entry.order ?? 100),
+      position: Number(entry.position ?? 0),
+      depth: Number(entry.depth ?? 4),
+      probability: entry.probability ?? null,
+      scanDepth: entry.scanDepth ?? null,
+      matchWholeWords: entry.matchWholeWords === true,
+      caseSensitive: entry.caseSensitive === true,
+      role: stRole(entry.role),
+      group: String(entry.group ?? ""),
+      groupWeight: entry.groupWeight ?? null,
+      sticky: entry.sticky ?? null,
+      cooldown: entry.cooldown ?? null,
+      delay: entry.delay ?? null,
+    };
+  });
+
+  return {
+    name: String(lb.name ?? "Lorebook"),
+    extensions: {
+      marinara: {
+        exportedAt: new Date().toISOString(),
+        source: "Marinara Engine compatibility export",
+      },
+    },
+    entries,
+  };
+}
+
+async function buildCompatibleProfileZip(app: FastifyInstance) {
+  const envelope = await buildProfileExportEnvelope(app);
+  const data = envelope.data as Record<string, any>;
+  const zip = new AdmZip();
+
+  for (const [index, character] of (Array.isArray(data.characters) ? data.characters : []).entries()) {
+    const charData = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+    zip.addFile(
+      `characters/${toSafeExportName(String(charData?.name ?? "character"), `character-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify({ spec: "chara_card_v2", spec_version: "2.0", data: charData }, null, 2), "utf8"),
+    );
+  }
+
+  for (const [index, persona] of (Array.isArray(data.personas) ? data.personas : []).entries()) {
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      avatarPath: _avatarPath,
+      avatarBase64: _avatarBase64,
+      isActive: _isActive,
+      ...personaData
+    } = persona as Record<string, unknown>;
+    zip.addFile(
+      `personas/${toSafeExportName(String(personaData.name ?? "persona"), `persona-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify(personaData, null, 2), "utf8"),
+    );
+  }
+
+  for (const [index, lorebook] of (Array.isArray(data.lorebooks) ? data.lorebooks : []).entries()) {
+    zip.addFile(
+      `lorebooks/${toSafeExportName(String(lorebook.name ?? "lorebook"), `lorebook-${index + 1}`)}.json`,
+      Buffer.from(JSON.stringify(buildCompatibleLorebookExport(lorebook), null, 2), "utf8"),
+    );
+  }
+
+  return zip;
 }
 
 function resolveAvatarWritePath(dataDir: string, avatarPath: unknown) {
@@ -291,8 +405,19 @@ export async function backupRoutes(app: FastifyInstance) {
   // ── Profile Export ──
   // Returns a portable JSON envelope with characters, personas, lorebooks,
   // presets (+ groups/sections/choices), agent configs, and synced custom themes.
-  app.get("/export-profile", async (req, reply) => {
+  app.get<{ Querystring: { format?: ExportFormat } }>("/export-profile", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Profile export" })) return;
+
+    if (req.query.format === "compatible") {
+      const zip = await buildCompatibleProfileZip(app);
+      const buffer = zip.toBuffer();
+      return reply
+        .header("Content-Type", "application/zip")
+        .header("Content-Disposition", `attachment; filename="marinara-compatible-export.zip"`)
+        .header("Content-Length", buffer.length.toString())
+        .send(buffer);
+    }
+
     const envelope = await buildProfileExportEnvelope(app);
 
     return reply

@@ -6,6 +6,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Guide for Game mode.
+- Professor Mari can now create Lorebooks for you.
+- Days tracker in Game mode that you can edit.
+- Lorebook entry trigger mode can now be changed directly from the entry status dot.
 - Game mode interrupt button that allows you to interrupt the GM (with or without consequences to your game).
 - Various improvements to the Game mode's combat and inventory systems, more cinematic battles, better UI handling, and more overall mechanics.
 - Game mode map scaling.
@@ -35,6 +39,11 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Allowed token size outputs in agents.
 - Lorebook folders.
 - Game mode setup remembers custom genre, tone, setting, and goal options from previous games.
+- Optional trimming for incomplete model endings before generated messages are saved.
+- Draft translation button option in chat Translation settings for Conversation, Roleplay, and Game modes.
+- Native vs compatible export choices for profile, character, persona, and lorebook exports.
+- PocketTTS is now available as a local TTS provider.
+- Optional speech-to-text microphone buttons can be enabled for Conversation, Roleplay, and Game input fields.
 
 ### Security
 
@@ -50,6 +59,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Addressed various security concerns.
 - Game mode dark screen error addressed.
 - Removed the persistent SQLite database as the default live storage path, reducing release-to-release migration failures.
 - File-backed migration now merges every known legacy database location and performs a one-time repair for snapshots that missed chats during early v1.5.7 testing.
@@ -77,6 +87,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Deleting one saved character card version now leaves the rest of the version history intact.
 - Removed the legacy database setup step from the installer flow.
 - Fresh installs no longer install the old `better-sqlite3` or `sql.js` SQLite fallback packages.
+- Browser-tab character imports now preserve embedded Chub lorebooks as linked Marinara lorebooks.
+- OpenRouter Claude reasoning is requested with OpenRouter's unified `reasoning` payload again, restoring thinking capture for Sonnet/Opus reasoning models.
 - Various minor UI bugs.
 
 ## [1.5.6]

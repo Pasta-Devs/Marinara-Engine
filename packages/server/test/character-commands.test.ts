@@ -69,6 +69,35 @@ test("parses update_persona with scenario and backstory", () => {
   ]);
 });
 
+test("parses create_lorebook JSON block and strips it from visible text", () => {
+  const { commands, cleanContent } = parseCharacterCommands(
+    `I'll make that lorebook now.\n<create_lorebook>{"name":"Arcadia World Lore","description":"Setting notes","category":"world","tags":["fantasy"],"entries":[{"name":"Silver Court","content":"The Silver Court rules the north.","keys":["Silver Court","north"],"tag":"faction","constant":false}]}</create_lorebook>`,
+  );
+
+  assert.equal(cleanContent, "I'll make that lorebook now.");
+  assert.deepEqual(commands, [
+    {
+      type: "create_lorebook",
+      name: "Arcadia World Lore",
+      description: "Setting notes",
+      category: "world",
+      tags: ["fantasy"],
+      entries: [
+        {
+          name: "Silver Court",
+          content: "The Silver Court rules the north.",
+          description: undefined,
+          keys: ["Silver Court", "north"],
+          secondaryKeys: undefined,
+          tag: "faction",
+          constant: false,
+          selective: undefined,
+        },
+      ],
+    },
+  ]);
+});
+
 test("parses mixed legacy and expanded update_character fields together", () => {
   const { commands } = parseCharacterCommands(
     `[update_character: name="Luna", description="A fortune teller", personality="enigmatic", first_message="Hello", scenario="Moonlit shop", appearance="Dark velvet dress", system_prompt="Be cryptic"]`,

@@ -34,7 +34,8 @@ export async function hapticRoutes(app: FastifyInstance) {
 
   // ── POST /connect ──
   app.post<{ Body: { url?: string } }>("/connect", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic connection", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic connection", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     try {
       await hapticService.connect(req.body?.url);
       return hapticService.status();
@@ -46,14 +47,16 @@ export async function hapticRoutes(app: FastifyInstance) {
 
   // ── POST /disconnect ──
   app.post("/disconnect", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic disconnect", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic disconnect", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     await hapticService.disconnect();
     return hapticService.status();
   });
 
   // ── POST /scan/start ──
   app.post("/scan/start", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic scanning", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic scanning", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     try {
       await hapticService.startScanning();
       return { scanning: true };
@@ -65,7 +68,8 @@ export async function hapticRoutes(app: FastifyInstance) {
 
   // ── POST /scan/stop ──
   app.post("/scan/stop", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic scanning", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic scanning", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     await hapticService.stopScanning();
     return { scanning: false };
   });
@@ -77,7 +81,8 @@ export async function hapticRoutes(app: FastifyInstance) {
 
   // ── POST /command ──
   app.post<{ Body: HapticDeviceCommand }>("/command", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic command", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic command", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     const now = Date.now();
     if (now - lastCommandAt < MIN_COMMAND_INTERVAL_MS) {
       return reply.status(429).send({ error: "Haptic commands are rate limited" });
@@ -94,7 +99,8 @@ export async function hapticRoutes(app: FastifyInstance) {
 
   // ── POST /stop-all ──
   app.post("/stop-all", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic stop-all", loopbackOnly: !isHapticsRemoteAllowed() })) return;
+    if (!requirePrivilegedAccess(req, reply, { feature: "Haptic stop-all", loopbackOnly: !isHapticsRemoteAllowed() }))
+      return;
     await hapticService.stopAll();
     return { ok: true };
   });

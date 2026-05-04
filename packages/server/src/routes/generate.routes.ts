@@ -76,6 +76,7 @@ import {
   type CreateCharacterCommand,
   type UpdateCharacterCommand,
   type UpdatePersonaCommand,
+  type CreateLorebookCommand,
   type CreateChatCommand,
   type NavigateCommand,
   type FetchCommand,
@@ -192,6 +193,32 @@ function getEnabledConversationSchedules(meta: Record<string, any>): Record<stri
   return areConversationSchedulesEnabled(meta) && hasConversationSchedules(meta.characterSchedules)
     ? meta.characterSchedules
     : {};
+}
+
+const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›]*$/;
+const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›]+)?(?=\s|$)/g;
+
+function trimIncompleteModelEnding(content: string): string {
+  const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";
+  const body = content.trimEnd();
+  if (!body || COMPLETE_OUTPUT_END_RE.test(body)) return content;
+
+  let lastCompleteEnd = -1;
+  for (const match of body.matchAll(COMPLETE_SENTENCE_RE)) {
+    lastCompleteEnd = (match.index ?? 0) + match[0].length;
+  }
+  if (lastCompleteEnd <= 0) return content;
+
+  const tail = body.slice(lastCompleteEnd).trim();
+  if (!tail) return content;
+
+  const tailWithoutCommands = tail
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .trim();
+  if (!tailWithoutCommands) return content;
+
+  return body.slice(0, lastCompleteEnd).trimEnd() + trailingWhitespace;
 }
 
 function getHiddenCompletionTokens(usage: LLMUsage | undefined): number | undefined {
@@ -5654,6 +5681,20 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          if (input.trimIncompleteModelOutput && !input.impersonate) {
+            const beforeTrim = fullResponse;
+            fullResponse = trimIncompleteModelEnding(fullResponse);
+            if (fullResponse !== beforeTrim) {
+              contentReplaced = true;
+              logger.debug(
+                "[generate] Trimmed incomplete model ending for chat %s (%d -> %d chars)",
+                input.chatId,
+                beforeTrim.length,
+                fullResponse.length,
+              );
+            }
+          }
+
           if (contentReplaced) {
             reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
           }
@@ -7140,6 +7181,7 @@ export async function generateRoutes(app: FastifyInstance) {
           "create_character",
           "update_character",
           "update_persona",
+          "create_lorebook",
           "create_chat",
           "navigate",
           "fetch",
@@ -7818,6 +7860,68 @@ export async function generateRoutes(app: FastifyInstance) {
                   }
                 } catch (err) {
                   logger.error(err, "[commands] Update persona failed");
+                }
+              }
+
+              if (command.type === "create_lorebook") {
+                const clCmd = command as CreateLorebookCommand;
+                try {
+                  const category =
+                    clCmd.category === "character" ||
+                    clCmd.category === "world" ||
+                    clCmd.category === "npc" ||
+                    clCmd.category === "spellbook"
+                      ? clCmd.category
+                      : "uncategorized";
+                  const created = await lorebooksStore.create({
+                    name: clCmd.name,
+                    description: clCmd.description ?? "",
+                    category,
+                    tags: clCmd.tags ?? [],
+                    enabled: true,
+                    generatedBy: "agent",
+                    sourceAgentId: PROFESSOR_MARI_ID,
+                  });
+
+                  if (created) {
+                    const createdLorebook = created as unknown as { id: string };
+                    let entryCount = 0;
+                    for (const entry of clCmd.entries ?? []) {
+                      await lorebooksStore.createEntry({
+                        lorebookId: createdLorebook.id,
+                        name: entry.name,
+                        content: entry.content ?? "",
+                        description: entry.description ?? "",
+                        keys: entry.keys ?? [],
+                        secondaryKeys: entry.secondaryKeys ?? [],
+                        tag: entry.tag ?? "",
+                        constant: entry.constant ?? false,
+                        selective: entry.selective ?? false,
+                        enabled: true,
+                      });
+                      entryCount += 1;
+                    }
+
+                    reply.raw.write(
+                      `data: ${JSON.stringify({
+                        type: "assistant_action",
+                        data: {
+                          action: "lorebook_created",
+                          id: createdLorebook.id,
+                          name: clCmd.name,
+                          entryCount,
+                        },
+                      })}\n\n`,
+                    );
+                    logger.info(
+                      '[commands] Assistant created lorebook: "%s" (%s) with %d entries',
+                      clCmd.name,
+                      createdLorebook.id,
+                      entryCount,
+                    );
+                  }
+                } catch (err) {
+                  logger.error(err, "[commands] Create lorebook failed");
                 }
               }
 

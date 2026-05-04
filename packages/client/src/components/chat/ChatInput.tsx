@@ -2,7 +2,7 @@
 // Chat: Input — mode-aware styling
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from "react";
-import { Send, Paperclip, StopCircle, X, Smile, Users } from "lucide-react";
+import { Send, Paperclip, StopCircle, X, Smile, Users, Languages, Loader2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
@@ -21,7 +21,9 @@ import {
 } from "../../lib/slash-commands";
 import { isPromptPreviewMacro, resolveInputMacrosForChat } from "../../lib/chat-macros";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { translateDraftText } from "../../lib/draft-translation";
 import { EmojiPicker } from "../ui/EmojiPicker";
+import { SpeechToTextButton } from "../ui/SpeechToTextButton";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
@@ -63,6 +65,7 @@ export const ChatInput = memo(function ChatInput({
   const [selectedCompletion, setSelectedCompletion] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [charPickerOpen, setCharPickerOpen] = useState(false);
@@ -80,10 +83,12 @@ export const ChatInput = memo(function ChatInput({
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
   const currentInput = useChatStore((s) => s.currentInput);
+  const activeChat = useChatStore((s) => s.activeChat);
   const { generate } = useGenerate();
   const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendRP);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
+  const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const createMessage = useCreateMessage(activeChatId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeRafRef = useRef<number>(0);
@@ -599,6 +604,60 @@ export const ChatInput = memo(function ChatInput({
   }, [charPickerOpen]);
 
   const showCharPicker = !!chatCharacters && chatCharacters.length > 1 && !!groupResponseOrder;
+  const chatMetadata = useMemo(() => {
+    if (!activeChat?.metadata) return {};
+    if (typeof activeChat.metadata !== "string") return activeChat.metadata as Record<string, unknown>;
+    try {
+      return JSON.parse(activeChat.metadata) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }, [activeChat?.metadata]);
+  const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
+
+  const handleTranslateDraft = useCallback(async () => {
+    if (!activeChatId || isTranslatingDraft) return;
+    const raw = getValue();
+    if (!raw.trim()) return;
+
+    setIsTranslatingDraft(true);
+    try {
+      const translated = await translateDraftText(raw);
+      if (!translated || !textareaRef.current) return;
+      textareaRef.current.value = translated;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      syncInputState(translated);
+      setInputDraft(activeChatId, translated);
+      textareaRef.current.focus();
+    } finally {
+      setIsTranslatingDraft(false);
+    }
+  }, [activeChatId, isTranslatingDraft, setInputDraft, syncInputState]);
+
+  const handleSpeechTranscript = useCallback(
+    (transcript: string) => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? start;
+      const before = el.value.slice(0, start);
+      const after = el.value.slice(end);
+      const prefix = before && !/\s$/.test(before) ? " " : "";
+      const suffix = after && !/^\s/.test(after) ? " " : "";
+      const nextValue = `${before}${prefix}${transcript}${suffix}${after}`;
+      const nextCursor = before.length + prefix.length + transcript.length;
+
+      el.value = nextValue;
+      el.setSelectionRange(nextCursor, nextCursor);
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      syncInputState(nextValue);
+      if (activeChatId) setInputDraft(activeChatId, nextValue);
+      el.focus();
+    },
+    [activeChatId, setInputDraft, syncInputState],
+  );
 
   return (
     <div className="mari-chat-input chat-input-container px-3 pb-3">
@@ -772,6 +831,32 @@ export const ChatInput = memo(function ChatInput({
           >
             <Users size="1rem" />
           </button>
+        )}
+
+        {showDraftTranslateButton && (
+          <button
+            type="button"
+            onClick={() => void handleTranslateDraft()}
+            disabled={!activeChatId || !hasInput || isStreaming || isTranslatingDraft}
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
+              hasInput && !isStreaming && !isTranslatingDraft
+                ? "text-foreground/70 hover:bg-foreground/10 hover:text-foreground active:scale-90"
+                : "text-foreground/25",
+            )}
+            title="Translate draft"
+          >
+            {isTranslatingDraft ? <Loader2 size="0.9375rem" className="animate-spin" /> : <Languages size="1rem" />}
+          </button>
+        )}
+
+        {speechToTextEnabled && (
+          <SpeechToTextButton
+            disabled={!activeChatId}
+            onTranscript={handleSpeechTranscript}
+            className="rounded-full"
+            iconSize={16}
+          />
         )}
 
         {/* Send / Stop button */}

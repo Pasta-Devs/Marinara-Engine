@@ -146,6 +146,62 @@ function getConfiguredGameAssetImageSizes(): NonNullable<GameAssetGenerationPayl
   };
 }
 
+type GameTimeMeta = {
+  day?: number;
+  hour?: number;
+  minute?: number;
+};
+
+function normalizeGameDay(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.min(9999, Math.floor(parsed)));
+}
+
+function normalizeGameHour(value: unknown, fallback = 8): number {
+  const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(23, Math.floor(parsed)));
+}
+
+function normalizeGameMinute(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(59, Math.floor(parsed)));
+}
+
+function getGameTimeOfDayLabel(hour: number): string {
+  if (hour >= 5 && hour < 7) return "dawn";
+  if (hour >= 7 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 20) return "evening";
+  if (hour >= 20) return "night";
+  return "midnight";
+}
+
+function formatGameTimeForHud(time: Required<GameTimeMeta>): string {
+  const h = String(time.hour).padStart(2, "0");
+  const m = String(time.minute).padStart(2, "0");
+  return `Day ${time.day}, ${h}:${m} (${getGameTimeOfDayLabel(time.hour)})`;
+}
+
+function parseGameDayFromTimeLabel(value?: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/\bday\s+(\d{1,4})\b/i);
+  if (!match) return null;
+  return normalizeGameDay(match[1]);
+}
+
+function parseHourMinuteFromTimeLabel(value?: string | null): { hour: number; minute: number } | null {
+  if (!value) return null;
+  const match = value.match(/\b(\d{1,2})[:.](\d{2})\b/);
+  if (!match) return null;
+  return {
+    hour: normalizeGameHour(match[1]),
+    minute: normalizeGameMinute(match[2]),
+  };
+}
+
 type SceneAssetPresentCharacter = {
   name?: string | null;
   appearance?: string | null;
@@ -1472,23 +1528,20 @@ export function GameSurface({
 
   /** Build weather string from chatMeta.gameWeather if available. */
   const metaWeather = (chatMeta.gameWeather as { type?: string; temperature?: number } | undefined)?.type ?? null;
+  const gameTimeMeta = chatMeta.gameTime as GameTimeMeta | undefined;
+  const currentGameDay = useMemo(
+    () => normalizeGameDay(gameTimeMeta?.day ?? parseGameDayFromTimeLabel(gameSnapshot?.time) ?? 1),
+    [gameSnapshot?.time, gameTimeMeta?.day],
+  );
   const metaTime = useMemo(() => {
-    const gt = chatMeta.gameTime as { day?: number; hour?: number; minute?: number } | undefined;
+    const gt = gameTimeMeta;
     if (!gt || gt.hour == null) return null;
-    const tod =
-      gt.hour >= 5 && gt.hour < 7
-        ? "dawn"
-        : gt.hour >= 7 && gt.hour < 12
-          ? "morning"
-          : gt.hour >= 12 && gt.hour < 17
-            ? "afternoon"
-            : gt.hour >= 17 && gt.hour < 20
-              ? "evening"
-              : "night";
-    const h = String(gt.hour ?? 0).padStart(2, "0");
-    const m = String(gt.minute ?? 0).padStart(2, "0");
-    return `Day ${gt.day ?? 1}, ${h}:${m} (${tod})`;
-  }, [chatMeta.gameTime]);
+    return formatGameTimeForHud({
+      day: normalizeGameDay(gt.day),
+      hour: normalizeGameHour(gt.hour),
+      minute: normalizeGameMinute(gt.minute),
+    });
+  }, [gameTimeMeta]);
 
   // ── Fetch game state on mount (WeatherEffects needs weather/time from the DB) ──
   useEffect(() => {
@@ -3587,6 +3640,40 @@ export function GameSurface({
     setJsonRepairRequest(request);
     return true;
   }, []);
+
+  const handleGameDayChange = useCallback(
+    async (day: number) => {
+      if (!activeChatId) return;
+
+      const snapshot = useGameStateStore.getState().current;
+      const parsedSnapshotTime = parseHourMinuteFromTimeLabel(snapshot?.chatId === activeChatId ? snapshot.time : null);
+      const nextTime = {
+        day: normalizeGameDay(day),
+        hour: normalizeGameHour(gameTimeMeta?.hour, parsedSnapshotTime?.hour ?? 8),
+        minute: normalizeGameMinute(gameTimeMeta?.minute, parsedSnapshotTime?.minute ?? 0),
+      };
+      const formattedTime = formatGameTimeForHud(nextTime);
+
+      try {
+        await updateChatMetadata.mutateAsync({
+          id: activeChatId,
+          gameTime: nextTime,
+        });
+
+        if (snapshot?.chatId === activeChatId) {
+          useGameStateStore.getState().setGameState({
+            ...snapshot,
+            time: formattedTime,
+          });
+        }
+        api.patch(`/chats/${activeChatId}/game-state`, { time: formattedTime }).catch(() => {});
+        toast.success(`Set game day to ${nextTime.day}.`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to update game day.");
+      }
+    },
+    [activeChatId, gameTimeMeta?.hour, gameTimeMeta?.minute, updateChatMetadata],
+  );
 
   const handleJsonRepairApplied = useCallback(
     (result: unknown, request: JsonRepairRequest) => {
@@ -6443,6 +6530,8 @@ export function GameSurface({
                       disabled={isStreaming || !narrationDone || !sessionInteractive}
                       gameState={gameState}
                       timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+                      day={currentGameDay}
+                      onDayChange={handleGameDayChange}
                     />
                   </div>
                   {/* Desktop: inline minimap */}
@@ -6459,6 +6548,8 @@ export function GameSurface({
                       disabled={isStreaming || !narrationDone || !sessionInteractive}
                       gameState={gameState}
                       timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+                      day={currentGameDay}
+                      onDayChange={handleGameDayChange}
                       chatId={activeChatId}
                       constraintsRef={hudSurfaceRef}
                     />

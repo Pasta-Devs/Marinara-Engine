@@ -62,25 +62,38 @@ export function assertInsideDir(rootDir: string, candidatePath: string): string 
 }
 
 export function safeBasename(value: string, fallback = "file"): string {
-  const name = basename(value).replace(/[\u0000-\u001f<>:"|?*]/g, "").trim();
+  const name = basename(value)
+    .replace(/[\u0000-\u001f<>:"|?*]/g, "")
+    .trim();
   return name || fallback;
 }
 
 export function isAllowedImageBuffer(buffer: Buffer, expectedExt?: string): { ext: string; mimeType: string } | null {
-  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
     return { ext: "png", mimeType: "image/png" };
   }
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return { ext: "jpg", mimeType: "image/jpeg" };
   }
-  if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") {
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
     return { ext: "webp", mimeType: "image/webp" };
   }
   if (buffer.length >= 6) {
     const sig = buffer.subarray(0, 6).toString("ascii");
     if (sig === "GIF87a" || sig === "GIF89a") return { ext: "gif", mimeType: "image/gif" };
   }
-  if (expectedExt?.toLowerCase() === ".avif" && buffer.length >= 16 && buffer.subarray(4, 8).toString("ascii") === "ftyp") {
+  if (
+    expectedExt?.toLowerCase() === ".avif" &&
+    buffer.length >= 16 &&
+    buffer.subarray(4, 8).toString("ascii") === "ftyp"
+  ) {
     const boxSize = buffer.readUInt32BE(0);
     const brandEnd = Math.min(buffer.length, boxSize > 0 ? boxSize : buffer.length);
     const acceptedBrands = new Set(["avif", "avis"]);
@@ -197,10 +210,15 @@ async function resolveHostname(hostname: string): Promise<Array<{ address: strin
     return [{ address: hostname, family: hostname.includes(":") ? 6 : 4 }];
   }
   const records = await dns.lookup(hostname, { all: true, verbatim: true });
-  return records.flatMap((record) => (record.family === 4 || record.family === 6 ? [{ address: record.address, family: record.family }] : []));
+  return records.flatMap((record) =>
+    record.family === 4 || record.family === 6 ? [{ address: record.address, family: record.family }] : [],
+  );
 }
 
-async function validateResolvedAddresses(hostname: string, policy: OutboundUrlPolicy): Promise<Array<{ address: string; family: 4 | 6 }>> {
+async function validateResolvedAddresses(
+  hostname: string,
+  policy: OutboundUrlPolicy,
+): Promise<Array<{ address: string; family: 4 | 6 }>> {
   const addresses = await resolveHostname(hostname);
   if (!policy.allowLocal && (addresses.length === 0 || addresses.some((record) => isReservedIp(record.address)))) {
     throw new Error("Outbound URL resolved to a private, loopback, metadata, or reserved address");
@@ -352,7 +370,11 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     if (response.status >= 300 && response.status < 400 && response.headers.has("location")) {
       if (i === redirects) throw new Error("Outbound request exceeded redirect limit");
       await internalDispatcher?.close().catch(() => undefined);
-      current = await validateOutboundUrlForFetch(new URL(response.headers.get("location")!, current.url), policy, agentOptions);
+      current = await validateOutboundUrlForFetch(
+        new URL(response.headers.get("location")!, current.url),
+        policy,
+        agentOptions,
+      );
       continue;
     }
 

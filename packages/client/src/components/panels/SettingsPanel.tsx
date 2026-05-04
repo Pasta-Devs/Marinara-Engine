@@ -59,6 +59,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 
 const TABS = [
   { id: "general", label: "General" },
@@ -303,6 +304,10 @@ function GeneralSettings() {
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
   const setBoldDialogue = useUIStore((s) => s.setBoldDialogue);
+  const trimIncompleteModelOutput = useUIStore((s) => s.trimIncompleteModelOutput);
+  const setTrimIncompleteModelOutput = useUIStore((s) => s.setTrimIncompleteModelOutput);
+  const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
+  const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
   const rescanGameAssets = useGameAssetStore((s) => s.rescanAssets);
   const assetFileRef = useRef<HTMLInputElement>(null);
   const [assetCategory, setAssetCategory] = useState<GameAssetCategoryId>("backgrounds");
@@ -562,6 +567,20 @@ function GeneralSettings() {
         help={
           'When on, text inside dialogue quotation marks ("like this", 「like this」, or 『like this』) is bolded in addition to its dialogue highlight color. Turn it off to keep the color without bold.'
         }
+      />
+
+      <ToggleSetting
+        label="Trim incomplete model endings"
+        checked={trimIncompleteModelOutput}
+        onChange={setTrimIncompleteModelOutput}
+        help="When on, Marinara trims a trailing unfinished sentence from AI responses before saving the message. It leaves complete responses and command-only endings alone."
+      />
+
+      <ToggleSetting
+        label="Speech-to-text microphone"
+        checked={speechToTextEnabled}
+        onChange={setSpeechToTextEnabled}
+        help="When on, chat input bars show a microphone button for browser dictation. Handy still works independently by pasting into the focused input field."
       />
 
       <div className="rounded-xl bg-[var(--secondary)]/50 p-4 ring-1 ring-[var(--border)]">
@@ -2361,13 +2380,15 @@ function AdvancedSettings() {
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
   const [confirmAction, setConfirmAction] = useState<"selected" | "all" | null>(null);
   const [exportingProfile, setExportingProfile] = useState(false);
+  const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
 
-  const handleExportProfile = async () => {
+  const handleExportProfile = async (format: ExportFormatChoice) => {
     setExportingProfile(true);
+    setExportProfileDialogOpen(false);
     try {
-      const res = await fetch("/api/backup/export-profile", {
+      const res = await fetch(`/api/backup/export-profile?format=${format}`, {
         headers: getAdminSecretHeader(),
       });
       if (!res.ok) throw new Error("Export failed");
@@ -2375,10 +2396,10 @@ function AdvancedSettings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "marinara-profile.json";
+      a.download = format === "compatible" ? "marinara-compatible-export.zip" : "marinara-profile.json";
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Profile exported!");
+      toast.success(format === "compatible" ? "Compatible export created!" : "Profile exported!");
     } catch {
       toast.error("Failed to export profile");
     } finally {
@@ -2593,6 +2614,16 @@ function AdvancedSettings() {
 
   return (
     <div className="flex flex-col gap-3">
+      <ExportFormatDialog
+        open={exportProfileDialogOpen}
+        title="Export Profile"
+        description="Native creates a Marinara profile JSON for restoring your data in Marinara. Compatible creates a ZIP of folderless JSON files for other platforms."
+        nativeDescription="Keeps Marinara fields, lorebook folders, character/persona metadata, presets, agents, and themes for re-import."
+        compatibleDescription="Exports direct character JSON, simple persona JSON, and folderless lorebooks for other roleplay tools."
+        onClose={() => setExportProfileDialogOpen(false)}
+        onSelect={handleExportProfile}
+      />
+
       <div className="text-xs text-[var(--muted-foreground)]">Advanced settings for power users.</div>
 
       <div className="flex flex-col gap-2 rounded-lg bg-[var(--secondary)]/40 p-2.5 ring-1 ring-[var(--border)]">
@@ -2824,7 +2855,7 @@ function AdvancedSettings() {
           )}
         </button>
         <button
-          onClick={handleExportProfile}
+          onClick={() => setExportProfileDialogOpen(true)}
           disabled={exportingProfile}
           className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium ring-1 ring-[var(--border)] transition-all hover:bg-[var(--secondary)]/80 active:scale-95 disabled:opacity-50"
         >

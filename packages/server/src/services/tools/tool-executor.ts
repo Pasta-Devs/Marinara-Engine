@@ -180,7 +180,9 @@ async function executeCustomTool(tool: CustomToolDef, args: Record<string, unkno
 
     case "script": {
       if (!isCustomToolScriptEnabled()) {
-        return { error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to allow local code execution." };
+        return {
+          error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to allow local code execution.",
+        };
       }
       if (!tool.scriptBody) return { error: "No script body configured" };
       try {

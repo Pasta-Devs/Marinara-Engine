@@ -286,6 +286,16 @@ export class OpenAIProvider extends BaseLLMProvider {
     return !!reasoningEffort && reasoningEffort !== "none";
   }
 
+  private isOpenRouterEndpoint(): boolean {
+    return this.baseUrl.includes("openrouter.ai");
+  }
+
+  private supportsOpenRouterUnifiedReasoning(model: string): boolean {
+    if (!this.isOpenRouterEndpoint()) return false;
+    const m = model.toLowerCase();
+    return m.includes("claude-3.7") || /claude-(?:opus|sonnet|haiku)-4(?:[.-]|\b)/.test(m);
+  }
+
   private shouldSendReasoningEffort(model: string, reasoningEffort?: string | null): boolean {
     return this.isReasoningModel(model) && this.hasActiveReasoningEffort(reasoningEffort);
   }
@@ -297,6 +307,14 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (this.isGLMModel(options.model)) {
       body.enable_thinking = this.hasActiveReasoningEffort(options.reasoningEffort);
+      return;
+    }
+
+    if (
+      this.supportsOpenRouterUnifiedReasoning(options.model) &&
+      this.hasActiveReasoningEffort(options.reasoningEffort)
+    ) {
+      body.reasoning = { effort: options.reasoningEffort };
       return;
     }
 
