@@ -352,7 +352,9 @@ export function ChatSettingsDrawer({
       const meta = availableAgents.find((a) => a.id === id);
       if (!meta) return [];
       const cfg = agentConfigsByType.get(id);
-      const promptTemplate = cfg?.promptTemplate ?? DEFAULT_AGENT_PROMPTS[id] ?? "";
+      // `||` (not `??`) — custom configs often have an empty-string promptTemplate
+      // meaning "no override", and we still want to count the built-in default.
+      const promptTemplate = cfg?.promptTemplate || DEFAULT_AGENT_PROMPTS[id] || "";
       return [
         {
           type: id,
