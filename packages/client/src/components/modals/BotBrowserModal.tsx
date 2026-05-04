@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { parsePngCharacterCard } from "../../lib/png-parser";
+import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
 import { toast } from "sonner";
 
 interface Props {
@@ -194,11 +195,15 @@ export function BotBrowserModal({ open, onClose }: Props) {
         json as Record<string, unknown>,
         cardDetail?.definition?.embedded_lorebook,
       );
+      const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
+        cardDetail?.name ?? "This character",
+        cardDetail?.definition?.embedded_lorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
+      );
 
       const importRes = await fetch("/api/import/st-character", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...importJson, _avatarDataUrl: imageDataUrl }),
+        body: JSON.stringify({ ...importJson, _avatarDataUrl: imageDataUrl, importEmbeddedLorebook }),
       });
       const data = await importRes.json();
 

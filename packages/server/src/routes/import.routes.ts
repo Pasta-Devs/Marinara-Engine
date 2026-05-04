@@ -7,7 +7,13 @@ import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
 import { importSTChat } from "../services/import/st-chat.importer.js";
-import { importSTCharacter, importCharX } from "../services/import/st-character.importer.js";
+import {
+  importSTCharacter,
+  importCharX,
+  inspectSTCharacter,
+  inspectCharX,
+  type STCharacterImportPreview,
+} from "../services/import/st-character.importer.js";
 import { importSTPreset } from "../services/import/st-prompt.importer.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { importMarinara } from "../services/import/marinara.importer.js";
@@ -276,11 +282,28 @@ function readTimestampOverridesFromMultipart(file: { fields?: Record<string, any
   return readTimestampOverridesValue(rawValue);
 }
 
+function readBooleanOption(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
+  return undefined;
+}
+
+function readMultipartBooleanField(file: { fields?: Record<string, any> } | null | undefined, fieldName: string) {
+  const field = file?.fields?.[fieldName];
+  const rawValue = Array.isArray(field) ? field.at(-1)?.value : field?.value;
+  return readBooleanOption(rawValue);
+}
+
 async function importCharacterBuffer(
   fileName: string,
   buffer: Buffer,
   db: FastifyInstance["db"],
   timestampOverrides?: ReturnType<typeof normalizeTimestampOverrides>,
+  importEmbeddedLorebook?: boolean,
 ) {
   if (fileName.toLowerCase().endsWith(".png")) {
     const charData = extractCharaFromPng(buffer);
@@ -293,21 +316,53 @@ async function importCharacterBuffer(
 
     const avatarB64 = buffer.toString("base64");
     charData._avatarDataUrl = `data:image/png;base64,${avatarB64}`;
-    return importSTCharacter(charData, db, { timestampOverrides });
+    return importSTCharacter(charData, db, { timestampOverrides, importEmbeddedLorebook });
   }
 
   if (fileName.toLowerCase().endsWith(".charx")) {
-    return importCharX(buffer, db, { timestampOverrides });
+    return importCharX(buffer, db, { timestampOverrides, importEmbeddedLorebook });
   }
 
   try {
     const json = JSON.parse(buffer.toString("utf-8"));
-    return importSTCharacter(json, db, { timestampOverrides });
+    return importSTCharacter(json, db, { timestampOverrides, importEmbeddedLorebook });
   } catch {
     return {
       success: false,
       error:
         "Invalid file format. Expected a JSON character card, a PNG with embedded character data, or a .charx file.",
+    };
+  }
+}
+
+async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
+  if (fileName.toLowerCase().endsWith(".png")) {
+    const charData = extractCharaFromPng(buffer);
+    if (!charData) {
+      return {
+        success: false,
+        error: "No character data found in PNG. Make sure this is a valid character card with embedded metadata.",
+        hasEmbeddedLorebook: false,
+        embeddedLorebookEntries: 0,
+      };
+    }
+    return inspectSTCharacter(charData);
+  }
+
+  if (fileName.toLowerCase().endsWith(".charx")) {
+    return inspectCharX(buffer);
+  }
+
+  try {
+    const json = JSON.parse(buffer.toString("utf-8"));
+    return inspectSTCharacter(json);
+  } catch {
+    return {
+      success: false,
+      error:
+        "Invalid file format. Expected a JSON character card, a PNG with embedded character data, or a .charx file.",
+      hasEmbeddedLorebook: false,
+      embeddedLorebookEntries: 0,
     };
   }
 }
@@ -394,12 +449,51 @@ export async function importRoutes(app: FastifyInstance) {
       const file = await req.file();
       if (!file) return { success: false, error: "No file uploaded" };
       const timestampOverrides = readTimestampOverridesFromMultipart(file as any);
-      return importCharacterBuffer(file.filename ?? "", await file.toBuffer(), app.db, timestampOverrides);
+      const importEmbeddedLorebook = readMultipartBooleanField(file as any, "importEmbeddedLorebook");
+      return importCharacterBuffer(
+        file.filename ?? "",
+        await file.toBuffer(),
+        app.db,
+        timestampOverrides,
+        importEmbeddedLorebook,
+      );
     }
 
     // Standard JSON body
-    const body = req.body as Record<string, unknown>;
-    return importSTCharacter(body, app.db, { timestampOverrides: readTimestampOverridesFromBody(body) });
+    const body = { ...(req.body as Record<string, unknown>) };
+    const importEmbeddedLorebook = readBooleanOption(body.importEmbeddedLorebook);
+    delete body.importEmbeddedLorebook;
+    return importSTCharacter(body, app.db, {
+      timestampOverrides: readTimestampOverridesFromBody(body),
+      importEmbeddedLorebook,
+    });
+  });
+
+  /** Inspect character cards before importing, so clients can ask about embedded lorebooks. */
+  app.post("/st-character/inspect", async (req) => {
+    const parts = req.parts();
+    const results: Array<{ filename: string } & STCharacterImportPreview> = [];
+
+    for await (const part of parts) {
+      if (part.type !== "file") continue;
+      try {
+        const result = await inspectCharacterBuffer(part.filename ?? "character", await part.toBuffer());
+        results.push({ filename: part.filename ?? "character", ...result });
+      } catch (error) {
+        results.push({
+          filename: part.filename ?? "character",
+          success: false,
+          error: error instanceof Error ? error.message : "Inspection failed",
+          hasEmbeddedLorebook: false,
+          embeddedLorebookEntries: 0,
+        });
+      }
+    }
+
+    return {
+      success: results.length > 0,
+      results,
+    };
   });
 
   /** Import multiple character cards in one multipart request. */
@@ -407,6 +501,7 @@ export async function importRoutes(app: FastifyInstance) {
     const parts = req.parts();
     const files: Array<{ filename: string; buffer: Buffer }> = [];
     const timestampEntries: Array<{ name?: string; lastModified?: number | string }> = [];
+    let importEmbeddedLorebook: boolean | undefined;
 
     for await (const part of parts) {
       if (part.type === "file") {
@@ -426,6 +521,10 @@ export async function importRoutes(app: FastifyInstance) {
         } catch {
           // ignore malformed metadata and continue importing
         }
+      }
+
+      if (part.fieldname === "importEmbeddedLorebook") {
+        importEmbeddedLorebook = readBooleanOption(part.value);
       }
     }
 
@@ -449,7 +548,13 @@ export async function importRoutes(app: FastifyInstance) {
         updatedAt: timestampEntry?.lastModified,
       });
       try {
-        const result = await importCharacterBuffer(file.filename, file.buffer, app.db, timestampOverrides);
+        const result = await importCharacterBuffer(
+          file.filename,
+          file.buffer,
+          app.db,
+          timestampOverrides,
+          importEmbeddedLorebook,
+        );
         results.push({ filename: file.filename, ...result });
       } catch (error) {
         results.push({

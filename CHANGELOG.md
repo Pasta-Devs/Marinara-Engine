@@ -44,6 +44,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Native vs compatible export choices for profile, character, persona, and lorebook exports.
 - PocketTTS is now available as a local TTS provider.
 - Optional speech-to-text microphone buttons can be enabled for Conversation, Roleplay, and Game input fields.
+- Character imports now ask before extracting embedded character-card lorebooks into standalone Marinara lorebooks.
 
 ### Security
 

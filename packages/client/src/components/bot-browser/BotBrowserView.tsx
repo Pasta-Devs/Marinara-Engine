@@ -34,6 +34,7 @@ import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
+import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
 
 // ════════════════════════════════════════════════
 // Types
@@ -1508,6 +1509,10 @@ export function BotBrowserView() {
           json as Record<string, unknown>,
           cardDetail?.embeddedLorebook,
         );
+        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
+          card.name,
+          cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
+        );
         const importRes = await fetch("/api/import/st-character", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1515,6 +1520,7 @@ export function BotBrowserView() {
             ...importJson,
             _avatarDataUrl: imageDataUrl,
             _botBrowserSource: `${sourceId}:${card.id}`,
+            importEmbeddedLorebook,
           }),
         });
         const data = await importRes.json();
@@ -1526,6 +1532,7 @@ export function BotBrowserView() {
       } else {
         let cardDetail = detail;
         if (!cardDetail) cardDetail = await provider.fetchDetail(card);
+        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(card.name, cardDetail?.embeddedLorebook);
         // For extracted JanitorAI data, description contains the full personality definition
         const descriptionText = cardDetail?.description || "";
         const personalityText = cardDetail?.personality || "";
@@ -1542,6 +1549,7 @@ export function BotBrowserView() {
           alternate_greetings: cardDetail?.alternateGreetings || [],
           extensions: { [`${sourceId}`]: { id: card.id } },
           _botBrowserSource: `${sourceId}:${card.id}`,
+          importEmbeddedLorebook,
         };
         if (hasLorebookEntries(cardDetail?.embeddedLorebook)) {
           v2.character_book = cardDetail?.embeddedLorebook;

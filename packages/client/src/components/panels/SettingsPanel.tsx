@@ -60,6 +60,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
+import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 
 const TABS = [
   { id: "general", label: "General" },
@@ -2312,9 +2313,21 @@ function ImportButton({
     if (!file) return;
     try {
       let res: Response;
+      let importEmbeddedLorebook: boolean | undefined;
 
       // "auto" mode: send binary files (PNG) as multipart, JSON files as JSON body
       const effectiveMode = mode === "auto" ? (file.name.toLowerCase().endsWith(".json") ? "json" : "file") : mode;
+      if (endpoint === "/import/st-character") {
+        const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
+        const preview = previews[0];
+        if (preview) {
+          importEmbeddedLorebook = window.confirm(
+            `${preview.name ?? file.name} includes an embedded lorebook with ${preview.embeddedLorebookEntries} entr${
+              preview.embeddedLorebookEntries === 1 ? "y" : "ies"
+            }.\n\nImport it as a standalone Marinara lorebook too?`,
+          );
+        }
+      }
 
       if (effectiveMode === "json") {
         const text = await file.text();
@@ -2323,6 +2336,9 @@ function ImportButton({
         if (endpoint.includes("lorebook") || endpoint.includes("preset")) {
           json.__filename = file.name.replace(/\.json$/i, "");
         }
+        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
+          json.importEmbeddedLorebook = importEmbeddedLorebook;
+        }
         res = await fetch(`/api${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2330,6 +2346,9 @@ function ImportButton({
         });
       } else {
         const formData = new FormData();
+        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
+          formData.append("importEmbeddedLorebook", String(importEmbeddedLorebook));
+        }
         formData.append("file", file);
         res = await fetch(`/api${endpoint}`, {
           method: "POST",
