@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { getCsrfTrustedOrigins, getHost, getPort, getServerProtocol } from "../config/runtime-config.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../utils/security.js";
-import { isLoopbackIp } from "./ip-allowlist.js";
+import { isPrivateNetworkIp, isLoopbackIp } from "./ip-allowlist.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SAFE_FETCH_SITES = new Set(["same-origin", "same-site", "none"]);
@@ -24,6 +24,16 @@ function normalizeOrigin(value: string): string | null {
 function isLoopbackHostname(hostname: string): boolean {
   const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
   return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function isTrustedLiteralHostname(hostname: string): boolean {
+  const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return isLoopbackHostname(normalized) || isPrivateNetworkIp(normalized);
+}
+
+function originUsesServerPort(origin: URL): boolean {
+  const port = origin.port ? Number.parseInt(origin.port, 10) : origin.protocol === "https:" ? 443 : 80;
+  return port === getPort();
 }
 
 function configuredOrigins(): Set<string> {
@@ -53,6 +63,7 @@ function isAllowedOrigin(originValue: string, request: FastifyRequest): boolean 
   try {
     const parsed = new URL(origin);
     if (isLoopbackHostname(parsed.hostname) && isLoopbackIp(request.ip)) return true;
+    if (originUsesServerPort(parsed) && isTrustedLiteralHostname(parsed.hostname)) return true;
   } catch {
     return false;
   }

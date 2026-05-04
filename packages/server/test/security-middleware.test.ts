@@ -166,6 +166,61 @@ test("CSRF protection allows configured reverse proxy HTTPS origins", async () =
     }
   }));
 
+test("CSRF protection allows private literal network origins with the CSRF header", async () =>
+  withEnv({ ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK: "true", IP_ALLOWLIST: undefined }, async () => {
+    const app = await buildHookApp();
+    try {
+      const allowed = await app.inject({
+        method: "POST",
+        url: "/api/mutate",
+        remoteAddress: "192.168.1.50",
+        headers: {
+          host: "192.168.1.10:7860",
+          origin: "http://192.168.1.10:7860",
+          "sec-fetch-site": "same-origin",
+          [CSRF_HEADER]: CSRF_HEADER_VALUE,
+        },
+      });
+      assert.equal(allowed.statusCode, 200);
+
+      const tailscale = await app.inject({
+        method: "POST",
+        url: "/api/mutate",
+        remoteAddress: "100.64.1.50",
+        headers: {
+          host: "100.64.1.10:7860",
+          origin: "http://100.64.1.10:7860",
+          "sec-fetch-site": "same-origin",
+          [CSRF_HEADER]: CSRF_HEADER_VALUE,
+        },
+      });
+      assert.equal(tailscale.statusCode, 200);
+    } finally {
+      await app.close();
+    }
+  }));
+
+test("CSRF protection still rejects private-network DNS rebinding-style origins", async () =>
+  withEnv({ ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK: "true", IP_ALLOWLIST: undefined }, async () => {
+    const app = await buildHookApp();
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/mutate",
+        remoteAddress: "192.168.1.50",
+        headers: {
+          host: "evil.example:7860",
+          origin: "http://evil.example:7860",
+          "sec-fetch-site": "same-origin",
+          [CSRF_HEADER]: CSRF_HEADER_VALUE,
+        },
+      });
+      assert.equal(res.statusCode, 403);
+    } finally {
+      await app.close();
+    }
+  }));
+
 test("CSRF protection does not trust Host as an origin allowlist", async () =>
   withEnv({ CSRF_TRUSTED_ORIGINS: undefined }, async () => {
     const app = await buildHookApp();
