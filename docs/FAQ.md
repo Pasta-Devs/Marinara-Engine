@@ -121,3 +121,28 @@ Inside a single shared lorebook, you can mark each entry as only firing when spe
 **Common scenario — "I want this lorebook for Character A *and* Character B":** leave the lorebook's character link empty, and attach the lorebook via the chat settings drawer in any chat that includes either character. The same lorebook can be attached to as many chats as you want.
 
 </details>
+
+---
+
+<a id="what-happens-if-i-enable-an-agent-and-also-have-similar-instructions-in-my-preset"></a>
+
+<details>
+<summary><strong>What happens if I enable an agent and also have similar instructions in my preset?</strong></summary>
+<br>
+
+Both contribute to the prompt, but in different ways: a preset section is static text concatenated every turn, while an agent runs at request time and produces its own output. If both target the same behavior, the model receives both — usually redundant, occasionally conflicting, and always extra tokens.
+
+Common overlaps to watch for:
+
+- Writing-style or anti-repetition directives in the preset and the **Prose Guardian** agent.
+- "Track time / weather / location" instructions and the **World State** agent.
+- "Track character mood / outfit / stats" instructions and the **Character Tracker** agent.
+- Quest-tracking, combat-mechanics, or persona-stat instructions and their respective agents.
+- HTML/CSS visual-styling prompts and the **Immersive HTML** agent.
+- "Summarize past events" instructions and the **Automated Chat Summary** agent.
+
+**The general rule:** pick one place to express each behavior. If you've enabled an agent that covers a behavior, you can usually remove the matching preset directive. If you'd rather keep your preset version (e.g., it's tuned for a particular character), disable the corresponding agent.
+
+**One important exception:** the `agent_data` marker section, and the `{{agent::TYPE}}` macro, are the *intended* way to thread an agent's output into a specific spot in the preset. That's wiring, not overlap — several agents (World State, Quest Tracker, Character Tracker, and others) set this up for you by default. The pattern to avoid is hand-writing preset sections that duplicate an agent's *behavior*, not using the marker section that carries the agent's *output*.
+
+</details>
