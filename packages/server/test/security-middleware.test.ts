@@ -422,8 +422,11 @@ test("security headers and route rate limits are applied", async () =>
     try {
       const headers = await app.inject({ method: "GET", url: "/api/headers", remoteAddress: "127.0.0.1" });
       assert.equal(headers.headers["x-content-type-options"], "nosniff");
-      assert.match(String(headers.headers["content-security-policy"]), /default-src 'self'/);
-      assert.match(String(headers.headers["content-security-policy"]), /media-src 'self' blob:/);
+      const csp = String(headers.headers["content-security-policy"]);
+      assert.match(csp, /default-src 'self'/);
+      assert.match(csp, /script-src 'self' blob:/);
+      assert.match(csp, /media-src 'self' blob:/);
+      assert.doesNotMatch(csp, /unsafe-eval/);
 
       let lastStatus = 0;
       for (let i = 0; i < 31; i += 1) {

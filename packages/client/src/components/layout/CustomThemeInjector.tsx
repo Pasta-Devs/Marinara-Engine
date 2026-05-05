@@ -6,6 +6,37 @@ import { useEffect } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import { useThemes } from "../../hooks/use-themes";
 
+type ExtensionGlobal = typeof globalThis & {
+  __marinaraExtensionApis?: Map<string, unknown>;
+};
+
+function getExtensionGlobal() {
+  return globalThis as ExtensionGlobal;
+}
+
+function sanitizeExtensionSourceName(name: string) {
+  return (
+    name
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "extension"
+  );
+}
+
+function buildExtensionModuleSource(apiKey: string, extensionName: string, js: string) {
+  const sourceName = sanitizeExtensionSourceName(extensionName);
+  return [
+    `const marinara = globalThis.__marinaraExtensionApis?.get(${JSON.stringify(apiKey)});`,
+    `if (!marinara) throw new Error("Extension API is no longer available.");`,
+    `const executeExtension = function(marinara) {`,
+    js,
+    `};`,
+    `executeExtension(marinara);`,
+    `export {};`,
+    `//# sourceURL=marinara-extension-${sourceName}.js`,
+  ].join("\n");
+}
+
 export function CustomThemeInjector() {
   const installedExtensions = useUIStore((s) => s.installedExtensions);
   const { data: syncedThemes = [] } = useThemes();
@@ -67,6 +98,34 @@ export function CustomThemeInjector() {
 
       try {
         const extensionCleanups: Array<() => void> = [];
+        const extensionGlobal = getExtensionGlobal();
+        const apiKey = `${ext.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        let disposed = false;
+        let objectUrl: string | null = null;
+
+        const runExtensionCleanups = () => {
+          const cleanups = extensionCleanups.splice(0);
+          cleanups.forEach((cleanup) => {
+            try {
+              cleanup();
+            } catch (e) {
+              console.warn(`[Extension:${ext.name}] Cleanup error:`, e);
+            }
+          });
+        };
+
+        const revokeObjectUrl = () => {
+          if (!objectUrl) return;
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+        };
+
+        const cleanupExtension = () => {
+          disposed = true;
+          revokeObjectUrl();
+          extensionGlobal.__marinaraExtensionApis?.delete(apiKey);
+          runExtensionCleanups();
+        };
 
         // Extension API passed to JS extensions
         const extensionAPI = {
@@ -141,23 +200,33 @@ export function CustomThemeInjector() {
 
           // Register a cleanup function manually
           onCleanup: (fn: () => void) => {
+            if (disposed) {
+              fn();
+              return;
+            }
             extensionCleanups.push(fn);
           },
         };
 
-        // Execute the JS with the marinara API available
-        const fn = new Function("marinara", ext.js);
-        fn(extensionAPI);
+        extensionGlobal.__marinaraExtensionApis ??= new Map();
+        extensionGlobal.__marinaraExtensionApis.set(apiKey, extensionAPI);
+        cleanupFns.push(cleanupExtension);
 
-        cleanupFns.push(() => {
-          extensionCleanups.forEach((cleanup) => {
-            try {
-              cleanup();
-            } catch (e) {
-              console.warn(`[Extension:${ext.name}] Cleanup error:`, e);
+        const moduleSource = buildExtensionModuleSource(apiKey, ext.name, ext.js);
+        const blob = new Blob([moduleSource], { type: "text/javascript" });
+        objectUrl = URL.createObjectURL(blob);
+
+        void import(/* @vite-ignore */ objectUrl)
+          .catch((e) => {
+            if (!disposed) {
+              console.error(`[Extension:${ext.name}] Failed to execute:`, e);
+              runExtensionCleanups();
             }
+          })
+          .finally(() => {
+            revokeObjectUrl();
+            extensionGlobal.__marinaraExtensionApis?.delete(apiKey);
           });
-        });
       } catch (e) {
         console.error(`[Extension:${ext.name}] Failed to execute:`, e);
       }

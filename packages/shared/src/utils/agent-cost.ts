@@ -65,10 +65,7 @@ function approximateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-export function estimateAgentLoadCost(
-  enabled: AgentCostInput[],
-  defaultConnectionId: string | null,
-): AgentLoadCost {
+export function estimateAgentLoadCost(enabled: AgentCostInput[], defaultConnectionId: string | null): AgentLoadCost {
   let instructionTokens = 0;
   const callKeys = new Set<string>();
 

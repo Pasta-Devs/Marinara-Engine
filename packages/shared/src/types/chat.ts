@@ -143,6 +143,8 @@ export interface ChatMetadata {
   impersonatePrompt?: string | null;
   /** Show a manual draft translation button beside the send control. */
   showInputTranslateButton?: boolean;
+  /** Allow roleplay characters to create direct-message conversation chats with hidden [dm] commands. */
+  roleplayDmCommandsEnabled?: boolean;
 
   // ── Conversation Mode Fields ──
   /** Whether conversation character schedules are enabled for this chat. */

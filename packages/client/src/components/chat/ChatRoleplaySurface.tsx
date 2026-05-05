@@ -178,6 +178,7 @@ function StreamingIndicator({
   groupChatMode?: string;
 }) {
   const streamBuffer = useChatStore((s) => s.streamBuffer);
+  const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
   const streamingCharacterId = useChatStore((s) => s.streamingCharacterId);
 
   return (
@@ -188,9 +189,15 @@ function StreamingIndicator({
           chatId: activeChatId,
           role: "assistant",
           characterId: streamingCharacterId ?? chatCharIds[0] ?? null,
-          content: streamBuffer || "",
+          content: streamBuffer || (thinkingBuffer ? "Thinking..." : ""),
           activeSwipeIndex: 0,
-          extra: { displayText: null, isGenerated: true, tokenCount: 0, generationInfo: null },
+          extra: {
+            displayText: null,
+            isGenerated: true,
+            tokenCount: 0,
+            generationInfo: null,
+            thinking: thinkingBuffer || null,
+          },
           createdAt: new Date().toISOString(),
         }}
         isStreaming
@@ -211,11 +218,18 @@ function RegeneratingMessageContent({
   msg: MessageWithSwipes;
 } & Omit<ComponentProps<typeof ChatMessage>, "message" | "isStreaming">) {
   const streamBuffer = useChatStore((s) => s.streamBuffer);
+  const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
   // Strip old-swipe attachments so a previous illustration doesn't linger
   // while the new swipe's text is streaming in.
   const parsedExtra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
-  const cleanExtra = { ...parsedExtra, attachments: null };
-  return <ChatMessage message={{ ...msg, extra: cleanExtra, content: streamBuffer || "" }} isStreaming {...rest} />;
+  const cleanExtra = { ...parsedExtra, attachments: null, thinking: thinkingBuffer || parsedExtra.thinking };
+  return (
+    <ChatMessage
+      message={{ ...msg, extra: cleanExtra, content: streamBuffer || (thinkingBuffer ? "Thinking..." : "") }}
+      isStreaming
+      {...rest}
+    />
+  );
 }
 
 /** True for stored context messages that should feed generation but not render in the transcript. */

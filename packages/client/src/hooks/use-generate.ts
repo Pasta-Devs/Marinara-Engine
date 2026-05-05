@@ -19,6 +19,18 @@ function showError(msg: string) {
   toast.error(msg, { duration: 15000 });
 }
 
+const shownAgentWarnings = new Set<string>();
+
+function showAgentWarning(raw: unknown) {
+  const data = raw && typeof raw === "object" ? (raw as { code?: unknown; message?: unknown }) : null;
+  const message = typeof data?.message === "string" ? data.message : "Agent warning";
+  const warningKey = `${typeof data?.code === "string" ? data.code : "agent_warning"}:${message}`;
+  console.warn("[Agent warning]", raw);
+  if (shownAgentWarnings.has(warningKey)) return;
+  shownAgentWarnings.add(warningKey);
+  toast.warning(message, { duration: 20000 });
+}
+
 const editableCharacterCardFieldSet = new Set<string>(EDITABLE_CHARACTER_CARD_FIELDS);
 /**
  * Validate one entry in the Card Evolution Auditor's `updates` array and coerce
@@ -353,6 +365,8 @@ export function useGenerate() {
   const setMariPhase = useChatStore((s) => s.setMariPhase);
   const setStreamBuffer = useChatStore((s) => s.setStreamBuffer);
   const clearStreamBuffer = useChatStore((s) => s.clearStreamBuffer);
+  const appendThinkingBuffer = useChatStore((s) => s.appendThinkingBuffer);
+  const clearThinkingBuffer = useChatStore((s) => s.clearThinkingBuffer);
   const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
   const setStreamingCharacterId = useChatStore((s) => s.setStreamingCharacterId);
   const setTypingCharacterName = useChatStore((s) => s.setTypingCharacterName);
@@ -378,7 +392,7 @@ export function useGenerate() {
       userMessage?: string;
       regenerateMessageId?: string;
       impersonate?: boolean;
-      attachments?: Array<{ type: string; data: string }>;
+      attachments?: Array<{ type: string; data: string; filename?: string; name?: string }>;
       mentionedCharacterNames?: string[];
       forCharacterId?: string;
       generationGuide?: string;
@@ -399,6 +413,7 @@ export function useGenerate() {
       // Create an AbortController so the stop button can cancel this generation
       const abortController = new AbortController();
       useChatStore.getState().setAbortController(params.chatId, abortController);
+      useChatStore.getState().clearThinkingBuffer(params.chatId);
 
       // Helper: returns true when this generation's chat is the one the user is viewing.
       // Used to guard global UI state updates (typing indicator, delayed info, stream
@@ -490,14 +505,12 @@ export function useGenerate() {
       // immediately, we feed them character-by-character from a queue
       // at a controlled rate so the text "types out" smoothly.
       // Speed is controlled by the user's streamingSpeed setting (1–100).
-      // Conversation mode still renders complete messages, but the transport
-      // should follow the user's streaming preference.
-      const isConversationMode = useChatStore.getState().activeChat?.mode === "conversation";
       const transportStreaming = useUIStore.getState().enableStreaming;
-      const streamingEnabled = isConversationMode ? false : transportStreaming;
+      const streamingEnabled = transportStreaming;
       let fullBuffer = ""; // What the user sees (or accumulates silently when streaming is off)
       let pendingText = ""; // Tokens waiting to be typed out
       let receivedContent = false; // Whether any actual message content was received
+      let receivedThinking = false; // Whether provider-native thinking chunks were received
       let typingActive = false;
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
@@ -513,8 +526,7 @@ export function useGenerate() {
       // States: "detect" (start of response, looking for opening tag),
       //         "inside" (inside a think block, suppressing tokens),
       //         "done" (think block closed or no think tag found — passthrough).
-      // Think-tag filtering disabled — skip straight to passthrough
-      let thinkState: string = "done";
+      let thinkState: string = streamingEnabled ? "detect" : "done";
       let thinkBuf = ""; // Raw token accumulator during detect/inside phases
       let thinkCloseTag = "</think>";
       const THINK_OPEN_RE = /^(\s*)(<(think(?:ing)?)>|<\|channel>thought\b)/i;
@@ -662,10 +674,18 @@ export function useGenerate() {
                 const closeIdx = thinkBuf.toLowerCase().indexOf(thinkCloseTag.toLowerCase());
                 if (closeIdx !== -1) {
                   // Found closing tag — everything after it is visible content
+                  const thinkingChunk = thinkBuf.slice(0, closeIdx);
+                  if (thinkingChunk) appendThinkingBuffer(thinkingChunk, params.chatId);
                   thinkState = "done";
                   chunk = thinkBuf.slice(closeIdx + thinkCloseTag.length).trimStart();
                   thinkBuf = "";
                 } else {
+                  const holdback = Math.max(0, thinkCloseTag.length - 1);
+                  const emitLength = Math.max(0, thinkBuf.length - holdback);
+                  if (emitLength > 0) {
+                    appendThinkingBuffer(thinkBuf.slice(0, emitLength), params.chatId);
+                    thinkBuf = thinkBuf.slice(emitLength);
+                  }
                   chunk = ""; // still inside — suppress
                 }
               }
@@ -684,6 +704,11 @@ export function useGenerate() {
 
             case "agent_start": {
               if (isActiveChat()) setProcessing(true);
+              break;
+            }
+
+            case "agent_warning": {
+              showAgentWarning(event.data);
               break;
             }
 
@@ -864,8 +889,22 @@ export function useGenerate() {
             }
 
             case "thinking": {
-              // Thinking chunks are streamed from the server but persisted in message extra
-              // — the UI picks them up after query invalidation on "done". Nothing to buffer here.
+              const chunk = event.data as string;
+              if (!chunk) break;
+              const isFirstThinking = !receivedThinking;
+              receivedThinking = true;
+              appendThinkingBuffer(chunk, params.chatId);
+              if (isFirstThinking && isActiveChat()) {
+                setTypingCharacterName(null);
+                setDelayedCharacterInfo(null);
+                useChatStore.getState().setGenerationPhase(null);
+                setMariPhase(params.chatId, "thinking");
+                window.dispatchEvent(
+                  new CustomEvent("marinara:mari-phase", {
+                    detail: { chatId: params.chatId, phase: "thinking" },
+                  }),
+                );
+              }
               break;
             }
 
@@ -917,10 +956,11 @@ export function useGenerate() {
                 // Reset the stream buffer for the new character
                 fullBuffer = "";
                 pendingText = "";
-                thinkState = "done";
+                thinkState = streamingEnabled ? "detect" : "done";
                 thinkBuf = "";
                 thinkCloseTag = "</think>";
                 setStreamBuffer("", params.chatId);
+                clearThinkingBuffer(params.chatId);
               }
 
               if (isActiveChat()) setStreamingCharacterId(turn.characterId);
@@ -1455,6 +1495,8 @@ export function useGenerate() {
       setMariPhase,
       setStreamBuffer,
       clearStreamBuffer,
+      appendThinkingBuffer,
+      clearThinkingBuffer,
       setRegenerateMessageId,
       setStreamingCharacterId,
       setTypingCharacterName,
@@ -1495,6 +1537,11 @@ export function useGenerate() {
           abortController.signal,
         )) {
           switch (event.type) {
+            case "agent_warning": {
+              showAgentWarning(event.data);
+              break;
+            }
+
             case "agent_result": {
               const result = event.data as {
                 agentType: string;

@@ -326,6 +326,10 @@ function GeneralSettings() {
   const setTrimIncompleteModelOutput = useUIStore((s) => s.setTrimIncompleteModelOutput);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
+  const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
+  const setIntuitiveSwipeNavigation = useUIStore((s) => s.setIntuitiveSwipeNavigation);
+  const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
+  const setIntuitiveSwipeRerollLatest = useUIStore((s) => s.setIntuitiveSwipeRerollLatest);
   const rescanGameAssets = useGameAssetStore((s) => s.rescanAssets);
   const assetFileRef = useRef<HTMLInputElement>(null);
   const [assetCategory, setAssetCategory] = useState<GameAssetCategoryId>("backgrounds");
@@ -600,6 +604,22 @@ function GeneralSettings() {
         onChange={setSpeechToTextEnabled}
         help="When on, chat input bars show a microphone button for browser dictation. Handy still works independently by pasting into the focused input field."
       />
+
+      <ToggleSetting
+        label="Intuitive swipe navigation"
+        checked={intuitiveSwipeNavigation}
+        onChange={setIntuitiveSwipeNavigation}
+        help="In Conversation and Roleplay modes, use Left/Right Arrow on desktop or horizontal touch swipes on mobile to move between alternate generations on the latest assistant message."
+      />
+
+      <div className={cn("pl-5 transition-opacity", intuitiveSwipeNavigation ? "" : "pointer-events-none opacity-45")}>
+        <ToggleSetting
+          label="Reroll past the newest swipe"
+          checked={intuitiveSwipeRerollLatest}
+          onChange={setIntuitiveSwipeRerollLatest}
+          help="When intuitive swipes are enabled, pressing Right Arrow or swiping left on the newest swipe of the latest assistant message creates a new reroll."
+        />
+      </div>
 
       <div className="rounded-xl bg-[var(--secondary)]/50 p-4 ring-1 ring-[var(--border)]">
         <div className="mb-3 flex flex-col gap-1">

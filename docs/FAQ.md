@@ -108,7 +108,7 @@ Marinara has three different ways to scope a lorebook, each at a different level
 
 **1. Bind a lorebook to one character or persona** (lorebook editor → `Linked Character` / `Linked Persona`).
 
-The lorebook auto-activates in any chat that includes that character or uses that persona. Best when the lore is specifically *about* that character (e.g., their backstory, their world). The two link types are mutually exclusive — pick one or the other, not both. Each link is single-value, so this is the right tool for one lorebook ↔ one character.
+The lorebook auto-activates in any chat that includes that character or uses that persona. Best when the lore is specifically _about_ that character (e.g., their backstory, their world). The two link types are mutually exclusive — pick one or the other, not both. Each link is single-value, so this is the right tool for one lorebook ↔ one character.
 
 **2. Attach lorebooks per-chat via the chat settings drawer** (gear icon → **Lorebooks** section → **+ Add Lorebook**).
 
@@ -118,7 +118,7 @@ Multi-select. Use this when you want one lorebook active across multiple charact
 
 Inside a single shared lorebook, you can mark each entry as only firing when specific characters (or character tags) are present in the chat. Best for a "world bible" lorebook shared across many chats where some entries are character-specific.
 
-**Common scenario — "I want this lorebook for Character A *and* Character B":** leave the lorebook's character link empty, and attach the lorebook via the chat settings drawer in any chat that includes either character. The same lorebook can be attached to as many chats as you want.
+**Common scenario — "I want this lorebook for Character A _and_ Character B":** leave the lorebook's character link empty, and attach the lorebook via the chat settings drawer in any chat that includes either character. The same lorebook can be attached to as many chats as you want.
 
 </details>
 
@@ -143,6 +143,6 @@ Common overlaps to watch for:
 
 **The general rule:** pick one place to express each behavior. If you've enabled an agent that covers a behavior, you can usually remove the matching preset directive. If you'd rather keep your preset version (e.g., it's tuned for a particular character), disable the corresponding agent.
 
-**One important exception:** the `agent_data` marker section, and the `{{agent::TYPE}}` macro, are the *intended* way to thread an agent's output into a specific spot in the preset. That's wiring, not overlap — several agents (World State, Quest Tracker, Character Tracker, and others) set this up for you by default. The pattern to avoid is hand-writing preset sections that duplicate an agent's *behavior*, not using the marker section that carries the agent's *output*.
+**One important exception:** the `agent_data` marker section, and the `{{agent::TYPE}}` macro, are the _intended_ way to thread an agent's output into a specific spot in the preset. That's wiring, not overlap — several agents (World State, Quest Tracker, Character Tracker, and others) set this up for you by default. The pattern to avoid is hand-writing preset sections that duplicate an agent's _behavior_, not using the marker section that carries the agent's _output_.
 
 </details>

@@ -822,7 +822,7 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
 
   if (context.memory._existingLorebookEntries) {
     const rawEntries = context.memory._existingLorebookEntries as Array<
-      string | { name?: string; keys?: string[]; locked?: boolean }
+      string | { id?: string; name?: string; content?: string; keys?: string[]; locked?: boolean }
     >;
     const entries = rawEntries
       .map((entry) => {
@@ -830,10 +830,16 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
         if (!entry || typeof entry !== "object") return null;
 
         const name = typeof entry.name === "string" && entry.name.trim() ? entry.name.trim() : "Unnamed";
+        const id = typeof entry.id === "string" && entry.id.trim() ? entry.id.trim() : "";
+        const content = typeof entry.content === "string" ? entry.content.trim() : "";
         const keys = Array.isArray(entry.keys) ? entry.keys.filter((key) => typeof key === "string") : [];
-        const keyText = keys.length > 0 ? ` | keys: ${keys.join(", ")}` : "";
-        const lockedText = entry.locked === true ? " | locked" : "";
-        return `- ${name}${keyText}${lockedText}`;
+        const attrs = [
+          id ? `id="${escapeXml(id)}"` : "",
+          `name="${escapeXml(name)}"`,
+          keys.length > 0 ? `keys="${escapeXml(keys.join(", "))}"` : "",
+          entry.locked === true ? `locked="true"` : "",
+        ].filter(Boolean);
+        return [`<entry ${attrs.join(" ")}>`, `<content>${escapeXml(content)}</content>`, `</entry>`].join("\n");
       })
       .filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
 

@@ -181,6 +181,10 @@ interface UIState {
   trimIncompleteModelOutput: boolean;
   /** When true, chat inputs show a microphone button for browser speech-to-text dictation. */
   speechToTextEnabled: boolean;
+  /** When true, Roleplay and Conversation modes support arrow-key and touch-swipe navigation between message swipes. */
+  intuitiveSwipeNavigation: boolean;
+  /** When true, moving past the newest swipe on the latest assistant message creates a new reroll. */
+  intuitiveSwipeRerollLatest: boolean;
 
   // ── Text Appearance ──
   /** Color for narrator text in RP mode (empty = default amber) */
@@ -336,6 +340,8 @@ interface UIState {
   setBoldDialogue: (v: boolean) => void;
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
+  setIntuitiveSwipeNavigation: (v: boolean) => void;
+  setIntuitiveSwipeRerollLatest: (v: boolean) => void;
   setNarrationFontColor: (v: string) => void;
   setNarrationOpacity: (v: number) => void;
   setChatFontColor: (v: string) => void;
@@ -419,6 +425,8 @@ export function pickSyncedSettings(state: UIState) {
     boldDialogue: state.boldDialogue,
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
+    intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
+    intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
     narrationFontColor: state.narrationFontColor,
     narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
@@ -505,6 +513,8 @@ export const useUIStore = create<UIState>()(
       boldDialogue: true,
       trimIncompleteModelOutput: false,
       speechToTextEnabled: false,
+      intuitiveSwipeNavigation: false,
+      intuitiveSwipeRerollLatest: false,
       narrationFontColor: "",
       narrationOpacity: 80,
       chatFontColor: "",
@@ -774,6 +784,8 @@ export const useUIStore = create<UIState>()(
       setBoldDialogue: (v) => set({ boldDialogue: v }),
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
+      setIntuitiveSwipeNavigation: (v) => set({ intuitiveSwipeNavigation: v }),
+      setIntuitiveSwipeRerollLatest: (v) => set({ intuitiveSwipeRerollLatest: v }),
       setNarrationFontColor: (v) => set({ narrationFontColor: v }),
       setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
@@ -845,7 +857,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 16,
+      version: 17,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1000,6 +1012,15 @@ export const useUIStore = create<UIState>()(
             persisted.trimIncompleteModelOutput = false;
           }
         }
+        // v16 -> v17: opt-in intuitive swipe/reroll shortcuts.
+        if (version <= 16) {
+          if (persisted.intuitiveSwipeNavigation === undefined) {
+            persisted.intuitiveSwipeNavigation = false;
+          }
+          if (persisted.intuitiveSwipeRerollLatest === undefined) {
+            persisted.intuitiveSwipeRerollLatest = false;
+          }
+        }
         return persisted;
       },
       partialize: (state) => ({
@@ -1039,6 +1060,8 @@ export const useUIStore = create<UIState>()(
         boldDialogue: state.boldDialogue,
         trimIncompleteModelOutput: state.trimIncompleteModelOutput,
         speechToTextEnabled: state.speechToTextEnabled,
+        intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
+        intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
         narrationFontColor: state.narrationFontColor,
         narrationOpacity: state.narrationOpacity,
         chatFontColor: state.chatFontColor,

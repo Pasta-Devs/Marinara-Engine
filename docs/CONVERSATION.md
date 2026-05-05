@@ -24,7 +24,7 @@ When you start a new Conversation chat, a Discord-style **quick-setup modal** ap
 The quick setup has these controls:
 
 - **Connection** (required) — which LLM provider/model the chat sends messages to.
-- **Persona** (optional) — the character *you* play, if you want to be more than a generic user.
+- **Persona** (optional) — the character _you_ play, if you want to be more than a generic user.
 - **Character(s)** — tap to add one or more characters from your library. One = 1:1 chat. More than one = group chat. The chat name auto-generates from the picked characters' names unless you've renamed it.
 - **Autonomous messages toggle** — defaults to ON. When enabled, characters can message you on their own when you're idle (see [Autonomous messages](#autonomous-messages) below).
 - **Generate schedules toggle** — defaults to OFF. When enabled and you click Start chatting, the engine runs the Schedule Planner agent to generate weekly availability grids for each character.

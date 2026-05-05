@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
-  LOCAL_SIDECAR_CONNECTION_ID,
   getDefaultBuiltInAgentSettings,
   type AgentContext,
   type AgentResult,
@@ -35,6 +34,12 @@ import {
   resolveLorebookKeeperTarget,
 } from "./lorebook-keeper-utils.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
+import {
+  buildLocalSidecarUnavailableWarning,
+  isLocalSidecarConnectionId,
+  type AgentConnectionWarning,
+} from "./agent-connection-guards.js";
+import { validateSpriteExpressionEntries } from "./expression-agent-utils.js";
 import type { GameMap } from "@marinara-engine/shared";
 
 type PersonaContext = {
@@ -51,6 +56,13 @@ type ResolvedRetryAgent = {
   resolved: ResolvedAgent;
   agentProvider: any;
   agentModel: string;
+};
+
+type ResolvedRetryAgents = {
+  conn: any;
+  enabledConfigs: any[];
+  resolvedAgents: ResolvedRetryAgent[];
+  warnings: AgentConnectionWarning[];
 };
 
 function parseJsonIfString<T>(value: T | string): T {
@@ -308,7 +320,7 @@ async function resolveRetryAgents(args: {
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
-}) {
+}): Promise<ResolvedRetryAgents> {
   const { agentTypes, chat, conns, agentsStore } = args;
   const agentTypeSet = new Set(agentTypes);
   const configs = await agentsStore.list();
@@ -347,6 +359,7 @@ async function resolveRetryAgents(args: {
     conn.maxTokensOverride,
   );
   const resolvedAgents: ResolvedRetryAgent[] = [];
+  const skippedLocalSidecarAgents: string[] = [];
   const localSidecarAvailableForTrackers =
     sidecarModelService.getConfig().useForTrackers && sidecarModelService.getConfiguredModelRef() !== null;
 
@@ -355,10 +368,17 @@ async function resolveRetryAgents(args: {
     let agentModel = conn.model;
 
     if (cfg.connectionId) {
-      if (cfg.connectionId === LOCAL_SIDECAR_CONNECTION_ID && localSidecarAvailableForTrackers) {
+      if (isLocalSidecarConnectionId(cfg.connectionId) && localSidecarAvailableForTrackers) {
         agentProvider = getLocalSidecarProvider();
         agentModel = LOCAL_SIDECAR_MODEL;
-      } else if (cfg.connectionId !== LOCAL_SIDECAR_CONNECTION_ID) {
+      } else if (isLocalSidecarConnectionId(cfg.connectionId)) {
+        skippedLocalSidecarAgents.push(cfg.name ?? cfg.type);
+        logger.warn(
+          "[retry-agents] Skipping agent %s because Local Model was requested but the sidecar is unavailable",
+          cfg.type,
+        );
+        continue;
+      } else {
         const agentConn = await conns.getWithKey(cfg.connectionId as string);
         if (agentConn) {
           const agentBaseUrl = resolveBaseUrl(agentConn);
@@ -395,6 +415,9 @@ async function resolveRetryAgents(args: {
     });
   }
 
+  const warnings =
+    skippedLocalSidecarAgents.length > 0 ? [buildLocalSidecarUnavailableWarning(skippedLocalSidecarAgents)] : [];
+
   for (const builtIn of builtInFallbackConfigs) {
     resolvedAgents.push({
       cfg: { id: `builtin:${builtIn.id}`, type: builtIn.id, name: builtIn.name } as any,
@@ -414,7 +437,7 @@ async function resolveRetryAgents(args: {
     });
   }
 
-  return { conn, enabledConfigs, resolvedAgents };
+  return { conn, enabledConfigs, resolvedAgents, warnings };
 }
 
 async function executeRetryBatches(agentContext: AgentContext, resolvedAgents: ResolvedRetryAgent[]) {
@@ -1065,7 +1088,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
           ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
           : scopedMessages;
         const lastAssistant = [...recentMessages].reverse().find((message: any) => message.role === "assistant");
-        const { enabledConfigs, resolvedAgents } = await resolveRetryAgents({
+        const { enabledConfigs, resolvedAgents, warnings } = await resolveRetryAgents({
           agentTypes,
           chat,
           conns,
@@ -1088,6 +1111,9 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         });
 
         sendSseEvent(reply, { type: "agent_start", data: { phase: "retry" } });
+        for (const warning of warnings) {
+          sendSseEvent(reply, { type: "agent_warning", data: warning });
+        }
         const lorebookKeeperAgent = resolvedAgents.find((entry) => entry.resolved.type === "lorebook-keeper") ?? null;
         const nonLorebookAgents = resolvedAgents.filter((entry) => entry.resolved.type !== "lorebook-keeper");
         if (cyoaAgentWillRun) {
@@ -1130,58 +1156,11 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
               | Array<{ characterId: string; characterName: string; expressions: string[] }>
               | undefined;
             if (Array.isArray(spriteData.expressions) && Array.isArray(availableSprites)) {
-              spriteData.expressions = spriteData.expressions.filter((entry) => {
-                if (typeof entry.characterId !== "string" || typeof entry.expression !== "string") {
-                  logger.warn(`[retry-agents] Malformed expression entry — skipping`);
-                  return false;
-                }
-                const entryLower = entry.characterId.toLowerCase().replace(/[^a-z0-9]/g, "");
-                const exprLower = entry.expression.trim().toLowerCase();
-                if (!entryLower || !exprLower) {
-                  logger.warn("[retry-agents] Blank expression entry — removing");
-                  return false;
-                }
-                let charSprites = availableSprites.find((s) => s.characterId === entry.characterId);
-                if (!charSprites) {
-                  charSprites = availableSprites.find((s) => {
-                    if (typeof s.characterName !== "string") return false;
-                    const nameLower = s.characterName.toLowerCase().replace(/[^a-z0-9]/g, "");
-                    return nameLower === entryLower || nameLower.includes(entryLower) || entryLower.includes(nameLower);
-                  });
-                  if (charSprites) {
-                    logger.warn(
-                      `[retry-agents] Expression agent used "${entry.characterId}" — resolved to ${charSprites.characterName} (${charSprites.characterId})`,
-                    );
-                    entry.characterId = charSprites.characterId;
-                  }
-                }
-                if (!charSprites) {
-                  logger.warn(
-                    `[retry-agents] Expression agent returned unknown character "${entry.characterId}" — removing`,
-                  );
-                  return false;
-                }
-                const exactMatch = charSprites.expressions.find((e) => e.toLowerCase() === exprLower);
-                if (exactMatch) {
-                  entry.expression = exactMatch;
-                  return true;
-                }
-                const fallback = charSprites.expressions.find(
-                  (e) => e.toLowerCase().includes(exprLower) || exprLower.includes(e.toLowerCase()),
-                );
-                if (fallback) {
-                  logger.warn(
-                    `[retry-agents] Expression agent chose "${entry.expression}" — correcting to closest match "${fallback}"`,
-                  );
-                  entry.expression = fallback;
-                } else {
-                  logger.warn(
-                    `[retry-agents] Expression agent chose "${entry.expression}" for ${charSprites.characterName} which doesn't exist — removing`,
-                  );
-                  return false;
-                }
-                return true;
-              });
+              const validation = validateSpriteExpressionEntries(spriteData.expressions, availableSprites);
+              spriteData.expressions = validation.expressions;
+              for (const warning of validation.warnings) {
+                logger.warn("[retry-agents] %s", warning.message);
+              }
             } else if (!Array.isArray(availableSprites)) {
               // No sprite catalog loaded — drop expressions entirely so unvalidated data is never forwarded
               spriteData.expressions = [];

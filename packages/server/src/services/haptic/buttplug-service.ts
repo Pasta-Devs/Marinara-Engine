@@ -21,8 +21,8 @@ import type { HapticDevice, HapticCapability, HapticDeviceCommand, HapticStatus 
 const DEFAULT_SERVER_URL = "ws://127.0.0.1:12345";
 
 const POSITION_WITH_DURATION_OUTPUT =
-  ((OutputType as unknown as Record<string, OutputType | undefined>).HwPositionWithDuration ??
-    (OutputType as unknown as Record<string, OutputType | undefined>).PositionWithDuration) ??
+  (OutputType as unknown as Record<string, OutputType | undefined>).HwPositionWithDuration ??
+  (OutputType as unknown as Record<string, OutputType | undefined>).PositionWithDuration ??
   null;
 
 /** OutputType values we map to capabilities. */

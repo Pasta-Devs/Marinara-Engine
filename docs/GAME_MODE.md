@@ -201,9 +201,9 @@ Pick character mode when you have a specific narrator voice in mind — a sarcas
 
 The Marinara community hasn't published a definitive guide on this, so the following is best-practice synthesis grounded in how the engine actually wires the card into the prompt:
 
-- **The card sets _voice and persona_, not narrative content.** World-gen already supplies world-building, story arc, plot twists, NPC roster, and party arcs. The card tells the model *how* the GM speaks and reacts — not what story to run.
+- **The card sets _voice and persona_, not narrative content.** World-gen already supplies world-building, story arc, plot twists, NPC roster, and party arcs. The card tells the model _how_ the GM speaks and reacts — not what story to run.
 - **`description` and `personality` matter most.** These set the cadence and biases the GM brings to narration. A short, vivid description outperforms a long lore dump.
-- **`mes_example` is a trap if you're not careful.** Most chat cards include examples of the character speaking *as themselves, one-on-one with a user*. In GM mode, that pulls the model toward "be that character in a chat" rather than "narrate a world as that character." If you author `mes_example` for a GM card, show the character *narrating scenes, describing places, reacting to player actions, calling for what the player does next* — not having an intimate one-on-one conversation.
+- **`mes_example` is a trap if you're not careful.** Most chat cards include examples of the character speaking _as themselves, one-on-one with a user_. In GM mode, that pulls the model toward "be that character in a chat" rather than "narrate a world as that character." If you author `mes_example` for a GM card, show the character _narrating scenes, describing places, reacting to player actions, calling for what the player does next_ — not having an intimate one-on-one conversation.
 - **Avoid hardcoded scenarios in the `scenario` or system-prompt fields.** World-gen will produce its own setting. A GM card with a baked-in scenario fights the engine instead of complementing it.
 - **Model choice still dominates tone.** A card written for a grim narrator paired with a player-positive model will still narrate cheerfully. Plan to compensate via Additional Preferences or pick a model whose tendencies match the card.
 
@@ -217,7 +217,7 @@ The wizard's **Party & GM** step also lets you pick one or more characters from 
 
 - A standard character card with **name, description, personality, and a clear voice**. The same fields you'd use for a Roleplay or Conversation card work here.
 - **One character per card.** Even if your library has a "complete adventuring party" written as a single card, the engine treats that whole card as one entity — the Party Players agent wraps each card in a single `<party_member>` block, so a multi-character card gets lumped together and loses individual voice. Split compound cards into individual character cards before adding them to a party.
-- Cards that capture *how the character speaks and reacts* more than ones full of plot lore. World-gen produces its own world and story; the card brings the party member's voice to it.
+- Cards that capture _how the character speaks and reacts_ more than ones full of plot lore. World-gen produces its own world and story; the card brings the party member's voice to it.
 
 ### Persona cards
 

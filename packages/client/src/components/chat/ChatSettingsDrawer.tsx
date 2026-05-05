@@ -127,7 +127,12 @@ import {
   getDefaultBuiltInAgentSettings,
 } from "@marinara-engine/shared";
 import type { Chat, CharacterGroup } from "@marinara-engine/shared";
-import { useCustomTools, type CustomToolRow } from "../../hooks/use-custom-tools";
+import {
+  isCustomToolSelectable,
+  useCustomToolCapabilities,
+  useCustomTools,
+  type CustomToolRow,
+} from "../../hooks/use-custom-tools";
 import { useHapticStatus, useHapticConnect, useHapticDisconnect, useHapticStartScan } from "../../hooks/use-haptic";
 import { normalizeSpritePlacements } from "./sprite-placement";
 
@@ -248,6 +253,7 @@ export function ChatSettingsDrawer({
   const chatMode = (chat as unknown as { mode?: string }).mode ?? "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
+  const isRoleplayMode = chatMode === "roleplay" || chatMode === "visual_novel";
   const { data: currentPromptPresetFull } = usePresetFull(isConversation ? null : (chat.promptPresetId ?? null));
   const { data: connections } = useConnections();
   const imageConnectionsList = useMemo(
@@ -260,6 +266,7 @@ export function ChatSettingsDrawer({
   const { data: allPersonas } = usePersonas();
   const { data: agentConfigs } = useAgentConfigs();
   const { data: customTools } = useCustomTools();
+  const { data: customToolCapabilities } = useCustomToolCapabilities();
   const { data: allChats } = useChats();
   const personas = (allPersonas ?? []) as Array<{
     id: string;
@@ -406,13 +413,13 @@ export function ChatSettingsDrawer({
     }
     if (customTools) {
       for (const ct of customTools as CustomToolRow[]) {
-        if (ct.enabled === "true" || ct.enabled === "1") {
+        if (isCustomToolSelectable(ct, customToolCapabilities)) {
           tools.push({ id: ct.name, name: ct.name, description: ct.description });
         }
       }
     }
     return tools;
-  }, [customTools]);
+  }, [customToolCapabilities, customTools]);
 
   // ── Helpers ──
   const characters = useMemo(
@@ -530,12 +537,37 @@ export function ChatSettingsDrawer({
   }, [firstMesConfirm, createMessage, chat.id, qc]);
 
   // ── Mutations ──
+  const syncGamePartyMetadata = (nextCharacterIds: string[]) => {
+    if (!isGame) return;
+    const storedPartyIds: unknown[] = Array.isArray(metadata.gamePartyCharacterIds)
+      ? metadata.gamePartyCharacterIds
+      : Array.isArray((metadata.gameSetupConfig as { partyCharacterIds?: unknown[] } | undefined)?.partyCharacterIds)
+        ? (metadata.gameSetupConfig as { partyCharacterIds: unknown[] }).partyCharacterIds
+        : [];
+    const npcPartyIds = storedPartyIds.filter((id): id is string => typeof id === "string" && id.startsWith("npc:"));
+    const nextPartyIds = Array.from(new Set([...nextCharacterIds, ...npcPartyIds]));
+    const gameSetupConfig =
+      metadata.gameSetupConfig && typeof metadata.gameSetupConfig === "object"
+        ? { ...(metadata.gameSetupConfig as Record<string, unknown>), partyCharacterIds: nextPartyIds }
+        : metadata.gameSetupConfig;
+    updateMeta.mutate({
+      id: chat.id,
+      gamePartyCharacterIds: nextPartyIds,
+      ...(gameSetupConfig ? { gameSetupConfig } : {}),
+    });
+  };
+
   const toggleCharacter = (charId: string) => {
     const current = [...chatCharIds];
     const idx = current.indexOf(charId);
     if (idx >= 0) {
       current.splice(idx, 1);
-      updateChat.mutate({ id: chat.id, characterIds: current });
+      updateChat.mutate(
+        { id: chat.id, characterIds: current },
+        {
+          onSuccess: () => syncGamePartyMetadata(current),
+        },
+      );
       if (spriteCharacterIds.includes(charId)) {
         const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
         delete nextSpritePlacements[charId];
@@ -551,6 +583,7 @@ export function ChatSettingsDrawer({
         { id: chat.id, characterIds: current },
         {
           onSuccess: () => {
+            syncGamePartyMetadata(current);
             // Skip auto-greeting for conversation mode
             if (isConversation) return;
             const char = characters.find((c) => c.id === charId);
@@ -2579,8 +2612,86 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {/* Connected Conversation — roleplay/game mode: show linked OOC chat */}
-          {!isConversation && chat.connectedChatId && (
+          {/* Connected Conversation — roleplay mode: linked OOC chat + optional in-world DM command */}
+          {isRoleplayMode && (
+            <Section
+              label="Connected Conversation"
+              icon={<ArrowRightLeft size="0.875rem" />}
+              help={
+                'Link to an OOC conversation, and optionally let roleplay characters open direct-message conversations with `[dm: character="Name" message="text"]` when it naturally fits the scene.'
+              }
+            >
+              <div className="space-y-2">
+                {chat.connectedChatId ? (
+                  (() => {
+                    const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                    return (
+                      <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
+                        <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
+                        <div className="flex-1 min-w-0">
+                          <span className="truncate text-xs font-medium">{linked?.name ?? "Unknown chat"}</span>
+                          <p className="text-[0.625rem] text-[var(--muted-foreground)]">Conversation</p>
+                        </div>
+                        <button
+                          onClick={() => disconnectChat.mutate(chat.id)}
+                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                          title="Disconnect"
+                        >
+                          <Unlink size="0.6875rem" />
+                        </button>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    No OOC conversation is linked. Direct-message commands can still create new Conversation DMs.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateMeta.mutate({
+                      id: chat.id,
+                      roleplayDmCommandsEnabled: metadata.roleplayDmCommandsEnabled !== true,
+                    })
+                  }
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                    metadata.roleplayDmCommandsEnabled === true
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[0.6875rem] font-medium">Allow character DMs</span>
+                    <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                      Adds a short hidden command reminder so characters can open a new DM conversation when they text
+                      the user in-world.
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      metadata.roleplayDmCommandsEnabled === true
+                        ? "bg-[var(--primary)]"
+                        : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        metadata.roleplayDmCommandsEnabled === true && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
+              </div>
+            </Section>
+          )}
+
+          {/* Connected Conversation — game mode: show linked OOC chat */}
+          {isGame && chat.connectedChatId && (
             <Section
               label="Connected Conversation"
               icon={<ArrowRightLeft size="0.875rem" />}

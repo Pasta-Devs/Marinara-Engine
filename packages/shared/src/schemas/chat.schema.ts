@@ -44,6 +44,8 @@ export const generateRequestSchema = z.object({
       z.object({
         type: z.string(),
         data: z.string(),
+        filename: z.string().optional(),
+        name: z.string().optional(),
       }),
     )
     .optional()

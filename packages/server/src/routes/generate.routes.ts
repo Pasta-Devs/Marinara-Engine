@@ -64,6 +64,7 @@ import { executeAgent, resolveAgentResultType } from "../services/agents/agent-e
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/local-sidecar.js";
 import {
   parseCharacterCommands,
+  parseDirectMessageCommands,
   parseDuration,
   type CharacterCommand,
   type ScheduleUpdateCommand,
@@ -72,6 +73,7 @@ import {
   type MemoryCommand,
   type InfluenceCommand,
   type NoteCommand,
+  type DirectMessageCommand,
   type SceneCommand,
   type HapticCommand,
   type CreatePersonaCommand,
@@ -83,7 +85,12 @@ import {
   type NavigateCommand,
   type FetchCommand,
 } from "../services/conversation/character-commands.js";
-import { recordAssistantActivity, recordUserActivity } from "../services/conversation/autonomous.service.js";
+import {
+  clearGenerationInProgress,
+  markGenerationInProgress,
+  recordAssistantActivity,
+  recordUserActivity,
+} from "../services/conversation/autonomous.service.js";
 import { buildImpersonateInstruction } from "../services/conversation/impersonate-prompt.js";
 import { stripConversationPromptTimestamps } from "../services/conversation/transcript-sanitize.js";
 import {
@@ -103,6 +110,8 @@ import { chunkAndEmbedMessages, recallMemories } from "../services/memory-recall
 import { postToDiscordWebhook } from "../services/discord-webhook.js";
 import {
   findLastIndex,
+  appendReadableAttachmentsToContent,
+  extractImageAttachmentDataUrls,
   injectIntoOutputFormatOrLastUser,
   isMessageHiddenFromAI,
   mergeCustomParameters,
@@ -111,8 +120,10 @@ import {
   parseGameStateRow,
   resolveBaseUrl,
   wrapFields,
+  type PromptAttachment,
   type SimpleMessage,
 } from "./generate/generate-route-utils.js";
+import { validateSpriteExpressionEntries } from "./generate/expression-agent-utils.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import {
   buildHistoricalLorebookKeeperContext,
@@ -126,6 +137,12 @@ import {
 import { registerDryRunRoute } from "./generate/dry-run-route.js";
 import { registerRetryAgentsRoute } from "./generate/retry-agents-route.js";
 import { sendSseEvent, startSseReply, trySendSseEvent } from "./generate/sse.js";
+import {
+  buildDefaultAgentConnectionWarning,
+  buildLocalSidecarUnavailableWarning,
+  isLocalSidecarConnectionId,
+  type AgentConnectionWarning,
+} from "./generate/agent-connection-guards.js";
 import {
   createJournal,
   addLocationEntry,
@@ -379,6 +396,16 @@ function readAvatarBase64(avatarPath: string | null | undefined): string | undef
   }
 }
 
+function normalizeDmTargetName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^il\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeMaxContext(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
   return Math.floor(value);
@@ -559,6 +586,15 @@ export async function generateRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Chat not found" });
     }
     const requestChatMode = (chat.mode as string) ?? "roleplay";
+    let conversationGenerationStartedAt: number | null = null;
+    let conversationAssistantSaved = false;
+    const activeGenerations = (app as any).activeGenerations as Map<
+      string,
+      { abortController: AbortController; backendUrl: string | null }
+    >;
+    if (activeGenerations?.has(input.chatId)) {
+      return reply.status(409).send({ error: "A generation is already in progress for this chat" });
+    }
 
     // ── Discord webhook URL (parsed once, used for mirroring below) ──
     const earlyMeta = parseExtra(chat.metadata) as Record<string, unknown>;
@@ -651,19 +687,15 @@ export async function generateRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "No base URL configured for this connection" });
     }
 
-    // Set up SSE headers
-    startSseReply(reply, { "X-Accel-Buffering": "no" });
-
     // ── Abort controller: cancel agents when client disconnects ──
     const abortController = new AbortController();
     // Register this generation so the /abort endpoint can cancel it
-    const activeGenerations = (app as any).activeGenerations as Map<
-      string,
-      { abortController: AbortController; backendUrl: string | null }
-    >;
     if (activeGenerations) {
       activeGenerations.set(input.chatId, { abortController, backendUrl: baseUrl });
     }
+
+    // Set up SSE headers
+    startSseReply(reply, { "X-Accel-Buffering": "no" });
 
     const onClose = () => {
       logger.info("[abort] Client disconnected — aborting generation");
@@ -678,6 +710,9 @@ export async function generateRoutes(app: FastifyInstance) {
       }
     };
     req.raw.on("close", onClose);
+    if (requestChatMode === "conversation" && !input.impersonate) {
+      conversationGenerationStartedAt = markGenerationInProgress(input.chatId);
+    }
 
     // ── SSE progress helper: tells the client what phase we're in ──
     const sendProgress = (phase: string) => {
@@ -727,8 +762,8 @@ export async function generateRoutes(app: FastifyInstance) {
 
       const mappedMessages = chatMessages.map((m: any) => {
         const extra = parseExtra(m.extra);
-        const attachments = extra.attachments as Array<{ type: string; data: string; filename?: string }> | undefined;
-        const images = attachments?.filter((a) => a.type.startsWith("image/")).map((a) => a.data);
+        const attachments = extra.attachments as PromptAttachment[] | undefined;
+        const images = extractImageAttachmentDataUrls(attachments);
         const providerMetadata: Record<string, unknown> = {};
         // For Google connections, carry stored Gemini parts (thought signatures) on assistant messages
         if (isGoogleProvider && m.role === "assistant" && extra.geminiParts) {
@@ -744,10 +779,10 @@ export async function generateRoutes(app: FastifyInstance) {
         // so the model is aware it sent a photo in prior turns.
         // Skip illustration/selfie attachments (type "image") — those are generated
         // by agents and should be invisible to the main model.
-        let content = m.content as string;
+        let content = appendReadableAttachmentsToContent(m.content as string, attachments);
         const userUploadedImages = attachments?.filter((a) => a.type?.startsWith("image/"));
         if (m.role === "assistant" && userUploadedImages?.length) {
-          const photoName = userUploadedImages[0]?.filename;
+          const photoName = userUploadedImages[0]?.filename ?? userUploadedImages[0]?.name;
           content += `\n[Sent a photo${photoName ? `: ${photoName}` : ""}]`;
         }
 
@@ -762,7 +797,7 @@ export async function generateRoutes(app: FastifyInstance) {
       // Attach current request's images to the last user message (they're already saved in extra,
       // but the message was just created and may be the last in mappedMessages)
       if (input.attachments?.length && !input.impersonate) {
-        const imageAttachments = input.attachments.filter((a) => a.type.startsWith("image/")).map((a) => a.data);
+        const imageAttachments = extractImageAttachmentDataUrls(input.attachments);
         if (imageAttachments.length) {
           // Find the last user message and attach images
           for (let i = mappedMessages.length - 1; i >= 0; i--) {
@@ -1202,11 +1237,11 @@ export async function generateRoutes(app: FastifyInstance) {
             }
             finalMessages = chatMessages.map((m: any) => {
               const ex = parseExtra(m.extra);
-              const att = ex.attachments as Array<{ type: string; data: string }> | undefined;
-              const imgs = att?.filter((a: any) => a.type.startsWith("image/")).map((a: any) => a.data);
+              const att = ex.attachments as PromptAttachment[] | undefined;
+              const imgs = extractImageAttachmentDataUrls(att);
               return {
                 role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
-                content: m.content as string,
+                content: appendReadableAttachmentsToContent(m.content as string, att),
                 ...(imgs?.length ? { images: imgs } : {}),
               };
             });
@@ -2469,6 +2504,9 @@ export async function generateRoutes(app: FastifyInstance) {
         }
       }
 
+      const agentConnectionWarnings: AgentConnectionWarning[] = [];
+      const skippedLocalSidecarAgents: string[] = [];
+      const defaultAgentConnectionAgents: string[] = [];
       for (const cfg of enabledConfigs) {
         // If this chat has a per-chat agent list, only include agents in that list
         if (hasPerChatAgentList && !perChatAgentSet.has(cfg.type)) continue;
@@ -2477,10 +2515,19 @@ export async function generateRoutes(app: FastifyInstance) {
         let agentModel = conn.model;
 
         // Resolve connection: per-agent override > default-for-agents > chat connection
-        let effectiveConnectionId = cfg.connectionId ?? defaultAgentConn?.id ?? null;
-        if (effectiveConnectionId === LOCAL_SIDECAR_CONNECTION_ID && !localSidecarAvailableForTrackers) {
-          effectiveConnectionId =
-            cfg.connectionId === LOCAL_SIDECAR_CONNECTION_ID ? (defaultAgentConn?.id ?? null) : null;
+        if (isLocalSidecarConnectionId(cfg.connectionId) && !localSidecarAvailableForTrackers) {
+          skippedLocalSidecarAgents.push(cfg.name ?? cfg.type);
+          logger.warn(
+            "[generate] Skipping agent %s for chat %s because Local Model was requested but the sidecar is unavailable",
+            cfg.type,
+            input.chatId,
+          );
+          continue;
+        }
+
+        const effectiveConnectionId = cfg.connectionId ?? defaultAgentConn?.id ?? null;
+        if (defaultAgentConn && effectiveConnectionId === defaultAgentConn.id) {
+          defaultAgentConnectionAgents.push(cfg.name ?? cfg.type);
         }
         if (effectiveConnectionId) {
           const cached = agentProviderCache.get(effectiveConnectionId);
@@ -2519,6 +2566,9 @@ export async function generateRoutes(app: FastifyInstance) {
           model: agentModel,
         });
       }
+      if (skippedLocalSidecarAgents.length > 0) {
+        agentConnectionWarnings.push(buildLocalSidecarUnavailableWarning(skippedLocalSidecarAgents));
+      }
 
       // Built-in agents with no DB row → use defaults only if explicitly in the per-chat list
       const resolvedTypes = new Set(resolvedAgents.map((a) => a.type));
@@ -2533,6 +2583,9 @@ export async function generateRoutes(app: FastifyInstance) {
       for (const builtIn of builtInFallbacks) {
         // Built-in agents also respect the default-for-agents connection
         const builtInCached = defaultAgentConn ? agentProviderCache.get(defaultAgentConn.id) : null;
+        if (defaultAgentConn) {
+          defaultAgentConnectionAgents.push(builtIn.name);
+        }
         resolvedAgents.push({
           id: `builtin:${builtIn.id}`,
           type: builtIn.id,
@@ -2544,6 +2597,15 @@ export async function generateRoutes(app: FastifyInstance) {
           provider: builtInCached?.provider ?? provider,
           model: builtInCached?.model ?? conn.model,
         });
+      }
+      if (defaultAgentConn && defaultAgentConnectionAgents.length > 0) {
+        agentConnectionWarnings.push(
+          buildDefaultAgentConnectionWarning({
+            agentNames: defaultAgentConnectionAgents,
+            connectionName: defaultAgentConn.name,
+            model: defaultAgentConn.model,
+          }),
+        );
       }
 
       logger.info(
@@ -3381,6 +3443,38 @@ export async function generateRoutes(app: FastifyInstance) {
         );
       }
 
+      const roleplayDmCommandsEnabled =
+        (chatMode === "roleplay" || chatMode === "visual_novel") &&
+        chatMeta.roleplayDmCommandsEnabled === true &&
+        !input.impersonate;
+      if (roleplayDmCommandsEnabled) {
+        const dmTargetHint =
+          charInfo
+            .map((character) => character.name.replace(/"/g, "'"))
+            .filter(Boolean)
+            .join(" | ") || "character name";
+        const dmCommandReminder = resolvePromptMacros(
+          [
+            `<dm_commands>`,
+            `Optional hidden command, use only when it naturally fits the scene:`,
+            `- [dm: character="${dmTargetHint}" message="short text"] - only if a roleplay character sends {{user}} a direct message through a phone, communicator, letter app, terminal, or similar in-world channel. Marinara strips the command from the roleplay reply, creates a new DM conversation with that character, and posts the message there.`,
+            `Do not also quote the exact same direct-message text in the roleplay narration unless the user should see it in both places.`,
+            `</dm_commands>`,
+          ].join("\n"),
+        );
+        const lastUserIdx = findLastIndex(finalMessages, "user");
+        if (lastUserIdx >= 0) {
+          const target = finalMessages[lastUserIdx]!;
+          finalMessages[lastUserIdx] = { ...target, content: `${target.content}\n\n${dmCommandReminder}` };
+        } else {
+          finalMessages.push({ role: "user" as const, content: dmCommandReminder });
+        }
+        logger.debug(
+          "[generate/roleplay] Injected DM command reminder (%d chars) into last user message",
+          dmCommandReminder.length,
+        );
+      }
+
       // ── Group chat processing ──
       const isGroupChat = characterIds.length > 1;
       const groupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
@@ -3535,11 +3629,7 @@ export async function generateRoutes(app: FastifyInstance) {
       if (directorAgent) {
         const rawInterval = (directorAgent.settings as { runInterval?: unknown }).runInterval;
         const parsed =
-          typeof rawInterval === "number"
-            ? rawInterval
-            : typeof rawInterval === "string"
-              ? Number(rawInterval)
-              : NaN;
+          typeof rawInterval === "number" ? rawInterval : typeof rawInterval === "string" ? Number(rawInterval) : NaN;
         const fallback = (getDefaultBuiltInAgentSettings("director").runInterval as number) ?? 5;
         const runInterval = Number.isFinite(parsed) && parsed >= 1 ? Math.min(100, Math.floor(parsed)) : fallback;
         if (runInterval > 1) {
@@ -4041,6 +4131,10 @@ export async function generateRoutes(app: FastifyInstance) {
           },
         });
       };
+
+      for (const warning of agentConnectionWarnings) {
+        trySendSseEvent(reply, { type: "agent_warning", data: warning });
+      }
 
       // Create the pipeline (exclude text rewrite/editor agents — they run last,
       // after all other post-processing agents have produced their context).
@@ -5684,7 +5778,7 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
-          // ── Parse and strip character commands (Conversation mode only) ──
+          // ── Parse and strip hidden character commands ──
           let parsedCommands: CharacterCommand[] = [];
           let contentReplaced = false;
           if (chatMode === "conversation" && !input.impersonate) {
@@ -5697,6 +5791,19 @@ export async function generateRoutes(app: FastifyInstance) {
                 "[generate] Parsed %d character command(s): %j",
                 parsed.commands.length,
                 parsed.commands.map((c) => c.type),
+              );
+            }
+          }
+          if (roleplayDmCommandsEnabled) {
+            const parsed = parseDirectMessageCommands(fullResponse);
+            if (parsed.commands.length > 0) {
+              parsedCommands = [...parsedCommands, ...parsed.commands];
+              fullResponse = parsed.cleanContent;
+              contentReplaced = true;
+              logger.info(
+                "[generate] Parsed %d roleplay DM command(s): %j",
+                parsed.commands.length,
+                parsed.commands.map((c) => c.character),
               );
             }
           }
@@ -5817,6 +5924,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
           if (chatMode === "conversation" && !input.impersonate && !input.regenerateMessageId) {
             recordAssistantActivity(input.chatId, targetCharId ?? undefined);
+            conversationAssistantSaved = true;
           }
 
           // Persist thinking/reasoning and generation info
@@ -6301,63 +6409,34 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // Validate expression agent results — reject hallucinated expressions and unknown characters
           if (result.success && result.type === "sprite_change" && result.data && typeof result.data === "object") {
-            const spriteData = result.data as { expressions?: Array<{ characterId: string; expression: string }> };
+            const spriteData = result.data as {
+              expressions?: Array<{
+                characterId?: string;
+                characterName?: string;
+                expression?: string;
+                transition?: string;
+              }>;
+            };
             const availableSprites = agentContext.memory._availableSprites as
               | Array<{ characterId: string; characterName: string; expressions: string[] }>
               | undefined;
-            if (spriteData.expressions && availableSprites) {
-              spriteData.expressions = spriteData.expressions.filter((entry) => {
-                let charSprites = availableSprites.find((s) => s.characterId === entry.characterId);
-                // Fallback: match by name if the LLM hallucinated a slug or name instead of the real ID
-                if (!charSprites) {
-                  const entryLower = entry.characterId.toLowerCase().replace(/[^a-z0-9]/g, "");
-                  charSprites = availableSprites.find((s) => {
-                    const nameLower = s.characterName.toLowerCase().replace(/[^a-z0-9]/g, "");
-                    return nameLower === entryLower || nameLower.includes(entryLower) || entryLower.includes(nameLower);
-                  });
-                  if (charSprites) {
-                    logger.warn(
-                      `[generate] Expression agent used "${entry.characterId}" — resolved to ${charSprites.characterName} (${charSprites.characterId})`,
-                    );
-                    entry.characterId = charSprites.characterId;
-                  }
-                }
-                if (!charSprites) {
-                  logger.warn(
-                    `[generate] Expression agent returned unknown character "${entry.characterId}" — removing`,
-                  );
-                  return false;
-                }
-                // Case-insensitive match against available sprite names
-                const exprLower = entry.expression.toLowerCase();
-                const exactMatch = charSprites.expressions.find((e) => e.toLowerCase() === exprLower);
-                if (exactMatch) {
-                  entry.expression = exactMatch;
-                  return true;
-                }
-                // Try a substring/contains match as fallback (case-insensitive)
-                const fallback = charSprites.expressions.find(
-                  (e) => e.toLowerCase().includes(exprLower) || exprLower.includes(e.toLowerCase()),
-                );
-                if (fallback) {
-                  logger.warn(
-                    `[generate] Expression agent chose "${entry.expression}" — correcting to closest match "${fallback}"`,
-                  );
-                  entry.expression = fallback;
-                } else {
-                  logger.warn(
-                    `[generate] Expression agent chose "${entry.expression}" for ${charSprites.characterName} which doesn't exist — removing`,
-                  );
-                  return false;
-                }
-                return true;
-              });
+            if (Array.isArray(spriteData.expressions)) {
+              const validation = validateSpriteExpressionEntries(spriteData.expressions, availableSprites);
+              spriteData.expressions = validation.expressions as typeof spriteData.expressions;
+              for (const warning of validation.warnings) {
+                logger.warn("[generate] %s", warning.message);
+              }
             }
             // Persist validated expressions onto the message/swipe extra so they survive page refresh
             // and swipe switching. The chat-level metadata is also updated for backward compat.
-            if (spriteData.expressions && spriteData.expressions.length > 0) {
+            const persistedExpressions =
+              spriteData.expressions?.filter(
+                (entry): entry is { characterId: string; expression: string } =>
+                  typeof entry.characterId === "string" && typeof entry.expression === "string",
+              ) ?? [];
+            if (persistedExpressions.length > 0) {
               const exprMap: Record<string, string> = {};
-              for (const e of spriteData.expressions) exprMap[e.characterId] = e.expression;
+              for (const e of persistedExpressions) exprMap[e.characterId] = e.expression;
               try {
                 await chats.updateMessageExtra(messageId, { spriteExpressions: exprMap });
                 await chats.updateSwipeExtra(messageId, targetSwipeIndex, { spriteExpressions: exprMap });
@@ -7706,6 +7785,94 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
               }
 
+              if (command.type === "dm") {
+                // ── Roleplay DM: create a conversation chat and post the character's direct message there ──
+                const dmCmd = command as DirectMessageCommand;
+                try {
+                  const requestedTarget = dmCmd.character.trim();
+                  const requestedKey = normalizeDmTargetName(requestedTarget);
+                  const messageText = stripConversationPromptTimestamps(dmCmd.message).trim().slice(0, 4000);
+                  if (!requestedKey || !messageText) continue;
+
+                  const roleplayTarget = charInfo.find(
+                    (character) =>
+                      character.id === requestedTarget || normalizeDmTargetName(character.name) === requestedKey,
+                  );
+                  let targetCharId = roleplayTarget?.id ?? null;
+                  let targetName = roleplayTarget?.name ?? requestedTarget;
+
+                  if (!targetCharId) {
+                    const allCharsList = await chars.list();
+                    const targetChar = allCharsList.find((candidate: any) => {
+                      if (candidate.id === requestedTarget) return true;
+                      const data =
+                        typeof candidate.data === "string" ? JSON.parse(candidate.data as string) : candidate.data;
+                      const candidateName = typeof data?.name === "string" ? data.name : "";
+                      return normalizeDmTargetName(candidateName) === requestedKey;
+                    });
+                    if (targetChar) {
+                      const targetData =
+                        typeof targetChar.data === "string" ? JSON.parse(targetChar.data as string) : targetChar.data;
+                      targetCharId = targetChar.id;
+                      targetName = targetData?.name ?? requestedTarget;
+                    }
+                  }
+
+                  if (!targetCharId) {
+                    logger.warn('[commands] DM target character "%s" not found', dmCmd.character);
+                    continue;
+                  }
+
+                  const newChat = await chats.create({
+                    name: `DM with ${targetName}`,
+                    mode: "conversation",
+                    characterIds: [targetCharId],
+                    groupId: null,
+                    personaId: (chat.personaId as string | null) ?? null,
+                    promptPresetId: null,
+                    connectionId: (chat.connectionId as string | null) ?? null,
+                  });
+                  if (!newChat) throw new Error("Failed to create DM conversation");
+
+                  await chats.patchMetadata(newChat.id, {
+                    dmOriginChatId: input.chatId,
+                    dmOriginChatName: chat.name ?? null,
+                    dmOriginMessageId: messageId || null,
+                  });
+                  const dmMessage = await chats.createMessage({
+                    chatId: newChat.id,
+                    role: "assistant",
+                    characterId: targetCharId,
+                    content: messageText,
+                  });
+                  recordAssistantActivity(newChat.id, targetCharId);
+
+                  reply.raw.write(
+                    `data: ${JSON.stringify({
+                      type: "assistant_action",
+                      data: {
+                        action: "chat_created",
+                        chatId: newChat.id,
+                        chatName: newChat.name ?? `DM with ${targetName}`,
+                        mode: "conversation",
+                        characterName: targetName,
+                        sourceChatId: input.chatId,
+                        sourceMessageId: messageId || null,
+                        messageId: dmMessage?.id ?? null,
+                      },
+                    })}\n\n`,
+                  );
+                  logger.info(
+                    '[commands] Roleplay DM conversation created with "%s" (%s) from chat %s',
+                    targetName,
+                    newChat.id,
+                    input.chatId,
+                  );
+                } catch (err) {
+                  logger.error(err, "[commands] Roleplay DM creation failed");
+                }
+              }
+
               if (command.type === "haptic") {
                 // ── Haptic: send command to connected intimate devices ──
                 const hapCmd = command as HapticCommand;
@@ -8306,6 +8473,9 @@ export async function generateRoutes(app: FastifyInstance) {
           : "Generation failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      if (conversationGenerationStartedAt != null && !conversationAssistantSaved) {
+        clearGenerationInProgress(input.chatId, conversationGenerationStartedAt);
+      }
       req.raw.off("close", onClose);
       if (activeGenerations) activeGenerations.delete(input.chatId);
       reply.raw.end();

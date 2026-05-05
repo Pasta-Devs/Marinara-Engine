@@ -24,7 +24,7 @@ Roleplay uses a five-step setup wizard (distinct from Conversation Mode's single
 
 1. **Connection** — which LLM provider/model the chat sends messages to.
 2. **Preset** — saved prompt-stack template. Default works for most cases.
-3. **Persona** — the character *you* play.
+3. **Persona** — the character _you_ play.
 4. **Character(s)** — pick one or more characters from your library.
 5. **Lorebooks** — attach lorebooks for world facts and lore-specific context.
 
@@ -152,6 +152,7 @@ Roleplay uses image generation for three things:
 This is different from Game Mode, where the visual chrome is more deeply integrated — Roleplay degrades to a fully usable text-only mode without image gen.
 
 For comparison across modes:
+
 - **Conversation** uses image gen for selfies (per-character photos)
 - **Roleplay** uses it for sprites + backgrounds + optional illustrations
 - **Game Mode** uses it for backgrounds + NPC portraits + scene effects, via a sidecar pipeline
