@@ -6076,6 +6076,7 @@ export async function generateRoutes(app: FastifyInstance) {
       }
 
       // ── Run generation ──
+      let firstSavedMsg: any = null;
       let lastSavedMsg: any = null;
       const collectedCommands: Array<{ command: CharacterCommand; characterId: string | null; messageId: string }> = [];
       const collectedOocMessages: string[] = [];
@@ -6134,6 +6135,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
           const genResult = await generateForCharacter(charId, messagesWithInstruction);
           if (!genResult) break; // aborted
+          firstSavedMsg ??= genResult.savedMsg;
           lastSavedMsg = genResult.savedMsg;
           allResponses.push(genResult.response);
           for (const cmd of genResult.commands) {
@@ -6189,6 +6191,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const genResult = await generateForCharacter(targetCharId, sentMessages);
         if (genResult) {
+          firstSavedMsg ??= genResult.savedMsg;
           lastSavedMsg = genResult.savedMsg;
           for (const cmd of genResult.commands) {
             collectedCommands.push({
@@ -6218,9 +6221,12 @@ export async function generateRoutes(app: FastifyInstance) {
       // Persist successful Narrative Director runs.
       // Interval gating uses getLastSuccessfulRunByType("director", …); those rows were
       // never inserted because only post_generation results were saved below. Pre-gen runs
-      // before the assistant message exists — anchor each run to this turn's saved message id.
-      const preGenAnchorMessageId = (lastSavedMsg as any)?.id ?? "";
-      if (preGenAnchorMessageId && !abortController.signal.aborted) {
+      // before the assistant message exists — anchor each run to the first saved
+      // assistant message from this turn so group-chat cadence counts from the
+      // earliest generated response.
+      const preGenAnchorMessageId =
+        (firstSavedMsg as any)?.role === "assistant" ? ((firstSavedMsg as any)?.id ?? "") : "";
+      if (preGenAnchorMessageId && !input.regenerateMessageId && !abortController.signal.aborted) {
         const preGenSuccessful = pipeline.results.filter((r) => {
           if (!r.success || r.agentType !== "director") return false;
           const cfg = pipelineAgents.find((a) => a.type === r.agentType);
