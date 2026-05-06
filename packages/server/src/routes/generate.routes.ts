@@ -697,7 +697,9 @@ export async function generateRoutes(app: FastifyInstance) {
     // Set up SSE headers
     startSseReply(reply, { "X-Accel-Buffering": "no" });
 
+    let generationComplete = false;
     const onClose = () => {
+      if (generationComplete) return;
       logger.info("[abort] Client disconnected — aborting generation");
       abortController.abort();
       if (activeGenerations) activeGenerations.delete(input.chatId);
@@ -709,7 +711,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
     };
-    req.raw.on("close", onClose);
+    reply.raw.on("close", onClose);
     if (requestChatMode === "conversation" && !input.impersonate) {
       conversationGenerationStartedAt = markGenerationInProgress(input.chatId);
     }
@@ -5322,6 +5324,7 @@ export async function generateRoutes(app: FastifyInstance) {
           images?: string[];
           providerMetadata?: Record<string, unknown>;
         }>,
+        markGenerationCommitted = false,
       ): Promise<{
         savedMsg: Awaited<ReturnType<typeof chats.createMessage>>;
         response: string;
@@ -5900,6 +5903,9 @@ export async function generateRoutes(app: FastifyInstance) {
                 parsedCommands.length,
                 input.chatId,
               );
+              if (markGenerationCommitted) {
+                generationComplete = true;
+              }
               return { savedMsg: null, response: "", commands: parsedCommands, oocMessages, characterId: targetCharId };
             }
             logger.warn(`[generate] Empty response from model for chat ${input.chatId} (char: ${targetCharId})`);
@@ -5921,6 +5927,9 @@ export async function generateRoutes(app: FastifyInstance) {
               characterId: input.impersonate ? null : targetCharId,
               content: fullResponse,
             });
+          }
+          if (markGenerationCommitted && savedMsg?.id) {
+            generationComplete = true;
           }
           if (chatMode === "conversation" && !input.impersonate && !input.regenerateMessageId) {
             recordAssistantActivity(input.chatId, targetCharId ?? undefined);
@@ -6132,7 +6141,11 @@ export async function generateRoutes(app: FastifyInstance) {
           // Add as a system message at the end (just before any trailing user message)
           messagesWithInstruction.push({ role: "system", content: charInstruction });
 
-          const genResult = await generateForCharacter(charId, messagesWithInstruction);
+          const genResult = await generateForCharacter(
+            charId,
+            messagesWithInstruction,
+            ci === respondingCharIds.length - 1,
+          );
           if (!genResult) break; // aborted
           lastSavedMsg = genResult.savedMsg;
           allResponses.push(genResult.response);
@@ -6187,7 +6200,7 @@ export async function generateRoutes(app: FastifyInstance) {
           sentMessages.push({ role: "system", content: charInstruction });
         }
 
-        const genResult = await generateForCharacter(targetCharId, sentMessages);
+        const genResult = await generateForCharacter(targetCharId, sentMessages, true);
         if (genResult) {
           lastSavedMsg = genResult.savedMsg;
           for (const cmd of genResult.commands) {
@@ -8476,7 +8489,7 @@ export async function generateRoutes(app: FastifyInstance) {
       if (conversationGenerationStartedAt != null && !conversationAssistantSaved) {
         clearGenerationInProgress(input.chatId, conversationGenerationStartedAt);
       }
-      req.raw.off("close", onClose);
+      reply.raw.off("close", onClose);
       if (activeGenerations) activeGenerations.delete(input.chatId);
       reply.raw.end();
     }
