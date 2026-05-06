@@ -6077,7 +6077,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // ── Run generation ──
       let lastSavedMsg: any = null;
-      const collectedCommands: Array<{ command: CharacterCommand; characterId: string | null; messageId: string }> = [];
+      const collectedCommands: Array<{
+        command: CharacterCommand;
+        characterId: string | null;
+        messageId: string;
+        swipeIndex: number;
+      }> = [];
       const collectedOocMessages: string[] = [];
 
       const normalizedGenerationGuide = typeof input.generationGuide === "string" ? input.generationGuide.trim() : "";
@@ -6137,7 +6142,12 @@ export async function generateRoutes(app: FastifyInstance) {
           lastSavedMsg = genResult.savedMsg;
           allResponses.push(genResult.response);
           for (const cmd of genResult.commands) {
-            collectedCommands.push({ command: cmd, characterId: charId, messageId: genResult.savedMsg?.id ?? "" });
+            collectedCommands.push({
+              command: cmd,
+              characterId: charId,
+              messageId: genResult.savedMsg?.id ?? "",
+              swipeIndex: genResult.savedMsg?.activeSwipeIndex ?? 0,
+            });
           }
           collectedOocMessages.push(...genResult.oocMessages);
 
@@ -6195,6 +6205,7 @@ export async function generateRoutes(app: FastifyInstance) {
               command: cmd,
               characterId: genResult.characterId,
               messageId: genResult.savedMsg?.id ?? "",
+              swipeIndex: genResult.savedMsg?.activeSwipeIndex ?? 0,
             });
           }
           collectedOocMessages.push(...genResult.oocMessages);
@@ -7244,29 +7255,13 @@ export async function generateRoutes(app: FastifyInstance) {
 
                       // Always persist to the swipe row so the attachment survives
                       // swipe switches even if the user has already navigated away.
-                      const swipeRow = (await chats.getSwipes(messageId)).find(
-                        (s: any) => s.index === targetSwipeIndex,
-                      );
-                      if (swipeRow) {
-                        const swipeExtra =
-                          typeof swipeRow.extra === "string" ? JSON.parse(swipeRow.extra) : (swipeRow.extra ?? {});
-                        const swipeAtts = (swipeExtra.attachments as any[]) ?? [];
-                        swipeAtts.push(attachment);
-                        await chats.updateSwipeExtra(messageId, targetSwipeIndex, { attachments: swipeAtts });
-                      }
+                      await chats.appendSwipeAttachment(messageId, targetSwipeIndex, attachment);
 
                       // Also update the live message row if this swipe is still active,
                       // so the SSE illustration event is immediately visible.
                       const msgRow = await chats.getMessage(messageId);
                       if (msgRow && (msgRow.activeSwipeIndex ?? 0) === targetSwipeIndex) {
-                        const msgExtra = msgRow.extra
-                          ? typeof msgRow.extra === "string"
-                            ? JSON.parse(msgRow.extra)
-                            : msgRow.extra
-                          : {};
-                        const existingAttachments = (msgExtra.attachments as any[]) ?? [];
-                        existingAttachments.push(attachment);
-                        await chats.updateMessageExtra(messageId, { attachments: existingAttachments });
+                        await chats.appendMessageAttachment(messageId, attachment);
                       }
                     }
 
@@ -7400,7 +7395,7 @@ export async function generateRoutes(app: FastifyInstance) {
           data: { count: collectedCommands.length, professorMariCommandCount },
         });
         try {
-          for (const { command, characterId, messageId } of collectedCommands) {
+          for (const { command, characterId, messageId, swipeIndex } of collectedCommands) {
             try {
               if (command.type === "schedule_update") {
                 // ── Schedule Update: modify the character's current schedule block ──
@@ -7656,19 +7651,18 @@ export async function generateRoutes(app: FastifyInstance) {
                       const filename = filePath.split("/").pop()!;
                       const imageUrl = `/api/gallery/file/${input.chatId}/${encodeURIComponent(filename)}`;
                       if (messageId) {
-                        const msgRow = await chats.getMessage(messageId);
-                        const msgExtra = msgRow?.extra
-                          ? typeof msgRow.extra === "string"
-                            ? JSON.parse(msgRow.extra)
-                            : msgRow.extra
-                          : {};
-                        const existingAttachments = (msgExtra.attachments as any[]) ?? [];
-                        existingAttachments.push({
+                        const generationSwipeIndex = Number.isInteger(swipeIndex) ? swipeIndex : 0;
+                        const attachment = {
                           type: "image",
                           url: imageUrl,
                           filename: `selfie_${charName.toLowerCase().replace(/\s+/g, "_")}.${imageResult.ext}`,
-                        });
-                        await chats.updateMessageExtra(messageId, { attachments: existingAttachments });
+                        };
+                        await chats.appendSwipeAttachment(messageId, generationSwipeIndex, attachment);
+
+                        const currentMsgRow = await chats.getMessage(messageId);
+                        if (currentMsgRow && (currentMsgRow.activeSwipeIndex ?? 0) === generationSwipeIndex) {
+                          await chats.appendMessageAttachment(messageId, attachment);
+                        }
                       }
 
                       // Send selfie event to client
