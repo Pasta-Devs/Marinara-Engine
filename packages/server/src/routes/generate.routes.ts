@@ -5964,7 +5964,12 @@ export async function generateRoutes(app: FastifyInstance) {
 
       // ── Run generation ──
       let lastSavedMsg: any = null;
-      const collectedCommands: Array<{ command: CharacterCommand; characterId: string | null; messageId: string }> = [];
+      const collectedCommands: Array<{
+        command: CharacterCommand;
+        characterId: string | null;
+        messageId: string;
+        swipeIndex: number;
+      }> = [];
       const collectedOocMessages: string[] = [];
 
       const normalizedGenerationGuide = typeof input.generationGuide === "string" ? input.generationGuide.trim() : "";
@@ -6024,7 +6029,12 @@ export async function generateRoutes(app: FastifyInstance) {
           lastSavedMsg = genResult.savedMsg;
           allResponses.push(genResult.response);
           for (const cmd of genResult.commands) {
-            collectedCommands.push({ command: cmd, characterId: charId, messageId: genResult.savedMsg?.id ?? "" });
+            collectedCommands.push({
+              command: cmd,
+              characterId: charId,
+              messageId: genResult.savedMsg?.id ?? "",
+              swipeIndex: genResult.savedMsg?.activeSwipeIndex ?? 0,
+            });
           }
           collectedOocMessages.push(...genResult.oocMessages);
 
@@ -6082,6 +6092,7 @@ export async function generateRoutes(app: FastifyInstance) {
               command: cmd,
               characterId: genResult.characterId,
               messageId: genResult.savedMsg?.id ?? "",
+              swipeIndex: genResult.savedMsg?.activeSwipeIndex ?? 0,
             });
           }
           collectedOocMessages.push(...genResult.oocMessages);
@@ -7275,7 +7286,7 @@ export async function generateRoutes(app: FastifyInstance) {
           data: { count: collectedCommands.length, professorMariCommandCount },
         });
         try {
-          for (const { command, characterId, messageId } of collectedCommands) {
+          for (const { command, characterId, messageId, swipeIndex } of collectedCommands) {
             try {
               if (command.type === "schedule_update") {
                 // ── Schedule Update: modify the character's current schedule block ──
@@ -7531,9 +7542,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       const filename = filePath.split("/").pop()!;
                       const imageUrl = `/api/gallery/file/${input.chatId}/${encodeURIComponent(filename)}`;
                       if (messageId) {
-                        const msgRow = await chats.getMessage(messageId);
-                        const generationSwipeIndex =
-                          typeof msgRow?.activeSwipeIndex === "number" ? msgRow.activeSwipeIndex : 0;
+                        const generationSwipeIndex = Number.isInteger(swipeIndex) ? swipeIndex : 0;
                         const attachment = {
                           type: "image",
                           url: imageUrl,
