@@ -256,8 +256,7 @@ export function applyQuestUpdatesToPlayerStats(
       const quest = quests[index]!;
       if (
         quest.completed &&
-        quest.objectives.length > 0 &&
-        quest.objectives.every((objective) => objective.completed)
+        (quest.objectives.length === 0 || quest.objectives.every((objective) => objective.completed))
       ) {
         quests.splice(index, 1);
       }
