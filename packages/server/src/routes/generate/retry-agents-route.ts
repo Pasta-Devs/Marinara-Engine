@@ -4,6 +4,7 @@ import {
   BUILT_IN_AGENTS,
   BUILT_IN_TOOLS,
   DEFAULT_AGENT_TOOLS,
+  applyQuestUpdatesToPlayerStats,
   getDefaultBuiltInAgentSettings,
   type AgentContext,
   type AgentResult,
@@ -1612,7 +1613,7 @@ async function applyRetryResultEffects(args: {
     if (result.success && result.type === "quest_update" && result.data && typeof result.data === "object") {
       try {
         const qData = result.data as Record<string, unknown>;
-        const updates = (qData.updates as any[]) ?? [];
+        const updates = Array.isArray(qData.updates) ? qData.updates : [];
         logger.debug(
           "[retry-agents] Quest agent result — updates: %d, data keys: %s %s",
           updates.length,
@@ -1626,32 +1627,10 @@ async function applyRetryResultEffects(args: {
               ? JSON.parse(snap.playerStats)
               : snap.playerStats
             : { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
-          const originalQuests: any[] = existingPS.activeQuests ?? [];
-          const quests: any[] = [...originalQuests];
-          for (const update of updates) {
-            const idx = quests.findIndex((quest: any) => quest.name === update.questName);
-            if (update.action === "create" && idx === -1) {
-              quests.push({
-                questEntryId: update.questName,
-                name: update.questName,
-                currentStage: 0,
-                objectives: update.objectives ?? [],
-                completed: false,
-              });
-            } else if (idx !== -1) {
-              if (update.action === "update") {
-                if (update.objectives) quests[idx].objectives = update.objectives;
-              } else if (update.action === "complete") {
-                quests[idx].completed = true;
-                if (update.objectives) quests[idx].objectives = update.objectives;
-              } else if (update.action === "fail") {
-                quests.splice(idx, 1);
-              }
-            }
-          }
-          const changed = JSON.stringify(quests) !== JSON.stringify(originalQuests);
-          if (changed) {
-            const mergedPS = { ...existingPS, activeQuests: quests };
+          const questMerge = applyQuestUpdatesToPlayerStats(existingPS, updates);
+          const { quests } = questMerge;
+          if (questMerge.changed) {
+            const mergedPS = questMerge.playerStats;
             if (snap) {
               await app.db
                 .update(gameStateSnapshotsTable)
@@ -1661,8 +1640,8 @@ async function applyRetryResultEffects(args: {
             sendSseEvent(reply, { type: "game_state_patch", data: { playerStats: { activeQuests: quests } } });
           }
         }
-      } catch {
-        // Non-critical patching failure.
+      } catch (err) {
+        logger.warn(err, "[retry-agents] Quest tracker persistence failed");
       }
     }
 

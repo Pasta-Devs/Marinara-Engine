@@ -20,6 +20,8 @@ import {
   LIMITS,
   coerceGameStateTextValue,
   appendChatSummaryEntryToMetadata,
+  applyQuestUpdatesToPlayerStats,
+  buildQuestJournalData,
 } from "@marinara-engine/shared";
 import type {
   AgentContext,
@@ -8081,7 +8083,7 @@ export async function generateRoutes(app: FastifyInstance) {
             if (result.success && result.type === "quest_update" && result.data && typeof result.data === "object") {
               try {
                 const qData = result.data as Record<string, unknown>;
-                const updates = (qData.updates as any[]) ?? [];
+                const updates = Array.isArray(qData.updates) ? qData.updates : [];
                 logger.debug(
                   "[generate] Quest agent result — updates: %d, data keys: %s %s",
                   updates.length,
@@ -8102,46 +8104,14 @@ export async function generateRoutes(app: FastifyInstance) {
                       ? JSON.parse(snap.playerStats)
                       : snap.playerStats
                     : { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
-                  const originalQuests: any[] = existingPS.activeQuests ?? [];
-                  const quests: any[] = [...originalQuests];
-                  for (const u of updates) {
-                    const idx = quests.findIndex((q: any) => q.name === u.questName);
-                    if (u.action === "create" && idx === -1) {
-                      quests.push({
-                        questEntryId: u.questName,
-                        name: u.questName,
-                        currentStage: 0,
-                        objectives: u.objectives ?? [],
-                        completed: false,
-                      });
-                    } else if (idx !== -1) {
-                      if (u.action === "update") {
-                        if (u.objectives) quests[idx].objectives = u.objectives;
-                      } else if (u.action === "complete") {
-                        quests[idx].completed = true;
-                        if (u.objectives) quests[idx].objectives = u.objectives;
-                      } else if (u.action === "fail") {
-                        quests.splice(idx, 1);
-                      }
-                    }
-                  }
-                  // Auto-remove quests that are fully completed (all objectives done)
-                  for (let i = quests.length - 1; i >= 0; i--) {
-                    const q = quests[i];
-                    if (
-                      q.completed &&
-                      Array.isArray(q.objectives) &&
-                      q.objectives.length > 0 &&
-                      q.objectives.every((o: any) => o.completed)
-                    ) {
-                      quests.splice(i, 1);
-                    }
-                  }
+                  const questMerge = applyQuestUpdatesToPlayerStats(existingPS, updates, {
+                    autoRemoveFullyCompleted: true,
+                  });
+                  const { quests } = questMerge;
 
                   // Only persist + send if quests actually changed
-                  const changed = JSON.stringify(quests) !== JSON.stringify(originalQuests);
-                  if (changed) {
-                    const mergedPS = { ...existingPS, activeQuests: quests };
+                  if (questMerge.changed) {
+                    const mergedPS = questMerge.playerStats;
                     if (snap) {
                       await app.db
                         .update(gameStateSnapshotsTable)
@@ -8154,25 +8124,14 @@ export async function generateRoutes(app: FastifyInstance) {
                     );
 
                     // Auto-populate journal: quest updates
-                    for (const u of updates) {
-                      const questData = {
-                        id: u.questName,
-                        name: u.questName,
-                        status: (u.action === "complete" ? "completed" : u.action === "fail" ? "failed" : "active") as
-                          | "active"
-                          | "completed"
-                          | "failed",
-                        description: u.description || u.questName,
-                        objectives: (u.objectives ?? []).map((o: any) =>
-                          typeof o === "string" ? o : o.text || o.description || "",
-                        ),
-                      };
+                    for (const u of questMerge.updates) {
+                      const questData = buildQuestJournalData(u);
                       updateJournal(app.db, input.chatId, (j) => upsertQuest(j, questData));
                     }
                   }
                 }
-              } catch {
-                // Non-critical
+              } catch (err) {
+                logger.warn(err, "[generate] Quest tracker persistence failed");
               }
             }
 

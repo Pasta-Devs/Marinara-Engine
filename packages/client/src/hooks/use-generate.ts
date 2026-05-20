@@ -11,6 +11,7 @@ import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
 import { agentKeys } from "./use-agents";
 import type { PendingCardUpdate } from "../stores/agent.store";
 import {
+  applyQuestUpdatesToPlayerStats,
   EDITABLE_CHARACTER_CARD_FIELDS,
   type CharacterCardFieldUpdate,
   type EditableCharacterCardField,
@@ -1065,7 +1066,7 @@ export function useGenerate() {
               // Apply quest updates directly so the widget updates immediately
               if (result.success && result.agentType === "quest" && result.data) {
                 const qd = result.data as Record<string, unknown>;
-                const updates = (qd.updates as any[]) ?? [];
+                const updates = Array.isArray(qd.updates) ? qd.updates : [];
                 console.warn(`[Agent] Quest data:`, qd);
                 console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
                 if (updates.length > 0) {
@@ -1079,28 +1080,11 @@ export function useGenerate() {
                     activeQuests: [],
                     status: "",
                   };
-                  const quests: any[] = [...(existing.activeQuests ?? [])];
-                  for (const u of updates) {
-                    const idx = quests.findIndex((q: any) => q.name === u.questName);
-                    if (u.action === "create" && idx === -1) {
-                      quests.push({
-                        questEntryId: u.questName,
-                        name: u.questName,
-                        currentStage: 0,
-                        objectives: u.objectives ?? [],
-                        completed: false,
-                      });
-                    } else if (idx !== -1) {
-                      if (u.action === "update" && u.objectives) quests[idx].objectives = u.objectives;
-                      else if (u.action === "complete") {
-                        quests[idx].completed = true;
-                        if (u.objectives) quests[idx].objectives = u.objectives;
-                      } else if (u.action === "fail") quests.splice(idx, 1);
-                    }
-                  }
+                  const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
+                  const quests = questMerge.quests;
                   const merged = cur
-                    ? { ...cur, playerStats: { ...existing, activeQuests: quests } }
-                    : { playerStats: { ...existing, activeQuests: quests } };
+                    ? { ...cur, playerStats: questMerge.playerStats }
+                    : { playerStats: questMerge.playerStats };
                   console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
                   setGameState(merged as any);
                 } else {
@@ -1897,7 +1881,7 @@ export function useGenerate() {
                 // Apply quest updates directly so the widget updates immediately
                 if (result.agentType === "quest") {
                   const qd = result.data as Record<string, unknown>;
-                  const updates = (qd.updates as any[]) ?? [];
+                  const updates = Array.isArray(qd.updates) ? qd.updates : [];
                   if (updates.length > 0) {
                     const cur = useGameStateStore.getState().current;
                     const existing = cur?.playerStats ?? {
@@ -1908,28 +1892,10 @@ export function useGenerate() {
                       activeQuests: [],
                       status: "",
                     };
-                    const quests: any[] = [...(existing.activeQuests ?? [])];
-                    for (const u of updates) {
-                      const idx = quests.findIndex((q: any) => q.name === u.questName);
-                      if (u.action === "create" && idx === -1) {
-                        quests.push({
-                          questEntryId: u.questName,
-                          name: u.questName,
-                          currentStage: 0,
-                          objectives: u.objectives ?? [],
-                          completed: false,
-                        });
-                      } else if (idx !== -1) {
-                        if (u.action === "update" && u.objectives) quests[idx].objectives = u.objectives;
-                        else if (u.action === "complete") {
-                          quests[idx].completed = true;
-                          if (u.objectives) quests[idx].objectives = u.objectives;
-                        } else if (u.action === "fail") quests.splice(idx, 1);
-                      }
-                    }
+                    const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
                     const merged = cur
-                      ? { ...cur, playerStats: { ...existing, activeQuests: quests } }
-                      : { playerStats: { ...existing, activeQuests: quests } };
+                      ? { ...cur, playerStats: questMerge.playerStats }
+                      : { playerStats: questMerge.playerStats };
                     setGameState(merged as any);
                   }
                 }
