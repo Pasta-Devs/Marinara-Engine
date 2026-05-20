@@ -110,7 +110,7 @@ interface BrushStrokeBuildInput {
   brushColor: string;
 }
 
-const DEFAULT_TOLERANCE = 36;
+const DEFAULT_WAND_TOLERANCE = 36;
 const DEFAULT_BRUSH_SIZE = 18;
 const DEFAULT_BRUSH_HARDNESS = 100;
 const DEFAULT_BRUSH_OPACITY = 100;
@@ -390,7 +390,7 @@ export function SpriteWandCleanupEditor({
 
   const [tool, setTool] = useState<CleanupTool>("wand");
   const [previewBackground, setPreviewBackground] = useState<PreviewBackground>("dark");
-  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE);
+  const [wandTolerance, setWandTolerance] = useState(DEFAULT_WAND_TOLERANCE);
   const [wandStrong, setWandStrong] = useState(DEFAULT_WAND_STRONG);
   const [wandSoftness, setWandSoftness] = useState(DEFAULT_WAND_SOFTNESS);
   const [wandFeather, setWandFeather] = useState(DEFAULT_WAND_FEATHER);
@@ -539,11 +539,9 @@ export function SpriteWandCleanupEditor({
 
       const before = cloneImageData(current);
       const next = cloneImageData(current);
-      const selectionTolerance = wandStrong ? Math.min(224, Math.round(tolerance * 1.55)) : tolerance;
+      const selectionTolerance = wandStrong ? Math.min(224, Math.round(wandTolerance * 1.55)) : wandTolerance;
       const result: WandResult = removeWandSelection(next, point.x, point.y, selectionTolerance, {
-        mode: "connected",
         neighborMode: wandStrong ? "all" : "cardinal",
-        radius: 0,
         edgeGuard: wandStrong ? STRONG_WAND_EDGE_GUARD : WAND_EDGE_GUARD,
         expand: wandStrong ? STRONG_WAND_EXPAND : WAND_EXPAND,
         softness: wandSoftness,
@@ -566,7 +564,7 @@ export function SpriteWandCleanupEditor({
     [
       pushHistory,
       putCurrentImage,
-      tolerance,
+      wandTolerance,
       wandFeather,
       wandSoftness,
       wandStrong,
@@ -795,7 +793,7 @@ export function SpriteWandCleanupEditor({
   }, [restoreImageData]);
 
   const handleResetWandDefaults = useCallback(() => {
-    setTolerance(DEFAULT_TOLERANCE);
+    setWandTolerance(DEFAULT_WAND_TOLERANCE);
     setWandStrong(DEFAULT_WAND_STRONG);
     setWandSoftness(DEFAULT_WAND_SOFTNESS);
     setWandFeather(DEFAULT_WAND_FEATHER);
@@ -979,8 +977,8 @@ export function SpriteWandCleanupEditor({
                   label="Tolerance"
                   min={4}
                   max={128}
-                  value={tolerance}
-                  onChange={setTolerance}
+                  value={wandTolerance}
+                  onChange={setWandTolerance}
                   disabled={loading || applying}
                   className="min-w-[12rem] flex-[1_1_12rem]"
                 />
@@ -1223,7 +1221,7 @@ export function SpriteWandCleanupEditor({
                 onPointerLeave={() => setHoverPoint(null)}
                 className={`block rounded-lg [touch-action:none] ${cursorClass}`}
                 style={canvasDisplayStyle}
-                aria-label={`Wand cleanup canvas for ${label}`}
+                aria-label={`Sprite cleanup canvas for ${label}`}
                 title={pickingBrushColor ? "Pick brush color" : "Edit sprite transparency"}
               />
               {reticleStyle && !loading && (
@@ -1239,7 +1237,7 @@ export function SpriteWandCleanupEditor({
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1 space-y-0.5 text-xs text-[var(--muted-foreground)]">
-            <div>{error ? <span className="text-[var(--destructive)]">{error}</span> : (status ?? "Wand ready")}</div>
+            <div>{error ? <span className="text-[var(--destructive)]">{error}</span> : (status ?? "Cleanup ready")}</div>
             <div className="font-mono text-[0.6875rem] text-[var(--muted-foreground)]/85">{hoverReadout}</div>
           </div>
           <button

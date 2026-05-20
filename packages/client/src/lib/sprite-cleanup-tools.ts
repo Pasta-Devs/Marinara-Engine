@@ -12,35 +12,32 @@ export type BrushMode = "erase" | "restore" | "blur" | "clean" | "paint";
 
 type Rgb = [number, number, number];
 export type Rgba = [number, number, number, number];
-export type NeighborMode = "cardinal" | "all";
-export type WandSelectionMode = "connected" | "local";
+type NeighborMode = "cardinal" | "all";
 
-export interface WandCleanupOptions {
-  mode: WandSelectionMode;
+interface WandCleanupOptions {
   neighborMode?: NeighborMode;
-  radius: number;
   edgeGuard: number;
   expand: number;
   softness: number;
   feather: number;
 }
 
-export interface TargetCleanBrushOptions {
+interface TargetCleanBrushOptions {
   target: Rgba;
   tolerance: number;
   edgeGuard: number;
   feather: number;
 }
 
-export interface PaintBrushOptions {
+interface PaintBrushOptions {
   color: Rgba;
 }
 
-export interface BrushStrokeBaseOptions {
+interface BrushStrokeBaseOptions {
   radius: number;
 }
 
-export interface SoftBrushStrokeOptions extends BrushStrokeBaseOptions {
+interface SoftBrushStrokeOptions extends BrushStrokeBaseOptions {
   hardness: number;
   opacity: number;
 }
@@ -61,13 +58,6 @@ export type BrushStrokeOptions =
       mode: "blur";
       blurStrength: number;
     });
-
-interface ConnectedSelection {
-  selected: Uint8Array;
-  target: Rgb;
-  targetAlpha: number;
-  totalPixels: number;
-}
 
 interface EdgeBand {
   edgeDistance: Uint8Array;
@@ -219,52 +209,6 @@ function visitNeighbors(
   }
 }
 
-function selectConnectedRegion(
-  imageData: ImageData,
-  startX: number,
-  startY: number,
-  tolerance: number,
-  mode: NeighborMode,
-): ConnectedSelection | null {
-  const { data, width, height } = imageData;
-  const startIndex = startY * width + startX;
-  const [red, green, blue, targetAlpha] = readPixel(imageData, startIndex);
-
-  if (targetAlpha <= 8) return null;
-
-  const target: Rgb = [red, green, blue];
-  const totalPixels = width * height;
-  const threshold = tolerance * tolerance;
-  const selected = new Uint8Array(totalPixels);
-  const visited = new Uint8Array(totalPixels);
-  const stack = new Int32Array(totalPixels);
-  let stackLength = 0;
-
-  const pushPixel = (index: number) => {
-    if (visited[index]) return;
-
-    visited[index] = 1;
-    const offset = index * 4;
-    if (data[offset + 3] <= 8 || colorDistanceSquared(data, offset, target) > threshold) return;
-
-    selected[index] = 1;
-    stack[stackLength++] = index;
-  };
-
-  pushPixel(startIndex);
-
-  while (stackLength > 0) {
-    visitNeighbors(stack[--stackLength], width, totalPixels, mode, pushPixel);
-  }
-
-  return {
-    selected,
-    target,
-    targetAlpha,
-    totalPixels,
-  };
-}
-
 function clearSelection(imageData: ImageData, selected: Uint8Array): number {
   const { data } = imageData;
   let removed = 0;
@@ -279,49 +223,6 @@ function clearSelection(imageData: ImageData, selected: Uint8Array): number {
   }
 
   return removed;
-}
-
-function offsetSelection(
-  selected: Uint8Array,
-  sourceData: Uint8ClampedArray,
-  width: number,
-  totalPixels: number,
-  offset: number,
-): Uint8Array {
-  const steps = Math.min(8, Math.abs(Math.trunc(offset)));
-  if (steps === 0) return selected;
-
-  let current = new Uint8Array(selected);
-
-  for (let step = 0; step < steps; step += 1) {
-    const next = new Uint8Array(current);
-
-    if (offset > 0) {
-      for (let index = 0; index < totalPixels; index += 1) {
-        if (!current[index]) continue;
-
-        visitNeighbors(index, width, totalPixels, "all", (neighbor) => {
-          if ((sourceData[neighbor * 4 + 3] ?? 0) <= 8) return;
-          next[neighbor] = 1;
-        });
-      }
-    } else {
-      for (let index = 0; index < totalPixels; index += 1) {
-        if (!current[index]) continue;
-
-        let touchesOutside = false;
-        visitNeighbors(index, width, totalPixels, "all", (neighbor) => {
-          if (!current[neighbor]) touchesOutside = true;
-        });
-
-        if (touchesOutside) next[index] = 0;
-      }
-    }
-
-    current = next;
-  }
-
-  return current;
 }
 
 function expandSelection(
@@ -445,60 +346,6 @@ function buildSelectedEdgeDistance(
   }
 
   return edgeDistance;
-}
-
-function addSelectedMatteFeather(
-  imageData: ImageData,
-  selected: Uint8Array,
-  sourceData: Uint8ClampedArray,
-  featherStrength: number,
-  maxAlpha = 86,
-  radiusScale = 4,
-): number {
-  const { data, width } = imageData;
-  const featherAmount = clampUnit(featherStrength / 100);
-  if (featherAmount <= 0) return 0;
-
-  const totalPixels = selected.length;
-  const featherRadius = 1 + Math.round(featherAmount * radiusScale);
-  const selectedEdgeDistance = buildSelectedEdgeDistance(selected, sourceData, width, totalPixels, featherRadius, "all");
-  const maxFeatherAlpha = 4 + featherAmount * Math.max(0, maxAlpha - 4);
-  let changed = 0;
-
-  for (let index = 0; index < totalPixels; index += 1) {
-    if (!selected[index]) continue;
-
-    const distanceFromCut = selectedEdgeDistance[index] ?? 0;
-    if (distanceFromCut === 0) continue;
-
-    const offset = index * 4;
-    const sourceAlpha = sourceData[offset + 3] ?? 0;
-    if (sourceAlpha <= 0) continue;
-
-    const edgePosition = clampUnit((featherRadius - distanceFromCut + 1) / Math.max(1, featherRadius));
-    const featherAlpha = Math.min(sourceAlpha, Math.round(maxFeatherAlpha * Math.pow(edgePosition, 1.35)));
-    if (featherAlpha <= 0) continue;
-
-    const nextRed = sourceData[offset] ?? 0;
-    const nextGreen = sourceData[offset + 1] ?? 0;
-    const nextBlue = sourceData[offset + 2] ?? 0;
-    if (
-      data[offset] === nextRed &&
-      data[offset + 1] === nextGreen &&
-      data[offset + 2] === nextBlue &&
-      data[offset + 3] === featherAlpha
-    ) {
-      continue;
-    }
-
-    data[offset] = nextRed;
-    data[offset + 1] = nextGreen;
-    data[offset + 2] = nextBlue;
-    data[offset + 3] = featherAlpha;
-    changed += 1;
-  }
-
-  return changed;
 }
 
 function addSelectedSoftHalo(
@@ -703,7 +550,7 @@ function softenKeptCutEdge(
   const { edgeDistance } = buildEdgeBand(selected, width, totalPixels, edgeRadius, "all");
   const softened = new Uint8ClampedArray(data);
   const matteTolerance = Math.max(1, tolerance * (1.14 + transitionAmount * 0.82));
-  const decontaminateAmount = clampUnit((softnessAmount * 0.65 + featherAmount * 0.55 - 0.3) / 0.7);
+  const residueCleanupAmount = clampUnit((softnessAmount * 0.65 + featherAmount * 0.55 - 0.3) / 0.7);
   const sampleRadius = 2 + edgeRadius;
   const targetLuma = target[0] * 0.2126 + target[1] * 0.7152 + target[2] * 0.0722;
 
@@ -776,7 +623,7 @@ function softenKeptCutEdge(
     const matteSimilarity = targetDistance <= matteTolerance ? 1 - targetDistance / matteTolerance : 0;
     const alphaVulnerability = clampUnit((248 - originalAlpha) / (218 - transitionAmount * 82));
 
-    if (decontaminateAmount > 0 && matteSimilarity > 0.05) {
+    if (residueCleanupAmount > 0 && matteSimilarity > 0.05) {
       const foreground = findForegroundColor(index);
       if (foreground) {
         const currentRed = sourceData[offset] ?? 0;
@@ -794,7 +641,7 @@ function softenKeptCutEdge(
         const residueBias = Math.max(matteSimilarity, lightResidueBias, darkResidueBias);
         const confidence = clampUnit(foreground.weight / (1.4 + sampleRadius * 0.42));
         const colorPull = clampUnit(
-          decontaminateAmount *
+          residueCleanupAmount *
             Math.pow(edgePosition, 0.88) *
             residueBias *
             (0.42 + alphaVulnerability * 0.28 + confidence * 0.3),
@@ -888,143 +735,6 @@ function softenKeptCutEdge(
   return changed;
 }
 
-function addSelectedEdgeHalo(
-  imageData: ImageData,
-  selected: Uint8Array,
-  sourceData: Uint8ClampedArray,
-  target: Rgb,
-  tolerance: number,
-  featherStrength: number,
-  rimStrength: number,
-): number {
-  const { data, width, height } = imageData;
-  const featherAmount = clampUnit(featherStrength / 100);
-  const rimAmount = clampUnit(rimStrength / 100);
-  if (featherAmount <= 0 || rimAmount <= 0) return 0;
-
-  const totalPixels = width * height;
-  const haloRadius = 1 + Math.round(featherAmount * 3);
-  const selectedEdgeDistance = buildSelectedEdgeDistance(selected, sourceData, width, totalPixels, haloRadius, "all");
-  const sampleRadius = 3 + Math.round(featherAmount * 4);
-  const targetTolerance = Math.max(1, tolerance);
-  const maxHaloAlpha = 4 + rimAmount * 62;
-  let changed = 0;
-
-  const findHaloNeighborColor = (index: number): Rgb | null => {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    let redTotal = 0;
-    let greenTotal = 0;
-    let blueTotal = 0;
-    let weightTotal = 0;
-
-    for (let yOffset = -sampleRadius; yOffset <= sampleRadius; yOffset += 1) {
-      const sampleY = y + yOffset;
-      if (sampleY < 0 || sampleY >= height) continue;
-
-      for (let xOffset = -sampleRadius; xOffset <= sampleRadius; xOffset += 1) {
-        if (xOffset === 0 && yOffset === 0) continue;
-
-        const sampleDistance = Math.hypot(xOffset, yOffset);
-        if (sampleDistance > sampleRadius) continue;
-
-        const sampleX = x + xOffset;
-        if (sampleX < 0 || sampleX >= width) continue;
-
-        const sampleIndex = sampleY * width + sampleX;
-        if (selected[sampleIndex]) continue;
-
-        const sampleOffset = sampleIndex * 4;
-        const alpha = data[sampleOffset + 3] ?? 0;
-        if (alpha <= 36) continue;
-
-        const targetDistance = Math.sqrt(colorDistanceSquared(data, sampleOffset, target));
-        const matteSeparation = clampUnit((targetDistance - targetTolerance * 0.45) / (targetTolerance * 1.65));
-        if (matteSeparation <= 0) continue;
-
-        const red = data[sampleOffset] ?? 0;
-        const green = data[sampleOffset + 1] ?? 0;
-        const blue = data[sampleOffset + 2] ?? 0;
-        const luma = red * 0.2126 + green * 0.7152 + blue * 0.0722;
-        const lightBias = 0.18 + Math.pow(clampUnit((luma - 32) / 223), 2.6) * 4.4;
-        const weight =
-          (Math.pow(alpha / 255, 1.35) * Math.pow(matteSeparation, 1.2) * lightBias) /
-          Math.max(1, sampleDistance);
-
-        redTotal += red * weight;
-        greenTotal += green * weight;
-        blueTotal += blue * weight;
-        weightTotal += weight;
-      }
-    }
-
-    if (weightTotal <= 0) return null;
-
-    return [
-      Math.round(redTotal / weightTotal),
-      Math.round(greenTotal / weightTotal),
-      Math.round(blueTotal / weightTotal),
-    ];
-  };
-
-  for (let index = 0; index < totalPixels; index += 1) {
-    if (!selected[index]) continue;
-
-    const distanceFromCut = selectedEdgeDistance[index] ?? 0;
-    if (distanceFromCut === 0) continue;
-
-    const foregroundColor = findHaloNeighborColor(index);
-    if (!foregroundColor) continue;
-
-    const offset = index * 4;
-    const sourceAlpha = sourceData[offset + 3] ?? 0;
-    if (sourceAlpha <= 0) continue;
-
-    const edgePosition = clampUnit((haloRadius - distanceFromCut + 1) / Math.max(1, haloRadius));
-    const haloAlpha = Math.round(maxHaloAlpha * Math.pow(edgePosition, 1.45));
-    if (haloAlpha <= 0) continue;
-
-    const existingAlpha = data[offset + 3] ?? 0;
-    const nextAlpha = Math.min(sourceAlpha, Math.max(existingAlpha, haloAlpha));
-    const haloMix = existingAlpha > 0 ? clampUnit(haloAlpha / Math.max(1, existingAlpha + haloAlpha)) : 1;
-    const nextRed = Math.round((data[offset] ?? 0) * (1 - haloMix) + foregroundColor[0] * haloMix);
-    const nextGreen = Math.round((data[offset + 1] ?? 0) * (1 - haloMix) + foregroundColor[1] * haloMix);
-    const nextBlue = Math.round((data[offset + 2] ?? 0) * (1 - haloMix) + foregroundColor[2] * haloMix);
-    if (
-      data[offset] === nextRed &&
-      data[offset + 1] === nextGreen &&
-      data[offset + 2] === nextBlue &&
-      data[offset + 3] === nextAlpha
-    ) {
-      continue;
-    }
-
-    data[offset] = nextRed;
-    data[offset + 1] = nextGreen;
-    data[offset + 2] = nextBlue;
-    data[offset + 3] = nextAlpha;
-    changed += 1;
-  }
-
-  return changed;
-}
-
-export function removeConnectedColor(
-  imageData: ImageData,
-  startX: number,
-  startY: number,
-  tolerance: number,
-  mode: NeighborMode = "cardinal",
-): WandResult {
-  const selection = selectConnectedRegion(imageData, startX, startY, tolerance, mode);
-  if (!selection) return getEmptyWandResult(imageData, startX, startY);
-
-  return {
-    removed: clearSelection(imageData, selection.selected),
-    target: [selection.target[0], selection.target[1], selection.target[2], selection.targetAlpha],
-  };
-}
-
 export function removeWandSelection(
   imageData: ImageData,
   startX: number,
@@ -1042,10 +752,6 @@ export function removeWandSelection(
   const sourceData = new Uint8ClampedArray(data);
   const edgeGuardAmount = clampUnit(options.edgeGuard / 100);
   const neighborMode = options.neighborMode ?? "cardinal";
-  const localRadius = Math.max(2, Math.round(options.radius));
-  const localRadiusSquared = localRadius * localRadius;
-  const startLocalX = startX;
-  const startLocalY = startY;
 
   const canSelect = (index: number, toleranceBoost: number): boolean => {
     const offset = index * 4;
@@ -1108,41 +814,22 @@ export function removeWandSelection(
   };
 
   const selected = new Uint8Array(totalPixels);
+  const visited = new Uint8Array(totalPixels);
+  const stack = new Int32Array(totalPixels);
+  let stackLength = 0;
 
-  if (options.mode === "connected") {
-    const visited = new Uint8Array(totalPixels);
-    const stack = new Int32Array(totalPixels);
-    let stackLength = 0;
+  const pushPixel = (index: number) => {
+    if (visited[index]) return;
+    visited[index] = 1;
+    if (!canSelect(index, 1)) return;
+    selected[index] = 1;
+    stack[stackLength++] = index;
+  };
 
-    const pushPixel = (index: number) => {
-      if (visited[index]) return;
-      visited[index] = 1;
-      if (!canSelect(index, 1)) return;
-      selected[index] = 1;
-      stack[stackLength++] = index;
-    };
+  pushPixel(startIndex);
 
-    pushPixel(startIndex);
-
-    while (stackLength > 0) {
-      visitNeighbors(stack[--stackLength], width, totalPixels, neighborMode, pushPixel);
-    }
-  } else if (options.mode === "local") {
-    const minX = Math.max(0, startLocalX - localRadius);
-    const maxX = Math.min(width - 1, startLocalX + localRadius);
-    const minY = Math.max(0, startLocalY - localRadius);
-    const maxY = Math.min(height - 1, startLocalY + localRadius);
-
-    for (let y = minY; y <= maxY; y += 1) {
-      for (let x = minX; x <= maxX; x += 1) {
-        const distanceX = x - startLocalX;
-        const distanceY = y - startLocalY;
-        if (distanceX * distanceX + distanceY * distanceY > localRadiusSquared) continue;
-
-        const index = y * width + x;
-        if (canSelect(index, 1)) selected[index] = 1;
-      }
-    }
+  while (stackLength > 0) {
+    visitNeighbors(stack[--stackLength], width, totalPixels, neighborMode, pushPixel);
   }
 
   let selectedCount = 0;
@@ -1158,274 +845,6 @@ export function removeWandSelection(
   const removed = clearSelection(imageData, expandedSelection);
   softenKeptCutEdge(imageData, expandedSelection, sourceData, target, tolerance, options.softness, options.feather);
   addSelectedSoftHalo(imageData, expandedSelection, sourceData, target, tolerance, options.feather, options.softness);
-
-  return {
-    removed,
-    target: [target[0], target[1], target[2], targetAlpha],
-  };
-}
-
-export function removeConnectedColorSoftEdge(
-  imageData: ImageData,
-  startX: number,
-  startY: number,
-  tolerance: number,
-  featherStrength: number,
-  rimStrength: number,
-  edgeOffset = 0,
-): WandResult {
-  const { data, width } = imageData;
-  const featherAmount = clampUnit(featherStrength / 100);
-  const softTolerance = Math.min(160, Math.round(tolerance * (1.04 + featherAmount * 0.18)));
-  const selection = selectConnectedRegion(imageData, startX, startY, softTolerance, "all");
-  if (!selection) return getEmptyWandResult(imageData, startX, startY);
-
-  const { selected, target, targetAlpha, totalPixels } = selection;
-  const sourceData = new Uint8ClampedArray(data);
-  const clearSelected = offsetSelection(selected, sourceData, width, totalPixels, edgeOffset);
-  const fringeSelected = edgeOffset < 0 ? selected : clearSelected;
-  const removed = clearSelection(imageData, clearSelected);
-  addSelectedMatteFeather(imageData, fringeSelected, sourceData, featherStrength);
-  addSelectedEdgeHalo(imageData, fringeSelected, sourceData, target, tolerance, featherStrength, rimStrength);
-
-  return {
-    removed,
-    target: [target[0], target[1], target[2], targetAlpha],
-  };
-}
-
-export function removeConnectedColorDecontaminate(
-  imageData: ImageData,
-  startX: number,
-  startY: number,
-  tolerance: number,
-  decontaminateStrength: number,
-  featherStrength: number,
-  rimStrength = 0,
-  edgeOffset = 0,
-): WandResult {
-  const { data, width, height } = imageData;
-  const decontaminateAmount = clampUnit(decontaminateStrength / 100);
-  const featherAmount = clampUnit(featherStrength / 100);
-  const edgeStrength = Math.pow(decontaminateAmount, 0.72);
-  const selectionTolerance = Math.min(176, Math.round(tolerance * 1.24));
-  const selection = selectConnectedRegion(imageData, startX, startY, selectionTolerance, "all");
-  if (!selection) return getEmptyWandResult(imageData, startX, startY);
-
-  const { selected, target, targetAlpha, totalPixels } = selection;
-  const clearSelected = offsetSelection(selected, new Uint8ClampedArray(data), width, totalPixels, edgeOffset);
-  const fringeSelected = edgeOffset < 0 ? selected : clearSelected;
-  const edgeRadius = 1 + Math.round(featherAmount * 7);
-  const matteTolerance = Math.min(244, Math.round(tolerance * (1.55 + edgeStrength * 0.7 + featherAmount * 0.25)));
-  const foregroundSearchRadius = 3 + edgeRadius + Math.round(edgeStrength * 2);
-  const sourceData = new Uint8ClampedArray(data);
-  const { edgeDistance, edgeNormalX, edgeNormalY } = buildEdgeBand(clearSelected, width, totalPixels, edgeRadius, "all");
-  let removed = clearSelection(imageData, clearSelected);
-  const findForegroundNeighborColor = (index: number): Rgb | null => {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const normalX = edgeNormalX[index] ?? 0;
-    const normalY = edgeNormalY[index] ?? 0;
-    const currentDistance = edgeDistance[index] ?? 0;
-
-    const sample = (directional: boolean): Rgb | null => {
-      let redTotal = 0;
-      let greenTotal = 0;
-      let blueTotal = 0;
-      let weightTotal = 0;
-
-      for (let yOffset = -foregroundSearchRadius; yOffset <= foregroundSearchRadius; yOffset += 1) {
-        const sampleY = y + yOffset;
-        if (sampleY < 0 || sampleY >= height) continue;
-
-        for (let xOffset = -foregroundSearchRadius; xOffset <= foregroundSearchRadius; xOffset += 1) {
-          if (xOffset === 0 && yOffset === 0) continue;
-
-          const sampleDistance = Math.hypot(xOffset, yOffset);
-          if (sampleDistance > foregroundSearchRadius) continue;
-
-          const dot = xOffset * normalX + yOffset * normalY;
-          if (directional && (normalX !== 0 || normalY !== 0) && dot <= 0) continue;
-
-          const sampleX = x + xOffset;
-          if (sampleX < 0 || sampleX >= width) continue;
-
-          const sampleIndex = sampleY * width + sampleX;
-          if (clearSelected[sampleIndex]) continue;
-
-          const sampleEdgeDistance = edgeDistance[sampleIndex] ?? 0;
-          if (sampleEdgeDistance > 0 && sampleEdgeDistance <= currentDistance) continue;
-
-          const sampleOffset = sampleIndex * 4;
-          const alpha = sourceData[sampleOffset + 3] ?? 0;
-          if (alpha <= 40) continue;
-
-          const targetDistance = Math.sqrt(colorDistanceSquared(sourceData, sampleOffset, target));
-          if (alpha < 220 && targetDistance < selectionTolerance * 0.8) continue;
-
-          const directionWeight = directional
-            ? 1 + clampUnit(dot / Math.max(1, foregroundSearchRadius)) * 1.6
-            : 1;
-          const alphaWeight = Math.pow(alpha / 255, 2.2);
-          const colorSeparationWeight = 0.7 + clampUnit(targetDistance / Math.max(1, matteTolerance)) * 0.6;
-          const weight = (alphaWeight * colorSeparationWeight * directionWeight) / Math.max(1, sampleDistance);
-          redTotal += (sourceData[sampleOffset] ?? 0) * weight;
-          greenTotal += (sourceData[sampleOffset + 1] ?? 0) * weight;
-          blueTotal += (sourceData[sampleOffset + 2] ?? 0) * weight;
-          weightTotal += weight;
-        }
-      }
-
-      if (weightTotal <= 0) return null;
-      return [
-        Math.round(redTotal / weightTotal),
-        Math.round(greenTotal / weightTotal),
-        Math.round(blueTotal / weightTotal),
-      ];
-    };
-
-    return sample(true) ?? sample(false);
-  };
-
-  for (let index = 0; index < totalPixels; index += 1) {
-    if (clearSelected[index]) continue;
-
-    const offset = index * 4;
-    const originalAlpha = sourceData[offset + 3] ?? 0;
-
-    const distanceFromCut = edgeDistance[index];
-    if (distanceFromCut === 0 || decontaminateAmount <= 0 || originalAlpha <= 8) continue;
-
-    const targetDistance = Math.sqrt(colorDistanceSquared(sourceData, offset, target));
-    const matteSimilarity = targetDistance <= matteTolerance ? 1 - targetDistance / matteTolerance : 0;
-    const foregroundColor = findForegroundNeighborColor(index);
-    const originalRed = sourceData[offset] ?? 0;
-    const originalGreen = sourceData[offset + 1] ?? 0;
-    const originalBlue = sourceData[offset + 2] ?? 0;
-    const foregroundDistance = foregroundColor
-      ? Math.hypot(originalRed - foregroundColor[0], originalGreen - foregroundColor[1], originalBlue - foregroundColor[2])
-      : 0;
-    const foregroundMismatch = foregroundColor
-      ? clampUnit((foregroundDistance - (14 - featherAmount * 8)) / (150 - featherAmount * 45))
-      : 0;
-    const alphaVulnerability = clampUnit((245 - originalAlpha) / (210 - featherAmount * 70));
-    const edgePosition = clampUnit((edgeRadius - distanceFromCut + 1) / Math.max(1, edgeRadius));
-    const proximity = Math.pow(edgePosition, 1.75 - featherAmount * 1.1);
-    const cleanupWeight =
-      Math.max(
-        matteSimilarity * (0.88 + featherAmount * 0.18),
-        foregroundMismatch,
-        alphaVulnerability * (0.34 + featherAmount * 0.32),
-      ) *
-      proximity *
-      edgeStrength *
-      (0.75 + featherAmount * 0.45);
-
-    if (cleanupWeight <= 0.01) continue;
-
-    let nextRed = originalRed;
-    let nextGreen = originalGreen;
-    let nextBlue = originalBlue;
-
-    if (foregroundColor) {
-      const colorPull = clampUnit(cleanupWeight * (0.86 + edgeStrength * 0.32 + featherAmount * 0.28));
-      nextRed = Math.round(originalRed * (1 - colorPull) + foregroundColor[0] * colorPull);
-      nextGreen = Math.round(originalGreen * (1 - colorPull) + foregroundColor[1] * colorPull);
-      nextBlue = Math.round(originalBlue * (1 - colorPull) + foregroundColor[2] * colorPull);
-    }
-
-    const alphaReduction =
-      cleanupWeight *
-      (0.06 + matteSimilarity * (0.15 + featherAmount * 0.2) + alphaVulnerability * (0.12 + featherAmount * 0.22));
-    const nextAlpha = Math.min(
-      originalAlpha,
-      Math.round(originalAlpha * clamp(1 - alphaReduction, 0.62 - featherAmount * 0.24, 1)),
-    );
-
-    if (
-      nextRed === originalRed &&
-      nextGreen === originalGreen &&
-      nextBlue === originalBlue &&
-      nextAlpha === originalAlpha
-    ) {
-      continue;
-    }
-
-    data[offset] = nextRed;
-    data[offset + 1] = nextGreen;
-    data[offset + 2] = nextBlue;
-    data[offset + 3] = nextAlpha;
-    removed += 1;
-  }
-
-  if (featherAmount > 0 && decontaminateAmount > 0) {
-    const smoothedSource = new Uint8ClampedArray(data);
-    const blurRadius = 1 + Math.round(featherAmount * 2);
-    const blurMixBase = featherAmount * (0.18 + edgeStrength * 0.56);
-
-    for (let index = 0; index < totalPixels; index += 1) {
-      if (clearSelected[index]) continue;
-
-      const distanceFromCut = edgeDistance[index];
-      if (distanceFromCut === 0) continue;
-
-      const offset = index * 4;
-      const originalAlpha = smoothedSource[offset + 3] ?? 0;
-      if (originalAlpha <= 8) continue;
-
-      const x = index % width;
-      const y = Math.floor(index / width);
-      let alphaTotal = 0;
-      let weightTotal = 0;
-      let minAlpha = originalAlpha;
-      let maxAlpha = originalAlpha;
-      let touchesCut = false;
-
-      for (let yOffset = -blurRadius; yOffset <= blurRadius; yOffset += 1) {
-        const sampleY = y + yOffset;
-        if (sampleY < 0 || sampleY >= height) continue;
-
-        for (let xOffset = -blurRadius; xOffset <= blurRadius; xOffset += 1) {
-          const sampleDistance = Math.hypot(xOffset, yOffset);
-          if (sampleDistance > blurRadius) continue;
-
-          const sampleX = x + xOffset;
-          if (sampleX < 0 || sampleX >= width) continue;
-
-          const sampleIndex = sampleY * width + sampleX;
-          const sampleAlpha = clearSelected[sampleIndex] ? 0 : (smoothedSource[sampleIndex * 4 + 3] ?? 0);
-          const weight = xOffset === 0 && yOffset === 0 ? 1.75 : 1 / Math.max(1, sampleDistance);
-
-          if (clearSelected[sampleIndex]) touchesCut = true;
-          minAlpha = Math.min(minAlpha, sampleAlpha);
-          maxAlpha = Math.max(maxAlpha, sampleAlpha);
-          alphaTotal += sampleAlpha * weight;
-          weightTotal += weight;
-        }
-      }
-
-      if ((!touchesCut && maxAlpha - minAlpha < 18) || weightTotal <= 0) continue;
-
-      const averagedAlpha = Math.round(alphaTotal / weightTotal);
-      if (averagedAlpha >= originalAlpha) continue;
-
-      const targetDistance = Math.sqrt(colorDistanceSquared(smoothedSource, offset, target));
-      const matteAttraction =
-        targetDistance <= matteTolerance ? 0.35 + (1 - targetDistance / matteTolerance) * 0.65 : 0.35;
-      const edgePosition = clampUnit((edgeRadius - distanceFromCut + 1) / Math.max(1, edgeRadius));
-      const proximity = Math.pow(edgePosition, 0.55 + (1 - featherAmount) * 0.8);
-      const blurMix = clampUnit(blurMixBase * matteAttraction * proximity);
-      const nextAlpha = Math.min(originalAlpha, Math.round(originalAlpha * (1 - blurMix) + averagedAlpha * blurMix));
-
-      if (nextAlpha === originalAlpha) continue;
-
-      data[offset + 3] = nextAlpha;
-      removed += 1;
-    }
-  }
-
-  addSelectedMatteFeather(imageData, fringeSelected, sourceData, featherStrength);
-  addSelectedEdgeHalo(imageData, fringeSelected, sourceData, target, tolerance, featherStrength, rimStrength);
 
   return {
     removed,
