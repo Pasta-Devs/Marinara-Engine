@@ -3753,7 +3753,6 @@ export function GameNarration({
 
         <div
           data-game-skip-bg-nav="true"
-          data-card-css={active?.sourceMessageId ? (sourceMessagesById.get(active.sourceMessageId)?.characterId ?? undefined) : undefined}
           className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 shadow-[0_16px_38px_rgba(0,0,0,0.45)] backdrop-blur-md dark:border-white/15 dark:bg-black/50"
         >
           {/* Scene preparation gate: wait for effects before showing narration */}
@@ -3923,6 +3922,7 @@ export function GameNarration({
                       <div className="relative">
                         <div
                           ref={activeSegmentScrollRef}
+                          data-card-css={active.sourceMessageId ? (sourceMessagesById.get(active.sourceMessageId)?.characterId ?? undefined) : undefined}
                           onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                           onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                           className={cn(
@@ -4071,6 +4071,7 @@ export function GameNarration({
 
               <div
                 ref={activeSegmentScrollRef}
+                data-card-css={active.sourceMessageId ? (sourceMessagesById.get(active.sourceMessageId)?.characterId ?? undefined) : undefined}
                 onPointerDown={(event) => handleMobileSegmentPointerDown(event, active)}
                 onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                 className="relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35"
@@ -4189,6 +4190,7 @@ export function GameNarration({
 
               <div
                 ref={activeSegmentScrollRef}
+                data-card-css={active.sourceMessageId ? (sourceMessagesById.get(active.sourceMessageId)?.characterId ?? undefined) : undefined}
                 className="relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48"
               >
                 <div
