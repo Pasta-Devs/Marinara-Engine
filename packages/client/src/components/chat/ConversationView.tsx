@@ -773,7 +773,7 @@ export function ConversationView({
   }, [hiddenCount]);
 
   return (
-    <div className="mari-chat-area relative flex flex-1 flex-col overflow-hidden" style={gradientStyle}>
+    <div className="mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden" style={{ ...gradientStyle, isolation: "isolate" }}>
       {/* ── Messages scroll area ── */}
       <div ref={scrollRef} className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
         {/* Floating header — character info + action buttons */}

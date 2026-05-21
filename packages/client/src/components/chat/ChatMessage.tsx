@@ -51,6 +51,7 @@ import { useTTSConfig } from "../../hooks/use-tts";
 import { buildTTSMessageText, resolveTTSVoiceForSpeaker } from "../../lib/tts-dialogue";
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
 import DOMPurify from "dompurify";
+import { extractChatStyleBlocks, scopeChatCss } from "../../lib/chat-css";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -471,9 +472,6 @@ const CHAT_HTML_ALLOWED_ATTR = [
   "title",
 ] as const;
 
-const CHAT_STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-const CSS_SELECTOR_RE = /(^|[{}])\s*([^@{}][^{]*)\{/g;
-
 function sanitizeChatHtml(html: string, options: { allowStyle?: boolean } = {}) {
   const allowedAttr = options.allowStyle
     ? [...CHAT_HTML_ALLOWED_ATTR]
@@ -485,50 +483,6 @@ function sanitizeChatHtml(html: string, options: { allowStyle?: boolean } = {}) 
     ALLOW_UNKNOWN_PROTOCOLS: false,
     FORBID_TAGS: ["animate", "embed", "foreignObject", "iframe", "math", "object", "script", "svg", "style"],
     FORBID_ATTR: ["onerror", "onload", "onclick", "srcdoc"],
-  });
-}
-
-function extractChatStyleBlocks(html: string): { html: string; css: string } {
-  const cssBlocks: string[] = [];
-  const withoutStyles = html.replace(CHAT_STYLE_BLOCK_RE, (_match, css: string) => {
-    cssBlocks.push(css);
-    return "";
-  });
-  return { html: withoutStyles, css: cssBlocks.join("\n") };
-}
-
-function sanitizeChatCss(css: string): string {
-  return css
-    .replace(/<\/?style\b[^>]*>/gi, "")
-    .replace(/@import\s+[^;]+;?/gi, "")
-    .replace(/@namespace\s+[^;]+;?/gi, "")
-    .replace(/expression\s*\([^)]*\)/gi, "")
-    .replace(/javascript\s*:/gi, "")
-    .replace(/vbscript\s*:/gi, "")
-    .replace(/behavior\s*:/gi, "x-behavior:")
-    .replace(/-moz-binding\s*:/gi, "x-moz-binding:")
-    .replace(/url\s*\(\s*(['"]?)(?!data:image\/|https?:\/\/)[^)]+\)/gi, "none")
-    .replace(/<\/style/gi, "<\\/style")
-    .trim();
-}
-
-function scopeChatCss(css: string, scopeSelector: string): string {
-  const sanitized = sanitizeChatCss(css);
-  if (!sanitized) return "";
-  return sanitized.replace(CSS_SELECTOR_RE, (_match, boundary: string, selectors: string) => {
-    const scopedSelectors = selectors
-      .split(",")
-      .map((selector) => {
-        const trimmed = selector.trim();
-        if (!trimmed) return "";
-        if (/^(from|to|\d+(?:\.\d+)?%)$/i.test(trimmed)) return trimmed;
-        if (trimmed.startsWith(scopeSelector)) return trimmed;
-        if (trimmed === ":root" || trimmed === "html" || trimmed === "body") return scopeSelector;
-        return `${scopeSelector} ${trimmed}`;
-      })
-      .filter(Boolean)
-      .join(", ");
-    return `${boundary} ${scopedSelectors}{`;
   });
 }
 

@@ -69,6 +69,7 @@ import { RecentChats } from "./RecentChats";
 import { HomeFaq } from "./HomeFaq";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
+import { CreatorNotesCssInjector } from "./CreatorNotesCssInjector";
 
 export type { CharacterMap };
 
@@ -1716,6 +1717,10 @@ export function ChatArea() {
     return (
       <Suspense fallback={surfaceFallback}>
         <>
+          <CreatorNotesCssInjector
+            characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
+            chatCharacterIds={chatCharIds}
+          />
           <GameSurface
             activeChatId={activeChatId}
             chat={chat!}
@@ -1783,6 +1788,10 @@ export function ChatArea() {
   if (chatMode === "conversation") {
     return (
       <>
+        <CreatorNotesCssInjector
+          characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
+          chatCharacterIds={chatCharIds}
+        />
         <Suspense fallback={surfaceFallback}>
           <ChatConversationSurface
             activeChatId={activeChatId}
@@ -1867,6 +1876,10 @@ export function ChatArea() {
 
   return (
     <>
+      <CreatorNotesCssInjector
+        characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
+        chatCharacterIds={chatCharIds}
+      />
       <Suspense fallback={surfaceFallback}>
         <ChatRoleplaySurface
           activeChatId={activeChatId}
