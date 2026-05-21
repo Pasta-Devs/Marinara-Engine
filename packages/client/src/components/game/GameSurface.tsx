@@ -7956,7 +7956,7 @@ export function GameSurface({
   }
 
   return (
-    <div className="relative flex h-full overflow-hidden bg-black mari-card-css" style={{ isolation: "isolate" }}>
+    <div className="relative flex h-full overflow-hidden bg-black mari-card-css" data-chat-mode="game" style={{ isolation: "isolate" }}>
       <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
         <DirectionEngine
           directions={activeDirections}
