@@ -98,6 +98,8 @@ export function extractChatStyleBlocks(html: string): { html: string; css: strin
 export function sanitizeChatCss(css: string): string {
   return (
     css
+      // Strip CSS comments — they confuse the selector-scoping regex
+      .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/<\/?style\b[^>]*>/gi, "")
       .replace(/@import\s+[^;]+;?/gi, "")
       .replace(/@namespace\s+[^;]+;?/gi, "")
