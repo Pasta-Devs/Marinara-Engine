@@ -432,13 +432,12 @@ export function ChatArea() {
   );
   const hasCustomSpritePlacements = Object.keys(spritePlacements).length > 0;
 
-  // Card CSS — filter out characters whose creator-notes CSS the user has disabled
-  const cardCssCharIds = useMemo(() => {
-    const disabled: unknown = chatMeta.disabledCardCssCharIds;
-    if (!Array.isArray(disabled) || disabled.length === 0) return chatCharIds;
-    const disabledSet = new Set(disabled.filter((id): id is string => typeof id === "string"));
-    return chatCharIds.filter((id) => !disabledSet.has(id));
-  }, [chatCharIds, chatMeta.disabledCardCssCharIds]);
+  // Card CSS mode — controls how creator-notes CSS is applied
+  const cardCssMode = (() => {
+    const mode = chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
 
   // Prefer per-swipe expressions from the last assistant message's extra (survives swipe switching),
   // falling back to chat-level metadata for backward compatibility.
@@ -1728,7 +1727,8 @@ export function ChatArea() {
         <>
           <CreatorNotesCssInjector
             characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
-            chatCharacterIds={cardCssCharIds}
+            chatCharacterIds={chatCharIds}
+            mode={cardCssMode}
           />
           <GameSurface
             activeChatId={activeChatId}
@@ -1799,7 +1799,8 @@ export function ChatArea() {
       <>
         <CreatorNotesCssInjector
           characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
-          chatCharacterIds={cardCssCharIds}
+          chatCharacterIds={chatCharIds}
+          mode={cardCssMode}
         />
         <Suspense fallback={surfaceFallback}>
           <ChatConversationSurface
@@ -1887,7 +1888,8 @@ export function ChatArea() {
     <>
       <CreatorNotesCssInjector
         characters={allCharacters as Array<{ id: string; data: string; avatarPath: string | null }> | undefined}
-        chatCharacterIds={cardCssCharIds}
+        chatCharacterIds={chatCharIds}
+        mode={cardCssMode}
       />
       <Suspense fallback={surfaceFallback}>
         <ChatRoleplaySurface

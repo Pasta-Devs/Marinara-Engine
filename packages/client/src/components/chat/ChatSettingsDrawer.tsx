@@ -681,11 +681,11 @@ export function ChatSettingsDrawer({
     return result;
   }, [chatCharIds, characters, charNameMap]);
 
-  const disabledCardCssCharIds = useMemo<string[]>(() => {
-    const raw: unknown = metadata.disabledCardCssCharIds;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((id): id is string => typeof id === "string");
-  }, [metadata.disabledCardCssCharIds]);
+  const cardCssMode = useMemo(() => {
+    const mode = metadata.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat";
+  }, [metadata.cardCssMode]);
 
   const getCharacterInfo = useCallback(
     (c: { id?: string; data: string; comment?: string | null }) => {
@@ -3629,51 +3629,43 @@ export function ChatSettingsDrawer({
             )}
           </Section>
 
-          {/* Card Theming — per-character CSS from creator_notes */}
+          {/* Card Theming — creator-notes CSS mode selector */}
           {cardCssCharacters.length > 0 && (
             <Section
               label="Card Theming"
               icon={<Paintbrush size="0.875rem" />}
-              count={cardCssCharacters.length - disabledCardCssCharIds.length}
-              help="Characters can embed custom CSS in their creator notes to theme the chat UI. Toggle which characters are allowed to apply their visual styling."
+              count={cardCssMode !== "disabled" ? cardCssCharacters.length : 0}
+              help="Characters can embed custom CSS in their creator notes to theme the chat. Choose how broadly their styles are applied."
             >
               <div className="space-y-1.5">
+                <CardCssModeSelector
+                  mode={cardCssMode}
+                  onChange={(mode) => updateMeta.mutate({ id: chat.id, cardCssMode: mode })}
+                />
                 <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  Enable or disable each character's embedded CSS. Only characters with CSS in their creator notes are
-                  shown.
+                  {cardCssMode === "disabled"
+                    ? "Card CSS is disabled — no character styling is applied."
+                    : cardCssMode === "exclusive"
+                      ? "Each character's CSS only affects their own messages."
+                      : "All card CSS affects the entire chat area, including UI elements."}
                 </p>
-                {cardCssCharacters.map((char) => {
-                  const isEnabled = !disabledCardCssCharIds.includes(char.id);
-                  return (
-                    <div
-                      key={char.id}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 ring-1 ring-[var(--border)] bg-[var(--card)]"
-                    >
-                      <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">
-                        {char.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = disabledCardCssCharIds;
-                          const next = isEnabled
-                            ? [...current, char.id]
-                            : current.filter((id) => id !== char.id);
-                          updateMeta.mutate({ id: chat.id, disabledCardCssCharIds: next });
-                        }}
-                        className={cn(
-                          "shrink-0 rounded-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors",
-                          isEnabled
-                            ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
-                        )}
-                        title={isEnabled ? "Click to disable this character's CSS theming" : "Click to enable this character's CSS theming"}
+                {cardCssMode !== "disabled" && (
+                  <div className="space-y-1">
+                    <span className="block px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      Characters with CSS:
+                    </span>
+                    {cardCssCharacters.map((char) => (
+                      <div
+                        key={char.id}
+                        className="flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]"
                       >
-                        {isEnabled ? "On" : "Off"}
-                      </button>
-                    </div>
-                  );
-                })}
+                        <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">
+                          {char.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Section>
           )}
@@ -7236,5 +7228,62 @@ function ConversationNotesSection({ chatId }: { chatId: string }) {
         )}
       </div>
     </Section>
+  );
+}
+
+// ── Card CSS mode selector (Disabled / Exclusive / Chat) ──
+function CardCssModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: string;
+  onChange: (mode: string) => void;
+}) {
+  const options = [
+    {
+      id: "disabled",
+      label: "Disabled",
+      tooltip: "No card CSS is applied — characters' embedded styles are ignored",
+    },
+    {
+      id: "exclusive",
+      label: "Exclusive",
+      tooltip: "Each character's CSS only affects their own messages",
+    },
+    {
+      id: "chat",
+      label: "Chat",
+      tooltip: "All card CSS affects the entire chat area, including UI elements",
+    },
+  ];
+
+  return (
+    <div className="space-y-1.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">CSS Mode</span>
+      </div>
+      <div className="grid grid-cols-3 overflow-hidden rounded-md ring-1 ring-[var(--border)]">
+        {options.map((option, index) => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(option.id)}
+              className={cn(
+                "min-w-0 px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
+                index > 0 && "border-l border-[var(--border)]",
+                active
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              title={option.tooltip}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

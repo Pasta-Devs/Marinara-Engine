@@ -3632,7 +3632,11 @@ export function GameNarration({
                 }}
               >
                 {stackedLogEntries.map((entry) => (
-                  <div key={entry.messageId} className="space-y-1.5">
+                  <div
+                    key={entry.messageId}
+                    className="space-y-1.5"
+                    data-card-css={sourceMessagesById.get(entry.messageId)?.characterId ?? undefined}
+                  >
                     {entry.segments.map((seg) => renderStackedLogSegment(seg))}
                   </div>
                 ))}
@@ -4381,7 +4385,11 @@ export function GameNarration({
                 const translatedEntryText = sourceMessage ? translations[entry.messageId] : undefined;
                 const entryIsTranslating = sourceMessage ? !!translating[entry.messageId] : false;
                 return (
-                  <div key={entry.messageId} className="space-y-1.5">
+                  <div
+                    key={entry.messageId}
+                    className="space-y-1.5"
+                    data-card-css={sourceMessage?.characterId ?? undefined}
+                  >
                     {entry.segments.map((seg) => {
                       const sourceMessageId = seg.sourceMessageId ?? entry.messageId;
                       const hasSourceSegmentIndex = seg.sourceSegmentIndex != null;

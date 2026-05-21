@@ -720,6 +720,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           isStreaming && "bg-[var(--secondary)]/20",
           multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
         )}
+        data-card-css={message.characterId ?? undefined}
         onClick={handleMobileTap}
       >
         {/* Multi-select checkbox */}
@@ -1028,6 +1029,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-card-css={message.characterId ?? undefined}
       onClick={handleMobileTap}
     >
       {/* Multi-select checkbox */}
