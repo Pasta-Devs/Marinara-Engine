@@ -5,6 +5,10 @@ import { useCallback, useMemo } from "react";
 import { useRegexScripts, type RegexScriptRow } from "./use-regex-scripts";
 import { applyRegexReplacement, type RegexPlacement } from "@marinara-engine/shared";
 
+export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
+
+type ParsedScript = ReturnType<typeof parseScript>;
+
 /**
  * Parses a RegexScriptRow from DB into a usable form.
  */
@@ -32,6 +36,18 @@ function parseScript(row: RegexScriptRow) {
   };
 }
 
+function filterForMode(
+  scripts: ParsedScript[],
+  mode: ScopedRegexMode,
+  characterId: string | undefined,
+): ParsedScript[] {
+  if (mode === "disabled") return scripts.filter((s) => s.characterId === null);
+  if (mode === "chat") return scripts;
+  // "exclusive": global + only the owning character's scripts
+  if (!characterId) return scripts.filter((s) => s.characterId === null);
+  return scripts.filter((s) => s.characterId === null || s.characterId === characterId);
+}
+
 /**
  * Applies all enabled regex scripts for a given placement to the input text.
  * @param depth — message depth (0 = latest message, 1 = one before, etc.). When
@@ -39,7 +55,7 @@ function parseScript(row: RegexScriptRow) {
  */
 function applyScripts(
   text: string,
-  scripts: ReturnType<typeof parseScript>[],
+  scripts: ParsedScript[],
   placement: RegexPlacement,
   options?: { promptOnly?: boolean; depth?: number; resolveMacros?: (value: string) => string },
 ): string {
@@ -79,12 +95,20 @@ function applyScripts(
   return result;
 }
 
+interface RegexApplyOptions {
+  scopedMode?: ScopedRegexMode;
+  characterId?: string;
+  depth?: number;
+  resolveMacros?: (value: string) => string;
+}
+
 /**
  * Hook that provides functions to apply regex transformations.
  *
- * Usage:
- *   const { applyToAIOutput, applyToUserInput } = useApplyRegex();
- *   const displayText = applyToAIOutput(message.content);
+ * Scoped regex modes control how character-scoped scripts are applied:
+ * - `disabled` — scoped scripts are ignored; only global scripts run.
+ * - `exclusive` (default) — scoped scripts only apply to their owning character's messages.
+ * - `chat` — all scoped scripts apply to every message, including user input.
  */
 export function useApplyRegex(characterIds?: string[]) {
   const { data: regexScripts } = useRegexScripts(characterIds);
@@ -96,24 +120,30 @@ export function useApplyRegex(characterIds?: string[]) {
   }, [regexScripts]);
 
   const applyToAIOutput = useCallback(
-    (text: string, options?: { depth?: number; resolveMacros?: (value: string) => string }) =>
-      applyScripts(text, parsedScripts, "ai_output", options),
+    (text: string, options?: RegexApplyOptions) => {
+      const mode = options?.scopedMode ?? "exclusive";
+      const filtered = filterForMode(parsedScripts, mode, options?.characterId);
+      return applyScripts(text, filtered, "ai_output", options);
+    },
     [parsedScripts],
   );
 
   const applyToUserInput = useCallback(
-    (text: string, options?: { depth?: number; resolveMacros?: (value: string) => string }) =>
-      applyScripts(text, parsedScripts, "user_input", options),
+    (text: string, options?: RegexApplyOptions) => {
+      const mode = options?.scopedMode ?? "exclusive";
+      const filtered = filterForMode(parsedScripts, mode, options?.characterId);
+      return applyScripts(text, filtered, "user_input", options);
+    },
     [parsedScripts],
   );
 
   // Applies scripts in prompt context. Visual scripts are intentionally skipped.
   const applyPromptOnly = useCallback(
-    (
-      text: string,
-      placement: RegexPlacement,
-      options?: { depth?: number; resolveMacros?: (value: string) => string },
-    ) => applyScripts(text, parsedScripts, placement, { promptOnly: true, ...options }),
+    (text: string, placement: RegexPlacement, options?: RegexApplyOptions) => {
+      const mode = options?.scopedMode ?? "exclusive";
+      const filtered = filterForMode(parsedScripts, mode, options?.characterId);
+      return applyScripts(text, filtered, placement, { promptOnly: true, ...options });
+    },
     [parsedScripts],
   );
 

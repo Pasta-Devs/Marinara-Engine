@@ -21,7 +21,7 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGenerate } from "../../hooks/use-generate";
-import { useApplyRegex } from "../../hooks/use-apply-regex";
+import { useApplyRegex, type ScopedRegexMode } from "../../hooks/use-apply-regex";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../hooks/use-chats";
 import { characterKeys } from "../../hooks/use-characters";
 import { buildGuidedGenerationInstructionMessage, type Message } from "@marinara-engine/shared";
@@ -584,10 +584,13 @@ export const ChatInput = memo(function ChatInput({
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
-    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
+    const chatMeta = parseChatMetadata(chat?.metadata);
+    let message = applyToUserInput(normalized, {
+      scopedMode: (chatMeta.scopedRegexMode as ScopedRegexMode) || "exclusive",
+      resolveMacros: resolveInputMacros,
+    });
 
     // Input translation: translate user's message before sending
-    const chatMeta = parseChatMetadata(chat?.metadata);
     if (chatMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../lib/translate-text");
@@ -761,9 +764,12 @@ export const ChatInput = memo(function ChatInput({
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
-    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
-
     const chatMeta = parseChatMetadata(chat?.metadata);
+    let message = applyToUserInput(normalized, {
+      scopedMode: (chatMeta.scopedRegexMode as ScopedRegexMode) || "exclusive",
+      resolveMacros: resolveInputMacros,
+    });
+
     if (chatMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../lib/translate-text");

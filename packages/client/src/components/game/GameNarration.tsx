@@ -50,6 +50,7 @@ import type { SpriteInfo } from "../../hooks/use-characters";
 import { useTranslate } from "../../hooks/use-translate";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
+import { useChatStore } from "../../stores/chat.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -940,6 +941,13 @@ export function GameNarration({
 }: GameNarrationProps) {
   const { translations, translating } = useTranslate();
   const { applyToAIOutput } = useApplyRegex(activeCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    if (!meta) return "exclusive";
+    const parsed = typeof meta === "string" ? (() => { try { return JSON.parse(meta); } catch { return {}; } })() : meta;
+    const mode = parsed?.scopedRegexMode;
+    return mode === "disabled" || mode === "chat" ? mode : "exclusive";
+  });
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -1060,6 +1068,14 @@ export function GameNarration({
       byId.set(messages[index]!.id, depth);
     }
     return byId;
+  }, [messages]);
+
+  const msgCharIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const msg of messages) {
+      if (msg.characterId) map.set(msg.id, msg.characterId);
+    }
+    return map;
   }, [messages]);
 
   const speakerAvatarInfos = useMemo(() => {
@@ -1321,11 +1337,13 @@ export function GameNarration({
     ) => {
       if (sourceRole !== "assistant" && sourceRole !== "narrator") return text;
       return applyToAIOutput(text, {
+        scopedMode: scopedRegexMode,
+        characterId: sourceMessageId ? msgCharIdMap.get(sourceMessageId) : undefined,
         depth: sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
         resolveMacros: resolveMacrosForText,
       });
     },
-    [applyToAIOutput, messageDepthById],
+    [applyToAIOutput, messageDepthById, msgCharIdMap, scopedRegexMode],
   );
 
   const prepareSegmentText = useCallback(

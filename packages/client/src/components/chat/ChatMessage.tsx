@@ -1002,6 +1002,13 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Apply regex scripts to AI output (assistant/narrator roles)
   const { applyToAIOutput } = useApplyRegex(chatCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    if (!meta) return "exclusive";
+    const parsed = typeof meta === "string" ? (() => { try { return JSON.parse(meta); } catch { return {}; } })() : meta;
+    const mode = parsed?.scopedRegexMode;
+    return mode === "disabled" || mode === "chat" ? mode : "exclusive";
+  });
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;
@@ -1059,7 +1066,12 @@ export const ChatMessage = memo(function ChatMessage({
     const text =
       isUser || isSystem
         ? message.content
-        : applyToAIOutput(message.content, { depth: messageDepth, resolveMacros: resolveDisplayMacros });
+        : applyToAIOutput(message.content, {
+            scopedMode: scopedRegexMode,
+            characterId: message.characterId ?? undefined,
+            depth: messageDepth,
+            resolveMacros: resolveDisplayMacros,
+          });
     return resolveDisplayMacros(text);
   }, [
     applyToAIOutput,
@@ -1067,8 +1079,10 @@ export const ChatMessage = memo(function ChatMessage({
     isSystem,
     isUser,
     macroCharacters,
+    message.characterId,
     message.content,
     messageDepth,
+    scopedRegexMode,
     personaAppearance,
     personaBackstory,
     personaDescription,

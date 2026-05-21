@@ -10,7 +10,7 @@ import type { CreateRegexScriptInput } from "@marinara-engine/shared";
 export function createRegexScriptsStorage(db: DB) {
   return {
     async list() {
-      return db.select().from(regexScripts).orderBy(asc(regexScripts.order));
+      return db.select().from(regexScripts).where(isNull(regexScripts.characterId)).orderBy(asc(regexScripts.order));
     },
 
     async listForCharacters(characterIds: string[]) {

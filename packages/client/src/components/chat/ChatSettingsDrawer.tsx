@@ -54,6 +54,7 @@ import {
   Drama,
   RotateCcw,
   Music2,
+  Code2,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
@@ -155,6 +156,7 @@ import {
   useHapticDisconnect,
   useHapticStartScan,
 } from "../../hooks/use-haptic";
+import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { normalizeSpritePlacements } from "./sprite-placement";
 import {
   DEFAULT_SPRITE_DISPLAY_MODES,
@@ -325,6 +327,7 @@ export function ChatSettingsDrawer({
   const { data: characterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
   const { data: presets } = usePresets();
+  const updateRegexScript = useUpdateRegexScript();
   const chatMode = (chat as unknown as { mode?: string }).mode ?? "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
@@ -375,6 +378,11 @@ export function ChatSettingsDrawer({
     [chatCharIds, inactiveCharacterIds],
   );
   const supportsCharacterActivityToggle = chatCharIds.length > 1 && !isGame;
+  const { data: allRegexScripts } = useRegexScripts(activeCharacterIds);
+  const scopedRegexScripts = useMemo(
+    () => (allRegexScripts ?? []).filter((s) => s.characterId !== null),
+    [allRegexScripts],
+  );
   const isSceneChat = metadata.sceneStatus === "active" || typeof metadata.sceneOriginChatId === "string";
   const hasGeneratedConversationSchedules =
     !!metadata.characterSchedules &&
@@ -3602,6 +3610,26 @@ export function ChatSettingsDrawer({
             )}
           </Section>
 
+          {/* Scoped Regex Scripts — character-scoped scripts for active characters */}
+          {scopedRegexScripts.length > 0 && (
+            <Section
+              label="Scoped Regex Scripts"
+              icon={<Code2 size="0.875rem" />}
+              count={scopedRegexScripts.length}
+              help="Find-and-replace scripts imported with characters. These are scoped to specific characters and can be configured per chat."
+            >
+              <ScopedRegexModeSelector
+                mode={typeof metadata.scopedRegexMode === "string" ? metadata.scopedRegexMode : "exclusive"}
+                onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
+              />
+              <ScopedRegexCharacterGroups
+                scripts={scopedRegexScripts}
+                charNameMap={charNameMap}
+                onToggle={(id, enabled) => updateRegexScript.mutate({ id, enabled })}
+              />
+            </Section>
+          )}
+
           {/* Agents — hidden for conversation mode */}
           {!isConversation && (
             <Section
@@ -6434,6 +6462,165 @@ function SpriteDisplayModeToggle({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Scoped regex mode selector (tri-state: disabled / exclusive / chat) ──
+function ScopedRegexModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: string;
+  onChange: (mode: string) => void;
+}) {
+  const options = [
+    {
+      id: "disabled",
+      label: "Disabled",
+      tooltip: "Scoped scripts don't run — only global regex scripts apply",
+    },
+    {
+      id: "exclusive",
+      label: "Exclusive",
+      tooltip: "Each character's scripts only apply to that character's own messages",
+    },
+    {
+      id: "chat",
+      label: "Chat",
+      tooltip: "All scoped scripts apply to every message, including user and persona input",
+    },
+  ];
+
+  return (
+    <div className="space-y-1.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">Script Mode</span>
+      </div>
+      <div className="grid grid-cols-3 overflow-hidden rounded-md ring-1 ring-[var(--border)]">
+        {options.map((option, index) => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(option.id)}
+              className={cn(
+                "min-w-0 px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
+                index > 0 && "border-l border-[var(--border)]",
+                active
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              title={option.tooltip}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Scoped regex scripts grouped by character (collapsible) ──
+function ScopedRegexCharacterGroups({
+  scripts,
+  charNameMap,
+  onToggle,
+}: {
+  scripts: RegexScriptRow[];
+  charNameMap: Map<string, string>;
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, RegexScriptRow[]>();
+    for (const script of scripts) {
+      if (!script.characterId) continue;
+      const existing = map.get(script.characterId);
+      if (existing) existing.push(script);
+      else map.set(script.characterId, [script]);
+    }
+    return map;
+  }, [scripts]);
+
+  return (
+    <div className="space-y-1.5 mt-2">
+      {[...grouped.entries()].map(([charId, charScripts]) => (
+        <ScopedRegexCharacterGroup
+          key={charId}
+          characterName={charNameMap.get(charId) ?? "Unknown"}
+          scripts={charScripts}
+          onToggle={onToggle}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ScopedRegexCharacterGroup({
+  characterName,
+  scripts,
+  onToggle,
+}: {
+  characterName: string;
+  scripts: RegexScriptRow[];
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const enabledCount = scripts.filter((s) => s.enabled === "true").length;
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
+      >
+        <div className="flex-1 min-w-0">
+          <span className="text-[0.6875rem] font-semibold">{characterName}</span>
+        </div>
+        <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]">
+          {enabledCount}/{scripts.length}
+        </span>
+        <ChevronDown
+          size="0.625rem"
+          className={cn("text-[var(--muted-foreground)] transition-transform shrink-0", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="px-3 pb-2.5 space-y-1">
+          {scripts.map((script) => {
+            const isEnabled = script.enabled === "true";
+            return (
+              <div
+                key={script.id}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.625rem] font-medium text-[var(--foreground)] truncate">
+                    {script.name || script.findRegex}
+                  </p>
+                  <p className="text-[0.5625rem] text-[var(--muted-foreground)] truncate">
+                    /{script.findRegex}/ &rarr; {script.replaceString || "(empty)"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onToggle(script.id, !isEnabled)}
+                  className={cn(
+                    "shrink-0 rounded-md px-2 py-0.5 text-[0.5625rem] font-medium transition-colors",
+                    isEnabled
+                      ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                      : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                  )}
+                >
+                  {isEnabled ? "On" : "Off"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

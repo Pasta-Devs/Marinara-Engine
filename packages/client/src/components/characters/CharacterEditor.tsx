@@ -4,7 +4,7 @@
 // Sections: Metadata, Description, Personality, Backstory,
 //           Appearance, Scenario, Dialogue, Advanced, Lorebook
 // ──────────────────────────────────────────────
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,6 +33,7 @@ import {
 } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { lorebookKeys, useLorebook } from "../../hooks/use-lorebooks";
+import { useRegexScripts, useUpdateRegexScript, useDeleteRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { useConnections } from "../../hooks/use-connections";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -75,6 +76,7 @@ import {
   UserPlus,
   History,
   RotateCcw,
+  Code2,
 } from "lucide-react";
 import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
@@ -104,6 +106,7 @@ const TABS = [
   { id: "stats", label: "Stats", icon: Swords },
   { id: "advanced", label: "Advanced", icon: Settings2 },
   { id: "lorebook", label: "Lorebook", icon: Library },
+  { id: "regex-scripts", label: "Regex Scripts", icon: Code2 },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -965,6 +968,7 @@ export function CharacterEditor() {
             )}
             {activeTab === "stats" && <StatsTab formData={formData} updateExtension={updateExtension} />}
             {activeTab === "lorebook" && <LorebookTab characterId={characterId} formData={formData} />}
+            {activeTab === "regex-scripts" && characterId && <RegexScriptsTab characterId={characterId} />}
           </div>
         </div>
       </div>
@@ -3320,6 +3324,118 @@ function LorebookTab({ characterId, formData }: { characterId: string | null; fo
               <p className="mt-2 text-xs text-[var(--muted-foreground)] line-clamp-3">{entry.content}</p>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RegexScriptsTab({ characterId }: { characterId: string }) {
+  const { data: allScripts } = useRegexScripts([characterId]);
+  const updateScript = useUpdateRegexScript();
+  const deleteScript = useDeleteRegexScript();
+
+  const scripts = useMemo(
+    () => (allScripts ?? []).filter((s) => s.characterId === characterId),
+    [allScripts, characterId],
+  );
+
+  const toggleEnabled = (script: RegexScriptRow) => {
+    updateScript.mutate({ id: script.id, enabled: script.enabled !== "true" });
+  };
+
+  const handleDelete = async (script: RegexScriptRow) => {
+    const confirmed = await showConfirmDialog({ message: `Delete regex script "${script.name}"?` });
+    if (confirmed) deleteScript.mutate(script.id);
+  };
+
+  const parsePlacement = (raw: string): string[] => {
+    try {
+      return JSON.parse(raw) as string[];
+    } catch {
+      return [];
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Character Regex Scripts"
+        subtitle="Find-and-replace scripts imported with this character. Applied only when this character is active in a chat."
+      />
+
+      {scripts.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+          <Code2 size="1.5rem" className="text-[var(--muted-foreground)]/40" />
+          <div>
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">No regex scripts</p>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+              Import a character with embedded regex scripts to see them here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {scripts.map((script) => {
+            const enabled = script.enabled === "true";
+            const placements = parsePlacement(script.placement);
+            return (
+              <div
+                key={script.id}
+                className={cn(
+                  "group relative rounded-xl border p-3 transition-all",
+                  enabled
+                    ? "border-[var(--border)] bg-[var(--card)]"
+                    : "border-[var(--border)]/50 bg-[var(--card)]/50 opacity-60",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{script.name}</p>
+                    <p className="mt-1 font-mono text-[0.625rem] text-[var(--muted-foreground)] break-all">
+                      /{script.findRegex}/{script.flags}
+                    </p>
+                    {script.replaceString && (
+                      <p className="mt-0.5 font-mono text-[0.625rem] text-[var(--muted-foreground)] break-all">
+                        → {script.replaceString}
+                      </p>
+                    )}
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {placements.map((p) => (
+                        <span
+                          key={p}
+                          className="rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]"
+                        >
+                          {p === "ai_output" ? "AI Output" : p === "user_input" ? "User Input" : p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleEnabled(script)}
+                      className={cn(
+                        "rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
+                        enabled
+                          ? "bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
+                          : "bg-[var(--muted-foreground)]/15 text-[var(--muted-foreground)] hover:bg-[var(--muted-foreground)]/25",
+                      )}
+                    >
+                      {enabled ? "On" : "Off"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(script)}
+                      className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/15 active:scale-90"
+                    >
+                      <Trash2 size="0.75rem" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
