@@ -373,10 +373,25 @@ export function ChatSettingsDrawer({
         : [],
     [chatCharIds, metadata.inactiveCharacterIds],
   );
-  const activeCharacterIds = useMemo<string[]>(
-    () => chatCharIds.filter((id) => !inactiveCharacterIds.includes(id)),
-    [chatCharIds, inactiveCharacterIds],
-  );
+  const activeCharacterIds = useMemo<string[]>(() => {
+    const base = chatCharIds.filter((id) => !inactiveCharacterIds.includes(id));
+    if (!isGame) return base;
+    // In game mode, include GM and party member character IDs so their
+    // scoped regex scripts are fetched and shown in the settings drawer.
+    const ids = new Set(base);
+    const config = metadata.gameSetupConfig as Record<string, unknown> | undefined;
+    if (typeof config?.gmCharacterId === "string") ids.add(config.gmCharacterId);
+    if (Array.isArray(metadata.gamePartyCharacterIds)) {
+      for (const id of metadata.gamePartyCharacterIds as string[]) {
+        if (typeof id === "string" && id.trim()) ids.add(id);
+      }
+    } else if (Array.isArray(config?.partyCharacterIds)) {
+      for (const id of config.partyCharacterIds as string[]) {
+        if (typeof id === "string" && id.trim()) ids.add(id);
+      }
+    }
+    return [...ids];
+  }, [chatCharIds, inactiveCharacterIds, isGame, metadata]);
   const supportsCharacterActivityToggle = chatCharIds.length > 1 && !isGame;
   const { data: allRegexScripts } = useRegexScripts(activeCharacterIds);
   const scopedRegexScripts = useMemo(
