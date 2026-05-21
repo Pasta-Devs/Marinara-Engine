@@ -54,6 +54,7 @@ import {
   Drama,
   RotateCcw,
   Music2,
+  Paintbrush,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
@@ -123,6 +124,7 @@ import type {
   ConversationNote,
   ExportEnvelope,
 } from "@marinara-engine/shared";
+import { extractCreatorNotesCss } from "@marinara-engine/shared";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useAgentStore } from "../../stores/agent.store";
 import {
@@ -659,6 +661,31 @@ export function ChatSettingsDrawer({
     }
     return map;
   }, [charInfoMap]);
+
+  // Characters in this chat that have CSS in their creator_notes
+  const cardCssCharacters = useMemo(() => {
+    const result: Array<{ id: string; name: string }> = [];
+    for (const id of chatCharIds) {
+      const char = characters.find((c) => c.id === id);
+      if (!char) continue;
+      try {
+        const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
+        const notes: string = parsed?.creator_notes ?? "";
+        if (!notes) continue;
+        const { css } = extractCreatorNotesCss(notes);
+        if (css.trim()) result.push({ id, name: charNameMap.get(id) ?? "Unknown" });
+      } catch {
+        // skip malformed data
+      }
+    }
+    return result;
+  }, [chatCharIds, characters, charNameMap]);
+
+  const disabledCardCssCharIds = useMemo<string[]>(() => {
+    const raw: unknown = metadata.disabledCardCssCharIds;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((id): id is string => typeof id === "string");
+  }, [metadata.disabledCardCssCharIds]);
 
   const getCharacterInfo = useCallback(
     (c: { id?: string; data: string; comment?: string | null }) => {
@@ -3601,6 +3628,55 @@ export function ChatSettingsDrawer({
               </PickerDropdown>
             )}
           </Section>
+
+          {/* Card Theming — per-character CSS from creator_notes */}
+          {cardCssCharacters.length > 0 && (
+            <Section
+              label="Card Theming"
+              icon={<Paintbrush size="0.875rem" />}
+              count={cardCssCharacters.length - disabledCardCssCharIds.length}
+              help="Characters can embed custom CSS in their creator notes to theme the chat UI. Toggle which characters are allowed to apply their visual styling."
+            >
+              <div className="space-y-1.5">
+                <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  Enable or disable each character's embedded CSS. Only characters with CSS in their creator notes are
+                  shown.
+                </p>
+                {cardCssCharacters.map((char) => {
+                  const isEnabled = !disabledCardCssCharIds.includes(char.id);
+                  return (
+                    <div
+                      key={char.id}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 ring-1 ring-[var(--border)] bg-[var(--card)]"
+                    >
+                      <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">
+                        {char.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = disabledCardCssCharIds;
+                          const next = isEnabled
+                            ? [...current, char.id]
+                            : current.filter((id) => id !== char.id);
+                          updateMeta.mutate({ id: chat.id, disabledCardCssCharIds: next });
+                        }}
+                        className={cn(
+                          "shrink-0 rounded-md px-2.5 py-1 text-[0.625rem] font-medium transition-colors",
+                          isEnabled
+                            ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                            : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                        )}
+                        title={isEnabled ? "Click to disable this character's CSS theming" : "Click to enable this character's CSS theming"}
+                      >
+                        {isEnabled ? "On" : "Off"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           {/* Agents — hidden for conversation mode */}
           {!isConversation && (
