@@ -396,6 +396,8 @@ async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
         error: "No character data found in PNG. Make sure this is a valid character card with embedded metadata.",
         hasEmbeddedLorebook: false,
         embeddedLorebookEntries: 0,
+        hasEmbeddedRegexScripts: false,
+        embeddedRegexScriptCount: 0,
       };
     }
     return inspectSTCharacter(charData);
@@ -415,6 +417,8 @@ async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
         "Invalid file format. Expected a JSON character card, a PNG with embedded character data, or a .charx file.",
       hasEmbeddedLorebook: false,
       embeddedLorebookEntries: 0,
+      hasEmbeddedRegexScripts: false,
+      embeddedRegexScriptCount: 0,
     };
   }
 }
@@ -708,6 +712,8 @@ export async function importRoutes(app: FastifyInstance) {
           error: error instanceof Error ? error.message : "Inspection failed",
           hasEmbeddedLorebook: false,
           embeddedLorebookEntries: 0,
+          hasEmbeddedRegexScripts: false,
+          embeddedRegexScriptCount: 0,
         });
       }
     }

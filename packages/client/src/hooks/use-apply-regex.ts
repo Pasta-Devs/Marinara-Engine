@@ -86,8 +86,8 @@ function applyScripts(
  *   const { applyToAIOutput, applyToUserInput } = useApplyRegex();
  *   const displayText = applyToAIOutput(message.content);
  */
-export function useApplyRegex() {
-  const { data: regexScripts } = useRegexScripts();
+export function useApplyRegex(characterIds?: string[]) {
+  const { data: regexScripts } = useRegexScripts(characterIds);
 
   // Pre-parse all scripts (sorted by order, which is done server-side)
   const parsedScripts = useMemo(() => {

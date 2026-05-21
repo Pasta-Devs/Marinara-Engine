@@ -1001,7 +1001,7 @@ export const ChatMessage = memo(function ChatMessage({
   }, []);
 
   // Apply regex scripts to AI output (assistant/narrator roles)
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(chatCharacterIds);
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;

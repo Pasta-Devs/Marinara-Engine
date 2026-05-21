@@ -181,7 +181,11 @@ export const ChatInput = memo(function ChatInput({
     [activeChatCharacters, characterNames],
   );
   const { generate } = useGenerate();
-  const { applyToUserInput } = useApplyRegex();
+  const chatCharacterIds = useMemo(
+    () => activeChatCharacters?.map((c) => c.id),
+    [activeChatCharacters],
+  );
+  const { applyToUserInput } = useApplyRegex(chatCharacterIds);
   const enterToSend = useUIStore((s) => s.enterToSendRP);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);

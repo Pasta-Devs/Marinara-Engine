@@ -5,6 +5,8 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 export const regexScripts = sqliteTable("regex_scripts", {
   id: text("id").primaryKey(),
+  /** Null = global script; non-null = scoped to a specific character */
+  characterId: text("character_id"),
   name: text("name").notNull(),
   enabled: text("enabled").notNull().default("true"),
   /** The regex pattern (without delimiters) */

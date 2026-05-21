@@ -5,8 +5,9 @@ import type { DB } from "../../db/connection.js";
 import { characters as charactersTable } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
-import type { CharacterData } from "@marinara-engine/shared";
+import type { CharacterData, CreateRegexScriptInput, RegexPlacement } from "@marinara-engine/shared";
 import { existsSync, mkdirSync } from "fs";
 import { writeFile } from "fs/promises";
 import { join } from "path";
@@ -28,6 +29,74 @@ function countEmbeddedLorebookEntries(book: unknown): number {
   return getCharacterBookEntries(book).length;
 }
 
+function extractEmbeddedRegexScripts(raw: Record<string, unknown>): unknown[] {
+  const data = (raw.data ?? raw) as Record<string, unknown>;
+  const extensions = data.extensions as Record<string, unknown> | undefined;
+  if (!extensions) return [];
+  const scripts = extensions.regex_scripts;
+  return Array.isArray(scripts) ? scripts : [];
+}
+
+function convertSTPlacement(placement: unknown): RegexPlacement[] {
+  if (Array.isArray(placement)) {
+    return placement.flatMap((p) => convertSTPlacement(p));
+  }
+  if (typeof placement === "number") {
+    if (placement === 1) return ["user_input"];
+    if (placement === 2) return ["ai_output"];
+    return ["ai_output"];
+  }
+  if (typeof placement === "string") {
+    if (placement === "user_input") return ["user_input"];
+    if (placement === "ai_output") return ["ai_output"];
+  }
+  return ["ai_output"];
+}
+
+function parseSTRegexPattern(findRegex: string): { pattern: string; flags: string } {
+  const match = findRegex.match(/^\/(.+)\/([gimsuy]*)$/s);
+  if (match) return { pattern: match[1] ?? findRegex, flags: match[2] ?? "gi" };
+  return { pattern: findRegex, flags: "gi" };
+}
+
+function convertSTRegexScript(
+  raw: Record<string, unknown>,
+  characterId: string,
+  order: number,
+): CreateRegexScriptInput | null {
+  const findRegex = typeof raw.findRegex === "string" ? raw.findRegex : null;
+  if (!findRegex) return null;
+
+  const { pattern, flags } = parseSTRegexPattern(findRegex);
+  if (!pattern) return null;
+
+  const name =
+    typeof raw.scriptName === "string" && raw.scriptName.trim()
+      ? raw.scriptName.trim()
+      : typeof raw.name === "string" && raw.name.trim()
+        ? raw.name.trim()
+        : `Script ${order + 1}`;
+
+  const enabled = raw.disabled != null ? !raw.disabled : raw.enabled != null ? Boolean(raw.enabled) : true;
+
+  const trimStrings: string[] = Array.isArray(raw.trimStrings) ? raw.trimStrings.map(String) : [];
+
+  return {
+    characterId,
+    name,
+    enabled,
+    findRegex: pattern,
+    replaceString: typeof raw.replaceString === "string" ? raw.replaceString : "",
+    trimStrings,
+    placement: convertSTPlacement(raw.placement),
+    flags,
+    promptOnly: Boolean(raw.promptOnly),
+    order,
+    minDepth: typeof raw.minDepth === "number" ? raw.minDepth : null,
+    maxDepth: typeof raw.maxDepth === "number" ? raw.maxDepth : null,
+  };
+}
+
 /**
  * Import a SillyTavern character card (JSON format).
  * Handles V1, V2, Pygmalion, and RisuAI formats.
@@ -38,12 +107,15 @@ export interface STCharacterImportPreview {
   name?: string;
   hasEmbeddedLorebook: boolean;
   embeddedLorebookEntries: number;
+  hasEmbeddedRegexScripts: boolean;
+  embeddedRegexScriptCount: number;
   error?: string;
 }
 
 export interface STCharacterImportOptions {
   timestampOverrides?: TimestampOverrides | null;
   importEmbeddedLorebook?: boolean;
+  importEmbeddedRegexScripts?: boolean;
   tagImportMode?: STCharacterTagImportMode;
   existingTagKeys?: ReadonlySet<string>;
 }
@@ -54,6 +126,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const storage = createCharactersStorage(db);
   const normalizedTimestamps = normalizeTimestampOverrides(options?.timestampOverrides);
   const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
+  const shouldImportEmbeddedRegexScripts = options?.importEmbeddedRegexScripts ?? true;
   const tagImportMode = options?.tagImportMode ?? "all";
 
   // Extract avatar data URL if present (from PNG import)
@@ -83,6 +156,9 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const cardSpecMetadata = buildCardSpecMetadata(raw);
   const embeddedLorebookEntries = countEmbeddedLorebookEntries(data.character_book);
   const hasEmbeddedLorebook = embeddedLorebookEntries > 0;
+  const rawRegexScripts = extractEmbeddedRegexScripts(raw);
+  const embeddedRegexScriptCount = rawRegexScripts.length;
+  const hasEmbeddedRegexScripts = embeddedRegexScriptCount > 0;
   // Strip any `lorebookId` carried by the source card. That ID references
   // the exporter's database (e.g. a different Marinara instance), not
   // ours, so preserving it leaves an orphan pointer that makes "Edit
@@ -178,6 +254,26 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     }
   }
 
+  // Import embedded regex scripts as character-scoped scripts
+  let regexImported = 0;
+  if (shouldImportEmbeddedRegexScripts && hasEmbeddedRegexScripts && charId) {
+    try {
+      const regexStorage = createRegexScriptsStorage(db);
+      const converted: CreateRegexScriptInput[] = [];
+      for (let i = 0; i < rawRegexScripts.length; i++) {
+        const scriptRaw = rawRegexScripts[i];
+        if (!scriptRaw || typeof scriptRaw !== "object") continue;
+        const script = convertSTRegexScript(scriptRaw as Record<string, unknown>, charId, i);
+        if (script) converted.push(script);
+      }
+      if (converted.length > 0) {
+        regexImported = await regexStorage.createBatch(converted);
+      }
+    } catch (err) {
+      logger.warn(err, "Regex script extraction failed for character import");
+    }
+  }
+
   return {
     success: true,
     characterId: charId,
@@ -188,6 +284,12 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       imported: !!lorebookResult,
       skipped: hasEmbeddedLorebook && !shouldImportEmbeddedLorebook,
     },
+    embeddedRegexScripts: {
+      hasEmbeddedRegexScripts,
+      count: embeddedRegexScriptCount,
+      imported: regexImported,
+      skipped: hasEmbeddedRegexScripts && !shouldImportEmbeddedRegexScripts,
+    },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
   };
 }
@@ -196,17 +298,22 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
   try {
     const data = normalizeCharacterData(raw);
     const embeddedLorebookEntries = countEmbeddedLorebookEntries(data.character_book);
+    const embeddedRegexScriptCount = extractEmbeddedRegexScripts(raw).length;
     return {
       success: true,
       name: data.name,
       hasEmbeddedLorebook: embeddedLorebookEntries > 0,
       embeddedLorebookEntries,
+      hasEmbeddedRegexScripts: embeddedRegexScriptCount > 0,
+      embeddedRegexScriptCount,
     };
   } catch (error) {
     return {
       success: false,
       hasEmbeddedLorebook: false,
       embeddedLorebookEntries: 0,
+      hasEmbeddedRegexScripts: false,
+      embeddedRegexScriptCount: 0,
       error: error instanceof Error ? error.message : "Invalid character card",
     };
   }
@@ -274,6 +381,8 @@ export function inspectCharX(buf: Buffer): STCharacterImportPreview {
         success: false,
         hasEmbeddedLorebook: false,
         embeddedLorebookEntries: 0,
+        hasEmbeddedRegexScripts: false,
+        embeddedRegexScriptCount: 0,
         error: "Invalid .charx file: missing card.json at root.",
       };
     }
@@ -283,6 +392,8 @@ export function inspectCharX(buf: Buffer): STCharacterImportPreview {
       success: false,
       hasEmbeddedLorebook: false,
       embeddedLorebookEntries: 0,
+      hasEmbeddedRegexScripts: false,
+      embeddedRegexScriptCount: 0,
       error: error instanceof Error ? error.message : "Invalid .charx file",
     };
   }

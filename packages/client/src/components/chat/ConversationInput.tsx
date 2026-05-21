@@ -224,7 +224,6 @@ export function ConversationInput({
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
   const currentInput = useChatStore((s) => s.currentInput);
   const { generate } = useGenerate();
-  const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendConvo);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
@@ -258,6 +257,11 @@ export function ConversationInput({
     () => chatCharacters?.filter((character) => !inactiveCharacterIds.has(character.id)),
     [chatCharacters, inactiveCharacterIds],
   );
+  const chatCharacterIds = useMemo(
+    () => activeChatCharacters?.map((c) => c.id),
+    [activeChatCharacters],
+  );
+  const { applyToUserInput } = useApplyRegex(chatCharacterIds);
   const activeCharacterNames = useMemo(
     () => (activeChatCharacters ? activeChatCharacters.map((character) => character.name) : characterNames),
     [activeChatCharacters, characterNames],

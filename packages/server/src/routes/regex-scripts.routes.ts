@@ -8,7 +8,12 @@ import { createRegexScriptsStorage } from "../services/storage/regex-scripts.sto
 export async function regexScriptsRoutes(app: FastifyInstance) {
   const storage = createRegexScriptsStorage(app.db);
 
-  app.get("/", async () => {
+  app.get<{ Querystring: { characterIds?: string } }>("/", async (req) => {
+    const raw = req.query.characterIds;
+    if (raw) {
+      const ids = raw.split(",").filter(Boolean);
+      return storage.listForCharacters(ids);
+    }
     return storage.list();
   });
 

@@ -25,6 +25,7 @@ import { createWriteStream, existsSync, rmSync, unlinkSync } from "fs";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
+import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import AdmZip from "adm-zip";
 import { extname } from "path";
 import { pipeline } from "stream/promises";
@@ -411,6 +412,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
+    await createRegexScriptsStorage(app.db).removeByCharacter(req.params.id);
     await storage.remove(req.params.id);
     return reply.status(204).send();
   });

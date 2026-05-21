@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Regex Scripts
 // ──────────────────────────────────────────────
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, isNull, inArray, or } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { regexScripts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -11,6 +11,25 @@ export function createRegexScriptsStorage(db: DB) {
   return {
     async list() {
       return db.select().from(regexScripts).orderBy(asc(regexScripts.order));
+    },
+
+    async listForCharacters(characterIds: string[]) {
+      if (characterIds.length === 0) {
+        return db.select().from(regexScripts).where(isNull(regexScripts.characterId)).orderBy(asc(regexScripts.order));
+      }
+      return db
+        .select()
+        .from(regexScripts)
+        .where(or(isNull(regexScripts.characterId), inArray(regexScripts.characterId, characterIds)))
+        .orderBy(asc(regexScripts.order));
+    },
+
+    async listByCharacter(characterId: string) {
+      return db
+        .select()
+        .from(regexScripts)
+        .where(eq(regexScripts.characterId, characterId))
+        .orderBy(asc(regexScripts.order));
     },
 
     async getById(id: string) {
@@ -23,6 +42,7 @@ export function createRegexScriptsStorage(db: DB) {
       const timestamp = now();
       await db.insert(regexScripts).values({
         id,
+        characterId: input.characterId ?? null,
         name: input.name,
         enabled: String(input.enabled ?? true),
         findRegex: input.findRegex,
@@ -40,8 +60,33 @@ export function createRegexScriptsStorage(db: DB) {
       return this.getById(id);
     },
 
+    async createBatch(inputs: CreateRegexScriptInput[]): Promise<number> {
+      if (inputs.length === 0) return 0;
+      const timestamp = now();
+      const rows = inputs.map((input, i) => ({
+        id: newId(),
+        characterId: input.characterId ?? null,
+        name: input.name,
+        enabled: String(input.enabled ?? true),
+        findRegex: input.findRegex,
+        replaceString: input.replaceString ?? "",
+        trimStrings: JSON.stringify(input.trimStrings ?? []),
+        placement: JSON.stringify(input.placement),
+        flags: input.flags ?? "gi",
+        promptOnly: String(input.promptOnly ?? false),
+        order: input.order ?? i,
+        minDepth: input.minDepth ?? null,
+        maxDepth: input.maxDepth ?? null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }));
+      await db.insert(regexScripts).values(rows);
+      return rows.length;
+    },
+
     async update(id: string, data: Partial<CreateRegexScriptInput>) {
       const updateFields: Record<string, unknown> = { updatedAt: now() };
+      if (data.characterId !== undefined) updateFields.characterId = data.characterId;
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.enabled !== undefined) updateFields.enabled = String(data.enabled);
       if (data.findRegex !== undefined) updateFields.findRegex = data.findRegex;
@@ -69,6 +114,10 @@ export function createRegexScriptsStorage(db: DB) {
 
     async remove(id: string) {
       await db.delete(regexScripts).where(eq(regexScripts.id, id));
+    },
+
+    async removeByCharacter(characterId: string) {
+      await db.delete(regexScripts).where(eq(regexScripts.characterId, characterId));
     },
   };
 }

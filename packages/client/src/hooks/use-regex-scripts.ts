@@ -11,6 +11,7 @@ const regexKeys = {
 
 export interface RegexScriptRow {
   id: string;
+  characterId: string | null;
   name: string;
   enabled: string;
   findRegex: string;
@@ -26,10 +27,11 @@ export interface RegexScriptRow {
   updatedAt: string;
 }
 
-export function useRegexScripts() {
+export function useRegexScripts(characterIds?: string[]) {
+  const queryParam = characterIds?.length ? `?characterIds=${characterIds.join(",")}` : "";
   return useQuery({
-    queryKey: regexKeys.all,
-    queryFn: () => api.get<RegexScriptRow[]>("/regex-scripts"),
+    queryKey: characterIds?.length ? [...regexKeys.all, ...characterIds] : regexKeys.all,
+    queryFn: () => api.get<RegexScriptRow[]>(`/regex-scripts${queryParam}`),
   });
 }
 

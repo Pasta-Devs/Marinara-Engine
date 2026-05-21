@@ -6,6 +6,7 @@ import { z } from "zod";
 export const regexPlacementSchema = z.enum(["ai_output", "user_input"]);
 
 export const createRegexScriptSchema = z.object({
+  characterId: z.string().nullable().default(null),
   name: z.string().min(1).max(200),
   enabled: z.boolean().default(true),
   findRegex: z.string().min(1),

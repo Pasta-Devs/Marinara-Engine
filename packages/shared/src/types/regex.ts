@@ -8,6 +8,8 @@ export type RegexPlacement = "ai_output" | "user_input";
 /** A find/replace regex script. */
 export interface RegexScript {
   id: string;
+  /** Null = global script; non-null = scoped to a specific character */
+  characterId: string | null;
   /** Display name */
   name: string;
   /** Whether this script is active */

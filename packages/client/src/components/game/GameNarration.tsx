@@ -939,7 +939,7 @@ export function GameNarration({
   onMaxNavOffsetChange,
 }: GameNarrationProps) {
   const { translations, translating } = useTranslate();
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(activeCharacterIds);
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
