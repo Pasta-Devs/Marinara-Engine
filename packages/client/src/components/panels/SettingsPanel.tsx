@@ -75,6 +75,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../ui/TrackerSizeTierIcon";
+import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -2053,7 +2054,6 @@ type BackgroundUploadResponse = {
 };
 
 function BackgroundPicker({ selected, onSelect }: { selected: string | null; onSelect: (url: string | null) => void }) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [editingTags, setEditingTags] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
@@ -2105,8 +2105,7 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
     },
   });
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  const handleUpload = async (files: File[]) => {
     if (files.length === 0) return;
     setUploading(true);
     try {
@@ -2143,7 +2142,6 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
       toast.error("Background import failed.");
     } finally {
       setUploading(false);
-      e.target.value = "";
     }
   };
 
@@ -2163,16 +2161,15 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Upload button */}
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-        className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-[var(--border)] p-3 text-xs text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)]/50"
-      >
-        {uploading ? <Loader2 size="0.875rem" className="animate-spin" /> : <Upload size="0.875rem" />}
-        {uploading ? "Importing..." : "Import Backgrounds"}
-      </button>
-      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+      <ImageUploadDropzone
+        label="Import Backgrounds"
+        pending={uploading}
+        pendingLabel="Importing..."
+        dragLabel="Drop backgrounds to import"
+        onFilesSelected={(files) => void handleUpload(files)}
+        icon={uploading ? <Loader2 size="0.875rem" className="animate-spin" /> : <Upload size="0.875rem" />}
+        className="rounded-lg py-3 hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)]/50"
+      />
 
       {/* Background grid */}
       {backgrounds && backgrounds.length > 0 && (
