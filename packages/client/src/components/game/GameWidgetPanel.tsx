@@ -156,15 +156,12 @@ function buildUpdatedWidgetConfig(
     case "progress_bar":
     case "gauge":
     case "relationship_meter":
-      nextConfig.value = parseNumberDraft(
-        draft.value,
-        typeof widget.config.value === "number" ? widget.config.value : 0,
-        {
-          min: 0,
-        },
-      );
       nextConfig.max = parseNumberDraft(draft.max, typeof widget.config.max === "number" ? widget.config.max : 100, {
         min: 1,
+      });
+      nextConfig.value = parseNumberDraft(draft.value, getNumericWidgetValue(widget), {
+        min: 0,
+        max: nextConfig.max,
       });
       if (options?.syncStartingValue) {
         nextConfig.startingValue = nextConfig.value;
