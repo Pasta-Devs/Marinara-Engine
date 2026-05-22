@@ -69,14 +69,20 @@ function buildEditableDefaultTemplate(
 
 export function PromptOverridesEditor() {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const contentId = useId();
+
+  const toggleOpen = () => {
+    setHasOpened(true);
+    setIsOpen((open) => !open);
+  };
 
   return (
     <section className="overflow-hidden rounded-xl bg-[var(--secondary)]/40 ring-1 ring-[var(--border)]">
       <div className="flex items-start gap-2 p-3">
         <button
           type="button"
-          onClick={() => setIsOpen((open) => !open)}
+          onClick={toggleOpen}
           aria-expanded={isOpen}
           aria-controls={contentId}
           className="flex min-w-0 flex-1 items-start gap-2 rounded-lg text-left transition-colors hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
@@ -103,8 +109,8 @@ export function PromptOverridesEditor() {
         </span>
       </div>
 
-      {isOpen && (
-        <div id={contentId} className="border-t border-[var(--border)]/70 p-3 pt-2.5">
+      {hasOpened && (
+        <div id={contentId} hidden={!isOpen} className="border-t border-[var(--border)]/70 p-3 pt-2.5">
           <PromptOverridesEditorBody />
         </div>
       )}
