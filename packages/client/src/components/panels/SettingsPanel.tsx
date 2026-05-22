@@ -3897,8 +3897,6 @@ function AdvancedSettings() {
         </div>
       </div>
 
-      <PromptOverridesEditor />
-
       {/* ── Updates ── */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
@@ -4051,6 +4049,8 @@ function AdvancedSettings() {
           />
         </div>
       </div>
+
+      <PromptOverridesEditor />
 
       <div className="retro-divider" />
       <div
