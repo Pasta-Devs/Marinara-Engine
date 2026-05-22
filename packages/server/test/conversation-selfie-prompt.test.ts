@@ -5,9 +5,12 @@ import type { PromptOverridesStorage } from "../src/services/storage/prompt-over
 
 type CapturedMessage = { role: "system" | "user"; content: string };
 
+const EXPECTED_PROMPT_KEY = "conversation.selfie";
+
 function promptOverrideStorage(template: string, enabled = true): PromptOverridesStorage {
   return {
     async get(key) {
+      assert.equal(key, EXPECTED_PROMPT_KEY);
       return {
         key,
         template,
