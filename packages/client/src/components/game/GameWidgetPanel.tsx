@@ -856,7 +856,7 @@ export function GameWidgetSessionPrepModal({
               {draftWidgets.map((widget) => (
                 <div
                   key={widget.id}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--accent)]/20 px-4 py-3"
+                  className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--accent)]/20 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
@@ -869,7 +869,7 @@ export function GameWidgetSessionPrepModal({
                     <p className="text-xs text-[var(--muted-foreground)]">{describeWidget(widget)}</p>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
                     <button
                       type="button"
                       onClick={() => setEditingWidgetId(widget.id)}
