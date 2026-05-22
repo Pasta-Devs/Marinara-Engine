@@ -48,8 +48,7 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
-import { loadPrompt, CONVERSATION_SELFIE } from "../services/prompt-overrides/index.js";
-import { renderTemplate } from "../services/prompt-overrides/template.js";
+import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
 import { processLorebooks } from "../services/lorebook/index.js";
 import {
   filterGameInternalAgentIds,
@@ -8886,22 +8885,12 @@ export async function generateRoutes(app: FastifyInstance) {
                         conn.openrouterProvider,
                         conn.maxTokensOverride,
                       );
-                      const selfiePromptContext = {
+                      const selfieSystemPrompt = await resolveConversationSelfieSystemPrompt({
+                        promptOverridesStorage: createPromptOverridesStorage(app.db),
+                        chatPromptTemplate: selfiePromptTemplate,
                         appearance,
                         charName,
-                        selfieTagsBlock: "",
-                      };
-                      const selfieSystemPrompt = selfiePromptTemplate
-                        ? renderTemplate(
-                            selfiePromptTemplate,
-                            selfiePromptContext,
-                            CONVERSATION_SELFIE.variables.map((variable) => variable.name),
-                          )
-                        : await loadPrompt(
-                            createPromptOverridesStorage(app.db),
-                            CONVERSATION_SELFIE,
-                            selfiePromptContext,
-                          );
+                      });
                       const promptResult = await promptBuilder.chatComplete(
                         [
                           {
