@@ -1009,6 +1009,34 @@ function syncMoraleWidgetValue(rawWidgets: unknown, morale: number): unknown {
   });
 }
 
+function isNumericHudWidgetType(type: string): boolean {
+  return type === "progress_bar" || type === "gauge" || type === "relationship_meter";
+}
+
+function normalizeWidgetNumber(value: unknown): number | null {
+  const raw = typeof value === "string" && value.trim() ? Number(value.trim()) : value;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+}
+
+function clampWidgetValue(value: number, max: number): number {
+  return Math.max(0, Math.min(max, value));
+}
+
+function normalizeSetupHudWidgetStartingValues(widgets: Array<{ type: string; config: Record<string, unknown> }>) {
+  for (const widget of widgets) {
+    if (!isNumericHudWidgetType(widget.type)) continue;
+
+    const max = Math.max(1, normalizeWidgetNumber(widget.config.max) ?? 100);
+    const startingValue = normalizeWidgetNumber(widget.config.startingValue);
+    const currentValue = normalizeWidgetNumber(widget.config.value);
+    const initialValue = clampWidgetValue(startingValue ?? currentValue ?? 0, max);
+
+    widget.config.max = max;
+    widget.config.startingValue = initialValue;
+    widget.config.value = initialValue;
+  }
+}
+
 function buildMoraleMetadataUpdates(meta: Record<string, unknown>, morale: number): Record<string, unknown> {
   const updates: Record<string, unknown> = { gameMorale: morale };
   const nextWidgetState = syncMoraleWidgetValue(meta.gameWidgetState, morale);
@@ -2899,6 +2927,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const parsed = blueprintSchema.safeParse(setupData.blueprint);
       if (parsed.success) {
         normalizeStatBlocks(parsed.data.hudWidgets);
+        normalizeSetupHudWidgetStartingValues(parsed.data.hudWidgets);
         updates.gameBlueprint = parsed.data;
       } else {
         // Last-ditch recovery: keep the user's HUD widgets even if campaignPlan
@@ -2914,6 +2943,7 @@ export async function gameRoutes(app: FastifyInstance) {
         });
         if (hudOnly.success && hudOnly.data.hudWidgets.length > 0) {
           normalizeStatBlocks(hudOnly.data.hudWidgets);
+          normalizeSetupHudWidgetStartingValues(hudOnly.data.hudWidgets);
           updates.gameBlueprint = { hudWidgets: hudOnly.data.hudWidgets };
         }
       }

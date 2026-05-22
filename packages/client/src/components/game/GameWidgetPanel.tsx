@@ -57,6 +57,16 @@ const EMPTY_WIDGET_DRAFT: WidgetEditorDraft = {
   items: "",
 };
 
+function isNumericWidgetType(type: HudWidget["type"]) {
+  return type === "progress_bar" || type === "gauge" || type === "relationship_meter";
+}
+
+function getNumericWidgetValue(widget: HudWidget) {
+  const raw: unknown = widget.config.value ?? widget.config.startingValue ?? 0;
+  const value = typeof raw === "string" && raw.trim() ? Number(raw.trim()) : raw;
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 function getVisibleWidgets(widgets: HudWidget[], position: "hud_left" | "hud_right") {
   return widgets.filter((w) => w.position === position && w.type !== "inventory_grid").slice(0, MAX_WIDGETS);
 }
@@ -73,7 +83,7 @@ function describeWidget(widget: HudWidget) {
     case "progress_bar":
     case "gauge":
     case "relationship_meter":
-      return `${widget.config.value ?? 0} / ${widget.config.max ?? 100}`;
+      return `${getNumericWidgetValue(widget)} / ${widget.config.max ?? 100}`;
     case "counter":
       return `${widget.config.count ?? 0} tracked`;
     case "stat_block": {
@@ -95,7 +105,12 @@ function describeWidget(widget: HudWidget) {
 
 function createWidgetEditorDraft(widget: HudWidget): WidgetEditorDraft {
   return {
-    value: widget.config.value != null ? String(widget.config.value) : "",
+    value:
+      widget.config.value != null
+        ? String(widget.config.value)
+        : widget.config.startingValue != null
+          ? String(widget.config.startingValue)
+          : "",
     max: widget.config.max != null ? String(widget.config.max) : "",
     count: widget.config.count != null ? String(widget.config.count) : "",
     seconds: widget.config.seconds != null ? String(widget.config.seconds) : "",
@@ -130,7 +145,11 @@ function coerceStatValue(rawValue: string, fallback: number | string) {
   return /^-?\d+(?:\.\d+)?$/.test(trimmed) ? Number(trimmed) : trimmed;
 }
 
-function buildUpdatedWidgetConfig(widget: HudWidget, draft: WidgetEditorDraft): HudWidget["config"] {
+function buildUpdatedWidgetConfig(
+  widget: HudWidget,
+  draft: WidgetEditorDraft,
+  options?: { syncStartingValue?: boolean },
+): HudWidget["config"] {
   const nextConfig = { ...widget.config };
 
   switch (widget.type) {
@@ -147,6 +166,9 @@ function buildUpdatedWidgetConfig(widget: HudWidget, draft: WidgetEditorDraft): 
       nextConfig.max = parseNumberDraft(draft.max, typeof widget.config.max === "number" ? widget.config.max : 100, {
         min: 1,
       });
+      if (options?.syncStartingValue) {
+        nextConfig.startingValue = nextConfig.value;
+      }
       return nextConfig;
     case "counter":
       nextConfig.count = parseNumberDraft(
@@ -462,6 +484,8 @@ function WidgetEditorModal({
   isSaving,
   allowStructureEdit = false,
   description = "Adjust this widget manually when the model misses an update.",
+  numericValueLabel = "Current value",
+  syncStartingValue = false,
   saveLabel = "Save Changes",
 }: {
   widget: HudWidget | null;
@@ -471,6 +495,8 @@ function WidgetEditorModal({
   isSaving: boolean;
   allowStructureEdit?: boolean;
   description?: string;
+  numericValueLabel?: string;
+  syncStartingValue?: boolean;
   saveLabel?: string;
 }) {
   const [draft, setDraft] = useState<WidgetEditorDraft>(EMPTY_WIDGET_DRAFT);
@@ -483,8 +509,8 @@ function WidgetEditorModal({
 
   const handleSave = useCallback(() => {
     if (!widget) return;
-    void onSave(buildUpdatedWidgetConfig(widget, draft));
-  }, [draft, onSave, widget]);
+    void onSave(buildUpdatedWidgetConfig(widget, draft, { syncStartingValue }));
+  }, [draft, onSave, syncStartingValue, widget]);
 
   if (!open || !widget || typeof document === "undefined") return null;
 
@@ -495,10 +521,10 @@ function WidgetEditorModal({
       <div className="space-y-4">
         <p className="text-sm text-[var(--muted-foreground)]">{description}</p>
 
-        {(widget.type === "progress_bar" || widget.type === "gauge" || widget.type === "relationship_meter") && (
+        {isNumericWidgetType(widget.type) && (
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium text-[var(--muted-foreground)]">Current value</span>
+              <span className="text-xs font-medium text-[var(--muted-foreground)]">{numericValueLabel}</span>
               <input
                 type="number"
                 value={draft.value}
@@ -759,6 +785,8 @@ export function GameWidgetSessionPrepModal({
             startingLabel: "Starting Game...",
             editorDescription:
               "Adjust the starting values, or reshape stat blocks before the first game turn uses them.",
+            numericValueLabel: "Starting value",
+            syncStartingValue: true,
           }
         : {
             title: "Prepare Next Session Widgets",
@@ -772,6 +800,8 @@ export function GameWidgetSessionPrepModal({
             startingLabel: "Starting Session...",
             editorDescription:
               "Adjust the values that should carry forward, or reshape stat blocks for the next session.",
+            numericValueLabel: "Current value",
+            syncStartingValue: false,
           },
     [mode],
   );
@@ -898,6 +928,8 @@ export function GameWidgetSessionPrepModal({
         isSaving={interactionsLocked}
         allowStructureEdit
         description={copy.editorDescription}
+        numericValueLabel={copy.numericValueLabel}
+        syncStartingValue={copy.syncStartingValue}
         saveLabel="Update Widget"
       />
     </>
@@ -907,7 +939,8 @@ export function GameWidgetSessionPrepModal({
 // ── Widget Implementations ──
 
 function ProgressBarWidget({ widget }: { widget: HudWidget }) {
-  const { value = 0, max = 100, dangerBelow } = widget.config;
+  const { max = 100, dangerBelow } = widget.config;
+  const value = getNumericWidgetValue(widget);
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const accent = widget.accent ?? "#a78bfa";
   const isDanger = dangerBelow != null && value < dangerBelow;
@@ -934,7 +967,8 @@ function ProgressBarWidget({ widget }: { widget: HudWidget }) {
 }
 
 function GaugeWidget({ widget }: { widget: HudWidget }) {
-  const { value = 0, max = 100, dangerBelow } = widget.config;
+  const { max = 100, dangerBelow } = widget.config;
+  const value = getNumericWidgetValue(widget);
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const accent = widget.accent ?? "#22c55e";
   const isDanger = dangerBelow != null && value < dangerBelow;
@@ -966,7 +1000,8 @@ function GaugeWidget({ widget }: { widget: HudWidget }) {
 }
 
 function RelationshipMeterWidget({ widget }: { widget: HudWidget }) {
-  const { value = 0, max = 100 } = widget.config;
+  const { max = 100 } = widget.config;
+  const value = getNumericWidgetValue(widget);
   const milestones = Array.isArray(widget.config.milestones) ? widget.config.milestones : [];
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const accent = widget.accent ?? "#ec4899";

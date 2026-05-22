@@ -447,6 +447,9 @@ export interface HudWidget {
 /** Type-specific widget config. */
 export interface HudWidgetConfig {
   // progress_bar / gauge / relationship_meter
+  /** Initial value used when the widget is created for a new session. */
+  startingValue?: number;
+  /** Current value shown at runtime. */
   value?: number;
   max?: number;
   milestones?: WidgetMilestone[];
