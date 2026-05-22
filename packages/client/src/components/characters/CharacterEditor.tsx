@@ -40,6 +40,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
 import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { AvatarCropWidget } from "../ui/AvatarCropWidget";
+import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import {
   ArrowLeft,
   Save,
@@ -1981,19 +1982,12 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId);
   const remove = useDeleteCharacterGalleryImage(characterId);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightbox, setLightbox] = useState<CharacterGalleryImage | null>(null);
 
   const handleUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const input = e.currentTarget;
-      const files = Array.from(input.files ?? []);
+    (files: File[]) => {
       if (files.length === 0) return;
-      upload.mutate(files, {
-        onSettled: () => {
-          input.value = "";
-        },
-      });
+      upload.mutate(files);
     },
     [upload],
   );
@@ -2023,17 +2017,15 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
         subtitle="Keep reference art, alternate outfits, and other character images attached to this character even if chats get deleted."
       />
 
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={upload.isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-6 text-xs text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-50"
-      >
-        <Upload size="1rem" />
-        {upload.isPending ? "Uploading…" : "Upload Character Images"}
-      </button>
+      <ImageUploadDropzone
+        label="Upload Character Images"
+        pending={upload.isPending}
+        pendingLabel="Uploading…"
+        dragLabel="Drop character images to upload"
+        onFilesSelected={handleUpload}
+        icon={<Upload size="1rem" />}
+        className="w-full"
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
