@@ -258,7 +258,6 @@ function PromptOverridesEditorBody() {
           {entries.map((entry) => (
             <option key={entry.key} value={entry.key}>
               {humanizePromptKey(entry.key)}
-              {entry.hasOverride ? (entry.enabled ? " · custom" : " · paused") : ""}
             </option>
           ))}
         </select>
