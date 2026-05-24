@@ -17,10 +17,12 @@ async function collectFiles(root) {
 
 const baseRequiredDocs = [
   "AGENTS.md",
+  "CONTRIBUTING.md",
   "README.md",
   "package.json",
   "src/shared/README.md",
   "src/shared/api/README.md",
+  ".github/pull_request_template.md",
   "docs/developer/index.html",
   "docs/developer/getting-started.html",
   "docs/developer/run-build.html",
@@ -158,6 +160,39 @@ if (packageJson.scripts?.["docs:dev"] !== "vite docs/developer --host 127.0.0.1 
 }
 if (packageJson.scripts?.docs) {
   throw new Error("Do not add a docs script; pnpm docs collides with package documentation behavior.");
+}
+
+const contributing = await readFile("CONTRIBUTING.md", "utf8");
+for (const expected of [
+  "pnpm tauri dev",
+  "pnpm check:architecture",
+  "docs/developer/architecture.html",
+  "docs/developer/modules.html",
+  "docs/developer/impact-areas.html",
+  "AI-Assisted Contribution Rules",
+]) {
+  if (!contributing.includes(expected)) {
+    throw new Error(`CONTRIBUTING.md is missing expected guidance: ${expected}.`);
+  }
+}
+
+for (const staleLegacyTerm of [
+  "packages/client",
+  "packages/server",
+  "Fastify",
+  "Docker / Podman",
+  "updates/",
+]) {
+  if (contributing.includes(staleLegacyTerm)) {
+    throw new Error(`CONTRIBUTING.md contains stale repo guidance: ${staleLegacyTerm}.`);
+  }
+}
+
+const pullRequestTemplate = await readFile(".github/pull_request_template.md", "utf8");
+for (const expected of ["Owner And Impact", "Architecture Notes", "pnpm check:architecture", "CONTRIBUTING.md"]) {
+  if (!pullRequestTemplate.includes(expected)) {
+    throw new Error(`Pull request template is missing expected guidance: ${expected}.`);
+  }
 }
 
 console.log(`Checked ${requiredDocs.length} docs and repo guidance files.`);

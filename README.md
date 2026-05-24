@@ -119,6 +119,10 @@ http://127.0.0.1:4174/
 
 The developer docs cover getting started, run/build commands, architecture, module ownership, and impact areas for changes.
 
+## Contributing
+
+Read `CONTRIBUTING.md` before opening a pull request. It covers branch flow, architecture ownership, AI-assisted contribution rules, and validation.
+
 ## Validation
 
 Use the checks that match the change:
