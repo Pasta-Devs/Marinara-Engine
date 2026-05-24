@@ -4,7 +4,7 @@ import { useCharacters } from "../../../hooks/use-characters";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type { TrackerSpriteLookup } from "../tracker-panel.types";
 import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
-import { normalizeLookupText } from "../lib/tracker-metadata";
+import { addAliasLookups, addExactNameLookups, normalizeLookupText } from "../lib/tracker-metadata";
 import { getCharacterProfileColors } from "../lib/tracker-profile-style";
 
 interface UseTrackerSpriteLookupOptions {
@@ -29,16 +29,21 @@ export function useTrackerSpriteLookup({ enabled, chatCharacterIds }: UseTracker
     const idByName = new Map<string, string>();
     const pictureById: Record<string, string> = {};
     const profileColorsById: TrackerSpriteLookup["profileColorsById"] = {};
+    const displayRows = orderedRows.map((character) => ({
+      character,
+      display: parseCharacterDisplayData(character),
+    }));
+    const chatDisplayRows = displayRows.filter(({ character }) => chatIdSet.has(character.id));
+    const fallbackDisplayRows = displayRows.filter(({ character }) => !chatIdSet.has(character.id));
     for (const character of orderedRows) {
       if (character.avatarPath) pictureById[character.id] = character.avatarPath;
       const profileColors = getCharacterProfileColors(character.data);
       if (profileColors) profileColorsById[character.id] = profileColors;
-      const display = parseCharacterDisplayData(character);
-      const nameKey = normalizeLookupText(display.name);
-      if (nameKey && !idByName.has(nameKey)) idByName.set(nameKey, character.id);
-      const commentKey = normalizeLookupText(display.comment);
-      if (commentKey && !idByName.has(commentKey)) idByName.set(commentKey, character.id);
     }
+    addExactNameLookups(chatDisplayRows, idByName);
+    addAliasLookups(chatDisplayRows, idByName);
+    addExactNameLookups(fallbackDisplayRows, idByName);
+    addAliasLookups(fallbackDisplayRows, idByName);
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [charactersData, chatCharacterIds]);
 

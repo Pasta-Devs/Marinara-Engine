@@ -1,3 +1,10 @@
+import { getCharacterLookupAliases, type CharacterDisplayInfo } from "../../../lib/character-display";
+
+export interface CharacterLookupDisplayRow {
+  character: { id: string };
+  display: CharacterDisplayInfo;
+}
+
 export function parseMetadataRecord(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
@@ -50,4 +57,28 @@ export function normalizeMaybeJsonStringArray(value: unknown): string[] {
 
 export function normalizeLookupText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
+}
+
+export function addExactNameLookups(
+  candidates: readonly CharacterLookupDisplayRow[],
+  idByLookupText: Map<string, string>,
+) {
+  for (const { character, display } of candidates) {
+    const nameKey = normalizeLookupText(display.name);
+    if (nameKey && !idByLookupText.has(nameKey)) idByLookupText.set(nameKey, character.id);
+  }
+}
+
+export function addAliasLookups(
+  candidates: readonly CharacterLookupDisplayRow[],
+  idByLookupText: Map<string, string>,
+) {
+  for (const { character, display } of candidates) {
+    const nameKey = normalizeLookupText(display.name);
+    for (const alias of getCharacterLookupAliases(display)) {
+      const aliasKey = normalizeLookupText(alias);
+      if (aliasKey === nameKey) continue;
+      if (aliasKey && !idByLookupText.has(aliasKey)) idByLookupText.set(aliasKey, character.id);
+    }
+  }
 }

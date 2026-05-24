@@ -631,7 +631,7 @@ function TrackerPanelAppearanceDrawer({
           <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
               Temperature unit
-              <HelpTooltip text="Only changes the Tracker Panel display. It does not rewrite the saved world-state temperature or affect the older HUD widgets." />
+              <HelpTooltip text="Changes Tracker Panel and roleplay HUD temperature displays without rewriting the saved world-state temperature." />
             </span>
             <button
               type="button"
