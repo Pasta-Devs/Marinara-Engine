@@ -11,6 +11,43 @@
 
 const SENTENCE_END_RE = /[.!?]+(?:["'”’)\]}])?(?=\s|$)/g;
 
+// Opening and closing quote characters we track for "inside dialogue" state.
+// When we're inside an open quote, we don't treat punctuation as a sentence
+// end — otherwise a multi-sentence dialogue block like `"Hello. How are
+// you. I am fine."` gets fragmented into pieces with unbalanced quotes that
+// downstream splitters can't recognize as dialogue.
+const OPEN_QUOTES = new Set(['"', "“", "«", "「", "『"]);
+const CLOSE_QUOTES_FOR: Record<string, string> = {
+  '"': '"',
+  "“": "”",
+  "«": "»",
+  "「": "」",
+  "『": "』",
+};
+
+/** Walk `text[0..pos)` and return true if there is an unclosed opening quote
+ *  before `pos`. ASCII `"` is treated as a toggle (since it has no separate
+ *  closing form). */
+function isInsideUnclosedQuote(text: string, pos: number): boolean {
+  let asciiOpen = false;
+  const pairStack: string[] = [];
+  for (let i = 0; i < pos; i += 1) {
+    const ch = text[i]!;
+    if (ch === '"') {
+      asciiOpen = !asciiOpen;
+      continue;
+    }
+    if (OPEN_QUOTES.has(ch)) {
+      pairStack.push(CLOSE_QUOTES_FOR[ch]!);
+      continue;
+    }
+    if (pairStack.length > 0 && ch === pairStack[pairStack.length - 1]) {
+      pairStack.pop();
+    }
+  }
+  return asciiOpen || pairStack.length > 0;
+}
+
 // Tokens that often precede a period but should NOT end a sentence.
 // Conservative list — over-eager exclusion would just delay TTS a bit.
 const ABBREVIATIONS = new Set([
@@ -162,6 +199,10 @@ export function extractNewSentences(buffer: string, state: ChunkerState): string
     const onlyDots = /^\.{2,}["'”’)\]}]?$/.test(matched);
     if (onlyDots) continue;
     if (endsWithAbbreviation(scannable, periodPos)) continue;
+    // Skip sentence-ends that occur inside an open quote — fragmenting a
+    // multi-sentence quoted block would leave each piece with unbalanced
+    // quotes, defeating the dialogue/narrator routing in the splitter.
+    if (isInsideUnclosedQuote(buffer, absoluteEnd)) continue;
     lastEnd = absoluteEnd;
   }
 

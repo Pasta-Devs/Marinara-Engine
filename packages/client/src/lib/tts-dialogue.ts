@@ -1,5 +1,9 @@
 import type { TTSConfig } from "@marinara-engine/shared";
-import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "./dialogue-quotes";
+import {
+  DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE,
+  DIALOGUE_QUOTE_PATTERN_SOURCE,
+  stripSurroundingDialogueQuotes,
+} from "./dialogue-quotes";
 
 /**
  * Returns the HTMLAudioElement `playbackRate` to apply client-side based on
@@ -355,6 +359,42 @@ export function buildTTSMessageText(text: string, config: TTSConfig, fallbackSpe
     .join("\n");
 }
 
+/**
+ * Split a free-form roleplay message into dialogue (quoted) and narration
+ * (everything else) utterances. Used when `narratorVoiceEnabled` is on and
+ * the model produces unstructured prose (no `<speaker="X">` tags) — the
+ * common output shape of standard Roleplay mode.
+ *
+ * Without this, the entire message would be a single utterance using the
+ * configured character voice, even though Marinara has a separate narrator
+ * voice configured. The existing dialogue/narrator split only fires for
+ * Game Mode / Visual Novel structured output (speaker tags or `[Name]:`
+ * line format), which leaves standard Roleplay users with a configured-
+ * but-never-used narrator voice.
+ */
+function splitQuotedDialogueAndNarration(text: string, fallbackSpeaker?: string | null): TTSUtterance[] {
+  const re = new RegExp(DIALOGUE_QUOTE_PATTERN_SOURCE, "g");
+  const utterances: TTSUtterance[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    const narrationBefore = cleanTTSInputText(text.slice(lastIndex, match.index));
+    if (narrationBefore) utterances.push({ text: narrationBefore, speaker: "Narrator" });
+    const dialogue = cleanTTSInputText(stripSurroundingDialogueQuotes(match[0]));
+    if (dialogue) utterances.push({ text: dialogue, speaker: fallbackSpeaker || undefined });
+    lastIndex = match.index + match[0].length;
+  }
+  const tail = cleanTTSInputText(text.slice(lastIndex));
+  if (tail) utterances.push({ text: tail, speaker: "Narrator" });
+  // If the input was entirely whitespace, return nothing. We intentionally
+  // do NOT fall back to character voice when every chunk is narration —
+  // when narratorVoiceEnabled is on, the user has opted into a separate
+  // narrator voice for non-dialogue content, even if a particular chunk
+  // happens to contain only narration (common in sentence-by-sentence
+  // streaming TTS where the model emits an action-only sentence first).
+  return utterances;
+}
+
 export function buildTTSVoiceRequests(
   text: string,
   config: TTSConfig,
@@ -364,12 +404,23 @@ export function buildTTSVoiceRequests(
 ): TTSVoiceRequest[] {
   const hasSpeakerTags = /<speaker="[^"]*">/i.test(text);
   const shouldExtractUtterances = config.dialogueOnly || hasSpeakerTags;
+  // Auto-split quotes from prose when narratorVoiceEnabled is configured
+  // for the standard single-voice case with no structured tags. Skip when
+  // dialogueOnly is on (that path discards narration deliberately) or
+  // voiceMode is per-character (assignments already drive the split).
+  const shouldAutoSplitForNarrator =
+    !hasSpeakerTags &&
+    !config.dialogueOnly &&
+    !!config.narratorVoiceEnabled &&
+    (config.voiceMode ?? "single") === "single";
   const utterances =
     hasSpeakerTags && !config.dialogueOnly
       ? extractSpeakerTaggedUtterances(text, config, fallbackSpeaker, true)
       : shouldExtractUtterances
         ? extractDialogueUtterances(text, config, fallbackSpeaker)
-        : [{ text: cleanTTSInputText(text), speaker: fallbackSpeaker || undefined } satisfies TTSUtterance];
+        : shouldAutoSplitForNarrator
+          ? splitQuotedDialogueAndNarration(text, fallbackSpeaker)
+          : [{ text: cleanTTSInputText(text), speaker: fallbackSpeaker || undefined } satisfies TTSUtterance];
 
   const fallbackSpeakerKey = normalizeTTSCharacterName(fallbackSpeaker);
   return utterances.flatMap((utterance) => {
