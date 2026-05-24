@@ -49,6 +49,11 @@ import { api } from "../../lib/api-client";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
+  isStreamingTTSActive,
+  stopStreamingTTS,
+  subscribeStreamingTTSActive,
+} from "../../hooks/use-streaming-tts";
+import {
   buildTTSVoiceRequests,
   clientSidePlaybackRate,
   normalizeTTSCharacterName,
@@ -881,8 +886,21 @@ export const ChatMessage = memo(function ChatMessage({
   const isSpeakingThis = ttsActiveId === message.id;
   const isLoadingThis = isSpeakingThis && ttsState === "loading";
   const isPausedThis = isSpeakingThis && ttsState === "paused";
+  // Track whether the streaming-TTS hook is actively playing. When true,
+  // every speaker icon acts as a "stop" affordance — clicking any of them
+  // halts the streaming-TTS session.
+  const [streamingTTSActive, setStreamingTTSActive] = useState<boolean>(() => isStreamingTTSActive());
+  useEffect(() => subscribeStreamingTTSActive(setStreamingTTSActive), []);
 
   const handleSpeak = useCallback(() => {
+    // If a streaming-TTS session is running (autoplayStreaming), stop it.
+    // This serves as the "stop audio" interaction for streaming playback —
+    // the chat's generation-abort path only fires WHILE the LLM is streaming;
+    // after natural completion the queued audio keeps playing otherwise.
+    if (isStreamingTTSActive()) {
+      stopStreamingTTS();
+      return;
+    }
     // Read directly from the singleton so we never act on stale React state
     const liveState = ttsService.getState();
     const liveActiveId = ttsService.getActiveId();
@@ -2030,7 +2048,7 @@ export const ChatMessage = memo(function ChatMessage({
                     icon={
                       isLoadingThis ? (
                         <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-                      ) : isSpeakingThis ? (
+                      ) : isSpeakingThis || streamingTTSActive ? (
                         <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
                       ) : (
                         <Volume2 size={MESSAGE_ACTION_ICON_SIZE} />
@@ -2038,16 +2056,18 @@ export const ChatMessage = memo(function ChatMessage({
                     }
                     onClick={handleSpeak}
                     title={
-                      !hasTTSContent
-                        ? "No dialogue to speak"
-                        : isLoadingThis
-                          ? "Loading…"
-                          : isSpeakingThis
-                            ? "Stop speaking"
-                            : "Speak"
+                      streamingTTSActive
+                        ? "Stop streaming narration"
+                        : !hasTTSContent
+                          ? "No dialogue to speak"
+                          : isLoadingThis
+                            ? "Loading…"
+                            : isSpeakingThis
+                              ? "Stop speaking"
+                              : "Speak"
                     }
-                    className={isSpeakingThis ? "text-sky-400 hover:text-sky-300" : undefined}
-                    disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
+                    className={isSpeakingThis || streamingTTSActive ? "text-sky-400 hover:text-sky-300" : undefined}
+                    disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}
                     dark
                   />
                 </>
@@ -2457,7 +2477,7 @@ export const ChatMessage = memo(function ChatMessage({
                   icon={
                     isLoadingThis ? (
                       <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-                    ) : isSpeakingThis ? (
+                    ) : isSpeakingThis || streamingTTSActive ? (
                       <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
                     ) : (
                       <Volume2 size={MESSAGE_ACTION_ICON_SIZE} />
@@ -2465,16 +2485,18 @@ export const ChatMessage = memo(function ChatMessage({
                   }
                   onClick={handleSpeak}
                   title={
-                    !hasTTSContent
-                      ? "No dialogue to speak"
-                      : isLoadingThis
-                        ? "Loading…"
-                        : isSpeakingThis
-                          ? "Stop speaking"
-                          : "Speak"
+                    streamingTTSActive
+                      ? "Stop streaming narration"
+                      : !hasTTSContent
+                        ? "No dialogue to speak"
+                        : isLoadingThis
+                          ? "Loading…"
+                          : isSpeakingThis
+                            ? "Stop speaking"
+                            : "Speak"
                   }
-                  className={isSpeakingThis ? "text-sky-500" : undefined}
-                  disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
+                  className={isSpeakingThis || streamingTTSActive ? "text-sky-500" : undefined}
+                  disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}
                 />
               </>
             )}
