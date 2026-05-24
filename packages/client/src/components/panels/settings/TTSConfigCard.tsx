@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSVoices } from "../../../hooks/use-tts";
 import { useCharacters } from "../../../hooks/use-characters";
 import { ttsService } from "../../../lib/tts-service";
+import { clientSidePlaybackRate } from "../../../lib/tts-dialogue";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type { TTSConfig, TTSSource, TTSVoiceAssignment, TTSVoiceMode, TTSAudioFormat } from "@marinara-engine/shared";
 import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "@marinara-engine/shared";
@@ -488,6 +489,7 @@ export function TTSConfigCard() {
         await ttsService.speak("Hello! This is a preview of the text to speech voice.", "tts-preview", {
           throwOnError: true,
           voice: previewVoice,
+          playbackRate: clientSidePlaybackRate(payload),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "TTS preview failed.";

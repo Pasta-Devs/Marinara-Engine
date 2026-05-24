@@ -15,6 +15,11 @@ export interface TTSSpeakOptions {
   throwOnError?: boolean;
   cacheKey?: string;
   cacheAliases?: string[];
+  /** Override the HTMLAudioElement playback rate. Useful when the configured
+   *  TTS server ignores the `speed` request parameter (most local /v1/audio/speech
+   *  servers do — only OpenAI's cloud and a few others honor it). Pitch is
+   *  preserved by the browser. Defaults to 1.0 (no change). */
+  playbackRate?: number;
 }
 
 export interface TTSSpeakRequest {
@@ -152,6 +157,9 @@ class TTSService {
     this.currentObjectUrl = objectUrl;
 
     const audio = new Audio(objectUrl);
+    if (options.playbackRate && options.playbackRate > 0 && options.playbackRate !== 1) {
+      audio.playbackRate = options.playbackRate;
+    }
     this.audio = audio;
 
     audio.onended = () => {
@@ -185,7 +193,7 @@ class TTSService {
   async speakSequence(
     requests: TTSSpeakRequest[],
     id?: string,
-    options: Pick<TTSSpeakOptions, "signal" | "throwOnError"> = {},
+    options: Pick<TTSSpeakOptions, "signal" | "throwOnError" | "playbackRate"> = {},
   ): Promise<void> {
     const playableRequests = requests.filter((request) => request.text.trim().length > 0);
     if (playableRequests.length === 0) return;
@@ -260,6 +268,9 @@ class TTSService {
       this.currentObjectUrl = objectUrl;
 
       const audio = new Audio(objectUrl);
+      if (options.playbackRate && options.playbackRate > 0 && options.playbackRate !== 1) {
+        audio.playbackRate = options.playbackRate;
+      }
       this.audio = audio;
 
       audio.onended = () => {

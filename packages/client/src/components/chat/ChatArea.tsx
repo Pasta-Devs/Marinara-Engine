@@ -62,7 +62,12 @@ import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
-import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCacheKeys } from "../../lib/tts-dialogue";
+import {
+  buildTTSVoiceRequests,
+  clientSidePlaybackRate,
+  normalizeTTSCharacterName,
+  withTTSVoiceRequestCacheKeys,
+} from "../../lib/tts-dialogue";
 import { mirrorSpritePlacements, normalizeSpritePlacements } from "./sprite-placement";
 import { normalizeSpriteDisplayModes } from "./sprite-display-modes";
 import type {
@@ -1451,7 +1456,9 @@ export function ChatArea() {
     );
     if (ttsRequests.length === 0) return;
 
-    void ttsService.speakSequence(withTTSVoiceRequestCacheKeys(ttsRequests, cfg, lastMsg.id), lastMsg.id);
+    void ttsService.speakSequence(withTTSVoiceRequestCacheKeys(ttsRequests, cfg, lastMsg.id), lastMsg.id, {
+      playbackRate: clientSidePlaybackRate(cfg),
+    });
   }, [characterMap, isStreaming, resolveTTSCharacterId]);
 
   const newestMsgId = msgData?.pages[0]?.[msgData.pages[0].length - 1]?.id;

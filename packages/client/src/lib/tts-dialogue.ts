@@ -1,6 +1,32 @@
 import type { TTSConfig } from "@marinara-engine/shared";
 import { DIALOGUE_QUOTE_CAPTURE_GROUP_PATTERN_SOURCE, stripSurroundingDialogueQuotes } from "./dialogue-quotes";
 
+/**
+ * Returns the HTMLAudioElement `playbackRate` to apply client-side based on
+ * the configured TTS provider.
+ *
+ * OpenAI's cloud TTS honors the `speed` parameter in `/v1/audio/speech`, so
+ * the audio comes back already time-stretched and no client-side override
+ * is needed (and would in fact double-apply, e.g. 1.5 * 1.5 = 2.25× speed).
+ * Most local OAI-compatible TTS servers (mlx-audio, openedai-speech, etc.)
+ * silently ignore the `speed` request param, so the audio arrives at 1×
+ * and the user's slider has no effect. For those we fall back to setting
+ * `audio.playbackRate` on the HTMLAudioElement, which preserves pitch by
+ * default in modern browsers.
+ *
+ * For non-OpenAI sources (ElevenLabs, PocketTTS), we trust the provider's
+ * own handling of duration / prosody and don't apply a client-side rate.
+ */
+export function clientSidePlaybackRate(cfg: TTSConfig | null | undefined): number {
+  if (!cfg || cfg.source !== "openai") return 1;
+  const baseUrl = (cfg.baseUrl || "").toLowerCase();
+  // Real OpenAI cloud — server already speed-stretched the audio.
+  if (baseUrl.includes("api.openai.com")) return 1;
+  // Local / custom OAI-compatible server — assume `speed` request param
+  // wasn't honored, apply client-side as a fallback.
+  return cfg.speed && cfg.speed > 0 ? cfg.speed : 1;
+}
+
 export interface TTSUtterance {
   text: string;
   speaker?: string;

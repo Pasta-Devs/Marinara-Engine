@@ -48,7 +48,12 @@ import { useTranslate } from "../../hooks/use-translate";
 import { api } from "../../lib/api-client";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
-import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCacheKeys } from "../../lib/tts-dialogue";
+import {
+  buildTTSVoiceRequests,
+  clientSidePlaybackRate,
+  normalizeTTSCharacterName,
+  withTTSVoiceRequestCacheKeys,
+} from "../../lib/tts-dialogue";
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
 import DOMPurify from "dompurify";
 import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
@@ -888,9 +893,11 @@ export const ChatMessage = memo(function ChatMessage({
       ttsService.stop();
     } else {
       if (!hasTTSContent) return;
-      void ttsService.speakSequence(ttsVoiceRequests, message.id);
+      void ttsService.speakSequence(ttsVoiceRequests, message.id, {
+        playbackRate: clientSidePlaybackRate(ttsConfig),
+      });
     }
-  }, [hasTTSContent, message.id, ttsVoiceRequests]);
+  }, [hasTTSContent, message.id, ttsVoiceRequests, ttsConfig]);
 
   const handlePauseResumeTTS = useCallback(() => {
     if (ttsService.getActiveId() !== message.id) return;
