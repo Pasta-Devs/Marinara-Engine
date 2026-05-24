@@ -3,8 +3,9 @@ import { ArrowLeft, ArrowUpDown, Download, MessageCircle, Pencil, Plus, Search, 
 import { useCharacters } from "../hooks/use-characters";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { getCharacterTitle } from "../../../../shared/lib/character-display";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../shared/lib/utils";
+import { cn } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
 type CharacterData = Record<string, unknown> & {
   name?: string;
@@ -106,14 +107,10 @@ function CharacterLibraryDetailCard({
       <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--background)]/70 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.95)] sm:rounded-[2rem]">
         <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15">
           {character.avatarPath ? (
-            <img
+            <CharacterAvatarImage
               src={character.avatarPath}
               alt={characterName || "Selected character"}
-              className="h-full w-full object-cover"
-              style={getAvatarCropStyle(
-                character.parsed.extensions?.avatarCrop as AvatarCrop
-                  | undefined,
-              )}
+              crop={character.parsed.extensions?.avatarCrop}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-white/85">
@@ -428,15 +425,11 @@ export function CharacterLibraryView() {
                     >
                       <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15 sm:h-auto sm:w-full sm:aspect-[4/3]">
                         {char.avatarPath ? (
-                          <img
+                          <CharacterAvatarImage
                             src={char.avatarPath}
                             alt={charName}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                            style={getAvatarCropStyle(
-                              char.parsed.extensions?.avatarCrop as AvatarCrop
-                                | undefined,
-                            )}
+                            crop={char.parsed.extensions?.avatarCrop}
+                            className="transition-transform duration-300 group-hover:scale-[1.03]"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-white/85">

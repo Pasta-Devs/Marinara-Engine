@@ -48,8 +48,9 @@ import {
 } from "lucide-react";
 import { getCharacterTitle } from "../../../../shared/lib/character-display";
 import { useUIStore } from "../../../../shared/stores/ui.store";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../shared/lib/utils";
+import { cn } from "../../../../shared/lib/utils";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
+import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
 type CharacterRow = {
   id: string;
@@ -181,9 +182,17 @@ export function CharactersPanel() {
   }, [characters]) as ParsedCharacterRow[];
 
   const charMap = useMemo(() => {
-    const map = new Map<string, { name: string; comment?: string | null; avatarPath: string | null }>();
+    const map = new Map<
+      string,
+      { name: string; comment?: string | null; avatarPath: string | null; avatarCrop?: unknown }
+    >();
     for (const c of parsedCharacters) {
-      map.set(c.id, { name: c.parsed.name ?? "Unknown", comment: c.comment, avatarPath: c.avatarPath });
+      map.set(c.id, {
+        name: c.parsed.name ?? "Unknown",
+        comment: c.comment,
+        avatarPath: c.avatarPath,
+        avatarCrop: c.parsed.extensions?.avatarCrop,
+      });
     }
     return map;
   }, [parsedCharacters]);
@@ -944,13 +953,12 @@ export function CharactersPanel() {
                             }}
                             className="group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]"
                           >
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-pink-400 to-rose-500 text-white">
+                            <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-pink-400 to-rose-500 text-white">
                               {member.avatarPath ? (
-                                <img
+                                <CharacterAvatarImage
                                   src={member.avatarPath}
                                   alt={member.name}
-                                  loading="lazy"
-                                  className="h-full w-full object-cover"
+                                  crop={member.avatarCrop}
                                 />
                               ) : (
                                 <User size="0.75rem" />
@@ -1120,14 +1128,10 @@ export function CharactersPanel() {
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm">
                 {avatarUrl ? (
                   <div className="absolute inset-0 overflow-hidden rounded-xl">
-                    <img
+                    <CharacterAvatarImage
                       src={avatarUrl}
                       alt={charName}
-                      className="h-full w-full object-cover"
-                      style={getAvatarCropStyle(
-                        char.parsed.extensions?.avatarCrop as AvatarCrop
-                          | undefined,
-                      )}
+                      crop={char.parsed.extensions?.avatarCrop}
                     />
                   </div>
                 ) : (
