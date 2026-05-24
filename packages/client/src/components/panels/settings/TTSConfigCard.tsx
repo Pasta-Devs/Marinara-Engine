@@ -305,6 +305,7 @@ export function TTSConfigCard() {
   const [autoplayRP, setAutoplayRP] = useState(false);
   const [autoplayConvo, setAutoplayConvo] = useState(false);
   const [autoplayGame, setAutoplayGame] = useState(false);
+  const [autoplayStreaming, setAutoplayStreaming] = useState(false);
   const [dialogueOnly, setDialogueOnly] = useState(false);
   const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
 
@@ -349,6 +350,7 @@ export function TTSConfigCard() {
     setAutoplayRP(savedConfig.autoplayRP);
     setAutoplayConvo(savedConfig.autoplayConvo);
     setAutoplayGame(savedConfig.autoplayGame);
+    setAutoplayStreaming(savedConfig.autoplayStreaming ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
     setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setSaveStatus("idle");
@@ -394,6 +396,7 @@ export function TTSConfigCard() {
     autoplayRP,
     autoplayConvo,
     autoplayGame,
+    autoplayStreaming,
     dialogueOnly,
     audioFormat,
     dialogueScope: "all",
@@ -1225,6 +1228,14 @@ export function TTSConfigCard() {
               onChange={(v) => {
                 setAutoplayGame(v);
                 mark({ autoplayGame: v });
+              }}
+            />
+            <ToggleRow
+              label="Stream as the model generates"
+              checked={autoplayStreaming}
+              onChange={(v) => {
+                setAutoplayStreaming(v);
+                mark({ autoplayStreaming: v });
               }}
             />
             <ToggleRow

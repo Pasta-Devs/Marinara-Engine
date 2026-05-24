@@ -124,6 +124,15 @@ export const ttsConfigSchema = z.object({
   autoplayRP: z.boolean().default(false),
   autoplayConvo: z.boolean().default(false),
   autoplayGame: z.boolean().default(false),
+  /**
+   * When true, the client dispatches TTS per sentence as the model streams
+   * instead of waiting for the full reply. Reduces first-audio latency from
+   * "time-to-full-response" (5-30s) to "time-to-first-sentence" (1-2s).
+   * Each sentence becomes a separate /api/tts/speak call; audio chunks are
+   * queued and played sequentially. When this is on, the end-of-stream
+   * autoplay is suppressed to avoid playing the reply twice.
+   */
+  autoplayStreaming: z.boolean().default(false),
   dialogueOnly: z.boolean().default(false),
   audioFormat: ttsAudioFormatSchema.default("mp3"),
   dialogueScope: ttsDialogueScopeSchema.default("all"),

@@ -62,6 +62,7 @@ import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
+import { useStreamingTTS } from "../../hooks/use-streaming-tts";
 import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCacheKeys } from "../../lib/tts-dialogue";
 import { mirrorSpritePlacements, normalizeSpritePlacements } from "./sprite-placement";
 import { normalizeSpriteDisplayModes } from "./sprite-display-modes";
@@ -1412,6 +1413,26 @@ export function ChatArea() {
     },
     [characterMap],
   );
+
+  // Streaming TTS — dispatch per sentence as the model generates so the
+  // first audio arrives in 1-2s instead of waiting for the full reply.
+  // The hook is a no-op unless cfg.enabled && cfg.autoplayStreaming, and
+  // only runs while THIS chat is the actively-streaming one.
+  const streamingTTSEnabled =
+    !!ttsConfig?.enabled &&
+    !!ttsConfig?.autoplayStreaming &&
+    (chatMode === "roleplay" || chatMode === "visual_novel"
+      ? !!ttsConfig.autoplayRP
+      : chatMode === "game"
+        ? false
+        : !!ttsConfig.autoplayConvo);
+  useStreamingTTS({
+    enabled: streamingTTSEnabled,
+    chatId: activeChatId,
+    ttsConfig,
+    resolveCharacterIdForSpeaker: resolveTTSCharacterId,
+  });
+
   useEffect(() => {
     const wasStreaming = prevIsStreamingRef.current;
     prevIsStreamingRef.current = isStreaming;
@@ -1419,6 +1440,11 @@ export function ChatArea() {
 
     const cfg = ttsConfigRef.current;
     if (!cfg?.enabled) return;
+
+    // When the per-sentence streaming-TTS path is active, the audio for the
+    // reply has already played (or is still playing). Skip the end-of-stream
+    // autoplay so we don't speak the same content twice.
+    if (cfg.autoplayStreaming) return;
 
     const mode = chatModeRef.current;
     const shouldAutoplay =
