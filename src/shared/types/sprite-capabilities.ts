@@ -1,4 +1,4 @@
-export type SpriteCleanupEngine = "auto" | "builtin";
+export type SpriteCleanupEngine = "auto" | "builtin" | "backgroundremover";
 
 export interface SpriteCapabilities {
   imageProcessingAvailable: boolean;
@@ -9,7 +9,7 @@ export interface SpriteCapabilities {
     engine: SpriteCleanupEngine;
     installed: boolean;
     command: string | null;
-    source: "env" | "local" | "path" | null;
+    source: "bundled" | "env" | "local" | "path" | "builtin" | null;
     runtimeDir: string;
     reason: string | null;
   };

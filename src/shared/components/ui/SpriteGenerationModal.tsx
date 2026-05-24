@@ -540,7 +540,7 @@ export function SpriteGenerationModal({
   const spriteGenerationReason = spriteCapabilities?.reason ?? "Sprite generation is unavailable on this platform.";
   const cleanupEngineUnavailable = spriteCapabilities?.cleanupEngine?.installed === false;
   const cleanupEngineReason =
-    spriteCapabilities?.cleanupEngine?.reason ?? "Built-in sprite cleanup is not available.";
+    spriteCapabilities?.cleanupEngine?.reason ?? "Sprite cleanup is not available.";
   const existingPortraitExpressions = useMemo(() => {
     const seen = new Set<string>();
     const names: string[] = [];
@@ -982,7 +982,7 @@ export function SpriteGenerationModal({
     try {
       const result = await spriteApi.cleanup<{ cells: Array<{ expression: string; base64: string }> }>({
         cleanupStrength,
-        engine: "builtin",
+        engine: "auto",
         cells: cells.map((cell) => ({
           expression: cell.expression,
           base64: cell.rawDataUrl,
@@ -1898,7 +1898,7 @@ export function SpriteGenerationModal({
                         onClick={handleApplyCleanup}
                         disabled={cleanupApplying || cleanupEngineUnavailable || cells.length === 0}
                         className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                        title={cleanupEngineUnavailable ? cleanupEngineReason : "Run built-in cleanup"}
+                        title={cleanupEngineUnavailable ? cleanupEngineReason : "Run background cleanup"}
                       >
                         {cleanupApplying ? "Applying..." : cleanupApplied ? "Reapply Cleanup" : "Apply Cleanup"}
                       </button>

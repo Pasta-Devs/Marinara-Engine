@@ -33,7 +33,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/default-data/**/*", "resources/platform-assets/**/*"],
+    "resources": [
+      "resources/default-data/**/*",
+      "resources/platform-assets/**/*",
+      "resources/background-remover/**/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

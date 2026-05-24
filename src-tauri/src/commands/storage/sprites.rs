@@ -1569,6 +1569,45 @@ fn background_remover_runtime_dir(state: &AppState) -> PathBuf {
     state.data_dir.join("background-remover")
 }
 
+fn bundled_background_remover_roots(state: &AppState) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(resource_dir) = &state.resource_dir {
+        roots.push(resource_dir.join("resources").join("background-remover"));
+        roots.push(resource_dir.join("background-remover"));
+    }
+    roots.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("background-remover"),
+    );
+    roots
+}
+
+fn platform_runtime_dirs(root: &Path) -> Vec<PathBuf> {
+    let os = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    };
+    let arch = if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "generic"
+    };
+    vec![
+        root.join(format!("{os}-{arch}")),
+        root.join(os),
+        root.join("common"),
+        root.to_path_buf(),
+    ]
+}
+
 fn executable_exists(path: &Path) -> bool {
     path.is_file()
 }
@@ -1613,7 +1652,46 @@ fn find_executable_on_path(name: &str) -> Option<PathBuf> {
     None
 }
 
+fn bundled_runtime_executable(dir: &Path, name: &str) -> Option<PathBuf> {
+    for executable in path_executable_names(name) {
+        for parent in [dir.to_path_buf(), dir.join("bin"), dir.join("Scripts")] {
+            let candidate = parent.join(&executable);
+            if executable_exists(&candidate) {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn resolve_bundled_backgroundremover_command(state: &AppState) -> Option<BackgroundRemoverCommand> {
+    for root in bundled_background_remover_roots(state) {
+        for dir in platform_runtime_dirs(&root) {
+            if let Some(command) = bundled_runtime_executable(&dir, "backgroundremover") {
+                return Some(BackgroundRemoverCommand {
+                    label: command.to_string_lossy().to_string(),
+                    command,
+                    args_prefix: Vec::new(),
+                    source: "bundled",
+                });
+            }
+            if let Some(command) = bundled_runtime_executable(&dir, "python") {
+                return Some(BackgroundRemoverCommand {
+                    label: format!("{} -m backgroundremover.cmd.cli", command.to_string_lossy()),
+                    command,
+                    args_prefix: vec!["-m".to_string(), "backgroundremover.cmd.cli".to_string()],
+                    source: "bundled",
+                });
+            }
+        }
+    }
+    None
+}
+
 fn resolve_backgroundremover_command(state: &AppState) -> Option<BackgroundRemoverCommand> {
+    if let Some(command) = resolve_bundled_backgroundremover_command(state) {
+        return Some(command);
+    }
     if let Ok(command) = env::var("BACKGROUNDREMOVER_COMMAND") {
         let command = command.trim();
         if !command.is_empty() {
@@ -1686,7 +1764,7 @@ fn background_remover_status(state: &AppState) -> Value {
         } else if command.is_some() {
             Value::Null
         } else {
-            Value::String("Install backgroundremover or set BACKGROUNDREMOVER_COMMAND/BACKGROUNDREMOVER_PYTHON to enable optional AI background cleanup.".to_string())
+            Value::String("No bundled backgroundremover runtime was found for this platform. Marinara will use built-in matte cleanup unless BACKGROUNDREMOVER_COMMAND/BACKGROUNDREMOVER_PYTHON or PATH provides backgroundremover.".to_string())
         }
     })
 }
@@ -1698,6 +1776,10 @@ fn cleanup_engine_status(state: &AppState) -> Value {
         .get("installed")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let background_remover_reason = background_remover
+        .get("reason")
+        .cloned()
+        .unwrap_or(Value::Null);
     let forced_background_remover = engine == "backgroundremover";
     let installed = !forced_background_remover || background_remover_installed;
     json!({
@@ -1706,20 +1788,32 @@ fn cleanup_engine_status(state: &AppState) -> Value {
         "command": background_remover.get("command").cloned().unwrap_or(Value::Null),
         "source": if background_remover_installed {
             background_remover.get("source").cloned().unwrap_or(Value::Null)
+        } else if installed {
+            json!("builtin")
         } else {
-            json!("local")
+            Value::Null
         },
         "runtimeDir": background_remover_runtime_dir(state).to_string_lossy(),
         "reason": if installed {
-            if background_remover_installed {
+            if engine == "builtin" {
+                background_remover_reason.clone().as_str().map_or_else(|| {
+                    Value::String("Built-in matte cleanup is forced by SPRITE_BACKGROUND_REMOVAL_ENGINE".to_string())
+                }, |_| background_remover_reason.clone())
+            } else if background_remover_installed {
                 Value::Null
+            } else if background_remover_reason
+                .as_str()
+                .map(|reason| reason.contains("disabled"))
+                .unwrap_or(false)
+            {
+                background_remover_reason.clone()
             } else {
-                Value::String("Using built-in matte cleanup; optional backgroundremover is not installed.".to_string())
+                Value::String("Using built-in matte cleanup; no bundled or external backgroundremover runtime is available.".to_string())
             }
         } else {
-            background_remover.get("reason").cloned().unwrap_or_else(|| {
+            background_remover_reason.as_str().map_or_else(|| {
                 Value::String("backgroundremover is required but unavailable.".to_string())
-            })
+            }, |_| background_remover_reason.clone())
         }
     })
 }
@@ -1748,7 +1842,7 @@ fn try_remove_background_with_backgroundremover(
         if required || engine == "backgroundremover" {
             return Err(AppError::new(
                 "backgroundremover_unavailable",
-                "backgroundremover is not installed. Install it or set BACKGROUNDREMOVER_COMMAND/BACKGROUNDREMOVER_PYTHON.",
+                "backgroundremover is not available. Add a bundled runtime or set BACKGROUNDREMOVER_COMMAND/BACKGROUNDREMOVER_PYTHON.",
             ));
         }
         return Ok(None);
@@ -1844,4 +1938,140 @@ fn validate_safe_segment(value: &str, label: &str) -> AppResult<()> {
 
 fn image_error(error: image::ImageError) -> AppError {
     AppError::new("image_processing_error", error.to_string())
+}
+
+#[cfg(test)]
+mod background_remover_runtime_tests {
+    use super::*;
+    use std::fs;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn temp_path(label: &str) -> PathBuf {
+        env::temp_dir().join(format!("marinara-bgrem-{label}-{}", now_millis()))
+    }
+
+    fn test_state(data_dir: PathBuf, resource_dir: Option<PathBuf>) -> AppState {
+        AppState::from_data_dir_with_resource_dir(data_dir, Vec::new(), resource_dir)
+            .expect("test state should initialize")
+    }
+
+    #[test]
+    fn bundled_backgroundremover_is_preferred_before_env_and_path() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let old_command = env::var_os("BACKGROUNDREMOVER_COMMAND");
+        env::set_var("BACKGROUNDREMOVER_COMMAND", "external-backgroundremover");
+
+        let root = temp_path("bundled");
+        let data_dir = root.join("data");
+        let resource_dir = root.join("resources-root");
+        let bundled_dir = resource_dir
+            .join("resources")
+            .join("background-remover")
+            .join(
+                platform_runtime_dirs(Path::new(""))
+                    .into_iter()
+                    .next()
+                    .expect("platform dir"),
+            );
+        fs::create_dir_all(&bundled_dir).expect("runtime dir");
+        let command_path = bundled_dir.join(if cfg!(windows) {
+            "backgroundremover.exe"
+        } else {
+            "backgroundremover"
+        });
+        fs::write(&command_path, b"fake").expect("fake command");
+
+        let state = test_state(data_dir, Some(resource_dir));
+        let command = resolve_backgroundremover_command(&state).expect("bundled runtime");
+
+        assert_eq!(command.source, "bundled");
+        assert_eq!(command.command, command_path);
+
+        if let Some(value) = old_command {
+            env::set_var("BACKGROUNDREMOVER_COMMAND", value);
+        } else {
+            env::remove_var("BACKGROUNDREMOVER_COMMAND");
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn builtin_fallback_reports_builtin_source() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let old_engine = env::var_os("SPRITE_BACKGROUND_REMOVAL_ENGINE");
+        env::set_var("SPRITE_BACKGROUND_REMOVAL_ENGINE", "builtin");
+
+        let root = temp_path("builtin");
+        let state = test_state(root.join("data"), Some(root.join("resources-root")));
+        let status = cleanup_engine_status(&state);
+
+        assert_eq!(
+            status.get("source").and_then(Value::as_str),
+            Some("builtin")
+        );
+        assert!(status
+            .get("reason")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("Built-in matte cleanup is forced"));
+
+        if let Some(value) = old_engine {
+            env::set_var("SPRITE_BACKGROUND_REMOVAL_ENGINE", value);
+        } else {
+            env::remove_var("SPRITE_BACKGROUND_REMOVAL_ENGINE");
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn forced_backgroundremover_unavailable_does_not_claim_builtin_source() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let old_engine = env::var_os("SPRITE_BACKGROUND_REMOVAL_ENGINE");
+        let old_command = env::var_os("BACKGROUNDREMOVER_COMMAND");
+        let old_python = env::var_os("BACKGROUNDREMOVER_PYTHON");
+        let old_path = env::var_os("PATH");
+        env::set_var("SPRITE_BACKGROUND_REMOVAL_ENGINE", "backgroundremover");
+        env::remove_var("BACKGROUNDREMOVER_COMMAND");
+        env::remove_var("BACKGROUNDREMOVER_PYTHON");
+        env::set_var("PATH", "");
+
+        let root = temp_path("required-missing");
+        let state = test_state(root.join("data"), Some(root.join("resources-root")));
+        let status = cleanup_engine_status(&state);
+
+        assert_eq!(
+            status.get("installed").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(status.get("source").and_then(Value::as_str), None);
+        assert!(status
+            .get("reason")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("No bundled backgroundremover runtime"));
+
+        if let Some(value) = old_engine {
+            env::set_var("SPRITE_BACKGROUND_REMOVAL_ENGINE", value);
+        } else {
+            env::remove_var("SPRITE_BACKGROUND_REMOVAL_ENGINE");
+        }
+        if let Some(value) = old_command {
+            env::set_var("BACKGROUNDREMOVER_COMMAND", value);
+        } else {
+            env::remove_var("BACKGROUNDREMOVER_COMMAND");
+        }
+        if let Some(value) = old_python {
+            env::set_var("BACKGROUNDREMOVER_PYTHON", value);
+        } else {
+            env::remove_var("BACKGROUNDREMOVER_PYTHON");
+        }
+        if let Some(value) = old_path {
+            env::set_var("PATH", value);
+        } else {
+            env::remove_var("PATH");
+        }
+        let _ = fs::remove_dir_all(root);
+    }
 }

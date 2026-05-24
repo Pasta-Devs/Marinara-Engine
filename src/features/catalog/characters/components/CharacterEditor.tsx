@@ -2143,7 +2143,7 @@ function SpritesTab({
   const backgroundCleanupReason = spriteCapabilities?.reason ?? "Background cleanup is unavailable on this platform.";
   const cleanupEngineUnavailable = spriteCapabilities?.cleanupEngine?.installed === false;
   const cleanupEngineReason =
-    spriteCapabilities?.cleanupEngine?.reason ?? "Built-in sprite cleanup is not available.";
+    spriteCapabilities?.cleanupEngine?.reason ?? "Sprite cleanup is not available.";
 
   const normalizeExpressionForCategory = (raw: string) => {
     const cleaned = raw
@@ -2299,7 +2299,7 @@ function SpritesTab({
     if (
       !(await showConfirmDialog({
         title: "Clean Sprite Backgrounds",
-        message: `Run built-in cleanup on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Marinara will keep a restore point in case the cleanup looks wrong.`,
+        message: `Run background cleanup on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Marinara will keep a restore point in case the cleanup looks wrong.`,
         confirmLabel: "Clean",
       }))
     ) {
@@ -2312,7 +2312,7 @@ function SpritesTab({
         characterId,
         expressions: visibleSprites.map((sprite) => sprite.expression),
         cleanupStrength: savedCleanupStrength,
-        engine: "builtin",
+        engine: "auto",
       });
 
       if (result.processed > 0) {
@@ -2485,7 +2485,7 @@ function SpritesTab({
                   ? backgroundCleanupReason
                   : cleanupEngineUnavailable
                     ? cleanupEngineReason
-                    : "Run built-in cleanup on the currently visible saved sprites"
+                    : "Run background cleanup on the currently visible saved sprites"
               }
             >
               {cleaningSprites ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Eraser size="0.8125rem" />}

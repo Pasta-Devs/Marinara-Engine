@@ -15,6 +15,7 @@ pub struct AppState {
     pub game_assets: AssetService,
     pub backgrounds: AssetService,
     pub data_dir: PathBuf,
+    pub resource_dir: Option<PathBuf>,
     llm_stream_cancellations: Arc<Mutex<LlmStreamCancellations>>,
 }
 
@@ -31,12 +32,21 @@ impl AppState {
             .app_data_dir()
             .map_err(|error| AppError::new("data_dir_error", error.to_string()))?;
         let default_data_roots = Self::default_data_roots(app);
-        Self::from_data_dir(data_dir, default_data_roots)
+        let resource_dir = app.path().resource_dir().ok();
+        Self::from_data_dir_with_resource_dir(data_dir, default_data_roots, resource_dir)
     }
 
     pub fn from_data_dir(
         data_dir: impl Into<PathBuf>,
         default_data_roots: Vec<PathBuf>,
+    ) -> AppResult<Self> {
+        Self::from_data_dir_with_resource_dir(data_dir, default_data_roots, None)
+    }
+
+    pub fn from_data_dir_with_resource_dir(
+        data_dir: impl Into<PathBuf>,
+        default_data_roots: Vec<PathBuf>,
+        resource_dir: Option<PathBuf>,
     ) -> AppResult<Self> {
         let data_dir = data_dir.into();
         std::fs::create_dir_all(&data_dir)?;
@@ -50,6 +60,7 @@ impl AppState {
             game_assets,
             backgrounds,
             data_dir,
+            resource_dir,
             llm_stream_cancellations: Arc::new(Mutex::new(LlmStreamCancellations::default())),
         })
     }
