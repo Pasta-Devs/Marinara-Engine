@@ -14,7 +14,7 @@ This map explains how source files connect to this repo-local skill.
 - `workflows/vault-capture.md` -> `references/workflows/durable-notes.md`
 - `REFACTOR_HANDOFF.md` -> `references/workflows/refactor-handoff.md`
 
-These cards are source-derived but rewritten where needed so they do not assume a root `CHANGELOG.md`, `.agents/automation` helpers, `staging`, issue templates, labels, Obsidian vaults, or the original `Pasta-Devs/Marinara-Engine` repo.
+These cards are source-derived but rewritten where needed so they do not assume a root `CHANGELOG.md`, `.agents/automation` helpers, legacy `staging` workflow, issue templates, labels, or Obsidian vaults.
 
 ## Imported As Templates
 
@@ -44,5 +44,5 @@ The JSON and PR proof templates are kept source-shaped. `status-snippets.md` is 
 - Repo instruction authority: `AGENTS.md`.
 - Architecture docs: `docs/developer/architecture.html`, `modules.html`, and `impact-areas.html`.
 - Durable bug/work tracking: GitHub issues and PRs, not repo-local update files.
-- Current checkout during import: `Pasta-Devs/Marinara-Engine-Refactor`, branch `main`.
+- Current refactor workflow target: `Pasta-Devs/Marinara-Engine`, branch `refactor`.
 - No root `CHANGELOG.md`, no `.agents/automation/scripts`, and no `.github/ISSUE_TEMPLATE` directory were present during import.
