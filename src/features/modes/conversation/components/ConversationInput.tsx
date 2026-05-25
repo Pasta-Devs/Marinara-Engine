@@ -1493,6 +1493,16 @@ export function ConversationInput({
           : "bg-green-500";
   const statusLabel = (status?: string) =>
     status === "offline" ? "Offline" : status === "dnd" ? "Busy" : status === "idle" ? "Away" : null;
+  const renderAttachButton = () => (
+    <button
+      onClick={() => fileInputRef.current?.click()}
+      className="rounded-lg p-1.5 text-foreground/40 transition-all hover:bg-foreground/10 hover:text-foreground/70 active:scale-90"
+      title="Attach file"
+      aria-label="Attach file"
+    >
+      <Plus size="1rem" />
+    </button>
+  );
 
   return (
     <div className="relative px-3 pb-3">
@@ -1595,11 +1605,10 @@ export function ConversationInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative flex items-center gap-1.5 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:gap-2 sm:px-4 bg-[var(--card)] dark:bg-black/40",
+          "relative flex flex-wrap items-center gap-1.5 gap-y-2 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:flex-nowrap sm:gap-2 sm:px-4 bg-[var(--card)] dark:bg-black/40",
           isDragging ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10" : "border-[var(--border)]",
         )}
       >
-        {/* Attach button */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1611,19 +1620,12 @@ export function ConversationInput({
             e.target.value = "";
           }}
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-lg p-1.5 text-foreground/40 transition-all hover:bg-foreground/10 hover:text-foreground/70 active:scale-90"
-          title="Attach file"
-        >
-          <Plus size="1rem" />
-        </button>
 
         {/* Quick Switchers — desktop: inline, mobile: chevron */}
-        <QuickConnectionSwitcher className="hidden sm:flex" />
-        <QuickPersonaSwitcher className="hidden sm:flex" />
-        <div className="sm:hidden">
-          <QuickSwitcherMobile />
+        <div className="hidden items-center gap-1.5 sm:flex">
+          {renderAttachButton()}
+          <QuickConnectionSwitcher />
+          <QuickPersonaSwitcher />
         </div>
 
         {/* Textarea */}
@@ -1645,11 +1647,16 @@ export function ConversationInput({
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30"
+          className="max-h-[12.5rem] min-w-0 basis-full resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 sm:flex-1 sm:basis-auto"
         />
 
+        <div className="flex items-center gap-1.5 sm:hidden">
+          {renderAttachButton()}
+          <QuickSwitcherMobile />
+        </div>
+
         {/* Right actions */}
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
           <div className="relative">
             <button
               ref={gifButtonRef}
