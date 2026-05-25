@@ -719,6 +719,26 @@ body {
   }
 }
 
+@media (max-width: 340px) {
+  .mari-topbar {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  .mari-topbar .mari-chat-title-controls {
+    gap: 0.125rem;
+  }
+
+  .mari-topbar .mari-panel-nav {
+    gap: 0;
+  }
+
+  .mari-topbar .mari-chat-title-controls button,
+  .mari-topbar .mari-panel-nav button {
+    width: 1.625rem;
+  }
+}
+
 .mari-chat-title-divider {
   display: block;
   width: 1px;
