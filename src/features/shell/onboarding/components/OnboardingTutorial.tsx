@@ -166,8 +166,16 @@ function applyShellInertExceptTutorial(root: HTMLElement): () => void {
   };
 }
 
+function isVisibleTourTarget(element: Element) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  const style = window.getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
+}
+
 function getTargetRect(target: string): Rect | null {
-  const el = document.querySelector(`[data-tour="${target}"]`);
+  const matches = Array.from(document.querySelectorAll(`[data-tour="${target}"]`));
+  const el = matches.find(isVisibleTourTarget) ?? matches[0];
   if (!el) return null;
   const r = el.getBoundingClientRect();
   return { top: r.top, left: r.left, width: r.width, height: r.height };

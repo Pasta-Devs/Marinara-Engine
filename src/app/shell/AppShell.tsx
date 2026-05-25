@@ -823,7 +823,11 @@ export function AppShell() {
           onOpenProfessorMari={() => setProfessorMariOpen(true)}
           onGoHome={() => setProfessorMariOpen(false)}
         />
-        <TopBar />
+        <TopBar
+          professorMariOpen={professorMariOpen}
+          onOpenProfessorMari={() => setProfessorMariOpen(true)}
+          onGoHome={() => setProfessorMariOpen(false)}
+        />
       </header>
 
       <div data-component="AppShellBody" className="relative flex min-h-0 flex-1 overflow-hidden">
