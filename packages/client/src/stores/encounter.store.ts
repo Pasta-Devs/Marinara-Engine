@@ -12,6 +12,7 @@ import type {
   EncounterLogEntry,
   EncounterSettings,
   CombatStyleNotes,
+  CreatureBattleState,
 } from "@marinara-engine/shared";
 
 interface EncounterState {
@@ -25,6 +26,7 @@ interface EncounterState {
   // ── Combat data ──
   party: CombatPartyMember[];
   enemies: CombatEnemy[];
+  creatureBattle: CreatureBattleState | null;
   environment: string;
   styleNotes: CombatStyleNotes | null;
   playerActions: CombatPlayerActions | null;
@@ -57,6 +59,7 @@ interface EncounterState {
   setError: (error: string | null) => void;
 
   initCombat: (state: CombatInitState) => void;
+  setCreatureBattle: (state: CreatureBattleState | null) => void;
   updateCombat: (data: {
     party: CombatPartyMember[];
     enemies: CombatEnemy[];
@@ -100,6 +103,7 @@ export const useEncounterStore = create<EncounterState>((set) => ({
 
   party: [],
   enemies: [],
+  creatureBattle: null,
   environment: "",
   styleNotes: null,
   playerActions: null,
@@ -121,6 +125,7 @@ export const useEncounterStore = create<EncounterState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setProcessing: (processing) => set({ isProcessing: processing }),
   setError: (error) => set({ error }),
+  setCreatureBattle: (state) => set({ creatureBattle: state }),
 
   initCombat: (state) =>
     set({
@@ -182,6 +187,7 @@ export const useEncounterStore = create<EncounterState>((set) => ({
       error: null,
       party: [],
       enemies: [],
+      creatureBattle: null,
       environment: "",
       styleNotes: null,
       playerActions: null,

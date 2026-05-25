@@ -32,6 +32,7 @@ export const agentResultTypeSchema = z.enum([
   "party_action",
   "game_map_update",
   "game_state_transition",
+  "creature_battle_update",
 ]);
 
 export const customAgentActivationSettingsSchema = z.object({

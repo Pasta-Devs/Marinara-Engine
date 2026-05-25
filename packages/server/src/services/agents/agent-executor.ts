@@ -180,6 +180,11 @@ export async function executeAgent(
     // Parse the result based on agent type
     const parsed = parseAgentResponse(config, responseText);
 
+    if (parsed.type === "creature_battle_update") {
+      // Persistence to creature_parties table (characterId + chatId) to be wired in caller
+      logger.debug({ data: parsed.data }, "[creature-battler] received update");
+    }
+
     return {
       agentId: config.id,
       agentType: config.type,
@@ -1276,6 +1281,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "persona-stats": "persona_stats_update",
   "custom-tracker": "custom_tracker_update",
   "chat-summary": "chat_summary",
+  "creature-battler": "creature_battle_update",
   spotify: "spotify_control",
   editor: "text_rewrite",
   "knowledge-retrieval": "context_injection",
@@ -1310,6 +1316,7 @@ const AGENT_RESULT_TYPES = new Set<AgentResultType>([
   "party_action",
   "game_map_update",
   "game_state_transition",
+  "creature_battle_update",
 ]);
 
 const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event"]);
@@ -1358,6 +1365,7 @@ const JSON_AGENTS = new Set([
   "persona-stats",
   "custom-tracker",
   "chat-summary",
+  "creature-battler",
   "spotify",
   "editor",
   "haptic",

@@ -12,6 +12,7 @@ export * from "./types/connection.js";
 export * from "./types/agent.js";
 export * from "./types/game-state.js";
 export * from "./types/combat-encounter.js";
+export * from "./types/creature-battle.js";
 export * from "./types/scene.js";
 export * from "./types/vn.js";
 export * from "./types/persona.js";

@@ -330,7 +330,17 @@ Instructions:
 2. Track HP changes realistically. A sword slash to the arm doesn't deal the same damage as a critical strike to the chest. Estimate based on the severity described.
 3. If combat hasn't started or has ended, return: { "encounterActive": false, "event": "none", "combatants": [], "currentTurn": null, "lastAction": null, "roundNumber": 0, "summary": "" }
 4. Preserve continuity with the previous combat state. Include both player characters and enemies as combatants.
-5. Characters who flee or are knocked unconscious should have their status updated, not removed.`,
+5.   Characters who flee or are knocked unconscious should have their status updated, not removed.`,
+
+  /* ────────────────────────────────────────── */
+  "creature-battler": `Track creature-battler state (generic creature combat). Analyze the latest message and output structured updates.
+Rules:
+1. Detect when a creature battle starts, continues, or ends.
+2. Enforce priority: Switch > Item > Move.
+3. Turn order is determined by Speed stat (use the deterministic engine when available).
+4. Track per-creature: species, types (1-2), ability, held item, 6 stats, current HP, status, 4 moves.
+5. Output only valid JSON matching the CreatureBattleState schema.
+If no battle is active, return: { "active": false, "round": 0, "party": [], "enemies": [], "turnOrder": [] }`,
 
   /* ────────────────────────────────────────── */
   background: `Pick the single background image that best matches the current scene's setting, mood, and location from the available backgrounds list.
