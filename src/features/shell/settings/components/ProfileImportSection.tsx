@@ -17,6 +17,7 @@ type ProfileImportStats = {
   messages?: number;
   connections?: number;
   files?: number;
+  unsupportedPromptOverrides?: number;
 };
 
 type ProfileImportProgressState = {
@@ -66,6 +67,7 @@ function formatProfileImportStats(stats?: ProfileImportStats) {
     [stats.messages, "messages"],
     [stats.connections, "connections"],
     [stats.files, "files"],
+    [stats.unsupportedPromptOverrides, "unsupported prompt overrides skipped"],
   ];
   return entries
     .filter(([count]) => typeof count === "number" && count > 0)

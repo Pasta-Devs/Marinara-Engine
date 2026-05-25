@@ -26,6 +26,7 @@ const PROFILE_COLLECTIONS: &[&str] = &[
     "prompt-groups",
     "prompt-sections",
     "prompt-variables",
+    "prompt-overrides",
     "chat-presets",
     "agents",
     "agent-runs",

@@ -26,6 +26,7 @@ const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
     ("prompt_groups", "prompt-groups"),
     ("prompt_sections", "prompt-sections"),
     ("choice_blocks", "prompt-variables"),
+    ("prompt_overrides", "prompt-overrides"),
     ("chat_presets", "chat-presets"),
     ("agent_configs", "agents"),
     ("agent_runs", "agent-runs"),
@@ -60,6 +61,8 @@ const LEGACY_GAME_STATE_ALIASES: &[(&str, &str)] = &[
     ("createdAt", "created_at"),
 ];
 
+const SUPPORTED_LEGACY_PROMPT_OVERRIDE_KEYS: &[&str] = &["conversation.selfie"];
+
 pub(super) fn import_legacy_profile_tables(
     state: &AppState,
     data: &Map<String, Value>,
@@ -91,11 +94,13 @@ where
 {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
+    let mut unsupported_prompt_overrides = 0usize;
     for (table, collection) in LEGACY_PROFILE_TABLES {
         let mut rows = table_rows(tables, table);
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
+            "prompt-overrides" => unsupported_prompt_overrides = normalize_legacy_prompt_overrides(&mut rows),
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
             "chats" => add_legacy_chat_memories(&mut rows, tables),
             "messages" => add_legacy_message_swipes(&mut rows, tables),
@@ -113,6 +118,12 @@ where
         .storage
         .replace_all_many_and_then(replacements, install_assets)?;
     imported.insert("files".to_string(), json!(restored_assets));
+    if unsupported_prompt_overrides > 0 {
+        imported.insert(
+            "unsupportedPromptOverrides".to_string(),
+            json!(unsupported_prompt_overrides),
+        );
+    }
     insert_profile_import_aliases(&mut imported);
     Ok(json!({ "success": true, "imported": imported }))
 }
@@ -172,6 +183,31 @@ fn normalize_legacy_app_settings(rows: &mut [Value]) {
         }
         object.remove("key");
     }
+}
+
+fn normalize_legacy_prompt_overrides(rows: &mut Vec<Value>) -> usize {
+    let mut normalized = Vec::with_capacity(rows.len());
+    let mut unsupported = 0usize;
+    for mut row in rows.drain(..) {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let key = trimmed_string(object.get("key")).or_else(|| trimmed_string(object.get("id")));
+        let Some(key) = key else {
+            continue;
+        };
+        if !SUPPORTED_LEGACY_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
+            unsupported += 1;
+            log::trace!("skipping unsupported legacy prompt override key={key}");
+            continue;
+        }
+        object.insert("id".to_string(), Value::String(key.clone()));
+        object.insert("key".to_string(), Value::String(key));
+        normalize_legacy_text_bool_fields(&mut row, &["enabled"]);
+        normalized.push(row);
+    }
+    *rows = normalized;
+    unsupported
 }
 
 fn add_legacy_lorebook_links(rows: &mut [Value], tables: &Map<String, Value>) {
@@ -475,6 +511,45 @@ mod tests {
             .get("app-settings", "ui")
             .expect("ui settings lookup should not fail")
             .is_none());
+    }
+
+    #[test]
+    fn legacy_prompt_overrides_import_only_supported_registered_keys() {
+        let state = test_state("prompt-overrides-supported");
+        let mut tables = Map::new();
+        tables.insert(
+            "prompt_overrides".to_string(),
+            json!([
+                {
+                    "key": "conversation.selfie",
+                    "template": "Selfie ${charName}",
+                    "enabled": "true"
+                },
+                {
+                    "key": "game.background",
+                    "template": "Background ${location}",
+                    "enabled": "true"
+                }
+            ]),
+        );
+
+        let result = import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+            .expect("legacy profile import should keep supported prompt overrides");
+
+        let rows = state
+            .storage
+            .list("prompt-overrides")
+            .expect("prompt overrides should be readable");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "conversation.selfie");
+        assert_eq!(rows[0]["key"], "conversation.selfie");
+        assert_eq!(rows[0]["enabled"], true);
+        assert!(state
+            .storage
+            .get("prompt-overrides", "game.background")
+            .expect("unsupported prompt override lookup should not fail")
+            .is_none());
+        assert_eq!(result["imported"]["unsupportedPromptOverrides"], 1);
     }
 
     #[test]
