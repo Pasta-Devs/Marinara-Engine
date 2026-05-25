@@ -244,7 +244,7 @@ export function ExpandedContentModal({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !magicRewriteMode) {
         onChange(local);
         onCommit?.();
         onClose();
@@ -252,7 +252,7 @@ export function ExpandedContentModal({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose, onChange, onCommit, local]);
+  }, [onClose, onChange, onCommit, local, magicRewriteMode]);
 
   const handleClose = () => {
     onChange(local);

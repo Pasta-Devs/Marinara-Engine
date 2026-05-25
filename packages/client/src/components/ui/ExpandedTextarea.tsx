@@ -22,10 +22,14 @@ export function ExpandedTextarea({ open, onClose, title, value, onChange, placeh
   const [magicRewriteMode, setMagicRewriteMode] = useState(false);
   const [magicRewriteResult, setMagicRewriteResult] = useState("");
 
-  // Sync parent value into local when prop changes
+  // Sync parent value into local when prop changes; reset rewrite state on close
   useEffect(() => {
+    if (!open) {
+      setMagicRewriteMode(false);
+      setMagicRewriteResult("");
+    }
     setLocal(value);
-  }, [value]);
+  }, [value, open]);
 
   useEffect(() => {
     if (!open) return;

@@ -7,6 +7,7 @@ import { PROVIDERS } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
+import { logger } from "../lib/logger.js";
 
 const magicRewriteSchema = z.object({
   text: z.string().default(""),
@@ -31,7 +32,11 @@ export async function magicRewriteRoutes(app: FastifyInstance) {
   const connections = createConnectionsStorage(app.db);
 
   app.post("/generate", async (req, reply) => {
-    const input = magicRewriteSchema.parse(req.body);
+    const result = magicRewriteSchema.safeParse(req.body);
+    if (!result.success) {
+      return reply.status(400).send({ error: "Invalid request", details: result.error.issues });
+    }
+    const input = result.data;
 
     const defaultRewriteConnection = await connections.getDefaultForRewrite();
     const fallbackDefault = defaultRewriteConnection ? null : await connections.getDefault();
@@ -89,9 +94,8 @@ export async function magicRewriteRoutes(app: FastifyInstance) {
 
       return { text: result.content?.trim() ?? "", finishReason: result.finishReason, usage: result.usage ?? null };
     } catch (error) {
-      app.log.error({ err: error }, "Magic Rewrite generation failed");
-      const message = error instanceof Error ? error.message : "Magic Rewrite generation failed";
-      return reply.status(500).send({ error: message });
+      logger.error(error, "Magic Rewrite generation failed");
+      return reply.status(500).send({ error: "Magic Rewrite generation failed" });
     }
   });
 }

@@ -415,7 +415,7 @@ export function ConnectionEditor() {
       enableCaching: localEnableCaching,
       cachingAtDepth: localCachingAtDepth,
       defaultForAgents: localDefaultForAgents,
-      defaultForRewrite: localDefaultForRewrite,
+      defaultForRewrite: isImageGenerationProvider ? false : localDefaultForRewrite,
       embeddingModel: localEmbeddingModel,
       embeddingBaseUrl: localEmbeddingBaseUrl,
       embeddingConnectionId: localEmbeddingConnectionId || null,
@@ -1735,7 +1735,7 @@ export function ConnectionEditor() {
             <FieldGroup
               label="Default for Rewrite"
               icon={<Sparkles size="0.875rem" className="text-violet-400" />}
-              help="When enabled, all Magic Rewrite text generations will use this connection. Otherwise the default chat connection will be used."
+              help="When enabled, all Magic Rewrite text generations will use this connection. Falls back to Default Chat and then Default Agent connections."
             >
               <label className="flex items-center gap-3 cursor-pointer select-none px-2 py-1">
                 <div className="relative">

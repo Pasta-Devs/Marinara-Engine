@@ -90,7 +90,9 @@ export function MagicRewritePanel({
   value: string;
   onResultChange: (value: string) => void;
 }) {
-  const [instruction, setInstruction] = useState(() => window.localStorage.getItem(PROMPT_KEY) ?? "");
+  const [instruction, setInstruction] = useState(() => {
+    try { return window.localStorage.getItem(PROMPT_KEY) ?? ""; } catch { return ""; }
+  });
   const [characters, setCharacters] = useState<MinimalItem[]>([]);
   const [lorebooks, setLorebooks] = useState<MinimalItem[]>([]);
   const [characterId, setCharacterId] = useState("");
@@ -102,7 +104,7 @@ export function MagicRewritePanel({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => window.localStorage.setItem(PROMPT_KEY, instruction), 300);
+    const timer = window.setTimeout(() => { try { window.localStorage.setItem(PROMPT_KEY, instruction); } catch { /* noop */ } }, 300);
     return () => window.clearTimeout(timer);
   }, [instruction]);
 

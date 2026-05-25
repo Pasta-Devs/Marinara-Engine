@@ -238,6 +238,7 @@ export function createConnectionsStorage(db: DB) {
         isDefault: "false",
         useForRandom: source.useForRandom,
         defaultForAgents: "false",
+        defaultForRewrite: "false",
         enableCaching: source.enableCaching,
         cachingAtDepth: source.cachingAtDepth,
         embeddingModel: source.embeddingModel,
