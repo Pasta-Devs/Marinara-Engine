@@ -24,6 +24,10 @@ interface TourStep {
   sprite?: { src: string; flip?: boolean };
 }
 
+interface OnboardingTutorialProps {
+  onShellInertResync: () => void;
+}
+
 const STEPS: TourStep[] = [
   {
     target: null,
@@ -118,20 +122,48 @@ function setInert(element: Element, inert: boolean) {
   (element as HTMLElement & { inert?: boolean }).inert = inert;
 }
 
-function setShellInertExceptTutorial(root: HTMLElement, inert: boolean) {
+interface InertSnapshot {
+  element: Element;
+  hadInertAttribute: boolean;
+  inertProperty: boolean;
+}
+
+function applyShellInertExceptTutorial(root: HTMLElement): () => void {
   const shell = root.closest('[data-component="AppShell"]');
-  if (!shell) return;
+  if (!shell) return () => {};
+
+  const snapshots: InertSnapshot[] = [];
+
+  const apply = (element: Element) => {
+    snapshots.push({
+      element,
+      hadInertAttribute: element.hasAttribute("inert"),
+      inertProperty: Boolean((element as HTMLElement & { inert?: boolean }).inert),
+    });
+    setInert(element, true);
+  };
 
   for (const child of Array.from(shell.children)) {
     if (!child.contains(root)) {
-      setInert(child, inert);
+      apply(child);
       continue;
     }
 
     for (const nestedChild of Array.from(child.children)) {
-      if (nestedChild !== root) setInert(nestedChild, inert);
+      if (nestedChild !== root) apply(nestedChild);
     }
   }
+
+  return () => {
+    for (const { element, hadInertAttribute, inertProperty } of snapshots) {
+      if (hadInertAttribute) {
+        element.setAttribute("inert", "");
+      } else {
+        element.removeAttribute("inert");
+      }
+      (element as HTMLElement & { inert?: boolean }).inert = inertProperty;
+    }
+  };
 }
 
 function getTargetRect(target: string): Rect | null {
@@ -343,13 +375,13 @@ function TourCardContent({
 
 // ─── Main component ───────────────────────────
 
-export function OnboardingTutorial() {
+export function OnboardingTutorial({ onShellInertResync }: OnboardingTutorialProps) {
   const hasCompleted = useUIStore((s) => s.hasCompletedOnboarding);
   if (hasCompleted) return null;
-  return <OnboardingTutorialInner />;
+  return <OnboardingTutorialInner onShellInertResync={onShellInertResync} />;
 }
 
-function OnboardingTutorialInner() {
+function OnboardingTutorialInner({ onShellInertResync }: OnboardingTutorialProps) {
   const setCompleted = useUIStore((s) => s.setHasCompletedOnboarding);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
@@ -361,6 +393,8 @@ function OnboardingTutorialInner() {
   const prevStepRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onShellInertResyncRef = useRef(onShellInertResync);
+  onShellInertResyncRef.current = onShellInertResync;
 
   const currentStep = STEPS[step];
   const isLast = step === STEPS.length - 1;
@@ -439,7 +473,7 @@ function OnboardingTutorialInner() {
     if (!root) return;
 
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setShellInertExceptTutorial(root, true);
+    const restoreShellInert = applyShellInertExceptTutorial(root);
 
     const focusFirstControl = () => {
       if (!root.contains(document.activeElement)) {
@@ -491,7 +525,8 @@ function OnboardingTutorialInner() {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("focusin", handleFocusIn, true);
-      setShellInertExceptTutorial(root, false);
+      restoreShellInert();
+      onShellInertResyncRef.current();
       const previousFocus = previousFocusRef.current;
       if (previousFocus?.isConnected) previousFocus.focus();
     };

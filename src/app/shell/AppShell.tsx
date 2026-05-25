@@ -633,7 +633,7 @@ export function AppShell() {
           : null
     : null;
 
-  useEffect(() => {
+  const syncMobilePanelInert = useCallback(() => {
     if (!isMobile) {
       setInert(sidebarPanelRef.current, false);
       setInert(mobileTrackerPanelRef.current, false);
@@ -648,7 +648,10 @@ export function AppShell() {
     setInert(mobileRightPanelRef.current, activeMobilePanel !== "right");
     setInert(headerRef.current, activeMobilePanel !== null);
     setInert(mainRef.current, activeMobilePanel !== null);
+  }, [activeMobilePanel, isMobile]);
 
+  useEffect(() => {
+    syncMobilePanelInert();
     return () => {
       setInert(sidebarPanelRef.current, false);
       setInert(mobileTrackerPanelRef.current, false);
@@ -656,7 +659,7 @@ export function AppShell() {
       setInert(headerRef.current, false);
       setInert(mainRef.current, false);
     };
-  }, [activeMobilePanel, isMobile]);
+  }, [syncMobilePanelInert]);
 
   useEffect(() => {
     if (!isMobile || !activeMobilePanel) return;
@@ -1019,7 +1022,7 @@ export function AppShell() {
       {/* First-time onboarding tutorial */}
       {!hasCompletedOnboarding && (
         <Suspense fallback={null}>
-          <OnboardingTutorial />
+          <OnboardingTutorial onShellInertResync={syncMobilePanelInert} />
         </Suspense>
       )}
       <SpotifyMobileWidget />
