@@ -746,6 +746,7 @@ export function useCombatRound() {
       combatants: Array<Omit<Combatant, "sprite">>;
       round: number;
       playerAction?: CombatPlayerAction;
+      creatureAction?: import("@marinara-engine/shared").CreatureAction;
       mechanics?: import("@marinara-engine/shared").CombatMechanic[];
     }) => api.post<{ result: CombatRoundResult; combatants: Combatant[] }>("/game/combat/round", data),
   });

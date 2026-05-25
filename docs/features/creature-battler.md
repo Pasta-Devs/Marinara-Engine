@@ -83,3 +83,13 @@ export const creatureParties = pgTable("creature_parties", {
 - Creature sprite rendering in combat view
 - Ability/held-item interaction matrix (v2)
 - Creature evolution / capture mechanics (future)
+
+## 11. Manual Verification Checklist (for PR)
+- [ ] Single battle: switch → item → move priority respected
+- [ ] Double battle with ally creature works
+- [ ] Speed-based turn order functions correctly
+- [ ] Type effectiveness produces expected multipliers
+- [ ] Creature data persists across page reload (DB)
+- [ ] Character tracker surfaces creature HP/status
+- [ ] Evolution experience gain stub runs without error
+- [ ] No console errors or lint warnings on `pnpm check`

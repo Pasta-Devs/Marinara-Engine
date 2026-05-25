@@ -340,6 +340,7 @@ Rules:
 3. Turn order is determined by Speed stat (use the deterministic engine when available).
 4. Track per-creature: species, types (1-2), ability, held item, 6 stats, current HP, status, 4 moves.
 5. Output only valid JSON matching the CreatureBattleState schema.
+6. Track experience, evolutionStage, and evolutionTarget when relevant (V2 fields).
 If no battle is active, return: { "active": false, "round": 0, "party": [], "enemies": [], "turnOrder": [] }`,
 
   /* ────────────────────────────────────────── */
@@ -398,6 +399,7 @@ Instructions:
   1b. Characters who clearly left, were dismissed, or are no longer in the scene should be removed.
 2. Track HP and any other RPG stats defined on the character card; adjust values based on narrative events (combat damage, healing, etc.). Use the card's initial values as maximums.
 3. Fill in appearance and outfit from the character's description or card if not mentioned in the current message. Don't leave them null just because this specific message didn't repeat the description.
+4. If the character has an associated creature party (from creature-battler state), include a "creatures" array with species, currentHp, and status for each.
 4. Preserve continuity with the previous state.
 5. If a new character enters the scene, add them with full details immediately.`,
 

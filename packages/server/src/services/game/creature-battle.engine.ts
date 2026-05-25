@@ -90,3 +90,19 @@ export function applyStatus(
 ): CreatureInstance {
   return { ...creature, status };
 }
+
+export function gainExperience(
+  creature: CreatureInstance,
+  amount: number,
+): CreatureInstance {
+  const newExp = (creature.experience ?? 0) + amount;
+  return { ...creature, experience: newExp };
+}
+
+export function checkEvolution(creature: CreatureInstance): string | null {
+  // Placeholder — real evolution rules would live here
+  if ((creature.experience ?? 0) > 1000 && !creature.evolutionTarget) {
+    return creature.evolutionTarget ?? null;
+  }
+  return null;
+}

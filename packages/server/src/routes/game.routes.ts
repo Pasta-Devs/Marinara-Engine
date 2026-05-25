@@ -5306,6 +5306,7 @@ export async function gameRoutes(app: FastifyInstance) {
         }),
       ),
       round: z.number().int().min(1),
+      creatureAction: z.any().optional(), // CreatureAction from creature-battle types
       playerAction: z
         .object({
           type: z.enum(["attack", "skill", "defend", "item", "flee"]),

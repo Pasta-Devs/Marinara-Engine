@@ -225,6 +225,10 @@ Outbound provider, image, TTS, DeepLX, and webhook requests reject private/LAN/m
 
 Security headers and API rate limits are enabled by default. Chat HTML is sanitized after rendering transforms; SVG uploads/proxies are not accepted for avatar/background/image upload paths.
 
+### Creature Battler
+
+The built-in `creature-battler` agent runs in parallel with the combat agent. It uses a dedicated `creature_parties` table (keyed by characterId + chatId) for persistent storage of creature parties. The deterministic engine (type effectiveness, Speed order, priority) is always active when the agent fires. UI panels are available in Game Mode combat views.
+
 ## Notes
 
 - The shell launchers (`start.bat`, `start.sh`, `start-termux.sh`) source `.env` automatically. If you run `pnpm start` directly, make sure the variables are set in your environment or `.env` file.

@@ -4,6 +4,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Added
+- Creature-battler system (generic creature combat alongside existing combat agent). Includes deterministic engine, dedicated DB storage, built-in agent, UI panels, and combat round integration.
+
 ## [1.6.1]
 
 ### Added

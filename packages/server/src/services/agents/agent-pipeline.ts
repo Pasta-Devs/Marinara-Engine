@@ -14,6 +14,8 @@ import type { AgentResult, AgentContext, AgentPhase } from "@marinara-engine/sha
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { executeAgent, executeAgentBatch, type AgentExecConfig, type AgentToolContext } from "./agent-executor.js";
 import { logger } from "../../lib/logger.js";
+import { getDB } from "../../db/connection.js";
+import { creatureParties } from "../../db/schema/creature-parties.js";
 
 /** A fully resolved agent ready for execution. */
 export interface ResolvedAgent extends AgentExecConfig {
@@ -172,6 +174,7 @@ async function executeGroup(
     const batchResults = await executeAgentBatch(batchAgents, groupContext, group.provider, group.model);
     for (const result of batchResults) {
       safeOnResult(result);
+      void persistCreatureBattleUpdate(result);
     }
     allResults.push(...batchResults);
   }
@@ -186,6 +189,7 @@ async function executeGroup(
       agent.toolContext,
     );
     safeOnResult(result);
+    void persistCreatureBattleUpdate(result);
     allResults.push(result);
   }
 
@@ -398,4 +402,35 @@ export function createAgentPipeline(
       return allResults;
     },
   };
+}
+
+async function persistCreatureBattleUpdate(result: AgentResult) {
+  if (result.type !== "creature_battle_update" || !result.data) return;
+
+  const data = result.data as any;
+  const chatId = data.chatId ?? "unknown";
+  const characterId = data.characterId ?? "unknown";
+
+  try {
+    const database = await getDB();
+    await database
+      .insert(creatureParties)
+      .values({
+        id: `${characterId}:${chatId}`,
+        characterId,
+        chatId,
+        party: JSON.stringify({ party: data.party ?? [], enemies: data.enemies ?? [] }),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: creatureParties.id,
+        set: {
+          party: JSON.stringify({ party: data.party ?? [], enemies: data.enemies ?? [] }),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+  } catch (err) {
+    logger.warn({ err }, "[creature-battler] persistence failed");
+  }
 }
