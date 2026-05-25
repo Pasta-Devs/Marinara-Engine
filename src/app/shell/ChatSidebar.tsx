@@ -467,8 +467,9 @@ export function ChatSidebar({
   }, [activeChatId, chats, folders, updateFolderMut]);
 
   const handleNewChatFromTab = useCallback(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
     startNewChat(activeTab);
-  }, [activeTab, startNewChat]);
+  }, [activeTab, setSidebarOpen, startNewChat]);
 
   // ── Folder handlers ──
   const handleCreateFolder = useCallback(() => {

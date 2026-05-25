@@ -13,12 +13,14 @@ export function ChatTitleControls({
   onOpenProfessorMari,
   onGoHome,
   className,
+  hideProfessorOnNarrow = false,
   showDivider = true,
 }: {
   professorMariOpen?: boolean;
   onOpenProfessorMari?: () => void;
   onGoHome?: () => void;
   className?: string;
+  hideProfessorOnNarrow?: boolean;
   showDivider?: boolean;
 }) {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
@@ -79,6 +81,7 @@ export function ChatTitleControls({
         onDoubleClick={stopChromeDrag}
         className={cn(
           "mari-titlebar-action relative rounded-md p-1 transition-all duration-200",
+          hideProfessorOnNarrow && "mari-titlebar-action-mobile-optional",
           professorMariOpen
             ? "mari-titlebar-action-active text-[color-mix(in_srgb,var(--primary)_54%,var(--muted-foreground))]"
             : "text-[var(--muted-foreground)] hover:text-[var(--primary)]",

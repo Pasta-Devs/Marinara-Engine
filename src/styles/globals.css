@@ -713,6 +713,12 @@ body {
   transform: translateY(0) rotate(-8deg) scale(0.98);
 }
 
+@media (max-width: 380px) {
+  .mari-titlebar-action-mobile-optional {
+    display: none !important;
+  }
+}
+
 .mari-chat-title-divider {
   display: block;
   width: 1px;

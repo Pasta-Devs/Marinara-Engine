@@ -24,6 +24,7 @@ export function TopBar({
           professorMariOpen={professorMariOpen}
           onOpenProfessorMari={onOpenProfessorMari}
           onGoHome={onGoHome}
+          hideProfessorOnNarrow
           showDivider={false}
         />
         <SpotifyMiniPlayer />
