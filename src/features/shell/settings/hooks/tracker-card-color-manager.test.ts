@@ -98,25 +98,35 @@ describe("tracker card color manager", () => {
 
     updateCachedTrackerCardColorTargetConfig(queryClient, target, "preview", "saved");
 
-    const previewCharacter = queryClient.getQueryData<Array<{ data: Record<string, unknown> }>>(
+    const previewCharacters = queryClient.getQueryData<Array<{ data: Record<string, unknown> }>>(
       characterKeys.list(),
-    )?.[0];
+    );
+    const previewCharacter = previewCharacters?.[0];
     expect(previewCharacter?.data.extensions).toMatchObject({
       trackerCardColors: "preview",
       [TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD]: "saved",
       nameColor: "#111111",
     });
+    expect(previewCharacters?.[1]).toEqual({
+      id: "character-2",
+      data: { name: "Unaffected", extensions: { trackerCardColors: "untouched" } },
+    });
 
     updateCachedTrackerCardColorTargetConfig(queryClient, target, "saved");
 
-    const savedCharacter = queryClient.getQueryData<Array<{ data: Record<string, unknown> }>>(
+    const savedCharacters = queryClient.getQueryData<Array<{ data: Record<string, unknown> }>>(
       characterKeys.list(),
-    )?.[0];
+    );
+    const savedCharacter = savedCharacters?.[0];
     expect(savedCharacter?.data.extensions).toMatchObject({
       trackerCardColors: "saved",
       nameColor: "#111111",
     });
     expect(savedCharacter?.data.extensions).not.toHaveProperty(TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD);
+    expect(savedCharacters?.[1]).toEqual({
+      id: "character-2",
+      data: { name: "Unaffected", extensions: { trackerCardColors: "untouched" } },
+    });
   });
 
   it("resolves the active chat persona before the global active persona and includes chat characters", () => {
