@@ -133,8 +133,11 @@ function applyShellInertExceptTutorial(root: HTMLElement): () => void {
   if (!shell) return () => {};
 
   const snapshots: InertSnapshot[] = [];
+  const inertedElements = new Set<Element>();
 
   const apply = (element: Element) => {
+    if (inertedElements.has(element)) return;
+    inertedElements.add(element);
     snapshots.push({
       element,
       hadInertAttribute: element.hasAttribute("inert"),
@@ -143,18 +146,34 @@ function applyShellInertExceptTutorial(root: HTMLElement): () => void {
     setInert(element, true);
   };
 
-  for (const child of Array.from(shell.children)) {
-    if (!child.contains(root)) {
-      apply(child);
-      continue;
+  const applyOutsideRoot = (element: Element) => {
+    if (element === root || root.contains(element)) return;
+
+    if (element.contains(root)) {
+      for (const child of Array.from(element.children)) {
+        applyOutsideRoot(child);
+      }
+      return;
     }
 
-    for (const nestedChild of Array.from(child.children)) {
-      if (nestedChild !== root) apply(nestedChild);
-    }
+    apply(element);
+  };
+
+  for (const child of Array.from(shell.children)) {
+    applyOutsideRoot(child);
   }
 
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of Array.from(mutation.addedNodes)) {
+        if (node instanceof Element) applyOutsideRoot(node);
+      }
+    }
+  });
+  observer.observe(shell, { childList: true, subtree: true });
+
   return () => {
+    observer.disconnect();
     for (const { element, hadInertAttribute, inertProperty } of snapshots) {
       if (hadInertAttribute) {
         element.setAttribute("inert", "");
