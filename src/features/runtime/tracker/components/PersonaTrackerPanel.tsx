@@ -57,24 +57,24 @@ import { PersonaPortraitStage } from "./PersonaPortraitStage";
 
 const PERSONA_COCKPIT_SHELF_CLASS =
   cn(
-    "pointer-events-none absolute inset-x-0 top-5 z-0 h-[9rem] overflow-hidden border-b border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_46%,transparent)] shadow-[inset_0_10px_18px_color-mix(in_srgb,var(--background)_20%,transparent),inset_0_-12px_22px_color-mix(in_srgb,var(--background)_44%,transparent)] @min-[380px]:h-[10.5rem]",
+    "tracker-profile-cockpit-shelf pointer-events-none absolute inset-x-0 top-5 z-0 h-[9rem] overflow-hidden border-b border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_46%,transparent)] shadow-[inset_0_10px_18px_color-mix(in_srgb,var(--background)_20%,transparent),inset_0_-12px_22px_color-mix(in_srgb,var(--background)_44%,transparent)] @min-[380px]:h-[10.5rem]",
     TRACKER_PROFILE_MATERIAL_PANEL_CLASS,
   );
 const PERSONA_STAT_COLUMN_CLASS =
   "relative z-[1] flex min-w-0 flex-col overflow-hidden border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_52%,transparent)]";
 const PERSONA_STAT_SHELF_CLASS =
-  "group/statbox relative min-h-0 min-w-0 flex-1 overflow-y-auto px-1.5 py-1.5";
+  "group/statbox tracker-persona-stat-shelf relative min-h-0 min-w-0 flex-1 overflow-y-auto px-1.5 py-1.5";
 const PERSONA_LOWER_DECK_CLASS =
   cn(
-    "relative z-[1] order-3 col-span-2 flex flex-col gap-1 border-t border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_50%,transparent)] px-1 py-1",
+    "tracker-profile-lower-deck relative z-[1] order-3 col-span-2 flex flex-col gap-1 border-t border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_50%,transparent)] px-1 py-1",
     TRACKER_PROFILE_MATERIAL_PANEL_CLASS,
   );
 const PERSONA_STATUS_STRIP_CLASS =
   cn(TRACKER_PROFILE_STATUS_STRIP_CLASS, "mx-0.5 items-center px-1.5 py-[0.1875rem]");
 const PERSONA_INVENTORY_HEADER_CLASS =
-  "relative mx-0.5 flex min-h-6 items-center gap-1 overflow-hidden px-0.5 text-[0.625rem] leading-3";
+  "tracker-persona-inventory-header relative mx-0.5 flex min-h-6 items-center gap-1 overflow-hidden px-0.5 text-[0.625rem] leading-3";
 const PERSONA_INVENTORY_SHELF_CLASS =
-  cn(TRACKER_PROFILE_EMPTY_SURFACE_CLASS, "min-h-0 flex-1");
+  cn(TRACKER_PROFILE_EMPTY_SURFACE_CLASS, "tracker-persona-inventory-shelf min-h-0 flex-1");
 
 interface PersonaPortraitPendingSave {
   id: string;
@@ -410,7 +410,7 @@ export function PersonaInventoryPanel({
                     onSave={onSaveStatus}
                     placeholder="Status"
                     className={cn(
-                      "relative z-[1] min-h-5 flex-1 rounded-[2px] px-0.5 py-0 text-[0.6875rem] font-medium leading-[0.875rem] text-[color-mix(in_srgb,var(--tracker-profile-text)_86%,var(--primary)_14%)] hover:bg-[var(--accent)]/18",
+                      "tracker-profile-status-edit relative z-[1] min-h-5 flex-1 rounded-[2px] px-0.5 py-0 text-[0.6875rem] font-medium leading-[0.875rem] text-[color-mix(in_srgb,var(--tracker-profile-text)_86%,var(--primary)_14%)] hover:bg-[var(--accent)]/18",
                       trackerPanelSizeProfile === "compact" && "h-5",
                     )}
                     title={`${personaName} status`}

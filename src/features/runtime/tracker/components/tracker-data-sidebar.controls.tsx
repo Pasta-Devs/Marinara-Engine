@@ -463,6 +463,7 @@ export function SectionHeader({
 
   return (
     <div
+      data-tracker-section-header
       role={collapsible ? "button" : undefined}
       tabIndex={collapsible ? 0 : undefined}
       aria-expanded={collapsible ? !collapsed : undefined}
@@ -494,6 +495,7 @@ export function SectionHeader({
         {icon}
       </span>
       <span
+        data-tracker-section-title
         className={cn(
           "min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.08em] text-[var(--foreground)]/62",
           TRACKER_TEXT_MICRO,
@@ -502,7 +504,11 @@ export function SectionHeader({
         {title}
       </span>
       {(badge !== undefined && badge !== null) || action || addAction ? (
-        <div className="ml-0.5 flex shrink-0 items-center gap-0.5" onClick={(event) => event.stopPropagation()}>
+        <div
+          data-tracker-section-actions
+          className="ml-0.5 flex shrink-0 items-center gap-0.5"
+          onClick={(event) => event.stopPropagation()}
+        >
           {badge !== undefined && badge !== null && (
             <span
               className="shrink-0 rounded-sm border border-[var(--border)]/26 bg-[var(--background)]/16 px-1 py-0.5 text-[0.5625rem] font-semibold uppercase leading-none tabular-nums text-[var(--foreground)]/62"

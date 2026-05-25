@@ -6,11 +6,11 @@ import {
 
 export type TrackerProfileSide = "left" | "right";
 
-export const TRACKER_PROFILE_GRID_CLASS = "relative z-[1] grid gap-y-0 gap-x-0";
+export const TRACKER_PROFILE_GRID_CLASS = "tracker-profile-grid relative z-[1] grid gap-y-0 gap-x-0";
 
 export const TRACKER_PROFILE_GRID_CLASS_BY_PORTRAIT_SIDE = {
-  left: TRACKER_PROFILE_PORTRAIT_COLUMN_LEFT_CLASS,
-  right: TRACKER_PROFILE_PORTRAIT_COLUMN_RIGHT_CLASS,
+  left: `tracker-profile-grid--portrait-left ${TRACKER_PROFILE_PORTRAIT_COLUMN_LEFT_CLASS}`,
+  right: `tracker-profile-grid--portrait-right ${TRACKER_PROFILE_PORTRAIT_COLUMN_RIGHT_CLASS}`,
 } satisfies Record<TrackerProfileSide, string>;
 
 export const TRACKER_PROFILE_ORDER_CLASS_BY_SIDE = {

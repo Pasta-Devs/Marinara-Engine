@@ -1,6 +1,8 @@
 import { BookOpen, Bot, FileText, Link, Settings, Sparkles, User, Users } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { TrackerPanelIcon } from "../../shared/components/ui/TrackerPanelIcon";
 import { useAgentStore } from "../../shared/stores/agent.store";
+import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
 import { cn } from "../../shared/lib/utils";
 
@@ -20,10 +22,29 @@ function stopTitlebarDrag(event: ReactMouseEvent<HTMLElement>) {
 }
 
 export function PanelNavButtons({ className }: { className?: string }) {
+  const activeChatMode = useChatStore((s) => s.activeChat?.mode ?? null);
+  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
+  const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
+  const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const failedAgentCount = useAgentStore((s) => s.failedAgentTypes.length);
+  const showMobileTrackerButton =
+    trackerPanelEnabled && (activeChatMode === "roleplay" || activeChatMode === "visual_novel");
+  const trackerLabel = trackerPanelOpen ? "Hide Tracker Panel" : "Show Tracker Panel";
+  const toggleTrackerPanel = () => {
+    if (trackerPanelOpen) {
+      setTrackerPanelOpen(false);
+      return;
+    }
+
+    closeRightPanel();
+    setSidebarOpen(false);
+    setTrackerPanelOpen(true);
+  };
 
   return (
     <nav
@@ -33,6 +54,28 @@ export function PanelNavButtons({ className }: { className?: string }) {
       onMouseDown={stopTitlebarDrag}
       onDoubleClick={stopTitlebarDrag}
     >
+      {showMobileTrackerButton && (
+        <button
+          type="button"
+          onClick={toggleTrackerPanel}
+          onMouseDown={stopTitlebarDrag}
+          onDoubleClick={stopTitlebarDrag}
+          className={cn(
+            "mari-titlebar-action relative rounded-md p-1.5 transition-all duration-200 md:hidden",
+            trackerPanelOpen
+              ? "mari-titlebar-action-active text-[color-mix(in_srgb,var(--primary)_72%,var(--y2k-pink))]"
+              : "text-[var(--muted-foreground)] hover:text-[var(--primary)]",
+          )}
+          title={trackerLabel}
+          aria-label={trackerLabel}
+          aria-pressed={trackerPanelOpen}
+        >
+          <TrackerPanelIcon size="0.95rem" strokeWidth={2} />
+          {trackerPanelOpen && (
+            <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-gradient-to-r from-pink-500 to-cyan-400" />
+          )}
+        </button>
+      )}
       {RIGHT_PANEL_BUTTONS.map(({ panel, icon: Icon, label, activeClass, hoverClass, underlineClass }) => {
         const isActive = rightPanelOpen && rightPanel === panel;
         return (

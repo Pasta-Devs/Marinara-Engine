@@ -9,7 +9,8 @@ import { InlineEdit, TRACKER_PROFILE_FIELD_TILE_CLASS } from "./tracker-data-sid
 import { StatList as TrackerStatList } from "./tracker-data-sidebar.stats";
 import "./TrackerProfileFields.css";
 
-const FEATURED_FIELD_LIST_CLASS = "relative z-[1] grid h-full min-h-0 grid-cols-1 gap-1 overflow-hidden p-1";
+const FEATURED_FIELD_LIST_CLASS =
+  "tracker-featured-field-list relative z-[1] grid h-full min-h-0 grid-cols-1 gap-1 overflow-hidden p-1";
 const FEATURED_FIELD_ICON_CLASS = "tracker-featured-field-icon";
 type FeaturedFieldTone = "mood" | "appearance" | "outfit";
 const FEATURED_FIELD_ICON_TONE_CLASS = {

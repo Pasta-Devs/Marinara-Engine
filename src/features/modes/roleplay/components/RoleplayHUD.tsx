@@ -150,7 +150,17 @@ export function RoleplayHUD({
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
   const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
-  const toggleTrackerPanel = useUIStore((s) => s.toggleTrackerPanel);
+  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
+
+  const openTrackerPanel = useCallback(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      closeRightPanel();
+      setSidebarOpen(false);
+    }
+    setTrackerPanelOpen(true);
+  }, [closeRightPanel, setSidebarOpen, setTrackerPanelOpen]);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
   const showHudTrackerWidgets = !gameStateRefreshing && !(trackerPanelEnabled && trackerPanelHideHudWidgets);
@@ -259,7 +269,7 @@ export function RoleplayHUD({
         mobileCompact && "flex-1 min-w-0",
       )}
     >
-      {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={toggleTrackerPanel} />}
+      {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={openTrackerPanel} />}
 
       {/* Actions (Agents + Clear) */}
       <ActionsGroup

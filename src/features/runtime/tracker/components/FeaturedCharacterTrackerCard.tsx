@@ -52,7 +52,7 @@ const FEATURED_CARD_CLASS = cn(
   "group/character mx-1 hover:border-[var(--primary)]/30",
 );
 const FEATURED_COCKPIT_SHELF_CLASS = cn(
-  "pointer-events-none absolute inset-x-0 top-5 z-0 h-[9rem] overflow-hidden border-b border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_42%,transparent)] shadow-[inset_0_9px_16px_color-mix(in_srgb,var(--background)_18%,transparent),inset_0_-10px_18px_color-mix(in_srgb,var(--background)_38%,transparent)] @min-[380px]:h-[10.5rem]",
+  "tracker-profile-cockpit-shelf pointer-events-none absolute inset-x-0 top-5 z-0 h-[9rem] overflow-hidden border-b border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_42%,transparent)] shadow-[inset_0_9px_16px_color-mix(in_srgb,var(--background)_18%,transparent),inset_0_-10px_18px_color-mix(in_srgb,var(--background)_38%,transparent)] @min-[380px]:h-[10.5rem]",
   TRACKER_PROFILE_MATERIAL_PANEL_CLASS,
 );
 const FEATURED_REMOVE_BUTTON_CLASS =
@@ -65,7 +65,7 @@ const FEATURED_DETAILS_FIELDS_CLASS = "relative min-h-0 flex-1 overflow-hidden";
 const FEATURED_DOCKED_THOUGHT_CLASS = "mx-0 mb-0.5 mt-0 shrink-0";
 const FEATURED_DOCKED_THOUGHT_SURFACE_CLASS =
   "scrollbar-hide overflow-hidden";
-const FEATURED_STAT_BAND_CLASS = "order-3 col-span-full mt-0 rounded-b-[5px]";
+const FEATURED_STAT_BAND_CLASS = "tracker-featured-stat-band order-3 col-span-full mt-0 rounded-b-[5px]";
 const FEATURED_CUSTOM_FIELD_LIST_CLASS =
   "relative z-[1] mx-1 mb-1 mt-1 grid gap-px border-t border-[var(--tracker-profile-rule)] pt-0.5 text-[0.625rem]";
 const FEATURED_CUSTOM_FIELD_ROW_CLASS =

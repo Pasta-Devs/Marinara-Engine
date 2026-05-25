@@ -5,6 +5,8 @@ import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../shar
 import { cn } from "../../../../shared/lib/utils";
 import "./TrackerSidebarHeader.css";
 
+type TrackerDataSidebarPresentation = "standard" | "mobileDock";
+
 const TRACKER_PANEL_SIZE_SEQUENCE: TrackerPanelSizeProfile[] = ["compact", "standard", "expanded"];
 const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
   compact: "Compact",
@@ -21,6 +23,7 @@ export function TrackerSidebarHeader({
   onSetDeleteMode,
   onSetSide,
   onSetSizeProfile,
+  presentation = "standard",
   onClose,
 }: {
   trackerPanelSide: TrackerPanelSide;
@@ -31,8 +34,10 @@ export function TrackerSidebarHeader({
   onSetDeleteMode: (enabled: boolean) => void;
   onSetSide: (side: TrackerPanelSide) => void;
   onSetSizeProfile: (profile: TrackerPanelSizeProfile) => void;
+  presentation?: TrackerDataSidebarPresentation;
   onClose: () => void;
 }) {
+  const showSizeButton = presentation !== "mobileDock";
   const sizeIndex = Math.max(0, TRACKER_PANEL_SIZE_SEQUENCE.indexOf(sizeProfile));
   const nextSizeProfile = TRACKER_PANEL_SIZE_SEQUENCE[(sizeIndex + 1) % TRACKER_PANEL_SIZE_SEQUENCE.length]!;
   const sizeLabel = TRACKER_PANEL_SIZE_LABELS[sizeProfile];
@@ -93,15 +98,17 @@ export function TrackerSidebarHeader({
       >
         <Trash2 size="0.75rem" />
       </button>
-      <button
-        type="button"
-        onClick={() => onSetSizeProfile(nextSizeProfile)}
-        title={sizeTitle}
-        aria-label={sizeTitle}
-        className="tracker-sidebar-header__size-button"
-      >
-        <TrackerSizeTierIcon sizeProfile={sizeProfile} />
-      </button>
+      {showSizeButton && (
+        <button
+          type="button"
+          onClick={() => onSetSizeProfile(nextSizeProfile)}
+          title={sizeTitle}
+          aria-label={sizeTitle}
+          className="tracker-sidebar-header__size-button"
+        >
+          <TrackerSizeTierIcon sizeProfile={sizeProfile} />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onSetSide(trackerPanelSide === "left" ? "right" : "left")}
@@ -138,7 +145,7 @@ export function TrackerSidebarHeader({
   );
 
   return (
-    <div className="tracker-sidebar-header">
+    <div className="tracker-sidebar-header" data-tracker-sidebar-presentation={presentation}>
       <div className="tracker-sidebar-header__rule" />
       {trackerPanelSide === "left" ? outerHeaderControls : closePanelButton}
       <div className="min-w-0 flex-1" />

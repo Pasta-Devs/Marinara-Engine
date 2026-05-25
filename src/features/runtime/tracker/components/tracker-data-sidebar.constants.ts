@@ -10,9 +10,9 @@ export const TRACKER_PROFILE_PORTRAIT_COLUMN_RIGHT_CLASS =
 export const TRACKER_PROFILE_PORTRAIT_COLUMN_LEFT_CLASS =
   "grid-cols-[clamp(5.25rem,38cqw,6.75rem)_minmax(0,1fr)] @min-[380px]:grid-cols-[9.25rem_minmax(0,1fr)]";
 export const TRACKER_PROFILE_PORTRAIT_FRAME_STAGE_CLASS =
-  "h-[9rem] min-h-[9rem] @min-[380px]:h-[10.5rem] @min-[380px]:min-h-[10.5rem]";
+  "tracker-profile-portrait-frame-stage h-[9rem] min-h-[9rem] @min-[380px]:h-[10.5rem] @min-[380px]:min-h-[10.5rem]";
 export const TRACKER_PROFILE_PORTRAIT_FRAME_STAGE_MAX_CLASS =
-  "h-[9rem] max-h-[9rem] @min-[380px]:h-[10.5rem] @min-[380px]:max-h-[10.5rem]";
+  "tracker-profile-portrait-frame-stage tracker-profile-portrait-frame-stage--max h-[9rem] max-h-[9rem] @min-[380px]:h-[10.5rem] @min-[380px]:max-h-[10.5rem]";
 export const TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM = 7.75;
 export const TRACKER_PROFILE_PORTRAIT_ROOMY_MEDIA_STAGE_REM = 9.25;
 

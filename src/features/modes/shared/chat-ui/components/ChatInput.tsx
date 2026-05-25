@@ -145,6 +145,7 @@ export const ChatInput = memo(function ChatInput({
   const [charPickerOpen, setCharPickerOpen] = useState(false);
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
   const charPickerMenuRef = useRef<HTMLDivElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
@@ -1025,6 +1026,41 @@ export const ChatInput = memo(function ChatInput({
     if (hasInput && feedback) setFeedback(null);
   }, [hasInput, feedback]);
 
+  useEffect(() => {
+    if (mode !== "roleplay") return;
+    const inputContainer = inputContainerRef.current;
+    if (!inputContainer) return;
+
+    const scope =
+      inputContainer.closest<HTMLElement>('[data-component="AppShellBody"]') ?? document.documentElement;
+    const reserveProperty = "--mobile-docked-composer-height";
+    let frame = 0;
+
+    const updateReserve = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const height = Math.ceil(inputContainer.getBoundingClientRect().height);
+        if (height > 0) scope.style.setProperty(reserveProperty, `${height}px`);
+      });
+    };
+
+    updateReserve();
+
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateReserve);
+    resizeObserver?.observe(inputContainer);
+    window.addEventListener("resize", updateReserve);
+    window.visualViewport?.addEventListener("resize", updateReserve);
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateReserve);
+      window.visualViewport?.removeEventListener("resize", updateReserve);
+      scope.style.removeProperty(reserveProperty);
+    };
+  }, [mode]);
+
   const _isRP = mode === "roleplay";
   void _isRP;
 
@@ -1162,7 +1198,7 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <div className="mari-chat-input chat-input-container px-3 pb-3">
+    <div ref={inputContainerRef} className="mari-chat-input chat-input-container px-3 pb-3">
       {/* Slash command autocomplete popup */}
       {completions.length > 0 && (
         <div className="mb-2 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl backdrop-blur-xl [-webkit-overflow-scrolling:touch]">
@@ -1237,7 +1273,7 @@ export const ChatInput = memo(function ChatInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "mari-chat-input-box relative flex items-center gap-1.5 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:gap-2 sm:px-4",
+          "mari-chat-input-box relative flex flex-wrap items-center gap-1.5 gap-y-2 rounded-2xl border-2 px-2.5 py-2.5 transition-all duration-200 sm:flex-nowrap sm:gap-2 sm:px-4",
           "bg-[var(--card)]",
           isDragging
             ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10"
@@ -1255,25 +1291,24 @@ export const ChatInput = memo(function ChatInput({
           className="hidden"
           onChange={handleFileUpload}
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!activeChatId}
-          className={cn(
-            "rounded-lg p-1.5 transition-all active:scale-90",
-            attachments.length
-              ? "text-blue-400 hover:bg-foreground/10"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          )}
-          title="Attach files"
-        >
-          <Paperclip size="1rem" />
-        </button>
 
-        {/* Quick Switchers — desktop: inline, mobile: chevron */}
-        <QuickConnectionSwitcher className="hidden sm:flex" />
-        <QuickPersonaSwitcher className="hidden sm:flex" />
-        <div className="sm:hidden">
-          <QuickSwitcherMobile />
+        {/* Quick Switchers — desktop: inline, mobile: wrapped controls */}
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!activeChatId}
+            className={cn(
+              "rounded-lg p-1.5 transition-all active:scale-90",
+              attachments.length
+                ? "text-blue-400 hover:bg-foreground/10"
+                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            )}
+            title="Attach files"
+          >
+            <Paperclip size="1rem" />
+          </button>
+          <QuickConnectionSwitcher />
+          <QuickPersonaSwitcher />
         </div>
 
         {/* Text input */}
@@ -1295,9 +1330,27 @@ export const ChatInput = memo(function ChatInput({
           rows={1}
           spellCheck
           autoCorrect="on"
-          className="mari-chat-input-textarea max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-foreground/90 placeholder:text-foreground/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          className="mari-chat-input-textarea max-h-[12.5rem] min-w-0 basis-full resize-none bg-transparent py-0 text-sm leading-normal text-foreground/90 placeholder:text-foreground/30 outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1 sm:basis-auto"
         />
 
+        <div className="flex items-center gap-1.5 sm:hidden">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!activeChatId}
+            className={cn(
+              "rounded-lg p-1.5 transition-all active:scale-90",
+              attachments.length
+                ? "text-blue-400 hover:bg-foreground/10"
+                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            )}
+            title="Attach files"
+          >
+            <Paperclip size="1rem" />
+          </button>
+          <QuickSwitcherMobile />
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
         {/* Emoji picker */}
         <div className="relative hidden sm:block">
           <button
@@ -1398,6 +1451,7 @@ export const ChatInput = memo(function ChatInput({
             <Send size="0.9375rem" className={cn(hasInput && "translate-x-[1px]")} />
           )}
         </button>
+        </div>
       </div>
 
       {/* Character picker dropdown (portal) */}

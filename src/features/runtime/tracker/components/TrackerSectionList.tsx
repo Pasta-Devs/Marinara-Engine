@@ -16,14 +16,21 @@ import { CharacterTrackerPanel } from "./CharacterTrackerPanel";
 import { QuestTrackerPanel } from "./QuestTrackerPanel";
 import { CustomTrackerPanel } from "./CustomTrackerPanel";
 
+type TrackerDataSidebarPresentation = "standard" | "mobileDock";
+type TrackerMobileDockView = "compact" | "expanded";
+
 export function TrackerSectionList({
   addMode,
   deleteMode,
+  mobileDockView = "compact",
   model,
+  presentation = "standard",
 }: {
   addMode: boolean;
   deleteMode: boolean;
+  mobileDockView?: TrackerMobileDockView;
   model: TrackerPanelModel;
+  presentation?: TrackerDataSidebarPresentation;
 }) {
   const {
     activeChatId,
@@ -58,6 +65,12 @@ export function TrackerSectionList({
     trackerTemperatureUnit,
     orderedTrackerSections,
   } = model;
+  const effectiveTrackerPanelSizeProfile =
+    presentation === "mobileDock"
+      ? mobileDockView === "expanded"
+        ? "standard"
+        : "compact"
+      : trackerPanelSizeProfile;
   const { rerunTracker, trackerRetryBusy } = useTrackerRerun({
     activeChatId,
     enabledAgentTypes,
@@ -142,7 +155,7 @@ export function TrackerSectionList({
           <WorldStatePanel
             key="world"
             state={gameState}
-            trackerPanelSizeProfile={trackerPanelSizeProfile}
+            trackerPanelSizeProfile={effectiveTrackerPanelSizeProfile}
             trackerTemperatureUnit={trackerTemperatureUnit}
             action={renderRerunAction("world")}
             onSaveField={patchField}
@@ -162,7 +175,7 @@ export function TrackerSectionList({
                 : undefined
             }
             trackerPanelSide={trackerPanelSide}
-            trackerPanelSizeProfile={trackerPanelSizeProfile}
+            trackerPanelSizeProfile={effectiveTrackerPanelSizeProfile}
             personaStats={personaStats}
             inventory={inventory}
             action={renderRerunAction("persona")}
@@ -191,7 +204,7 @@ export function TrackerSectionList({
             characterProfileColors={characterSpriteLookup.profileColorsById}
             resolveSpriteCharacterId={resolveSpriteCharacterId}
             trackerPanelSide={trackerPanelSide}
-            trackerPanelSizeProfile={trackerPanelSizeProfile}
+            trackerPanelSizeProfile={effectiveTrackerPanelSizeProfile}
             thoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
             dockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
             action={renderCharacterHeaderAction()}

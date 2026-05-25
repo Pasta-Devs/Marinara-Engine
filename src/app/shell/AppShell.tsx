@@ -34,6 +34,8 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 
 const ModeSurface = lazy(() =>
@@ -72,6 +74,10 @@ const TRACKER_PANEL_DESKTOP_EXIT_EASE = [0.4, 0, 1, 1] as const;
 const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
+const MOBILE_TRACKER_GESTURE_LOCK_PX = 18;
+const MOBILE_TRACKER_SNAP_PX = 44;
+const MOBILE_TRACKER_DEEP_SNAP_PX = 132;
+const MOBILE_TRACKER_DOCK_STATES = ["collapsed", "compact", "expanded"] as const;
 const FOCUSABLE_SELECTOR = [
   "a[href]",
   "button:not([disabled])",
@@ -80,6 +86,54 @@ const FOCUSABLE_SELECTOR = [
   "select:not([disabled])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
+
+type MobileTrackerDockView = (typeof MOBILE_TRACKER_DOCK_STATES)[number];
+
+interface MobileTrackerDragState {
+  cancelled: boolean;
+  locked: boolean;
+  pointerId: number;
+  side: "left" | "right";
+  startClientX: number;
+  startClientY: number;
+  startDockView: MobileTrackerDockView;
+}
+
+function getMobileTrackerDockWidthPx(view: MobileTrackerDockView, viewportWidth: number) {
+  const rootFontSize =
+    typeof window === "undefined"
+      ? 16
+      : Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+  const rem = (value: number) => value * rootFontSize;
+
+  if (view === "collapsed") return rem(1.375);
+  if (view === "expanded") {
+    return viewportWidth <= 380
+      ? clampWidth(viewportWidth * 0.58, rem(12.5), rem(17))
+      : clampWidth(viewportWidth * 0.58, rem(13.5), rem(18));
+  }
+
+  return viewportWidth <= 380
+    ? clampWidth(viewportWidth * 0.4, rem(8.5), rem(14.5))
+    : clampWidth(viewportWidth * 0.38, rem(8.75), rem(15));
+}
+
+function getMobileTrackerDockStateIndex(view: MobileTrackerDockView) {
+  return Math.max(0, MOBILE_TRACKER_DOCK_STATES.indexOf(view));
+}
+
+function resolveMobileTrackerDockView(startDockView: MobileTrackerDockView, signedDelta: number): MobileTrackerDockView {
+  const startIndex = getMobileTrackerDockStateIndex(startDockView);
+  if (signedDelta >= MOBILE_TRACKER_DEEP_SNAP_PX) return "expanded";
+  if (signedDelta <= -MOBILE_TRACKER_DEEP_SNAP_PX) return "collapsed";
+  if (signedDelta >= MOBILE_TRACKER_SNAP_PX) {
+    return MOBILE_TRACKER_DOCK_STATES[Math.min(MOBILE_TRACKER_DOCK_STATES.length - 1, startIndex + 1)]!;
+  }
+  if (signedDelta <= -MOBILE_TRACKER_SNAP_PX) {
+    return MOBILE_TRACKER_DOCK_STATES[Math.max(0, startIndex - 1)]!;
+  }
+  return startDockView;
+}
 
 function getFocusableElements(root: HTMLElement) {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
@@ -157,13 +211,19 @@ export function AppShell() {
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
   const trackerPanelSizeProfile = useUIStore((s) => s.trackerPanelSizeProfile);
-  const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const [activeChatSidebarTab, setActiveChatSidebarTab] = useState<ChatSidebarTab>("conversation");
   const [professorMariOpen, setProfessorMariOpen] = useState(false);
+  const [mobileTrackerDockView, setMobileTrackerDockView] = useState<MobileTrackerDockView>("compact");
+  const [mobileTrackerDragOffset, setMobileTrackerDragOffset] = useState(0);
+  const [mobileTrackerDragging, setMobileTrackerDragging] = useState(false);
   const sidebarDragWidthRef = useRef<number | null>(null);
   const rightPanelDragWidthRef = useRef<number | null>(null);
+  const mobileTrackerDockViewRef = useRef<MobileTrackerDockView>("compact");
+  const mobileTrackerDragStateRef = useRef<MobileTrackerDragState | null>(null);
+  const mobileTrackerSuppressClickRef = useRef(false);
+  const mobileTrackerWasVisibleRef = useRef(false);
   const headerRef = useRef<HTMLElement>(null);
   const liveSidebarWidth = sidebarDragWidth ?? sidebarWidth;
   const liveRightPanelWidth = rightPanelDragWidth ?? rightPanelWidth;
@@ -177,6 +237,10 @@ export function AppShell() {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  useEffect(() => {
+    mobileTrackerDockViewRef.current = mobileTrackerDockView;
+  }, [mobileTrackerDockView]);
 
   // Auto-close right panel when viewport is too narrow for comfort
   useEffect(() => {
@@ -623,15 +687,235 @@ export function AppShell() {
     !isMobile && trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
       ? trackerPanelWidth + TRACKER_PANEL_HUD_GAP
       : 0;
+  const trackerPanelMobileDockVisible = isMobile && trackerPanelVisible && !sidebarOpen && !rightPanelOpen;
   const activeMobilePanel = isMobile
     ? rightPanelOpen
       ? "right"
-      : trackerPanelVisible
-        ? "tracker"
-        : sidebarOpen
-          ? "sidebar"
-          : null
+      : sidebarOpen
+        ? "sidebar"
+        : null
     : null;
+
+  useEffect(() => {
+    if (trackerPanelMobileDockVisible && !mobileTrackerWasVisibleRef.current) {
+      setMobileTrackerDockView("compact");
+      setMobileTrackerDragOffset(0);
+      setMobileTrackerDragging(false);
+    }
+    if (!trackerPanelMobileDockVisible) {
+      mobileTrackerDragStateRef.current = null;
+      setMobileTrackerDragOffset(0);
+      setMobileTrackerDragging(false);
+    }
+    mobileTrackerWasVisibleRef.current = trackerPanelMobileDockVisible;
+  }, [trackerPanelMobileDockVisible]);
+
+  const updateMobileTrackerDrag = useCallback(
+    (pointerId: number, clientX: number, clientY: number, capturePointer: () => void, preventDefault: () => void) => {
+      const dragState = mobileTrackerDragStateRef.current;
+      if (!dragState || dragState.pointerId !== pointerId || dragState.cancelled) return;
+
+      const dx = clientX - dragState.startClientX;
+      const dy = clientY - dragState.startClientY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (!dragState.locked) {
+        if (absDy > 10 && absDy > absDx * 1.15) {
+          dragState.cancelled = true;
+          mobileTrackerDragStateRef.current = dragState;
+          return;
+        }
+        if (absDx < MOBILE_TRACKER_GESTURE_LOCK_PX || absDx < absDy * 1.1) return;
+
+        dragState.locked = true;
+        mobileTrackerDragStateRef.current = dragState;
+        capturePointer();
+        setMobileTrackerDragging(true);
+      }
+
+      const signedDelta = dx * (dragState.side === "left" ? 1 : -1);
+      const viewportWidth = typeof window === "undefined" ? 411 : window.innerWidth;
+      const baseWidth = getMobileTrackerDockWidthPx(dragState.startDockView, viewportWidth);
+      const minOffset = getMobileTrackerDockWidthPx("collapsed", viewportWidth) - baseWidth;
+      const maxOffset = getMobileTrackerDockWidthPx("expanded", viewportWidth) - baseWidth;
+      setMobileTrackerDragOffset(clampWidth(signedDelta, minOffset, maxOffset));
+      preventDefault();
+    },
+    [],
+  );
+
+  const finishMobileTrackerDragAt = useCallback((pointerId: number, clientX: number, releasePointer?: () => void) => {
+    const dragState = mobileTrackerDragStateRef.current;
+    if (!dragState || dragState.pointerId !== pointerId) return;
+
+    const signedDelta = (clientX - dragState.startClientX) * (dragState.side === "left" ? 1 : -1);
+    if (dragState.locked) {
+      setMobileTrackerDockView(resolveMobileTrackerDockView(dragState.startDockView, signedDelta));
+      mobileTrackerSuppressClickRef.current = true;
+      window.setTimeout(() => {
+        mobileTrackerSuppressClickRef.current = false;
+      }, 220);
+    }
+
+    releasePointer?.();
+    mobileTrackerDragStateRef.current = null;
+    setMobileTrackerDragOffset(0);
+    setMobileTrackerDragging(false);
+  }, []);
+
+  const finishMobileTrackerDrag = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      finishMobileTrackerDragAt(event.pointerId, event.clientX, () => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      });
+    },
+    [finishMobileTrackerDragAt],
+  );
+
+  const handleMobileTrackerPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!trackerPanelMobileDockVisible || !isMobile) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const gripTarget = target?.closest("[data-mobile-tracker-grip]");
+      const interactiveTarget = target?.closest(
+        "a[href],button,input,textarea,select,[contenteditable='true'],[role='button']",
+      );
+      if (interactiveTarget && !gripTarget) return;
+
+      mobileTrackerDragStateRef.current = {
+        cancelled: false,
+        locked: false,
+        pointerId: event.pointerId,
+        side: trackerPanelSide,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startDockView: mobileTrackerDockViewRef.current,
+      };
+    },
+    [isMobile, trackerPanelMobileDockVisible, trackerPanelSide],
+  );
+
+  const handleMobileTrackerPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      updateMobileTrackerDrag(
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        () => event.currentTarget.setPointerCapture(event.pointerId),
+        () => event.preventDefault(),
+      );
+    },
+    [updateMobileTrackerDrag],
+  );
+
+  const handleMobileTrackerPointerCancel = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const dragState = mobileTrackerDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    mobileTrackerDragStateRef.current = null;
+    setMobileTrackerDragOffset(0);
+    setMobileTrackerDragging(false);
+  }, []);
+
+  const handleMobileTrackerTouchStart = useCallback(
+    (event: ReactTouchEvent<HTMLElement>) => {
+      if (!trackerPanelMobileDockVisible || !isMobile) return;
+
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const gripTarget = target?.closest("[data-mobile-tracker-grip]");
+      const interactiveTarget = target?.closest(
+        "a[href],button,input,textarea,select,[contenteditable='true'],[role='button']",
+      );
+      if (interactiveTarget && !gripTarget) return;
+
+      const touch = event.touches[0];
+      if (!touch) return;
+      mobileTrackerDragStateRef.current = {
+        cancelled: false,
+        locked: false,
+        pointerId: touch.identifier,
+        side: trackerPanelSide,
+        startClientX: touch.clientX,
+        startClientY: touch.clientY,
+        startDockView: mobileTrackerDockViewRef.current,
+      };
+    },
+    [isMobile, trackerPanelMobileDockVisible, trackerPanelSide],
+  );
+
+  const handleMobileTrackerTouchMove = useCallback(
+    (event: ReactTouchEvent<HTMLElement>) => {
+      const dragState = mobileTrackerDragStateRef.current;
+      if (!dragState) return;
+      const touch = Array.from(event.touches).find((candidate) => candidate.identifier === dragState.pointerId);
+      if (!touch) return;
+      updateMobileTrackerDrag(
+        touch.identifier,
+        touch.clientX,
+        touch.clientY,
+        () => {},
+        () => event.preventDefault(),
+      );
+    },
+    [updateMobileTrackerDrag],
+  );
+
+  const handleMobileTrackerTouchEnd = useCallback(
+    (event: ReactTouchEvent<HTMLElement>) => {
+      const dragState = mobileTrackerDragStateRef.current;
+      if (!dragState) return;
+      const touch = Array.from(event.changedTouches).find((candidate) => candidate.identifier === dragState.pointerId);
+      if (!touch) return;
+      finishMobileTrackerDragAt(touch.identifier, touch.clientX);
+    },
+    [finishMobileTrackerDragAt],
+  );
+
+  const stepMobileTrackerDockView = useCallback((direction: -1 | 1) => {
+    setMobileTrackerDockView((current) => {
+      const nextIndex = Math.max(
+        0,
+        Math.min(MOBILE_TRACKER_DOCK_STATES.length - 1, getMobileTrackerDockStateIndex(current) + direction),
+      );
+      return MOBILE_TRACKER_DOCK_STATES[nextIndex]!;
+    });
+  }, []);
+
+  const handleMobileTrackerGripClick = useCallback(() => {
+    if (mobileTrackerSuppressClickRef.current) return;
+    setMobileTrackerDockView((current) =>
+      current === "collapsed" ? "compact" : current === "compact" ? "expanded" : "compact",
+    );
+  }, []);
+
+  const handleMobileTrackerGripKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      const expandKey = trackerPanelSide === "left" ? "ArrowRight" : "ArrowLeft";
+      const collapseKey = trackerPanelSide === "left" ? "ArrowLeft" : "ArrowRight";
+
+      if (event.key === expandKey) {
+        event.preventDefault();
+        stepMobileTrackerDockView(1);
+      } else if (event.key === collapseKey) {
+        event.preventDefault();
+        stepMobileTrackerDockView(-1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setMobileTrackerDockView("collapsed");
+      } else if (event.key === "End") {
+        event.preventDefault();
+        setMobileTrackerDockView("expanded");
+      }
+    },
+    [stepMobileTrackerDockView, trackerPanelSide],
+  );
 
   const syncMobilePanelInert = useCallback(() => {
     if (!isMobile) {
@@ -644,7 +928,7 @@ export function AppShell() {
     }
 
     setInert(sidebarPanelRef.current, activeMobilePanel !== "sidebar");
-    setInert(mobileTrackerPanelRef.current, activeMobilePanel !== "tracker");
+    setInert(mobileTrackerPanelRef.current, activeMobilePanel === "sidebar" || activeMobilePanel === "right");
     setInert(mobileRightPanelRef.current, activeMobilePanel !== "right");
     setInert(headerRef.current, activeMobilePanel !== null);
     setInert(mainRef.current, activeMobilePanel !== null);
@@ -667,7 +951,6 @@ export function AppShell() {
 
     const getPanel = () => {
       if (activeMobilePanel === "right") return mobileRightPanelRef.current;
-      if (activeMobilePanel === "tracker") return mobileTrackerPanelRef.current;
       return sidebarPanelRef.current;
     };
 
@@ -691,7 +974,6 @@ export function AppShell() {
       if (event.key === "Escape") {
         event.preventDefault();
         if (activeMobilePanel === "right") closeRightPanel();
-        else if (activeMobilePanel === "tracker") setTrackerPanelOpen(false);
         else setSidebarOpen(false);
         return;
       }
@@ -733,7 +1015,7 @@ export function AppShell() {
         previous.focus();
       }
     };
-  }, [activeMobilePanel, closeRightPanel, hasCompletedOnboarding, isMobile, setSidebarOpen, setTrackerPanelOpen]);
+  }, [activeMobilePanel, closeRightPanel, hasCompletedOnboarding, isMobile, setSidebarOpen]);
 
   const trackerPanelDesktop = (side: "left" | "right") =>
     trackerPanelVisible && trackerPanelSide === side ? (
@@ -793,6 +1075,76 @@ export function AppShell() {
         </div>
       </motion.aside>
     ) : null;
+  const trackerPanelMobile = (side: "left" | "right") =>
+    trackerPanelMobileDockVisible && trackerPanelSide === side ? (
+      <motion.aside
+        ref={mobileTrackerPanelRef}
+        key={`mobile-tracker-${side}`}
+        initial={{ x: side === "left" ? -18 : 18, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: side === "left" ? -14 : 14, opacity: 0 }}
+        transition={{ duration: 0.18, ease: TRACKER_PANEL_DESKTOP_EASE }}
+        data-component="TrackerDataSidebarMobile"
+        data-mobile-tracker-panel="dock"
+        data-mobile-tracker-side={side}
+        data-mobile-tracker-view={mobileTrackerDockView}
+        data-mobile-tracker-dragging={mobileTrackerDragging ? true : undefined}
+        aria-label="Tracker data panel"
+        onPointerDown={handleMobileTrackerPointerDown}
+        onPointerMove={handleMobileTrackerPointerMove}
+        onPointerUp={finishMobileTrackerDrag}
+        onPointerCancel={handleMobileTrackerPointerCancel}
+        onLostPointerCapture={handleMobileTrackerPointerCancel}
+        onTouchStart={handleMobileTrackerTouchStart}
+        onTouchMove={handleMobileTrackerTouchMove}
+        onTouchEnd={handleMobileTrackerTouchEnd}
+        onTouchCancel={handleMobileTrackerTouchEnd}
+        className={cn(
+          "mari-tracker-panel mari-tracker-panel-mobile relative z-20 min-h-0 flex-shrink-0 overflow-hidden shadow-2xl",
+          side === "left" ? "border-r" : "border-l",
+        )}
+        style={
+          {
+            "--mobile-tracker-drag-offset": `${mobileTrackerDragOffset}px`,
+          } as CSSProperties
+        }
+      >
+        <button
+          type="button"
+          data-mobile-tracker-grip
+          onClick={handleMobileTrackerGripClick}
+          onKeyDown={handleMobileTrackerGripKeyDown}
+          aria-label={
+            mobileTrackerDockView === "collapsed"
+              ? "Open tracker panel"
+              : mobileTrackerDockView === "compact"
+                ? "Expand tracker panel"
+                : "Return tracker panel to compact view"
+          }
+          title={
+            mobileTrackerDockView === "collapsed"
+              ? "Open tracker panel"
+              : mobileTrackerDockView === "compact"
+                ? "Expand tracker panel"
+                : "Return tracker panel to compact view"
+          }
+          className="mari-tracker-panel-mobile-grip"
+        >
+          <span aria-hidden="true" className="mari-tracker-panel-mobile-grip__mark" />
+        </button>
+        {mobileTrackerDockView !== "collapsed" && (
+          <div className="mari-tracker-panel-mobile-content">
+            <Suspense fallback={<SidePanelFallback />}>
+              <TrackerDataSidebar
+                fillHeight
+                presentation="mobileDock"
+                mobileDockView={mobileTrackerDockView === "expanded" ? "expanded" : "compact"}
+              />
+            </Suspense>
+          </div>
+        )}
+      </motion.aside>
+    ) : null;
 
   return (
     <div
@@ -831,7 +1183,12 @@ export function AppShell() {
         />
       </header>
 
-      <div data-component="AppShellBody" className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div
+        data-component="AppShellBody"
+        data-mobile-tracker-docked={trackerPanelMobileDockVisible ? trackerPanelSide : undefined}
+        data-mobile-tracker-view={trackerPanelMobileDockVisible ? mobileTrackerDockView : undefined}
+        className="relative flex min-h-0 flex-1 overflow-hidden"
+      >
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -881,6 +1238,7 @@ export function AppShell() {
       )}
 
       <AnimatePresence initial={false}>{!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("left")}</AnimatePresence>
+      <AnimatePresence initial={false}>{trackerPanelMobile("left")}</AnimatePresence>
 
       {/* Center content */}
       <main
@@ -921,43 +1279,7 @@ export function AppShell() {
       </main>
 
       <AnimatePresence initial={false}>{!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("right")}</AnimatePresence>
-
-      {/* Mobile tracker panel backdrop */}
-      {trackerPanelVisible && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
-          onClick={() => setTrackerPanelOpen(false)}
-        />
-      )}
-
-      {/* Mobile tracker panel */}
-      {isMobile && (
-        <AnimatePresence mode="wait">
-          {trackerPanelVisible && (
-            <motion.aside
-              ref={mobileTrackerPanelRef}
-              key="mobile-tracker"
-              initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              data-component="TrackerDataSidebarMobile"
-              aria-label="Tracker data panel"
-              aria-modal="true"
-              role="dialog"
-              tabIndex={-1}
-              className={cn(
-                "mari-tracker-panel fixed! inset-y-0 z-50 w-[calc(100vw-0.5rem)] max-w-[24rem] overflow-hidden bg-[var(--background)]/65 pt-[env(safe-area-inset-top)] shadow-2xl backdrop-blur-xl",
-                trackerPanelSide === "left" ? "left-0" : "right-0",
-              )}
-            >
-              <Suspense fallback={<SidePanelFallback />}>
-                <TrackerDataSidebar fillHeight />
-              </Suspense>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      )}
+      <AnimatePresence initial={false}>{trackerPanelMobile("right")}</AnimatePresence>
 
       {/* Mobile right panel backdrop */}
       {rightPanelOpen && (
