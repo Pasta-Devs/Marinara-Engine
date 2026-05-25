@@ -43,6 +43,7 @@ import {
   ImageIcon,
   RotateCcw,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -149,6 +150,7 @@ export function ConnectionEditor() {
   const [localEnableCaching, setLocalEnableCaching] = useState(false);
   const [localCachingAtDepth, setLocalCachingAtDepth] = useState(DEFAULT_CACHING_AT_DEPTH);
   const [localDefaultForAgents, setLocalDefaultForAgents] = useState(false);
+  const [localDefaultForRewrite, setLocalDefaultForRewrite] = useState(false);
   const [localEmbeddingModel, setLocalEmbeddingModel] = useState("");
   const [localEmbeddingBaseUrl, setLocalEmbeddingBaseUrl] = useState("");
   const [localEmbeddingConnectionId, setLocalEmbeddingConnectionId] = useState("");
@@ -248,6 +250,7 @@ export function ConnectionEditor() {
     setLocalEnableCaching(c.enableCaching === "true" || c.enableCaching === true);
     setLocalCachingAtDepth(normalizeCachingAtDepth(c.cachingAtDepth));
     setLocalDefaultForAgents(c.defaultForAgents === "true" || c.defaultForAgents === true);
+    setLocalDefaultForRewrite(c.defaultForRewrite === "true" || c.defaultForRewrite === true);
     setLocalEmbeddingModel((c.embeddingModel as string) ?? "");
     setLocalEmbeddingBaseUrl((c.embeddingBaseUrl as string) ?? "");
     setLocalEmbeddingConnectionId((c.embeddingConnectionId as string) ?? "");
@@ -412,6 +415,7 @@ export function ConnectionEditor() {
       enableCaching: localEnableCaching,
       cachingAtDepth: localCachingAtDepth,
       defaultForAgents: localDefaultForAgents,
+      defaultForRewrite: localDefaultForRewrite,
       embeddingModel: localEmbeddingModel,
       embeddingBaseUrl: localEmbeddingBaseUrl,
       embeddingConnectionId: localEmbeddingConnectionId || null,
@@ -471,6 +475,7 @@ export function ConnectionEditor() {
     localEnableCaching,
     localCachingAtDepth,
     localDefaultForAgents,
+    localDefaultForRewrite,
     localEmbeddingModel,
     localEmbeddingBaseUrl,
     localEmbeddingConnectionId,
@@ -1724,6 +1729,32 @@ export function ConnectionEditor() {
               </p>
             )}
           </FieldGroup>
+
+          {/* ── Default for Magic Rewrite ── */}
+          {!isImageGenerationProvider && (
+            <FieldGroup
+              label="Default for Rewrite"
+              icon={<Sparkles size="0.875rem" className="text-violet-400" />}
+              help="When enabled, all Magic Rewrite text generations will use this connection. Otherwise the default chat connection will be used."
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none px-2 py-1">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={localDefaultForRewrite}
+                    onChange={(e) => {
+                      setLocalDefaultForRewrite(e.target.checked);
+                      markDirty();
+                    }}
+                    className="peer sr-only"
+                  />
+                  <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-violet-400/70" />
+                  <div className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span className="text-sm">Use as default rewrite connection</span>
+              </label>
+            </FieldGroup>
+          )}
 
           {/* ── Claude (Subscription) — Fast Mode toggle ── */}
           {localProvider === "claude_subscription" && (

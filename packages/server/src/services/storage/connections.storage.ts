@@ -41,6 +41,14 @@ export function createConnectionsStorage(db: DB) {
       return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
     },
 
+    /** Get the connection marked as default for Magic Rewrite (with decrypted key). */
+    async getDefaultForRewrite() {
+      const rows = await db.select().from(apiConnections).where(eq(apiConnections.defaultForRewrite, "true"));
+      const row = rows.find((candidate) => candidate.provider !== "image_generation");
+      if (!row) return null;
+      return { ...row, apiKey: decryptApiKey(row.apiKeyEncrypted) };
+    },
+
     async create(input: CreateConnectionInput) {
       const id = newId();
       const timestamp = now();
@@ -67,6 +75,18 @@ export function createConnectionsStorage(db: DB) {
           }
         }
       }
+      // If this is set as default for rewrite, unset other non-image defaults
+      if (input.defaultForRewrite) {
+        const existingDefaults = await db
+          .select()
+          .from(apiConnections)
+          .where(eq(apiConnections.defaultForRewrite, "true"));
+        for (const row of existingDefaults) {
+          if (row.provider !== "image_generation") {
+            await db.update(apiConnections).set({ defaultForRewrite: "false" }).where(eq(apiConnections.id, row.id));
+          }
+        }
+      }
       await db.insert(apiConnections).values({
         id,
         name: input.name,
@@ -78,6 +98,7 @@ export function createConnectionsStorage(db: DB) {
         isDefault: String(input.isDefault ?? false),
         useForRandom: String(input.useForRandom ?? false),
         defaultForAgents: String(input.defaultForAgents ?? false),
+        defaultForRewrite: String(input.defaultForRewrite ?? false),
         enableCaching: String(input.enableCaching ?? false),
         cachingAtDepth: input.cachingAtDepth ?? 5,
         maxParallelJobs: input.maxParallelJobs ?? 1,
@@ -139,6 +160,20 @@ export function createConnectionsStorage(db: DB) {
           }
         }
         updateFields.defaultForAgents = String(data.defaultForAgents);
+      }
+      if (data.defaultForRewrite !== undefined) {
+        if (data.defaultForRewrite) {
+          const existingDefaults = await db
+            .select()
+            .from(apiConnections)
+            .where(eq(apiConnections.defaultForRewrite, "true"));
+          for (const row of existingDefaults) {
+            if (row.provider !== "image_generation") {
+              await db.update(apiConnections).set({ defaultForRewrite: "false" }).where(eq(apiConnections.id, row.id));
+            }
+          }
+        }
+        updateFields.defaultForRewrite = String(data.defaultForRewrite);
       }
       if (data.enableCaching !== undefined) {
         updateFields.enableCaching = String(data.enableCaching);

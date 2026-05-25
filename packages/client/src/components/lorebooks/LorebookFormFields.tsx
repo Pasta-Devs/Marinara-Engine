@@ -4,10 +4,11 @@
 // and LorebookEntryRow (the per-entry inline drawer).
 // Extracted from LorebookEditor.tsx so styling stays consistent.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { FileText, Maximize2, ToggleLeft, ToggleRight, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { FileText, Maximize2, Sparkles, ToggleLeft, ToggleRight, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { MagicRewritePanel } from "../ui/MagicRewritePanel";
 
 export function FieldGroup({
   label,
@@ -233,6 +234,8 @@ export function ExpandedContentModal({
   placeholder?: string;
 }) {
   const [local, setLocal] = useState(value);
+  const [magicRewriteMode, setMagicRewriteMode] = useState(false);
+  const [magicRewriteResult, setMagicRewriteResult] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -257,36 +260,87 @@ export function ExpandedContentModal({
     onClose();
   };
 
+  const handleMagicRewriteBack = () => {
+    setMagicRewriteMode(false);
+    setMagicRewriteResult("");
+  };
+
+  const handleMagicRewriteApply = () => {
+    if (!magicRewriteResult) return;
+    setLocal(magicRewriteResult);
+    setMagicRewriteMode(false);
+    setMagicRewriteResult("");
+    window.setTimeout(() => textareaRef.current?.focus(), 100);
+  };
+
+  const handleMagicRewriteResultChange = useCallback((next: string) => {
+    setMagicRewriteResult(next);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 max-md:pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl shadow-black/50">
+      <div className="relative flex h-[80vh] w-full max-w-5xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl shadow-black/50">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-            <X size="1rem" />
-          </button>
+          <h3 className="text-sm font-semibold">{magicRewriteMode ? "✨ Magic Rewrite" : title}</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
+              <X size="1rem" />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-hidden p-4">
-          <textarea
-            ref={textareaRef}
-            value={local}
-            onChange={(e) => setLocal(e.target.value)}
-            onKeyDown={(e) => handleTextareaTabKeyDown(e, local, setLocal)}
-            className="h-full w-full resize-none rounded-lg bg-[var(--secondary)] p-4 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            placeholder={placeholder}
-          />
+          {magicRewriteMode ? (
+            <MagicRewritePanel value={local} onResultChange={handleMagicRewriteResultChange} />
+          ) : (
+            <textarea
+              ref={textareaRef}
+              value={local}
+              onChange={(e) => setLocal(e.target.value)}
+              onKeyDown={(e) => handleTextareaTabKeyDown(e, local, setLocal)}
+              className="h-full w-full resize-none rounded-lg bg-[var(--secondary)] p-4 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              placeholder={placeholder}
+            />
+          )}
         </div>
         <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-2.5">
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            Changes auto-save on close. Press Escape to close.
+            {magicRewriteMode ? "Back returns to the editor without applying. Apply moves the preview into the editor." : "Changes auto-save on close. Press Escape to close."}
           </p>
-          <button
-            onClick={handleClose}
-            className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98]"
-          >
-            Done
-          </button>
+          {magicRewriteMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleMagicRewriteBack}
+                className="rounded-xl border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent)] active:scale-[0.98]"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleMagicRewriteApply}
+                disabled={!magicRewriteResult}
+                className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Apply
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMagicRewriteMode(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-200 hover:bg-violet-500/20"
+                title="Open Magic Rewrite"
+              >
+                <Sparkles size="0.875rem" />
+                Rewrite
+              </button>
+              <button
+                onClick={handleClose}
+                className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98]"
+              >
+                Done
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

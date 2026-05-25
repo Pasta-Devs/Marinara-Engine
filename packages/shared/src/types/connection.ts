@@ -35,6 +35,8 @@ export interface APIConnection {
   useForRandom: boolean;
   /** Whether this connection is the default for all agents */
   defaultForAgents: boolean;
+  /** Whether this connection is the default for Magic Rewrite text generation */
+  defaultForRewrite: boolean;
   /** Whether provider-native prompt caching is enabled */
   enableCaching: boolean;
   /** Conversation message depth for Anthropic cache breakpoints */

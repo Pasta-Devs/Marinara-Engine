@@ -37,6 +37,8 @@ export const apiConnections = sqliteTable("api_connections", {
   cachingAtDepth: integer("caching_at_depth").notNull().default(5),
   /** Whether this connection is the default for all agents (only one allowed) */
   defaultForAgents: text("default_for_agents").notNull().default("false"),
+  /** Whether this connection is the default for Magic Rewrite text generation (only one allowed) */
+  defaultForRewrite: text("default_for_rewrite").notNull().default("false"),
   /** Model to use for embedding generation (e.g. text-embedding-3-small) */
   embeddingModel: text("embedding_model"),
   /** Optional: separate base URL for the embedding backend (e.g. a second llama.cpp instance) */

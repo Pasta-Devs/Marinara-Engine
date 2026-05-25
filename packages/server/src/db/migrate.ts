@@ -584,6 +584,11 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
     definition: "TEXT NOT NULL DEFAULT 'false'",
   },
   {
+    table: "api_connections",
+    column: "default_for_rewrite",
+    definition: "TEXT NOT NULL DEFAULT 'false'",
+  },
+  {
     table: "chats",
     column: "folder_id",
     definition: "TEXT",
