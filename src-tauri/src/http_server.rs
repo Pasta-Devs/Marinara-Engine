@@ -16,8 +16,9 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::path::{Path as FsPath, PathBuf};
 use std::time::Instant;
+use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
@@ -62,15 +63,33 @@ async fn managed_asset(
     Path((kind, path)): Path<(String, String)>,
 ) -> Result<Response, HttpError> {
     let path = managed_asset_path(&state.app, &kind, &path)?;
-    let bytes = tokio::fs::read(&path)
+    let mut file = tokio::fs::File::open(&path)
         .await
         .map_err(|error| match error.kind() {
             ErrorKind::NotFound => AppError::not_found("Managed asset was not found"),
             _ => AppError::from(error),
         })?;
+    let (tx, rx) = mpsc::channel::<Result<Vec<u8>, std::io::Error>>(2);
+    tokio::spawn(async move {
+        let mut buffer = vec![0; 64 * 1024];
+        loop {
+            match file.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(count) => {
+                    if tx.send(Ok(buffer[..count].to_vec())).await.is_err() {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    let _ = tx.send(Err(error)).await;
+                    break;
+                }
+            }
+        }
+    });
     Ok((
         [(header::CONTENT_TYPE, content_type_for_path(&path))],
-        Body::from(bytes),
+        Body::from_stream(ReceiverStream::new(rx)),
     )
         .into_response())
 }
