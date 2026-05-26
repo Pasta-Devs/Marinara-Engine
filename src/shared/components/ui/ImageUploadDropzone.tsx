@@ -15,9 +15,13 @@ interface ImageUploadDropzoneProps {
   multiple?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  maxFiles?: number;
+  maxFileSizeBytes?: number;
 }
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
+const DEFAULT_MAX_IMAGE_FILES = 50;
+const DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
 function isFileDrag(event: DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer.types).some((type) => type.toLowerCase() === "files");
@@ -27,6 +31,11 @@ function getSupportedImageFiles(files: FileList | null) {
   return Array.from(files ?? []).filter(
     (file) => file.type.startsWith("image/") || IMAGE_EXTENSION_PATTERN.test(file.name),
   );
+}
+
+function formatBytes(bytes: number) {
+  const mib = bytes / (1024 * 1024);
+  return `${Number.isInteger(mib) ? mib.toString() : mib.toFixed(1)} MB`;
 }
 
 export function ImageUploadDropzone({
@@ -41,6 +50,8 @@ export function ImageUploadDropzone({
   multiple = true,
   disabled = false,
   ariaLabel,
+  maxFiles = DEFAULT_MAX_IMAGE_FILES,
+  maxFileSizeBytes = DEFAULT_MAX_IMAGE_BYTES,
 }: ImageUploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
@@ -75,6 +86,17 @@ export function ImageUploadDropzone({
     const selectedFiles = multiple ? imageFiles : imageFiles.slice(0, 1);
     if (!multiple && imageFiles.length > 1) {
       toast.warning("Only one image can be uploaded here.");
+    }
+
+    if (selectedFiles.length > maxFiles) {
+      toast.error(`Upload up to ${maxFiles} image${maxFiles === 1 ? "" : "s"} at a time.`);
+      return;
+    }
+
+    const oversized = selectedFiles.find((file) => file.size > maxFileSizeBytes);
+    if (oversized) {
+      toast.error(`Images must be ${formatBytes(maxFileSizeBytes)} or smaller.`);
+      return;
     }
 
     onFilesSelected(selectedFiles);
@@ -146,6 +168,7 @@ export function ImageUploadDropzone({
         onDrop={handleDrop}
         aria-disabled={isDisabled}
         aria-label={ariaLabel ?? label}
+        tabIndex={isDisabled ? -1 : undefined}
         className={cn(
           "flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-6 text-xs text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)] hover:text-[var(--primary)]",
           className,

@@ -15,15 +15,15 @@ pub(crate) fn backgrounds_call(
             Ok(json!({ "path": state.backgrounds.absolute_path_string(&decode_path(encoded))? }))
         }
         ("POST", ["upload"]) => {
-            let (original_name, content_type, bytes) = decode_uploaded_file(&body)?;
-            let filename = write_background_file(state, &original_name, &bytes)?;
+            let uploaded = decode_uploaded_image_file(&body)?;
+            let filename = write_background_file(state, &uploaded.name, &uploaded.bytes)?;
             let meta = upsert_background_meta(
                 state,
                 &filename,
                 json!({
                     "filename": filename,
-                    "originalName": original_name,
-                    "contentType": content_type,
+                    "originalName": uploaded.name,
+                    "contentType": uploaded.content_type,
                     "tags": [],
                     "source": "user"
                 }),

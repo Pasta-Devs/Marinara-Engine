@@ -725,6 +725,24 @@ mod tests {
         normalize_legacy_text_bool_fields(&mut record, &["flag"]);
         assert_eq!(record, json!("scalar"));
     }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_declared_oversized_upload() {
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "huge.png",
+                "type": "image/png",
+                "size": MAX_IMAGE_UPLOAD_BYTES + 1,
+                "base64": ""
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("declared oversized image upload should fail before decode");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("20 MB"));
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
@@ -859,6 +877,13 @@ pub(crate) struct UploadedFile {
     pub(crate) bytes: Vec<u8>,
 }
 
+const MAX_IMAGE_UPLOAD_BYTES: usize = 20 * 1024 * 1024;
+const MAX_IMAGE_UPLOAD_BASE64_CHARS: usize = MAX_IMAGE_UPLOAD_BYTES.div_ceil(3) * 4;
+
+fn image_upload_too_large_error() -> AppError {
+    AppError::invalid_input("Image uploads must be 20 MB or smaller")
+}
+
 pub(crate) fn decode_uploaded_file_value(file: &Value) -> AppResult<UploadedFile> {
     let name = file
         .get("name")
@@ -893,6 +918,29 @@ pub(crate) fn decode_uploaded_file(body: &Value) -> AppResult<(String, String, V
     Ok((uploaded.name, uploaded.content_type, uploaded.bytes))
 }
 
+pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile> {
+    let file = body
+        .get("file")
+        .ok_or_else(|| AppError::invalid_input("file is required"))?;
+    if let Some(size) = file.get("size").and_then(Value::as_u64) {
+        if size > MAX_IMAGE_UPLOAD_BYTES as u64 {
+            return Err(image_upload_too_large_error());
+        }
+    }
+    if file
+        .get("base64")
+        .and_then(Value::as_str)
+        .is_some_and(|base64| base64.len() > MAX_IMAGE_UPLOAD_BASE64_CHARS)
+    {
+        return Err(image_upload_too_large_error());
+    }
+    let uploaded = decode_uploaded_file_value(file)?;
+    if uploaded.bytes.len() > MAX_IMAGE_UPLOAD_BYTES {
+        return Err(image_upload_too_large_error());
+    }
+    Ok(uploaded)
+}
+
 pub(crate) fn decode_uploaded_files(body: &Value, field: &str) -> AppResult<Vec<UploadedFile>> {
     let Some(value) = body.get(field) else {
         return Ok(Vec::new());
@@ -913,16 +961,16 @@ pub(crate) fn upload_gallery_image(
     parent_id: &str,
     body: Value,
 ) -> AppResult<Value> {
-    let (name, content_type, bytes) = decode_uploaded_file(&body)?;
-    let encoded = general_purpose::STANDARD.encode(bytes);
-    let data_url = format!("data:{content_type};base64,{encoded}");
+    let uploaded = decode_uploaded_image_file(&body)?;
+    let encoded = general_purpose::STANDARD.encode(&uploaded.bytes);
+    let data_url = format!("data:{};base64,{encoded}", uploaded.content_type);
     let mut record = Map::new();
     record.insert(
         parent_field.to_string(),
         Value::String(parent_id.to_string()),
     );
-    record.insert("filePath".to_string(), Value::String(name.clone()));
-    record.insert("filename".to_string(), Value::String(name));
+    record.insert("filePath".to_string(), Value::String(uploaded.name.clone()));
+    record.insert("filename".to_string(), Value::String(uploaded.name));
     record.insert("url".to_string(), Value::String(data_url));
     record.insert("prompt".to_string(), Value::Null);
     record.insert("provider".to_string(), Value::Null);

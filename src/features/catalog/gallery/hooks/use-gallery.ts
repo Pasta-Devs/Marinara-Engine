@@ -18,13 +18,18 @@ export function useUploadGalleryImage(chatId: string | null) {
   return useMutation({
     mutationFn: async (files: File[]) => {
       if (!chatId) return [];
-      const uploads = await Promise.allSettled(files.map((file) => galleryApi.uploadChat<ChatImage>(chatId, file)));
-      const successfulUploads = uploads.filter(
-        (result): result is PromiseFulfilledResult<ChatImage> => result.status === "fulfilled",
-      );
+      const uploaded: ChatImage[] = [];
+      let failedCount = 0;
 
-      if (successfulUploads.length !== uploads.length) {
-        const failedCount = uploads.length - successfulUploads.length;
+      for (const file of files) {
+        try {
+          uploaded.push(await galleryApi.uploadChat<ChatImage>(chatId, file));
+        } catch {
+          failedCount += 1;
+        }
+      }
+
+      if (failedCount > 0) {
         throw new Error(
           failedCount === 1
             ? "One chat gallery image failed to upload."
@@ -32,7 +37,7 @@ export function useUploadGalleryImage(chatId: string | null) {
         );
       }
 
-      return successfulUploads.map((result) => result.value);
+      return uploaded;
     },
     onSettled: () => {
       if (chatId) {

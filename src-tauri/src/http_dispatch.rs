@@ -1,7 +1,7 @@
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use crate::storage_commands::{
-    avatars, chats, generation, images, imports, llm, lorebook_images, shared,
+    avatars, backgrounds, chats, generation, images, imports, llm, lorebook_images, shared,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -60,6 +60,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "connection_test_image" => connection_test_image(state, &args).await,
         "connection_models" => connection_models(state, &args).await,
         "connection_save_default_parameters" => connection_save_default_parameters(state, &args),
+        "background_upload" => background_upload(state, &args),
+        "character_gallery_upload" => character_gallery_upload(state, &args),
+        "chat_gallery_upload" => chat_gallery_upload(state, &args),
         "import_marinara" => import_call(state, &args, &["marinara"], "envelope"),
         "import_marinara_file" => import_call(state, &args, &["marinara-file"], "body"),
         "import_st_character" => import_call(state, &args, &["st-character"], "body"),
@@ -289,6 +292,30 @@ fn import_call(
     imports::import_call(state, rest, optional_value(args, payload_key))
 }
 
+fn background_upload(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    backgrounds::backgrounds_call(state, "POST", &["upload"], optional_value(args, "body"))
+}
+
+fn character_gallery_upload(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    shared::upload_gallery_image(
+        state,
+        "character-gallery",
+        "characterId",
+        required_string(args, "characterId")?,
+        optional_value(args, "body"),
+    )
+}
+
+fn chat_gallery_upload(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    shared::upload_gallery_image(
+        state,
+        "gallery",
+        "chatId",
+        required_string(args, "chatId")?,
+        optional_value(args, "body"),
+    )
+}
+
 fn llm_stream_cancel(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     llm::llm_stream_cancel(state, required_string(args, "streamId")?)
 }
@@ -374,4 +401,82 @@ fn message_cursor(row: &Value) -> (&str, &str) {
         row.get("createdAt").and_then(Value::as_str).unwrap_or(""),
         row.get("id").and_then(Value::as_str).unwrap_or(""),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{engine::general_purpose, Engine as _};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-http-dispatch-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dispatch dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn upload_body(name: &str) -> Value {
+        let bytes = [137_u8, 80, 78, 71];
+        json!({
+            "file": {
+                "name": name,
+                "type": "image/png",
+                "size": bytes.len(),
+                "base64": general_purpose::STANDARD.encode(bytes)
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn dispatch_supports_remote_chat_gallery_upload() {
+        let state = test_state("chat-gallery-upload");
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "chat_gallery_upload".to_string(),
+                args: Some(json!({
+                    "chatId": "chat-1",
+                    "body": upload_body("chat-image.png")
+                })),
+            },
+        )
+        .await
+        .expect("remote chat gallery upload should dispatch");
+
+        assert_eq!(result.get("chatId").and_then(Value::as_str), Some("chat-1"));
+        assert_eq!(
+            result.get("filename").and_then(Value::as_str),
+            Some("chat-image.png")
+        );
+        assert!(result
+            .get("url")
+            .and_then(Value::as_str)
+            .is_some_and(|url| url.starts_with("data:image/png;base64,")));
+    }
+
+    #[tokio::test]
+    async fn dispatch_supports_remote_background_upload() {
+        let state = test_state("background-upload");
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "background_upload".to_string(),
+                args: Some(json!({ "body": upload_body("background.png") })),
+            },
+        )
+        .await
+        .expect("remote background upload should dispatch");
+
+        assert_eq!(result.get("success").and_then(Value::as_bool), Some(true));
+        assert_eq!(
+            result.get("originalName").and_then(Value::as_str),
+            Some("background.png")
+        );
+    }
 }

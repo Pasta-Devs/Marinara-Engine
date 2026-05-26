@@ -13,7 +13,7 @@ mod agents;
 #[path = "storage/avatars.rs"]
 pub(crate) mod avatars;
 #[path = "storage/backgrounds.rs"]
-mod backgrounds;
+pub(crate) mod backgrounds;
 #[path = "storage/bot_browser.rs"]
 mod bot_browser;
 #[path = "storage/characters.rs"]
