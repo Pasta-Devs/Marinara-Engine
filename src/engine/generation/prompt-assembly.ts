@@ -925,8 +925,8 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
       continue;
     }
 
-    result.push({ ...message, role: expectedRole });
-    expectedRole = expectedRole === "user" ? "assistant" : "user";
+    result.push({ ...message, role: effectiveRole });
+    expectedRole = effectiveRole === "user" ? "assistant" : "user";
   }
 
   return result;
