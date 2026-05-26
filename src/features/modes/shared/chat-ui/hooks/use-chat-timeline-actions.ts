@@ -393,8 +393,8 @@ export function useChatTimelineActions({
     [activeChatId, agentProcessing, enabledAgentTypes, isStreaming, retryAgents],
   );
 
-  const handleIllustrate = useCallback(() => {
-    retryAgents(activeChatId, ["illustrator"]);
+  const handleIllustrate = useCallback(async () => {
+    await retryAgents(activeChatId, ["illustrator"]);
   }, [activeChatId, retryAgents]);
 
   const handleSetActiveSwipe = useCallback(

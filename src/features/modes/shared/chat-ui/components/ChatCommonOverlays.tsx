@@ -191,7 +191,7 @@ type ChatCommonOverlaysProps = {
   onCloseFiles: () => void;
   onCloseGallery: () => void;
   /** Manually trigger the Illustrator agent */
-  onIllustrate?: () => void;
+  onIllustrate?: () => void | Promise<void>;
   onWizardFinish: () => void;
   onWizardCancel?: () => void;
   onClosePeekPrompt: () => void;

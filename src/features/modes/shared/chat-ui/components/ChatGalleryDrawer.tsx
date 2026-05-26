@@ -10,7 +10,7 @@ interface ChatGalleryDrawerProps {
   open: boolean;
   onClose: () => void;
   /** Manually trigger the Illustrator agent */
-  onIllustrate?: () => void;
+  onIllustrate?: () => void | Promise<void>;
 }
 
 export function ChatGalleryDrawer({ chat, open, onClose, onIllustrate }: ChatGalleryDrawerProps) {

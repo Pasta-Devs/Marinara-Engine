@@ -3,7 +3,19 @@
 // ──────────────────────────────────────────────
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Paintbrush, Trash2, X, ZoomIn, Download, Sparkles, Pin, Minimize2 } from "lucide-react";
+import {
+  AlertCircle,
+  ImagePlus,
+  Loader2,
+  Paintbrush,
+  Trash2,
+  X,
+  ZoomIn,
+  Download,
+  Sparkles,
+  Pin,
+  Minimize2,
+} from "lucide-react";
 import {
   useGalleryImages,
   useUploadGalleryImage,
@@ -17,7 +29,7 @@ import type { ChatImage } from "../../../../../shared/types/gallery";
 interface ChatGalleryProps {
   chatId: string;
   /** Manually trigger the Illustrator agent */
-  onIllustrate?: () => void;
+  onIllustrate?: () => void | Promise<void>;
 }
 
 function formatImageMeta(image: ChatImage) {
@@ -28,12 +40,19 @@ function formatImageMeta(image: ChatImage) {
   return details.join(" | ");
 }
 
+function formatIllustrateError(error: unknown) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return "Illustration failed. Check your text and image generation settings.";
+}
+
 export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
   const { data: images, isLoading } = useGalleryImages(chatId);
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
   const [lightbox, setLightbox] = useState<ChatImage | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [illustratePending, setIllustratePending] = useState(false);
+  const [illustrateError, setIllustrateError] = useState<string | null>(null);
   const pinImage = useGalleryStore((s) => s.pinImage);
   const lightboxPrompt = lightbox?.prompt?.trim() ?? "";
   const lightboxMeta = lightbox ? formatImageMeta(lightbox) : "";
@@ -50,6 +69,19 @@ export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
     [upload],
   );
 
+  const handleIllustrate = useCallback(async () => {
+    if (!onIllustrate || illustratePending) return;
+    setIllustrateError(null);
+    setIllustratePending(true);
+    try {
+      await onIllustrate();
+    } catch (error) {
+      setIllustrateError(formatIllustrateError(error));
+    } finally {
+      setIllustratePending(false);
+    }
+  }, [illustratePending, onIllustrate]);
+
   const handleDelete = (id: string) => {
     remove.mutate(id);
     setConfirmDeleteId(null);
@@ -60,13 +92,37 @@ export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
     <div className="flex flex-col gap-3 p-4">
       {/* Illustrate button */}
       {onIllustrate && (
-        <button
-          onClick={onIllustrate}
-          className="flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-4 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
-        >
-          <Paintbrush size="1rem" />
-          Illustrate
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            aria-label="Illustrate chat gallery"
+            onClick={() => void handleIllustrate()}
+            disabled={illustratePending}
+            aria-busy={illustratePending}
+            className="flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-4 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-70 disabled:hover:bg-[var(--primary)]/15"
+          >
+            {illustratePending ? <Loader2 size="1rem" className="animate-spin" /> : <Paintbrush size="1rem" />}
+            {illustratePending ? "Illustrating..." : "Illustrate"}
+          </button>
+          {(illustratePending || illustrateError) && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="flex items-start gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]"
+            >
+              {illustratePending ? (
+                <Loader2 size="0.75rem" className="mt-0.5 shrink-0 animate-spin text-[var(--primary)]" />
+              ) : (
+                <AlertCircle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--destructive)]" />
+              )}
+              <span>
+                {illustratePending
+                  ? "Illustrator is checking the chat and image settings."
+                  : illustrateError}
+              </span>
+            </p>
+          )}
+        </div>
       )}
 
       <ImageUploadDropzone
