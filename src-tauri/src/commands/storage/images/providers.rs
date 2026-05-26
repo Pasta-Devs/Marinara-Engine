@@ -17,6 +17,8 @@ const DEFAULT_NANOGPT_BASE_URL: &str = "https://nano-gpt.com/api/v1";
 const DEFAULT_BLOCKENTROPY_BASE_URL: &str = "https://api.blockentropy.ai";
 const DEFAULT_RUNPOD_BASE_URL: &str = "https://api.runpod.ai/v2";
 const NOVELAI_V4_PROMPT_HINT: &str = "NovelAI V4/V4.5 prompts support roughly 512 T5 tokens and reject most Unicode prompt characters; try a shorter ASCII prompt without emoji or non-Latin text.";
+const COMFYUI_PLACEHOLDER_REFERENCE_BASE64: &str =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ImageGenerationOptions {
@@ -1219,16 +1221,79 @@ fn image_data_url(value: &str) -> String {
     )
 }
 
-fn workflow_contains_token(workflow: &Value, token: &str) -> bool {
+fn comfy_reference_name_tokens(workflow: &Value) -> Vec<(String, usize)> {
+    let mut tokens = HashMap::new();
+    collect_comfy_reference_name_tokens(workflow, &mut tokens);
+    let mut tokens = tokens.into_iter().collect::<Vec<_>>();
+    tokens.sort_by(|(left_token, left_index), (right_token, right_index)| {
+        left_index
+            .cmp(right_index)
+            .then_with(|| left_token.cmp(right_token))
+    });
+    tokens
+}
+
+fn collect_comfy_reference_name_tokens(workflow: &Value, tokens: &mut HashMap<String, usize>) {
     match workflow {
-        Value::String(raw) => raw.contains(token),
-        Value::Array(items) => items
-            .iter()
-            .any(|item| workflow_contains_token(item, token)),
-        Value::Object(map) => map
-            .values()
-            .any(|item| workflow_contains_token(item, token)),
-        _ => false,
+        Value::String(raw) => collect_comfy_reference_name_tokens_from_str(raw, tokens),
+        Value::Array(items) => {
+            for item in items {
+                collect_comfy_reference_name_tokens(item, tokens);
+            }
+        }
+        Value::Object(map) => {
+            for item in map.values() {
+                collect_comfy_reference_name_tokens(item, tokens);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_comfy_reference_name_tokens_from_str(raw: &str, tokens: &mut HashMap<String, usize>) {
+    const PREFIX: &str = "%reference_image_name";
+    let mut offset = 0;
+    while let Some(relative_start) = raw[offset..].find(PREFIX) {
+        let start = offset + relative_start;
+        let suffix_start = start + PREFIX.len();
+        let Some(suffix) = raw.get(suffix_start..) else {
+            break;
+        };
+        if suffix.starts_with('%') {
+            tokens.insert("%reference_image_name%".to_string(), 0);
+            offset = suffix_start + 1;
+            continue;
+        }
+        if !suffix.starts_with('_') {
+            offset = suffix_start;
+            continue;
+        }
+        let digits_start = suffix_start + 1;
+        let Some(rest) = raw.get(digits_start..) else {
+            break;
+        };
+        let digits_len = rest
+            .bytes()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        if digits_len == 0 {
+            offset = digits_start;
+            continue;
+        }
+        let percent_index = digits_start + digits_len;
+        if raw.as_bytes().get(percent_index) != Some(&b'%') {
+            offset = percent_index;
+            continue;
+        }
+        let Some(index) = raw[digits_start..percent_index].parse::<usize>().ok() else {
+            offset = percent_index + 1;
+            continue;
+        };
+        if index > 0 {
+            let token = raw[start..=percent_index].to_string();
+            tokens.insert(token, index - 1);
+        }
+        offset = percent_index + 1;
     }
 }
 
@@ -1709,12 +1774,27 @@ async fn generate_comfyui(
         height,
         options.reference_images.first().map(String::as_str),
     );
-    if workflow_contains_token(&workflow, "%reference_image_name%") {
-        if let Some(reference) = options.reference_images.first() {
-            replacements.insert(
-                "%reference_image_name%".to_string(),
-                Value::String(upload_comfy_reference_image(&base, reference).await?),
+    let reference_name_tokens = comfy_reference_name_tokens(&workflow);
+    if !reference_name_tokens.is_empty() {
+        let mut uploaded_by_slot: HashMap<usize, String> = HashMap::new();
+        for (_, index) in &reference_name_tokens {
+            if uploaded_by_slot.contains_key(index) {
+                continue;
+            }
+            let reference = options
+                .reference_images
+                .get(*index)
+                .map(String::as_str)
+                .unwrap_or(COMFYUI_PLACEHOLDER_REFERENCE_BASE64);
+            uploaded_by_slot.insert(
+                *index,
+                upload_comfy_reference_image(&base, reference).await?,
             );
+        }
+        for (token, index) in reference_name_tokens {
+            if let Some(filename) = uploaded_by_slot.get(&index) {
+                replacements.insert(token, Value::String(filename.clone()));
+            }
         }
     }
     let prompt_json = replace_workflow_placeholders(workflow, &replacements);
@@ -2246,4 +2326,63 @@ fn find_comfyui_image<'a>(history: &'a Value, prompt_id: &str) -> Option<&'a Val
                     .and_then(|images| images.first())
             })
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn comfy_reference_name_tokens_collect_default_and_indexed_slots() {
+        let workflow = json!({
+            "1": { "inputs": { "image": "%reference_image_name%" } },
+            "2": { "inputs": { "image": "%reference_image_name_01%" } },
+            "3": { "inputs": { "image": "left %reference_image_name_02% right %reference_image_name_10%" } },
+            "4": { "inputs": { "image": "%reference_image_name_00%" } },
+            "5": { "inputs": { "image": "%reference_image_name_abc%" } }
+        });
+
+        assert_eq!(
+            comfy_reference_name_tokens(&workflow),
+            vec![
+                ("%reference_image_name%".to_string(), 0),
+                ("%reference_image_name_01%".to_string(), 0),
+                ("%reference_image_name_02%".to_string(), 1),
+                ("%reference_image_name_10%".to_string(), 9),
+            ]
+        );
+    }
+
+    #[test]
+    fn replace_workflow_placeholders_resolves_all_comfy_reference_name_slots() {
+        let workflow = json!({
+            "first": "%reference_image_name%",
+            "first_indexed": "%reference_image_name_01%",
+            "second": "%reference_image_name_02%",
+            "missing": "%reference_image_name_03%",
+            "embedded": "refs: %reference_image_name_01%, %reference_image_name_02%, %reference_image_name_03%",
+            "invalid": "%reference_image_name_00%"
+        });
+        let mut replacements = HashMap::new();
+        for (token, index) in comfy_reference_name_tokens(&workflow) {
+            let filename = match index {
+                0 => "first.png",
+                1 => "second.png",
+                _ => "placeholder.png",
+            };
+            replacements.insert(token, Value::String(filename.to_string()));
+        }
+
+        let resolved = replace_workflow_placeholders(workflow, &replacements);
+
+        assert_eq!(resolved["first"], json!("first.png"));
+        assert_eq!(resolved["first_indexed"], json!("first.png"));
+        assert_eq!(resolved["second"], json!("second.png"));
+        assert_eq!(resolved["missing"], json!("placeholder.png"));
+        assert_eq!(
+            resolved["embedded"],
+            json!("refs: first.png, second.png, placeholder.png")
+        );
+        assert_eq!(resolved["invalid"], json!("%reference_image_name_00%"));
+    }
 }
