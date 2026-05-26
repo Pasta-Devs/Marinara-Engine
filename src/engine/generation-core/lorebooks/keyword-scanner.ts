@@ -70,9 +70,10 @@ export interface GameStateForScanning {
  */
 export function evaluateConditions(conditions: ActivationCondition[], gameState: GameStateForScanning | null): boolean {
   if (conditions.length === 0) return true;
-  if (!gameState) return true; // No game state = conditions pass (permissive)
+  if (!gameState) return false;
 
   for (const condition of conditions) {
+    if (!hasGameStateValue(gameState, condition.field)) return false;
     const fieldValue = String(gameState[condition.field] ?? "");
 
     switch (condition.operator) {
@@ -100,31 +101,55 @@ export function evaluateConditions(conditions: ActivationCondition[], gameState:
   return true;
 }
 
+function hasGameStateValue(gameState: GameStateForScanning, field: string): boolean {
+  const value = gameState[field];
+  return value !== undefined && value !== null && String(value).trim().length > 0;
+}
+
+function scheduleValues(values: string[] | undefined): string[] {
+  return Array.isArray(values) ? values : [];
+}
+
+function hasScheduleGate(schedule: LorebookSchedule): boolean {
+  return (
+    scheduleValues(schedule.activeTimes).length > 0 ||
+    scheduleValues(schedule.activeDates).length > 0 ||
+    scheduleValues(schedule.activeLocations).length > 0
+  );
+}
+
 /**
  * Evaluate schedule conditions against game state.
  */
 function evaluateSchedule(schedule: LorebookSchedule | null, gameState: GameStateForScanning | null): boolean {
   if (!schedule) return true;
-  if (!gameState) return true;
+  if (!hasScheduleGate(schedule)) return true;
+  if (!gameState) return false;
 
   // Check active times
-  if (schedule.activeTimes.length > 0 && gameState.time) {
+  const activeTimes = scheduleValues(schedule.activeTimes);
+  if (activeTimes.length > 0) {
+    if (!hasGameStateValue(gameState, "time")) return false;
     const currentTime = String(gameState.time).toLowerCase();
-    const matches = schedule.activeTimes.some((t) => currentTime.includes(t.toLowerCase()));
+    const matches = activeTimes.some((t) => currentTime.includes(t.toLowerCase()));
     if (!matches) return false;
   }
 
   // Check active dates
-  if (schedule.activeDates.length > 0 && gameState.date) {
+  const activeDates = scheduleValues(schedule.activeDates);
+  if (activeDates.length > 0) {
+    if (!hasGameStateValue(gameState, "date")) return false;
     const currentDate = String(gameState.date).toLowerCase();
-    const matches = schedule.activeDates.some((d) => currentDate.includes(d.toLowerCase()));
+    const matches = activeDates.some((d) => currentDate.includes(d.toLowerCase()));
     if (!matches) return false;
   }
 
   // Check active locations
-  if (schedule.activeLocations.length > 0 && gameState.location) {
+  const activeLocations = scheduleValues(schedule.activeLocations);
+  if (activeLocations.length > 0) {
+    if (!hasGameStateValue(gameState, "location")) return false;
     const currentLoc = String(gameState.location).toLowerCase();
-    const matches = schedule.activeLocations.some((l) => currentLoc.includes(l.toLowerCase()));
+    const matches = activeLocations.some((l) => currentLoc.includes(l.toLowerCase()));
     if (!matches) return false;
   }
 

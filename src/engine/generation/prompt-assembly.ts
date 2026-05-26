@@ -1027,13 +1027,15 @@ async function loadActivatedLore(
   const entries = rows.map(normalizeLorebookEntry).filter((entry) => entry.enabled && entry.content.trim());
   const activeCharacterIds = characters.map((character) => character.id);
   const activeCharacterTags = characters.flatMap((character) => character.tags);
+  const meta = parseRecord(chat.metadata);
+  const gameState = parseRecord(chat.gameState ?? meta.gameState);
   return scanForActivatedEntries(
     storedMessages.filter((message) => !hiddenFromAi(message)).map((message) => ({
       role: readString(message.role, "user"),
       content: readString(message.content),
     })),
     entries,
-    { activeCharacterIds, activeCharacterTags, generationTriggers: ["chat", readString(chat.mode)] },
+    { activeCharacterIds, activeCharacterTags, generationTriggers: ["chat", readString(chat.mode)], gameState },
   );
 }
 

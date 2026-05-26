@@ -48,6 +48,20 @@ function storageWithSections(sections: Row[]): StorageGateway {
   };
 }
 
+function storageWithLore(entries: Row[]): StorageGateway {
+  return {
+    ...storageWithSections([]),
+    list: async <T,>(entity: string) => {
+      if (entity === "lorebooks") return [{ id: "lorebook", enabled: true, isGlobal: true }] as T[];
+      if (entity === "regex-scripts") return [] as T[];
+      if (entity === "personas") return [] as T[];
+      if (entity === "prompts") return [] as T[];
+      return [] as T[];
+    },
+    listLorebookEntries: async <T,>() => entries as T[],
+  };
+}
+
 const request = {
   ...DEFAULT_GENERATION_PARAMS,
   promptPresetId: "preset",
@@ -119,5 +133,96 @@ describe("assembleGenerationPrompt strict roles", () => {
     expect(finalMessage?.role).toBe("user");
     expect(finalMessage?.content).toMatch(/What happens next\?/);
     expect(finalMessage?.content).toMatch(/<style_note>\s*Keep the response concise\.\s*<\/style_note>/);
+  });
+});
+
+describe("assembleGenerationPrompt lorebook game-state gates", () => {
+  const gatedEntry = {
+    id: "entry-1",
+    lorebookId: "lorebook",
+    name: "Moonlit grove only",
+    content: "This lore should only appear in the moonlit grove.",
+    keys: ["moonlit"],
+    enabled: true,
+    activationConditions: [{ field: "location", operator: "equals", value: "moonlit grove" }],
+    schedule: {
+      activeTimes: ["midnight"],
+      activeDates: [],
+      activeLocations: ["moonlit grove"],
+    },
+  };
+
+  it("does not activate lorebook entries when visible game state fails their gates", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithLore([gatedEntry]), {
+      chat: {
+        id: "chat",
+        mode: "roleplay",
+        gameState: { location: "sunny market", time: "noon" },
+      },
+      storedMessages: [{ role: "user", content: "Tell me about the moonlit path.", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "Tell me about the moonlit path.",
+    });
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+  });
+
+  it("does not activate lorebook entries with game-state gates when game state is unavailable", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithLore([gatedEntry]), {
+      chat: {
+        id: "chat",
+        mode: "roleplay",
+      },
+      storedMessages: [{ role: "user", content: "Tell me about the moonlit path.", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "Tell me about the moonlit path.",
+    });
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+  });
+
+  it("activates lorebook entries when visible game state satisfies their gates", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithLore([gatedEntry]), {
+      chat: {
+        id: "chat",
+        mode: "roleplay",
+        gameState: { location: "moonlit grove", time: "midnight" },
+      },
+      storedMessages: [{ role: "user", content: "Tell me about the moonlit path.", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "Tell me about the moonlit path.",
+    });
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Moonlit grove only"]);
+  });
+
+  it("keeps ungated lorebook entries active when game state is unavailable", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-2",
+          lorebookId: "lorebook",
+          name: "Ungated moonlit lore",
+          content: "This lore only needs the keyword.",
+          keys: ["moonlit"],
+          enabled: true,
+        },
+      ]),
+      {
+        chat: {
+          id: "chat",
+          mode: "roleplay",
+        },
+        storedMessages: [{ role: "user", content: "Tell me about the moonlit path.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "Tell me about the moonlit path.",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Ungated moonlit lore"]);
   });
 });
