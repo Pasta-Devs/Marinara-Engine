@@ -193,6 +193,7 @@ type ChatCommonOverlaysProps = {
   /** Manually trigger the Illustrator agent */
   onIllustrate?: () => void;
   onWizardFinish: () => void;
+  onWizardCancel?: () => void;
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
@@ -225,6 +226,7 @@ export function ChatCommonOverlays({
   onCloseGallery,
   onIllustrate,
   onWizardFinish,
+  onWizardCancel,
   onClosePeekPrompt,
   onDeleteConfirm,
   onDeleteSwipe,
@@ -266,7 +268,9 @@ export function ChatCommonOverlays({
         </Suspense>
       )}
       {chat && (
-        <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
+        <Suspense fallback={null}>
+          {wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} onCancel={onWizardCancel} />}
+        </Suspense>
       )}
       <PinnedImageOverlay activeChatId={activeChatId} />
       <Suspense fallback={null}>
