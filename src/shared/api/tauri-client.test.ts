@@ -5,6 +5,7 @@ import { invokeTauri } from "./tauri-client";
 
 const tauriInvoke = vi.hoisted(() => vi.fn());
 const fetchMock = vi.hoisted(() => vi.fn());
+const tauriInternals = {};
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: tauriInvoke,
@@ -15,10 +16,12 @@ describe("invokeTauri remote runtime routing", () => {
     tauriInvoke.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
     useUIStore.setState({ remoteRuntimeUrl: "" });
   });
 
   it("falls back to embedded Tauri when no remote runtime URL is configured", async () => {
+    (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = tauriInternals;
     tauriInvoke.mockResolvedValueOnce(["local-character"]);
 
     await expect(invokeTauri("storage_list", { entity: "characters" })).resolves.toEqual(["local-character"]);
