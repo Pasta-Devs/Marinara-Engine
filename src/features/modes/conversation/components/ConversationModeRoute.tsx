@@ -96,11 +96,16 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         }
       : undefined;
   const handleCancelNewConversationSetup = useCallback(() => {
+    const cancellingChatId = activeChatId;
     overlays.setWizardOpen(false);
     void deleteChat
-      .mutateAsync(activeChatId)
-      .then(() => setActiveChatId(null))
-      .catch(() => overlays.setWizardOpen(true));
+      .mutateAsync(cancellingChatId)
+      .then(() => {
+        if (useChatStore.getState().activeChatId === cancellingChatId) setActiveChatId(null);
+      })
+      .catch(() => {
+        if (useChatStore.getState().activeChatId === cancellingChatId) overlays.setWizardOpen(true);
+      });
   }, [activeChatId, deleteChat, overlays, setActiveChatId]);
 
   return (
