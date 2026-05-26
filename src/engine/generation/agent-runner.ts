@@ -171,6 +171,7 @@ function chatMetadata(input: GenerationAgentRuntimeInput): JsonRecord {
 
 function chatAgentsEnabled(input: GenerationAgentRuntimeInput): boolean {
   if (input.agentTypes && input.agentTypes.size > 0) return true;
+  if (chatActiveAgentIds(input).size > 0) return true;
   return boolish(chatMetadata(input).enableAgents, false);
 }
 

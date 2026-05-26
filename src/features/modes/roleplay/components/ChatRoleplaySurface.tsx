@@ -479,6 +479,7 @@ type RoleplaySurfaceProps = {
   centerCompact: boolean;
   chatBackground: string | null;
   weatherEffects: boolean;
+  agentsUiEnabled: boolean;
   expressionAgentEnabled: boolean;
   combatAgentEnabled: boolean;
   encounterActive: boolean;
@@ -579,6 +580,7 @@ export function ChatRoleplaySurface({
   centerCompact,
   chatBackground,
   weatherEffects,
+  agentsUiEnabled,
   expressionAgentEnabled,
   combatAgentEnabled,
   encounterActive,
@@ -743,7 +745,7 @@ export function ChatRoleplaySurface({
                   paddingRight: "calc(1rem + var(--tracker-panel-hud-clear-right, 0px))",
                 }}
               >
-                {chat && chatMeta.enableAgents && (
+                {chat && agentsUiEnabled && (
                   <div className="pointer-events-auto flex-1 overflow-x-auto">
                     <Suspense fallback={null}>
                       <RoleplayHUD
@@ -823,7 +825,7 @@ export function ChatRoleplaySurface({
                   centerCompact ? "flex" : "flex md:hidden",
                 )}
               >
-                {chat && chatMeta.enableAgents && (
+                {chat && agentsUiEnabled && (
                   <div
                     className="flex w-full items-center justify-between pb-1 pt-2"
                     style={{
@@ -903,7 +905,7 @@ export function ChatRoleplaySurface({
                     </div>
                   </div>
                 )}
-                {chat && !chatMeta.enableAgents && (
+                {chat && !agentsUiEnabled && (
                   <div className="flex w-full items-center justify-end gap-1.5 px-2 pb-1 pt-2">
                     <ToolbarMenu>
                       <ChatBranchSelector
