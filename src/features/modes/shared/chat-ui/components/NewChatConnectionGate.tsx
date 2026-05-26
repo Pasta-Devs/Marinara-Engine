@@ -102,10 +102,12 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+              aria-label="Close setup"
+              className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] max-md:min-h-11 max-md:min-w-11"
             >
-              <X size="0.875rem" />
+              <X size="0.875rem" aria-hidden="true" />
             </button>
           </div>
 
