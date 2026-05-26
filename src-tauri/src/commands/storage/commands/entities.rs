@@ -160,19 +160,38 @@ fn storage_get_inner(
 }
 
 #[tauri::command]
-pub fn storage_create(
+pub async fn storage_create(
     state: State<'_, AppState>,
     entity: String,
     value: Value,
 ) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_create_inner(&state, entity, value))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
     state
         .storage
         .create(&entity, shared::with_entity_defaults(&entity, value)?)
 }
 
 #[tauri::command]
-pub fn storage_update(
+pub async fn storage_update(
     state: State<'_, AppState>,
+    entity: String,
+    id: String,
+    patch: Value,
+) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_update_inner(&state, entity, id, patch))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_update_inner(
+    state: &AppState,
     entity: String,
     id: String,
     patch: Value,
@@ -185,19 +204,31 @@ pub fn storage_update(
 }
 
 #[tauri::command]
-pub fn storage_delete(
+pub async fn storage_delete(
     state: State<'_, AppState>,
     entity: String,
     id: String,
     force: Option<bool>,
 ) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_delete_inner(&state, entity, id, force))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_delete_inner(
+    state: &AppState,
+    entity: String,
+    id: String,
+    force: Option<bool>,
+) -> Result<Value, AppError> {
     if entity == "connections" {
-        return crate::connection_refs::delete_connection(&state, &id, force.unwrap_or(false));
+        return crate::connection_refs::delete_connection(state, &id, force.unwrap_or(false));
     }
     if entity == "chats" {
         let existed = state.storage.get("chats", &id)?.is_some();
         if existed {
-            chats::delete_chat_with_messages(&state, &id)?;
+            chats::delete_chat_with_messages(state, &id)?;
         }
         return Ok(json!({ "deleted": existed }));
     }
@@ -206,7 +237,7 @@ pub fn storage_delete(
             "Protected records cannot be deleted",
         ));
     }
-    let existing = owned_record_for_delete(&state, &entity, &id)?;
+    let existing = owned_record_for_delete(state, &entity, &id)?;
     let message_chat_id = if entity == "messages" {
         existing
             .as_ref()
@@ -219,11 +250,11 @@ pub fn storage_delete(
     let deleted = state.storage.delete(&entity, &id)?;
     if deleted {
         if let Some(record) = existing.as_ref() {
-            remove_owned_media(&state, &entity, record);
+            remove_owned_media(state, &entity, record);
         }
         if let Some(chat_id) = message_chat_id {
-            game_state_snapshots::delete_tracker_snapshots_for_message(&state, &chat_id, &id)?;
-            game_state_snapshots::sync_chat_game_state_to_visible_tracker(&state, &chat_id)?;
+            game_state_snapshots::delete_tracker_snapshots_for_message(state, &chat_id, &id)?;
+            game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, &chat_id)?;
         }
     }
     Ok(json!({ "deleted": deleted }))
@@ -249,12 +280,15 @@ fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
 }
 
 #[tauri::command]
-pub fn storage_duplicate(
+pub async fn storage_duplicate(
     state: State<'_, AppState>,
     entity: String,
     id: String,
 ) -> Result<Value, AppError> {
-    shared::duplicate_record(&state, &entity, &id)
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || shared::duplicate_record(&state, &entity, &id))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
 fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> std::cmp::Ordering {

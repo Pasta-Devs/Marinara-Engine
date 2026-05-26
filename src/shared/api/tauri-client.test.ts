@@ -15,6 +15,7 @@ describe("invokeTauri remote runtime routing", () => {
     tauriInvoke.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
     useUIStore.setState({ remoteRuntimeUrl: "" });
   });
 

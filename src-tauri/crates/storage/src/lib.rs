@@ -201,6 +201,32 @@ impl FileStorage {
         Ok(deleted)
     }
 
+    pub fn delete_where(
+        &self,
+        collection: &str,
+        filters: &Map<String, Value>,
+    ) -> AppResult<usize> {
+        self.delete_where_matching(collection, |row| row_matches_filters(row, filters))
+    }
+
+    pub fn delete_where_matching<F>(&self, collection: &str, mut predicate: F) -> AppResult<usize>
+    where
+        F: FnMut(&Value) -> bool,
+    {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        let mut rows = self.read_collection(collection)?;
+        let before = rows.len();
+        rows.retain(|row| !predicate(row));
+        let deleted = before.saturating_sub(rows.len());
+        if deleted > 0 {
+            self.write_collection(collection, &rows)?;
+        }
+        Ok(deleted)
+    }
+
     pub fn replace_all(&self, collection: &str, rows: Vec<Value>) -> AppResult<()> {
         let _guard = self
             .lock
@@ -492,6 +518,15 @@ impl FileStorage {
         cleanup_pending_collection_transaction_files(&pending);
         Ok(())
     }
+}
+
+fn row_matches_filters(row: &Value, filters: &Map<String, Value>) -> bool {
+    let Some(object) = row.as_object() else {
+        return false;
+    };
+    filters
+        .iter()
+        .all(|(key, expected)| object.get(key) == Some(expected))
 }
 
 struct FilterRowsVisitor<F> {
@@ -1147,6 +1182,36 @@ mod tests {
         assert_eq!(rows[0]["id"], "a-1");
         assert_eq!(rows[1]["id"], "a-2");
         assert_eq!(rows[1]["content"], "second");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn delete_where_removes_all_matching_rows() {
+        let root = temp_storage_root("delete-where");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "a-1", "chatId": "chat-a", "content": "first" }),
+                    json!({ "id": "b-1", "chatId": "chat-b", "content": "skip me" }),
+                    json!({ "id": "a-2", "chatId": "chat-a", "content": "second" }),
+                ],
+            )
+            .unwrap();
+
+        let mut filters = Map::new();
+        filters.insert("chatId".to_string(), Value::String("chat-a".to_string()));
+
+        let deleted = storage.delete_where("messages", &filters).unwrap();
+
+        assert_eq!(deleted, 2);
+        assert_eq!(
+            storage.list("messages").unwrap(),
+            vec![json!({ "id": "b-1", "chatId": "chat-b", "content": "skip me" })]
+        );
 
         fs::remove_dir_all(root).unwrap();
     }

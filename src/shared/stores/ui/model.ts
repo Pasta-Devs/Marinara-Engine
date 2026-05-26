@@ -412,9 +412,9 @@ export interface UIState {
   echoChamberSide: EchoChamberSide;
 
   // ── User Status ──
-  /** The user's manually chosen status. Persisted. */
+  /** The user's sticky manual status. "dnd" locks presence; "active" allows automatic idle. Persisted. */
   userStatusManual: UserStatus;
-  /** Effective status: matches manual, but auto-flips to "idle" on inactivity */
+  /** Effective status: "active" or "idle" from app presence, unless manual DND is enabled. */
   userStatus: UserStatus;
   /** Optional short activity shown with the user's status in Conversation mode. */
   userActivity: string;
@@ -576,6 +576,7 @@ export interface UIState {
   toggleEchoChamber: () => void;
   setEchoChamberSide: (side: EchoChamberSide) => void;
   setUserStatus: (status: UserStatus) => void;
+  /** Sets sticky DND, or clears DND and applies an immediate active/idle effective status. */
   setUserStatusManual: (status: UserStatus) => void;
   setUserActivity: (activity: string) => void;
 }
