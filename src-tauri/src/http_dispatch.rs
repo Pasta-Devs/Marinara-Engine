@@ -461,6 +461,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dispatch_supports_remote_character_gallery_upload() {
+        let state = test_state("character-gallery-upload");
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "character_gallery_upload".to_string(),
+                args: Some(json!({
+                    "characterId": "character-1",
+                    "body": upload_body("character-image.png")
+                })),
+            },
+        )
+        .await
+        .expect("remote character gallery upload should dispatch");
+
+        assert_eq!(
+            result.get("characterId").and_then(Value::as_str),
+            Some("character-1")
+        );
+        assert_eq!(
+            result.get("filename").and_then(Value::as_str),
+            Some("character-image.png")
+        );
+        assert!(result
+            .get("url")
+            .and_then(Value::as_str)
+            .is_some_and(|url| url.starts_with("data:image/png;base64,")));
+    }
+
+    #[tokio::test]
     async fn dispatch_supports_remote_background_upload() {
         let state = test_state("background-upload");
         let result = dispatch(

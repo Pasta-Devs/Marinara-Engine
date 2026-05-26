@@ -743,6 +743,24 @@ mod tests {
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("20 MB"));
     }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_non_image_content_type() {
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "notes.txt",
+                "type": "text/plain",
+                "size": 4,
+                "base64": "bm9wZQ=="
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("non-image upload should fail before storage");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Only image uploads"));
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
@@ -884,6 +902,10 @@ fn image_upload_too_large_error() -> AppError {
     AppError::invalid_input("Image uploads must be 20 MB or smaller")
 }
 
+fn image_upload_invalid_type_error() -> AppError {
+    AppError::invalid_input("Only image uploads are allowed")
+}
+
 pub(crate) fn decode_uploaded_file_value(file: &Value) -> AppResult<UploadedFile> {
     let name = file
         .get("name")
@@ -922,6 +944,15 @@ pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile
     let file = body
         .get("file")
         .ok_or_else(|| AppError::invalid_input("file is required"))?;
+    let content_type = file
+        .get("type")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|content_type| !content_type.is_empty())
+        .ok_or_else(image_upload_invalid_type_error)?;
+    if !content_type.to_ascii_lowercase().starts_with("image/") {
+        return Err(image_upload_invalid_type_error());
+    }
     if let Some(size) = file.get("size").and_then(Value::as_u64) {
         if size > MAX_IMAGE_UPLOAD_BYTES as u64 {
             return Err(image_upload_too_large_error());
