@@ -1,8 +1,9 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::llm;
+use crate::storage_commands::{llm, lorebook_images};
+use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -11,7 +12,9 @@ use marinara_core::AppError;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::convert::Infallible;
+use std::io::ErrorKind;
 use std::net::SocketAddr;
+use std::path::{Path as FsPath, PathBuf};
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -38,6 +41,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/invoke", post(invoke))
+        .route("/api/assets/:kind/*path", get(managed_asset))
         .route("/api/llm/stream", post(llm_stream))
         .route("/api/llm/stream/:stream_id/cancel", post(llm_stream_cancel))
         .layer(
@@ -51,6 +55,62 @@ pub fn router(state: AppState) -> Router {
 
 async fn health() -> Json<Value> {
     Json(json!({ "ok": true, "runtime": "marinara-server" }))
+}
+
+async fn managed_asset(
+    State(state): State<HttpState>,
+    Path((kind, path)): Path<(String, String)>,
+) -> Result<Response, HttpError> {
+    let path = managed_asset_path(&state.app, &kind, &path)?;
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|error| match error.kind() {
+            ErrorKind::NotFound => AppError::not_found("Managed asset was not found"),
+            _ => AppError::from(error),
+        })?;
+    Ok((
+        [(header::CONTENT_TYPE, content_type_for_path(&path))],
+        Body::from(bytes),
+    )
+        .into_response())
+}
+
+fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBuf, AppError> {
+    match kind {
+        "background" => Ok(PathBuf::from(state.backgrounds.absolute_path_string(path)?)),
+        "game" => Ok(PathBuf::from(state.game_assets.absolute_path_string(path)?)),
+        "lorebook" => {
+            let response = lorebook_images::lorebook_image_file_path(state, path)?;
+            response
+                .get("path")
+                .and_then(Value::as_str)
+                .map(PathBuf::from)
+                .ok_or_else(|| AppError::not_found("Lorebook image was not found"))
+        }
+        _ => Err(AppError::not_found("Managed asset type was not found")),
+    }
+}
+
+fn content_type_for_path(path: &FsPath) -> &'static str {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "avif" => "image/avif",
+        "gif" => "image/gif",
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "mp3" => "audio/mpeg",
+        "ogg" => "audio/ogg",
+        "wav" => "audio/wav",
+        "webm" => "video/webm",
+        _ => "application/octet-stream",
+    }
 }
 
 async fn invoke(

@@ -57,7 +57,7 @@ mod prompts;
 #[path = "storage/shared.rs"]
 pub(crate) mod shared;
 #[path = "storage/sprites.rs"]
-mod sprites;
+pub(crate) mod sprites;
 #[path = "storage/translation.rs"]
 mod translation;
 

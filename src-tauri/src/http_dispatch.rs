@@ -1,7 +1,7 @@
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use crate::storage_commands::{
-    avatars, backgrounds, chats, generation, images, imports, llm, lorebook_images, shared,
+    avatars, backgrounds, chats, generation, images, imports, llm, lorebook_images, shared, sprites,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -63,6 +63,10 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "background_upload" => background_upload(state, &args),
         "character_gallery_upload" => character_gallery_upload(state, &args),
         "chat_gallery_upload" => chat_gallery_upload(state, &args),
+        "image_generate" => image_generate(state, &args).await,
+        "avatar_generation_command" => avatar_generation_command(state, &args).await,
+        "sprite_generate_sheet" => sprite_generate_sheet(state, &args).await,
+        "sprite_generate_sheet_preview" => sprite_generate_sheet_preview(state, &args).await,
         "import_marinara" => import_call(state, &args, &["marinara"], "envelope"),
         "import_marinara_file" => import_call(state, &args, &["marinara-file"], "body"),
         "import_st_character" => import_call(state, &args, &["st-character"], "body"),
@@ -316,6 +320,28 @@ fn chat_gallery_upload(state: &AppState, args: &Map<String, Value>) -> AppResult
     )
 }
 
+async fn image_generate(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    images::generate_image(state, optional_value(args, "body")).await
+}
+
+async fn avatar_generation_command(
+    state: &AppState,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    images::avatar_generation(state, optional_value(args, "body")).await
+}
+
+async fn sprite_generate_sheet(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    sprites::generate_sprite_sheet(state, optional_value(args, "body")).await
+}
+
+async fn sprite_generate_sheet_preview(
+    state: &AppState,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    sprites::generate_sprite_sheet_preview(state, optional_value(args, "body")).await
+}
+
 fn llm_stream_cancel(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     llm::llm_stream_cancel(state, required_string(args, "streamId")?)
 }
@@ -488,6 +514,36 @@ mod tests {
             .get("url")
             .and_then(Value::as_str)
             .is_some_and(|url| url.starts_with("data:image/png;base64,")));
+    }
+
+    #[tokio::test]
+    async fn dispatch_exposes_real_remote_image_generation_commands() {
+        for command in [
+            "image_generate",
+            "avatar_generation_command",
+            "sprite_generate_sheet",
+            "sprite_generate_sheet_preview",
+        ] {
+            let state = test_state(command);
+            let error = dispatch(
+                &state,
+                InvokeRequest {
+                    command: command.to_string(),
+                    args: Some(json!({ "body": {} })),
+                },
+            )
+            .await
+            .expect_err("command should dispatch into validation, not remote unsupported");
+
+            assert_ne!(
+                error.code, "unsupported_command",
+                "{command} was not dispatched"
+            );
+            assert_eq!(
+                error.code, "invalid_input",
+                "{command} should reject the empty body"
+            );
+        }
     }
 
     #[tokio::test]

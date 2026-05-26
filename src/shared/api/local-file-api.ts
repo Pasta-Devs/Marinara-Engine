@@ -1,5 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
+import { remoteRuntimeTarget } from "./remote-runtime";
 
 export const USER_BACKGROUND_URL_PREFIX = "marinara-background:";
 export const GAME_ASSET_URL_PREFIX = "marinara-game-asset:";
@@ -65,25 +66,47 @@ export function filePathToAssetUrl(path: string | null | undefined): string {
   }
 }
 
+function remoteManagedAssetUrl(kind: "background" | "game" | "lorebook", path: string | null | undefined): string | null {
+  const target = remoteRuntimeTarget();
+  if (!target || !path?.trim()) return null;
+  const encodedPath = path
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  return encodedPath ? `${target.baseUrl}/api/assets/${kind}/${encodedPath}` : null;
+}
+
 export function gameAssetFileUrlFromPath(path: string, absolutePath?: string | null): string {
+  const remoteUrl = remoteManagedAssetUrl("game", path);
+  if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : gameAssetUrl(path);
 }
 
 export function backgroundFileUrlFromPath(filename: string, absolutePath?: string | null): string {
+  const remoteUrl = remoteManagedAssetUrl("background", filename);
+  if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : userBackgroundUrl(filename);
 }
 
 export async function resolveGameAssetFileUrl(path: string): Promise<string> {
+  const remoteUrl = remoteManagedAssetUrl("game", path);
+  if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("game_assets_file_path", { path });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 export async function resolveBackgroundFileUrl(filename: string): Promise<string> {
+  const remoteUrl = remoteManagedAssetUrl("background", filename);
+  if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("background_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 export async function resolveLorebookImageFileUrl(filename: string): Promise<string> {
+  const remoteUrl = remoteManagedAssetUrl("lorebook", filename);
+  if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("lorebook_image_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
 }
