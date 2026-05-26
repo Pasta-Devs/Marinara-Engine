@@ -19,7 +19,11 @@ import {
   type PromptAttachment,
 } from "./generate-route-utils";
 import type { GenerationEvent } from "./generation-events";
-import { buildGenerationReplay } from "./generation-replay";
+import {
+  applyGenerationReplayToRegenerateInput,
+  buildGenerationReplay,
+  normalizeGenerationReplay,
+} from "./generation-replay";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import type { GenerationCharacterContext } from "./prompt-assembly";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
@@ -162,6 +166,25 @@ function savedUserMessageForTimeline(saved: unknown, chatId: string): JsonRecord
   if (readString(saved.role).trim() !== "user") return null;
   if (!readString(saved.content).trim()) return null;
   return saved;
+}
+
+async function inputWithStoredGenerationReplay(
+  storage: StorageGateway,
+  chatId: string,
+  input: StartGenerationInput,
+): Promise<StartGenerationInput> {
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (!regenerateMessageId) return input;
+
+  const target = await storage.get("messages", regenerateMessageId).catch(() => null);
+  if (!isRecord(target) || readString(target.chatId).trim() !== chatId) return input;
+
+  const replay = normalizeGenerationReplay(parseRecord(target.extra).generationReplay);
+  if (!replay) return input;
+
+  const nextInput = { ...input };
+  applyGenerationReplayToRegenerateInput(nextInput, replay);
+  return nextInput;
 }
 
 function requestMessages(input: StartGenerationInput): LlmMessage[] | null {
@@ -347,8 +370,11 @@ async function saveAssistantMessage(args: {
   if (args.input.impersonate === true) return null;
 
   const regenerateMessageId = readString(args.input.regenerateMessageId).trim();
+  const generationReplay = buildGenerationReplay(args.input);
   if (regenerateMessageId) {
-    return args.storage.addChatMessageSwipe(args.input.chatId, regenerateMessageId, args.content);
+    const saved = await args.storage.addChatMessageSwipe(args.input.chatId, regenerateMessageId, args.content);
+    if (!generationReplay) return saved;
+    return args.storage.patchChatMessageExtra(regenerateMessageId, { generationReplay });
   }
 
   const requestedCharacterId = readString(args.input.forCharacterId).trim();
@@ -365,7 +391,10 @@ async function saveAssistantMessage(args: {
     role: "assistant",
     characterId,
     content: args.content,
-    extra: args.attachments?.length ? { attachments: args.attachments } : {},
+    extra: {
+      ...(args.attachments?.length ? { attachments: args.attachments } : {}),
+      ...(generationReplay ? { generationReplay } : {}),
+    },
     generationInfo: {
       connectionId: readString(args.connection.id) || null,
       model: readString(args.connection.model) || null,
@@ -674,6 +703,7 @@ export async function* startGeneration(
   if (!chatId) throw new Error("chatId is required");
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   assertChatCanGenerate(chat);
+  input = await inputWithStoredGenerationReplay(deps.storage, chatId, input);
 
   yield { type: "phase", data: "Saving message..." };
   const preparedUserInput = await prepareUserInput(deps.storage, input);

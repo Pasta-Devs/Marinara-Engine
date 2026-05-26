@@ -43,6 +43,7 @@ function generationDepsForChat(options: {
   const initialMessages = options.initialMessages ?? [
     { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "What now?" },
   ];
+  const messagesById = new Map(initialMessages.map((message) => [String(message.id), message]));
   const listChatMessages = vi.fn(async () =>
     listChatMessages.mock.calls.length > 1 && options.messagesAfterSave
       ? options.messagesAfterSave
@@ -59,10 +60,24 @@ function generationDepsForChat(options: {
     }
     return { id: "assistant-2", chatId: "chat-1", ...value };
   });
+  const addChatMessageSwipe = vi.fn(async (_chatId: string, messageId: string, content: string) => ({
+    ...messagesById.get(messageId),
+    content,
+    activeSwipeIndex: 1,
+    swipeCount: 2,
+  }));
+  const patchChatMessageExtra = vi.fn(async (messageId: string, patch: Record<string, unknown>) => ({
+    ...messagesById.get(messageId),
+    extra: {
+      ...((messagesById.get(messageId)?.extra as Record<string, unknown> | undefined) ?? {}),
+      ...patch,
+    },
+  }));
   const storage = {
     get: vi.fn(async (entity: string, id: string) => {
       if (entity === "chats" && id === "chat-1") return chat;
       if (entity === "connections" && id === "connection-1") return connection;
+      if (entity === "messages") return messagesById.get(id) ?? null;
       return null;
     }),
     list: vi.fn(async (entity: string) => {
@@ -72,6 +87,8 @@ function generationDepsForChat(options: {
     }),
     create: vi.fn(async (_entity: string, value: Record<string, unknown>) => value),
     createChatMessage,
+    addChatMessageSwipe,
+    patchChatMessageExtra,
     listChatMessages,
     listChatMemories: vi.fn(async () => []),
     listLorebookEntries: vi.fn(async () => []),
@@ -82,7 +99,7 @@ function generationDepsForChat(options: {
     llm: { stream } as Partial<LlmGateway> as LlmGateway,
     integrations: {} as GenerationEngineDeps["integrations"],
   };
-  return { deps, listChatMessages, streamedRequests };
+  return { deps, createChatMessage, addChatMessageSwipe, patchChatMessageExtra, listChatMessages, streamedRequests };
 }
 
 async function drainGeneration(stream: AsyncGenerator<unknown>) {
@@ -197,6 +214,128 @@ describe("startGeneration chat message loading", () => {
     expect(streamedRequests[0]).toMatchObject({
       messages: expect.arrayContaining([expect.objectContaining({ role: "user", content: "hello" })]),
     });
+  });
+});
+
+describe("startGeneration generation replay metadata", () => {
+  it("stores guided replay metadata on the generated assistant message", async () => {
+    const { deps, createChatMessage } = generationDepsForChat();
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "hello",
+        generationGuide: "Keep the reply clipped.",
+        generationGuideSource: "guide",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    expect(assistantSave?.[1]).toMatchObject({
+      extra: {
+        generationReplay: {
+          generationGuide: "Keep the reply clipped.",
+          generationGuideSource: "guide",
+        },
+      },
+    });
+  });
+
+  it("updates the regenerated assistant target with replay metadata for the new active swipe", async () => {
+    const { deps, addChatMessageSwipe, patchChatMessageExtra } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "first reply", extra: {} },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        regenerateMessageId: "assistant-1",
+        generationGuide: "Make this one colder.",
+        generationGuideSource: "guide",
+      }),
+    );
+
+    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.");
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", {
+      generationReplay: {
+        generationGuide: "Make this one colder.",
+        generationGuideSource: "guide",
+      },
+    });
+  });
+
+  it("applies stored assistant replay metadata for direct engine regenerates", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "first reply",
+          extra: {
+            generationReplay: {
+              generationGuide: "Keep the reply clipped.",
+              generationGuideSource: "guide",
+            },
+          },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect(streamedRequests[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({ role: "user", content: "Keep the reply clipped." }),
+      ]),
+    });
+  });
+
+  it("does not invent replay metadata for plain regenerates without stored replay", async () => {
+    const { deps, patchChatMessageExtra, streamedRequests } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "first reply", extra: {} },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect(patchChatMessageExtra).not.toHaveBeenCalled();
+    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
+    );
+  });
+
+  it("ignores stored replay metadata from a target outside the active chat", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        {
+          id: "assistant-1",
+          chatId: "other-chat",
+          role: "assistant",
+          content: "first reply",
+          extra: {
+            generationReplay: {
+              generationGuide: "Wrong chat guide.",
+              generationGuideSource: "guide",
+            },
+          },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Wrong chat guide." })]),
+    );
   });
 });
 
