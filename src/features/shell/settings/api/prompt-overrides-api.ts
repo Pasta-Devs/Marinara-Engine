@@ -66,7 +66,7 @@ export const promptOverridesApi = {
     if (!definition) throw unknownPromptKey(key);
     return {
       key: definition.key,
-      template: definition.defaultBuilder(definition.exampleContext),
+      template: definition.template,
       exampleContext: definition.exampleContext,
     };
   },
