@@ -1038,7 +1038,7 @@ mod tests {
         fs::write(path, bytes).expect("fixture file should be written");
     }
 
-    fn corrupt_collection(state: &AppState, collection: &str) {
+    fn block_collection_writes(state: &AppState, collection: &str) {
         let collection_path = state
             .storage
             .root()
@@ -1047,7 +1047,7 @@ mod tests {
         if let Some(parent) = collection_path.parent() {
             fs::create_dir_all(parent).expect("collection parent should be created");
         }
-        fs::write(collection_path, b"{not-json").expect("collection should be corruptible");
+        fs::create_dir(collection_path).expect("collection path should block file writes");
     }
 
     fn uploaded_jsonl_file(name: &str, text: &str) -> Value {
@@ -1123,7 +1123,7 @@ mod tests {
         let app_root = temp_path("chat-rollback");
         let state = AppState::from_data_dir(&app_root, Vec::new())
             .expect("test app state should initialize");
-        corrupt_collection(&state, "messages");
+        block_collection_writes(&state, "messages");
 
         let error = import_st_chat_text(
             &state,
@@ -1133,7 +1133,7 @@ mod tests {
         )
         .expect_err("message storage failure should reject chat import");
 
-        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.code, "io_error");
         assert!(
             state.storage.list("chats").unwrap().is_empty(),
             "failed chat import must remove the created chat"
@@ -1160,7 +1160,7 @@ mod tests {
                 }),
             )
             .expect("target chat should be created");
-        corrupt_collection(&state, "messages");
+        block_collection_writes(&state, "messages");
 
         let error = import_st_chat_into_group(
             &state,
@@ -1174,7 +1174,7 @@ mod tests {
         )
         .expect_err("message storage failure should reject branch import");
 
-        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.code, "io_error");
         let target = state
             .storage
             .get("chats", "target-chat")
@@ -1212,7 +1212,7 @@ mod tests {
                 }),
             )
             .expect("target chat should be created");
-        corrupt_collection(&state, "messages");
+        block_collection_writes(&state, "messages");
 
         let error = import_st_chat_into_group(
             &state,
@@ -1226,7 +1226,7 @@ mod tests {
         )
         .expect_err("message storage failure should reject branch import");
 
-        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.code, "io_error");
         let target = state
             .storage
             .get("chats", "target-chat")
@@ -1250,7 +1250,7 @@ mod tests {
         fs::write(&source, b"persona-avatar-bytes").expect("source fixture should be written");
         let state = AppState::from_data_dir(&app_root, Vec::new())
             .expect("test app state should initialize");
-        corrupt_collection(&state, "personas");
+        block_collection_writes(&state, "personas");
 
         let error = import_persona_avatar_file(
             &state,
@@ -1260,7 +1260,7 @@ mod tests {
         )
         .expect_err("persona storage failure should reject persona avatar import");
 
-        assert_eq!(error.code, "json_error");
+        assert_eq!(error.code, "io_error");
         assert!(
             !app_root.join("avatars").join("personas").exists(),
             "failed persona avatar import must remove the managed avatar file"
