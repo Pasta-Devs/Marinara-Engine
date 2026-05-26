@@ -4,7 +4,6 @@ import { boolish, readString, type JsonRecord } from "./runtime-records";
 export const PROMPT_OVERRIDE_COLLECTION = "prompt-overrides";
 
 const VARIABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-const TEMPLATE_PLACEHOLDER_PATTERN = /\$\{([^}]*)\}/g;
 const VARIABLE_PATTERN = /\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 
 export type PromptOverrideVariable = {
@@ -117,13 +116,20 @@ export function validatePromptOverrideTemplate(
   const allowed = new Set(declared);
   const seen = new Set<string>();
   const unknownVariables: string[] = [];
+  let searchIndex = 0;
 
-  for (const match of template.matchAll(TEMPLATE_PLACEHOLDER_PATTERN)) {
-    const name = match[1] ?? "";
+  while (searchIndex < template.length) {
+    const start = template.indexOf("${", searchIndex);
+    if (start === -1) break;
+    const end = template.indexOf("}", start + 2);
+    const name = end === -1 ? template.slice(start + 2) : template.slice(start + 2, end);
     const reportedName = name || "<empty>";
-    if (seen.has(reportedName)) continue;
-    seen.add(reportedName);
-    if (!VARIABLE_NAME_PATTERN.test(name) || !allowed.has(name)) unknownVariables.push(reportedName);
+    if (!seen.has(reportedName)) {
+      seen.add(reportedName);
+      if (end === -1 || !VARIABLE_NAME_PATTERN.test(name) || !allowed.has(name)) unknownVariables.push(reportedName);
+    }
+    if (end === -1) break;
+    searchIndex = end + 1;
   }
 
   return { valid: unknownVariables.length === 0, unknownVariables };

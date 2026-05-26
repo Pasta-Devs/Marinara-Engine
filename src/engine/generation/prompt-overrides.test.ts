@@ -163,9 +163,9 @@ describe("conversation selfie prompt overrides", () => {
   });
 
   it("reports malformed placeholder-like tokens outside the template schema", () => {
-    expect(validatePromptOverrideTemplate("Hello ${char-name} ${ charName } ${}", ["charName"])).toEqual({
+    expect(validatePromptOverrideTemplate("Hello ${char-name} ${ charName } ${} ${missing", ["charName"])).toEqual({
       valid: false,
-      unknownVariables: ["char-name", " charName ", "<empty>"],
+      unknownVariables: ["char-name", " charName ", "<empty>", "missing"],
     });
   });
 

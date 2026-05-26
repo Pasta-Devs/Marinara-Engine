@@ -54,7 +54,17 @@ export function useSavePromptOverride() {
   return useMutation({
     mutationFn: ({ key, template, enabled }: { key: string; template: string; enabled: boolean }) =>
       promptOverridesApi.save({ key, template, enabled }),
-    onSuccess: (_row, variables) => {
+    onSuccess: (row, variables) => {
+      queryClient.setQueryData<PromptOverrideDetail>(promptOverrideKeys.detail(variables.key), (current) =>
+        current ? { ...current, override: row } : current,
+      );
+      queryClient.setQueryData<PromptOverrideSummary[]>(promptOverrideKeys.list(), (current) =>
+        current?.map((entry) =>
+          entry.key === variables.key
+            ? { ...entry, hasOverride: true, enabled: row.enabled, updatedAt: row.updatedAt }
+            : entry,
+        ),
+      );
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.list() });
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.detail(variables.key) });
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.default(variables.key) });
@@ -67,6 +77,14 @@ export function useResetPromptOverride() {
   return useMutation({
     mutationFn: (key: string) => promptOverridesApi.reset(key),
     onSuccess: (_row, key) => {
+      queryClient.setQueryData<PromptOverrideDetail>(promptOverrideKeys.detail(key), (current) =>
+        current ? { ...current, override: null } : current,
+      );
+      queryClient.setQueryData<PromptOverrideSummary[]>(promptOverrideKeys.list(), (current) =>
+        current?.map((entry) =>
+          entry.key === key ? { ...entry, hasOverride: false, enabled: false, updatedAt: null } : entry,
+        ),
+      );
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.list() });
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.detail(key) });
       queryClient.invalidateQueries({ queryKey: promptOverrideKeys.default(key) });

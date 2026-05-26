@@ -7,11 +7,12 @@ use super::super::{
     },
 };
 use super::assets::{normalize_legacy_profile_asset_paths, restore_legacy_profile_json_assets};
-use super::{finish_profile_import_assets, insert_profile_import_aliases};
+use super::{
+    finish_profile_import_assets, insert_profile_import_aliases, normalize_profile_prompt_overrides,
+};
 use crate::state::AppState;
 use marinara_core::AppResult;
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
 use std::path::Path;
 
 const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
@@ -62,8 +63,6 @@ const LEGACY_GAME_STATE_ALIASES: &[(&str, &str)] = &[
     ("createdAt", "created_at"),
 ];
 
-const SUPPORTED_LEGACY_PROMPT_OVERRIDE_KEYS: &[&str] = &["conversation.selfie"];
-
 pub(super) fn import_legacy_profile_tables(
     state: &AppState,
     data: &Map<String, Value>,
@@ -101,7 +100,9 @@ where
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
-            "prompt-overrides" => unsupported_prompt_overrides = normalize_legacy_prompt_overrides(&mut rows),
+            "prompt-overrides" => {
+                unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)
+            }
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
             "chats" => add_legacy_chat_memories(&mut rows, tables),
             "messages" => add_legacy_message_swipes(&mut rows, tables),
@@ -184,37 +185,6 @@ fn normalize_legacy_app_settings(rows: &mut [Value]) {
         }
         object.remove("key");
     }
-}
-
-fn normalize_legacy_prompt_overrides(rows: &mut Vec<Value>) -> usize {
-    let mut normalized = Vec::with_capacity(rows.len());
-    let mut seen_keys = HashSet::new();
-    let mut unsupported = 0usize;
-    for mut row in rows.drain(..) {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let key = trimmed_string(object.get("key")).or_else(|| trimmed_string(object.get("id")));
-        let Some(key) = key else {
-            continue;
-        };
-        if !SUPPORTED_LEGACY_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
-            unsupported += 1;
-            log::trace!("skipping unsupported legacy prompt override key={key}");
-            continue;
-        }
-        if !seen_keys.insert(key.clone()) {
-            unsupported += 1;
-            log::trace!("skipping duplicate legacy prompt override key={key}");
-            continue;
-        }
-        object.insert("id".to_string(), Value::String(key.clone()));
-        object.insert("key".to_string(), Value::String(key));
-        normalize_legacy_text_bool_fields(&mut row, &["enabled"]);
-        normalized.push(row);
-    }
-    *rows = normalized;
-    unsupported
 }
 
 fn add_legacy_lorebook_links(rows: &mut [Value], tables: &Map<String, Value>) {
@@ -545,8 +515,9 @@ mod tests {
             ]),
         );
 
-        let result = import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
-            .expect("legacy profile import should keep supported prompt overrides");
+        let result =
+            import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+                .expect("legacy profile import should keep supported prompt overrides");
 
         let rows = state
             .storage
