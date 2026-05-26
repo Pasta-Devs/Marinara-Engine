@@ -729,8 +729,8 @@ body {
 .mari-mobile-topbar-button,
 .mari-mobile-topbar-tools {
   display: inline-flex;
-  min-width: 2.55rem;
-  height: 2.55rem;
+  min-width: max(2.55rem, 44px);
+  height: max(2.55rem, 44px);
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
@@ -789,7 +789,7 @@ body {
 .mari-mobile-topbar-title {
   display: inline-flex;
   min-width: 0;
-  height: 2.55rem;
+  height: max(2.55rem, 44px);
   flex: 1 1 auto;
   align-items: center;
   justify-content: flex-start;
@@ -822,9 +822,9 @@ body {
 }
 
 .mari-mobile-topbar-home {
-  width: 2.55rem;
-  min-width: 2.55rem;
-  flex: 0 0 2.55rem;
+  width: max(2.55rem, 44px);
+  min-width: max(2.55rem, 44px);
+  flex: 0 0 max(2.55rem, 44px);
   margin-right: auto;
   justify-content: center;
   border-color: color-mix(in srgb, var(--border) 38%, transparent);

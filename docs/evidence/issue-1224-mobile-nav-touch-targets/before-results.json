@@ -1,0 +1,425 @@
+[
+  {
+    "viewport": "320x568",
+    "topbar": {
+      "width": 320,
+      "height": 55.25
+    },
+    "buttonCount": 4,
+    "rects": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 4.25,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 56.09,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 179.77,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 84.14,
+        "height": 43.34,
+        "left": 231.61,
+        "top": 3.83
+      }
+    ],
+    "minWidth": 43.34,
+    "minHeight": 43.34,
+    "failingButtons": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 4.25,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 56.09,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 179.77,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 84.14,
+        "height": 43.34,
+        "left": 231.61,
+        "top": 3.83
+      }
+    ],
+    "toolsMeasurement": {
+      "menu": {
+        "width": 303,
+        "height": 222.05,
+        "left": 12.75,
+        "right": 315.75
+      },
+      "itemCount": 8,
+      "rects": [
+        {
+          "label": "Browser",
+          "width": 136.48,
+          "height": 44.19,
+          "left": 23.94,
+          "top": 76.2
+        },
+        {
+          "label": "Characters",
+          "width": 136.5,
+          "height": 44.19,
+          "left": 168.06,
+          "top": 76.2
+        },
+        {
+          "label": "Lorebooks",
+          "width": 136.48,
+          "height": 44.19,
+          "left": 23.94,
+          "top": 128.03
+        },
+        {
+          "label": "Presets",
+          "width": 136.5,
+          "height": 44.19,
+          "left": 168.06,
+          "top": 128.03
+        },
+        {
+          "label": "Connections",
+          "width": 136.48,
+          "height": 44.19,
+          "left": 23.94,
+          "top": 179.86
+        },
+        {
+          "label": "Agents",
+          "width": 136.5,
+          "height": 44.19,
+          "left": 168.06,
+          "top": 179.86
+        },
+        {
+          "label": "Personas",
+          "width": 136.48,
+          "height": 44.19,
+          "left": 23.94,
+          "top": 231.69
+        },
+        {
+          "label": "Settings",
+          "width": 136.5,
+          "height": 44.19,
+          "left": 168.06,
+          "top": 231.69
+        }
+      ],
+      "minWidth": 136.48,
+      "minHeight": 44.19,
+      "failingItems": [],
+      "overflowsViewport": false
+    }
+  },
+  {
+    "viewport": "390x844",
+    "topbar": {
+      "width": 390,
+      "height": 55.25
+    },
+    "buttonCount": 4,
+    "rects": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 10.63,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 62.47,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 230.02,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 97.52,
+        "height": 43.34,
+        "left": 281.86,
+        "top": 3.83
+      }
+    ],
+    "minWidth": 43.34,
+    "minHeight": 43.34,
+    "failingButtons": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 10.63,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 62.47,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 230.02,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 97.52,
+        "height": 43.34,
+        "left": 281.86,
+        "top": 3.83
+      }
+    ],
+    "toolsMeasurement": {
+      "menu": {
+        "width": 340,
+        "height": 222.05,
+        "left": 39.38,
+        "right": 379.38
+      },
+      "itemCount": 8,
+      "rects": [
+        {
+          "label": "Browser",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 50.56,
+          "top": 76.2
+        },
+        {
+          "label": "Characters",
+          "width": 155,
+          "height": 44.19,
+          "left": 213.19,
+          "top": 76.2
+        },
+        {
+          "label": "Lorebooks",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 50.56,
+          "top": 128.03
+        },
+        {
+          "label": "Presets",
+          "width": 155,
+          "height": 44.19,
+          "left": 213.19,
+          "top": 128.03
+        },
+        {
+          "label": "Connections",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 50.56,
+          "top": 179.86
+        },
+        {
+          "label": "Agents",
+          "width": 155,
+          "height": 44.19,
+          "left": 213.19,
+          "top": 179.86
+        },
+        {
+          "label": "Personas",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 50.56,
+          "top": 231.69
+        },
+        {
+          "label": "Settings",
+          "width": 155,
+          "height": 44.19,
+          "left": 213.19,
+          "top": 231.69
+        }
+      ],
+      "minWidth": 154.98,
+      "minHeight": 44.19,
+      "failingItems": [],
+      "overflowsViewport": false
+    }
+  },
+  {
+    "viewport": "430x932",
+    "topbar": {
+      "width": 430,
+      "height": 55.25
+    },
+    "buttonCount": 4,
+    "rects": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 10.63,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 62.47,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 270.02,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 97.52,
+        "height": 43.34,
+        "left": 321.86,
+        "top": 3.83
+      }
+    ],
+    "minWidth": 43.34,
+    "minHeight": 43.34,
+    "failingButtons": [
+      {
+        "label": "Open chats",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 10.63,
+        "top": 3.83
+      },
+      {
+        "label": "Home",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 62.47,
+        "top": 3.83
+      },
+      {
+        "label": "Professor Mari",
+        "width": 43.34,
+        "height": 43.34,
+        "left": 270.02,
+        "top": 3.83
+      },
+      {
+        "label": "Open tools",
+        "width": 97.52,
+        "height": 43.34,
+        "left": 321.86,
+        "top": 3.83
+      }
+    ],
+    "toolsMeasurement": {
+      "menu": {
+        "width": 340,
+        "height": 222.05,
+        "left": 79.38,
+        "right": 419.38
+      },
+      "itemCount": 8,
+      "rects": [
+        {
+          "label": "Browser",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 90.56,
+          "top": 76.2
+        },
+        {
+          "label": "Characters",
+          "width": 155,
+          "height": 44.19,
+          "left": 253.19,
+          "top": 76.2
+        },
+        {
+          "label": "Lorebooks",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 90.56,
+          "top": 128.03
+        },
+        {
+          "label": "Presets",
+          "width": 155,
+          "height": 44.19,
+          "left": 253.19,
+          "top": 128.03
+        },
+        {
+          "label": "Connections",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 90.56,
+          "top": 179.86
+        },
+        {
+          "label": "Agents",
+          "width": 155,
+          "height": 44.19,
+          "left": 253.19,
+          "top": 179.86
+        },
+        {
+          "label": "Personas",
+          "width": 154.98,
+          "height": 44.19,
+          "left": 90.56,
+          "top": 231.69
+        },
+        {
+          "label": "Settings",
+          "width": 155,
+          "height": 44.19,
+          "left": 253.19,
+          "top": 231.69
+        }
+      ],
+      "minWidth": 154.98,
+      "minHeight": 44.19,
+      "failingItems": [],
+      "overflowsViewport": false
+    }
+  }
+]

@@ -419,7 +419,7 @@ export function PersonasPanel() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <button
           onClick={handleCreate}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-emerald-400/15 transition-all hover:shadow-lg hover:shadow-emerald-400/25 active:scale-[0.98]"

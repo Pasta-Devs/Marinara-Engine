@@ -73,6 +73,7 @@ const TRACKER_PANEL_DESKTOP_EXIT_EASE = [0.4, 0, 1, 1] as const;
 const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
+const MOBILE_PANEL_HISTORY_KEY = "__marinaraMobilePanel";
 const FOCUSABLE_SELECTOR = [
   "a[href]",
   "button:not([disabled])",
@@ -94,6 +95,20 @@ function setInert(element: HTMLElement | null, inert: boolean) {
   if (!element) return;
   element.toggleAttribute("inert", inert);
   (element as HTMLElement & { inert?: boolean }).inert = inert;
+}
+
+function isMobilePanelHistoryState(state: unknown, token: string) {
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    (state as Record<string, unknown>)[MOBILE_PANEL_HISTORY_KEY] === token
+  );
+}
+
+function getHistoryStateRecord() {
+  return typeof window.history.state === "object" && window.history.state !== null
+    ? (window.history.state as Record<string, unknown>)
+    : {};
 }
 
 function MainPaneFallback() {
@@ -208,6 +223,8 @@ export function AppShell() {
   const mobileTrackerPanelRef = useRef<HTMLElement>(null);
   const mobileRightPanelRef = useRef<HTMLElement>(null);
   const lastFocusedBeforeMobilePanelRef = useRef<HTMLElement | null>(null);
+  const mobilePanelHistoryTokenRef = useRef<string | null>(null);
+  const closingMobilePanelFromPopRef = useRef(false);
   const compactWidthRef = useRef(0); // width when we last switched to compact
   const centerCompact = useUIStore((s) => s.centerCompact);
   const setCenterCompact = useUIStore((s) => s.setCenterCompact);
@@ -633,6 +650,55 @@ export function AppShell() {
           ? "sidebar"
           : null
     : null;
+
+  const closeActiveMobilePanel = useCallback(() => {
+    if (activeMobilePanel === "right") closeRightPanel();
+    else if (activeMobilePanel === "tracker") setTrackerPanelOpen(false);
+    else if (activeMobilePanel === "sidebar") setSidebarOpen(false);
+  }, [activeMobilePanel, closeRightPanel, setSidebarOpen, setTrackerPanelOpen]);
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding || !isMobile) return;
+
+    const handlePopState = () => {
+      if (!mobilePanelHistoryTokenRef.current || !activeMobilePanel) return;
+      closingMobilePanelFromPopRef.current = true;
+      mobilePanelHistoryTokenRef.current = null;
+      closeActiveMobilePanel();
+      window.setTimeout(() => {
+        closingMobilePanelFromPopRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [activeMobilePanel, closeActiveMobilePanel, hasCompletedOnboarding, isMobile]);
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding || !isMobile) {
+      mobilePanelHistoryTokenRef.current = null;
+      return;
+    }
+
+    if (activeMobilePanel && !mobilePanelHistoryTokenRef.current) {
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      mobilePanelHistoryTokenRef.current = token;
+      window.history.pushState(
+        { ...getHistoryStateRecord(), [MOBILE_PANEL_HISTORY_KEY]: token },
+        "",
+        window.location.href,
+      );
+      return;
+    }
+
+    if (!activeMobilePanel && mobilePanelHistoryTokenRef.current && !closingMobilePanelFromPopRef.current) {
+      const token = mobilePanelHistoryTokenRef.current;
+      mobilePanelHistoryTokenRef.current = null;
+      if (isMobilePanelHistoryState(window.history.state, token)) {
+        window.history.back();
+      }
+    }
+  }, [activeMobilePanel, hasCompletedOnboarding, isMobile]);
 
   const syncMobilePanelInert = useCallback(() => {
     if (!isMobile) {

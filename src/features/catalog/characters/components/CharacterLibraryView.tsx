@@ -297,27 +297,27 @@ export function CharacterLibraryView() {
             </div>
           </div>
 
-          <div className="flex w-full items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0 lg:w-auto lg:justify-end">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-1.5 pb-1 sm:gap-2 sm:pb-0 lg:w-auto lg:justify-end">
             <button
               onClick={() => openModal("create-character")}
-              className="inline-flex min-w-[6.1rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
+              className="inline-flex min-w-[5.25rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
             >
               <Plus size="0.8125rem" />
-              New
+              <span className="truncate">New</span>
             </button>
             <button
               onClick={() => openModal("import-character")}
-              className="inline-flex min-w-[6.1rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
+              className="inline-flex min-w-[5.25rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
             >
               <Download size="0.8125rem" />
-              Import
+              <span className="truncate">Import</span>
             </button>
             <button
               onClick={() => openModal("character-maker")}
-              className="inline-flex min-w-[6.35rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-2.5 py-1.5 text-[0.8125rem] font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25 sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
+              className="inline-flex min-w-[6rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-2.5 py-1.5 text-[0.8125rem] font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25 sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
             >
               <Sparkles size="0.8125rem" />
-              AI Maker
+              <span className="truncate">AI Maker</span>
             </button>
           </div>
         </div>
