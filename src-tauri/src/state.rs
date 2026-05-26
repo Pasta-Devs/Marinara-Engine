@@ -336,4 +336,31 @@ mod tests {
             assert!(row["personaStats"].is_null());
         }
     }
+
+    #[test]
+    fn app_state_startup_recovers_when_collection_and_backup_are_corrupt() {
+        let root = temp_root("corrupt-storage-startup");
+        let collections = root.0.join("data").join("collections");
+        std::fs::create_dir_all(&collections).expect("collections directory should exist");
+        std::fs::write(collections.join("messages.json"), b"\0\0\0")
+            .expect("corrupt primary should be written");
+        std::fs::write(collections.join("messages.json.bak"), b"{ bad backup")
+            .expect("corrupt backup should be written");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+
+        assert!(state.storage.list("messages").unwrap().is_empty());
+        assert_eq!(
+            std::fs::read_to_string(collections.join("messages.json")).unwrap(),
+            "[]"
+        );
+        assert_eq!(
+            std::fs::read_dir(collections)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupted-"))
+                .count(),
+            2
+        );
+    }
 }

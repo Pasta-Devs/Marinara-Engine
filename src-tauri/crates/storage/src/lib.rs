@@ -4,8 +4,8 @@ use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer as _;
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
-use std::fs;
 use std::fmt;
+use std::fs;
 use std::io::{BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -36,7 +36,7 @@ impl FileStorage {
     pub fn list(&self, collection: &str) -> AppResult<Vec<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_collection(collection)
     }
@@ -48,22 +48,22 @@ impl FileStorage {
     ) -> AppResult<Vec<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_collection_filtered(collection, |row| {
-                let Some(obj) = row.as_object() else {
-                    return false;
-                };
-                filters
-                    .iter()
-                    .all(|(key, expected)| obj.get(key) == Some(expected))
-            })
+            let Some(obj) = row.as_object() else {
+                return false;
+            };
+            filters
+                .iter()
+                .all(|(key, expected)| obj.get(key) == Some(expected))
+        })
     }
 
     pub fn list_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_messages_for_chat(chat_id)
     }
@@ -71,7 +71,7 @@ impl FileStorage {
     pub fn list_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_message_ids_for_chat(chat_id)
     }
@@ -84,7 +84,7 @@ impl FileStorage {
     ) -> AppResult<Vec<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_messages_for_chat_page(chat_id, limit, before)
     }
@@ -92,7 +92,7 @@ impl FileStorage {
     pub fn get(&self, collection: &str, id: &str) -> AppResult<Option<Value>> {
         let _guard = self
             .lock
-            .read()
+            .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.read_collection_find_by_id(collection, id)
     }
@@ -201,11 +201,7 @@ impl FileStorage {
         Ok(deleted)
     }
 
-    pub fn delete_where(
-        &self,
-        collection: &str,
-        filters: &Map<String, Value>,
-    ) -> AppResult<usize> {
+    pub fn delete_where(&self, collection: &str, filters: &Map<String, Value>) -> AppResult<usize> {
         self.delete_where_matching(collection, |row| row_matches_filters(row, filters))
     }
 
@@ -280,35 +276,27 @@ impl FileStorage {
         if !path.exists() {
             return Ok(Vec::new());
         }
-        let raw = fs::read_to_string(path)?;
+        let raw = fs::read_to_string(&path)?;
         if raw.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let parsed: Value = serde_json::from_str(&raw)?;
-        match parsed {
-            Value::Array(rows) => Ok(rows),
-            _ => Err(AppError::invalid_input(format!(
-                "Collection {collection} did not contain a JSON array"
-            ))),
-        }
+        parse_collection_rows(collection, &raw)
+            .or_else(|error| self.recover_collection_after_read_error(collection, &path, error))
     }
 
     fn read_collection_filtered<F>(
         &self,
         collection: &str,
-        predicate: F,
+        mut predicate: F,
     ) -> AppResult<Vec<Value>>
     where
         F: FnMut(&Value) -> bool,
     {
-        let path = self.collection_path(collection)?;
-        if !path.exists() || fs::metadata(&path)?.len() == 0 {
-            return Ok(Vec::new());
-        }
-        let file = fs::File::open(path)?;
-        let reader = BufReader::new(file);
-        let mut deserializer = serde_json::Deserializer::from_reader(reader);
-        Ok(deserializer.deserialize_seq(FilterRowsVisitor { predicate })?)
+        Ok(self
+            .read_collection(collection)?
+            .into_iter()
+            .filter(|row| predicate(row))
+            .collect())
     }
 
     fn read_collection_find_by_id(&self, collection: &str, id: &str) -> AppResult<Option<Value>> {
@@ -319,7 +307,13 @@ impl FileStorage {
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
-        Ok(deserializer.deserialize_seq(FindRowByIdVisitor { id })?)
+        match deserializer.deserialize_seq(FindRowByIdVisitor { id }) {
+            Ok(row) => Ok(row),
+            Err(_) => Ok(self
+                .read_collection(collection)?
+                .into_iter()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id))),
+        }
     }
 
     fn read_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
@@ -330,7 +324,14 @@ impl FileStorage {
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
-        Ok(deserializer.deserialize_seq(MessageRowsForChatVisitor { chat_id })?)
+        match deserializer.deserialize_seq(MessageRowsForChatVisitor { chat_id }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => Ok(self
+                .read_collection("messages")?
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .collect()),
+        }
     }
 
     fn read_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
@@ -341,7 +342,20 @@ impl FileStorage {
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
-        Ok(deserializer.deserialize_seq(MessageIdRowsForChatVisitor { chat_id })?)
+        match deserializer.deserialize_seq(MessageIdRowsForChatVisitor { chat_id }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => Ok(self
+                .read_collection("messages")?
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .filter_map(|row| {
+                    let id = row.get("id")?.clone();
+                    let mut object = Map::new();
+                    object.insert("id".to_string(), id);
+                    Some(Value::Object(object))
+                })
+                .collect()),
+        }
     }
 
     fn read_messages_for_chat_page(
@@ -358,8 +372,10 @@ impl FileStorage {
             return Ok(Vec::new());
         }
 
-        if let Some(rows) = read_pretty_message_page_from_file(&path, chat_id, limit, before)? {
-            return Ok(rows);
+        match read_pretty_message_page_from_file(&path, chat_id, limit, before) {
+            Ok(Some(rows)) => return Ok(rows),
+            Ok(None) => {}
+            Err(_) => {}
         }
 
         let mut rows = self.read_messages_for_chat(chat_id)?;
@@ -372,9 +388,8 @@ impl FileStorage {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let tmp = path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_vec_pretty(rows)?)?;
-        fs::rename(tmp, path)?;
+        refresh_collection_backup(&path)?;
+        write_file_atomically(&path, &serde_json::to_vec_pretty(rows)?)?;
         Ok(())
     }
 
@@ -400,9 +415,16 @@ impl FileStorage {
             }
         }
         if byte[0] != b']' {
-            return Err(AppError::invalid_input(format!(
-                "Collection {collection} did not contain a JSON array"
-            )));
+            let mut rows = self.recover_collection_after_read_error(
+                collection,
+                &path,
+                AppError::invalid_input(format!(
+                    "Collection {collection} did not contain a JSON array"
+                )),
+            )?;
+            rows.push(record.clone());
+            self.write_collection(collection, &rows)?;
+            return Ok(());
         }
 
         let mut before_close = cursor;
@@ -418,7 +440,8 @@ impl FileStorage {
             break;
         }
 
-        let tmp = path.with_extension("json.tmp");
+        refresh_collection_backup(&path)?;
+        let tmp = unique_sibling_path(&path, "tmp")?;
         let mut source = fs::File::open(&path)?;
         let mut output = fs::File::create(&tmp)?;
         std::io::copy(&mut Read::by_ref(&mut source).take(cursor), &mut output)?;
@@ -436,6 +459,52 @@ impl FileStorage {
         output.sync_all()?;
         fs::rename(tmp, path)?;
         Ok(())
+    }
+
+    fn recover_collection_after_read_error(
+        &self,
+        collection: &str,
+        path: &Path,
+        error: AppError,
+    ) -> AppResult<Vec<Value>> {
+        let backup = backup_path_for(path)?;
+        if backup.exists() {
+            match parse_collection_file(collection, &backup) {
+                Ok(rows) => {
+                    eprintln!(
+                        "[storage] {collection} collection file is corrupt; recovering from backup. primary={} backup={} error={}",
+                        path.display(),
+                        backup.display(),
+                        error.message
+                    );
+                    preserve_corrupt_file(path)?;
+                    self.write_collection(collection, &rows)?;
+                    return Ok(rows);
+                }
+                Err(backup_error) => {
+                    eprintln!(
+                        "[storage] {collection} collection file and backup are corrupt; preserving both and recreating an empty collection. primary={} backup={} primary_error={} backup_error={}",
+                        path.display(),
+                        backup.display(),
+                        error.message,
+                        backup_error.message
+                    );
+                    preserve_corrupt_file(path)?;
+                    preserve_corrupt_file(&backup)?;
+                    self.write_collection(collection, &[])?;
+                    return Ok(Vec::new());
+                }
+            }
+        }
+
+        eprintln!(
+            "[storage] {collection} collection file is corrupt and no backup exists; preserving it and recreating an empty collection. primary={} error={}",
+            path.display(),
+            error.message
+        );
+        preserve_corrupt_file(path)?;
+        self.write_collection(collection, &[])?;
+        Ok(Vec::new())
     }
 
     fn replace_all_many_locked<F>(
@@ -520,6 +589,87 @@ impl FileStorage {
     }
 }
 
+fn parse_collection_rows(collection: &str, raw: &str) -> AppResult<Vec<Value>> {
+    let parsed: Value = serde_json::from_str(raw)?;
+    match parsed {
+        Value::Array(rows) => Ok(rows),
+        _ => Err(AppError::invalid_input(format!(
+            "Collection {collection} did not contain a JSON array"
+        ))),
+    }
+}
+
+fn parse_collection_file(collection: &str, path: &Path) -> AppResult<Vec<Value>> {
+    let raw = fs::read_to_string(path)?;
+    if raw.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    parse_collection_rows(collection, &raw)
+}
+
+fn backup_path_for(path: &Path) -> AppResult<PathBuf> {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| AppError::invalid_input("Invalid collection path"))?;
+    Ok(path.with_file_name(format!("{file_name}.bak")))
+}
+
+fn unique_sibling_path(path: &Path, suffix: &str) -> AppResult<PathBuf> {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| AppError::invalid_input("Invalid collection path"))?;
+    let nonce = storage_transaction_id();
+    Ok(path.with_file_name(format!("{file_name}.{suffix}-{nonce}")))
+}
+
+fn looks_nul_filled(path: &Path) -> bool {
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let mut byte = [0_u8; 1];
+    matches!(file.read(&mut byte), Ok(0)) || matches!(byte.first(), Some(0))
+}
+
+fn refresh_collection_backup(path: &Path) -> AppResult<()> {
+    if !path.exists() || looks_nul_filled(path) {
+        return Ok(());
+    }
+    let backup = backup_path_for(path)?;
+    let backup_tmp = unique_sibling_path(&backup, "tmp")?;
+    fs::copy(path, &backup_tmp)?;
+    sync_file(&backup_tmp)?;
+    fs::rename(&backup_tmp, backup)?;
+    Ok(())
+}
+
+fn preserve_corrupt_file(path: &Path) -> AppResult<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let target = unique_sibling_path(path, "corrupted")?;
+    fs::rename(path, target)?;
+    Ok(())
+}
+
+fn write_file_atomically(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    let tmp = unique_sibling_path(path, "tmp")?;
+    fs::write(&tmp, bytes)?;
+    sync_file(&tmp)?;
+    fs::rename(tmp, path)?;
+    Ok(())
+}
+
+fn sync_file(path: &Path) -> AppResult<()> {
+    fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)?
+        .sync_all()?;
+    Ok(())
+}
+
 fn row_matches_filters(row: &Value, filters: &Map<String, Value>) -> bool {
     let Some(object) = row.as_object() else {
         return false;
@@ -527,34 +677,6 @@ fn row_matches_filters(row: &Value, filters: &Map<String, Value>) -> bool {
     filters
         .iter()
         .all(|(key, expected)| object.get(key) == Some(expected))
-}
-
-struct FilterRowsVisitor<F> {
-    predicate: F,
-}
-
-impl<'de, F> Visitor<'de> for FilterRowsVisitor<F>
-where
-    F: FnMut(&Value) -> bool,
-{
-    type Value = Vec<Value>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a JSON array")
-    }
-
-    fn visit_seq<A>(mut self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut rows = Vec::new();
-        while let Some(row) = seq.next_element::<Value>()? {
-            if (self.predicate)(&row) {
-                rows.push(row);
-            }
-        }
-        Ok(rows)
-    }
 }
 
 struct FindRowByIdVisitor<'a> {
@@ -580,10 +702,7 @@ impl<'de, 'a> Visitor<'de> for FindRowByIdVisitor<'a> {
             }
         }
         if found.is_some() {
-            while seq
-                .next_element::<serde::de::IgnoredAny>()?
-                .is_some()
-            {}
+            while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
         }
         Ok(found)
     }
@@ -1131,6 +1250,152 @@ mod tests {
 
         assert_eq!(storage.list("characters").unwrap()[0]["id"], "character-1");
         assert_eq!(storage.list("personas").unwrap()[0]["id"], "persona-1");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn corrupt_collection_and_backup_are_preserved_and_recreated_empty() {
+        let root = temp_storage_root("corrupt-collection-and-backup");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("messages.json");
+        let backup = root.join("collections").join("messages.json.bak");
+        fs::write(&collection, b"\0\0\0not-json").unwrap();
+        fs::write(&backup, b"{ bad backup").unwrap();
+
+        let rows = storage.list("messages").unwrap();
+
+        assert!(rows.is_empty());
+        assert_eq!(fs::read_to_string(&collection).unwrap(), "[]");
+        assert!(!backup.exists());
+        assert_eq!(
+            fs::read_dir(root.join("collections"))
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupted-"))
+                .count(),
+            2
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn corrupt_collection_recovers_from_valid_backup() {
+        let root = temp_storage_root("corrupt-collection-valid-backup");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("messages.json");
+        let backup = root.join("collections").join("messages.json.bak");
+        fs::write(&collection, b"\0\0\0").unwrap();
+        fs::write(
+            &backup,
+            serde_json::to_vec_pretty(&json!([{ "id": "message-1", "chatId": "chat-1" }])).unwrap(),
+        )
+        .unwrap();
+
+        let rows = storage.list("messages").unwrap();
+
+        assert_eq!(rows, vec![json!({ "id": "message-1", "chatId": "chat-1" })]);
+        assert_eq!(
+            serde_json::from_str::<Value>(&fs::read_to_string(&collection).unwrap()).unwrap(),
+            json!([{ "id": "message-1", "chatId": "chat-1" }])
+        );
+        assert!(backup.exists());
+        assert_eq!(
+            fs::read_dir(root.join("collections"))
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("messages.json.corrupted-"))
+                .count(),
+            1
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn valid_collection_does_not_create_corruption_sentinels() {
+        let root = temp_storage_root("valid-collection-no-corruption-sentinel");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "message-1" })])
+            .unwrap();
+
+        assert_eq!(
+            storage.list("messages").unwrap(),
+            vec![json!({ "id": "message-1" })]
+        );
+        assert_eq!(
+            fs::read_dir(root.join("collections"))
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupted-"))
+                .count(),
+            0
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn writes_refresh_backup_without_copying_nul_corruption() {
+        let root = temp_storage_root("write-refreshes-backup");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("messages.json");
+        let backup = root.join("collections").join("messages.json.bak");
+
+        storage
+            .replace_all("messages", vec![json!({ "id": "old-message" })])
+            .unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "new-message" })])
+            .unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<Value>(&fs::read_to_string(&backup).unwrap()).unwrap(),
+            json!([{ "id": "old-message" }])
+        );
+
+        fs::write(&collection, b"\0\0\0").unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "safe-message" })])
+            .unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<Value>(&fs::read_to_string(&backup).unwrap()).unwrap(),
+            json!([{ "id": "old-message" }])
+        );
+        assert_eq!(
+            serde_json::from_str::<Value>(&fs::read_to_string(&collection).unwrap()).unwrap(),
+            json!([{ "id": "safe-message" }])
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn repeated_writes_refresh_existing_backup() {
+        let root = temp_storage_root("repeated-write-refreshes-backup");
+        let storage = FileStorage::new(&root).unwrap();
+        let backup = root.join("collections").join("messages.json.bak");
+
+        storage
+            .replace_all("messages", vec![json!({ "id": "first" })])
+            .unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "second" })])
+            .unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "third" })])
+            .unwrap();
+
+        assert_eq!(
+            serde_json::from_str::<Value>(&fs::read_to_string(&backup).unwrap()).unwrap(),
+            json!([{ "id": "second" }])
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
