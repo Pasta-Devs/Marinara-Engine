@@ -60,6 +60,35 @@ fn generic_marinara_import_directs_profile_exports_to_profile_import() {
 }
 
 #[test]
+fn parented_record_import_rolls_back_created_records_on_failure() {
+    let state = test_state("parented-rollback");
+    let owner_id = "preset-rollback";
+    let error = import_parented_records(
+        &state,
+        vec![
+            json!({ "id": "old-root", "name": "Root", "presetId": "old-preset" }),
+            json!("not an object"),
+        ],
+        "prompt-groups",
+        "presetId",
+        owner_id,
+        "parentGroupId",
+        "prompt group",
+    )
+    .expect_err("invalid imported record should fail the batch");
+
+    assert_eq!(error.code, "invalid_input");
+    let remaining = state
+        .storage
+        .list("prompt-groups")
+        .expect("prompt groups should be readable")
+        .into_iter()
+        .filter(|group| group.get("presetId").and_then(Value::as_str) == Some(owner_id))
+        .collect::<Vec<_>>();
+    assert!(remaining.is_empty());
+}
+
+#[test]
 fn marinara_lorebook_import_remaps_nested_folders_and_entry_folders() {
     let state = test_state("lorebook-folders");
     let imported = import_marinara_envelope(
@@ -149,7 +178,8 @@ fn marinara_preset_import_remaps_nested_groups_and_section_groups() {
                 ],
                 "sections": [
                     { "id": "old-section", "name": "Section", "content": "hello", "groupId": "old-child", "presetId": "old-preset" },
-                    { "id": "old-orphan", "name": "Orphan Section", "content": "hello", "groupId": "missing-group", "presetId": "old-preset" }
+                    { "id": "old-orphan", "name": "Orphan Section", "content": "hello", "groupId": "missing-group", "presetId": "old-preset" },
+                    { "id": "old-malformed", "name": "Malformed Section", "content": "hello", "groupId": { "bad": true }, "presetId": "old-preset" }
                 ]
             }
         }),
@@ -193,9 +223,10 @@ fn marinara_preset_import_remaps_nested_groups_and_section_groups() {
         .into_iter()
         .filter(|section| section.get("presetId").and_then(Value::as_str) == Some(preset_id))
         .collect::<Vec<_>>();
-    assert_eq!(sections.len(), 2);
+    assert_eq!(sections.len(), 3);
     let section = record_with_field(&sections, "name", "Section");
     let orphan = record_with_field(&sections, "name", "Orphan Section");
+    let malformed = record_with_field(&sections, "name", "Malformed Section");
     assert_eq!(
         section.get("presetId").and_then(Value::as_str),
         Some(preset_id)
@@ -209,4 +240,5 @@ fn marinara_preset_import_remaps_nested_groups_and_section_groups() {
         Some("old-child")
     );
     assert_eq!(orphan.get("groupId"), Some(&Value::Null));
+    assert_eq!(malformed.get("groupId"), Some(&Value::Null));
 }

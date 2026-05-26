@@ -188,46 +188,77 @@ fn import_parented_records(
     parent_field: &str,
     label: &str,
 ) -> AppResult<HashMap<String, String>> {
-    let mut id_map = HashMap::new();
-    let mut pending_parents = Vec::new();
-    for item in items {
-        let old_id = item
-            .get("id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let old_parent_id = item
-            .get(parent_field)
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let mut record = ensure_object(item)?;
-        record.remove("id");
-        record.remove(owner_field);
-        record.insert(owner_field.to_string(), Value::String(owner_id.to_string()));
-        if old_parent_id.is_some() {
-            record.insert(parent_field.to_string(), Value::Null);
+    let mut created_ids = Vec::new();
+    let result = (|| -> AppResult<HashMap<String, String>> {
+        let mut id_map = HashMap::new();
+        let mut pending_parents = Vec::new();
+        for item in items {
+            let old_id = item
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let old_parent_id = item
+                .get(parent_field)
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let mut record = ensure_object(item)?;
+            record.remove("id");
+            record.remove(owner_field);
+            record.insert(owner_field.to_string(), Value::String(owner_id.to_string()));
+            if old_parent_id.is_some() {
+                record.insert(parent_field.to_string(), Value::Null);
+            }
+            let created = state.storage.create(collection, Value::Object(record))?;
+            let new_id = created_record_id(&created, label)?;
+            created_ids.push(new_id.clone());
+            if let Some(old_id) = old_id {
+                id_map.insert(old_id, new_id.clone());
+            }
+            if let Some(old_parent_id) = old_parent_id {
+                pending_parents.push((new_id, old_parent_id));
+            }
         }
-        let created = state.storage.create(collection, Value::Object(record))?;
-        let new_id = created_record_id(&created, label)?;
-        if let Some(old_id) = old_id {
-            id_map.insert(old_id, new_id.clone());
+        for (record_id, old_parent_id) in pending_parents {
+            if let Some(new_parent_id) = id_map.get(&old_parent_id) {
+                let mut patch = Map::new();
+                patch.insert(
+                    parent_field.to_string(),
+                    Value::String(new_parent_id.clone()),
+                );
+                state
+                    .storage
+                    .patch(collection, &record_id, Value::Object(patch))?;
+            }
         }
-        if let Some(old_parent_id) = old_parent_id {
-            pending_parents.push((new_id, old_parent_id));
+        Ok(id_map)
+    })();
+
+    result.map_err(|error| rollback_created_records(state, collection, &created_ids, error))
+}
+
+fn rollback_created_records(
+    state: &AppState,
+    collection: &str,
+    record_ids: &[String],
+    error: AppError,
+) -> AppError {
+    let mut rollback_errors = Vec::new();
+    for record_id in record_ids.iter().rev() {
+        if let Err(rollback_error) = state.storage.delete(collection, record_id) {
+            rollback_errors.push(format!("{record_id}: {rollback_error}"));
         }
     }
-    for (record_id, old_parent_id) in pending_parents {
-        if let Some(new_parent_id) = id_map.get(&old_parent_id) {
-            let mut patch = Map::new();
-            patch.insert(
-                parent_field.to_string(),
-                Value::String(new_parent_id.clone()),
-            );
-            state
-                .storage
-                .patch(collection, &record_id, Value::Object(patch))?;
-        }
+    if rollback_errors.is_empty() {
+        error
+    } else {
+        AppError::new(
+            "storage_rollback_failed",
+            format!(
+                "{error}; additionally failed to roll back imported {collection} records: {}",
+                rollback_errors.join("; ")
+            ),
+        )
     }
-    Ok(id_map)
 }
 
 fn extension_from_filename(filename: &str) -> Option<&'static str> {
@@ -578,14 +609,14 @@ fn import_marinara_preset(
         section_record.remove("id");
         section_record.remove("presetId");
         section_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
-        if let Some(old_group_id) = section_record.get("groupId").and_then(Value::as_str) {
-            section_record.insert(
-                "groupId".to_string(),
-                group_id_map
-                    .get(old_group_id)
-                    .map(|id| Value::String(id.clone()))
-                    .unwrap_or(Value::Null),
-            );
+        if section_record.contains_key("groupId") {
+            let group_id = section_record
+                .get("groupId")
+                .and_then(Value::as_str)
+                .and_then(|old_group_id| group_id_map.get(old_group_id))
+                .map(|id| Value::String(id.clone()))
+                .unwrap_or(Value::Null);
+            section_record.insert("groupId".to_string(), group_id);
         }
         state
             .storage
