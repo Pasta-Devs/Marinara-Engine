@@ -318,6 +318,7 @@ export function ExpandedContentModal({
           </h3>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleClose}
               className="rounded-lg p-1.5 hover:bg-[var(--accent)]"
             >
@@ -351,12 +352,14 @@ export function ExpandedContentModal({
           {magicRewriteMode ? (
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handleMagicRewriteBack}
                 className="rounded-xl border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent)] active:scale-[0.98]"
               >
                 Back
               </button>
               <button
+                type="button"
                 onClick={handleMagicRewriteApply}
                 disabled={!magicRewriteResult}
                 className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
@@ -367,6 +370,7 @@ export function ExpandedContentModal({
           ) : (
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setMagicRewriteMode(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-200 hover:bg-violet-500/20"
                 title="Open Magic Rewrite"
@@ -375,6 +379,7 @@ export function ExpandedContentModal({
                 Rewrite
               </button>
               <button
+                type="button"
                 onClick={handleClose}
                 className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98]"
               >

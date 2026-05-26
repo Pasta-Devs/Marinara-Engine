@@ -94,6 +94,7 @@ export function MagicRewritePanel({
           {error && <p className="mb-3 text-xs text-red-300">{error}</p>}
           <div className="mt-auto">
             <button
+              type="button"
               onClick={generate}
               disabled={loading}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/40 bg-violet-500/10 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/20 disabled:cursor-wait disabled:opacity-60"

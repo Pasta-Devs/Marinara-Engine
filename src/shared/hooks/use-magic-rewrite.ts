@@ -57,18 +57,18 @@ function buildRewriteMessages(value: string, instructionValue: string) {
 
 async function resolveDefaultConnectionId() {
   const connections = await storageApi.list<ConnectionRecord>("connections");
+  const textConnections = connections.filter(
+    (connection) => connection.provider !== "image_generation",
+  );
   const selected =
-    connections.find(
+    textConnections.find(
       (connection) =>
         boolish(connection.isDefault) || boolish(connection.default),
-    ) ?? connections[0];
+    ) ?? textConnections[0];
   const connectionId =
     typeof selected?.id === "string" ? selected.id.trim() : "";
 
-  if (!connectionId) throw new Error("No default agent connection configured");
-  if (selected?.provider === "image_generation") {
-    throw new Error("Default connection is an image generation provider");
-  }
+  if (!connectionId) throw new Error("No text connection configured");
 
   return connectionId;
 }
@@ -90,6 +90,7 @@ export function useMagicRewrite(value: string) {
   async function generate() {
     setLoading(true);
     setError("");
+    setResult("");
     try {
       const connectionId = await resolveDefaultConnectionId();
       const text = await llmApi.complete({
