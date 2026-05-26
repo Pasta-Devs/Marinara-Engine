@@ -177,7 +177,8 @@ pub(crate) fn normalize_typed_json_fields(collection: &str, object: &mut Map<Str
         }
         "game-state-snapshots" => {
             normalize_json_array_fields(object, &["presentCharacters", "recentEvents"])?;
-            normalize_nullable_json_object_fields(object, &["playerStats", "personaStats", "metadata"])?;
+            normalize_nullable_json_object_fields(object, &["playerStats", "metadata"])?;
+            normalize_nullable_json_array_fields(object, &["personaStats"])?;
         }
         "game-checkpoints" => {
             normalize_nullable_json_object_fields(object, &["snapshot", "gameState", "metadata"])?;
@@ -220,6 +221,23 @@ fn normalize_json_array_fields(object: &mut Map<String, Value>, fields: &[&str])
     Ok(())
 }
 
+fn normalize_nullable_json_array_fields(
+    object: &mut Map<String, Value>,
+    fields: &[&str],
+) -> AppResult<()> {
+    for field in fields {
+        let Some(value) = object.get(*field) else {
+            continue;
+        };
+        if value.is_null() {
+            continue;
+        }
+        let normalized = normalize_json_field(value, Value::is_array, "array or null", field)?;
+        object.insert((*field).to_string(), normalized);
+    }
+    Ok(())
+}
+
 fn normalize_json_object_fields(object: &mut Map<String, Value>, fields: &[&str]) -> AppResult<()> {
     for field in fields {
         let Some(value) = object.get(*field) else { continue };
@@ -254,7 +272,7 @@ fn normalize_json_field(
         if raw.trim().is_empty() {
             return Ok(match expected {
                 "array" => json!([]),
-                "object or null" => Value::Null,
+                "array or null" | "object or null" => Value::Null,
                 _ => json!({}),
             });
         }
@@ -473,6 +491,51 @@ mod tests {
                 .expect_err("invalid character data should fail");
             assert_eq!(error.code, "invalid_input");
         }
+    }
+
+    #[test]
+    fn game_state_snapshot_normalizes_persona_stats_as_nullable_array() {
+        let mut row = json!({
+            "presentCharacters": "[{\"name\":\"Mari\"}]",
+            "recentEvents": "[\"arrived\"]",
+            "playerStats": "{\"status\":\"ready\"}",
+            "personaStats": "[{\"name\":\"Energy\",\"value\":5,\"max\":10}]",
+            "metadata": "{\"source\":\"qa\"}"
+        });
+        let object = row.as_object_mut().expect("row should be an object");
+
+        normalize_typed_json_fields("game-state-snapshots", object)
+            .expect("snapshot row should normalize");
+
+        assert!(object["presentCharacters"].is_array());
+        assert!(object["recentEvents"].is_array());
+        assert!(object["playerStats"].is_object());
+        assert!(object["personaStats"].is_array());
+        assert!(object["metadata"].is_object());
+
+        let mut null_row = json!({ "personaStats": null });
+        let null_object = null_row.as_object_mut().expect("row should be an object");
+        normalize_typed_json_fields("game-state-snapshots", null_object)
+            .expect("null personaStats should normalize");
+        assert!(null_object["personaStats"].is_null());
+
+        let mut empty_row = json!({ "personaStats": "  " });
+        let empty_object = empty_row.as_object_mut().expect("row should be an object");
+        normalize_typed_json_fields("game-state-snapshots", empty_object)
+            .expect("empty personaStats should normalize");
+        assert!(empty_object["personaStats"].is_null());
+    }
+
+    #[test]
+    fn game_state_snapshot_rejects_malformed_persona_stats_string() {
+        let mut row = json!({ "personaStats": "{\"not\":\"an array\"}" });
+        let object = row.as_object_mut().expect("row should be an object");
+
+        let error = normalize_typed_json_fields("game-state-snapshots", object)
+            .expect_err("object-shaped personaStats should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "personaStats must be a JSON array or null");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use marinara_assets::AssetService;
 use marinara_core::{AppError, AppResult};
 use marinara_storage::FileStorage;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -196,6 +196,9 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
                     }
                 }
             } else {
+                if collection == "game-state-snapshots" {
+                    repair_snapshot_persona_stats_for_startup(object);
+                }
                 normalize_typed_json_fields(collection, object)?;
             }
         }
@@ -206,4 +209,126 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
         storage.replace_all(collection, normalized_rows)?;
     }
     Ok(())
+}
+
+fn repair_snapshot_persona_stats_for_startup(object: &mut Map<String, Value>) {
+    let Some(value) = object.get("personaStats") else {
+        return;
+    };
+    if value.is_null() || value.is_array() {
+        return;
+    }
+
+    let (next, repaired_invalid) = match value.as_str() {
+        Some(raw) if raw.trim().is_empty() => (Value::Null, false),
+        Some(raw) => match serde_json::from_str::<Value>(raw) {
+            Ok(parsed) if parsed.is_array() => (parsed, false),
+            Ok(parsed) if parsed.is_null() => (Value::Null, false),
+            Ok(_) | Err(_) => (Value::Null, true),
+        },
+        None => (Value::Null, true),
+    };
+
+    if repaired_invalid {
+        let row_id = object
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("<unknown>");
+        log::trace!(
+            "repairing game-state-snapshots row id={row_id} personaStats to null because it is not a JSON array or null"
+        );
+    }
+
+    object.insert("personaStats".to_string(), next);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn temp_root(test_name: &str) -> TempRoot {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after epoch")
+            .as_nanos();
+        TempRoot(std::env::temp_dir().join(format!("marinara-state-{test_name}-{suffix}")))
+    }
+
+    #[test]
+    fn app_state_startup_accepts_snapshot_persona_stats_arrays() {
+        let root = temp_root("snapshot-persona-stats");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "game-state-snapshots",
+                json!({
+                    "kind": "tracker",
+                    "chatId": "chat-1",
+                    "messageId": "message-1",
+                    "presentCharacters": [],
+                    "recentEvents": [],
+                    "playerStats": null,
+                    "personaStats": [{ "name": "Energy", "value": 5, "max": 10 }],
+                    "metadata": null
+                }),
+            )
+            .expect("snapshot should be inserted");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let rows = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should list");
+
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0]["personaStats"].is_array());
+    }
+
+    #[test]
+    fn app_state_startup_repairs_malformed_snapshot_persona_stats_to_null() {
+        let root = temp_root("snapshot-persona-stats-repair");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        for (id, persona_stats) in [
+            ("bad-string", json!("{\"not\":\"an array\"}")),
+            ("bad-object", json!({ "not": "an array" })),
+        ] {
+            storage
+                .create(
+                    "game-state-snapshots",
+                    json!({
+                        "id": id,
+                        "kind": "tracker",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "presentCharacters": [],
+                        "recentEvents": [],
+                        "playerStats": null,
+                        "personaStats": persona_stats,
+                        "metadata": null
+                    }),
+                )
+                .expect("snapshot should be inserted");
+        }
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let rows = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should list");
+
+        assert_eq!(rows.len(), 2);
+        for row in rows {
+            assert!(row["personaStats"].is_null());
+        }
+    }
 }
