@@ -1,6 +1,7 @@
 import type { AgentContext, AgentResult } from "../../contracts/types/agent";
 import type { LorebookEntry } from "../../contracts/types/lorebook";
 import type { BaseLLMProvider } from "../../generation-core/llm/base-provider.js";
+import { createAgentRuntimeDebug } from "../debug.js";
 import { executeAgent, type AgentExecConfig } from "../executor/agent-executor.js";
 import { stripAvatarPathsReplacer } from "../strip-avatar-paths.js";
 import {
@@ -261,17 +262,7 @@ export async function executeKnowledgeRouter(
   options: KnowledgeRouterCandidateOptions = {},
 ): Promise<AgentResult> {
   const startTime = Date.now();
-  const logger = {
-    debug: (...args: unknown[]) => {
-      if (baseContext.debugMode === true) console.debug(...args);
-    },
-    warn: (...args: unknown[]) => {
-      if (baseContext.debugMode === true) console.warn(...args);
-    },
-    error: (...args: unknown[]) => {
-      if (baseContext.debugMode === true) console.error(...args);
-    },
-  };
+  const logger = createAgentRuntimeDebug(baseContext);
 
   // Empty input → no work, no LLM call.
   if (entries.length === 0) {
@@ -304,6 +295,12 @@ export async function executeKnowledgeRouter(
       candidates.length,
       routerEntries.length,
     );
+    logger.emit({
+      level: "warn",
+      phase: config.phase,
+      message: "knowledge-router-truncated",
+      args: [candidates.length, routerEntries.length],
+    });
   }
 
   const catalog = buildCatalog(candidates);
@@ -324,6 +321,12 @@ export async function executeKnowledgeRouter(
     // can serialize a stack-aware payload via its err-first signature.
     const err = new Error(result.error ?? "unknown error");
     logger.error(err, "[knowledge-router] agent execution failed");
+    logger.emit({
+      level: "error",
+      phase: config.phase,
+      message: "knowledge-router-error",
+      args: [result.error ?? "unknown error"],
+    });
     return result;
   }
 
@@ -345,6 +348,12 @@ export async function executeKnowledgeRouter(
 
   if (selectedEntries.length === 0) {
     logger.debug("[knowledge-router] no entries selected from %d candidates", candidates.length);
+    logger.emit({
+      level: "debug",
+      phase: config.phase,
+      message: "knowledge-router-empty",
+      args: [candidates.length],
+    });
     return {
       ...result,
       type: "context_injection",
@@ -362,6 +371,12 @@ export async function executeKnowledgeRouter(
     dedupedIds.length,
     dedupedIds.length - selectedEntries.length,
   );
+  logger.emit({
+    level: "debug",
+    phase: config.phase,
+    message: "knowledge-router-selected",
+    args: [selectedEntries.length, candidates.length, selectedIds.length, dedupedIds.length],
+  });
 
   return {
     ...result,

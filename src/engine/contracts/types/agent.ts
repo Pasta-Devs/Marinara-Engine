@@ -161,7 +161,7 @@ export interface AgentContext {
   } | null;
   /** The agent's own persistent memory (key-value) */
   memory: Record<string, unknown>;
-  /** Optional sink for structured runtime debug entries. */
+  /** Optional sink for structured runtime debug entries when debugMode is enabled. */
   debugSink?: (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) => void;
   /** Lorebook entries activated for this generation (read context) */
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }> | null;
@@ -175,7 +175,7 @@ export interface AgentContext {
   parallelResults?: AgentResult[];
   /** Whether internal agent LLM calls should use transport streaming. */
   streaming?: boolean;
-  /** Whether agent runtime logging should emit to the console. */
+  /** Whether agent runtime diagnostics should emit to the debug sink and console. */
   debugMode?: boolean;
   /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

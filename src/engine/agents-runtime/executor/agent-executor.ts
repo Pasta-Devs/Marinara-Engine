@@ -7,18 +7,11 @@ import type {
   LLMToolCall,
   LLMToolDefinition,
 } from "../../generation-core/llm/base-provider.js";
-import type { AgentResult, AgentContext, AgentResultType, AgentDebugEntry } from "../../contracts/types/agent";
+import type { AgentResult, AgentContext, AgentResultType } from "../../contracts/types/agent";
 import { getDefaultAgentPrompt } from "../../contracts/constants/agent-prompts";
 import { DEFAULT_AGENT_CONTEXT_SIZE, DEFAULT_AGENT_MAX_TOKENS, MAX_AGENT_MAX_TOKENS, MIN_AGENT_MAX_TOKENS } from "../../contracts/types/agent";
+import { createAgentRuntimeDebug, type AgentRuntimeDebugEntry } from "../debug.js";
 import { stripAvatarPathsReplacer } from "../strip-avatar-paths";
-
-type Logger = {
-  debug: (...args: unknown[]) => void;
-  info: (...args: unknown[]) => void;
-  warn: (...args: unknown[]) => void;
-  error: (...args: unknown[]) => void;
-  isLevelEnabled: (level: string) => boolean;
-};
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -55,34 +48,6 @@ export function normalizeAgentContextSize(value: unknown, fallback = DEFAULT_AGE
     typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : fallback;
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
   return Math.max(1, Math.min(MAX_AGENT_CONTEXT_MESSAGES, Math.trunc(parsed)));
-}
-
-function createLogger(enabled: boolean): Logger {
-  const log = (level: "debug" | "info" | "warn" | "error", args: unknown[]) => {
-    if (!enabled) return;
-    const target =
-      typeof console !== "undefined" && typeof console[level] === "function"
-        ? console[level]
-        : typeof console !== "undefined" && typeof console.log === "function"
-          ? console.log
-          : undefined;
-    target?.(...args);
-  };
-
-  return {
-    debug: (...args: unknown[]) => log("debug", args),
-    info: (...args: unknown[]) => log("info", args),
-    warn: (...args: unknown[]) => log("warn", args),
-    error: (...args: unknown[]) => log("error", args),
-    isLevelEnabled: () => enabled,
-  };
-}
-
-function emitDebug(context: AgentContext, entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) {
-  context.debugSink?.({
-    ...entry,
-    timestamp: entry.timestamp ?? Date.now(),
-  });
 }
 
 function redactSensitiveValue(value: unknown): unknown {
@@ -147,8 +112,8 @@ export async function executeAgent(
   toolContext?: AgentToolContext,
 ): Promise<AgentResult> {
   const startTime = Date.now();
-  const logger = createLogger(context.debugMode === true);
-  const emit = (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) => emitDebug(context, entry);
+  const logger = createAgentRuntimeDebug(context);
+  const emit = (entry: AgentRuntimeDebugEntry) => logger.emit(entry);
 
   try {
     const template = config.promptTemplate || getDefaultAgentPrompt(config.type);
@@ -273,9 +238,9 @@ async function executeAgentWithTools(
   const MAX_TOOL_ROUNDS = 5;
   const loopMessages = [...initialMessages];
   let totalTokens = 0;
-  const logger = createLogger(context.debugMode === true);
+  const logger = createAgentRuntimeDebug(context);
   const debugAgentsEnabled = logger.isLevelEnabled("debug");
-  const emit = (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) => emitDebug(context, entry);
+  const emit = (entry: AgentRuntimeDebugEntry) => logger.emit(entry);
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const result = await provider.chatComplete(loopMessages, {
@@ -392,8 +357,8 @@ export async function executeAgentBatch(
   model: string,
 ): Promise<AgentResult[]> {
   if (configs.length === 0) return [];
-  const logger = createLogger(context.debugMode === true);
-  const emit = (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) => emitDebug(context, entry);
+  const logger = createAgentRuntimeDebug(context);
+  const emit = (entry: AgentRuntimeDebugEntry) => logger.emit(entry);
   const isolatedConfigs = configs.filter(shouldRunAgentIndividually);
   if (isolatedConfigs.length === configs.length) {
     logger.info(

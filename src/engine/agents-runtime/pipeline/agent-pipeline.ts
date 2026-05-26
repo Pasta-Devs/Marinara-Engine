@@ -1,5 +1,6 @@
-import type { AgentContext, AgentDebugEntry, AgentResult } from "../../contracts/types/agent";
+import type { AgentContext, AgentResult } from "../../contracts/types/agent";
 import type { BaseLLMProvider } from "../../generation-core/llm/base-provider.js";
+import { createAgentRuntimeDebug } from "../debug.js";
 import {
   executeAgent,
   executeAgentBatch,
@@ -7,27 +8,6 @@ import {
   type AgentExecConfig,
   type AgentToolContext,
 } from "../executor/agent-executor.js";
-
-function createLogger(enabled: boolean) {
-  return {
-    debug: (...args: unknown[]) => {
-      if (enabled) console.debug(...args);
-    },
-    warn: (...args: unknown[]) => {
-      if (enabled) console.warn(...args);
-    },
-    error: (...args: unknown[]) => {
-      if (enabled) console.error(...args);
-    },
-  };
-}
-
-function emitDebug(context: AgentContext, entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) {
-  context.debugSink?.({
-    ...entry,
-    timestamp: entry.timestamp ?? Date.now(),
-  });
-}
 
 /** A fully resolved agent ready for execution. */
 export interface ResolvedAgent extends AgentExecConfig {
@@ -159,8 +139,8 @@ async function executeGroup(
   context: AgentContext,
   onResult?: AgentResultCallback,
 ): Promise<AgentResult[]> {
-  const logger = createLogger(context.debugMode === true);
-  emitDebug(context, {
+  const logger = createAgentRuntimeDebug(context);
+  logger.emit({
     level: "debug",
     phase: group.agents[0]?.phase ?? "unknown",
     message: "group-start",
@@ -230,9 +210,9 @@ async function executePhase(
   const phaseAgents = agents.filter((a) => a.phase === phase);
   if (phaseAgents.length === 0) return [];
 
-  const logger = createLogger(context.debugMode === true);
+  const logger = createAgentRuntimeDebug(context);
   const groups = groupByProviderModel(phaseAgents).flatMap(splitGroupForParallelJobs);
-  emitDebug(context, {
+  logger.emit({
     level: "debug",
     phase,
     message: "phase-groups",
@@ -273,7 +253,7 @@ async function executePhase(
           String(entry.reason),
         );
       }
-      emitDebug(context, {
+      logger.emit({
         level: "error",
         phase,
         message: "group-error",
