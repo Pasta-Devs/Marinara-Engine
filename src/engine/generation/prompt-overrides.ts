@@ -3,6 +3,8 @@ import { boolish, readString, type JsonRecord } from "./runtime-records";
 
 export const PROMPT_OVERRIDE_COLLECTION = "prompt-overrides";
 
+const VARIABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const TEMPLATE_PLACEHOLDER_PATTERN = /\$\{([^}]*)\}/g;
 const VARIABLE_PATTERN = /\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 
 export type PromptOverrideVariable = {
@@ -116,11 +118,12 @@ export function validatePromptOverrideTemplate(
   const seen = new Set<string>();
   const unknownVariables: string[] = [];
 
-  for (const match of template.matchAll(VARIABLE_PATTERN)) {
-    const name = match[1];
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    if (!allowed.has(name)) unknownVariables.push(name);
+  for (const match of template.matchAll(TEMPLATE_PLACEHOLDER_PATTERN)) {
+    const name = match[1] ?? "";
+    const reportedName = name || "<empty>";
+    if (seen.has(reportedName)) continue;
+    seen.add(reportedName);
+    if (!VARIABLE_NAME_PATTERN.test(name) || !allowed.has(name)) unknownVariables.push(reportedName);
   }
 
   return { valid: unknownVariables.length === 0, unknownVariables };

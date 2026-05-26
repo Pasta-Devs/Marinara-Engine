@@ -67,6 +67,23 @@ describe("conversation selfie prompt overrides", () => {
     }
   });
 
+  it("falls back to the global override when the chat-scoped template has malformed placeholders", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const systemPrompt = await resolveConversationSelfieSystemPrompt({
+        storage: storageWithOverride("GLOBAL ${charName}: ${appearance}"),
+        chatPromptTemplate: "BAD CHAT OVERRIDE ${missing-name} ${charName}",
+        appearance: "short blue hair",
+        charName: "Lyra",
+      });
+
+      expect(systemPrompt).toBe("GLOBAL Lyra: short blue hair");
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("unknown variables: missing-name"));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("falls back to the registered default when the global override is disabled", async () => {
     const systemPrompt = await resolveConversationSelfieSystemPrompt({
       storage: storageWithOverride("GLOBAL ${charName}", false),
@@ -142,6 +159,13 @@ describe("conversation selfie prompt overrides", () => {
     expect(validatePromptOverrideTemplate("Hello ${charName} ${missing}", ["charName"])).toEqual({
       valid: false,
       unknownVariables: ["missing"],
+    });
+  });
+
+  it("reports malformed placeholder-like tokens outside the template schema", () => {
+    expect(validatePromptOverrideTemplate("Hello ${char-name} ${ charName } ${}", ["charName"])).toEqual({
+      valid: false,
+      unknownVariables: ["char-name", " charName ", "<empty>"],
     });
   });
 
