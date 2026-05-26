@@ -14,7 +14,7 @@ fn temp_path(label: &str) -> PathBuf {
     ))
 }
 
-fn corrupt_collection(state: &AppState, collection: &str) {
+fn block_collection_writes(state: &AppState, collection: &str) {
     let collection_path = state
         .storage
         .root()
@@ -23,7 +23,7 @@ fn corrupt_collection(state: &AppState, collection: &str) {
     if let Some(parent) = collection_path.parent() {
         fs::create_dir_all(parent).expect("collection parent should be created");
     }
-    fs::write(collection_path, b"{not-json").expect("collection should be corruptible");
+    fs::create_dir(collection_path).expect("collection path should block file writes");
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn create_lorebook_rolls_back_parent_when_entry_write_fails() {
     let app_root = temp_path("lorebook-rollback");
     let state =
         AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
-    corrupt_collection(&state, "lorebook-entries");
+    block_collection_writes(&state, "lorebook-entries");
 
     let error = create_lorebook_from_payload(
         &state,
@@ -44,7 +44,7 @@ fn create_lorebook_rolls_back_parent_when_entry_write_fails() {
     )
     .expect_err("entry storage failure should reject lorebook import");
 
-    assert_eq!(error.code, "json_error");
+    assert_eq!(error.code, "io_error");
     assert!(
         state.storage.list("lorebooks").unwrap().is_empty(),
         "failed lorebook import must remove the created parent row"
@@ -58,7 +58,7 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
     let app_root = temp_path("character-rollback");
     let state =
         AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
-    corrupt_collection(&state, "lorebook-entries");
+    block_collection_writes(&state, "lorebook-entries");
 
     let avatar = general_purpose::STANDARD.encode(b"avatar-bytes");
     let error = import_st_character(
@@ -78,7 +78,7 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
     )
     .expect_err("embedded lorebook storage failure should reject character import");
 
-    assert_eq!(error.code, "json_error");
+    assert_eq!(error.code, "io_error");
     assert!(
         state.storage.list("characters").unwrap().is_empty(),
         "failed embedded-lorebook import must remove the created character"
