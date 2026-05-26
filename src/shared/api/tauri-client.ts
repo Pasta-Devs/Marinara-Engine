@@ -15,9 +15,24 @@ function normalize(error: unknown): ApiError {
   return new ApiError(String(error ?? "Tauri command failed"), 500, error);
 }
 
+function hasEmbeddedTauriIpc(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+  );
+}
+
 export async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  if (remoteRuntimeTarget() && isRemoteCommand(command)) {
+  const runtimeTarget = remoteRuntimeTarget();
+  const remoteCommand = isRemoteCommand(command);
+  if (runtimeTarget && remoteCommand) {
     return invokeRemote<T>(command, args);
+  }
+  if (!hasEmbeddedTauriIpc()) {
+    throw new ApiError(
+      remoteCommand ? "Remote Runtime URL is not configured" : "This action requires the Tauri app shell",
+      400,
+    );
   }
   try {
     return await invoke<T>(command, args);
