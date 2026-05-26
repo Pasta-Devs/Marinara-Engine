@@ -7,14 +7,11 @@
 // add richer context controls once the basic workflow
 // has landed.
 // ──────────────────────────────────────────────
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { HelpTooltip } from "./HelpTooltip";
-import { api } from "../../lib/api-client";
+import { useMagicRewrite } from "../../hooks/use-magic-rewrite";
 
-const PROMPT_KEY = "magic-rewrite-prompt";
-
-type RewriteResponse = { text: string };
 type DiffPart = { text: string; changed: boolean };
 type DiffResult =
   | { skipped: true; before: string; after: string }
@@ -63,17 +60,7 @@ export function MagicRewritePanel({
   value: string;
   onResultChange: (value: string) => void;
 }) {
-  const [instruction, setInstruction] = useState(() => {
-    try { return window.localStorage.getItem(PROMPT_KEY) ?? ""; } catch { return ""; }
-  });
-  const [result, setResult] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => { try { window.localStorage.setItem(PROMPT_KEY, instruction); } catch { /* noop */ } }, 300);
-    return () => window.clearTimeout(timer);
-  }, [instruction]);
+  const { instruction, setInstruction, result, loading, error, generate } = useMagicRewrite(value);
 
   const diff = useMemo(() => (result ? diffWords(value, result) : null), [value, result]);
 
@@ -81,27 +68,13 @@ export function MagicRewritePanel({
     onResultChange(result);
   }, [onResultChange, result]);
 
-  async function generate() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await api.post<RewriteResponse>("/magic-rewrite/generate", {
-        text: value,
-        instruction,
-      });
-      setResult(response.text ?? "");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Magic Rewrite failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(12rem,1fr)]">
         <div className="flex min-w-0 flex-col">
-          <div className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Rewrite instructions{" "}<HelpTooltip text="Uses your default agent connection." /></div>
+          <div className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            Rewrite instructions <HelpTooltip text="Uses your default agent connection." />
+          </div>
           <textarea
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}
@@ -127,18 +100,30 @@ export function MagicRewritePanel({
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         <div className="min-h-0 overflow-auto rounded-xl bg-[var(--secondary)] p-3 text-sm ring-1 ring-[var(--border)]">
-          <div className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Before</div>
+          <div className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            Before
+          </div>
           <div className="whitespace-pre-wrap break-words font-sans">
             {diff && !diff.skipped && Array.isArray(diff.before)
-              ? diff.before.map((part, index) => <span key={index} className={part.changed ? "bg-red-500/20 text-red-200 line-through" : undefined}>{part.text}</span>)
+              ? diff.before.map((part, index) => (
+                  <span key={index} className={part.changed ? "bg-red-500/20 text-red-200 line-through" : undefined}>
+                    {part.text}
+                  </span>
+                ))
               : value}
           </div>
         </div>
         <div className="min-h-0 overflow-auto rounded-xl bg-[var(--secondary)] p-3 text-sm ring-1 ring-[var(--border)]">
-          <div className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">After</div>
+          <div className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            After
+          </div>
           <div className="whitespace-pre-wrap break-words font-sans">
             {diff && !diff.skipped && Array.isArray(diff.after)
-              ? diff.after.map((part, index) => <span key={index} className={part.changed ? "bg-emerald-500/20 text-emerald-200" : undefined}>{part.text}</span>)
+              ? diff.after.map((part, index) => (
+                  <span key={index} className={part.changed ? "bg-emerald-500/20 text-emerald-200" : undefined}>
+                    {part.text}
+                  </span>
+                ))
               : result || "Generated rewrite will appear here."}
           </div>
         </div>
