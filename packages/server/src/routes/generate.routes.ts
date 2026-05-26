@@ -216,6 +216,7 @@ import {
   normalizeSecretPlotSceneDirections,
   normalizeStringArray,
 } from "./generate/agent-normalizers.js";
+import { persistSecretPlotMemory } from "./generate/secret-plot-memory.js";
 import {
   buildGenerationPromptPresetCandidates,
   type PromptPresetCandidateSource,
@@ -4030,11 +4031,21 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          const runtimePhase = cfg.type === "secret-plot-driver" ? "pre_generation" : (cfg.phase as string);
+          if (cfg.type === "secret-plot-driver" && cfg.phase !== runtimePhase) {
+            logger.warn(
+              "[secret-plot-driver] Stored phase %s is stale for chat %s; running as %s",
+              cfg.phase,
+              input.chatId,
+              runtimePhase,
+            );
+          }
+
           resolvedAgents.push({
             id: cfg.id,
             type: cfg.type,
             name: cfg.name,
-            phase: cfg.phase as string,
+            phase: runtimePhase,
             promptTemplate: cfg.promptTemplate as string,
             connectionId: effectiveConnectionId,
             settings,
@@ -5855,8 +5866,25 @@ export async function generateRoutes(app: FastifyInstance) {
         // navigated away), a write error must NOT crash the agent pipeline —
         // otherwise Promise.allSettled in executePhase silently drops the
         // entire group's results, causing agents to appear as "not triggered".
+        const secretPlotMemoryWrites: Promise<void>[] = [];
         const sendAgentEvent = (result: AgentResult) => {
           if (shouldDeferSpotifyAgentEvent(result)) return;
+          if (result.success && result.type === "secret_plot" && result.data && typeof result.data === "object") {
+            const agentConfigId =
+              resolvedAgents.find((agent) => agent.type === "secret-plot-driver")?.id ?? result.agentId ?? null;
+            secretPlotMemoryWrites.push(
+              persistSecretPlotMemory({
+                agentsStore,
+                agentConfigId,
+                chatId: input.chatId,
+                plotData: result.data as Record<string, unknown>,
+                clearMissingSceneDirections: true,
+                source: "generation",
+              }).catch((err) => {
+                logger.error(err, "[secret-plot-driver] Failed to persist state from generation");
+              }),
+            );
+          }
           trySendSseEvent(reply, {
             type: "agent_result",
             data: {
@@ -6087,6 +6115,14 @@ export async function generateRoutes(app: FastifyInstance) {
             logger.debug("[spotify] Omitted unavailable Spotify tools from main generation");
           }
         }
+        const agentMemoryToolNames = new Set([
+          "save_agent_memory",
+          "search_agent_memory",
+          "list_agent_memory",
+          "delete_agent_memory",
+        ]);
+        const mainGenerationToolDefs = toolDefs?.filter((td) => !agentMemoryToolNames.has(td.function.name));
+        const mainResolvedToolNames = new Set((mainGenerationToolDefs ?? []).map((td) => td.function.name));
         const searchLorebookForTools = async (query: string, category?: string | null) => {
           const entries = await lorebooksStore.listActiveEntries({
             chatId: input.chatId,
@@ -6130,6 +6166,9 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         const baseToolExecutionContext = {
           gameState: gameState ? (gameState as unknown as Record<string, unknown>) : undefined,
+          chatId: input.chatId,
+          activeCharacters: charInfo.map((character) => ({ id: character.id, name: character.name })),
+          agentMemory: agentsStore,
           customTools: customToolDefs,
           spotify: spotifyCreds,
           spotifyRepeatAfterPlay: gameSpotifyMusicEnabled ? ("track" as const) : undefined,
@@ -6190,6 +6229,11 @@ export async function generateRoutes(app: FastifyInstance) {
               }
               const results = await executeToolCalls([call], {
                 ...baseToolExecutionContext,
+                agentConfigId: agent.id,
+                agentMemoryScope:
+                  typeof agentSettings.memoryScope === "string" && agentSettings.memoryScope.trim()
+                    ? agentSettings.memoryScope.trim()
+                    : null,
               });
               const result = results[0]?.result ?? "Tool execution failed";
               if (agent.type === "spotify" && call.function.name === "spotify_play") {
@@ -6493,6 +6537,25 @@ export async function generateRoutes(app: FastifyInstance) {
             logger.warn(`[pre-gen] Non-critical agent(s) failed (${failedNames}) — continuing generation`);
           }
 
+          // Secret Plot Driver stores structured state for both the UI panel and
+          // the next prompt. Persist from the completed pre-gen result before any
+          // later branch can return early.
+          const plotResult = preGenResults.find((r) => r.type === "secret_plot");
+          if (plotResult?.success && plotResult.data && typeof plotResult.data === "object") {
+            try {
+              await persistSecretPlotMemory({
+                agentsStore,
+                agentConfigId: secretPlotAgent?.id ?? plotResult.agentId,
+                chatId: input.chatId,
+                plotData: plotResult.data as Record<string, unknown>,
+                clearMissingSceneDirections: true,
+                source: "pre_generation",
+              });
+            } catch (persistErr) {
+              logger.error(persistErr, "[secret-plot-driver] Failed to persist state from pre_generation");
+            }
+          }
+
           const shouldReviewWriterAgentOutputs =
             (chatMode === "roleplay" || chatMode === "visual_novel") &&
             chatMeta.reviewWriterAgentOutputs === true &&
@@ -6517,50 +6580,8 @@ export async function generateRoutes(app: FastifyInstance) {
             return;
           }
 
-          // ── Secret Plot Driver: persist fresh state + build injection ──
-          const plotResult = preGenResults.find((r) => r.type === "secret_plot");
-          if (plotResult?.success && plotResult.data && typeof plotResult.data === "object") {
-            const plotData = plotResult.data as Record<string, unknown>;
-            const agentConfigId = secretPlotAgent?.id ?? plotResult.agentId;
-
-            // Persist to agent memory so swipes/regens read from it
-            try {
-              if (plotData.overarchingArc) {
-                await agentsStore.setMemory(agentConfigId, input.chatId, "overarchingArc", plotData.overarchingArc);
-              }
-              if (plotData.sceneDirections) {
-                const allDirections = normalizeSecretPlotSceneDirections(plotData.sceneDirections);
-                const active = allDirections.filter((d) => !d.fulfilled);
-                const justFulfilled = allDirections.filter((d) => d.fulfilled).map((d) => d.direction);
-                await agentsStore.setMemory(agentConfigId, input.chatId, "sceneDirections", active);
-
-                // Keep a rolling window of recently fulfilled directions so the agent doesn't repeat them
-                if (justFulfilled.length > 0) {
-                  const mem = await agentsStore.getMemory(agentConfigId, input.chatId);
-                  const prev = normalizeStringArray(mem.recentlyFulfilled);
-                  const merged = [...prev, ...justFulfilled].slice(-10); // keep last 10
-                  await agentsStore.setMemory(agentConfigId, input.chatId, "recentlyFulfilled", merged);
-                }
-              } else {
-                // Agent didn't return new directions — clear stale ones so fulfilled
-                // directions from the previous turn aren't re-injected into the prompt
-                await agentsStore.setMemory(agentConfigId, input.chatId, "sceneDirections", []);
-              }
-              if (plotData.pacing) {
-                await agentsStore.setMemory(agentConfigId, input.chatId, "pacing", plotData.pacing);
-              }
-              await agentsStore.setMemory(
-                agentConfigId,
-                input.chatId,
-                "staleDetected",
-                plotData.staleDetected ?? false,
-              );
-              logger.debug(
-                `[secret-plot-driver] Persisted pre-gen state — arc: ${plotData.overarchingArc ? "updated" : "unchanged"}, directions: ${Array.isArray(plotData.sceneDirections) ? (plotData.sceneDirections as any[]).filter((d: any) => !d.fulfilled).length : 0} active, pacing: ${plotData.pacing ?? "unknown"}`,
-              );
-            } catch (persistErr) {
-              logger.error(persistErr, "[secret-plot-driver] Failed to persist state");
-            }
+          if (secretPlotMemoryWrites.length > 0) {
+            await Promise.all(secretPlotMemoryWrites);
           }
 
           const runtimeHandledPreGen = splitRuntimeHandledAgentInjections(
@@ -7286,7 +7307,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const fitPromptForSend = (candidateMessages: ChatMessage[]): ChatMessage[] => {
             const fit = fitMessagesToContext(
               candidateMessages,
-              { maxContext: effectiveMaxContext, maxTokens, tools: toolDefs },
+              { maxContext: effectiveMaxContext, maxTokens, tools: mainGenerationToolDefs },
               connectionMaxContext,
             );
             finalPromptSent = fit.messages;
@@ -7443,7 +7464,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     topK: providerTopK,
                     frequencyPenalty: frequencyPenalty || undefined,
                     presencePenalty: presencePenalty || undefined,
-                    tools: toolDefs,
+                    tools: mainGenerationToolDefs,
                     enableCaching: conn.enableCaching === "true",
                     cachingAtDepth: conn.cachingAtDepth ?? 5,
                     enableThinking,
@@ -7512,16 +7533,16 @@ export async function generateRoutes(app: FastifyInstance) {
                 });
 
                 const permittedToolCalls = result.toolCalls.filter((call) =>
-                  chatResolvedToolNames.has(call.function.name),
+                  mainResolvedToolNames.has(call.function.name),
                 );
                 const deniedToolResults = result.toolCalls
-                  .filter((call) => !chatResolvedToolNames.has(call.function.name))
+                  .filter((call) => !mainResolvedToolNames.has(call.function.name))
                   .map((call) => ({
                     toolCallId: call.id,
                     name: call.function.name,
                     result: JSON.stringify({
                       error: `Tool not allowed in this context: ${call.function.name}`,
-                      allowed: Array.from(chatResolvedToolNames),
+                      allowed: Array.from(mainResolvedToolNames),
                     }),
                     success: false,
                   }));

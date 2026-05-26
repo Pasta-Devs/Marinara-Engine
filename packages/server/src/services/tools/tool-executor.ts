@@ -9,6 +9,8 @@ import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
 import { normalizeSpotifySearchQuery } from "../spotify/spotify.service.js";
 import { appendChatSummaryEntryToMetadata } from "@marinara-engine/shared";
+import { localEmbed } from "../local-embedder.js";
+import type { AgentMemoryRecord } from "../storage/agents.storage.js";
 
 export interface ToolExecutionResult {
   toolCallId: string;
@@ -35,6 +37,51 @@ export type LorebookSearchFn = (
 /** Spotify API credentials injected from the route layer. */
 export interface SpotifyCredentials {
   accessToken: string;
+}
+
+export interface AgentMemoryStore {
+  saveAgentMemory(input: {
+    recordId?: string | null;
+    agentConfigId: string;
+    chatId: string;
+    characterId?: string | null;
+    memoryScope?: string | null;
+    memoryType?: string | null;
+    key?: string | null;
+    title?: string | null;
+    content: string;
+    metadata?: Record<string, unknown> | null;
+    embedding?: number[] | null;
+    enabled?: boolean;
+  }): Promise<AgentMemoryRecord>;
+  listAgentMemory(
+    filters?: {
+      chatId?: string | null;
+      characterId?: string | null;
+      agentConfigId?: string | null;
+      memoryScope?: string | null;
+      memoryType?: string | null;
+      includeInternal?: boolean;
+      includeDeleted?: boolean;
+      includeDisabled?: boolean;
+    },
+    limit?: number,
+  ): Promise<AgentMemoryRecord[]>;
+  getAgentMemoryRecord(id: string): Promise<AgentMemoryRecord | null>;
+  softDeleteAgentMemory(id: string): Promise<AgentMemoryRecord | null>;
+  searchAgentMemoryCandidates(
+    filters?: {
+      chatId?: string | null;
+      characterId?: string | null;
+      agentConfigId?: string | null;
+      memoryScope?: string | null;
+      memoryType?: string | null;
+      includeInternal?: boolean;
+      includeDeleted?: boolean;
+      includeDisabled?: boolean;
+    },
+    limit?: number,
+  ): Promise<AgentMemoryRecord[]>;
 }
 
 export type MetadataPatch = Record<string, unknown>;
@@ -123,12 +170,17 @@ const SPOTIFY_MOOD_EXPANSIONS: Array<[RegExp, string[]]> = [
 
 export interface ToolExecutionContext {
   gameState?: Record<string, unknown>;
+  chatId?: string;
+  agentConfigId?: string;
+  agentMemoryScope?: string | null;
+  activeCharacters?: Array<{ id: string; name: string }>;
   chatMeta?: Record<string, unknown>;
   onUpdateMetadata?: (patch: MetadataPatchInput) => Promise<MetadataPatch>;
   customTools?: CustomToolDef[];
   searchLorebook?: LorebookSearchFn;
   spotify?: SpotifyCredentials;
   spotifyRepeatAfterPlay?: "off" | "track" | "context";
+  agentMemory?: AgentMemoryStore;
 }
 
 /**
@@ -190,6 +242,14 @@ async function executeSingleTool(
       return readChatSummary(context?.chatMeta);
     case "append_chat_summary":
       return appendChatSummary(args, context);
+    case "save_agent_memory":
+      return saveAgentMemory(args, context);
+    case "search_agent_memory":
+      return searchAgentMemory(args, context);
+    case "list_agent_memory":
+      return listAgentMemory(args, context);
+    case "delete_agent_memory":
+      return deleteAgentMemory(args, context);
     case "read_chat_variable":
       return readChatVariable(args, context?.chatMeta);
     case "write_chat_variable":
@@ -220,6 +280,10 @@ async function executeSingleTool(
           "search_lorebook",
           "read_chat_summary",
           "append_chat_summary",
+          "save_agent_memory",
+          "search_agent_memory",
+          "list_agent_memory",
+          "delete_agent_memory",
           "read_chat_variable",
           "write_chat_variable",
           "spotify_get_current_playback",
@@ -485,6 +549,260 @@ async function appendChatSummary(
     return { summary: result.summary, summaryEntries: result.entries };
   });
   return { summary: typeof updated.summary === "string" ? updated.summary : sanitizedText };
+}
+
+type AgentMemoryOwnership = {
+  chatId: string;
+  agentConfigId: string;
+  characterId?: string;
+  memoryScope?: string | null;
+};
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function asBoolean(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+function asLimit(value: unknown, fallback: number, max: number): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(Math.floor(parsed), max));
+}
+
+function asMetadata(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function resolveCharacterId(args: Record<string, unknown>, context?: ToolExecutionContext): string | undefined {
+  const requestedName = asString(args.characterName);
+  if (!requestedName) return undefined;
+  const match = context?.activeCharacters?.find((character) => character.name.toLowerCase() === requestedName.toLowerCase());
+  if (!match) {
+    throw new Error(`Unknown active character for agent memory: ${requestedName}`);
+  }
+  return match.id;
+}
+
+function resolveAgentMemoryOwnership(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+): AgentMemoryOwnership {
+  if (!context?.agentMemory) {
+    throw new Error("Agent memory storage is not available in this context");
+  }
+  if (!context.chatId) {
+    throw new Error("Agent memory tools require a current chat");
+  }
+  if (!context.agentConfigId) {
+    throw new Error("Agent memory tools require an executing agent identity");
+  }
+  return {
+    chatId: context.chatId,
+    agentConfigId: context.agentConfigId,
+    characterId: resolveCharacterId(args, context),
+    memoryScope: asString(context.agentMemoryScope),
+  };
+}
+
+function scopedAgentMemoryFilters(ownership: AgentMemoryOwnership): {
+  agentConfigId?: string;
+  memoryScope?: string;
+} {
+  return ownership.memoryScope
+    ? { memoryScope: ownership.memoryScope }
+    : { agentConfigId: ownership.agentConfigId };
+}
+
+function canAccessAgentMemoryRecord(record: AgentMemoryRecord, ownership: AgentMemoryOwnership): boolean {
+  if (record.chatId !== ownership.chatId) return false;
+  if (ownership.memoryScope) return record.memoryScope === ownership.memoryScope;
+  return record.agentConfigId === ownership.agentConfigId;
+}
+
+function publicAgentMemoryRecord(record: AgentMemoryRecord, includeContent = true): Record<string, unknown> {
+  return {
+    id: record.id,
+    memoryType: record.memoryType,
+    key: record.key,
+    title: record.title,
+    ...(includeContent ? { content: record.content } : {}),
+    metadata: record.metadata,
+    ownership: {
+      chat: Boolean(record.chatId),
+      character: Boolean(record.characterId),
+      agent: Boolean(record.agentConfigId),
+    },
+    enabled: record.enabled,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
+async function saveAgentMemory(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+): Promise<Record<string, unknown>> {
+  const content = asString(args.content);
+  if (!content) return { error: "save_agent_memory requires non-empty content" };
+  const ownership = resolveAgentMemoryOwnership(args, context);
+  const semanticIndex = asBoolean(args.semanticIndex);
+  const recordId = asString(args.recordId);
+  if (recordId) {
+    const existing = await context!.agentMemory!.getAgentMemoryRecord(recordId);
+    if (existing && !canAccessAgentMemoryRecord(existing, ownership)) {
+      return { saved: false, error: "Agent memory record is not owned by the executing agent in this chat" };
+    }
+  }
+  let embedding: number[] | null = null;
+
+  if (semanticIndex) {
+    const vectors = await localEmbed([content]);
+    embedding = vectors?.[0] ?? null;
+  }
+
+  const record = await context!.agentMemory!.saveAgentMemory({
+    recordId,
+    agentConfigId: ownership.agentConfigId,
+    chatId: ownership.chatId,
+    characterId: ownership.characterId ?? null,
+    memoryScope: ownership.memoryScope,
+    memoryType: asString(args.memoryType) ?? "general",
+    key: asString(args.key),
+    title: asString(args.title),
+    content,
+    metadata: asMetadata(args.metadata),
+    embedding,
+  });
+
+  return {
+    saved: true,
+    semanticIndexed: Boolean(embedding),
+    record: publicAgentMemoryRecord(record),
+    note: semanticIndex && !embedding ? "Semantic indexing was requested, but the local embedder is unavailable." : undefined,
+  };
+}
+
+function literalScore(record: AgentMemoryRecord, query: string): number {
+  const q = query.toLowerCase();
+  const haystack = [record.title, record.content, record.memoryType, record.key].filter(Boolean).join("\n").toLowerCase();
+  return haystack.includes(q) ? 1 : 0;
+}
+
+function fuzzyScore(record: AgentMemoryRecord, query: string): number {
+  const tokens = query.toLowerCase().split(/\W+/).filter((token) => token.length >= 2);
+  if (tokens.length === 0) return 0;
+  const haystack = [record.title, record.content, record.memoryType, record.key].filter(Boolean).join(" ").toLowerCase();
+  const matches = tokens.filter((token) => haystack.includes(token)).length;
+  return matches / tokens.length;
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || a.length !== b.length) return 0;
+  let dot = 0;
+  let aMag = 0;
+  let bMag = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i]! * b[i]!;
+    aMag += a[i]! * a[i]!;
+    bMag += b[i]! * b[i]!;
+  }
+  if (aMag === 0 || bMag === 0) return 0;
+  return dot / (Math.sqrt(aMag) * Math.sqrt(bMag));
+}
+
+async function searchAgentMemory(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+): Promise<Record<string, unknown>> {
+  const query = asString(args.query);
+  if (!query) return { error: "search_agent_memory requires non-empty query" };
+  const ownership = resolveAgentMemoryOwnership(args, context);
+  const mode = asString(args.mode) ?? "literal";
+  const limit = asLimit(args.limit, 10, 50);
+  const candidates = await context!.agentMemory!.searchAgentMemoryCandidates(
+    {
+      chatId: ownership.chatId,
+      ...scopedAgentMemoryFilters(ownership),
+      characterId: ownership.characterId,
+      memoryType: asString(args.memoryType),
+      includeInternal: false,
+    },
+    100,
+  );
+
+  let scored: Array<{ record: AgentMemoryRecord; score: number }> = [];
+  if (mode === "semantic") {
+    const vectors = await localEmbed([query]);
+    const queryVector = vectors?.[0] ?? null;
+    if (!queryVector) {
+      return { query, mode, results: [], count: 0, error: "Semantic search is unavailable because embeddings are not available." };
+    }
+    scored = candidates
+      .filter((record) => record.embedding)
+      .map((record) => ({ record, score: cosineSimilarity(queryVector, record.embedding!) }))
+      .filter((entry) => entry.score > 0);
+    if (scored.length === 0) {
+      return { query, mode, results: [], count: 0, note: "No semantically indexed agent memory records matched." };
+    }
+  } else if (mode === "fuzzy") {
+    scored = candidates
+      .map((record) => ({ record, score: fuzzyScore(record, query) }))
+      .filter((entry) => entry.score > 0);
+  } else {
+    scored = candidates
+      .map((record) => ({ record, score: literalScore(record, query) }))
+      .filter((entry) => entry.score > 0);
+  }
+
+  const results = scored
+    .sort((a, b) => b.score - a.score || b.record.updatedAt.localeCompare(a.record.updatedAt))
+    .slice(0, limit)
+    .map((entry) => ({ ...publicAgentMemoryRecord(entry.record), score: entry.score }));
+
+  return { query, mode, results, count: results.length };
+}
+
+async function listAgentMemory(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+): Promise<Record<string, unknown>> {
+  const ownership = resolveAgentMemoryOwnership(args, context);
+  const limit = asLimit(args.limit, 20, 100);
+  const records = await context!.agentMemory!.listAgentMemory(
+    {
+      chatId: ownership.chatId,
+      ...scopedAgentMemoryFilters(ownership),
+      characterId: ownership.characterId,
+      memoryType: asString(args.memoryType),
+      includeInternal: false,
+    },
+    limit,
+  );
+  const includeContent = args.includeContent !== false;
+  return { records: records.map((record) => publicAgentMemoryRecord(record, includeContent)), count: records.length };
+}
+
+async function deleteAgentMemory(
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+): Promise<Record<string, unknown>> {
+  const recordId = asString(args.recordId);
+  if (!recordId) return { error: "delete_agent_memory requires recordId" };
+  const ownership = resolveAgentMemoryOwnership(args, context);
+  const record = await context!.agentMemory!.getAgentMemoryRecord(recordId);
+  if (!record || record.deletedAt || !record.enabled) return { deleted: false, error: "Agent memory record not found" };
+  if (!canAccessAgentMemoryRecord(record, ownership)) {
+    return { deleted: false, error: "Agent memory record is not owned by the executing agent in this chat" };
+  }
+  if (ownership.characterId !== undefined && record.characterId !== ownership.characterId) {
+    return { deleted: false, error: "Agent memory record is not owned by the selected character" };
+  }
+  const deleted = await context!.agentMemory!.softDeleteAgentMemory(recordId);
+  return { deleted: Boolean(deleted?.deletedAt), recordId };
 }
 
 async function writeChatVariable(

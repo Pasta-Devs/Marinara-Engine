@@ -779,6 +779,96 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: "save_agent_memory",
+    description:
+      "Save a durable agent memory record for the current chat and executing agent. Use for stable facts, plans, decisions, promises, or significant continuity details.",
+    parameters: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description: "The durable memory text to store. Keep it concise and self-contained.",
+        },
+        title: { type: "string", description: "Optional short human-readable title." },
+        memoryType: {
+          type: "string",
+          description:
+            "Category for this memory, such as general, continuity, planning, preference, or a custom agent-specific type.",
+        },
+        key: {
+          type: "string",
+          description: "Optional stable key for updating the same memory again instead of creating duplicates.",
+        },
+        characterName: {
+          type: "string",
+          description: "Optional active character name when the memory belongs to a specific character.",
+        },
+        metadata: {
+          type: "object",
+          description: "Optional structured JSON details for the agent. Do not include raw database IDs.",
+        },
+        semanticIndex: {
+          type: "boolean",
+          description: "Whether to request semantic indexing for this record if local embeddings are available.",
+        },
+        recordId: {
+          type: "string",
+          description: "Optional record ID returned by an earlier save/list/search when intentionally updating it.",
+        },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "search_agent_memory",
+    description:
+      "Search durable agent memory records owned by the current chat and executing agent using literal, fuzzy, or semantic matching.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query." },
+        mode: {
+          type: "string",
+          description: "Search mode.",
+          enum: ["literal", "fuzzy", "semantic"],
+        },
+        memoryType: { type: "string", description: "Optional memory type filter." },
+        characterName: { type: "string", description: "Optional active character name filter." },
+        limit: { type: "number", description: "Maximum number of results to return." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "list_agent_memory",
+    description: "List durable agent memory records owned by the current chat and executing agent.",
+    parameters: {
+      type: "object",
+      properties: {
+        memoryType: { type: "string", description: "Optional memory type filter." },
+        characterName: { type: "string", description: "Optional active character name filter." },
+        includeContent: { type: "boolean", description: "Whether to include full memory content in the response." },
+        limit: { type: "number", description: "Maximum number of records to return." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "delete_agent_memory",
+    description: "Delete a durable agent memory record by ID if it belongs to the current chat and executing agent.",
+    parameters: {
+      type: "object",
+      properties: {
+        recordId: {
+          type: "string",
+          description: "Record ID returned by save_agent_memory, search_agent_memory, or list_agent_memory.",
+        },
+        characterName: { type: "string", description: "Optional active character name ownership check." },
+      },
+      required: ["recordId"],
+    },
+  },
+  {
     name: "read_chat_variable",
     description:
       "Read a chat-wide string variable by key. Use this for agent-private state or coordination with other agents in the same chat.",

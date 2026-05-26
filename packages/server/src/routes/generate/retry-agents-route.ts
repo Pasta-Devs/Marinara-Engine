@@ -65,11 +65,8 @@ import {
   normalizeSpriteDisplayModes,
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
-import {
-  normalizeContextInjections,
-  normalizeSecretPlotSceneDirections,
-  normalizeStringArray,
-} from "./agent-normalizers.js";
+import { normalizeContextInjections } from "./agent-normalizers.js";
+import { persistSecretPlotMemory } from "./secret-plot-memory.js";
 import { executeToolCalls, type MetadataPatchInput } from "../../services/tools/tool-executor.js";
 
 type PersonaContext = {
@@ -1564,39 +1561,21 @@ async function applyRetryResultEffects(args: {
     }
 
     if (result.success && result.type === "secret_plot" && result.data && typeof result.data === "object") {
+      const agentConfigId =
+        resolvedAgents.find((entry) => entry.resolved.type === "secret-plot-driver")?.resolved.id ??
+        result.agentId ??
+        null;
       try {
-        const plotData = result.data as Record<string, unknown>;
-        const agentConfigId =
-          resolvedAgents.find((entry) => entry.resolved.type === "secret-plot-driver")?.resolved.id ?? null;
-        if (agentConfigId) {
-          // Turn-only re-run should preserve long-running arc memory while refreshing
-          // per-turn guidance (scene directions/pacing/stale flags).
-          if (secretPlotRerollMode !== "turn_only" && plotData.overarchingArc !== undefined) {
-            await agentsStore.setMemory(agentConfigId, chatId, "overarchingArc", plotData.overarchingArc ?? null);
-          }
-          if (plotData.sceneDirections !== undefined) {
-            const allDirections = normalizeSecretPlotSceneDirections(plotData.sceneDirections);
-            const active = allDirections.filter((d) => !d.fulfilled);
-            const justFulfilled = allDirections.filter((d) => d.fulfilled).map((d) => d.direction);
-            await agentsStore.setMemory(agentConfigId, chatId, "sceneDirections", active);
-            if (justFulfilled.length > 0) {
-              const mem = await agentsStore.getMemory(agentConfigId, chatId);
-              const prev = normalizeStringArray(mem.recentlyFulfilled);
-              await agentsStore.setMemory(
-                agentConfigId,
-                chatId,
-                "recentlyFulfilled",
-                [...prev, ...justFulfilled].slice(-10),
-              );
-            }
-          }
-          if (plotData.pacing !== undefined) {
-            await agentsStore.setMemory(agentConfigId, chatId, "pacing", plotData.pacing ?? null);
-          }
-          await agentsStore.setMemory(agentConfigId, chatId, "staleDetected", plotData.staleDetected === true);
-        }
-      } catch {
-        // Non-critical patching failure.
+        await persistSecretPlotMemory({
+          agentsStore,
+          agentConfigId,
+          chatId,
+          plotData: result.data as Record<string, unknown>,
+          preserveOverarchingArc: secretPlotRerollMode === "turn_only",
+          source: "retry_agents",
+        });
+      } catch (err) {
+        logger.error(err, "[secret-plot-driver] Failed to persist state from retry_agents");
       }
     }
 

@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // Storage: Agent Configs, Runs & Memory
 // ──────────────────────────────────────────────
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull, ne, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { DB } from "../../db/connection.js";
 import { agentConfigs, agentRuns, agentMemory } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -13,9 +14,61 @@ import {
 } from "@marinara-engine/shared";
 
 const BUILTIN_AGENT_ID_PREFIX = "builtin:";
+const SECRET_PLOT_MEMORY_TYPE = "secret_plot_internal";
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 type AgentRunRow = typeof agentRuns.$inferSelect;
 type AgentConfigRow = typeof agentConfigs.$inferSelect;
+type AgentMemoryRow = typeof agentMemory.$inferSelect;
+
+export interface AgentMemoryRecord {
+  id: string;
+  agentConfigId: string;
+  chatId: string;
+  characterId: string | null;
+  memoryScope: string | null;
+  memoryType: string;
+  key: string;
+  value: string;
+  title: string | null;
+  content: string;
+  metadata: Record<string, unknown>;
+  embedding: number[] | null;
+  contentHash: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface AgentMemoryFilters {
+  chatId?: string | null;
+  characterId?: string | null;
+  agentConfigId?: string | null;
+  memoryScope?: string | null;
+  memoryType?: string | null;
+  includeInternal?: boolean;
+  includeDeleted?: boolean;
+  includeDisabled?: boolean;
+}
+
+export interface SaveAgentMemoryInput {
+  recordId?: string | null;
+  agentConfigId: string;
+  chatId: string;
+  characterId?: string | null;
+  memoryScope?: string | null;
+  memoryType?: string | null;
+  key?: string | null;
+  title?: string | null;
+  content: string;
+  metadata?: Record<string, unknown> | null;
+  embedding?: number[] | null;
+  enabled?: boolean;
+}
+
+export function hashAgentMemoryContent(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
 
 function isBuiltInAgentType(type: string): boolean {
   return BUILT_IN_AGENT_TYPES.has(type);
@@ -29,6 +82,79 @@ function getBuiltinAgentType(agentConfigId: string): string | null {
   if (!agentConfigId.startsWith(BUILTIN_AGENT_ID_PREFIX)) return null;
   const agentType = agentConfigId.slice(BUILTIN_AGENT_ID_PREFIX.length).trim();
   return agentType.length > 0 ? agentType : null;
+}
+
+function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseEmbedding(value: string | null | undefined): number[] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((entry) => typeof entry === "number") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringifyMetadata(value: Record<string, unknown> | null | undefined): string {
+  return JSON.stringify(value ?? {});
+}
+
+function normalizeMemoryScope(value: unknown): string | null {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed ? trimmed : null;
+}
+
+function memoryContentFromValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function normalizeMemoryRow(row: AgentMemoryRow): AgentMemoryRecord {
+  const metadata = parseJsonObject(row.metadata);
+  const content = row.content || row.value || "";
+  return {
+    id: row.id,
+    agentConfigId: row.agentConfigId,
+    chatId: row.chatId,
+    characterId: row.characterId ?? null,
+    memoryScope: normalizeMemoryScope(metadata.memoryScope),
+    memoryType: row.memoryType || "legacy_kv",
+    key: row.key,
+    value: row.value,
+    title: row.title ?? null,
+    content,
+    metadata,
+    embedding: parseEmbedding(row.embedding),
+    contentHash: row.contentHash ?? null,
+    enabled: row.enabled !== "false",
+    createdAt: row.createdAt || row.updatedAt,
+    updatedAt: row.updatedAt,
+    deletedAt: row.deletedAt ?? null,
+  };
+}
+
+function isInternalMemoryType(memoryType: string): boolean {
+  return memoryType.endsWith("_internal") || memoryType === "internal" || memoryType === "legacy_kv";
+}
+
+function recordMatchesFilters(record: AgentMemoryRecord, filters: AgentMemoryFilters): boolean {
+  if (!filters.includeDeleted && record.deletedAt) return false;
+  if (!filters.includeDisabled && !record.enabled) return false;
+  if (!filters.includeInternal && isInternalMemoryType(record.memoryType)) return false;
+  if (filters.chatId !== undefined && record.chatId !== filters.chatId) return false;
+  if (filters.characterId !== undefined && record.characterId !== filters.characterId) return false;
+  if (filters.agentConfigId !== undefined && record.agentConfigId !== filters.agentConfigId) return false;
+  if (filters.memoryScope !== undefined && record.memoryScope !== filters.memoryScope) return false;
+  if (filters.memoryType && record.memoryType !== filters.memoryType) return false;
+  return true;
 }
 
 function keepLatestConfigPerType<T extends { type: string }>(rows: T[]): T[] {
@@ -139,6 +265,60 @@ export function createAgentsStorage(db: DB) {
     if (!builtinType) return agentConfigId;
     const config = await ensureBuiltinConfig(builtinType);
     return config?.id ?? agentConfigId;
+  }
+
+  async function resolveAgentMemoryType(agentConfigId: string) {
+    const builtinType = getBuiltinAgentType(agentConfigId);
+    if (builtinType === "secret-plot-driver") return SECRET_PLOT_MEMORY_TYPE;
+    const config = await getById(agentConfigId);
+    return config?.type === "secret-plot-driver" ? SECRET_PLOT_MEMORY_TYPE : "internal";
+  }
+
+  async function listAgentMemoryRecords(filters: AgentMemoryFilters = {}, limit = 50): Promise<AgentMemoryRecord[]> {
+    const resolvedFilters = { ...filters };
+    if (resolvedFilters.agentConfigId) {
+      resolvedFilters.agentConfigId = await resolveAgentConfigId(resolvedFilters.agentConfigId);
+    }
+    if (resolvedFilters.chatId === null || resolvedFilters.agentConfigId === null) return [];
+    const conditions = [];
+    if (resolvedFilters.chatId !== undefined) conditions.push(eq(agentMemory.chatId, resolvedFilters.chatId));
+    if (resolvedFilters.characterId !== undefined) {
+      conditions.push(
+        resolvedFilters.characterId === null ? isNull(agentMemory.characterId) : eq(agentMemory.characterId, resolvedFilters.characterId),
+      );
+    }
+    if (resolvedFilters.agentConfigId !== undefined) {
+      conditions.push(eq(agentMemory.agentConfigId, resolvedFilters.agentConfigId));
+    }
+    if (resolvedFilters.memoryType) conditions.push(eq(agentMemory.memoryType, resolvedFilters.memoryType));
+    if (resolvedFilters.memoryScope !== undefined) {
+      conditions.push(
+        resolvedFilters.memoryScope === null
+          ? sql`(json_type(${agentMemory.metadata}, '$.memoryScope') IS NULL OR json_type(${agentMemory.metadata}, '$.memoryScope') <> 'text' OR trim(coalesce(cast(json_extract(${agentMemory.metadata}, '$.memoryScope') AS TEXT), '')) = '')`
+          : sql`(json_type(${agentMemory.metadata}, '$.memoryScope') = 'text' AND trim(cast(json_extract(${agentMemory.metadata}, '$.memoryScope') AS TEXT)) = ${resolvedFilters.memoryScope})`,
+      );
+    }
+    if (!resolvedFilters.includeDeleted) conditions.push(isNull(agentMemory.deletedAt));
+    if (!resolvedFilters.includeDisabled) conditions.push(eq(agentMemory.enabled, "true"));
+    if (!resolvedFilters.includeInternal) {
+      conditions.push(
+        ne(agentMemory.memoryType, "internal"),
+        ne(agentMemory.memoryType, "legacy_kv"),
+        sql`${agentMemory.memoryType} NOT LIKE ${"%\\_internal"} ESCAPE '\\'`,
+      );
+    }
+
+    const normalizedLimit = Math.max(1, Math.min(limit, 100));
+    const rows = await db
+      .select()
+      .from(agentMemory)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(agentMemory.updatedAt))
+      .limit(normalizedLimit);
+    return rows
+      .map(normalizeMemoryRow)
+      .filter((record) => recordMatchesFilters(record, resolvedFilters))
+      .slice(0, normalizedLimit);
   }
 
   return {
@@ -347,6 +527,8 @@ export function createAgentsStorage(db: DB) {
     async setMemory(agentConfigId: string, chatId: string, key: string, value: unknown) {
       const resolvedAgentConfigId = await resolveAgentConfigId(agentConfigId);
       const stringValue = typeof value === "string" ? value : JSON.stringify(value);
+      const content = memoryContentFromValue(value);
+      const memoryType = await resolveAgentMemoryType(resolvedAgentConfigId);
       const existing = await db
         .select()
         .from(agentMemory)
@@ -361,16 +543,34 @@ export function createAgentsStorage(db: DB) {
       if (existing.length > 0) {
         await db
           .update(agentMemory)
-          .set({ value: stringValue, updatedAt: now() })
+          .set({
+            value: stringValue,
+            memoryType,
+            content,
+            metadata: stringifyMetadata({ rawValue: value }),
+            contentHash: hashAgentMemoryContent(content),
+            enabled: "true",
+            deletedAt: null,
+            updatedAt: now(),
+          })
           .where(eq(agentMemory.id, existing[0]!.id));
       } else {
+        const timestamp = now();
         await db.insert(agentMemory).values({
           id: newId(),
           agentConfigId: resolvedAgentConfigId,
           chatId,
+          characterId: null,
+          memoryType,
           key,
           value: stringValue,
-          updatedAt: now(),
+          title: key,
+          content,
+          metadata: stringifyMetadata({ rawValue: value }),
+          contentHash: hashAgentMemoryContent(content),
+          enabled: "true",
+          createdAt: timestamp,
+          updatedAt: timestamp,
         });
       }
     },
@@ -392,22 +592,42 @@ export function createAgentsStorage(db: DB) {
           .where(and(eq(agentMemory.agentConfigId, resolvedAgentConfigId), eq(agentMemory.chatId, chatId)));
         const existingByKey = new Map(existingRows.map((row) => [row.key, row]));
         const timestamp = now();
+        const memoryType = await resolveAgentMemoryType(resolvedAgentConfigId);
         const inserts: (typeof agentMemory.$inferInsert)[] = [];
 
         for (const entry of entries) {
+          const rawValue = values[entry.key];
+          const content = memoryContentFromValue(rawValue);
           const existing = existingByKey.get(entry.key);
           if (existing) {
             await tx
               .update(agentMemory)
-              .set({ value: entry.value, updatedAt: timestamp })
+              .set({
+                value: entry.value,
+                memoryType,
+                content,
+                metadata: stringifyMetadata({ rawValue }),
+                contentHash: hashAgentMemoryContent(content),
+                enabled: "true",
+                deletedAt: null,
+                updatedAt: timestamp,
+              })
               .where(eq(agentMemory.id, existing.id));
           } else {
             inserts.push({
               id: newId(),
               agentConfigId: resolvedAgentConfigId,
               chatId,
+              characterId: null,
+              memoryType,
               key: entry.key,
               value: entry.value,
+              title: entry.key,
+              content,
+              metadata: stringifyMetadata({ rawValue }),
+              contentHash: hashAgentMemoryContent(content),
+              enabled: "true",
+              createdAt: timestamp,
               updatedAt: timestamp,
             });
           }
@@ -417,6 +637,137 @@ export function createAgentsStorage(db: DB) {
           await tx.insert(agentMemory).values(inserts);
         }
       });
+    },
+
+    async saveAgentMemory(input: SaveAgentMemoryInput): Promise<AgentMemoryRecord> {
+      const resolvedAgentConfigId = await resolveAgentConfigId(input.agentConfigId);
+      const timestamp = now();
+      const memoryType = (input.memoryType ?? "general").trim() || "general";
+      const content = input.content.trim();
+      const memoryScope = normalizeMemoryScope(input.memoryScope);
+      const scopedMetadata = { ...(input.metadata ?? {}) };
+      delete scopedMetadata.memoryScope;
+      if (memoryScope) scopedMetadata.memoryScope = memoryScope;
+      const metadata = stringifyMetadata(scopedMetadata);
+      const embedding = input.embedding ? JSON.stringify(input.embedding) : null;
+      const contentHash = hashAgentMemoryContent(content);
+
+      if (input.recordId) {
+        const rows = await db.select().from(agentMemory).where(eq(agentMemory.id, input.recordId));
+        if (rows[0]) {
+          await db
+            .update(agentMemory)
+            .set({
+              agentConfigId: resolvedAgentConfigId,
+              chatId: input.chatId,
+              characterId: input.characterId ?? null,
+              memoryType,
+              key: input.key?.trim() || input.recordId,
+              value: content,
+              title: input.title?.trim() || null,
+              content,
+              metadata,
+              embedding,
+              contentHash,
+              enabled: String(input.enabled ?? true),
+              deletedAt: null,
+              updatedAt: timestamp,
+            })
+            .where(eq(agentMemory.id, input.recordId));
+          const updatedRows = await db.select().from(agentMemory).where(eq(agentMemory.id, input.recordId));
+          if (updatedRows[0]) return normalizeMemoryRow(updatedRows[0]);
+          throw new Error(`Agent memory record disappeared after update: ${input.recordId}`);
+        }
+      }
+
+      const stableKey = input.key?.trim();
+      if (stableKey) {
+        const existing = memoryScope
+          ? await db
+              .select()
+              .from(agentMemory)
+              .where(and(eq(agentMemory.chatId, input.chatId), eq(agentMemory.key, stableKey)))
+          : await db
+              .select()
+              .from(agentMemory)
+              .where(
+                and(
+                  eq(agentMemory.agentConfigId, resolvedAgentConfigId),
+                  eq(agentMemory.chatId, input.chatId),
+                  eq(agentMemory.key, stableKey),
+                ),
+              );
+        const matched = existing
+          .map(normalizeMemoryRow)
+          .find(
+            (record) =>
+              record.memoryType === memoryType &&
+              (record.characterId ?? null) === (input.characterId ?? null) &&
+              (!memoryScope || record.memoryScope === memoryScope),
+          );
+        if (matched) {
+          await db
+            .update(agentMemory)
+            .set({
+              value: content,
+              title: input.title?.trim() || null,
+              content,
+              metadata,
+              embedding,
+              contentHash,
+              enabled: String(input.enabled ?? true),
+              deletedAt: null,
+              updatedAt: timestamp,
+            })
+            .where(eq(agentMemory.id, matched.id));
+          const rows = await db.select().from(agentMemory).where(eq(agentMemory.id, matched.id));
+          if (rows[0]) return normalizeMemoryRow(rows[0]);
+          throw new Error(`Agent memory record disappeared after stable-key update: ${matched.id}`);
+        }
+      }
+
+      const id = input.recordId?.trim() || newId();
+      await db.insert(agentMemory).values({
+        id,
+        agentConfigId: resolvedAgentConfigId,
+        chatId: input.chatId,
+        characterId: input.characterId ?? null,
+        memoryType,
+        key: stableKey || id,
+        value: content,
+        title: input.title?.trim() || null,
+        content,
+        metadata,
+        embedding,
+        contentHash,
+        enabled: String(input.enabled ?? true),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      const rows = await db.select().from(agentMemory).where(eq(agentMemory.id, id));
+      return normalizeMemoryRow(rows[0]!);
+    },
+
+    async listAgentMemory(filters: AgentMemoryFilters = {}, limit = 50): Promise<AgentMemoryRecord[]> {
+      return listAgentMemoryRecords(filters, limit);
+    },
+
+    async getAgentMemoryRecord(id: string): Promise<AgentMemoryRecord | null> {
+      const rows = await db.select().from(agentMemory).where(eq(agentMemory.id, id));
+      return rows[0] ? normalizeMemoryRow(rows[0]) : null;
+    },
+
+    async softDeleteAgentMemory(id: string): Promise<AgentMemoryRecord | null> {
+      const timestamp = now();
+      await db
+        .update(agentMemory)
+        .set({ enabled: "false", deletedAt: timestamp, updatedAt: timestamp })
+        .where(eq(agentMemory.id, id));
+      return this.getAgentMemoryRecord(id);
+    },
+
+    async searchAgentMemoryCandidates(filters: AgentMemoryFilters = {}, limit = 100): Promise<AgentMemoryRecord[]> {
+      return listAgentMemoryRecords(filters, limit);
     },
 
     /** Delete echo chamber message runs for a specific chat. */

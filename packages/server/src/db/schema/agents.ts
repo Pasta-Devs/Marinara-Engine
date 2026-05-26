@@ -42,7 +42,17 @@ export const agentMemory = sqliteTable("agent_memory", {
     .notNull()
     .references(() => agentConfigs.id),
   chatId: text("chat_id").notNull(),
+  characterId: text("character_id"),
+  memoryType: text("memory_type").notNull().default("legacy_kv"),
   key: text("key").notNull(),
   value: text("value").notNull().default(""),
+  title: text("title"),
+  content: text("content").notNull().default(""),
+  metadata: text("metadata").notNull().default("{}"),
+  embedding: text("embedding"),
+  contentHash: text("content_hash"),
+  enabled: text("enabled").notNull().default("true"),
+  createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull(),
+  deletedAt: text("deleted_at"),
 });
