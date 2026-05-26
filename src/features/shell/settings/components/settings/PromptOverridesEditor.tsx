@@ -123,6 +123,7 @@ function PromptOverridesEditorBody() {
   const resetOverride = useResetPromptOverride();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectedKeyRef = useRef<string | null>(null);
+  const lastHydratedKeyRef = useRef<string | null>(null);
   const [draft, setDraft] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -162,9 +163,11 @@ function PromptOverridesEditorBody() {
 
   useEffect(() => {
     if (!selectedKey || !defaultQuery.data || detailQuery.isLoading) return;
+    if (lastHydratedKeyRef.current === selectedKey) return;
     setDraft(sourceTemplate);
     setEnabled(sourceEnabled);
     setLastError(null);
+    lastHydratedKeyRef.current = selectedKey;
   }, [defaultQuery.data, detailQuery.isLoading, selectedKey, sourceEnabled, sourceTemplate]);
 
   const handleSelectPrompt = async (nextKey: string) => {

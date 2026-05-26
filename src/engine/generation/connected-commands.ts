@@ -160,6 +160,14 @@ function selfieTagsBlock(positive: string): string {
   return positive ? `\n\nAlways include these tags or modifiers: ${positive}` : "";
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function promptContainsTag(prompt: string, tag: string): boolean {
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escapeRegExp(tag)}(?=$|[^\\p{L}\\p{N}_])`, "iu").test(prompt);
+}
+
 function appendMissingPositiveTags(prompt: string, positive: string): string {
   const basePrompt = prompt.trim();
   const tags = positive
@@ -168,8 +176,7 @@ function appendMissingPositiveTags(prompt: string, positive: string): string {
     .filter(Boolean);
   if (!basePrompt || tags.length === 0) return basePrompt;
 
-  const promptLower = basePrompt.toLowerCase();
-  const missing = tags.filter((tag) => !promptLower.includes(tag.toLowerCase()));
+  const missing = tags.filter((tag) => !promptContainsTag(basePrompt, tag));
   return missing.length > 0 ? `${basePrompt}, ${missing.join(", ")}` : basePrompt;
 }
 

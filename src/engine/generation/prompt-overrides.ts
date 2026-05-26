@@ -201,7 +201,13 @@ export async function resolveConversationSelfieSystemPrompt(input: {
   const chatPromptTemplate = input.chatPromptTemplate?.trim() ?? "";
 
   if (chatPromptTemplate) {
-    return renderPromptOverrideTemplate(chatPromptTemplate, context, declared);
+    const validation = validatePromptOverrideTemplate(chatPromptTemplate, declared);
+    if (validation.valid) {
+      return renderPromptOverrideTemplate(chatPromptTemplate, context, declared);
+    }
+    console.warn(
+      `[prompt-overrides] Falling back from chat-scoped ${CONVERSATION_SELFIE_PROMPT_OVERRIDE.key}; unknown variables: ${validation.unknownVariables.join(", ")}`,
+    );
   }
 
   return loadRegisteredPrompt(input.storage, CONVERSATION_SELFIE_PROMPT_OVERRIDE, context);

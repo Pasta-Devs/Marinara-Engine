@@ -11,6 +11,7 @@ use super::{finish_profile_import_assets, insert_profile_import_aliases};
 use crate::state::AppState;
 use marinara_core::AppResult;
 use serde_json::{json, Map, Value};
+use std::collections::HashSet;
 use std::path::Path;
 
 const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
@@ -187,6 +188,7 @@ fn normalize_legacy_app_settings(rows: &mut [Value]) {
 
 fn normalize_legacy_prompt_overrides(rows: &mut Vec<Value>) -> usize {
     let mut normalized = Vec::with_capacity(rows.len());
+    let mut seen_keys = HashSet::new();
     let mut unsupported = 0usize;
     for mut row in rows.drain(..) {
         let Some(object) = row.as_object_mut() else {
@@ -199,6 +201,11 @@ fn normalize_legacy_prompt_overrides(rows: &mut Vec<Value>) -> usize {
         if !SUPPORTED_LEGACY_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
             unsupported += 1;
             log::trace!("skipping unsupported legacy prompt override key={key}");
+            continue;
+        }
+        if !seen_keys.insert(key.clone()) {
+            unsupported += 1;
+            log::trace!("skipping duplicate legacy prompt override key={key}");
             continue;
         }
         object.insert("id".to_string(), Value::String(key.clone()));
@@ -526,6 +533,11 @@ mod tests {
                     "enabled": "true"
                 },
                 {
+                    "key": "conversation.selfie",
+                    "template": "Duplicate ${charName}",
+                    "enabled": "true"
+                },
+                {
                     "key": "game.background",
                     "template": "Background ${location}",
                     "enabled": "true"
@@ -543,13 +555,14 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["id"], "conversation.selfie");
         assert_eq!(rows[0]["key"], "conversation.selfie");
+        assert_eq!(rows[0]["template"], "Selfie ${charName}");
         assert_eq!(rows[0]["enabled"], true);
         assert!(state
             .storage
             .get("prompt-overrides", "game.background")
             .expect("unsupported prompt override lookup should not fail")
             .is_none());
-        assert_eq!(result["imported"]["unsupportedPromptOverrides"], 1);
+        assert_eq!(result["imported"]["unsupportedPromptOverrides"], 2);
     }
 
     #[test]

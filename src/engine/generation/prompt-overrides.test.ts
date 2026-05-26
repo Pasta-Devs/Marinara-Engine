@@ -50,6 +50,23 @@ describe("conversation selfie prompt overrides", () => {
     expect(systemPrompt).toBe("CHAT SELFIE OVERRIDE for Lyra: short blue hair");
   });
 
+  it("falls back to the global override when the chat-scoped template has unknown variables", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const systemPrompt = await resolveConversationSelfieSystemPrompt({
+        storage: storageWithOverride("GLOBAL ${charName}: ${appearance}"),
+        chatPromptTemplate: "BAD CHAT OVERRIDE ${missing} ${charName}",
+        appearance: "short blue hair",
+        charName: "Lyra",
+      });
+
+      expect(systemPrompt).toBe("GLOBAL Lyra: short blue hair");
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("unknown variables: missing"));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("falls back to the registered default when the global override is disabled", async () => {
     const systemPrompt = await resolveConversationSelfieSystemPrompt({
       storage: storageWithOverride("GLOBAL ${charName}", false),
@@ -168,6 +185,54 @@ describe("conversation selfie prompt overrides", () => {
         metadata: {
           imageGenConnectionId: "image-conn",
           selfiePositivePrompt: "cinematic lighting, sharp focus",
+        },
+      },
+      "[selfie]",
+      { image: { generate } } as Partial<IntegrationGateway> as IntegrationGateway,
+      { complete } as Partial<LlmGateway> as LlmGateway,
+      "llm-conn",
+    );
+
+    expect(result.executedCommands).toEqual(["selfie"]);
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
+  it("appends required selfie tags that only appear as substrings in the LLM prompt", async () => {
+    const storage = {
+      get: vi.fn(async (entity: string, id: string) => {
+        if (entity === "characters" && id === "char-1") {
+          return {
+            id,
+            name: "Mira",
+            data: { appearance: "silver hair, violet eyes" },
+          };
+        }
+        if (entity === "prompt-overrides" && id === "conversation.selfie") {
+          return {
+            id,
+            key: id,
+            template: "Custom selfie system for ${charName}.${selfieTagsBlock}",
+            enabled: true,
+          };
+        }
+        return null;
+      }),
+      create: vi.fn(async (_entity: string, value: Record<string, unknown>) => ({ id: "gallery-1", ...value })),
+    } as Partial<StorageGateway> as StorageGateway;
+    const complete = vi.fn(async () => "selfie portrait, cinematic lighting");
+    const generate = vi.fn(async (request: Record<string, unknown>) => {
+      expect(request.prompt).toBe("selfie portrait, cinematic lighting, art");
+      return { base64: "abc", mimeType: "image/png" };
+    });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      {
+        id: "chat-1",
+        characterIds: ["char-1"],
+        metadata: {
+          imageGenConnectionId: "image-conn",
+          selfiePositivePrompt: "art",
         },
       },
       "[selfie]",
