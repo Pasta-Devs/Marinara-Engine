@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // Chat Gallery — Image grid for per-chat generated images
 // ──────────────────────────────────────────────
-import { useState, useRef } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { ImagePlus, Paintbrush, Trash2, X, ZoomIn, Download, Sparkles, Pin, Minimize2 } from "lucide-react";
 import {
   useGalleryImages,
@@ -9,6 +10,7 @@ import {
   useDeleteGalleryImage,
 } from "../../../../catalog/gallery/index";
 import { useGalleryStore } from "../../../../../shared/stores/gallery.store";
+import { ImageUploadDropzone } from "../../../../../shared/components/ui/ImageUploadDropzone";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import type { ChatImage } from "../../../../../shared/types/gallery";
 
@@ -30,23 +32,23 @@ export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
   const { data: images, isLoading } = useGalleryImages(chatId);
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightbox, setLightbox] = useState<ChatImage | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const pinImage = useGalleryStore((s) => s.pinImage);
   const lightboxPrompt = lightbox?.prompt?.trim() ?? "";
   const lightboxMeta = lightbox ? formatImageMeta(lightbox) : "";
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.currentTarget;
-    const files = Array.from(input.files ?? []);
-    if (files.length === 0) return;
-    upload.mutate(files, {
-      onSettled: () => {
-        input.value = "";
-      },
-    });
-  };
+  const handleUpload = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
+      upload.mutate(files, {
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : "Failed to upload chat gallery images.");
+        },
+      });
+    },
+    [upload],
+  );
 
   const handleDelete = (id: string) => {
     remove.mutate(id);
@@ -67,16 +69,14 @@ export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
         </button>
       )}
 
-      {/* Upload button */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={upload.isPending}
-        className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-6 text-xs text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)] hover:text-[var(--primary)]"
-      >
-        <ImagePlus size="1rem" />
-        {upload.isPending ? "Uploading…" : "Upload Images"}
-      </button>
-      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
+      <ImageUploadDropzone
+        label="Upload Images"
+        pending={upload.isPending}
+        pendingLabel="Uploading…"
+        dragLabel="Drop images to upload"
+        onFilesSelected={handleUpload}
+        icon={<ImagePlus size="1rem" />}
+      />
 
       {/* Loading state */}
       {isLoading && <p className="text-center text-xs text-[var(--muted-foreground)]">Loading gallery…</p>}
