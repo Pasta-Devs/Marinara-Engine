@@ -14,6 +14,8 @@ mod marinara;
 mod normalization;
 #[path = "payloads.rs"]
 mod payloads;
+#[path = "rollback.rs"]
+mod rollback;
 #[path = "st_preset.rs"]
 mod st_preset;
 #[path = "timestamps.rs"]
@@ -22,6 +24,7 @@ use access::*;
 use marinara::*;
 use normalization::*;
 use payloads::*;
+use rollback::*;
 use st_preset::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -35,25 +38,46 @@ fn create_lorebook_from_payload(
 ) -> AppResult<Value> {
     let (mut lorebook, entries) = normalize_lorebook(payload, fallback_name, character_id);
     apply_timestamp_overrides(&mut lorebook, &Value::Null, payload);
-    let record = state.storage.create("lorebooks", lorebook)?;
-    let lorebook_id = record
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    for (index, entry) in entries.iter().enumerate() {
-        state.storage.create(
+    let mut created_lorebook_id = None;
+    let mut created_entry_ids = Vec::new();
+    let result = (|| -> AppResult<Value> {
+        let record = state.storage.create("lorebooks", lorebook)?;
+        let lorebook_id = created_record_id(&record, "lorebook")?;
+        created_lorebook_id = Some(lorebook_id.clone());
+        for (index, entry) in entries.iter().enumerate() {
+            let entry = state.storage.create(
+                "lorebook-entries",
+                normalize_lorebook_entry(&lorebook_id, entry, index),
+            )?;
+            created_entry_ids.push(created_record_id(&entry, "lorebook entry")?);
+        }
+        Ok(json!({
+            "success": true,
+            "lorebookId": lorebook_id,
+            "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "entriesImported": entries.len(),
+            "lorebook": record
+        }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_created_records(
+            state,
             "lorebook-entries",
-            normalize_lorebook_entry(&lorebook_id, entry, index),
-        )?;
-    }
-    Ok(json!({
-        "success": true,
-        "lorebookId": lorebook_id,
-        "name": record.get("name").cloned().unwrap_or(Value::Null),
-        "entriesImported": entries.len(),
-        "lorebook": record
-    }))
+            &created_entry_ids,
+            &mut rollback_errors,
+        );
+        if let Some(lorebook_id) = created_lorebook_id.as_deref() {
+            rollback_created_records(
+                state,
+                "lorebooks",
+                &[lorebook_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        append_rollback_errors(error, "lorebook import", rollback_errors)
+    })
 }
 
 fn patch_imported_character_lorebook_pointer(
@@ -131,67 +155,96 @@ fn import_st_character_payload(
     if let Some(avatar) =
         imported_avatar_reference(state, &payload, filename.as_deref(), trusted_avatar_source)?
     {
+        let avatar_absolute_path = avatar.absolute_path.clone();
         let object = record
             .as_object_mut()
             .expect("character import record should be an object");
         object.insert("avatarPath".to_string(), Value::String(avatar.asset_url));
         object.insert(
             "avatarFilePath".to_string(),
-            Value::String(avatar.absolute_path),
+            Value::String(avatar_absolute_path.clone()),
         );
         object.insert("avatarFilename".to_string(), Value::String(avatar.filename));
     }
     apply_timestamp_overrides(&mut record, body, &payload);
-    let character = state.storage.create("characters", record)?;
 
-    let import_embedded = body
-        .get("importEmbeddedLorebook")
+    let avatar_absolute_path = record
+        .get("avatarFilePath")
         .and_then(Value::as_str)
-        .map(|raw| raw != "false")
-        .unwrap_or_else(|| {
-            body.get("importEmbeddedLorebook")
-                .and_then(Value::as_bool)
-                .unwrap_or(true)
-        });
-    let embedded = embedded_lorebook(&payload);
-    let mut lorebook_result = Value::Null;
-    if import_embedded {
-        if let Some(book) = embedded.as_ref() {
-            let character_id = character.get("id").and_then(Value::as_str);
-            lorebook_result = create_lorebook_from_payload(
-                state,
-                book,
-                &format!("{name}'s Lorebook"),
-                character_id,
-            )?;
-            if let (Some(character_id), Some(lorebook_id)) = (
-                character_id,
-                lorebook_result.get("lorebookId").and_then(Value::as_str),
-            ) {
-                patch_imported_character_lorebook_pointer(
+        .map(ToOwned::to_owned);
+    let mut created_character_id = None;
+    let mut created_lorebook_id = None;
+    let result = (|| -> AppResult<Value> {
+        let character = state.storage.create("characters", record)?;
+        let character_id = created_record_id(&character, "character")?;
+        created_character_id = Some(character_id.clone());
+
+        let import_embedded = body
+            .get("importEmbeddedLorebook")
+            .and_then(Value::as_str)
+            .map(|raw| raw != "false")
+            .unwrap_or_else(|| {
+                body.get("importEmbeddedLorebook")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true)
+            });
+        let embedded = embedded_lorebook(&payload);
+        let mut lorebook_result = Value::Null;
+        if import_embedded {
+            if let Some(book) = embedded.as_ref() {
+                lorebook_result = create_lorebook_from_payload(
                     state,
-                    character_id,
-                    lorebook_id,
-                    lorebook_entry_count(book),
+                    book,
+                    &format!("{name}'s Lorebook"),
+                    Some(&character_id),
                 )?;
+                if let Some(lorebook_id) = lorebook_result.get("lorebookId").and_then(Value::as_str)
+                {
+                    created_lorebook_id = Some(lorebook_id.to_string());
+                    patch_imported_character_lorebook_pointer(
+                        state,
+                        &character_id,
+                        lorebook_id,
+                        lorebook_entry_count(book),
+                    )?;
+                }
             }
         }
-    }
 
-    Ok(json!({
-        "success": true,
-        "characterId": character.get("id").cloned().unwrap_or(Value::Null),
-        "character": character,
-        "name": name,
-        "filename": filename,
-        "embeddedLorebook": {
-            "hasEmbeddedLorebook": embedded.as_ref().map(lorebook_entry_count).unwrap_or(0) > 0,
-            "entries": embedded.as_ref().map(lorebook_entry_count).unwrap_or(0),
-            "imported": lorebook_result.get("lorebookId").is_some(),
-            "skipped": embedded.is_some() && !import_embedded
-        },
-        "lorebook": lorebook_result
-    }))
+        Ok(json!({
+            "success": true,
+            "characterId": character.get("id").cloned().unwrap_or(Value::Null),
+            "character": character,
+            "name": name,
+            "filename": filename,
+            "embeddedLorebook": {
+                "hasEmbeddedLorebook": embedded.as_ref().map(lorebook_entry_count).unwrap_or(0) > 0,
+                "entries": embedded.as_ref().map(lorebook_entry_count).unwrap_or(0),
+                "imported": lorebook_result.get("lorebookId").is_some(),
+                "skipped": embedded.is_some() && !import_embedded
+            },
+            "lorebook": lorebook_result
+        }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        if let Some(lorebook_id) = created_lorebook_id.as_deref() {
+            rollback_lorebook_tree(state, lorebook_id, &mut rollback_errors);
+        }
+        if let Some(character_id) = created_character_id.as_deref() {
+            rollback_created_records(
+                state,
+                "characters",
+                &[character_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        if let Some(path) = avatar_absolute_path.as_deref() {
+            rollback_managed_file_path(state, "avatars/characters", path, &mut rollback_errors);
+        }
+        append_rollback_errors(error, "character import", rollback_errors)
+    })
 }
 
 fn strip_reserved_avatar_source_fields(payload: &mut Value) {
@@ -431,112 +484,5 @@ pub(crate) fn import_stream_channel(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::AppState;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_path(label: &str) -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!(
-            "marinara-st-character-import-{label}-{}-{nonce}",
-            std::process::id()
-        ))
-    }
-
-    #[test]
-    fn import_st_character_ignores_untrusted_avatar_source_fields() {
-        let app_root = temp_path("app");
-        let source_root = temp_path("source");
-        fs::create_dir_all(&source_root).expect("source dir should be created");
-        let source = source_root.join("not-an-avatar.txt");
-        fs::write(&source, b"do not copy me").expect("source fixture should be written");
-        let state = AppState::from_data_dir(&app_root, Vec::new())
-            .expect("test app state should initialize");
-
-        let result = import_st_character(
-            &state,
-            json!({
-                "spec": "chara_card_v2",
-                "data": {
-                    "name": "Reserved Field Probe",
-                    "description": "Should not copy arbitrary files"
-                },
-                "_avatarSourcePath": source.to_string_lossy(),
-                "_avatarFileCopySourcePath": source.to_string_lossy()
-            }),
-        )
-        .expect("reserved avatar source fields should be ignored");
-
-        let character = result
-            .get("character")
-            .and_then(Value::as_object)
-            .expect("import should return a character record");
-        assert!(
-            character
-                .get("avatarFilePath")
-                .and_then(Value::as_str)
-                .is_none(),
-            "external payload fields must not create managed avatar file paths"
-        );
-        assert_eq!(character.get("avatarPath"), Some(&Value::Null));
-        assert!(
-            !app_root.join("avatars").join("characters").exists(),
-            "untrusted local file paths should not be copied into managed avatars"
-        );
-
-        let _ = fs::remove_dir_all(app_root);
-        let _ = fs::remove_dir_all(source_root);
-    }
-
-    #[test]
-    fn import_st_character_uses_trusted_avatar_source_path() {
-        let app_root = temp_path("app");
-        let source_root = temp_path("source");
-        fs::create_dir_all(&source_root).expect("source dir should be created");
-        let source = source_root.join("trusted-avatar.png");
-        fs::write(&source, b"trusted-avatar-bytes").expect("source fixture should be written");
-        let state = AppState::from_data_dir(&app_root, Vec::new())
-            .expect("test app state should initialize");
-
-        let result = import_st_character_payload(
-            &state,
-            json!({
-                "spec": "chara_card_v2",
-                "data": {
-                    "name": "Trusted Source",
-                    "description": "Trusted bulk import source path"
-                }
-            }),
-            Some("trusted-avatar.png".to_string()),
-            &Value::Null,
-            Some(&source),
-        )
-        .expect("trusted avatar source should import");
-
-        let character = result
-            .get("character")
-            .and_then(Value::as_object)
-            .expect("import should return a character record");
-        let avatar_file_path = character
-            .get("avatarFilePath")
-            .and_then(Value::as_str)
-            .expect("trusted source should create a managed avatar file");
-        assert!(
-            avatar_file_path.contains("avatars")
-                && avatar_file_path.contains("characters")
-                && avatar_file_path.ends_with("trusted-avatar.png"),
-            "managed avatar path should stay under the character avatar folder"
-        );
-        assert!(
-            Path::new(avatar_file_path).exists(),
-            "managed avatar file should exist"
-        );
-
-        let _ = fs::remove_dir_all(app_root);
-        let _ = fs::remove_dir_all(source_root);
-    }
-}
+#[path = "service_tests.rs"]
+mod tests;

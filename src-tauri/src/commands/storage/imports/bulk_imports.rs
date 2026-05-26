@@ -531,52 +531,68 @@ fn import_st_chat_text(
         chat.entry("importedCharacterName".to_string())
             .or_insert(Value::String(character_name));
     }
-    let chat_record = state.storage.create("chats", Value::Object(chat))?;
-    let chat_id = chat_record
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let mut imported = 0usize;
-    for row in parsed_rows {
-        if row
-            .get("is_system")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-        {
-            continue;
+    let mut created_chat_id = None;
+    let mut created_message_ids = Vec::new();
+    let result = (|| -> AppResult<Value> {
+        let chat_record = state.storage.create("chats", Value::Object(chat))?;
+        let chat_id = created_record_id(&chat_record, "chat")?;
+        created_chat_id = Some(chat_id.clone());
+        let mut imported = 0usize;
+        for row in parsed_rows {
+            if row
+                .get("is_system")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let content = row
+                .get("mes")
+                .or_else(|| row.get("content"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if content.trim().is_empty() {
+                continue;
+            }
+            let role = if row.get("is_user").and_then(Value::as_bool).unwrap_or(false) {
+                "user"
+            } else {
+                "assistant"
+            };
+            let message = state.storage.create(
+                "messages",
+                json!({
+                    "chatId": chat_id,
+                    "role": role,
+                    "content": content,
+                    "characterId": Value::Null,
+                    "extra": {},
+                    "activeSwipeIndex": 0,
+                    "swipes": [{ "content": content }]
+                }),
+            )?;
+            created_message_ids.push(created_record_id(&message, "message")?);
+            imported += 1;
         }
-        let content = row
-            .get("mes")
-            .or_else(|| row.get("content"))
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        if content.trim().is_empty() {
-            continue;
-        }
-        let role = if row.get("is_user").and_then(Value::as_bool).unwrap_or(false) {
-            "user"
-        } else {
-            "assistant"
-        };
-        state.storage.create(
+        Ok(
+            json!({ "success": true, "chatId": chat_id, "chat": chat_record, "messagesImported": imported }),
+        )
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_created_records(
+            state,
             "messages",
-            json!({
-                "chatId": chat_id,
-                "role": role,
-                "content": content,
-                "characterId": Value::Null,
-                "extra": {},
-                "activeSwipeIndex": 0,
-                "swipes": [{ "content": content }]
-            }),
-        )?;
-        imported += 1;
-    }
-    Ok(
-        json!({ "success": true, "chatId": chat_id, "chat": chat_record, "messagesImported": imported }),
-    )
+            &created_message_ids,
+            &mut rollback_errors,
+        );
+        if let Some(chat_id) = created_chat_id.as_deref() {
+            rollback_created_records(state, "chats", &[chat_id.to_string()], &mut rollback_errors);
+        }
+        append_rollback_errors(error, "chat import", rollback_errors)
+    })
 }
 
 pub(super) fn import_st_chat(state: &AppState, body: Value) -> AppResult<Value> {
@@ -620,7 +636,11 @@ pub(super) fn import_st_chat_into_group(state: &AppState, body: Value) -> AppRes
         .map(|name| name.to_string_lossy().replace('_', " "))
         .filter(|name| !name.trim().is_empty())
         .unwrap_or_else(|| "Imported".to_string());
-    import_st_chat_text(state, &text, branch_name, Some(inherited))
+    import_st_chat_text(state, &text, branch_name, Some(inherited)).map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        restore_record(state, "chats", &target, &mut rollback_errors);
+        append_rollback_errors(error, "chat branch import", rollback_errors)
+    })
 }
 
 fn import_persona_payload(
@@ -674,6 +694,7 @@ fn import_persona_avatar_file(
         path,
     )?;
     let modified = modified_at(path);
+    let avatar_path = stored.absolute_path.clone();
     let payload = json!({
         "name": name,
         "description": description,
@@ -682,7 +703,56 @@ fn import_persona_avatar_file(
         "avatarFilename": stored.filename,
         "importedModifiedAt": modified,
     });
-    import_persona_payload(state, payload, &file_stem(path))
+    import_persona_payload(state, payload, &file_stem(path)).map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_managed_file_path(
+            state,
+            "avatars/personas",
+            &avatar_path,
+            &mut rollback_errors,
+        );
+        append_rollback_errors(error, "persona import", rollback_errors)
+    })
+}
+
+fn restore_record(
+    state: &AppState,
+    collection: &str,
+    original: &Value,
+    rollback_errors: &mut Vec<String>,
+) {
+    let Some(id) = original.get("id").and_then(Value::as_str) else {
+        rollback_errors.push(format!("{collection}: original record is missing an id"));
+        return;
+    };
+    let rows = match state.storage.list(collection) {
+        Ok(rows) => rows,
+        Err(error) => {
+            rollback_errors.push(format!("{collection}/{id}: {error}"));
+            return;
+        }
+    };
+    let mut replaced = false;
+    let restored = rows
+        .into_iter()
+        .map(|row| {
+            if row.get("id").and_then(Value::as_str) == Some(id) {
+                replaced = true;
+                original.clone()
+            } else {
+                row
+            }
+        })
+        .collect::<Vec<_>>();
+    if !replaced {
+        rollback_errors.push(format!(
+            "{collection}/{id}: record was not found for restore"
+        ));
+        return;
+    }
+    if let Err(error) = state.storage.replace_all(collection, restored) {
+        rollback_errors.push(format!("{collection}/{id}: {error}"));
+    }
 }
 
 fn copy_background_file(state: &AppState, path: &Path) -> AppResult<Value> {
@@ -935,6 +1005,7 @@ pub(super) fn run_st_bulk_import_channel(
 mod tests {
     use super::*;
     use crate::state::AppState;
+    use base64::engine::general_purpose;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -965,6 +1036,26 @@ mod tests {
             fs::create_dir_all(parent).expect("fixture parent should be created");
         }
         fs::write(path, bytes).expect("fixture file should be written");
+    }
+
+    fn corrupt_collection(state: &AppState, collection: &str) {
+        let collection_path = state
+            .storage
+            .root()
+            .join("collections")
+            .join(format!("{collection}.json"));
+        if let Some(parent) = collection_path.parent() {
+            fs::create_dir_all(parent).expect("collection parent should be created");
+        }
+        fs::write(collection_path, b"{not-json").expect("collection should be corruptible");
+    }
+
+    fn uploaded_jsonl_file(name: &str, text: &str) -> Value {
+        json!({
+            "name": name,
+            "type": "application/jsonl",
+            "base64": general_purpose::STANDARD.encode(text.as_bytes())
+        })
     }
 
     fn build_sillytavern_fixture(root: &Path) {
@@ -1025,6 +1116,158 @@ mod tests {
             .filter_map(|item| item.get("id").and_then(Value::as_str))
             .map(ToOwned::to_owned)
             .collect()
+    }
+
+    #[test]
+    fn import_st_chat_text_rolls_back_chat_when_message_write_fails() {
+        let app_root = temp_path("chat-rollback");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        corrupt_collection(&state, "messages");
+
+        let error = import_st_chat_text(
+            &state,
+            r#"{"character_name":"Bot","mes":"hello"}"#,
+            "Rollback Chat".to_string(),
+            None,
+        )
+        .expect_err("message storage failure should reject chat import");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(
+            state.storage.list("chats").unwrap().is_empty(),
+            "failed chat import must remove the created chat"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_into_group_restores_target_when_branch_import_fails() {
+        let app_root = temp_path("branch-rollback");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "target-chat",
+                    "name": "Target Chat",
+                    "mode": "conversation",
+                    "metadata": {},
+                    "characterIds": []
+                }),
+            )
+            .expect("target chat should be created");
+        corrupt_collection(&state, "messages");
+
+        let error = import_st_chat_into_group(
+            &state,
+            json!({
+                "chatId": "target-chat",
+                "file": uploaded_jsonl_file(
+                    "branch.jsonl",
+                    r#"{"character_name":"Bot","mes":"hello"}"#
+                )
+            }),
+        )
+        .expect_err("message storage failure should reject branch import");
+
+        assert_eq!(error.code, "invalid_input");
+        let target = state
+            .storage
+            .get("chats", "target-chat")
+            .expect("target chat should be readable")
+            .expect("target chat should remain");
+        assert!(
+            target.get("groupId").is_none(),
+            "failed branch import must restore the target chat without a generated groupId"
+        );
+        assert_eq!(
+            state.storage.list("chats").unwrap().len(),
+            1,
+            "failed branch import must remove the created branch chat"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_into_existing_group_preserves_group_id_when_branch_import_fails() {
+        let app_root = temp_path("branch-existing-group-rollback");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "target-chat",
+                    "name": "Target Chat",
+                    "mode": "conversation",
+                    "groupId": "existing-group",
+                    "metadata": {},
+                    "characterIds": []
+                }),
+            )
+            .expect("target chat should be created");
+        corrupt_collection(&state, "messages");
+
+        let error = import_st_chat_into_group(
+            &state,
+            json!({
+                "chatId": "target-chat",
+                "file": uploaded_jsonl_file(
+                    "branch.jsonl",
+                    r#"{"character_name":"Bot","mes":"hello"}"#
+                )
+            }),
+        )
+        .expect_err("message storage failure should reject branch import");
+
+        assert_eq!(error.code, "invalid_input");
+        let target = state
+            .storage
+            .get("chats", "target-chat")
+            .expect("target chat should be readable")
+            .expect("target chat should remain");
+        assert_eq!(
+            target.get("groupId").and_then(Value::as_str),
+            Some("existing-group"),
+            "failed branch import must preserve the existing group id"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_persona_avatar_file_rolls_back_avatar_when_persona_write_fails() {
+        let app_root = temp_path("persona-avatar-rollback");
+        let source_root = temp_path("persona-source");
+        fs::create_dir_all(&source_root).expect("source dir should be created");
+        let source = source_root.join("persona.png");
+        fs::write(&source, b"persona-avatar-bytes").expect("source fixture should be written");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        corrupt_collection(&state, "personas");
+
+        let error = import_persona_avatar_file(
+            &state,
+            &source,
+            "Persona".to_string(),
+            "description".to_string(),
+        )
+        .expect_err("persona storage failure should reject persona avatar import");
+
+        assert_eq!(error.code, "json_error");
+        assert!(
+            !app_root.join("avatars").join("personas").exists(),
+            "failed persona avatar import must remove the managed avatar file"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+        let _ = fs::remove_dir_all(source_root);
     }
 
     #[test]
