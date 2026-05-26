@@ -1,4 +1,4 @@
-import { fileToUploadPayload } from "./file-payload";
+import { fileToUploadPayload, IMAGE_UPLOAD_SIZE_ERROR, MAX_IMAGE_UPLOAD_BYTES } from "./file-payload";
 import { invokeTauri } from "./tauri-client";
 
 export const fontsApi = {
@@ -11,7 +11,10 @@ export const backgroundsApi = {
   list: <T = unknown>() => invokeTauri<T>("backgrounds_list"),
   tags: <T = unknown>() => invokeTauri<T>("backgrounds_tags"),
   upload: async <T = unknown>(file: File) => {
-    const payload = await fileToUploadPayload(file);
+    const payload = await fileToUploadPayload(file, {
+      maxBytes: MAX_IMAGE_UPLOAD_BYTES,
+      tooLargeMessage: IMAGE_UPLOAD_SIZE_ERROR,
+    });
     return invokeTauri<T>("background_upload", { body: { file: payload } });
   },
   delete: <T = unknown>(filename: string) => invokeTauri<T>("background_delete", { filename }),
