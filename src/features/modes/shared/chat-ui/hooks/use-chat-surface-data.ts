@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from "react";
 import {
   useChat,
-  useChatMessageCount,
+  useChatSummaries,
   useChatMessages,
-  useChats,
   type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
@@ -112,7 +111,7 @@ export function useChatSurfaceData({
 }: UseChatSurfaceDataOptions) {
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const { data: chat, error: chatError } = useChat(activeChatId);
-  const { data: allChats } = useChats();
+  const { data: allChats } = useChatSummaries();
   const {
     data: msgData,
     isLoading,
@@ -121,7 +120,6 @@ export function useChatSurfaceData({
     isFetchingNextPage,
     refetch: refetchMessages,
   } = useChatMessages(activeChatId, messagePageSize, !!chat);
-  const { data: messageCountData } = useChatMessageCount(activeChatId);
   const { data: allCharacters } = useCharacters();
   const { data: allPersonas } = usePersonas();
 
@@ -141,7 +139,7 @@ export function useChatSurfaceData({
     () => (msgData ? [...msgData.pages].reverse().flat() : undefined),
     [msgData],
   );
-  const totalMessageCount = messageCountData?.count ?? messages?.length ?? 0;
+  const totalMessageCount = messages?.length ?? 0;
   const loadedMessageCount = messages?.length ?? 0;
   const messageOffset = messages ? totalMessageCount - messages.length : 0;
   const messageIdByOrderIndex = useMemo(() => {

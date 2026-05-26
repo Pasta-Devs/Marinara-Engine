@@ -11,12 +11,28 @@ pub fn storage_list(
     entity: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
-    let mut rows = match options
+    let filters = options
         .as_ref()
         .and_then(|value| value.get("filters"))
-        .and_then(Value::as_object)
-    {
-        Some(filters) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
+        .and_then(Value::as_object);
+    let mut rows = match (entity.as_str(), filters) {
+        ("messages", Some(filters))
+            if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
+        {
+            filters
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(|chat_id| {
+                    if message_id_projection_only(options.as_ref()) {
+                        state.storage.list_message_ids_for_chat(chat_id)
+                    } else {
+                        state.storage.list_messages_for_chat(chat_id)
+                    }
+                })
+                .transpose()?
+                .unwrap_or_else(Vec::new)
+        }
+        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
         _ => state.storage.list(&entity)?,
     };
 
@@ -55,7 +71,10 @@ pub fn storage_list(
         for row in &mut rows {
             shared::materialize_message_swipe_fields(row);
         }
-        return Ok(Value::Array(rows));
+        return Ok(Value::Array(shared::project_list_rows(
+            rows,
+            options.as_ref(),
+        )));
     }
 
     if let Some(limit) = options
@@ -67,7 +86,27 @@ pub fn storage_list(
         rows.truncate(limit);
     }
 
-    Ok(Value::Array(rows))
+    Ok(Value::Array(shared::project_list_rows(
+        rows,
+        options.as_ref(),
+    )))
+}
+
+fn message_id_projection_only(options: Option<&Value>) -> bool {
+    let Some(options) = options else {
+        return false;
+    };
+    if options.get("limit").is_some()
+        || options.get("before").is_some()
+        || options.get("orderBy").is_some()
+        || options.get("fieldSelections").is_some()
+    {
+        return false;
+    }
+    let Some(fields) = options.get("fields").and_then(Value::as_array) else {
+        return false;
+    };
+    fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
 }
 
 #[tauri::command]
@@ -75,12 +114,13 @@ pub fn storage_get(
     state: State<'_, AppState>,
     entity: String,
     id: String,
+    options: Option<Value>,
 ) -> Result<Value, AppError> {
     let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
-    Ok(value)
+    Ok(shared::project_record(value, options.as_ref()))
 }
 
 #[tauri::command]
@@ -127,7 +167,7 @@ pub fn storage_delete(
     }
     if is_protected_record(&entity, &id) {
         return Err(AppError::invalid_input(
-            "Built-in Professor Mari cannot be deleted",
+            "Protected records cannot be deleted",
         ));
     }
     let existing = owned_record_for_delete(&state, &entity, &id)?;

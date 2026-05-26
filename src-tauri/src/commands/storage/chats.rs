@@ -583,7 +583,7 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
 pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppResult<()> {
     if is_protected_record("chats", chat_id) {
         return Err(AppError::invalid_input(
-            "Built-in Professor Mari cannot be deleted",
+            "Protected records cannot be deleted",
         ));
     }
     let Some(root_chat) = state.storage.get("chats", chat_id)? else {

@@ -45,10 +45,11 @@ export const storageApi: StorageGateway = {
       entity,
       options: options ?? null,
     }),
-  get: (entity: string, id: string) =>
+  get: (entity: string, id: string, options?: Pick<StorageListOptions, "fields" | "fieldSelections">) =>
     invokeTauri("storage_get", {
       entity,
       id,
+      options: options ?? null,
     }),
   create: (entity: string, value: Record<string, unknown>) =>
     invokeTauri("storage_create", {

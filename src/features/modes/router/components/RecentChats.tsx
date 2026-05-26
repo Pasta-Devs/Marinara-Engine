@@ -4,11 +4,10 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import { MessageSquare, BookOpen } from "lucide-react";
-import { useChats } from "../../../catalog/chats/index";
+import { useChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
 import { useCharacters } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import type { Chat } from "../../../../engine/contracts/types/chat";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
   conversation: {
@@ -29,7 +28,7 @@ const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: str
 };
 
 export function RecentChats() {
-  const { data: chats } = useChats();
+  const { data: chats } = useChatSummaries();
   const { data: allCharacters } = useCharacters();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 
@@ -76,7 +75,7 @@ function RecentChatChip({
   charLookup,
   onClick,
 }: {
-  chat: Chat;
+  chat: ChatListItem;
   charLookup: Map<
     string,
     { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }

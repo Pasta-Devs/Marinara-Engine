@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { MAX_IMAGE_UPLOAD_BYTES } from "../../api/file-payload";
 import { cn } from "../../lib/utils";
 
 interface ImageUploadDropzoneProps {
@@ -21,7 +22,7 @@ interface ImageUploadDropzoneProps {
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
 const DEFAULT_MAX_IMAGE_FILES = 50;
-const DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const DEFAULT_MAX_IMAGE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 
 function isFileDrag(event: DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer.types).some((type) => type.toLowerCase() === "files");

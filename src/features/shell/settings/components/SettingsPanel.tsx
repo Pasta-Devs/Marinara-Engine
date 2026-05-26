@@ -123,7 +123,7 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
   {
     id: "characters",
     label: "Characters",
-    description: "Characters and character groups. Professor Mari is always preserved.",
+    description: "Characters and character groups.",
   },
   { id: "personas", label: "Personas", description: "Personas and persona groups." },
   { id: "lorebooks", label: "Lorebooks", description: "Lorebooks and lorebook entries." },
@@ -3468,8 +3468,8 @@ function AdvancedSettings() {
           Danger Zone
         </div>
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-          Permanently clear selected categories of local data. Professor Mari is always preserved, and Marinara resets
-          live caches immediately after a successful expunge so stale data does not linger on screen.
+          Permanently clear selected categories of local data. Marinara resets live caches immediately after a successful
+          expunge so stale data does not linger on screen.
         </p>
         <div className="grid gap-2">
           {EXPUNGE_SCOPE_OPTIONS.map((scope) => {

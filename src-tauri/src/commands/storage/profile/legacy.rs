@@ -13,6 +13,7 @@ use super::{
 use crate::state::AppState;
 use marinara_core::AppResult;
 use serde_json::{json, Map, Value};
+use std::collections::HashMap;
 use std::path::Path;
 
 const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
@@ -270,6 +271,20 @@ fn add_legacy_chat_memories(rows: &mut [Value], tables: &Map<String, Value>) {
     if memory_chunks.is_empty() {
         return;
     }
+    let mut memories_by_chat: HashMap<String, Vec<Value>> = HashMap::new();
+    for chunk in memory_chunks {
+        let Some(chat_id) = chunk
+            .get("chatId")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+        else {
+            continue;
+        };
+        memories_by_chat
+            .entry(chat_id.to_string())
+            .or_default()
+            .push(normalize_legacy_memory_chunk(chunk));
+    }
     for row in rows {
         let Some(object) = row.as_object_mut() else {
             continue;
@@ -277,15 +292,10 @@ fn add_legacy_chat_memories(rows: &mut [Value], tables: &Map<String, Value>) {
         let Some(chat_id) = object.get("id").and_then(Value::as_str) else {
             continue;
         };
-        let memories = memory_chunks
-            .iter()
-            .filter(|chunk| chunk.get("chatId").and_then(Value::as_str) == Some(chat_id))
-            .cloned()
-            .map(normalize_legacy_memory_chunk)
-            .collect::<Vec<_>>();
-        if !memories.is_empty() {
-            object.insert("memories".to_string(), Value::Array(memories));
-        }
+        let Some(memories) = memories_by_chat.remove(chat_id) else {
+            continue;
+        };
+        object.insert("memories".to_string(), Value::Array(memories));
     }
 }
 
@@ -317,6 +327,23 @@ fn add_legacy_message_swipes(rows: &mut [Value], tables: &Map<String, Value>) {
     if swipes.is_empty() {
         return;
     }
+    let mut swipes_by_message: HashMap<String, Vec<Value>> = HashMap::new();
+    for swipe in swipes {
+        let Some(message_id) = swipe
+            .get("messageId")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+        else {
+            continue;
+        };
+        swipes_by_message
+            .entry(message_id.to_string())
+            .or_default()
+            .push(swipe);
+    }
+    for message_swipes in swipes_by_message.values_mut() {
+        message_swipes.sort_by_key(|swipe| swipe.get("index").and_then(Value::as_i64).unwrap_or(0));
+    }
     for row in rows {
         let Some(object) = row.as_object_mut() else {
             continue;
@@ -324,15 +351,9 @@ fn add_legacy_message_swipes(rows: &mut [Value], tables: &Map<String, Value>) {
         let Some(message_id) = object.get("id").and_then(Value::as_str) else {
             continue;
         };
-        let mut message_swipes = swipes
-            .iter()
-            .filter(|swipe| swipe.get("messageId").and_then(Value::as_str) == Some(message_id))
-            .cloned()
-            .collect::<Vec<_>>();
-        if message_swipes.is_empty() {
+        let Some(message_swipes) = swipes_by_message.remove(message_id) else {
             continue;
-        }
-        message_swipes.sort_by_key(|swipe| swipe.get("index").and_then(Value::as_i64).unwrap_or(0));
+        };
         object.insert("swipes".to_string(), Value::Array(message_swipes));
         materialize_message_swipe_fields(row);
     }

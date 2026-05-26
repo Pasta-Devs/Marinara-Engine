@@ -32,7 +32,17 @@ import {
   Play,
 } from "lucide-react";
 import type { Message } from "../../../../../engine/contracts/types/chat";
-import { memo, useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from "react";
+import {
+  memo,
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys } from "../../../../catalog/chats/index";
@@ -63,6 +73,8 @@ import { SwipeJumpControl } from "./SwipeJumpControl";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
+const normalizeEditableQuotes = (value: string) =>
+  value.replace(/["\u201c\u201d\u201e\u201f]/g, '"').replace(/['\u2018\u2019\u201a\u201b]/g, "'");
 
 /** Isolated edit textarea — uncontrolled to avoid React re-renders on every keystroke. */
 const EditTextarea = memo(function EditTextarea({
@@ -98,16 +110,33 @@ const EditTextarea = memo(function EditTextarea({
   }, [autoResize]);
 
   const handleSave = useCallback(() => {
-    if (ref.current) onSave(ref.current.value);
+    if (ref.current) onSave(normalizeEditableQuotes(ref.current.value));
   }, [onSave]);
+
+  const handleInput = useCallback(
+    (event: FormEvent<HTMLTextAreaElement>) => {
+      const el = event.currentTarget;
+      const raw = el.value;
+      const normalized = normalizeEditableQuotes(raw);
+      if (normalized !== raw) {
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const direction = el.selectionDirection;
+        el.value = normalized;
+        el.setSelectionRange(start, end, direction);
+      }
+      autoResize();
+    },
+    [autoResize],
+  );
 
   return (
     <div className="flex flex-col gap-2">
       <textarea
         ref={ref}
-        defaultValue={initialContent.replace(/[\u201C\u201D\u201E\u201F]/g, '"').replace(/[\u2018\u2019]/g, "'")}
+        defaultValue={normalizeEditableQuotes(initialContent)}
         rows={1}
-        onInput={autoResize}
+        onInput={handleInput}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
           if (e.key === "Escape") onCancel();

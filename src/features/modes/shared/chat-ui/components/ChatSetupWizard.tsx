@@ -99,6 +99,7 @@ const ALL_STEPS: WizardStep[] = [
 interface ChatSetupWizardProps {
   chat: Chat;
   onFinish: () => void;
+  onCancel?: () => void;
 }
 
 interface PersonaDisplayInfo {
@@ -280,11 +281,11 @@ function SetupGenerationParametersPanel({
   );
 }
 
-export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
+export function ChatSetupWizard({ chat, onFinish, onCancel }: ChatSetupWizardProps) {
   const chatMode = (chat as unknown as { mode?: string }).mode ?? "roleplay";
 
   if (chatMode === "conversation") {
-    return <ConversationQuickSetup chat={chat} onFinish={onFinish} />;
+    return <ConversationQuickSetup chat={chat} onFinish={onFinish} onCancel={onCancel} />;
   }
 
   // Game mode has its own wizard in GameSurface — skip the roleplay wizard
@@ -299,7 +300,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 // Conversation Quick Setup — Discord-style "New DM" picker
 // ──────────────────────────────────────────────
 
-function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
+function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardProps) {
   const { data: connections } = useConnections();
   const { data: allCharacters } = useCharacters();
   const { data: allPersonas } = usePersonas();
@@ -493,7 +494,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
 
   return (
     <>
-      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onFinish} />
+      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onCancel ?? onFinish} />
 
       <div className="absolute inset-0 z-50 flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
         <motion.div
@@ -509,7 +510,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
               <h3 className="text-sm font-semibold text-[var(--foreground)]">New Conversation</h3>
             </div>
             <button
-              onClick={onFinish}
+              onClick={onCancel ?? onFinish}
               className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
             >
               <X size="0.875rem" />

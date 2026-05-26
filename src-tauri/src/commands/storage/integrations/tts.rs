@@ -774,9 +774,8 @@ mod tests {
 
     async fn serve_pockettts_audio() -> String {
         const WAV_BYTES: &[u8] = &[
-            82, 73, 70, 70, 38, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0,
-            1, 0, 64, 31, 0, 0, 64, 31, 0, 0, 1, 0, 8, 0, 100, 97, 116, 97, 2, 0, 0, 0, 128,
-            128,
+            82, 73, 70, 70, 38, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1,
+            0, 64, 31, 0, 0, 64, 31, 0, 0, 1, 0, 8, 0, 100, 97, 116, 97, 2, 0, 0, 0, 128, 128,
         ];
 
         let listener = TcpListener::bind("127.0.0.1:0")
@@ -869,7 +868,9 @@ mod tests {
             .expect("TTS speak should return provider audio");
 
         assert_eq!(result["contentType"], "audio/wav");
-        assert!(result["audioBase64"].as_str().is_some_and(|audio| !audio.is_empty()));
+        assert!(result["audioBase64"]
+            .as_str()
+            .is_some_and(|audio| !audio.is_empty()));
     }
 
     #[test]

@@ -102,12 +102,82 @@ export interface ConversationSummaryBackfillResult {
   remainingMissingDayCount: number;
 }
 
+const CHAT_SUMMARY_FIELDS = [
+  "id",
+  "name",
+  "mode",
+  "characterIds",
+  "groupId",
+  "personaId",
+  "promptPresetId",
+  "connectionId",
+  "folderId",
+  "sortOrder",
+  "connectedChatId",
+  "createdAt",
+  "updatedAt",
+  "metadata",
+];
+
+const CHAT_SUMMARY_METADATA_FIELDS = [
+  "autonomousUnreadAt",
+  "autonomousUnreadCharacterIds",
+  "autonomousUnreadCount",
+  "branchName",
+  "gameId",
+  "tags",
+];
+
+export type ChatListItem = Pick<
+  Chat,
+  | "id"
+  | "name"
+  | "mode"
+  | "characterIds"
+  | "groupId"
+  | "personaId"
+  | "promptPresetId"
+  | "connectionId"
+  | "folderId"
+  | "sortOrder"
+  | "connectedChatId"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  metadata: Partial<
+    Pick<
+      Chat["metadata"],
+      "autonomousUnreadAt" | "autonomousUnreadCharacterIds" | "autonomousUnreadCount" | "branchName" | "gameId" | "tags"
+    >
+  >;
+};
+
 export function useChats() {
   return useQuery({
     queryKey: chatKeys.list(),
     queryFn: () => storageApi.list<Chat>("chats"),
     staleTime: 10_000,
-    refetchOnMount: "always",
+    refetchOnMount: false,
+    refetchOnReconnect: true,
+    retry: (failureCount, error) => {
+      const status = error instanceof ApiError ? error.status : 0;
+      if (status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
+      return failureCount < 10;
+    },
+    retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 5_000),
+  });
+}
+
+export function useChatSummaries() {
+  return useQuery({
+    queryKey: chatKeys.summaries(),
+    queryFn: () =>
+      storageApi.list<ChatListItem>("chats", {
+        fields: CHAT_SUMMARY_FIELDS,
+        fieldSelections: { metadata: CHAT_SUMMARY_METADATA_FIELDS },
+      }),
+    staleTime: 10_000,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     retry: (failureCount, error) => {
       const status = error instanceof ApiError ? error.status : 0;
@@ -121,7 +191,7 @@ export function useChats() {
 export function useChat(id: string | null) {
   return useQuery({
     queryKey: chatKeys.detail(id ?? ""),
-    queryFn: () => storageApi.get<Chat>("chats", id!).then((chat) => {
+    queryFn: () => storageApi.get<Chat>("chats", id!, { fields: CHAT_SUMMARY_FIELDS }).then((chat) => {
       if (!chat) throw new ApiError("Chat not found", 404);
       return chat;
     }),
@@ -154,6 +224,8 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
       return id ? `${createdAt}|${id}` : createdAt;
     },
     enabled: !!chatId && enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -161,10 +233,11 @@ export function useChatMessageCount(chatId: string | null) {
   return useQuery({
     queryKey: chatKeys.messageCount(chatId ?? ""),
     queryFn: async () => ({
-      count: (await storageApi.list<Message>("messages", { filters: { chatId } })).length,
+      count: (await storageApi.list<Pick<Message, "id">>("messages", { filters: { chatId }, fields: ["id"] })).length,
     }),
     enabled: !!chatId,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 

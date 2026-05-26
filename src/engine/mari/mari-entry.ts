@@ -27,6 +27,7 @@ export type MariPersonaContext = {
 export type MariEntryRequest = {
   userMessage: string;
   messages: MariMessage[];
+  compactedSummary?: string | null;
   connectionId?: string | null;
   persona?: MariPersonaContext | null;
   attachments?: MariAttachment[];
@@ -50,7 +51,7 @@ export type MariActionEntity = (typeof MARI_ACTION_ENTITIES)[number];
 export type MariEntryAction =
   | {
       type: "none";
-      capability: "read_only";
+      capability: "read_only" | "workspace_agent";
       reason: string;
     }
   | {
@@ -69,12 +70,13 @@ export type MariEntryAction =
       rationale?: string;
     };
 
-const MARI_READ_ONLY_REASON = "Professor Mari v1 can inspect the creative library but cannot create or edit records.";
+const MARI_DEFAULT_ACTION_REASON =
+  "Professor Mari can inspect Marinara Engine's codebase, create extension/custom-agent records, and apply exact code edits through approved workspace tools.";
 
-export const MARI_READ_ONLY_ACTION: MariEntryAction = {
+export const MARI_DEFAULT_ACTION: MariEntryAction = {
   type: "none",
-  capability: "read_only",
-  reason: MARI_READ_ONLY_REASON,
+  capability: "workspace_agent",
+  reason: MARI_DEFAULT_ACTION_REASON,
 };
 
 export type MariEntryResponse = {
@@ -96,23 +98,32 @@ export async function runProfessorMariEntry(input: MariEntryRequest, gateway: Ma
     ...input,
     userMessage: input.userMessage.trim(),
     messages: input.messages.slice(),
+    compactedSummary: input.compactedSummary ?? null,
     attachments: input.attachments ?? [],
     connectionId: input.connectionId ?? null,
     persona: input.persona ?? null,
   });
+  const content = typeof response.content === "string" ? response.content : "";
+  if (!content.trim()) {
+    throw new Error("Professor Mari returned an empty response. Try again or select a different tool-capable connection.");
+  }
   return {
     ...response,
+    content,
     action: normalizeMariEntryAction(response.action),
   };
 }
 
 function normalizeMariEntryAction(value: unknown): MariEntryAction {
-  if (!isRecord(value)) return MARI_READ_ONLY_ACTION;
-  if (value.type === "none" && value.capability === "read_only") {
+  if (!isRecord(value)) return MARI_DEFAULT_ACTION;
+  if (
+    value.type === "none" &&
+    (value.capability === "read_only" || value.capability === "workspace_agent")
+  ) {
     return {
       type: "none",
-      capability: "read_only",
-      reason: typeof value.reason === "string" && value.reason.trim() ? value.reason : MARI_READ_ONLY_REASON,
+      capability: value.capability,
+      reason: typeof value.reason === "string" && value.reason.trim() ? value.reason : MARI_DEFAULT_ACTION_REASON,
     };
   }
   if (value.type === "create_record" && isMariActionEntity(value.entity) && isRecord(value.draft)) {
@@ -140,7 +151,7 @@ function normalizeMariEntryAction(value: unknown): MariEntryAction {
       ...(typeof value.rationale === "string" ? { rationale: value.rationale } : {}),
     };
   }
-  return MARI_READ_ONLY_ACTION;
+  return MARI_DEFAULT_ACTION;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

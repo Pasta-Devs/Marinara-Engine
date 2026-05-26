@@ -13,28 +13,35 @@ export function useGalleryImages(chatId: string | null) {
   });
 }
 
+export function chatGalleryUploadFailureError(fileCount: number, failures: unknown[]): Error {
+  if (fileCount === 1 && failures[0] instanceof Error) {
+    return failures[0];
+  }
+
+  const failedCount = failures.length;
+  return new Error(
+    failedCount === 1 ? "One chat gallery image failed to upload." : `${failedCount} chat gallery images failed to upload.`,
+  );
+}
+
 export function useUploadGalleryImage(chatId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (files: File[]) => {
       if (!chatId) return [];
       const uploaded: ChatImage[] = [];
-      let failedCount = 0;
+      const failures: unknown[] = [];
 
       for (const file of files) {
         try {
           uploaded.push(await galleryApi.uploadChat<ChatImage>(chatId, file));
-        } catch {
-          failedCount += 1;
+        } catch (error) {
+          failures.push(error);
         }
       }
 
-      if (failedCount > 0) {
-        throw new Error(
-          failedCount === 1
-            ? "One chat gallery image failed to upload."
-            : `${failedCount} chat gallery images failed to upload.`,
-        );
+      if (failures.length > 0) {
+        throw chatGalleryUploadFailureError(files.length, failures);
       }
 
       return uploaded;

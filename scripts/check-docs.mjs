@@ -153,7 +153,8 @@ if (!sharedApiReadme.includes("Engine code must not import this folder")) {
 }
 
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
-if (packageJson.scripts?.["docs:dev"] !== "vite docs/developer --host 127.0.0.1 --port 4174") {
+const expectedDocsDev = "node scripts/run-vite.mjs docs/developer --host 127.0.0.1 --port 4174";
+if (packageJson.scripts?.["docs:dev"] !== expectedDocsDev) {
   throw new Error("package.json must expose the expected pnpm docs:dev command.");
 }
 if (packageJson.scripts?.docs) {

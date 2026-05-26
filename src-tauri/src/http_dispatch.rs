@@ -1,7 +1,8 @@
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use crate::storage_commands::{
-    avatars, backgrounds, chats, generation, images, imports, llm, lorebook_images, shared, sprites,
+    avatars, backgrounds, chats, generation, images, imports, llm, lorebook_images, profile,
+    shared, sprites,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -67,6 +68,18 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "avatar_generation_command" => avatar_generation_command(state, &args).await,
         "sprite_generate_sheet" => sprite_generate_sheet(state, &args).await,
         "sprite_generate_sheet_preview" => sprite_generate_sheet_preview(state, &args).await,
+        "profile_export" => profile::profile_snapshot(state),
+        "profile_import" => profile::profile_call(
+            state,
+            "POST",
+            &["import"],
+            &shared::ParsedPath::new("/profile/import"),
+            optional_value(&args, "envelope"),
+        ),
+        "profile_import_file" => {
+            let path = required_string(&args, "path")?;
+            profile::import_profile_file_path(state, path)
+        }
         "import_marinara" => import_call(state, &args, &["marinara"], "envelope"),
         "import_marinara_file" => import_call(state, &args, &["marinara-file"], "body"),
         "import_st_character" => import_call(state, &args, &["st-character"], "body"),
@@ -97,11 +110,21 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
 fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     let entity = required_string(args, "entity")?;
     let options = args.get("options").filter(|value| !value.is_null());
-    let mut rows = match options
+    let filters = options
         .and_then(|value| value.get("filters"))
-        .and_then(Value::as_object)
-    {
-        Some(filters) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
+        .and_then(Value::as_object);
+    let mut rows = match (entity, filters) {
+        ("messages", Some(filters))
+            if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
+        {
+            filters
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(|chat_id| state.storage.list_messages_for_chat(chat_id))
+                .transpose()?
+                .unwrap_or_else(Vec::new)
+        }
+        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
         _ => state.storage.list(entity)?,
     };
 
@@ -138,7 +161,7 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
         for row in &mut rows {
             shared::materialize_message_swipe_fields(row);
         }
-        return Ok(Value::Array(rows));
+        return Ok(Value::Array(shared::project_list_rows(rows, options)));
     }
 
     if let Some(limit) = options
@@ -149,7 +172,7 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
         rows.truncate(limit);
     }
 
-    Ok(Value::Array(rows))
+    Ok(Value::Array(shared::project_list_rows(rows, options)))
 }
 
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -159,7 +182,7 @@ fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> 
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
-    Ok(value)
+    Ok(shared::project_record(value, args.get("options")))
 }
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -199,7 +222,7 @@ fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Valu
     }
     if is_protected_record(entity, id) {
         return Err(AppError::invalid_input(
-            "Built-in Professor Mari cannot be deleted",
+            "Protected records cannot be deleted",
         ));
     }
     let existing = media_owned_record(state, entity, id)?;

@@ -77,7 +77,7 @@ import {
   useUpdateChat,
   useUpdateChatMetadata,
   useCreateMessage,
-  useChats,
+  useChatSummaries,
   useConnectChat,
   useDisconnectChat,
   useChatMemories,
@@ -318,7 +318,7 @@ export function ChatSettingsDrawer({
   const { data: agentConfigs } = useAgentConfigs();
   const { data: customTools } = useCustomTools();
   const { data: customToolCapabilities } = useCustomToolCapabilities();
-  const { data: allChats } = useChats();
+  const { data: allChats } = useChatSummaries();
   const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
 
   const chatCharIds: string[] = useMemo(
@@ -3156,7 +3156,7 @@ export function ChatSettingsDrawer({
             >
               {chat.connectedChatId ? (
                 (() => {
-                  const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                  const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                   return (
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                       <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
@@ -3195,7 +3195,7 @@ export function ChatSettingsDrawer({
                   onClose={() => setShowConnectionPicker(false)}
                   placeholder="Search roleplay or game chats…"
                 >
-                  {((allChats ?? []) as Chat[])
+                  {(allChats ?? [])
                     .filter(
                       (c) =>
                         c.id !== chat.id &&
@@ -3233,7 +3233,7 @@ export function ChatSettingsDrawer({
               <div className="space-y-2">
                 {chat.connectedChatId ? (
                   (() => {
-                    const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                    const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                     return (
                       <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                         <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
@@ -3309,7 +3309,7 @@ export function ChatSettingsDrawer({
               help="Linked to a conversation. `<influence>` tags from the conversation steer the next turn here (one-shot, then consumed). `<note>` tags persist on every turn until cleared. Raw conversation messages are not injected — use `<note>` for facts this chat should keep remembering."
             >
               {(() => {
-                const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                 return (
                   <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                     <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
@@ -3359,7 +3359,7 @@ export function ChatSettingsDrawer({
                   onClose={() => setShowConnectionPicker(false)}
                   placeholder="Search conversation chats…"
                 >
-                  {((allChats ?? []) as Chat[])
+                  {(allChats ?? [])
                     .filter(
                       (c) =>
                         c.id !== chat.id &&

@@ -274,6 +274,49 @@ fn is_openrouter_claude_reasoning_model(request: &LlmRequest) -> bool {
         || model.contains("claude-haiku-4")
 }
 
+fn is_gemini_3_model(model: &str) -> bool {
+    let normalized = model.to_ascii_lowercase();
+    normalized.starts_with("gemini-3")
+        || normalized.starts_with("google/gemini-3")
+        || normalized.contains("/gemini-3")
+}
+
+fn is_gemini_25_model(model: &str) -> bool {
+    let normalized = model.to_ascii_lowercase();
+    normalized.starts_with("gemini-2.5")
+        || normalized.starts_with("google/gemini-2.5")
+        || normalized.contains("/gemini-2.5")
+}
+
+fn google_thinking_level(parameters: &Value) -> Option<&'static str> {
+    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+    match effort.as_str() {
+        "low" => Some("low"),
+        "medium" => Some("medium"),
+        "high" | "maximum" | "xhigh" => Some("high"),
+        _ => None,
+    }
+}
+
+fn google_thinking_config(model: &str, parameters: &Value) -> Option<Value> {
+    if is_gemini_3_model(model) {
+        return google_thinking_level(parameters).map(|level| json!({ "thinkingLevel": level }));
+    }
+
+    if is_gemini_25_model(model) {
+        let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+        let budget = match effort.as_str() {
+            "low" => 1024,
+            "medium" => 8192,
+            "high" | "maximum" | "xhigh" => 24576,
+            _ => return None,
+        };
+        return Some(json!({ "thinkingBudget": budget, "includeThoughts": true }));
+    }
+
+    None
+}
+
 fn should_send_top_k(request: &LlmRequest) -> bool {
     !matches!(
         request.connection.provider.as_str(),
@@ -1348,18 +1391,24 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
             json!({ "role": role, "parts": parts })
         })
         .collect();
+    let is_gemini_3 = is_gemini_3_model(&request.connection.model);
     let mut body = json!({
         "contents": contents,
         "generationConfig": {
-            "temperature": temperature(&request.parameters).unwrap_or(0.7),
             "maxOutputTokens": request_max_tokens(&request, 1024),
         }
     });
-    if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
-        body["generationConfig"]["topP"] = json!(top_p);
+    if !is_gemini_3 {
+        body["generationConfig"]["temperature"] = json!(temperature(&request.parameters).unwrap_or(0.7));
+        if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
+            body["generationConfig"]["topP"] = json!(top_p);
+        }
+        if let Some(top_k) = param_i64(&request.parameters, &["topK", "top_k"]).filter(|value| *value > 0) {
+            body["generationConfig"]["topK"] = json!(top_k);
+        }
     }
-    if let Some(top_k) = param_i64(&request.parameters, &["topK", "top_k"]) {
-        body["generationConfig"]["topK"] = json!(top_k);
+    if let Some(thinking_config) = google_thinking_config(&request.connection.model, &request.parameters) {
+        body["generationConfig"]["thinkingConfig"] = thinking_config;
     }
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["generationConfig"]["stopSequences"] = json!(stop);

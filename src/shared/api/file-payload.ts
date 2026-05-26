@@ -5,7 +5,19 @@ export interface UploadFilePayload {
   base64: string;
 }
 
-export async function fileToUploadPayload(file: File): Promise<UploadFilePayload> {
+export const MAX_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
+export const IMAGE_UPLOAD_SIZE_ERROR = "Image uploads must be 20 MB or smaller";
+
+interface FilePayloadOptions {
+  maxBytes?: number;
+  tooLargeMessage?: string;
+}
+
+export async function fileToUploadPayload(file: File, options: FilePayloadOptions = {}): Promise<UploadFilePayload> {
+  if (options.maxBytes !== undefined && file.size > options.maxBytes) {
+    throw new Error(options.tooLargeMessage ?? `Uploads must be ${options.maxBytes} bytes or smaller`);
+  }
+
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = "";

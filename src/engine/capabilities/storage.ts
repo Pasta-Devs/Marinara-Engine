@@ -41,11 +41,17 @@ export interface StorageListOptions {
   descending?: boolean;
   limit?: number;
   before?: string;
+  fields?: string[];
+  fieldSelections?: Record<string, string[]>;
 }
 
 export interface StorageGateway {
   list<T = unknown>(entity: StorageEntity | string, options?: StorageListOptions): Promise<T[]>;
-  get<T = unknown>(entity: StorageEntity | string, id: string): Promise<T | null>;
+  get<T = unknown>(
+    entity: StorageEntity | string,
+    id: string,
+    options?: Pick<StorageListOptions, "fields" | "fieldSelections">,
+  ): Promise<T | null>;
   create<T = unknown>(entity: StorageEntity | string, value: Record<string, unknown>): Promise<T>;
   update<T = unknown>(entity: StorageEntity | string, id: string, patch: Record<string, unknown>): Promise<T>;
   delete(entity: StorageEntity | string, id: string): Promise<{ deleted: boolean }>;

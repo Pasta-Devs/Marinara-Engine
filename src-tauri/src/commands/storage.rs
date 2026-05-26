@@ -51,7 +51,7 @@ mod mari;
 #[path = "storage/media_uploads.rs"]
 mod media_uploads;
 #[path = "storage/profile.rs"]
-mod profile;
+pub(crate) mod profile;
 #[path = "storage/prompts.rs"]
 mod prompts;
 #[path = "storage/shared.rs"]

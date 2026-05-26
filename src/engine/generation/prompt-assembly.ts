@@ -834,8 +834,102 @@ function historyMessages(storedMessages: JsonRecord[], limit: number): ChatMLMes
       role: normalizeRole(message.role),
       content: readString(message.content).trim(),
       contextKind: "history" as const,
+      characterId: readString(message.characterId).trim() || undefined,
+      name: readString(message.name).trim() || undefined,
     }))
     .filter((message) => message.content.length > 0);
+}
+
+function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: number } | null {
+  let start = -1;
+  let end = -1;
+  for (let index = 0; index < messages.length; index += 1) {
+    if (messages[index]!.contextKind !== "history") continue;
+    if (start === -1) start = index;
+    end = index + 1;
+  }
+  return start >= 0 ? { start, end } : null;
+}
+
+function shouldMergeSameRolePromptMessage(
+  previous: ChatMLMessage | undefined,
+  message: ChatMLMessage,
+  effectiveRole: "user" | "assistant",
+): previous is ChatMLMessage {
+  if (!previous || previous.role !== effectiveRole) return false;
+
+  const previousCharacterId = previous.characterId ?? null;
+  const messageCharacterId = message.characterId ?? null;
+  const bothCharacterHistory =
+    previous.contextKind === "history" &&
+    message.contextKind === "history" &&
+    previousCharacterId !== null &&
+    messageCharacterId !== null;
+
+  // Keep distinct group-chat speakers split until individual response scoping
+  // has decided which history turns belong to the active speaker.
+  return !(bothCharacterHistory && previousCharacterId !== messageCharacterId);
+}
+
+function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
+  previous.content += "\n\n" + message.content;
+  if (previous.contextKind !== message.contextKind) {
+    delete previous.contextKind;
+  }
+  if ((previous.characterId ?? null) !== (message.characterId ?? null)) {
+    delete previous.characterId;
+    delete previous.name;
+  }
+  if (message.images?.length) {
+    previous.images = [...(previous.images ?? []), ...message.images];
+  }
+  if (message.providerMetadata) {
+    previous.providerMetadata = message.providerMetadata;
+  }
+}
+
+function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
+  if (messages.length === 0) return messages;
+  const historyEnd = findHistoryBounds(messages)?.end ?? -1;
+  const normalizedMessages =
+    historyEnd > 0
+      ? messages.map((message, index) =>
+          index >= historyEnd && message.role === "system" ? { ...message, role: "user" as const } : message,
+        )
+      : messages;
+
+  const result: ChatMLMessage[] = [];
+  let index = 0;
+  const systemParts: string[] = [];
+  while (index < normalizedMessages.length && normalizedMessages[index]!.role === "system") {
+    systemParts.push(normalizedMessages[index]!.content);
+    index += 1;
+  }
+  if (systemParts.length > 0) {
+    result.push({ role: "system", content: systemParts.join("\n\n"), contextKind: "prompt" });
+  }
+
+  let expectedRole: "user" | "assistant" = "user";
+  for (; index < normalizedMessages.length; index += 1) {
+    const message = normalizedMessages[index]!;
+    const effectiveRole = message.role === "system" ? "user" : message.role;
+    if (effectiveRole === expectedRole) {
+      result.push({ ...message, role: effectiveRole });
+      expectedRole = effectiveRole === "user" ? "assistant" : "user";
+      continue;
+    }
+
+    const previous = result[result.length - 1];
+    if (shouldMergeSameRolePromptMessage(previous, message, effectiveRole)) {
+      mergeIntoPreviousPromptMessage(previous, message);
+      continue;
+    }
+
+    result.push({ ...message, role: expectedRole });
+    expectedRole = expectedRole === "user" ? "assistant" : "user";
+  }
+
+  return result;
 }
 
 function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
@@ -1118,8 +1212,10 @@ export async function assembleGenerationPrompt(
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
     resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
   });
-  messages = mergeAdjacentMessages(messages);
-  if (boolish(input.request.squashSystemMessages, false)) {
+  const strictRoleFormatting =
+    boolish(input.request.strictRoleFormatting, true) && (chatMode === "roleplay" || chatMode === "visual_novel");
+  messages = strictRoleFormatting ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
+  if (!strictRoleFormatting && boolish(input.request.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
   }
 

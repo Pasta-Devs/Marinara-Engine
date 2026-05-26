@@ -92,7 +92,7 @@ export function HelpTooltip({
       <button
         type="button"
         aria-label="Show help"
-        className="inline-flex cursor-help items-center rounded-full text-[var(--muted-foreground)] opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/40"
+        className="inline-flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full text-[var(--muted-foreground)] opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/40 max-md:h-11 max-md:w-11"
         onMouseEnter={() => setShow(true)}
         onPointerDown={(event) => {
           event.preventDefault();

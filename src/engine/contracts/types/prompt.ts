@@ -216,6 +216,8 @@ export interface ChatMLMessage {
   contextKind?: "prompt" | "history" | "injection";
   /** Optional: name of the speaker for multi-character */
   name?: string;
+  /** Optional: originating character id for multi-character history turns. */
+  characterId?: string;
   /** Base64 data URLs for multimodal image inputs */
   images?: string[];
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */

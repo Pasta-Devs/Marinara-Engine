@@ -1,9 +1,12 @@
 use marinara_core::{ensure_object, new_id, now_iso, AppError, AppResult};
 use marinara_security::validate_collection_name;
+use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::Deserializer as _;
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use std::fs;
-use std::io::ErrorKind;
+use std::fmt;
+use std::io::{BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -41,10 +44,11 @@ impl FileStorage {
         collection: &str,
         filters: &Map<String, Value>,
     ) -> AppResult<Vec<Value>> {
-        let rows = self.list(collection)?;
-        Ok(rows
-            .into_iter()
-            .filter(|row| {
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.read_collection_filtered(collection, |row| {
                 let Some(obj) = row.as_object() else {
                     return false;
                 };
@@ -52,7 +56,22 @@ impl FileStorage {
                     .iter()
                     .all(|(key, expected)| obj.get(key) == Some(expected))
             })
-            .collect())
+    }
+
+    pub fn list_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.read_messages_for_chat(chat_id)
+    }
+
+    pub fn list_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
+        let _guard = self
+            .lock
+            .lock()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.read_message_ids_for_chat(chat_id)
     }
 
     pub fn get(&self, collection: &str, id: &str) -> AppResult<Option<Value>> {
@@ -60,10 +79,7 @@ impl FileStorage {
             .lock
             .lock()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
-        Ok(self
-            .read_collection(collection)?
-            .into_iter()
-            .find(|row| row.get("id").and_then(Value::as_str) == Some(id)))
+        self.read_collection_find_by_id(collection, id)
     }
 
     pub fn create(&self, collection: &str, value: Value) -> AppResult<Value> {
@@ -71,8 +87,11 @@ impl FileStorage {
             .lock
             .lock()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
-        let mut rows = self.read_collection(collection)?;
         let mut object = ensure_object(value)?;
+        let had_id = object
+            .get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|id| !id.trim().is_empty());
         let id = object
             .get("id")
             .and_then(Value::as_str)
@@ -88,6 +107,11 @@ impl FileStorage {
             .entry("updatedAt".to_string())
             .or_insert_with(|| Value::String(now));
         let record = Value::Object(object);
+        if collection == "messages" && !had_id {
+            self.append_collection_row(collection, &record)?;
+            return Ok(record);
+        }
+        let mut rows = self.read_collection(collection)?;
         rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(id.as_str()));
         rows.push(record.clone());
         self.write_collection(collection, &rows)?;
@@ -228,6 +252,57 @@ impl FileStorage {
         }
     }
 
+    fn read_collection_filtered<F>(
+        &self,
+        collection: &str,
+        predicate: F,
+    ) -> AppResult<Vec<Value>>
+    where
+        F: FnMut(&Value) -> bool,
+    {
+        let path = self.collection_path(collection)?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        Ok(deserializer.deserialize_seq(FilterRowsVisitor { predicate })?)
+    }
+
+    fn read_collection_find_by_id(&self, collection: &str, id: &str) -> AppResult<Option<Value>> {
+        let path = self.collection_path(collection)?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(None);
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        Ok(deserializer.deserialize_seq(FindRowByIdVisitor { id })?)
+    }
+
+    fn read_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
+        let path = self.collection_path("messages")?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        Ok(deserializer.deserialize_seq(MessageRowsForChatVisitor { chat_id })?)
+    }
+
+    fn read_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
+        let path = self.collection_path("messages")?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        Ok(deserializer.deserialize_seq(MessageIdRowsForChatVisitor { chat_id })?)
+    }
+
     fn write_collection(&self, collection: &str, rows: &[Value]) -> AppResult<()> {
         let path = self.collection_path(collection)?;
         if let Some(parent) = path.parent() {
@@ -235,6 +310,66 @@ impl FileStorage {
         }
         let tmp = path.with_extension("json.tmp");
         fs::write(&tmp, serde_json::to_vec_pretty(rows)?)?;
+        fs::rename(tmp, path)?;
+        Ok(())
+    }
+
+    fn append_collection_row(&self, collection: &str, record: &Value) -> AppResult<()> {
+        let path = self.collection_path(collection)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            self.write_collection(collection, std::slice::from_ref(record))?;
+            return Ok(());
+        }
+
+        let mut file = fs::File::open(&path)?;
+        let mut cursor = file.metadata()?.len();
+        let mut byte = [0_u8; 1];
+        while cursor > 0 {
+            cursor -= 1;
+            file.seek(SeekFrom::Start(cursor))?;
+            file.read_exact(&mut byte)?;
+            if !byte[0].is_ascii_whitespace() {
+                break;
+            }
+        }
+        if byte[0] != b']' {
+            return Err(AppError::invalid_input(format!(
+                "Collection {collection} did not contain a JSON array"
+            )));
+        }
+
+        let mut before_close = cursor;
+        let mut is_empty = false;
+        while before_close > 0 {
+            before_close -= 1;
+            file.seek(SeekFrom::Start(before_close))?;
+            file.read_exact(&mut byte)?;
+            if byte[0].is_ascii_whitespace() {
+                continue;
+            }
+            is_empty = byte[0] == b'[';
+            break;
+        }
+
+        let tmp = path.with_extension("json.tmp");
+        let mut source = fs::File::open(&path)?;
+        let mut output = fs::File::create(&tmp)?;
+        std::io::copy(&mut Read::by_ref(&mut source).take(cursor), &mut output)?;
+        let serialized = serde_json::to_string_pretty(record)?;
+        let indented = serialized
+            .lines()
+            .map(|line| format!("  {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if is_empty {
+            output.write_all(format!("\n{indented}\n]\n").as_bytes())?;
+        } else {
+            output.write_all(format!(",\n{indented}\n]\n").as_bytes())?;
+        }
+        output.sync_all()?;
         fs::rename(tmp, path)?;
         Ok(())
     }
@@ -318,6 +453,293 @@ impl FileStorage {
 
         cleanup_pending_collection_transaction_files(&pending);
         Ok(())
+    }
+}
+
+struct FilterRowsVisitor<F> {
+    predicate: F,
+}
+
+impl<'de, F> Visitor<'de> for FilterRowsVisitor<F>
+where
+    F: FnMut(&Value) -> bool,
+{
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array")
+    }
+
+    fn visit_seq<A>(mut self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element::<Value>()? {
+            if (self.predicate)(&row) {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct FindRowByIdVisitor<'a> {
+    id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for FindRowByIdVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut found = None;
+        while let Some(row) = seq.next_element_seed(FindRowByIdSeed { id: self.id })? {
+            if row.is_some() {
+                found = row;
+                break;
+            }
+        }
+        if found.is_some() {
+            while seq
+                .next_element::<serde::de::IgnoredAny>()?
+                .is_some()
+            {}
+        }
+        Ok(found)
+    }
+}
+
+struct FindRowByIdSeed<'a> {
+    id: &'a str,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for FindRowByIdSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(FindRowByIdRowVisitor { id: self.id })
+    }
+}
+
+struct FindRowByIdRowVisitor<'a> {
+    id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for FindRowByIdRowVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a record object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_id = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if matches_id == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = map.next_value::<Value>()?;
+            if key == "id" {
+                let is_match = value.as_str() == Some(self.id);
+                matches_id = Some(is_match);
+                if !is_match {
+                    object.clear();
+                    continue;
+                }
+            }
+            object.insert(key, value);
+        }
+
+        Ok(matches_id.unwrap_or(false).then_some(Value::Object(object)))
+    }
+}
+
+struct MessageRowsForChatVisitor<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for MessageRowsForChatVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a messages JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(MessageRowForChatSeed {
+            chat_id: self.chat_id,
+        })? {
+            if let Some(row) = row {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct MessageRowForChatSeed<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for MessageRowForChatSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(MessageRowForChatVisitor {
+            chat_id: self.chat_id,
+        })
+    }
+}
+
+struct MessageRowForChatVisitor<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for MessageRowForChatVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a message object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_chat = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if matches_chat == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = map.next_value::<Value>()?;
+            if key == "chatId" {
+                let is_match = value.as_str() == Some(self.chat_id);
+                matches_chat = Some(is_match);
+                if !is_match {
+                    object.clear();
+                    continue;
+                }
+            }
+            object.insert(key, value);
+        }
+
+        Ok(matches_chat
+            .unwrap_or(false)
+            .then_some(Value::Object(object)))
+    }
+}
+
+struct MessageIdRowsForChatVisitor<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for MessageIdRowsForChatVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a messages JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(MessageIdRowForChatSeed {
+            chat_id: self.chat_id,
+        })? {
+            if let Some(row) = row {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct MessageIdRowForChatSeed<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for MessageIdRowForChatSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(MessageIdRowForChatVisitor {
+            chat_id: self.chat_id,
+        })
+    }
+}
+
+struct MessageIdRowForChatVisitor<'a> {
+    chat_id: &'a str,
+}
+
+impl<'de, 'a> Visitor<'de> for MessageIdRowForChatVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a message object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut id = None;
+        let mut matches_chat = None;
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "id" => {
+                    id = Some(map.next_value::<Value>()?);
+                }
+                "chatId" => {
+                    let value = map.next_value::<Value>()?;
+                    matches_chat = Some(value.as_str() == Some(self.chat_id));
+                }
+                _ => {
+                    let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                }
+            }
+        }
+
+        if matches_chat != Some(true) {
+            return Ok(None);
+        }
+
+        let mut object = Map::new();
+        if let Some(id) = id {
+            object.insert("id".to_string(), id);
+        }
+        Ok(Some(Value::Object(object)))
     }
 }
 
@@ -472,6 +894,80 @@ mod tests {
 
         assert_eq!(storage.list("characters").unwrap()[0]["id"], "character-1");
         assert_eq!(storage.list("personas").unwrap()[0]["id"], "persona-1");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_consumes_remaining_rows_after_match() {
+        let root = temp_storage_root("get-consumes-remaining-rows");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![
+                    json!({ "id": "match", "name": "Match" }),
+                    json!({ "id": "after-match", "name": "After Match" }),
+                ],
+            )
+            .unwrap();
+
+        let record = storage
+            .get("characters", "match")
+            .expect("get should not leave unread JSON trailing the first match")
+            .expect("matching row should be returned");
+
+        assert_eq!(record["id"], "match");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_messages_for_chat_returns_only_matching_messages() {
+        let root = temp_storage_root("list-messages-for-chat");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "a-1", "chatId": "chat-a", "content": "first" }),
+                    json!({ "id": "b-1", "chatId": "chat-b", "content": "skip me" }),
+                    json!({ "id": "a-2", "chatId": "chat-a", "content": "second" }),
+                ],
+            )
+            .unwrap();
+
+        let rows = storage.list_messages_for_chat("chat-a").unwrap();
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], "a-1");
+        assert_eq!(rows[1]["id"], "a-2");
+        assert_eq!(rows[1]["content"], "second");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_message_ids_for_chat_projects_ids_without_content() {
+        let root = temp_storage_root("list-message-ids-for-chat");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "a-1", "chatId": "chat-a", "content": "first" }),
+                    json!({ "id": "b-1", "chatId": "chat-b", "content": "skip me" }),
+                    json!({ "id": "a-2", "chatId": "chat-a", "content": "second" }),
+                ],
+            )
+            .unwrap();
+
+        let rows = storage.list_message_ids_for_chat("chat-a").unwrap();
+
+        assert_eq!(rows, vec![json!({ "id": "a-1" }), json!({ "id": "a-2" })]);
 
         fs::remove_dir_all(root).unwrap();
     }
