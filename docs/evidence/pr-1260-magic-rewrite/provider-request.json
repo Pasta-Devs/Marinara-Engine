@@ -1,0 +1,18 @@
+[
+  {
+    "max_tokens": 4000,
+    "messages": [
+      {
+        "content": "You are a rewriting assistant for roleplay, fiction, and worldbuilding content.\nRewrite or generate the requested text according to the user's instructions.\nReturn ONLY the rewritten text -- no explanations, no markdown fences, no preamble.",
+        "role": "system"
+      },
+      {
+        "content": "Instruction:\nMake this sharper and more dramatic, but preserve the core identity.\n\n---\n\nText to rewrite:\nA flat sentinel character waits in a quiet room with plain motives.",
+        "role": "user"
+      }
+    ],
+    "model": "proof-model",
+    "stream": false,
+    "temperature": 0.7
+  }
+]
