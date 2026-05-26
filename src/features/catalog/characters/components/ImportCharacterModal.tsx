@@ -12,6 +12,11 @@ import {
   inspectCharacterFilesForEmbeddedLorebooks,
   type EmbeddedLorebookImportPreview,
 } from "../../../../shared/lib/character-import";
+import {
+  CHARACTER_IMPORT_UNSUPPORTED_FILE_MESSAGE,
+  extractDroppedCharacterImportFiles,
+  isSupportedCharacterImportFilename,
+} from "../lib/import-drop";
 
 interface Props {
   open: boolean;
@@ -34,7 +39,6 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; descripti
 
 export function ImportCharacterModal({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const dragDepthRef = useRef(0);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [results, setResults] = useState<ImportResultRow[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -52,41 +56,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     return head[0] === 0x50 && head[1] === 0x4b;
   };
 
-  const extractDroppedFiles = (event: React.DragEvent<HTMLElement>) => {
-    const items = Array.from(event.dataTransfer.items ?? []);
-    if (items.length > 0) {
-      const files: File[] = [];
-
-      for (const item of items) {
-        if (item.kind !== "file") {
-          return {
-            files: [] as File[],
-            error: "Drop supported character files here. Folders and other items are not supported.",
-          };
-        }
-
-        const file = item.getAsFile();
-        if (!file) {
-          return {
-            files: [] as File[],
-            error: "Folders are not supported here. Drop supported character files instead.",
-          };
-        }
-
-        files.push(file);
-      }
-
-      return files.length > 0
-        ? { files, error: null }
-        : { files: [] as File[], error: "Drop supported character files here." };
-    }
-
-    const files = Array.from(event.dataTransfer.files ?? []);
-    return files.length > 0
-      ? { files, error: null }
-      : { files: [] as File[], error: "Drop supported character files here." };
-  };
-
   const handleFiles = async (files: File[], importEmbeddedLorebook?: boolean) => {
     if (files.length === 0) return;
     setStatus("loading");
@@ -98,6 +67,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       const stCharacterFiles: File[] = [];
       const marinaraPayloads: Array<{ file: File; payload: Record<string, unknown> }> = [];
       const marinaraPackages: File[] = [];
+      const nextResults: ImportResultRow[] = [];
 
       for (const file of files) {
         const lower = file.name.toLowerCase();
@@ -113,8 +83,27 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           continue;
         }
 
+        if (!isSupportedCharacterImportFilename(file.name)) {
+          nextResults.push({
+            filename: file.name,
+            success: false,
+            message: CHARACTER_IMPORT_UNSUPPORTED_FILE_MESSAGE,
+          });
+          continue;
+        }
+
         const text = await file.text();
-        const json = JSON.parse(text) as Record<string, unknown>;
+        let json: Record<string, unknown>;
+        try {
+          json = JSON.parse(text) as Record<string, unknown>;
+        } catch (error) {
+          nextResults.push({
+            filename: file.name,
+            success: false,
+            message: error instanceof Error ? error.message : "Invalid JSON file",
+          });
+          continue;
+        }
         const isMarinaraEnvelope =
           json.version === 1 && typeof json.type === "string" && (json.type as string).startsWith("marinara_");
 
@@ -123,6 +112,13 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         } else {
           stCharacterFiles.push(file);
         }
+      }
+
+      const hasImportableFiles = stCharacterFiles.length > 0 || marinaraPayloads.length > 0 || marinaraPackages.length > 0;
+      if (!hasImportableFiles) {
+        setResults(nextResults);
+        setStatus("done");
+        return;
       }
 
       if (stCharacterFiles.length > 0 && importEmbeddedLorebook === undefined) {
@@ -134,7 +130,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         }
       }
 
-      const nextResults: ImportResultRow[] = [];
       let importedLorebook = false;
       let importedCharacterMissingCacheRecord = false;
 
@@ -280,10 +275,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    dragDepthRef.current = 0;
     setDragOver(false);
 
-    const { files, error } = extractDroppedFiles(e);
+    const { files, error } = extractDroppedCharacterImportFiles(e.dataTransfer);
     if (error) {
       setDropError(error);
       setPendingLorebookChoice(null);
@@ -298,7 +292,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    dragDepthRef.current += 1;
     setDropError(null);
     setDragOver(true);
   };
@@ -313,10 +306,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-    if (dragDepthRef.current === 0) {
-      setDragOver(false);
-    }
+    const nextTarget = e.relatedTarget;
+    if (nextTarget instanceof Node && e.currentTarget.contains(nextTarget)) return;
+    setDragOver(false);
   };
 
   const reset = () => {
@@ -325,7 +317,6 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setPendingLorebookChoice(null);
     setTagImportMode("all");
     setDropError(null);
-    dragDepthRef.current = 0;
     setDragOver(false);
   };
 
