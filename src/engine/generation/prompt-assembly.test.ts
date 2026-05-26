@@ -71,6 +71,56 @@ const request = {
 };
 
 describe("assembleGenerationPrompt strict roles", () => {
+  it("preserves preset chat history roles when history begins with an assistant greeting", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithSections([
+        section({ id: "main", name: "main", role: "system", content: "Main rules.", sortOrder: 0 }),
+        section({
+          id: "history",
+          name: "chat_history",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          sortOrder: 1,
+        }),
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [
+          { role: "assistant", content: "Welcome back.", contextKind: "history" },
+          { role: "user", content: "I missed you.", contextKind: "history" },
+        ],
+        connection: {},
+        request,
+        latestUserInput: "I missed you.",
+      },
+    );
+
+    const history = assembly.messages.filter((message) => message.contextKind === "history");
+    expect(history.map((message) => [message.role, message.content])).toEqual([
+      ["assistant", "Welcome back."],
+      ["user", "I missed you."],
+    ]);
+  });
+
+  it("preserves fallback chat history roles when no preset is active", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: { id: "chat", mode: "roleplay" },
+      storedMessages: [
+        { role: "assistant", content: "Welcome back.", contextKind: "history" },
+        { role: "user", content: "I missed you.", contextKind: "history" },
+      ],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "I missed you.",
+    });
+
+    const history = assembly.messages.filter((message) => message.contextKind === "history");
+    expect(history.map((message) => [message.role, message.content])).toEqual([
+      ["assistant", "Welcome back."],
+      ["user", "I missed you."],
+    ]);
+  });
+
   it("merges post-history system sections into the preceding user-side message", async () => {
     const assembly = await assembleGenerationPrompt(
       storageWithSections([
