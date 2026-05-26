@@ -29,6 +29,11 @@ export function ExpandedTextarea({
   const [magicRewriteMode, setMagicRewriteMode] = useState(false);
   const [magicRewriteResult, setMagicRewriteResult] = useState("");
 
+  const handleClose = useCallback(() => {
+    onChange(local);
+    onClose();
+  }, [local, onChange, onClose]);
+
   useEffect(() => {
     if (!open) {
       setMagicRewriteMode(false);
@@ -40,11 +45,11 @@ export function ExpandedTextarea({
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !magicRewriteMode) onClose();
+      if (e.key === "Escape" && !magicRewriteMode) handleClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose, magicRewriteMode]);
+  }, [open, handleClose, magicRewriteMode]);
 
   // Focus textarea when opened
   useEffect(() => {
@@ -52,11 +57,6 @@ export function ExpandedTextarea({
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
   }, [open, magicRewriteMode]);
-
-  const handleClose = () => {
-    onChange(local);
-    onClose();
-  };
 
   const handleMagicRewriteResultChange = useCallback((next: string) => {
     setMagicRewriteResult(next);
