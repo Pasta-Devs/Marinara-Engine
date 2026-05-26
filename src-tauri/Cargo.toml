@@ -1,6 +1,6 @@
 [package]
 name = "marinara-engine"
-version = "0.1.0"
+version = "1.6.1"
 description = "Marinara Engine"
 authors = ["you"]
 edition = "2021"
