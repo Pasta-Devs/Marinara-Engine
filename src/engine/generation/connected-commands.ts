@@ -12,6 +12,7 @@ import {
   type UpdatePersonaCommand,
 } from "../modes/chat/commands/character-commands";
 import { createRoleplayScene, planRoleplayScene } from "../modes/roleplay/scene/scene-service";
+import { resolveConversationSelfieSystemPrompt } from "./prompt-overrides";
 import { newId, nowIso, parseArray, parseRecord, readString, stringArray, type JsonRecord } from "./runtime-records";
 
 export type ConnectedCommandEvent =
@@ -155,6 +156,30 @@ function imageExtension(mimeType: string): string {
   return "png";
 }
 
+function selfieTagsBlock(positive: string): string {
+  return positive ? `\n\nAlways include these tags or modifiers: ${positive}` : "";
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function promptContainsTag(prompt: string, tag: string): boolean {
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escapeRegExp(tag)}(?=$|[^\\p{L}\\p{N}_])`, "iu").test(prompt);
+}
+
+function appendMissingPositiveTags(prompt: string, positive: string): string {
+  const basePrompt = prompt.trim();
+  const tags = positive
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  if (!basePrompt || tags.length === 0) return basePrompt;
+
+  const missing = tags.filter((tag) => !promptContainsTag(basePrompt, tag));
+  return missing.length > 0 ? `${basePrompt}, ${missing.join(", ")}` : basePrompt;
+}
+
 async function buildSelfiePrompt(args: {
   storage: StorageGateway;
   llm?: LlmGateway;
@@ -175,16 +200,13 @@ async function buildSelfiePrompt(args: {
     readString(metadata.selfiePositivePrompt).trim() ||
     stringArray(metadata.selfieTags).join(", ");
   const template = readString(metadata.selfiePrompt).trim();
-  const systemPrompt =
-    template ||
-    [
-      "You are an image prompt generator. Create one concise, detailed image generation prompt for a selfie photo.",
-      "Include character identity, appearance, clothing, expression, pose, selfie angle, lighting, and setting.",
-      "Infer the visual style from the character. Return only the prompt text.",
-      positive ? `Always include these tags or modifiers: ${positive}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+  const systemPrompt = await resolveConversationSelfieSystemPrompt({
+    storage: args.storage,
+    chatPromptTemplate: template,
+    appearance,
+    charName: characterName,
+    selfieTagsBlock: selfieTagsBlock(positive),
+  });
   const userPrompt = args.commandContext
     ? `Context for the selfie: ${args.commandContext}`
     : `Generate a casual selfie of ${characterName} based on the current conversation context.`;
@@ -196,11 +218,22 @@ async function buildSelfiePrompt(args: {
         connectionId: args.llmConnectionId,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: [`Character: ${characterName}`, appearance ? `Appearance: ${appearance}` : "", userPrompt].filter(Boolean).join("\n") },
+          {
+            role: "user",
+            content: [
+              `Character: ${characterName}`,
+              appearance ? `Appearance: ${appearance}` : "",
+              positive ? `Required image tags: ${positive}` : "",
+              userPrompt,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
         ],
         parameters: { temperature: 0.7, maxTokens: 800 },
       })
     ).trim();
+    if (prompt && positive) prompt = appendMissingPositiveTags(prompt, positive);
   }
   if (!prompt) {
     prompt = [

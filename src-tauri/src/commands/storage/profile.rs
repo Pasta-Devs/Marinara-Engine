@@ -10,6 +10,7 @@ use self::legacy::import_legacy_profile_tables;
 use self::zip_import::import_profile_zip;
 use super::shared::*;
 use super::*;
+use std::collections::HashSet;
 use std::fs::File;
 use std::path::PathBuf;
 
@@ -26,6 +27,7 @@ const PROFILE_COLLECTIONS: &[&str] = &[
     "prompt-groups",
     "prompt-sections",
     "prompt-variables",
+    "prompt-overrides",
     "chat-presets",
     "agents",
     "agent-runs",
@@ -48,6 +50,8 @@ const PROFILE_COLLECTIONS: &[&str] = &[
     "game-state-snapshots",
     "game-checkpoints",
 ];
+
+const SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS: &[&str] = &["conversation.selfie"];
 
 pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
     Ok(json!({
@@ -156,12 +160,16 @@ where
 {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
+    let mut unsupported_prompt_overrides = 0usize;
     for collection in PROFILE_COLLECTIONS {
         let mut rows = collections
             .get(*collection)
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        if *collection == "prompt-overrides" {
+            unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
+        }
         normalize_profile_json_fields(collection, &mut rows)?;
         imported.insert((*collection).to_string(), json!(rows.len()));
         replacements.push((*collection, rows));
@@ -170,6 +178,12 @@ where
         .storage
         .replace_all_many_and_then(replacements, install_assets)?;
     imported.insert("files".to_string(), json!(restored_assets));
+    if unsupported_prompt_overrides > 0 {
+        imported.insert(
+            "unsupportedPromptOverrides".to_string(),
+            json!(unsupported_prompt_overrides),
+        );
+    }
     insert_profile_import_aliases(&mut imported);
     Ok(json!({ "success": true, "imported": imported }))
 }
@@ -198,6 +212,51 @@ fn normalize_profile_json_fields(collection: &str, rows: &mut [Value]) -> AppRes
         }
     }
     Ok(())
+}
+
+pub(super) fn normalize_profile_prompt_overrides(rows: &mut Vec<Value>) -> usize {
+    let mut normalized = Vec::with_capacity(rows.len());
+    let mut seen_keys = HashSet::new();
+    let mut unsupported = 0usize;
+    for mut row in rows.drain(..) {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let key = trimmed_profile_string(object.get("key"))
+            .or_else(|| trimmed_profile_string(object.get("id")));
+        let Some(key) = key else {
+            continue;
+        };
+        if !SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
+            unsupported += 1;
+            log::trace!("skipping unsupported prompt override key={key}");
+            continue;
+        }
+        if trimmed_profile_string(object.get("template")).is_none() {
+            unsupported += 1;
+            log::trace!("skipping empty prompt override key={key}");
+            continue;
+        }
+        if !seen_keys.insert(key.clone()) {
+            unsupported += 1;
+            log::trace!("skipping duplicate prompt override key={key}");
+            continue;
+        }
+        object.insert("id".to_string(), Value::String(key.clone()));
+        object.insert("key".to_string(), Value::String(key));
+        normalize_legacy_text_bool_fields(&mut row, &["enabled"]);
+        normalized.push(row);
+    }
+    *rows = normalized;
+    unsupported
+}
+
+fn trimmed_profile_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 fn finish_profile_import_assets(
@@ -283,6 +342,57 @@ mod tests {
             state.storage.list("characters").unwrap()[0]["id"],
             "old-character"
         );
+    }
+
+    #[test]
+    fn profile_import_collections_normalizes_prompt_overrides() {
+        let state = test_state("prompt-overrides-normalize");
+        let mut collections = Map::new();
+        collections.insert(
+            "prompt-overrides".to_string(),
+            json!([
+                {
+                    "id": "conversation.selfie.blank",
+                    "key": "conversation.selfie",
+                    "template": "   ",
+                    "enabled": "true"
+                },
+                {
+                    "id": "conversation.selfie",
+                    "key": "conversation.selfie",
+                    "template": "Selfie ${charName}",
+                    "enabled": "true"
+                },
+                {
+                    "id": "conversation.selfie",
+                    "key": "conversation.selfie",
+                    "template": "Duplicate ${charName}",
+                    "enabled": "true"
+                },
+                {
+                    "id": "game.background",
+                    "key": "game.background",
+                    "template": "Background ${location}",
+                    "enabled": "true"
+                }
+            ]),
+        );
+
+        let result =
+            import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+                .expect("native profile import should normalize prompt overrides");
+
+        let rows = state
+            .storage
+            .list("prompt-overrides")
+            .expect("prompt overrides should be readable");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "conversation.selfie");
+        assert_eq!(rows[0]["key"], "conversation.selfie");
+        assert_eq!(rows[0]["template"], "Selfie ${charName}");
+        assert_eq!(rows[0]["enabled"], true);
+        assert_eq!(result["imported"]["prompt-overrides"], 1);
+        assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
     }
 
     #[test]

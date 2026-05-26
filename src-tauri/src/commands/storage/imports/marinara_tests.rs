@@ -1,0 +1,244 @@
+use super::*;
+use crate::state::AppState;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn test_state(label: &str) -> AppState {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after epoch")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("marinara-import-{label}-{nonce}"));
+    if path.exists() {
+        std::fs::remove_dir_all(&path).expect("stale temp import dir should be removable");
+    }
+    AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+}
+
+fn record_with_field<'a>(records: &'a [Value], field: &str, value: &str) -> &'a Value {
+    records
+        .iter()
+        .find(|record| record.get(field).and_then(Value::as_str) == Some(value))
+        .expect("expected imported record to exist")
+}
+
+fn test_string<'a>(record: &'a Value, field: &str) -> &'a str {
+    record
+        .get(field)
+        .and_then(Value::as_str)
+        .expect("expected record field to be a string")
+}
+
+#[test]
+fn created_record_id_rejects_missing_or_blank_ids() {
+    let missing = created_record_id(&json!({ "name": "No id" }), "record")
+        .expect_err("missing id should be rejected");
+    assert_eq!(missing.code, "storage_error");
+    assert!(missing.message.contains("Created record is missing an id"));
+
+    let blank = created_record_id(&json!({ "id": "   " }), "record")
+        .expect_err("blank id should be rejected");
+    assert_eq!(blank.code, "storage_error");
+    assert!(blank.message.contains("Created record is missing an id"));
+}
+
+#[test]
+fn generic_marinara_import_directs_profile_exports_to_profile_import() {
+    let state = test_state("profile-envelope");
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_profile",
+            "version": 1,
+            "data": { "collections": {} }
+        }),
+    )
+    .expect_err("profile export should not go through generic Marinara import");
+
+    assert_eq!(error.code, "invalid_input");
+    assert!(error.message.contains("Import Profile"));
+    assert!(!error.message.contains("Unknown Marinara import type"));
+}
+
+#[test]
+fn parented_record_import_rolls_back_created_records_on_failure() {
+    let state = test_state("parented-rollback");
+    let owner_id = "preset-rollback";
+    let error = import_parented_records(
+        &state,
+        vec![
+            json!({ "id": "old-root", "name": "Root", "presetId": "old-preset" }),
+            json!("not an object"),
+        ],
+        "prompt-groups",
+        "presetId",
+        owner_id,
+        "parentGroupId",
+        "prompt group",
+    )
+    .expect_err("invalid imported record should fail the batch");
+
+    assert_eq!(error.code, "invalid_input");
+    let remaining = state
+        .storage
+        .list("prompt-groups")
+        .expect("prompt groups should be readable")
+        .into_iter()
+        .filter(|group| group.get("presetId").and_then(Value::as_str) == Some(owner_id))
+        .collect::<Vec<_>>();
+    assert!(remaining.is_empty());
+}
+
+#[test]
+fn marinara_lorebook_import_remaps_nested_folders_and_entry_folders() {
+    let state = test_state("lorebook-folders");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_lorebook",
+            "version": 1,
+            "data": {
+                "lorebook": { "id": "old-book", "name": "Foldered Lorebook" },
+                "folders": [
+                    { "id": "old-root", "name": "Root", "lorebookId": "old-book" },
+                    { "id": "old-child", "name": "Child", "parentFolderId": "old-root", "lorebookId": "old-book" }
+                ],
+                "entries": [
+                    { "id": "old-entry", "name": "Entry", "content": "body", "keys": ["key"], "folderId": "old-child" },
+                    { "id": "old-orphan", "name": "Orphan Entry", "content": "body", "keys": ["missing"], "folderId": "missing-folder" }
+                ]
+            }
+        }),
+    )
+    .expect("lorebook import should succeed");
+    let lorebook_id = test_string(&imported, "lorebookId");
+
+    let folders = state
+        .storage
+        .list("lorebook-folders")
+        .expect("folders should be readable")
+        .into_iter()
+        .filter(|folder| folder.get("lorebookId").and_then(Value::as_str) == Some(lorebook_id))
+        .collect::<Vec<_>>();
+    assert_eq!(folders.len(), 2);
+    let root = record_with_field(&folders, "name", "Root");
+    let child = record_with_field(&folders, "name", "Child");
+    let root_id = test_string(root, "id");
+    let child_id = test_string(child, "id");
+    assert_eq!(
+        root.get("lorebookId").and_then(Value::as_str),
+        Some(lorebook_id)
+    );
+    assert_eq!(
+        child.get("lorebookId").and_then(Value::as_str),
+        Some(lorebook_id)
+    );
+    assert_eq!(
+        child.get("parentFolderId").and_then(Value::as_str),
+        Some(root_id)
+    );
+    assert_ne!(
+        child.get("parentFolderId").and_then(Value::as_str),
+        Some("old-root")
+    );
+
+    let entries = state
+        .storage
+        .list("lorebook-entries")
+        .expect("entries should be readable")
+        .into_iter()
+        .filter(|entry| entry.get("lorebookId").and_then(Value::as_str) == Some(lorebook_id))
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), 2);
+    let entry = record_with_field(&entries, "name", "Entry");
+    let orphan = record_with_field(&entries, "name", "Orphan Entry");
+    assert_eq!(
+        entry.get("folderId").and_then(Value::as_str),
+        Some(child_id)
+    );
+    assert_ne!(
+        entry.get("folderId").and_then(Value::as_str),
+        Some("old-child")
+    );
+    assert_eq!(orphan.get("folderId"), Some(&Value::Null));
+}
+
+#[test]
+fn marinara_preset_import_remaps_nested_groups_and_section_groups() {
+    let state = test_state("preset-groups");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_preset",
+            "version": 1,
+            "data": {
+                "preset": { "id": "old-preset", "name": "Grouped Preset" },
+                "groups": [
+                    { "id": "old-root", "name": "Root", "presetId": "old-preset" },
+                    { "id": "old-child", "name": "Child", "parentGroupId": "old-root", "presetId": "old-preset" }
+                ],
+                "sections": [
+                    { "id": "old-section", "name": "Section", "content": "hello", "groupId": "old-child", "presetId": "old-preset" },
+                    { "id": "old-orphan", "name": "Orphan Section", "content": "hello", "groupId": "missing-group", "presetId": "old-preset" },
+                    { "id": "old-malformed", "name": "Malformed Section", "content": "hello", "groupId": { "bad": true }, "presetId": "old-preset" }
+                ]
+            }
+        }),
+    )
+    .expect("preset import should succeed");
+    let preset_id = test_string(&imported, "id");
+
+    let groups = state
+        .storage
+        .list("prompt-groups")
+        .expect("groups should be readable")
+        .into_iter()
+        .filter(|group| group.get("presetId").and_then(Value::as_str) == Some(preset_id))
+        .collect::<Vec<_>>();
+    assert_eq!(groups.len(), 2);
+    let root = record_with_field(&groups, "name", "Root");
+    let child = record_with_field(&groups, "name", "Child");
+    let root_id = test_string(root, "id");
+    let child_id = test_string(child, "id");
+    assert_eq!(
+        root.get("presetId").and_then(Value::as_str),
+        Some(preset_id)
+    );
+    assert_eq!(
+        child.get("presetId").and_then(Value::as_str),
+        Some(preset_id)
+    );
+    assert_eq!(
+        child.get("parentGroupId").and_then(Value::as_str),
+        Some(root_id)
+    );
+    assert_ne!(
+        child.get("parentGroupId").and_then(Value::as_str),
+        Some("old-root")
+    );
+
+    let sections = state
+        .storage
+        .list("prompt-sections")
+        .expect("sections should be readable")
+        .into_iter()
+        .filter(|section| section.get("presetId").and_then(Value::as_str) == Some(preset_id))
+        .collect::<Vec<_>>();
+    assert_eq!(sections.len(), 3);
+    let section = record_with_field(&sections, "name", "Section");
+    let orphan = record_with_field(&sections, "name", "Orphan Section");
+    let malformed = record_with_field(&sections, "name", "Malformed Section");
+    assert_eq!(
+        section.get("presetId").and_then(Value::as_str),
+        Some(preset_id)
+    );
+    assert_eq!(
+        section.get("groupId").and_then(Value::as_str),
+        Some(child_id)
+    );
+    assert_ne!(
+        section.get("groupId").and_then(Value::as_str),
+        Some("old-child")
+    );
+    assert_eq!(orphan.get("groupId"), Some(&Value::Null));
+    assert_eq!(malformed.get("groupId"), Some(&Value::Null));
+}

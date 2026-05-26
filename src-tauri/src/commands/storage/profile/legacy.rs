@@ -7,7 +7,9 @@ use super::super::{
     },
 };
 use super::assets::{normalize_legacy_profile_asset_paths, restore_legacy_profile_json_assets};
-use super::{finish_profile_import_assets, insert_profile_import_aliases};
+use super::{
+    finish_profile_import_assets, insert_profile_import_aliases, normalize_profile_prompt_overrides,
+};
 use crate::state::AppState;
 use marinara_core::AppResult;
 use serde_json::{json, Map, Value};
@@ -26,6 +28,7 @@ const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
     ("prompt_groups", "prompt-groups"),
     ("prompt_sections", "prompt-sections"),
     ("choice_blocks", "prompt-variables"),
+    ("prompt_overrides", "prompt-overrides"),
     ("chat_presets", "chat-presets"),
     ("agent_configs", "agents"),
     ("agent_runs", "agent-runs"),
@@ -91,11 +94,15 @@ where
 {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
+    let mut unsupported_prompt_overrides = 0usize;
     for (table, collection) in LEGACY_PROFILE_TABLES {
         let mut rows = table_rows(tables, table);
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
+            "prompt-overrides" => {
+                unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)
+            }
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
             "chats" => add_legacy_chat_memories(&mut rows, tables),
             "messages" => add_legacy_message_swipes(&mut rows, tables),
@@ -113,6 +120,12 @@ where
         .storage
         .replace_all_many_and_then(replacements, install_assets)?;
     imported.insert("files".to_string(), json!(restored_assets));
+    if unsupported_prompt_overrides > 0 {
+        imported.insert(
+            "unsupportedPromptOverrides".to_string(),
+            json!(unsupported_prompt_overrides),
+        );
+    }
     insert_profile_import_aliases(&mut imported);
     Ok(json!({ "success": true, "imported": imported }))
 }
@@ -472,6 +485,52 @@ mod tests {
             .get("app-settings", "ui")
             .expect("ui settings lookup should not fail")
             .is_none());
+    }
+
+    #[test]
+    fn legacy_prompt_overrides_import_only_supported_registered_keys() {
+        let state = test_state("prompt-overrides-supported");
+        let mut tables = Map::new();
+        tables.insert(
+            "prompt_overrides".to_string(),
+            json!([
+                {
+                    "key": "conversation.selfie",
+                    "template": "Selfie ${charName}",
+                    "enabled": "true"
+                },
+                {
+                    "key": "conversation.selfie",
+                    "template": "Duplicate ${charName}",
+                    "enabled": "true"
+                },
+                {
+                    "key": "game.background",
+                    "template": "Background ${location}",
+                    "enabled": "true"
+                }
+            ]),
+        );
+
+        let result =
+            import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+                .expect("legacy profile import should keep supported prompt overrides");
+
+        let rows = state
+            .storage
+            .list("prompt-overrides")
+            .expect("prompt overrides should be readable");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "conversation.selfie");
+        assert_eq!(rows[0]["key"], "conversation.selfie");
+        assert_eq!(rows[0]["template"], "Selfie ${charName}");
+        assert_eq!(rows[0]["enabled"], true);
+        assert!(state
+            .storage
+            .get("prompt-overrides", "game.background")
+            .expect("unsupported prompt override lookup should not fail")
+            .is_none());
+        assert_eq!(result["imported"]["unsupportedPromptOverrides"], 2);
     }
 
     #[test]

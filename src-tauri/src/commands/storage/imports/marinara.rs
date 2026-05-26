@@ -106,12 +106,6 @@ fn data_image_string(value: Option<&Value>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn remove_import_id(value: &mut Value) {
-    if let Some(object) = value.as_object_mut() {
-        object.remove("id");
-    }
-}
-
 fn remove_fields(value: &mut Value, fields: &[&str]) {
     if let Some(object) = value.as_object_mut() {
         for field in fields {
@@ -162,12 +156,109 @@ fn inherit_wrapper_timestamps(record: &mut Value, wrapper: &Value) {
     }
 }
 
+fn apply_import_timestamps(record: &mut Value, payload: &Value) {
+    let mut timestamp_payload = payload.clone();
+    hydrate_metadata_timestamps(&mut timestamp_payload);
+    apply_timestamp_overrides(record, &Value::Null, &timestamp_payload);
+}
+
+fn created_record_id(record: &Value, label: &str) -> AppResult<String> {
+    record
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| AppError::new("storage_error", format!("Created {label} is missing an id")))
+}
+
 fn array_from_envelope(data: &Value, envelope: &Map<String, Value>, key: &str) -> Vec<Value> {
     data.get(key)
         .or_else(|| envelope.get(key))
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
+}
+
+fn import_parented_records(
+    state: &AppState,
+    items: Vec<Value>,
+    collection: &str,
+    owner_field: &str,
+    owner_id: &str,
+    parent_field: &str,
+    label: &str,
+) -> AppResult<HashMap<String, String>> {
+    let mut created_ids = Vec::new();
+    let result = (|| -> AppResult<HashMap<String, String>> {
+        let mut id_map = HashMap::new();
+        let mut pending_parents = Vec::new();
+        for item in items {
+            let old_id = item
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let old_parent_id = item
+                .get(parent_field)
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let mut record = ensure_object(item)?;
+            record.remove("id");
+            record.remove(owner_field);
+            record.insert(owner_field.to_string(), Value::String(owner_id.to_string()));
+            if old_parent_id.is_some() {
+                record.insert(parent_field.to_string(), Value::Null);
+            }
+            let created = state.storage.create(collection, Value::Object(record))?;
+            let new_id = created_record_id(&created, label)?;
+            created_ids.push(new_id.clone());
+            if let Some(old_id) = old_id {
+                id_map.insert(old_id, new_id.clone());
+            }
+            if let Some(old_parent_id) = old_parent_id {
+                pending_parents.push((new_id, old_parent_id));
+            }
+        }
+        for (record_id, old_parent_id) in pending_parents {
+            if let Some(new_parent_id) = id_map.get(&old_parent_id) {
+                let mut patch = Map::new();
+                patch.insert(
+                    parent_field.to_string(),
+                    Value::String(new_parent_id.clone()),
+                );
+                state
+                    .storage
+                    .patch(collection, &record_id, Value::Object(patch))?;
+            }
+        }
+        Ok(id_map)
+    })();
+
+    result.map_err(|error| rollback_created_records(state, collection, &created_ids, error))
+}
+
+fn rollback_created_records(
+    state: &AppState,
+    collection: &str,
+    record_ids: &[String],
+    error: AppError,
+) -> AppError {
+    let mut rollback_errors = Vec::new();
+    for record_id in record_ids.iter().rev() {
+        if let Err(rollback_error) = state.storage.delete(collection, record_id) {
+            rollback_errors.push(format!("{record_id}: {rollback_error}"));
+        }
+    }
+    if rollback_errors.is_empty() {
+        error
+    } else {
+        AppError::new(
+            "storage_rollback_failed",
+            format!(
+                "{error}; additionally failed to roll back imported {collection} records: {}",
+                rollback_errors.join("; ")
+            ),
+        )
+    }
 }
 
 fn extension_from_filename(filename: &str) -> Option<&'static str> {
@@ -309,15 +400,9 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
                 object.insert("avatar".to_string(), Value::String(avatar));
             }
         }
-        let mut timestamp_payload = data.clone();
-        hydrate_metadata_timestamps(&mut timestamp_payload);
-        apply_timestamp_overrides(&mut record, &Value::Null, &timestamp_payload);
+        apply_import_timestamps(&mut record, &data);
         let character = state.storage.create("characters", record)?;
-        let character_id = character
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| AppError::new("storage_error", "Created character is missing an id"))?
-            .to_string();
+        let character_id = created_record_id(&character, "character")?;
         let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
         let gallery_imported =
             restore_character_gallery(state, &character_id, data.get("gallery"))?;
@@ -356,22 +441,16 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
             object.insert("data".to_string(), parsed);
         }
     }
-    let mut record_value = with_entity_defaults("characters", source.clone())?;
+    let mut record_value = with_entity_defaults("characters", source)?;
     if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
         if let Some(record) = record_value.as_object_mut() {
             record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
             record.insert("avatar".to_string(), Value::String(avatar.to_string()));
         }
     }
-    let mut timestamp_payload = data.clone();
-    hydrate_metadata_timestamps(&mut timestamp_payload);
-    apply_timestamp_overrides(&mut record_value, &Value::Null, &timestamp_payload);
+    apply_import_timestamps(&mut record_value, &data);
     let record = state.storage.create("characters", record_value)?;
-    let character_id = record
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| AppError::new("storage_error", "Created character is missing an id"))?
-        .to_string();
+    let character_id = created_record_id(&record, "character")?;
     let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
     let gallery_imported = restore_character_gallery(state, &character_id, data.get("gallery"))?;
     let name = data_string_name(&record)
@@ -404,15 +483,9 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
             record.insert("avatar".to_string(), Value::String(avatar.to_string()));
         }
     }
-    let mut timestamp_payload = data.clone();
-    hydrate_metadata_timestamps(&mut timestamp_payload);
-    apply_timestamp_overrides(&mut record_value, &Value::Null, &timestamp_payload);
+    apply_import_timestamps(&mut record_value, &data);
     let record = state.storage.create("personas", record_value)?;
-    let persona_id = record
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| AppError::new("storage_error", "Created persona is missing an id"))?
-        .to_string();
+    let persona_id = created_record_id(&record, "persona")?;
     let sprites_imported = restore_sprites(state, &persona_id, data.get("sprites"))?;
     Ok(json!({
         "success": true,
@@ -433,8 +506,7 @@ fn import_marinara_lorebook(
         .cloned()
         .unwrap_or_else(|| data.clone());
     inherit_wrapper_timestamps(&mut lorebook_data, &data);
-    remove_import_id(&mut lorebook_data);
-    remove_fields(&mut lorebook_data, &["entries", "folders"]);
+    remove_fields(&mut lorebook_data, &["id", "entries", "folders"]);
     // Pre-refactor stored `tags`/`characterIds`/`personaIds` as TEXT columns
     // (JSON-stringified arrays). Refactor expects real arrays — without this
     // normalize step the lorebook editor crashes on `formTags.map is not a function`.
@@ -461,65 +533,18 @@ fn import_marinara_lorebook(
             record.insert("imagePath".to_string(), Value::String(image.to_string()));
         }
     }
-    let mut timestamp_payload = lorebook_data.clone();
-    hydrate_metadata_timestamps(&mut timestamp_payload);
-    apply_timestamp_overrides(&mut lorebook, &Value::Null, &timestamp_payload);
+    apply_import_timestamps(&mut lorebook, &lorebook_data);
     let record = state.storage.create("lorebooks", lorebook)?;
-    let lorebook_id = record
-        .get("id")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-
-    let mut folder_id_map: HashMap<String, String> = HashMap::new();
-    let mut pending_folder_parents: Vec<(String, String)> = Vec::new();
-    for folder in array_from_envelope(&data, envelope, "folders") {
-        let old_id = folder
-            .get("id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let old_parent_id = folder
-            .get("parentFolderId")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let mut folder_record = ensure_object(folder)?;
-        folder_record.remove("id");
-        folder_record.remove("lorebookId");
-        folder_record.insert("lorebookId".to_string(), Value::String(lorebook_id.clone()));
-        if old_parent_id.is_some() {
-            folder_record.insert("parentFolderId".to_string(), Value::Null);
-        }
-        let created = state
-            .storage
-            .create("lorebook-folders", Value::Object(folder_record))?;
-        if let (Some(old_id), Some(new_id)) = (
-            old_id,
-            created
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-        ) {
-            folder_id_map.insert(old_id, new_id);
-        }
-        if let (Some(new_id), Some(old_parent_id)) = (
-            created
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            old_parent_id,
-        ) {
-            pending_folder_parents.push((new_id, old_parent_id));
-        }
-    }
-    for (folder_id, old_parent_id) in pending_folder_parents {
-        if let Some(new_parent_id) = folder_id_map.get(&old_parent_id) {
-            state.storage.patch(
-                "lorebook-folders",
-                &folder_id,
-                json!({ "parentFolderId": new_parent_id }),
-            )?;
-        }
-    }
+    let lorebook_id = created_record_id(&record, "lorebook")?;
+    let folder_id_map = import_parented_records(
+        state,
+        array_from_envelope(&data, envelope, "folders"),
+        "lorebook-folders",
+        "lorebookId",
+        &lorebook_id,
+        "parentFolderId",
+        "lorebook folder",
+    )?;
 
     let mut exported_entries = array_from_envelope(&data, envelope, "entries");
     if exported_entries.is_empty() {
@@ -560,71 +585,23 @@ fn import_marinara_preset(
 ) -> AppResult<Value> {
     let mut preset_data = data.get("preset").cloned().unwrap_or_else(|| data.clone());
     inherit_wrapper_timestamps(&mut preset_data, &data);
-    remove_import_id(&mut preset_data);
     remove_fields(
         &mut preset_data,
-        &["sections", "groups", "choiceBlocks", "variables"],
+        &["id", "sections", "groups", "choiceBlocks", "variables"],
     );
     let mut record_value = with_entity_defaults("prompts", preset_data.clone())?;
-    let mut timestamp_payload = preset_data.clone();
-    hydrate_metadata_timestamps(&mut timestamp_payload);
-    apply_timestamp_overrides(&mut record_value, &Value::Null, &timestamp_payload);
+    apply_import_timestamps(&mut record_value, &preset_data);
     let record = state.storage.create("prompts", record_value)?;
-    let preset_id = record
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| AppError::new("storage_error", "Created preset is missing an id"))?
-        .to_string();
-
-    let mut group_id_map: HashMap<String, String> = HashMap::new();
-    let mut pending_group_parents: Vec<(String, String)> = Vec::new();
-    for group in array_from_envelope(&data, envelope, "groups") {
-        let old_id = group
-            .get("id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let old_parent_id = group
-            .get("parentGroupId")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let mut group_record = ensure_object(group)?;
-        group_record.remove("id");
-        group_record.remove("presetId");
-        group_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
-        if old_parent_id.is_some() {
-            group_record.insert("parentGroupId".to_string(), Value::Null);
-        }
-        let created = state
-            .storage
-            .create("prompt-groups", Value::Object(group_record))?;
-        if let (Some(old_id), Some(new_id)) = (
-            old_id,
-            created
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-        ) {
-            group_id_map.insert(old_id, new_id);
-        }
-        if let (Some(new_id), Some(old_parent_id)) = (
-            created
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            old_parent_id,
-        ) {
-            pending_group_parents.push((new_id, old_parent_id));
-        }
-    }
-    for (group_id, old_parent_id) in pending_group_parents {
-        if let Some(new_parent_id) = group_id_map.get(&old_parent_id) {
-            state.storage.patch(
-                "prompt-groups",
-                &group_id,
-                json!({ "parentGroupId": new_parent_id }),
-            )?;
-        }
-    }
+    let preset_id = created_record_id(&record, "preset")?;
+    let group_id_map = import_parented_records(
+        state,
+        array_from_envelope(&data, envelope, "groups"),
+        "prompt-groups",
+        "presetId",
+        &preset_id,
+        "parentGroupId",
+        "prompt group",
+    )?;
 
     let mut sections_imported = 0usize;
     for section in array_from_envelope(&data, envelope, "sections") {
@@ -632,10 +609,14 @@ fn import_marinara_preset(
         section_record.remove("id");
         section_record.remove("presetId");
         section_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
-        if let Some(old_group_id) = section_record.get("groupId").and_then(Value::as_str) {
-            if let Some(new_group_id) = group_id_map.get(old_group_id) {
-                section_record.insert("groupId".to_string(), Value::String(new_group_id.clone()));
-            }
+        if section_record.contains_key("groupId") {
+            let group_id = section_record
+                .get("groupId")
+                .and_then(Value::as_str)
+                .and_then(|old_group_id| group_id_map.get(old_group_id))
+                .map(|id| Value::String(id.clone()))
+                .unwrap_or(Value::Null);
+            section_record.insert("groupId".to_string(), group_id);
         }
         state
             .storage
@@ -713,38 +694,5 @@ pub(super) fn import_marinara_envelope(state: &AppState, envelope: Value) -> App
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::AppState;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn test_state(label: &str) -> AppState {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after epoch")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("marinara-import-{label}-{nonce}"));
-        if path.exists() {
-            std::fs::remove_dir_all(&path).expect("stale temp import dir should be removable");
-        }
-        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
-    }
-
-    #[test]
-    fn generic_marinara_import_directs_profile_exports_to_profile_import() {
-        let state = test_state("profile-envelope");
-        let error = import_marinara_envelope(
-            &state,
-            json!({
-                "type": "marinara_profile",
-                "version": 1,
-                "data": { "collections": {} }
-            }),
-        )
-        .expect_err("profile export should not go through generic Marinara import");
-
-        assert_eq!(error.code, "invalid_input");
-        assert!(error.message.contains("Import Profile"));
-        assert!(!error.message.contains("Unknown Marinara import type"));
-    }
-}
+#[path = "marinara_tests.rs"]
+mod tests;

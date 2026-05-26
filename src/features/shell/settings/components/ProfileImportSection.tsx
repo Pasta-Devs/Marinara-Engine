@@ -17,6 +17,7 @@ type ProfileImportStats = {
   messages?: number;
   connections?: number;
   files?: number;
+  unsupportedPromptOverrides?: number;
 };
 
 type ProfileImportProgressState = {
@@ -71,6 +72,12 @@ function formatProfileImportStats(stats?: ProfileImportStats) {
     .filter(([count]) => typeof count === "number" && count > 0)
     .map(([count, label]) => `${count} ${label}`)
     .join(", ");
+}
+
+function formatProfileImportSkippedStats(stats?: ProfileImportStats) {
+  const count = stats?.unsupportedPromptOverrides;
+  if (typeof count !== "number" || count <= 0) return "";
+  return `${count} unsupported prompt override${count === 1 ? "" : "s"} skipped`;
 }
 
 export function ProfileImportSection() {
@@ -144,6 +151,7 @@ export function ProfileImportSection() {
       qc.invalidateQueries();
       const imported = data?.imported;
       const summary = formatProfileImportStats(imported);
+      const skippedSummary = formatProfileImportSkippedStats(imported);
       setProfileImportProgress((current) => {
         const totalItems = Math.max(1, current?.totalItems ?? 1);
         return {
@@ -156,7 +164,11 @@ export function ProfileImportSection() {
           imported,
         };
       });
-      toast.success(summary ? `Imported: ${summary}` : "Profile imported.");
+      toast.success(
+        [summary ? `Imported: ${summary}` : "Profile imported.", skippedSummary ? `Skipped: ${skippedSummary}.` : ""]
+          .filter(Boolean)
+          .join(" "),
+      );
     } catch (err) {
       const message =
         err instanceof SyntaxError
@@ -243,6 +255,11 @@ export function ProfileImportSection() {
               {formatProfileImportStats(profileImportProgress.imported) && (
                 <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
                   Imported so far: {formatProfileImportStats(profileImportProgress.imported)}
+                </div>
+              )}
+              {formatProfileImportSkippedStats(profileImportProgress.imported) && (
+                <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  Skipped: {formatProfileImportSkippedStats(profileImportProgress.imported)}
                 </div>
               )}
             </>
