@@ -1,5 +1,6 @@
 import type { LlmChunk, LlmGateway, LlmRequest } from "../../engine/capabilities/llm";
 import { Channel } from "@tauri-apps/api/core";
+import { ignoreLlmStreamCancelFailure } from "./llm-cancel-logging";
 import { invokeTauri } from "./tauri-client";
 import { cancelRemoteLlmStream, remoteRuntimeTarget, streamRemoteLlm } from "./remote-runtime";
 
@@ -15,12 +16,13 @@ export const llmApi: LlmGateway = {
     }),
   stream: async function* (request: LlmRequest, signal?: AbortSignal): AsyncGenerator<LlmChunk> {
     const streamId = createStreamId();
-    if (remoteRuntimeTarget()) {
-      const abort = () => void cancelRemoteLlmStream(streamId);
+    const remoteTarget = remoteRuntimeTarget();
+    if (remoteTarget) {
+      const abort = () => void cancelRemoteLlmStream(streamId, remoteTarget);
       if (signal?.aborted) abort();
       signal?.addEventListener("abort", abort, { once: true });
       try {
-        yield* streamRemoteLlm(streamId, request, signal);
+        yield* streamRemoteLlm(streamId, request, remoteTarget, signal);
       } finally {
         signal?.removeEventListener("abort", abort);
       }
@@ -37,7 +39,7 @@ export const llmApi: LlmGateway = {
     };
     const abort = () => {
       failure = new DOMException("The operation was aborted.", "AbortError");
-      void invokeTauri("llm_stream_cancel", { streamId }).catch(() => undefined);
+      void ignoreLlmStreamCancelFailure("tauri", streamId, invokeTauri("llm_stream_cancel", { streamId }));
       notify();
     };
 
