@@ -421,10 +421,7 @@ fn import_marinara_lorebook(
     envelope: &Map<String, Value>,
     data: Value,
 ) -> AppResult<Value> {
-    let mut lorebook_data = data
-        .get("lorebook")
-        .cloned()
-        .unwrap_or_else(|| data.clone());
+    let mut lorebook_data = data.get("lorebook").cloned().unwrap_or_else(|| data.clone());
     inherit_wrapper_timestamps(&mut lorebook_data, &data);
     remove_import_id(&mut lorebook_data);
     remove_fields(&mut lorebook_data, &["entries", "folders"]);
