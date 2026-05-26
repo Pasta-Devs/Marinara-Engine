@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useUIStore } from "../stores/ui.store";
+import { ApiError } from "./api-errors";
 import { invokeTauri } from "./tauri-client";
 
 const tauriInvoke = vi.hoisted(() => vi.fn());
@@ -42,6 +43,22 @@ describe("invokeTauri remote runtime routing", () => {
       }),
     );
     expect(tauriInvoke).not.toHaveBeenCalled();
+  });
+
+  it("preserves Retry-After metadata from remote runtime 429 responses", async () => {
+    useUIStore.setState({ remoteRuntimeUrl: "https://remote.example/runtime" });
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "Too Many Requests" }), {
+        status: 429,
+        headers: { "Retry-After": "2.5" },
+      }),
+    );
+
+    await expect(invokeTauri("storage_list", { entity: "chats" })).rejects.toMatchObject({
+      message: "Too Many Requests",
+      status: 429,
+      details: { retryAfterMs: 2500 },
+    } satisfies Partial<ApiError>);
   });
 
   it("fails closed when a configured remote runtime URL is malformed", async () => {

@@ -1,6 +1,6 @@
 import type { LlmChunk, LlmRequest } from "../../engine/capabilities/llm";
 import { useUIStore } from "../stores/ui.store";
-import { ApiError } from "./api-errors";
+import { ApiError, parseRetryAfterMs } from "./api-errors";
 
 const REMOTE_COMMANDS = new Set([
   "storage_list",
@@ -93,13 +93,18 @@ function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit 
 }
 
 async function readRemoteError(response: Response): Promise<ApiError> {
+  const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
   try {
     const body = await response.json();
     const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
     const message = typeof record.message === "string" ? record.message : `Remote runtime returned ${response.status}`;
-    return new ApiError(message, response.status, record);
+    return new ApiError(message, response.status, retryAfterMs === null ? record : { ...record, retryAfterMs });
   } catch {
-    return new ApiError(`Remote runtime returned ${response.status}`, response.status);
+    return new ApiError(
+      `Remote runtime returned ${response.status}`,
+      response.status,
+      retryAfterMs === null ? undefined : { retryAfterMs },
+    );
   }
 }
 

@@ -12,6 +12,7 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import { invokeTauri } from "../../../../shared/api/tauri-client";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ApiError } from "../../../../shared/api/api-errors";
+import { apiQueryRetryDelay, shouldRetryApiQuery } from "../../../../shared/api/query-retry";
 import { lorebookKeys } from "../../lorebooks/query-keys";
 import type { Chat, ChatMemoryChunk, ConversationNote, Message, MessageSwipe, DaySummaryEntry, WeekSummaryEntry } from "../../../../engine/contracts/types/chat";
 
@@ -160,12 +161,8 @@ export function useChats() {
     staleTime: 10_000,
     refetchOnMount: false,
     refetchOnReconnect: true,
-    retry: (failureCount, error) => {
-      const status = error instanceof ApiError ? error.status : 0;
-      if (status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
-      return failureCount < 10;
-    },
-    retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 5_000),
+    retry: (failureCount, error) => shouldRetryApiQuery(failureCount, error, { maxRetries: 10 }),
+    retryDelay: (attempt, error) => apiQueryRetryDelay(attempt, error, { baseDelayMs: 750, maxDelayMs: 5_000 }),
   });
 }
 
@@ -180,12 +177,8 @@ export function useChatSummaries() {
     staleTime: 10_000,
     refetchOnMount: false,
     refetchOnReconnect: true,
-    retry: (failureCount, error) => {
-      const status = error instanceof ApiError ? error.status : 0;
-      if (status >= 400 && status < 500 && status !== 408 && status !== 429) return false;
-      return failureCount < 10;
-    },
-    retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 5_000),
+    retry: (failureCount, error) => shouldRetryApiQuery(failureCount, error, { maxRetries: 10 }),
+    retryDelay: (attempt, error) => apiQueryRetryDelay(attempt, error, { baseDelayMs: 750, maxDelayMs: 5_000 }),
   });
 }
 
