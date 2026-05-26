@@ -48,6 +48,24 @@ function storageWithSections(sections: Row[]): StorageGateway {
   };
 }
 
+function storageWithCharacters(characters: Row[]): StorageGateway {
+  return {
+    ...storageWithSections([]),
+    list: async <T,>(entity: string) => {
+      if (entity === "characters") return characters as T[];
+      if (entity === "personas") return [] as T[];
+      if (entity === "prompts") return [] as T[];
+      if (entity === "lorebooks") return [] as T[];
+      if (entity === "regex-scripts") return [] as T[];
+      return [] as T[];
+    },
+    get: async <T,>(entity: string, id: string) => {
+      if (entity === "characters") return (characters.find((character) => character.id === id) as T) ?? null;
+      return null;
+    },
+  };
+}
+
 function storageWithLore(entries: Row[]): StorageGateway {
   return {
     ...storageWithSections([]),
@@ -224,5 +242,136 @@ describe("assembleGenerationPrompt lorebook game-state gates", () => {
     );
 
     expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Ungated moonlit lore"]);
+  });
+});
+
+describe("assembleGenerationPrompt conversation scene awareness gates", () => {
+  it("does not inject prior scene summaries when conversation cross-chat awareness and memory recall are off", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "conversation-chat",
+        mode: "conversation",
+        characterIds: [],
+        metadata: {
+          crossChatAwareness: false,
+          enableMemoryRecall: false,
+          lastRoleplaySceneSummary: "STALE SCENE CONTINUITY SHOULD NOT BE IN CONVO PROMPT",
+        },
+      },
+      storedMessages: [{ role: "user", content: "fresh hello", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "fresh hello",
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).not.toContain("STALE SCENE CONTINUITY SHOULD NOT BE IN CONVO PROMPT");
+    expect(prompt).not.toContain("<memories>");
+  });
+
+  it("keeps normal conversation summaries when conversation cross-chat awareness is off", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "conversation-chat",
+        mode: "conversation",
+        characterIds: [],
+        metadata: {
+          crossChatAwareness: false,
+          conversationSummary: "Keep this same-chat conversation summary.",
+          lastRoleplaySceneSummary: "Drop this prior scene summary.",
+        },
+      },
+      storedMessages: [{ role: "user", content: "fresh hello", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "fresh hello",
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Keep this same-chat conversation summary.");
+    expect(prompt).not.toContain("Drop this prior scene summary.");
+  });
+
+  it("keeps prior scene summaries when conversation cross-chat awareness is enabled by default", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "conversation-chat",
+        mode: "conversation",
+        characterIds: [],
+        metadata: {
+          lastRoleplaySceneSummary: "Keep this prior scene summary.",
+        },
+      },
+      storedMessages: [{ role: "user", content: "fresh hello", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "fresh hello",
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Keep this prior scene summary.");
+  });
+
+  it("keeps prior scene summaries in roleplay prompts", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "roleplay-chat",
+        mode: "roleplay",
+        characterIds: [],
+        metadata: {
+          crossChatAwareness: false,
+          lastRoleplaySceneSummary: "Keep this roleplay scene summary.",
+        },
+      },
+      storedMessages: [{ role: "user", content: "what happens next?", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "what happens next?",
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Keep this roleplay scene summary.");
+  });
+
+  it("does not inject hidden character scene memories from a conversation card", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithCharacters([
+        {
+          id: "char-a",
+          data: {
+            name: "Aster",
+            description: "A normal conversation card.",
+            extensions: {
+              characterMemories: [
+                {
+                  sceneChatId: "deleted-scene",
+                  summary: "HIDDEN CHARACTER SCENE MEMORY SHOULD NOT BE IN CONVO PROMPT",
+                },
+              ],
+            },
+          },
+        },
+      ]),
+      {
+        chat: {
+          id: "conversation-chat",
+          mode: "conversation",
+          characterIds: ["char-a"],
+          metadata: {
+            crossChatAwareness: false,
+            enableMemoryRecall: false,
+          },
+        },
+        storedMessages: [{ role: "user", content: "fresh hello", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "fresh hello",
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("A normal conversation card.");
+    expect(prompt).not.toContain("HIDDEN CHARACTER SCENE MEMORY SHOULD NOT BE IN CONVO PROMPT");
+    expect(prompt).not.toContain("<memories>");
   });
 });

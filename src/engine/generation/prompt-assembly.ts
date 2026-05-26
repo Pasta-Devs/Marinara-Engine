@@ -682,7 +682,15 @@ function buildRoleplayScenePromptBlock(
 
 function chatSummary(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
-  const parts = [meta.conversationSummary, meta.summary, meta.daySummaries, meta.weekSummaries, meta.lastRoleplaySceneSummary]
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const includeSceneSummary = mode !== "conversation" || meta.crossChatAwareness !== false;
+  const parts = [
+    meta.conversationSummary,
+    meta.summary,
+    meta.daySummaries,
+    meta.weekSummaries,
+    includeSceneSummary ? meta.lastRoleplaySceneSummary : null,
+  ]
     .map((value) => (typeof value === "string" ? value : isRecord(value) || Array.isArray(value) ? JSON.stringify(value) : ""))
     .filter((value) => value.trim().length > 0);
   return parts.length > 0 ? parts.join("\n\n") : null;
