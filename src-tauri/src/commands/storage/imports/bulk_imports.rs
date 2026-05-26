@@ -1003,6 +1003,7 @@ pub(super) fn run_st_bulk_import_channel(
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::block_collection_file;
     use super::*;
     use crate::state::AppState;
     use base64::engine::general_purpose;
@@ -1036,18 +1037,6 @@ mod tests {
             fs::create_dir_all(parent).expect("fixture parent should be created");
         }
         fs::write(path, bytes).expect("fixture file should be written");
-    }
-
-    fn block_collection_file(state: &AppState, collection: &str) {
-        let collection_path = state
-            .storage
-            .root()
-            .join("collections")
-            .join(format!("{collection}.json"));
-        if let Some(parent) = collection_path.parent() {
-            fs::create_dir_all(parent).expect("collection parent should be created");
-        }
-        fs::create_dir(collection_path).expect("collection path should be blockable");
     }
 
     fn uploaded_jsonl_file(name: &str, text: &str) -> Value {

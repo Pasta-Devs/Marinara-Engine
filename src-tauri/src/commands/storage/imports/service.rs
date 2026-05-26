@@ -18,6 +18,9 @@ mod payloads;
 mod rollback;
 #[path = "st_preset.rs"]
 mod st_preset;
+#[cfg(test)]
+#[path = "test_helpers.rs"]
+mod test_helpers;
 #[path = "timestamps.rs"]
 mod timestamps;
 use access::*;

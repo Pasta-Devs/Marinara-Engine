@@ -1,5 +1,5 @@
+use super::test_helpers::block_collection_file;
 use super::*;
-use crate::state::AppState;
 use base64::engine::general_purpose;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,18 +12,6 @@ fn temp_path(label: &str) -> PathBuf {
         "marinara-st-character-import-{label}-{}-{nonce}",
         std::process::id()
     ))
-}
-
-fn block_collection_file(state: &AppState, collection: &str) {
-    let collection_path = state
-        .storage
-        .root()
-        .join("collections")
-        .join(format!("{collection}.json"));
-    if let Some(parent) = collection_path.parent() {
-        fs::create_dir_all(parent).expect("collection parent should be created");
-    }
-    fs::create_dir(collection_path).expect("collection path should be blockable");
 }
 
 #[test]
