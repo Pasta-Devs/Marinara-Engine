@@ -36,10 +36,19 @@ const checks = [
 
 const failures = [];
 
+function countLogicalLines(source) {
+  if (source.length === 0) {
+    return 0;
+  }
+
+  // Do not count a normal terminal newline as an extra blank line.
+  return source.replace(/\r?\n$/, "").split(/\r?\n/).length;
+}
+
 for (const check of checks) {
   const absolutePath = resolve(root, check.path);
   const source = readFileSync(absolutePath, "utf8");
-  const lines = source.split(/\r?\n/).length;
+  const lines = countLogicalLines(source);
 
   if (lines > check.maxLines) {
     failures.push(
