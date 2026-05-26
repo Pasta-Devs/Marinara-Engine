@@ -2,6 +2,7 @@ use crate::state::AppState;
 use chrono::{DateTime, Utc};
 use marinara_core::{ensure_object, AppError, AppResult};
 use serde_json::{json, Map, Value};
+use std::collections::HashSet;
 
 use super::shared::{materialize_message_swipe_fields, non_negative_i64_value, swipe_index_value};
 
@@ -167,21 +168,22 @@ pub(crate) fn delete_tracker_snapshots_for_message(
     Ok(deleted)
 }
 
-pub(crate) fn delete_tracker_snapshots_for_chat(
+pub(crate) fn delete_tracker_snapshots_for_chats(
     state: &AppState,
-    chat_id: &str,
+    chat_ids: &[String],
 ) -> AppResult<usize> {
-    let rows = tracker_snapshots_for_chat(state, chat_id)?;
-    let mut deleted = 0;
-    for row in rows {
-        let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
-            continue;
-        };
-        if state.storage.delete(SNAPSHOT_COLLECTION, &id)? {
-            deleted += 1;
-        }
-    }
-    Ok(deleted)
+    let chat_id_set = chat_ids
+        .iter()
+        .map(|chat_id| required_chat_id(chat_id))
+        .collect::<AppResult<HashSet<_>>>()?;
+    state
+        .storage
+        .delete_where_matching(SNAPSHOT_COLLECTION, |row| {
+            row.get("chatId")
+                .and_then(Value::as_str)
+                .is_some_and(|chat_id| chat_id_set.contains(chat_id))
+                && is_tracker_snapshot(row)
+        })
 }
 
 pub(crate) fn sync_chat_game_state_to_visible_tracker(

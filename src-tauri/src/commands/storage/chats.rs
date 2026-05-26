@@ -2,6 +2,7 @@ use super::game_state_snapshots;
 use super::shared::*;
 use super::*;
 use crate::builtins::is_protected_record;
+use std::collections::HashSet;
 
 const MEMORY_CHUNK_SIZE: usize = 5;
 const MEMORY_EMBEDDING_DIMS: usize = 256;
@@ -593,22 +594,24 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     clear_character_scene_memories(state, &owned_scene_chat_ids)?;
     clear_deleted_scene_references(state, chat_id, &owned_scene_chat_ids)?;
 
-    let mut delete_ids = owned_scene_chat_ids
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    delete_ids.push(chat_id);
+    let mut delete_ids = owned_scene_chat_ids.clone();
+    delete_ids.push(chat_id.to_string());
     delete_ids.sort_unstable();
     delete_ids.dedup();
 
+    game_state_snapshots::delete_tracker_snapshots_for_chats(state, &delete_ids)?;
+    let delete_id_set = delete_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    state.storage.delete_where_matching("messages", |row| {
+        row.get("chatId")
+            .and_then(Value::as_str)
+            .is_some_and(|chat_id| delete_id_set.contains(chat_id))
+    })?;
+
     for delete_id in delete_ids {
-        game_state_snapshots::delete_tracker_snapshots_for_chat(state, delete_id)?;
-        for message in messages_for_chat(state, delete_id)? {
-            if let Some(id) = message.get("id").and_then(Value::as_str) {
-                state.storage.delete("messages", id)?;
-            }
-        }
-        state.storage.delete("chats", delete_id)?;
+        state.storage.delete("chats", &delete_id)?;
     }
     Ok(())
 }

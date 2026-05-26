@@ -502,8 +502,19 @@ export const useUIStore = create<UIState>()(
       dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
       toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
       setEchoChamberSide: (side) => set({ echoChamberSide: side }),
-      setUserStatus: (status) => set({ userStatus: status }),
-      setUserStatusManual: (status) => set({ userStatusManual: status, userStatus: status }),
+      setUserStatus: (status) =>
+        set((state) => {
+          if (state.userStatusManual === "dnd") {
+            return state.userStatus === "dnd" ? state : { userStatus: "dnd" };
+          }
+          const nextStatus = status === "dnd" ? "active" : status;
+          return state.userStatus === nextStatus ? state : { userStatus: nextStatus };
+        }),
+      setUserStatusManual: (status) =>
+        set({
+          userStatusManual: status === "dnd" ? "dnd" : "active",
+          userStatus: status,
+        }),
       setUserActivity: (activity) => set({ userActivity: activity.slice(0, 120) }),
     }),
     {
