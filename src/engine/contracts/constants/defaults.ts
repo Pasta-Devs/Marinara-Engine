@@ -4,7 +4,7 @@
 import type { GenerationParameters } from "../types/prompt.js";
 
 /** App version — single source of truth. */
-export const APP_VERSION = "1.6.0";
+export const APP_VERSION = "1.6.1";
 
 /** Stable ID for the default OpenRouter free‑tier connection. */
 export const DEFAULT_CONNECTION_ID = "__default_openrouter__";

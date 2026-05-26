@@ -13,7 +13,7 @@ use std::{
 const OPENAI_CHATGPT_CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
 const OPENAI_CHATGPT_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
 const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
-const APP_VERSION: &str = "0.1.0";
+const APP_VERSION: &str = "1.6.1";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LlmMessage {
