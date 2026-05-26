@@ -50,6 +50,7 @@ type StreamEvent = { type: string; data?: unknown };
 type QueryClient = ReturnType<typeof useQueryClient>;
 type GenerationStreamFactory = (args: GenerateArgs, signal: AbortSignal) => AsyncGenerator<StreamEvent>;
 const HAPTIC_COMMAND_INTERVAL_MS = 225;
+const STREAM_REVEAL_INTERVAL_MS = 24;
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -63,6 +64,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function streamRevealChunkLength(speed: number, pendingLength: number): number {
+  if (pendingLength <= 0) return 0;
+  if (speed >= 100) return pendingLength;
+  const normalized = Math.max(1, Math.min(100, Math.trunc(speed)));
+  const eased = Math.pow(normalized / 100, 1.3);
+  return Math.max(1, Math.min(pendingLength, Math.round(1 + eased * 18)));
 }
 
 function sortMessagesByCreatedAt(messages: Message[]): Message[] {
@@ -740,6 +749,78 @@ export async function runGenerationWithUi(
   useAgentStore.getState().setProcessing(true);
 
   let received = "";
+  let revealedLength = 0;
+  let pendingReveal = "";
+  let revealTimer: ReturnType<typeof setTimeout> | null = null;
+  const revealWaiters = new Set<() => void>();
+
+  const clearRevealTimer = () => {
+    if (!revealTimer) return;
+    clearTimeout(revealTimer);
+    revealTimer = null;
+  };
+
+  const resolveRevealWaiters = () => {
+    if (pendingReveal.length > 0) return;
+    for (const resolve of revealWaiters) resolve();
+    revealWaiters.clear();
+  };
+
+  const appendVisibleStreamText = (text: string) => {
+    if (!text) return;
+    revealedLength += text.length;
+    useChatStore.getState().appendStreamBuffer(text, chatId);
+    useChatStore.getState().setMariPhase(chatId, "thinking");
+  };
+
+  const revealNextStreamSlice = () => {
+    revealTimer = null;
+    if (pendingReveal.length === 0) {
+      resolveRevealWaiters();
+      return;
+    }
+    const { streamingSpeed } = useUIStore.getState();
+    const size = streamRevealChunkLength(streamingSpeed, pendingReveal.length);
+    const next = pendingReveal.slice(0, size);
+    pendingReveal = pendingReveal.slice(size);
+    appendVisibleStreamText(next);
+    if (pendingReveal.length > 0) {
+      revealTimer = setTimeout(revealNextStreamSlice, STREAM_REVEAL_INTERVAL_MS);
+      return;
+    }
+    resolveRevealWaiters();
+  };
+
+  const scheduleStreamReveal = () => {
+    if (revealTimer || pendingReveal.length === 0) return;
+    if (useUIStore.getState().streamingSpeed >= 100) {
+      revealNextStreamSlice();
+      return;
+    }
+    revealTimer = setTimeout(revealNextStreamSlice, STREAM_REVEAL_INTERVAL_MS);
+  };
+
+  const enqueueVisibleStreamText = (text: string) => {
+    if (!text || !useUIStore.getState().enableStreaming) return;
+    pendingReveal += text;
+    scheduleStreamReveal();
+  };
+
+  const flushVisibleStreamText = async () => {
+    if (!useUIStore.getState().enableStreaming) {
+      clearRevealTimer();
+      pendingReveal = "";
+      appendVisibleStreamText(received.slice(revealedLength));
+      resolveRevealWaiters();
+      return;
+    }
+    if (pendingReveal.length === 0) return;
+    await new Promise<void>((resolve) => {
+      revealWaiters.add(resolve);
+      scheduleStreamReveal();
+    });
+  };
+
   try {
     insertOptimisticUserMessage(queryClient, args);
     await options.beforeStart?.(args);
@@ -759,8 +840,7 @@ export async function runGenerationWithUi(
         case "delta":
           if (typeof event.data === "string") {
             received += event.data;
-            useChatStore.getState().appendStreamBuffer(event.data, chatId);
-            useChatStore.getState().setMariPhase(chatId, "thinking");
+            enqueueVisibleStreamText(event.data);
           }
           break;
         case "message":
@@ -771,6 +851,7 @@ export async function runGenerationWithUi(
           break;
         case "assistant_message":
           if (event.data && typeof event.data === "object") {
+            await flushVisibleStreamText();
             await queryClient.invalidateQueries({ queryKey: ["chats"] });
             await refreshGameStateFromStorage(chatId, trackerTargetFromMessagePayload(event.data));
           }
@@ -816,9 +897,11 @@ export async function runGenerationWithUi(
           break;
         }
         case "done":
+          await flushVisibleStreamText();
           break;
       }
     }
+    await flushVisibleStreamText();
     await queryClient.invalidateQueries({ queryKey: ["chats"] });
     return received.length > 0;
   } catch (error) {
@@ -827,6 +910,8 @@ export async function runGenerationWithUi(
     }
     throw error;
   } finally {
+    clearRevealTimer();
+    revealWaiters.clear();
     const finalChatStore = useChatStore.getState();
     finalChatStore.setAbortController(chatId, null);
     finalChatStore.setStreaming(false, chatId);

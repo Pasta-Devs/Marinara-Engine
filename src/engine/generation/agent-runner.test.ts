@@ -43,6 +43,53 @@ const llm: LlmGateway = {
 const integrations = {} as IntegrationGateway;
 
 describe("createGenerationAgentRuntime", () => {
+  it("runs chat-scoped active agents even when the legacy enable flag is absent", async () => {
+    const results: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "agent-a",
+            type: "prose-guardian",
+            name: "Prose Guardian",
+            enabled: true,
+            phase: "pre_generation",
+            connectionId: null,
+            model: "agent-model",
+            promptTemplate: "Add a concise style note.",
+          },
+        ]),
+        llm,
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { activeAgentIds: ["agent-a"] } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+      (result) => results.push(result),
+    );
+
+    expect(runtime.preResults).toHaveLength(1);
+    expect(runtime.preResults[0]).toMatchObject({
+      agentId: "agent-a",
+      agentType: "prose-guardian",
+      success: true,
+    });
+    expect(runtime.preInjections).toEqual([
+      expect.objectContaining({
+        agentType: "prose-guardian",
+        agentName: "Prose Guardian",
+        text: "ok",
+      }),
+    ]);
+    expect(results).toEqual(runtime.preResults);
+  });
+
   it("skips agents with dangling connection ids instead of falling back to the chat connection", async () => {
     const results: unknown[] = [];
     const runtime = await createGenerationAgentRuntime(
