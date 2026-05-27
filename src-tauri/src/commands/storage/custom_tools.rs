@@ -39,8 +39,11 @@ pub(crate) async fn execute_custom_tool(state: &AppState, body: Value) -> AppRes
                 .ok_or_else(|| AppError::invalid_input(format!("Static result is missing for custom tool: {tool_name}")))?
         })),
         "webhook" => execute_webhook_tool(&tool, tool_name, arguments).await,
-        "script" => Err(AppError::invalid_input(
-            "Script custom tools are executed by the Tauri TypeScript runtime.",
+        "script" => Err(AppError::new(
+            "custom_tool_script_unsupported",
+            format!(
+                "Custom tool {tool_name} uses legacy script executionType. Migrate it to a Webhook or static result before running it in the refactor runtime."
+            ),
         )),
         other => Err(AppError::invalid_input(format!(
             "Unsupported custom tool execution type: {other}"
@@ -118,8 +121,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be after unix epoch")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("marinara-custom-tools-{label}-{nonce}"));
+        let path = std::env::temp_dir().join(format!("marinara-custom-tools-{label}-{nonce}"));
         if path.exists() {
             std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
         }
@@ -154,7 +156,8 @@ mod tests {
             error.message
         );
         assert!(
-            error.message.contains("legacy script") || error.message.contains("script executionType"),
+            error.message.contains("legacy script")
+                || error.message.contains("script executionType"),
             "error should identify the legacy script issue, got: {}",
             error.message
         );
@@ -180,7 +183,9 @@ mod tests {
             .await
             .expect_err("unknown executionType must reject");
         assert!(
-            error.message.contains("Unsupported custom tool execution type"),
+            error
+                .message
+                .contains("Unsupported custom tool execution type"),
             "unknown types must keep the generic message, got: {}",
             error.message
         );
