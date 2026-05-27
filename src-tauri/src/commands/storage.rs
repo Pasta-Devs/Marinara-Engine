@@ -62,6 +62,8 @@ pub(crate) mod shared;
 pub(crate) mod sprites;
 #[path = "storage/translation.rs"]
 pub(crate) mod translation;
+#[path = "storage/updates.rs"]
+pub(crate) mod updates;
 
 #[path = "storage/commands/agents.rs"]
 pub mod agent_commands;
@@ -87,3 +89,5 @@ pub mod mari_commands;
 pub mod media_commands;
 #[path = "storage/commands/profile.rs"]
 pub mod profile_commands;
+#[path = "storage/commands/updates.rs"]
+pub mod update_commands;

@@ -166,6 +166,8 @@ const REMOTE_COMMANDS = new Set([
   "llm_stream_cancel",
   "llm_list_models",
   "professor_mari_prompt",
+  "update_check",
+  "update_apply",
 ]);
 
 type RuntimeTarget = {

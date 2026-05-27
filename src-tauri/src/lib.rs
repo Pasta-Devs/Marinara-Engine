@@ -203,6 +203,8 @@ pub fn run() {
             storage_commands::media_commands::llm_stream_cancel,
             storage_commands::media_commands::llm_list_models,
             storage_commands::mari_commands::professor_mari_prompt,
+            storage_commands::update_commands::update_check,
+            storage_commands::update_commands::update_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

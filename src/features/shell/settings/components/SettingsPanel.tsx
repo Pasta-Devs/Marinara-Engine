@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { importApi } from "../../../../shared/api/import-api";
 import { backupApi, profileApi, type ManagedBackup } from "../../../../shared/api/profile-api";
+import { updatesApi, type UpdateCheckResponse } from "../../../../shared/api/updates-api";
 import { backgroundsApi, fontsApi } from "../../../../shared/api/settings-assets-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { triggerDownload } from "../../../../shared/api/download-payload";
@@ -3093,6 +3094,9 @@ function AdvancedSettings() {
   const [exportingProfile, setExportingProfile] = useState(false);
   const [downloadingBackupName, setDownloadingBackupName] = useState<string | null>(null);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [openingUpdate, setOpeningUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResponse | null>(null);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
   const [quickRepliesDrawerOpen, setQuickRepliesDrawerOpen] = useState(true);
   const queryClient = useQueryClient();
@@ -3167,6 +3171,38 @@ function AdvancedSettings() {
     } catch (err) {
       setRefreshingSpa(false);
       toast.error(err instanceof Error ? err.message : "Failed to refresh the app");
+    }
+  };
+
+  const handleCheckUpdates = async () => {
+    if (checkingUpdates) return;
+    setCheckingUpdates(true);
+    try {
+      const result = await updatesApi.check();
+      setUpdateInfo(result);
+      if (result.updateAvailable) {
+        toast.success(`Update ${result.releaseTag} is available.`);
+      } else {
+        toast.info("Marinara is up to date.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to check for updates");
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const handleOpenUpdate = async () => {
+    if (!updateInfo || openingUpdate) return;
+    setOpeningUpdate(true);
+    try {
+      const result = await updatesApi.apply(updateInfo);
+      window.open(result.releaseUrl, "_blank", "noopener,noreferrer");
+      toast.info(result.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to open update");
+    } finally {
+      setOpeningUpdate(false);
     }
   };
 
@@ -3263,6 +3299,56 @@ function AdvancedSettings() {
             side="bottom"
             text="Manual refresh unregisters the active service worker and clears browser caches before reloading. Marinara's stored chats, settings, and other local app data stay intact."
           />
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-lg bg-[var(--secondary)]/35 p-2.5 ring-1 ring-[var(--border)]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium">App Updates</span>
+            <HelpTooltip text="Checks the Marinara Engine GitHub releases. This refactor build opens the release page for manual install because signed Tauri updater artifacts are not configured yet." />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCheckUpdates()}
+              disabled={checkingUpdates}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--background)]/70 px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {checkingUpdates ? (
+                <>
+                  <Loader2 size="0.8125rem" className="animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size="0.8125rem" />
+                  Check for Updates
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleOpenUpdate()}
+              disabled={!updateInfo || openingUpdate}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {openingUpdate ? (
+                <>
+                  <Loader2 size="0.8125rem" className="animate-spin" />
+                  Opening...
+                </>
+              ) : (
+                <>
+                  <Download size="0.8125rem" />
+                  Open Release
+                </>
+              )}
+            </button>
+          </div>
+          {updateInfo && (
+            <div className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              Current {updateInfo.currentVersion}; latest {updateInfo.latestVersion}. {updateInfo.manualUpdateHint}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/35 p-2.5 ring-1 ring-[var(--border)]">

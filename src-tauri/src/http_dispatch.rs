@@ -3,7 +3,7 @@ use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
     entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
     imports, integrations, knowledge, llm, lorebook_images, mari, profile, prompts, shared,
-    sprites, translation,
+    sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -542,6 +542,8 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         }
         "llm_stream_cancel" => llm_stream_cancel(state, &args),
         "professor_mari_prompt" => mari::professor_mari_prompt(state, optional_value(&args, "request")).await,
+        "update_check" => updates::check_updates().await,
+        "update_apply" => updates::apply_update(optional_value(&args, "input")),
         _ => Err(AppError::new(
             "unsupported_command",
             format!("{command} is not exposed by the remote runtime"),
@@ -1359,5 +1361,33 @@ mod tests {
             .get("game-state-snapshots", "snapshot-message-1")
             .unwrap()
             .is_some());
+    }
+
+    #[tokio::test]
+    async fn dispatch_supports_remote_update_apply_manual_path() {
+        let state = test_state("update-apply");
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "update_apply".to_string(),
+                args: Some(json!({
+                    "input": {
+                        "confirm": true,
+                        "latestVersion": "1.6.2",
+                        "releaseTag": "v1.6.2",
+                        "releaseUrl": "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v1.6.2"
+                    }
+                })),
+            },
+        )
+        .await
+        .expect("remote update apply should dispatch into manual release instructions");
+
+        assert_eq!(result["status"], "manual_update_required");
+        assert_eq!(result["applyAvailable"], false);
+        assert_eq!(
+            result["applyUnavailableReason"],
+            "tauri-updater-not-configured"
+        );
     }
 }

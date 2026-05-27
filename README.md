@@ -3,6 +3,7 @@
 Marinara Engine is a local-first AI chat, roleplay, and game engine built as a Tauri desktop app. It combines a React interface, a TypeScript product engine, and Rust capability modules for local storage, managed assets, provider transport, integrations, and an optional hostable runtime.
 
 This repository is an active refactor branch. The app is usable from source, but public release packaging and end-user installation guides are still being rebuilt around the new architecture.
+The refactor build keeps an explicit in-app update check in Settings > Advanced. It checks Marinara Engine GitHub releases and opens the matching release page for manual install; signed Tauri auto-install artifacts are not configured on this branch yet.
 
 ## Screenshots
 
