@@ -361,6 +361,7 @@ describe("startGeneration generation replay metadata", () => {
           role: "assistant",
           content: "first reply",
           extra: {
+            chatSummaryFingerprint: null,
             generationReplay: {
               generationGuide: "Keep the reply clipped.",
               generationGuideSource: "guide",
@@ -376,6 +377,37 @@ describe("startGeneration generation replay metadata", () => {
       messages: expect.arrayContaining([
         expect.objectContaining({ role: "user", content: "Keep the reply clipped." }),
       ]),
+    });
+  });
+
+  it("skips stored assistant replay metadata when the summary fingerprint is stale", async () => {
+    const { deps, patchChatMessageExtra, streamedRequests } = generationDepsForChat({
+      chatMetadata: { summary: "Current summary." },
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "first reply",
+          extra: {
+            chatSummaryFingerprint: fingerprintChatSummary("Old summary."),
+            generationReplay: {
+              generationGuide: "Keep the reply clipped.",
+              generationGuideSource: "guide",
+            },
+          },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
+    );
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", {
+      chatSummaryFingerprint: fingerprintChatSummary("Current summary."),
     });
   });
 

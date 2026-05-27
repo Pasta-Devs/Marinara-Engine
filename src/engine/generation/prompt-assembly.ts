@@ -713,7 +713,7 @@ function buildRoleplayScenePromptBlock(
   return parts.join("\n\n");
 }
 
-function chatSummary(chat: JsonRecord): string | null {
+export function chatSummaryForGeneration(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
   const mode = readString(chat.mode || chat.chatMode, "conversation");
   const includeSceneSummary = mode !== "conversation" || meta.crossChatAwareness !== false;
@@ -1139,7 +1139,7 @@ export async function assembleGenerationPrompt(
   const persona = await loadPersona(storage, input.chat);
   const activated = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
   const processedLore = processActivatedEntries(activated, readNumber(input.request.lorebookTokenBudget, 0));
-  const summary = chatSummary(input.chat);
+  const summary = chatSummaryForGeneration(input.chat);
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
     input.chat,
