@@ -23,37 +23,39 @@ pub(crate) async fn vectorize_lorebook(
         .get("onlyMissing")
         .and_then(Value::as_bool)
         .unwrap_or(true);
-    let entries =
+    let mut entries =
         match list_collection(state, "lorebook-entries", Some(("lorebookId", lorebook_id)))? {
             Value::Array(rows) => rows,
             _ => Vec::new(),
         };
-    let total = entries.len();
+    for entry in &mut entries {
+        normalize_legacy_text_bool_fields(entry, &["excludeFromVectorization"]);
+    }
     let mut lorebook = get_required(state, "lorebooks", lorebook_id)?;
     normalize_legacy_text_bool_fields(&mut lorebook, &["excludeFromVectorization"]);
-    if lorebook
-        .get("excludeFromVectorization")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
-    {
+    let lorebook_excluded = is_excluded_from_vectorization(&lorebook);
+    let total = if lorebook_excluded {
+        0
+    } else {
+        entries
+            .iter()
+            .filter(|entry| !is_excluded_from_vectorization(entry))
+            .count()
+    };
+    if lorebook_excluded {
         return Ok(json!({
             "success": true,
             "lorebookId": lorebook_id,
             "model": model,
             "total": total,
             "vectorized": 0,
-            "skipped": total
+            "skipped": entries.len()
         }));
     }
     let mut vectorized = 0usize;
     let mut skipped = 0usize;
-    for mut entry in entries {
-        normalize_legacy_text_bool_fields(&mut entry, &["excludeFromVectorization"]);
-        if entry
-            .get("excludeFromVectorization")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-        {
+    for entry in entries {
+        if is_excluded_from_vectorization(&entry) {
             skipped += 1;
             continue;
         }
@@ -131,6 +133,12 @@ fn lorebook_entry_embedding_text(entry: &Value) -> String {
     .filter(|part| !part.trim().is_empty())
     .collect::<Vec<_>>()
     .join("\n")
+}
+
+fn is_excluded_from_vectorization(row: &Value) -> bool {
+    row.get("excludeFromVectorization")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 async fn embed_text(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
@@ -273,5 +281,121 @@ fn ensure_embedding_url_allowed(url: &str) -> AppResult<()> {
         Err(AppError::invalid_input(format!(
             "Outbound embedding URL is not allowed: {url}"
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-prompts-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn create_connection(state: &AppState) -> String {
+        let connection = state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "name": "Embeddings",
+                    "provider": "openai",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("connection should be created");
+        connection
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("connection id should be assigned")
+            .to_string()
+    }
+
+    fn create_lorebook(state: &AppState, exclude: Value) -> String {
+        let lorebook = state
+            .storage
+            .create(
+                "lorebooks",
+                json!({
+                    "name": "Vector Test",
+                    "excludeFromVectorization": exclude
+                }),
+            )
+            .expect("lorebook should be created");
+        lorebook
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("lorebook id should be assigned")
+            .to_string()
+    }
+
+    fn create_entry(state: &AppState, lorebook_id: &str, exclude: Value, embedding: Value) {
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "lorebookId": lorebook_id,
+                    "name": "Entry",
+                    "keys": ["key"],
+                    "content": "entry content",
+                    "enabled": true,
+                    "excludeFromVectorization": exclude,
+                    "embedding": embedding
+                }),
+            )
+            .expect("entry should be created");
+    }
+
+    #[tokio::test]
+    async fn vectorize_lorebook_no_vector_reports_all_entries_skipped() {
+        let state = test_state("no-vector");
+        let connection_id = create_connection(&state);
+        let lorebook_id = create_lorebook(&state, json!("true"));
+        create_entry(&state, &lorebook_id, json!(false), Value::Null);
+        create_entry(&state, &lorebook_id, json!(false), Value::Null);
+
+        let result = vectorize_lorebook(
+            &state,
+            &lorebook_id,
+            json!({ "connectionId": connection_id, "model": "text-embedding-3-small" }),
+        )
+        .await
+        .expect("no-vector lorebook should short-circuit before provider calls");
+
+        assert_eq!(result["total"], json!(0));
+        assert_eq!(result["vectorized"], json!(0));
+        assert_eq!(result["skipped"], json!(2));
+    }
+
+    #[tokio::test]
+    async fn vectorize_lorebook_total_counts_only_vectorizable_entries() {
+        let state = test_state("entry-exclusions");
+        let connection_id = create_connection(&state);
+        let lorebook_id = create_lorebook(&state, json!(false));
+        create_entry(&state, &lorebook_id, json!("true"), Value::Null);
+        create_entry(&state, &lorebook_id, json!("false"), json!([0.1, 0.2]));
+
+        let result = vectorize_lorebook(
+            &state,
+            &lorebook_id,
+            json!({ "connectionId": connection_id, "model": "text-embedding-3-small", "onlyMissing": true }),
+        )
+        .await
+        .expect("existing embeddings should avoid provider calls");
+
+        assert_eq!(result["total"], json!(1));
+        assert_eq!(result["vectorized"], json!(0));
+        assert_eq!(result["skipped"], json!(2));
     }
 }

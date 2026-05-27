@@ -1063,8 +1063,11 @@ async function loadActivatedLore(
         // dedicated capability that filters lorebook-entries by lorebookId.
         if (!id) return [];
         const rows = await storage.listLorebookEntries<JsonRecord>(id);
-        if (!boolish(book.excludeFromVectorization, false)) return rows;
-        return rows.map((row) => ({ ...row, excludeFromVectorization: true }));
+        const lorebookExcluded = boolish(book.excludeFromVectorization, false);
+        if (lorebookExcluded) {
+          return rows.map((row) => ({ ...row, excludeFromVectorization: true }));
+        }
+        return rows;
       }),
     )
   ).flat();

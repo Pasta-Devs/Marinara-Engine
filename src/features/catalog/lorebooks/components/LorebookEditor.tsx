@@ -2064,8 +2064,10 @@ function VectorizeSection({
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const excludedCount = excludeFromVectorization
     ? entries.length
-    : entries.filter((entry) => entry.excludeFromVectorization).length;
-  const vectorizableEntries = excludeFromVectorization ? [] : entries.filter((entry) => !entry.excludeFromVectorization);
+    : entries.filter((entry) => readBoolFlag(entry.excludeFromVectorization)).length;
+  const vectorizableEntries = excludeFromVectorization
+    ? []
+    : entries.filter((entry) => !readBoolFlag(entry.excludeFromVectorization));
   const vectorizableEntryCount = vectorizableEntries.length;
   const vectorizedCount = vectorizableEntries.filter(
     (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
