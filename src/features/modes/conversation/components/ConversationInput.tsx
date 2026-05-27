@@ -760,13 +760,17 @@ export function ConversationInput({
       return;
     }
 
-    await generate({
-      chatId: activeChatId,
-      connectionId: null,
-      userMessage: message,
-      ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
-      ...(mentioned.length ? { mentionedCharacterNames: mentioned } : {}),
-    });
+    try {
+      await generate({
+        chatId: activeChatId,
+        connectionId: null,
+        userMessage: message,
+        ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+        ...(mentioned.length ? { mentionedCharacterNames: mentioned } : {}),
+      });
+    } catch {
+      // useGenerate owns provider-failure UI feedback; aborts are an expected Stop generating path.
+    }
   }, [
     activeChatId,
     attachments,
