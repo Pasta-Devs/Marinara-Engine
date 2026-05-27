@@ -31,6 +31,7 @@ export const createConnectionSchema = z.object({
   defaultForAgents: z.boolean().default(false),
   enableCaching: z.boolean().default(false),
   cachingAtDepth: z.number().int().min(0).default(5),
+  claudeFastMode: z.boolean().default(false),
   embeddingModel: z.string().default(""),
   embeddingBaseUrl: z.string().url().or(z.literal("")).default(""),
   embeddingConnectionId: z.string().nullable().default(null),

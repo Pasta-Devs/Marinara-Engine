@@ -9,6 +9,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
 };
+use uuid::Uuid;
 
 const OPENAI_CHATGPT_CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
 const OPENAI_CHATGPT_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
@@ -45,6 +46,8 @@ pub struct LlmConnection {
     pub caching_at_depth: Option<u64>,
     #[serde(rename = "maxTokensOverride", default)]
     pub max_tokens_override: Option<u64>,
+    #[serde(rename = "claudeFastMode", default)]
+    pub claude_fast_mode: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -139,7 +142,10 @@ fn is_prompt_connection_log_preset_value(value: Option<&str>) -> bool {
         == Some("prompt-connections")
 }
 
-fn prompt_connection_diagnostics_enabled_values(log_preset: Option<&str>, explicit: Option<&str>) -> bool {
+fn prompt_connection_diagnostics_enabled_values(
+    log_preset: Option<&str>,
+    explicit: Option<&str>,
+) -> bool {
     is_prompt_connection_log_preset_value(log_preset) || explicit.is_some_and(enabled_env_flag)
 }
 
@@ -184,7 +190,10 @@ fn log_prompt_connection_request(kind: &str, endpoint: &str, request: &LlmReques
         );
     }
     if !request.tools.is_empty() {
-        eprintln!("[prompt-connections] tools={}", compact_json(&json!(&request.tools)));
+        eprintln!(
+            "[prompt-connections] tools={}",
+            compact_json(&json!(&request.tools))
+        );
     }
     eprintln!("[prompt-connections] body={}", compact_json(body));
 }
@@ -1158,6 +1167,142 @@ fn render_claude_subscription_transcript(messages: &[LlmMessage]) -> (Option<Str
     )
 }
 
+struct ClaudeSubscriptionPrompt {
+    system_prompt: Option<String>,
+    prompt: String,
+    session_id: Option<String>,
+    prompt_shape: &'static str,
+}
+
+fn disabled_env_flag(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "0" | "false" | "no" | "off"
+    )
+}
+
+fn claude_subscription_resume_enabled() -> bool {
+    normalize_env_value(env::var("CLAUDE_SUBSCRIPTION_USE_RESUME").ok())
+        .as_deref()
+        .map(|value| !disabled_env_flag(value))
+        .unwrap_or(true)
+}
+
+fn marinara_runtime_metadata(parameters: &Value) -> Option<&serde_json::Map<String, Value>> {
+    parameters.get("_marinara")?.as_object()
+}
+
+fn claude_subscription_chat_id(parameters: &Value) -> Option<String> {
+    marinara_runtime_metadata(parameters)?
+        .get("chatId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn claude_subscription_should_use_session(parameters: &Value) -> bool {
+    let Some(metadata) = marinara_runtime_metadata(parameters) else {
+        return false;
+    };
+    let regenerate = metadata
+        .get("regenerateMessageId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some();
+    let impersonate = metadata
+        .get("impersonate")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    claude_subscription_resume_enabled() && !regenerate && !impersonate
+}
+
+fn claude_subscription_session_id(chat_id: &str) -> String {
+    Uuid::new_v5(
+        &Uuid::NAMESPACE_URL,
+        format!("marinara-engine:claude-subscription:{chat_id}").as_bytes(),
+    )
+    .to_string()
+}
+
+fn claude_subscription_scratch_cwd() -> Option<PathBuf> {
+    let dir = env::temp_dir().join("marinara-claude-subscription-scratch");
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+fn render_claude_subscription_current_prompt(
+    messages: &[LlmMessage],
+) -> (Option<String>, String, &'static str) {
+    let mut system = Vec::new();
+    let mut non_system = Vec::new();
+    for message in messages {
+        let content = message.content.trim();
+        if content.is_empty() && message.images.is_empty() {
+            continue;
+        }
+        if message.role == "system" {
+            if !content.is_empty() {
+                system.push(content.to_string());
+            }
+        } else {
+            non_system.push(message);
+        }
+    }
+
+    let Some(trailing) = non_system.last() else {
+        return (
+            (!system.is_empty()).then(|| system.join("\n\n")),
+            "[Start]".to_string(),
+            "synthetic-start",
+        );
+    };
+    if trailing.role == "assistant" {
+        return (
+            (!system.is_empty()).then(|| system.join("\n\n")),
+            "(continue)".to_string(),
+            "trailing-assistant-continue",
+        );
+    }
+    (
+        (!system.is_empty()).then(|| system.join("\n\n")),
+        if trailing.role == "tool" {
+            format!("Tool result: {}", trailing.content.trim())
+        } else {
+            trailing.content.trim().to_string()
+        },
+        if trailing.role == "tool" {
+            "trailing-tool"
+        } else {
+            "trailing-user"
+        },
+    )
+}
+
+fn claude_subscription_prompt(request: &LlmRequest) -> ClaudeSubscriptionPrompt {
+    let messages = request_messages(request);
+    if claude_subscription_should_use_session(&request.parameters) {
+        if let Some(chat_id) = claude_subscription_chat_id(&request.parameters) {
+            let (system_prompt, prompt, prompt_shape) =
+                render_claude_subscription_current_prompt(&messages);
+            return ClaudeSubscriptionPrompt {
+                system_prompt,
+                prompt,
+                session_id: Some(claude_subscription_session_id(&chat_id)),
+                prompt_shape,
+            };
+        }
+    }
+    let (system_prompt, prompt) = render_claude_subscription_transcript(&messages);
+    ClaudeSubscriptionPrompt {
+        system_prompt,
+        prompt,
+        session_id: None,
+        prompt_shape: "transcript-fold",
+    }
+}
+
 fn claude_subscription_command() -> String {
     env::var("CLAUDE_CODE_COMMAND")
         .or_else(|_| env::var("CLAUDE_COMMAND"))
@@ -1198,17 +1343,36 @@ pub fn check_claude_subscription_available() -> AppResult<String> {
             },
         ));
     }
-    Ok("Claude Code command is available. The first chat will fail if `claude login` has not been run on this host.".to_string())
+    let session_state = if claude_subscription_resume_enabled() {
+        "chat-scoped Claude Code sessions are enabled"
+    } else {
+        "chat-scoped Claude Code sessions are disabled by CLAUDE_SUBSCRIPTION_USE_RESUME"
+    };
+    Ok(format!(
+        "Claude Code command is available; {session_state}. The first chat will fail if `claude login` has not been run on this host."
+    ))
 }
 
 fn claude_subscription_text_from_json(value: &Value) -> Option<String> {
-    if let Some(text) = value.get("result").and_then(Value::as_str) {
+    if let Some(text) = value
+        .get("result")
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+    {
         return Some(text.to_string());
     }
-    if let Some(text) = value.get("response").and_then(Value::as_str) {
+    if let Some(text) = value
+        .get("response")
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+    {
         return Some(text.to_string());
     }
-    if let Some(text) = value.get("text").and_then(Value::as_str) {
+    if let Some(text) = value
+        .get("text")
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+    {
         return Some(text.to_string());
     }
     if let Some(message) = value.get("message") {
@@ -1236,7 +1400,62 @@ fn claude_subscription_text_from_json(value: &Value) -> Option<String> {
     None
 }
 
-fn parse_claude_subscription_output(raw: &str) -> AppResult<String> {
+fn claude_subscription_output_diagnostic(value: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(subtype) = value.get("subtype").and_then(Value::as_str) {
+        parts.push(format!("subtype={subtype}"));
+    }
+    if let Some(fast_mode_state) = value.get("fast_mode_state").and_then(Value::as_str) {
+        parts.push(format!("fast_mode_state={fast_mode_state}"));
+    }
+    if let Some(usage) = value.get("usage").and_then(Value::as_object) {
+        if let Some(input_tokens) = usage.get("input_tokens").and_then(Value::as_u64) {
+            parts.push(format!("input_tokens={input_tokens}"));
+        }
+        if let Some(output_tokens) = usage.get("output_tokens").and_then(Value::as_u64) {
+            parts.push(format!("output_tokens={output_tokens}"));
+        }
+    }
+    if let Some(model_usage) = value.get("modelUsage").and_then(Value::as_object) {
+        let models = model_usage.keys().cloned().collect::<Vec<_>>();
+        if !models.is_empty() {
+            parts.push(format!("billed_models={}", models.join(",")));
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+fn claude_subscription_json_declares_empty_result(value: &Value) -> bool {
+    let has_result_shape = value.get("result").is_some()
+        || value.get("response").is_some()
+        || value.get("text").is_some()
+        || value.get("message").is_some()
+        || value.get("content").is_some();
+    has_result_shape && claude_subscription_text_from_json(value).is_none()
+}
+
+fn log_claude_subscription_status(value: &Value, requested_model: &str) {
+    let used_models = value
+        .get("modelUsage")
+        .and_then(Value::as_object)
+        .map(|models| models.keys().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let fast_mode_state = value.get("fast_mode_state").and_then(Value::as_str);
+    if !used_models.is_empty() && !used_models.iter().any(|model| model == requested_model) {
+        eprintln!(
+            "[claude-subscription] requested {requested_model} but Claude Code reported billed models {} (fast_mode_state={})",
+            used_models.join(","),
+            fast_mode_state.unwrap_or("unknown")
+        );
+    } else if fast_mode_state.is_some_and(|state| state != "off") {
+        eprintln!(
+            "[claude-subscription] fast_mode_state={} for {requested_model}; output may come from fast-mode routing",
+            fast_mode_state.unwrap_or("unknown")
+        );
+    }
+}
+
+fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResult<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(AppError::new(
@@ -1246,10 +1465,21 @@ fn parse_claude_subscription_output(raw: &str) -> AppResult<String> {
     }
     if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
         if let Some(text) = claude_subscription_text_from_json(&value) {
+            log_claude_subscription_status(&value, requested_model);
             return Ok(text);
+        }
+        if claude_subscription_json_declares_empty_result(&value) {
+            let diagnostic = claude_subscription_output_diagnostic(&value)
+                .unwrap_or_else(|| "no diagnostic fields returned".to_string());
+            return Err(AppError::with_details(
+                "claude_subscription_empty",
+                format!("Claude Code returned no content ({diagnostic})."),
+                value,
+            ));
         }
     }
     let mut text = String::new();
+    let mut empty_result_diagnostic: Option<Value> = None;
     for line in trimmed.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -1257,19 +1487,30 @@ fn parse_claude_subscription_output(raw: &str) -> AppResult<String> {
         }
         if let Ok(value) = serde_json::from_str::<Value>(line) {
             if let Some(piece) = claude_subscription_text_from_json(&value) {
+                log_claude_subscription_status(&value, requested_model);
                 text.push_str(&piece);
+            } else if claude_subscription_json_declares_empty_result(&value) {
+                empty_result_diagnostic = Some(value);
             }
         }
     }
     if !text.trim().is_empty() {
         return Ok(text);
     }
+    if let Some(value) = empty_result_diagnostic {
+        let diagnostic = claude_subscription_output_diagnostic(&value)
+            .unwrap_or_else(|| "no diagnostic fields returned".to_string());
+        return Err(AppError::with_details(
+            "claude_subscription_empty",
+            format!("Claude Code returned no content ({diagnostic})."),
+            value,
+        ));
+    }
     Ok(trimmed.to_string())
 }
 
 async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> {
-    let messages = request_messages(&request);
-    let (system_prompt, prompt) = render_claude_subscription_transcript(&messages);
+    let prompt_selection = claude_subscription_prompt(&request);
     let mut command = Command::new(claude_subscription_command());
     command
         .arg("-p")
@@ -1279,15 +1520,29 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         .arg("json")
         .arg("--permission-mode")
         .arg("bypassPermissions")
+        .arg("--settings")
+        .arg(json!({ "fastMode": request.connection.claude_fast_mode }).to_string())
+        .arg("--tools")
+        .arg("")
+        .arg("--disable-slash-commands")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if let Some(system_prompt) = system_prompt.as_ref() {
+    if let Some(system_prompt) = prompt_selection.system_prompt.as_ref() {
         command.arg("--append-system-prompt").arg(system_prompt);
+    }
+    if let Some(session_id) = prompt_selection.session_id.as_ref() {
+        if let Some(cwd) = claude_subscription_scratch_cwd() {
+            command.arg("--session-id").arg(session_id);
+            command.current_dir(cwd);
+        }
+    } else {
+        command.arg("--no-session-persistence");
     }
     if !request.connection.api_key.trim().is_empty() {
         command.env("ANTHROPIC_API_KEY", request.connection.api_key.trim());
     }
+    command.env("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
     log_prompt_connection_request(
         "claude_subscription",
         "claude-code://local",
@@ -1295,7 +1550,10 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         &json!({
             "model": request.connection.model.clone(),
             "outputFormat": "json",
-            "permissionMode": "bypassPermissions"
+            "permissionMode": "bypassPermissions",
+            "fastMode": request.connection.claude_fast_mode,
+            "sessionId": prompt_selection.session_id.as_deref(),
+            "promptShape": prompt_selection.prompt_shape
         }),
     );
     #[cfg(windows)]
@@ -1315,7 +1573,7 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         })?;
     if let Some(mut stdin) = child.stdin.take() {
         stdin
-            .write_all(prompt.as_bytes())
+            .write_all(prompt_selection.prompt.as_bytes())
             .map_err(|error| AppError::new("claude_subscription_io_error", error.to_string()))?;
     }
     let output = child
@@ -1337,7 +1595,7 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
             }),
         ));
     }
-    parse_claude_subscription_output(&stdout)
+    parse_claude_subscription_output(&stdout, &request.connection.model)
 }
 
 async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
@@ -1488,15 +1746,20 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
         }
     });
     if !is_gemini_3 {
-        body["generationConfig"]["temperature"] = json!(temperature(&request.parameters).unwrap_or(0.7));
+        body["generationConfig"]["temperature"] =
+            json!(temperature(&request.parameters).unwrap_or(0.7));
         if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
             body["generationConfig"]["topP"] = json!(top_p);
         }
-        if let Some(top_k) = param_i64(&request.parameters, &["topK", "top_k"]).filter(|value| *value > 0) {
+        if let Some(top_k) =
+            param_i64(&request.parameters, &["topK", "top_k"]).filter(|value| *value > 0)
+        {
             body["generationConfig"]["topK"] = json!(top_k);
         }
     }
-    if let Some(thinking_config) = google_thinking_config(&request.connection.model, &request.parameters) {
+    if let Some(thinking_config) =
+        google_thinking_config(&request.connection.model, &request.parameters)
+    {
         body["generationConfig"]["thinkingConfig"] = thinking_config;
     }
     if let Some(stop) = stop_sequences(&request.parameters) {
@@ -1688,17 +1951,44 @@ fn normalize_tool_call(call: Value) -> Value {
 mod tests {
     use super::*;
 
+    fn test_connection() -> LlmConnection {
+        LlmConnection {
+            provider: "claude_subscription".to_string(),
+            model: "claude-sonnet-4-5".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            openrouter_provider: None,
+            enable_caching: false,
+            caching_at_depth: None,
+            max_tokens_override: None,
+            claude_fast_mode: false,
+        }
+    }
+
     #[test]
     fn prompt_connection_diagnostics_follow_legacy_preset_and_explicit_flag() {
-        assert!(is_prompt_connection_log_preset_value(Some("prompt-connections")));
-        assert!(is_prompt_connection_log_preset_value(Some("prompt_connections")));
+        assert!(is_prompt_connection_log_preset_value(Some(
+            "prompt-connections"
+        )));
+        assert!(is_prompt_connection_log_preset_value(Some(
+            "prompt_connections"
+        )));
         assert!(prompt_connection_diagnostics_enabled_values(
             Some("prompt-connections"),
             None
         ));
-        assert!(prompt_connection_diagnostics_enabled_values(None, Some("true")));
-        assert!(prompt_connection_diagnostics_enabled_values(None, Some("1")));
-        assert!(!prompt_connection_diagnostics_enabled_values(Some("default"), Some("false")));
+        assert!(prompt_connection_diagnostics_enabled_values(
+            None,
+            Some("true")
+        ));
+        assert!(prompt_connection_diagnostics_enabled_values(
+            None,
+            Some("1")
+        ));
+        assert!(!prompt_connection_diagnostics_enabled_values(
+            Some("default"),
+            Some("false")
+        ));
         assert!(!prompt_connection_diagnostics_enabled_values(None, None));
     }
 
@@ -1712,5 +2002,120 @@ mod tests {
             redacted_endpoint("https://api.openai.com/v1/chat/completions"),
             "https://api.openai.com/v1/chat/completions"
         );
+    }
+
+    #[test]
+    fn claude_subscription_without_runtime_chat_uses_transcript_fold() {
+        let request = LlmRequest {
+            connection: test_connection(),
+            messages: vec![
+                LlmMessage {
+                    role: "system".to_string(),
+                    content: "Rules.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                },
+                LlmMessage {
+                    role: "user".to_string(),
+                    content: "Hello.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                },
+            ],
+            parameters: json!({}),
+            tools: Vec::new(),
+        };
+        let prompt = claude_subscription_prompt(&request);
+        assert_eq!(prompt.system_prompt.as_deref(), Some("Rules."));
+        assert_eq!(prompt.prompt, "User: Hello.");
+        assert_eq!(prompt.session_id, None);
+        assert_eq!(prompt.prompt_shape, "transcript-fold");
+    }
+
+    #[test]
+    fn claude_subscription_runtime_chat_uses_stable_session_prompt() {
+        let request = LlmRequest {
+            connection: test_connection(),
+            messages: vec![
+                LlmMessage {
+                    role: "system".to_string(),
+                    content: "Rules.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                },
+                LlmMessage {
+                    role: "assistant".to_string(),
+                    content: "Earlier reply.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                },
+                LlmMessage {
+                    role: "user".to_string(),
+                    content: "Next turn.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                },
+            ],
+            parameters: json!({ "_marinara": { "chatId": "chat-1", "mode": "roleplay" } }),
+            tools: Vec::new(),
+        };
+        let prompt = claude_subscription_prompt(&request);
+        assert_eq!(prompt.system_prompt.as_deref(), Some("Rules."));
+        assert_eq!(prompt.prompt, "Next turn.");
+        assert_eq!(prompt.prompt_shape, "trailing-user");
+        let expected_session_id = claude_subscription_session_id("chat-1");
+        assert_eq!(
+            prompt.session_id.as_deref(),
+            Some(expected_session_id.as_str())
+        );
+        assert!(Uuid::parse_str(prompt.session_id.as_deref().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn claude_subscription_regeneration_uses_transcript_fold() {
+        let request = LlmRequest {
+            connection: test_connection(),
+            messages: vec![LlmMessage {
+                role: "user".to_string(),
+                content: "Regenerate from here.".to_string(),
+                name: None,
+                images: Vec::new(),
+                tool_call_id: None,
+                tool_calls: None,
+            }],
+            parameters: json!({
+                "_marinara": {
+                    "chatId": "chat-1",
+                    "regenerateMessageId": "message-1"
+                }
+            }),
+            tools: Vec::new(),
+        };
+        let prompt = claude_subscription_prompt(&request);
+        assert_eq!(prompt.prompt, "User: Regenerate from here.");
+        assert_eq!(prompt.session_id, None);
+        assert_eq!(prompt.prompt_shape, "transcript-fold");
+    }
+
+    #[test]
+    fn claude_subscription_empty_json_result_is_an_error() {
+        let error = parse_claude_subscription_output(
+            r#"{"type":"result","subtype":"success","result":"","usage":{"input_tokens":10,"output_tokens":0},"fast_mode_state":"off","modelUsage":{"claude-sonnet-4-5":{}}}"#,
+            "claude-sonnet-4-5",
+        )
+        .expect_err("empty result JSON should fail");
+        assert_eq!(error.code, "claude_subscription_empty");
+        assert!(error.message.contains("output_tokens=0"));
+        assert!(error.details.is_some());
     }
 }

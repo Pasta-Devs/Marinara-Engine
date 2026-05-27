@@ -1194,6 +1194,24 @@ function generationGuide(input: StartGenerationInput): LlmMessage | null {
   return guide ? { role: "user", content: guide } : null;
 }
 
+function runtimeLlmParameters(
+  connection: JsonRecord,
+  input: StartGenerationInput,
+  chat: JsonRecord,
+  parameters: Record<string, unknown>,
+): Record<string, unknown> {
+  if (readString(connection.provider).trim() !== "claude_subscription") return parameters;
+  return {
+    ...parameters,
+    _marinara: {
+      chatId: readString(chat.id).trim() || readString(input.chatId).trim(),
+      mode: readString(chat.mode || chat.chatMode).trim(),
+      regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
+      impersonate: input.impersonate === true,
+    },
+  };
+}
+
 /**
  * Cap on the number of stream → tool-execute → re-stream iterations the main
  * generation loop will perform before forcing a final turn. Picked defensively
@@ -1229,7 +1247,7 @@ async function* streamMainGenerationLoop(args: {
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
 }): AsyncGenerator<GenerationEvent, { content: string; usage: unknown }> {
-  const { deps, connection, input, parameters, baseMessages, mainTools, toolRuntimeInput, signal } = args;
+  const { deps, connection, input, chat, parameters, baseMessages, mainTools, toolRuntimeInput, signal } = args;
   let content = "";
   const usages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
@@ -1245,7 +1263,7 @@ async function* streamMainGenerationLoop(args: {
         connectionId: readString(connection.id) || input.connectionId,
         model: readString(connection.model) || undefined,
         messages: conversation,
-        parameters,
+        parameters: runtimeLlmParameters(connection, input, chat, parameters),
         tools: mainTools?.toolDefs,
       },
       signal,

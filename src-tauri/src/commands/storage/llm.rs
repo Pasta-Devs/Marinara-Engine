@@ -339,6 +339,11 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
                 .or_else(|| value.as_str()?.parse::<u64>().ok())
         })
         .filter(|value| *value > 0);
+    let claude_fast_mode = match value.get("claudeFastMode") {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::String(value)) => value.eq_ignore_ascii_case("true"),
+        _ => false,
+    };
     Ok(marinara_llm::LlmConnection {
         provider,
         model,
@@ -348,6 +353,7 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
         enable_caching,
         caching_at_depth,
         max_tokens_override,
+        claude_fast_mode,
     })
 }
 
