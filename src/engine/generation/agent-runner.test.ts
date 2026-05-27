@@ -29,6 +29,9 @@ function storage(rows: Record<string, unknown>[], collections: Record<string, Re
 }
 
 const llm: LlmGateway = {
+  async embed() {
+    return null;
+  },
   async *stream() {
     yield { type: "token", text: "ok" };
   },
@@ -42,6 +45,9 @@ const llm: LlmGateway = {
 
 function countingLlm(calls: unknown[], responseText = "ok"): LlmGateway {
   return {
+    async embed() {
+      return null;
+    },
     async *stream(request) {
       calls.push(request);
       yield { type: "token", text: responseText };

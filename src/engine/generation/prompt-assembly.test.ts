@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { LlmEmbedRequest, LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { DEFAULT_GENERATION_PARAMS } from "../contracts/constants/defaults";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
@@ -106,6 +107,20 @@ function storageWithLore(entries: Row[]): StorageGateway {
     listLorebookEntries: async <T,>() => entries as T[],
   };
 }
+
+function storageWithMemories(memories: Row[]): StorageGateway {
+  return {
+    ...storageWithSections([]),
+    listChatMemories: async <T,>() => memories as T[],
+  };
+}
+
+const providerMemoryLlm: LlmGateway = {
+  embed: async () => [[1, 0, 0]],
+  complete: async () => "",
+  stream: async function* () {},
+  listModels: async () => [],
+};
 
 const request = {
   ...DEFAULT_GENERATION_PARAMS,
@@ -570,6 +585,81 @@ describe("assembleGenerationPrompt conversation scene awareness gates", () => {
     const prompt = assembly.messages.map((message) => message.content).join("\n\n");
     expect(prompt).toContain("A normal conversation card.");
     expect(prompt).not.toContain("HIDDEN CHARACTER SCENE MEMORY SHOULD NOT BE IN CONVO PROMPT");
+    expect(prompt).not.toContain("<memories>");
+  });
+});
+
+describe("assembleGenerationPrompt memory recall embeddings", () => {
+  it("uses provider query embeddings for provider-vectorized memories", async () => {
+    const embedRequests: LlmEmbedRequest[] = [];
+    const llm: LlmGateway = {
+      ...providerMemoryLlm,
+      embed: async (embedRequest) => {
+        embedRequests.push(embedRequest);
+        return [[1, 0, 0]];
+      },
+    };
+    const assembly = await assembleGenerationPrompt(
+      storageWithMemories([
+        {
+          id: "memory-semantic",
+          chatId: "conversation-chat",
+          content: "assistant: Orchard passphrase silverleaf.",
+          embedding: [1, 0, 0],
+          embeddingSource: "provider",
+          embeddingModel: "embedding-model",
+          embeddingConnectionId: "embedding-connection",
+        },
+        {
+          id: "memory-other",
+          chatId: "conversation-chat",
+          content: "assistant: Harbor chimes midnight.",
+          embedding: [0, 1, 0],
+          embeddingSource: "provider",
+          embeddingModel: "embedding-model",
+          embeddingConnectionId: "embedding-connection",
+        },
+      ]),
+      {
+        chat: { id: "conversation-chat", mode: "conversation" },
+        storedMessages: [{ role: "user", content: "What was the secret word?", contextKind: "history" }],
+        connection: { id: "connection-1", embeddingModel: "embedding-model" },
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "What was the secret word?",
+        llm,
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(embedRequests).toEqual([{ connectionId: "embedding-connection", model: "embedding-model", texts: ["What was the secret word?"] }]);
+    expect(prompt).toContain("<memories>");
+    expect(prompt).toContain("silverleaf");
+    expect(prompt).not.toContain("Harbor chimes");
+  });
+
+  it("does not compare provider memories with lexical vectors when provider query embedding is unavailable", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithMemories([
+        {
+          id: "memory-semantic",
+          chatId: "conversation-chat",
+          content: "assistant: The orchard gate password is silverleaf.",
+          embedding: [1, 0, 0],
+          embeddingSource: "provider",
+          embeddingModel: "embedding-model",
+        },
+      ]),
+      {
+        chat: { id: "conversation-chat", mode: "conversation" },
+        storedMessages: [{ role: "user", content: "silverleaf?", contextKind: "history" }],
+        connection: { id: "connection-1", embeddingModel: "embedding-model" },
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "silverleaf?",
+        llm: { ...providerMemoryLlm, embed: async () => null },
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
     expect(prompt).not.toContain("<memories>");
   });
 });

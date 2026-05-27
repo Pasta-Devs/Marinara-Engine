@@ -9,6 +9,16 @@ function createStreamId(): string {
 }
 
 export const llmApi: LlmGateway = {
+  embed: async (request) => {
+    const result = await invokeTauri<{ embeddings?: unknown }>("llm_embed", {
+      request,
+    });
+    return Array.isArray(result.embeddings)
+      ? result.embeddings.filter((embedding): embedding is number[] =>
+          Array.isArray(embedding) && embedding.every((value) => typeof value === "number" && Number.isFinite(value)),
+        )
+      : [];
+  },
   complete: (request: LlmRequest) =>
     invokeTauri("llm_complete", {
       request,

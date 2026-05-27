@@ -101,6 +101,46 @@ pub(crate) async fn llm_complete(state: &AppState, body: Value) -> AppResult<Val
     Ok(Value::String(content))
 }
 
+pub(crate) async fn llm_embed(state: &AppState, body: Value) -> AppResult<Value> {
+    let texts = body
+        .get("texts")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::invalid_input("texts is required"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(ToOwned::to_owned)
+                .ok_or_else(|| AppError::invalid_input("texts must contain strings"))
+        })
+        .collect::<AppResult<Vec<_>>>()?;
+    if texts.is_empty() {
+        return Ok(json!({ "embeddings": [] }));
+    }
+    let mut connection = resolve_llm_connection_for_request(state, &body)?;
+    if let Some(model) = body
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(object) = connection.as_object_mut() {
+            object.insert(
+                "embeddingModel".to_string(),
+                Value::String(model.to_string()),
+            );
+        }
+    }
+    let target = super::prompts::resolve_embedding_target(state, &connection)?
+        .ok_or_else(|| AppError::invalid_input("Embedding model is required"))?;
+    let embeddings = super::prompts::embed_texts(&target.connection, &target.model, &texts).await?;
+    Ok(json!({
+        "embeddings": embeddings,
+        "model": target.model,
+        "connectionId": target.connection_id
+    }))
+}
+
 pub(crate) async fn llm_stream_channel(
     state: &AppState,
     stream_id: String,

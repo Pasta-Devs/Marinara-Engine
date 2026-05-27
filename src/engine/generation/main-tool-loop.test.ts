@@ -133,6 +133,7 @@ function makeStubDeps(
   } as IntegrationGateway;
 
   const llm: LlmGateway = {
+    embed: vi.fn(async () => null),
     stream,
     complete: vi.fn(async () => ""),
     listModels: vi.fn(async () => []),
@@ -562,6 +563,7 @@ describe("row 8 — mid-loop abort propagates cleanly", () => {
       image: { generate: vi.fn() },
     } as IntegrationGateway;
     const llm: LlmGateway = {
+      embed: vi.fn(async () => null),
       stream,
       complete: vi.fn(async () => ""),
       listModels: vi.fn(async () => []),

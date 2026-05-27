@@ -123,8 +123,18 @@ export interface ChatMemoryChunk {
   createdAt: string;
   /** False when chunking succeeded but embedding generation was unavailable. */
   hasEmbedding: boolean;
-  /** Local lexical recall vector used by the Tauri prompt assembler. */
+  /** Recall vector generated from the configured embedding source, or lexical when no embedding model is configured. */
   embedding?: number[] | null;
+  /** Origin for the stored recall vector. */
+  embeddingSource?: "provider" | "lexical" | null;
+  /** Provider embedding model used when embeddingSource is provider. */
+  embeddingModel?: string | null;
+  /** Connection used when embeddingSource is provider. */
+  embeddingConnectionId?: string | null;
+  /** Provider name used when embeddingSource is provider. */
+  embeddingProvider?: string | null;
+  /** Last time the recall vector was rebuilt. */
+  embeddingUpdatedAt?: string | null;
   /** Current vectorization state for display. */
   embeddingStatus?: "vectorized" | "pending" | "unavailable";
 }

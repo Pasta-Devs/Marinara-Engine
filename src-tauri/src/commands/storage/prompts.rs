@@ -2,6 +2,12 @@ use super::shared::*;
 use super::*;
 use marinara_security::is_allowed_outbound_url;
 
+pub(crate) struct EmbeddingTarget {
+    pub(crate) connection: Value,
+    pub(crate) connection_id: String,
+    pub(crate) model: String,
+}
+
 pub(crate) async fn vectorize_lorebook(
     state: &AppState,
     lorebook_id: &str,
@@ -124,7 +130,94 @@ fn lorebook_entry_embedding_text(entry: &Value) -> String {
     .join("\n")
 }
 
-async fn embed_text(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
+pub(crate) fn resolve_embedding_target(
+    state: &AppState,
+    active_connection: &Value,
+) -> AppResult<Option<EmbeddingTarget>> {
+    let active_connection_id = active_connection
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let embedding_connection_id = active_connection
+        .get("embeddingConnectionId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let mut embedding_connection = match embedding_connection_id {
+        Some(id) => get_required(state, "connections", id)?,
+        None => active_connection.clone(),
+    };
+    let embedding_model = embedding_connection
+        .get("embeddingModel")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            active_connection
+                .get("embeddingModel")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .map(str::to_string);
+    let Some(model) = embedding_model else {
+        return Ok(None);
+    };
+    let connection_id = embedding_connection
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or(active_connection_id);
+    if let Some(object) = embedding_connection.as_object_mut() {
+        object.insert("model".to_string(), Value::String(model.clone()));
+    }
+    Ok(Some(EmbeddingTarget {
+        connection: embedding_connection,
+        connection_id,
+        model,
+    }))
+}
+
+pub(crate) fn resolve_embedding_target_for_chat(
+    state: &AppState,
+    chat: &Value,
+    active_connection: &Value,
+) -> AppResult<Option<EmbeddingTarget>> {
+    let mut connection = active_connection.clone();
+    let metadata = metadata_map(chat);
+    if let Some(embedding_connection_id) = metadata
+        .get("embeddingConnectionId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(object) = connection.as_object_mut() {
+            object.insert(
+                "embeddingConnectionId".to_string(),
+                Value::String(embedding_connection_id.to_string()),
+            );
+        }
+    }
+    resolve_embedding_target(state, &connection)
+}
+
+pub(crate) async fn embed_texts(
+    connection: &Value,
+    model: &str,
+    texts: &[String],
+) -> AppResult<Vec<Vec<f64>>> {
+    let mut embeddings = Vec::with_capacity(texts.len());
+    for text in texts {
+        embeddings.push(embed_text(connection, model, text).await?);
+    }
+    Ok(embeddings)
+}
+
+pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
     let provider = connection
         .get("provider")
         .and_then(Value::as_str)
@@ -248,10 +341,17 @@ fn json_embedding_array(value: &Value) -> Option<Vec<f64>> {
 
 fn embedding_base_url(connection: &Value, fallback: &str) -> String {
     connection
-        .get("baseUrl")
+        .get("embeddingBaseUrl")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .or_else(|| {
+            connection
+                .get("baseUrl")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
         .unwrap_or(fallback)
         .trim_end_matches('/')
         .to_string()

@@ -1,5 +1,6 @@
 import type { LorebookEntry } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
+import type { LlmEmbedRequest, LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { injectAtDepth, processActivatedEntries } from "../generation-core/lorebooks/prompt-injector";
 import { scanForActivatedEntries, type ActivatedEntry } from "../generation-core/lorebooks/keyword-scanner";
@@ -80,6 +81,7 @@ export interface PromptAssemblyInput {
   connection: JsonRecord;
   request: JsonRecord;
   latestUserInput: string;
+  llm?: LlmGateway | null;
   agentData?: Record<string, string>;
 }
 
@@ -776,7 +778,71 @@ function cosineSimilarity(a: number[], b: number[]): number {
 function memoryVector(memory: JsonRecord): number[] | null {
   if (!Array.isArray(memory.embedding)) return null;
   const vector = memory.embedding.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  return vector.length === MEMORY_EMBEDDING_DIMS ? vector : null;
+  return vector.length > 0 ? vector : null;
+}
+
+function memoryUsesProviderEmbedding(memory: JsonRecord): boolean {
+  const vector = memoryVector(memory);
+  return (
+    readString(memory.embeddingSource) === "provider" ||
+    !!readString(memory.embeddingModel) ||
+    (!!vector && vector.length !== MEMORY_EMBEDDING_DIMS)
+  );
+}
+
+function providerMemoryEmbeddingKey(memory: JsonRecord, connection: JsonRecord): string {
+  const connectionId = readString(memory.embeddingConnectionId).trim() || readString(connection.id).trim() || "inline";
+  const model = readString(memory.embeddingModel).trim() || readString(connection.embeddingModel).trim();
+  return `${connectionId}\u0000${model}`;
+}
+
+function providerMemoryEmbeddingRequest(
+  memory: JsonRecord,
+  connection: JsonRecord,
+  latestUserInput: string,
+): LlmEmbedRequest | null {
+  const connectionId = readString(memory.embeddingConnectionId).trim() || readString(connection.id).trim();
+  if (!connectionId) return null;
+  const model = readString(memory.embeddingModel).trim();
+  return {
+    connectionId,
+    ...(model ? { model } : {}),
+    texts: [latestUserInput],
+  };
+}
+
+async function queryProviderMemoryEmbeddings(
+  llm: LlmGateway | null | undefined,
+  connection: JsonRecord,
+  latestUserInput: string,
+  memories: JsonRecord[],
+): Promise<Map<string, number[]>> {
+  const providerMemories = memories.filter(memoryUsesProviderEmbedding);
+  const queryEmbeddings = new Map<string, number[]>();
+  if (!llm || providerMemories.length === 0) return queryEmbeddings;
+
+  const requests = new Map<string, LlmEmbedRequest>();
+  for (const memory of providerMemories) {
+    const key = providerMemoryEmbeddingKey(memory, connection);
+    if (!requests.has(key)) {
+      const request = providerMemoryEmbeddingRequest(memory, connection, latestUserInput);
+      if (request) requests.set(key, request);
+    }
+  }
+
+  await Promise.all(
+    Array.from(requests.entries()).map(async ([key, request]) => {
+      const embeddings = await llm.embed(request).catch((error) => {
+        console.warn("[memory-recall] provider embedding unavailable", error);
+        return null;
+      });
+      const queryEmbedding = embeddings?.[0];
+      if (Array.isArray(queryEmbedding) && queryEmbedding.length > 0) {
+        queryEmbeddings.set(key, queryEmbedding);
+      }
+    }),
+  );
+  return queryEmbeddings;
 }
 
 function truncateRecalledMemory(content: string, tokenBudget: number): string {
@@ -821,7 +887,9 @@ function memoryRecallEnabled(chat: JsonRecord): boolean {
 async function buildMemoryRecallBlock(
   storage: StorageGateway,
   chat: JsonRecord,
+  connection: JsonRecord,
   latestUserInput: string,
+  llm?: LlmGateway | null,
   maxContext?: number,
 ): Promise<string | null> {
   if (!memoryRecallEnabled(chat) || !latestUserInput.trim()) return null;
@@ -836,13 +904,20 @@ async function buildMemoryRecallBlock(
   }
   if (memories.length === 0) return null;
 
-  const queryVector = lexicalMemoryEmbedding(latestUserInput);
+  const providerQueryVectors = await queryProviderMemoryEmbeddings(llm, connection, latestUserInput, memories);
+  const lexicalQueryVector = lexicalMemoryEmbedding(latestUserInput);
   const queryTokens = new Set(latestUserInput.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
   const recalled = memories
     .map((memory) => {
       const content = readString(memory.content).trim();
       if (!content) return null;
-      const vector = memoryVector(memory) ?? lexicalMemoryEmbedding(content);
+      const storedVector = memoryVector(memory);
+      const usesProvider = memoryUsesProviderEmbedding(memory);
+      const providerQueryVector = usesProvider ? providerQueryVectors.get(providerMemoryEmbeddingKey(memory, connection)) : null;
+      if (usesProvider && (!providerQueryVector || !storedVector || storedVector.length !== providerQueryVector.length)) return null;
+      const vector = storedVector ?? lexicalMemoryEmbedding(content);
+      const queryVector = usesProvider ? providerQueryVector! : lexicalQueryVector;
+      if (storedVector && storedVector.length !== queryVector.length) return null;
       const haystack = content.toLowerCase();
       const lexicalScore = Array.from(queryTokens).reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
       const similarity = cosineSimilarity(queryVector, vector) + Math.min(0.2, lexicalScore * 0.025);
@@ -1143,7 +1218,9 @@ export async function assembleGenerationPrompt(
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
     input.chat,
+    input.connection,
     input.latestUserInput,
+    input.llm,
     readNumber(input.connection.maxContext, 0) || undefined,
   );
   const defaultPrompt = await loadDefaultPromptId(storage);

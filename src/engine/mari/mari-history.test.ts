@@ -43,6 +43,7 @@ describe("Professor Mari history", () => {
       message(index + 1, `Long turn ${index + 1}. ${"detail ".repeat(80)}`),
     );
     const llm: LlmGateway = {
+      embed: async () => null,
       complete: async () => "Compacted notes about the earlier conversation.",
       stream: async function* () {},
       listModels: async () => [],

@@ -746,6 +746,7 @@ async function runGenerationAgentsForTarget(args: {
     connection,
     request: input,
     latestUserInput: "",
+    llm: deps.llm,
   });
   const results: AgentResult[] = [];
   const runtime = await createGenerationAgentRuntime(
@@ -893,6 +894,7 @@ export async function* startGeneration(
     connection,
     request: input,
     latestUserInput: preparedUserInput.content || inputUserMessage(input),
+    llm: deps.llm,
   });
   mirrorSavedUserMessageToDiscord({ deps, chat, input, prepared: preparedUserInput, persona: assembly.persona });
 
@@ -928,6 +930,7 @@ export async function* startGeneration(
       connection,
       request: input,
       latestUserInput: preparedUserInput.content || inputUserMessage(input),
+      llm: deps.llm,
       agentData: runtime?.agentData,
     });
     prompt = withImageAttachments(

@@ -22,6 +22,13 @@ export interface LlmRequest {
   tools?: LlmToolDefinition[];
 }
 
+export interface LlmEmbedRequest {
+  connectionId?: string | null;
+  connection?: Record<string, unknown> | null;
+  model?: string | null;
+  texts: string[];
+}
+
 export interface LlmChunk {
   type: "start" | "token" | "thinking" | "tool_call" | "usage" | "done" | "error";
   text?: string;
@@ -31,6 +38,7 @@ export interface LlmChunk {
 }
 
 export interface LlmGateway {
+  embed(request: LlmEmbedRequest, signal?: AbortSignal): Promise<number[][] | null>;
   complete(request: LlmRequest, signal?: AbortSignal): Promise<string>;
   stream(request: LlmRequest, signal?: AbortSignal): AsyncGenerator<LlmChunk>;
   listModels(connectionId?: string | null): Promise<Array<{ id: string; name?: string; provider?: string }>>;

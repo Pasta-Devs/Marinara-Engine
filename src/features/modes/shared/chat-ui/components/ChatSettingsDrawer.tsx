@@ -4715,7 +4715,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
-              help="When enabled, relevant fragments from this chat are recalled with local lexical matching and injected into the prompt as memories."
+              help="When enabled, relevant fragments from this chat are recalled with the configured embedding model, or local lexical matching when no embedding model is configured, and injected into the prompt as memories."
             >
               {renderMemoryRecallControls(true)}
             </Section>
@@ -5017,7 +5017,7 @@ export function ChatSettingsDrawer({
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
-              help="When enabled, relevant fragments from this chat are recalled with local lexical matching and injected into the prompt as memories."
+              help="When enabled, relevant fragments from this chat are recalled with the configured embedding model, or local lexical matching when no embedding model is configured, and injected into the prompt as memories."
             >
               {renderMemoryRecallControls(metadata.sceneStatus === "active")}
             </Section>
@@ -5649,6 +5649,16 @@ function estimateMemoryTokens(memories: ChatMemoryChunk[]): number {
   return Math.ceil(text.length / 4);
 }
 
+function memoryEmbeddingLabel(memory: ChatMemoryChunk): string {
+  if (!memory.hasEmbedding) {
+    return memory.embeddingStatus === "unavailable" ? "Embedding unavailable" : "Waiting for vector";
+  }
+  if (memory.embeddingSource === "provider") {
+    return memory.embeddingModel ? `Provider vector: ${memory.embeddingModel}` : "Provider vector";
+  }
+  return "Lexical vector";
+}
+
 const MEMORY_CONTENT_CLASS =
   "max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--foreground)]";
 
@@ -5807,13 +5817,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                       <span>{memory.messageCount} messages</span>
-                      <span>
-                        {memory.hasEmbedding
-                          ? "Vectorized"
-                          : memory.embeddingStatus === "unavailable"
-                            ? "Embedding unavailable"
-                            : "Waiting for vector"}
-                      </span>
+                      <span>{memoryEmbeddingLabel(memory)}</span>
                       <span>Created {formatMemoryDate(memory.createdAt)}</span>
                     </div>
                   </div>
