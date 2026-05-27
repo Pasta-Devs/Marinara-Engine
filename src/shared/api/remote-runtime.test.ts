@@ -20,21 +20,21 @@ describe("remote LLM stream cancellation", () => {
   });
 
   it("does not attempt remote cancellation without a remote runtime target", async () => {
-    await cancelRemoteLlmStream("stream-1");
+    await cancelRemoteLlmStream("stream-1", null);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("sends cancel requests to the remote stream endpoint", async () => {
-    useUIStore.getState().setRemoteRuntimeUrl("http://127.0.0.1:8787");
+    const streamTarget = { baseUrl: "http://127.0.0.1:8787" };
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
-    await cancelRemoteLlmStream("stream/1");
+    await cancelRemoteLlmStream("stream/1", streamTarget);
 
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:8787/api/llm/stream/stream%2F1/cancel", {
       method: "POST",
-      headers: {},
+      headers: { "X-Marinara-CSRF": "1" },
     });
     expect(warn).not.toHaveBeenCalled();
   });
@@ -48,13 +48,13 @@ describe("remote LLM stream cancellation", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:8787/api/llm/stream/stream-4/cancel", {
       method: "POST",
-      headers: {},
+      headers: { "X-Marinara-CSRF": "1" },
     });
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("logs non-OK remote cancellation responses without throwing", async () => {
-    useUIStore.getState().setRemoteRuntimeUrl("http://127.0.0.1:8787");
+    const streamTarget = { baseUrl: "http://127.0.0.1:8787" };
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ message: "cancel route failed" }), {
         status: 500,
@@ -62,7 +62,7 @@ describe("remote LLM stream cancellation", () => {
       }),
     );
 
-    await expect(cancelRemoteLlmStream("stream-2")).resolves.toBeUndefined();
+    await expect(cancelRemoteLlmStream("stream-2", streamTarget)).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith("[llm] Stream cancel failed", {
       area: "llm-stream-cancel",
@@ -77,10 +77,10 @@ describe("remote LLM stream cancellation", () => {
   });
 
   it("logs remote cancellation transport failures without throwing", async () => {
-    useUIStore.getState().setRemoteRuntimeUrl("http://127.0.0.1:8787");
+    const streamTarget = { baseUrl: "http://127.0.0.1:8787" };
     fetchMock.mockRejectedValue(new TypeError("fetch failed"));
 
-    await expect(cancelRemoteLlmStream("stream-3")).resolves.toBeUndefined();
+    await expect(cancelRemoteLlmStream("stream-3", streamTarget)).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith("[llm] Stream cancel failed", {
       area: "llm-stream-cancel",

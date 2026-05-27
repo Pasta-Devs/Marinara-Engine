@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, FolderOpen, Folder } from "lucide-react";
-import { usePersonas, usePersonaGroups } from "../../../../catalog/characters/index";
+import { usePersona, usePersonas, usePersonaGroups } from "../../../../catalog/characters/index";
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../../shared/lib/utils";
@@ -39,17 +39,18 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { data: rawPersonas } = usePersonas();
-  const { data: rawPersonaGroups } = usePersonaGroups();
   const { data: chat } = useChat(activeChatId);
+  const activePersonaId = (chat as unknown as Record<string, unknown>)?.personaId as string | null;
+  const { data: activePersonaRecord } = usePersona(activePersonaId, !!activePersonaId);
+  const { data: rawPersonas } = usePersonas(open);
+  const { data: rawPersonaGroups } = usePersonaGroups(open);
   const updateChat = useUpdateChat();
 
   const personas = ((rawPersonas ?? []) as Persona[])
     .slice()
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-  const activePersonaId = (chat as unknown as Record<string, unknown>)?.personaId as string | null;
-  const activePersona = personas.find((p) => p.id === activePersonaId) ?? null;
+  const activePersona = personas.find((p) => p.id === activePersonaId) ?? (activePersonaRecord as Persona | null) ?? null;
 
   // Build a map for quick lookups
   const personaMap = useMemo(() => {

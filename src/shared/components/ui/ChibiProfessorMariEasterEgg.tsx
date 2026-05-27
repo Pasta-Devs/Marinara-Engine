@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { useUIStore } from "../../stores/ui.store";
 
 const CHIBI_PROFESSOR_MARI_IMAGE = "/sprites/mari/chibi-professor-mari.png";
 const CHIBI_PROFESSOR_MARI_SEEN_KEY = "marinara:chibi-professor-mari-toast-seen";
@@ -51,7 +52,11 @@ function showChibiProfessorMariToast() {
 }
 
 export function ChibiProfessorMariEasterEgg() {
+  const enabled = useUIStore((state) => state.chibiProfessorMariEnabled);
+
   useEffect(() => {
+    if (!enabled) return;
+
     let seen = hasSeenChibiProfessorMari();
     let lastRollAt = 0;
 
@@ -74,7 +79,7 @@ export function ChibiProfessorMariEasterEgg() {
     return () => {
       document.removeEventListener("scroll", handleScroll, scrollOptions);
     };
-  }, []);
+  }, [enabled]);
 
   return null;
 }

@@ -165,6 +165,10 @@ export interface ChatMetadata {
   groupSpeakerColors?: boolean;
   /** Group individual mode response order: "sequential" or "smart" (agent-decided) */
   groupResponseOrder?: GroupResponseOrder;
+  /** Character IDs attached to this chat but muted/excluded from generation. */
+  inactiveCharacterIds?: string[];
+  /** When true/omitted, individual group turns append a responding-character instruction to the prompt. */
+  groupTurnPromptEnabled?: boolean;
   /** Characters with visible roleplay sprites enabled for this chat. */
   spriteCharacterIds?: string[];
   /** Which sprite file families the roleplay Expression Engine may display. */
@@ -388,6 +392,8 @@ export interface MessageExtra {
    * saved with this assistant message — reused when regenerating that swipe unless refreshed.
    */
   contextInjections?: Array<{ agentType: string; agentName?: string; text: string }> | null;
+  /** Fingerprint of the chat summary text used in the generation prompt. */
+  chatSummaryFingerprint?: string | null;
   /**
    * Hidden command-generation options needed to make swipes/regenerations replay
    * the same slash-command or guided-regenerate prompt behavior.

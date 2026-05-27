@@ -78,7 +78,7 @@ describe("llmApi stream cancellation", () => {
       "http://127.0.0.1:8787/api/llm/stream/llm-stream-fixed/cancel",
       {
         method: "POST",
-        headers: {},
+        headers: { "X-Marinara-CSRF": "1" },
       },
     ]);
 

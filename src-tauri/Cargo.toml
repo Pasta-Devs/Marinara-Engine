@@ -1,9 +1,10 @@
 [package]
 name = "marinara-engine"
-version = "0.1.0"
+version = "1.6.1"
 description = "Marinara Engine"
 authors = ["you"]
 edition = "2021"
+publish = false
 default-run = "marinara-engine"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -60,7 +61,6 @@ marinara-core = { path = "crates/core" }
 marinara-security = { path = "crates/security" }
 marinara-storage = { path = "crates/storage" }
 marinara-assets = { path = "crates/assets" }
-marinara-integrations = { path = "crates/integrations" }
 marinara-llm = { path = "crates/llm" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

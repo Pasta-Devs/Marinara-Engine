@@ -4,7 +4,6 @@ import { APP_VERSION } from "../../../../engine/contracts/constants/defaults";
 import { useConnections } from "../../../catalog/connections/index";
 import { useCreateChat } from "../../../catalog/chats/index";
 import { NewChatConnectionGate } from "../../shared/chat-ui/index";
-import { usePageActivity } from "../../../../shared/hooks/use-page-activity";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { cn } from "../../../../shared/lib/utils";
 import { useChatStore } from "../../../../shared/stores/chat.store";
@@ -15,7 +14,6 @@ import { RecentChats } from "./RecentChats";
 type QuickStartMode = "conversation" | "roleplay" | "game";
 
 export function ModeHomeSurface() {
-  const isPageActive = usePageActivity();
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
   const pendingNewChatMode = useChatStore((state) => state.pendingNewChatMode);
@@ -45,7 +43,7 @@ export function ModeHomeSurface() {
     [connections, createChat],
   );
 
-  const showEmptyStateEffects = isPageActive;
+  const showEmptyStateEffects = true;
 
   return (
     <>

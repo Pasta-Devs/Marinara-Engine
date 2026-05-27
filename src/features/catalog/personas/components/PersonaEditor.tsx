@@ -37,7 +37,14 @@ import {
   RotateCcw,
   Crop,
 } from "lucide-react";
-import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop } from "../../../../shared/lib/utils";
+import {
+  cn,
+  generateClientId,
+  getAvatarCropStyle,
+  parseAvatarCropJson,
+  type AvatarCrop,
+  type LegacyAvatarCrop,
+} from "../../../../shared/lib/utils";
 import { showAlertDialog, showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { extractColorsFromImage } from "../../../../shared/lib/avatar-color-extraction";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
@@ -108,7 +115,7 @@ interface PersonaFormData {
   personaStats: PersonaStatsData | null;
   altDescriptions: AltDescriptionEntry[];
   tags: string[];
-  avatarCrop: AvatarCrop | null;
+  avatarCrop: AvatarCrop | LegacyAvatarCrop | null;
 }
 
 interface PersonaRow {
@@ -121,7 +128,7 @@ interface PersonaRow {
   backstory: string;
   appearance: string;
   avatarPath: string | null;
-  avatarCrop?: AvatarCrop | null;
+  avatarCrop?: AvatarCrop | LegacyAvatarCrop | string | null;
   isActive: string | boolean;
   nameColor?: string;
   dialogueColor?: string;
@@ -131,6 +138,12 @@ interface PersonaRow {
   personaStats?: Record<string, unknown> | string;
   altDescriptions?: AltDescriptionEntry[];
   tags?: string[];
+}
+
+function parseAvatarCropValue(value: PersonaRow["avatarCrop"]): AvatarCrop | LegacyAvatarCrop | null {
+  if (!value) return null;
+  if (typeof value === "string") return parseAvatarCropJson(value);
+  return parseAvatarCropJson(JSON.stringify(value));
 }
 
 export function PersonaEditor() {
@@ -183,29 +196,7 @@ export function PersonaEditor() {
 
     const parsedAltDescs: AltDescriptionEntry[] = Array.isArray(rawPersona.altDescriptions) ? rawPersona.altDescriptions : [];
 
-    let parsedAvatarCrop: AvatarCrop | null = null;
-    const obj = rawPersona.avatarCrop;
-    if (obj && typeof obj === "object") {
-      if (
-        Number.isFinite(obj.srcX) &&
-        Number.isFinite(obj.srcY) &&
-        Number.isFinite(obj.srcWidth) &&
-        Number.isFinite(obj.srcHeight) &&
-        obj.srcWidth > 0 &&
-        obj.srcHeight > 0 &&
-        obj.srcX >= 0 &&
-        obj.srcY >= 0 &&
-        obj.srcX + obj.srcWidth <= 1.001 &&
-        obj.srcY + obj.srcHeight <= 1.001
-      ) {
-        parsedAvatarCrop = {
-          srcX: obj.srcX,
-          srcY: obj.srcY,
-          srcWidth: obj.srcWidth,
-          srcHeight: obj.srcHeight,
-        };
-      }
-    }
+    const parsedAvatarCrop = parseAvatarCropValue(rawPersona.avatarCrop);
 
     const savedTrackerCardColors =
       typeof rawPersona[TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD] === "string"
@@ -1908,7 +1899,7 @@ function DescriptionTab({
 
   // Pass through whichever shape is saved (or null when unset). The widget
   // initializes the cropper from the saved value or a centered max-square.
-  const avatarCrop: AvatarCrop | null = formData.avatarCrop;
+  const avatarCrop: AvatarCrop | LegacyAvatarCrop | null = formData.avatarCrop;
 
   return (
     <div className="space-y-6">

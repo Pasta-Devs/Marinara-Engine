@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTTSConfig } from "../../../../../shared/hooks/use-tts";
 import {
-  buildTTSMessageText,
+  buildTTSVoiceRequests,
   clientSidePlaybackRate,
   normalizeTTSCharacterName,
-  resolveTTSVoiceForSpeaker,
 } from "../../../../../shared/lib/tts-dialogue";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
@@ -108,14 +107,12 @@ export function useChatTtsAutoplay({ chatId, mode, messages, characterMap, isStr
         : lastMessage.characterId
           ? characterMap.get(lastMessage.characterId)?.name
           : undefined;
-    const text = buildTTSMessageText(lastMessage.content, config, fallbackSpeaker);
-    if (!text) return;
-    const voice = resolveTTSVoiceForSpeaker(config, fallbackSpeaker, lastMessage.characterId);
-    if (config.source === "elevenlabs" && !voice) return;
+    const requests = buildTTSVoiceRequests(lastMessage.content, config, fallbackSpeaker, lastMessage.characterId).filter(
+      (request) => request.text.trim().length > 0,
+    );
+    if (requests.length === 0) return;
 
-    void ttsService.speak(text, lastMessage.id, {
-      speaker: fallbackSpeaker,
-      voice,
+    void ttsService.speakSequence(requests, lastMessage.id, {
       playbackRate: clientSidePlaybackRate(config),
     });
   }, [characterMap, isStreaming]);

@@ -6,6 +6,7 @@ import { persist } from "zustand/middleware";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
+  DEFAULT_SUMMARY_POPOVER_SETTINGS,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
   ROLEPLAY_AVATAR_SCALE_MAX,
@@ -21,6 +22,7 @@ import {
   mobilePanelClosePatch,
   normalizeLearnedGameSetupOption,
   normalizeRememberedGameSetupText,
+  normalizeSummaryPopoverSettings,
   normalizeTrackerPanelSizeProfile,
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerTemperatureUnit,
@@ -77,6 +79,8 @@ export type {
   HudPosition,
   Panel,
   RoleplayAvatarStyle,
+  SummaryPopoverSettings,
+  SummaryPopoverSourceMode,
   TrackerDataPanelSection,
   TrackerPanelCollapsedSections,
   TrackerPanelSectionOrder,
@@ -161,12 +165,14 @@ export const useUIStore = create<UIState>()(
       trimIncompleteModelOutput: false,
       speechToTextEnabled: false,
       spotifyPlayerEnabled: false,
+      chibiProfessorMariEnabled: true,
       remoteRuntimeUrl: "",
       spotifyMobileWidgetCollapsed: true,
       spotifyMobileWidgetPosition: { x: 16, y: 96 },
       intuitiveSwipeNavigation: false,
       intuitiveSwipeRerollLatest: false,
       editLastMessageOnArrowUp: true,
+      summaryPopoverSettings: DEFAULT_SUMMARY_POPOVER_SETTINGS,
       narrationFontColor: "",
       narrationOpacity: 80,
       chatFontColor: "",
@@ -410,6 +416,7 @@ export const useUIStore = create<UIState>()(
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
+      setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
       setRemoteRuntimeUrl: (v) => set({ remoteRuntimeUrl: v.trim() }),
       setSpotifyMobileWidgetCollapsed: (v) => set({ spotifyMobileWidgetCollapsed: v }),
       setSpotifyMobileWidgetPosition: (position) =>
@@ -422,6 +429,13 @@ export const useUIStore = create<UIState>()(
       setIntuitiveSwipeNavigation: (v) => set({ intuitiveSwipeNavigation: v }),
       setIntuitiveSwipeRerollLatest: (v) => set({ intuitiveSwipeRerollLatest: v }),
       setEditLastMessageOnArrowUp: (v) => set({ editLastMessageOnArrowUp: v }),
+      setSummaryPopoverSettings: (settings) =>
+        set((state) => ({
+          summaryPopoverSettings: normalizeSummaryPopoverSettings({
+            ...state.summaryPopoverSettings,
+            ...settings,
+          }),
+        })),
       setNarrationFontColor: (v) => set({ narrationFontColor: v }),
       setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
@@ -502,8 +516,19 @@ export const useUIStore = create<UIState>()(
       dismissLinkApiBanner: () => set({ linkApiBannerDismissed: true }),
       toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
       setEchoChamberSide: (side) => set({ echoChamberSide: side }),
-      setUserStatus: (status) => set({ userStatus: status }),
-      setUserStatusManual: (status) => set({ userStatusManual: status, userStatus: status }),
+      setUserStatus: (status) =>
+        set((state) => {
+          if (state.userStatusManual === "dnd") {
+            return state.userStatus === "dnd" ? state : { userStatus: "dnd" };
+          }
+          const nextStatus = status === "dnd" ? "active" : status;
+          return state.userStatus === nextStatus ? state : { userStatus: nextStatus };
+        }),
+      setUserStatusManual: (status) =>
+        set({
+          userStatusManual: status === "dnd" ? "dnd" : "active",
+          userStatus: status,
+        }),
       setUserActivity: (activity) => set({ userActivity: activity.slice(0, 120) }),
     }),
     {

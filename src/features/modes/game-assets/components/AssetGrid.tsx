@@ -5,7 +5,7 @@ import { Check, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
 import type { TreeNode } from "../hooks/use-game-assets";
 import type { GameAssetSelectionStatus } from "../../game/index";
 import { formatBytes, formatDate } from "../../../../shared/lib/format";
-import { filePathToAssetUrl } from "../../../../shared/api/local-file-api";
+import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api";
 import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 
@@ -167,7 +167,7 @@ export function AssetGrid({
                   })()
                 ) : isImage(node.ext) ? (
                   <img
-                    src={filePathToAssetUrl(node.absolutePath)}
+                    src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
                     alt={node.name}
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -253,7 +253,7 @@ export function AssetGrid({
             ) : isImage(node.ext) ? (
               <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--accent)]">
                 <img
-                  src={filePathToAssetUrl(node.absolutePath)}
+                  src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
                   alt=""
                   className="h-full w-full object-cover"
                   loading="lazy"

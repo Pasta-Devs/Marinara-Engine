@@ -21,8 +21,9 @@ import {
   X,
   Flag,
   Eye,
+  EyeOff,
+  ChevronRight,
   ScrollText,
-  Circle,
   Brain,
   Languages,
   Volume2,
@@ -32,7 +33,17 @@ import {
   Play,
 } from "lucide-react";
 import type { Message } from "../../../../../engine/contracts/types/chat";
-import { memo, useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from "react";
+import {
+  memo,
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys } from "../../../../catalog/chats/index";
@@ -51,9 +62,8 @@ import {
   subscribeStreamingTTSActive,
 } from "../hooks/use-streaming-tts";
 import {
-  buildTTSMessageText,
+  buildTTSVoiceRequests,
   clientSidePlaybackRate,
-  resolveTTSVoiceForSpeaker,
 } from "../../../../../shared/lib/tts-dialogue";
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../../../../shared/lib/dialogue-quotes";
 import DOMPurify from "dompurify";
@@ -64,6 +74,48 @@ import { SwipeJumpControl } from "./SwipeJumpControl";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
+const normalizeEditableQuotes = (value: string) =>
+  value.replace(/["\u201c\u201d\u201e\u201f]/g, '"').replace(/['\u2018\u2019\u201a\u201b]/g, "'");
+
+function HiddenFromAIBadge({
+  roleplay,
+  canCollapse,
+  isExpanded,
+  onToggle,
+}: {
+  roleplay?: boolean;
+  canCollapse: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const className = cn(
+    "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80",
+    roleplay && "text-amber-200/60",
+    canCollapse && "transition-colors hover:bg-amber-500/10 hover:text-amber-400",
+  );
+  if (!canCollapse) {
+    return (
+      <span className={className} title="Hidden from AI">
+        <EyeOff size="0.7rem" />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className={className}
+      title={isExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
+      aria-label={isExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
+    >
+      <ChevronRight size="0.7rem" className={cn("transition-transform", isExpanded && "rotate-90")} />
+      <EyeOff size="0.7rem" />
+    </button>
+  );
+}
 
 /** Isolated edit textarea — uncontrolled to avoid React re-renders on every keystroke. */
 const EditTextarea = memo(function EditTextarea({
@@ -99,16 +151,33 @@ const EditTextarea = memo(function EditTextarea({
   }, [autoResize]);
 
   const handleSave = useCallback(() => {
-    if (ref.current) onSave(ref.current.value);
+    if (ref.current) onSave(normalizeEditableQuotes(ref.current.value));
   }, [onSave]);
+
+  const handleInput = useCallback(
+    (event: FormEvent<HTMLTextAreaElement>) => {
+      const el = event.currentTarget;
+      const raw = el.value;
+      const normalized = normalizeEditableQuotes(raw);
+      if (normalized !== raw) {
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const direction = el.selectionDirection;
+        el.value = normalized;
+        el.setSelectionRange(start, end, direction);
+      }
+      autoResize();
+    },
+    [autoResize],
+  );
 
   return (
     <div className="flex flex-col gap-2">
       <textarea
         ref={ref}
-        defaultValue={initialContent.replace(/[\u201C\u201D\u201E\u201F]/g, '"').replace(/[\u2018\u2019]/g, "'")}
+        defaultValue={normalizeEditableQuotes(initialContent)}
         rows={1}
-        onInput={autoResize}
+        onInput={handleInput}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
           if (e.key === "Escape") onCancel();
@@ -655,6 +724,7 @@ export const ChatMessage = memo(function ChatMessage({
     guideGenerations,
     boldDialogue,
     theme,
+    collapseHiddenMessages,
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
@@ -670,6 +740,7 @@ export const ChatMessage = memo(function ChatMessage({
       guideGenerations: s.guideGenerations,
       boldDialogue: s.boldDialogue ?? true,
       theme: s.theme,
+      collapseHiddenMessages: s.summaryPopoverSettings.collapseHiddenMessages,
     })),
   );
   const hasInput = useChatStore((s) => s.currentInput.trim().length > 0);
@@ -724,6 +795,7 @@ export const ChatMessage = memo(function ChatMessage({
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
   const [avatarLightbox, setAvatarLightbox] = useState<string | null>(null);
   const [avatarLightboxPrompt, setAvatarLightboxPrompt] = useState<string | null>(null);
   const scrollRestoreRef = useRef<{ el: HTMLElement; top: number } | null>(null);
@@ -746,11 +818,16 @@ export const ChatMessage = memo(function ChatMessage({
   const { data: ttsConfig } = useTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
   const ttsSpeakerName = message.characterId ? characterMap?.get(message.characterId)?.name : undefined;
-  const ttsVoice = ttsConfig ? resolveTTSVoiceForSpeaker(ttsConfig, ttsSpeakerName, message.characterId) : "";
-  const ttsSpeakText =
-    ttsConfig && (ttsConfig.source !== "elevenlabs" || ttsVoice)
-      ? buildTTSMessageText(message.content, ttsConfig, ttsSpeakerName)
-      : "";
+  const ttsVoiceRequests = useMemo(
+    () =>
+      ttsConfig
+        ? buildTTSVoiceRequests(message.content, ttsConfig, ttsSpeakerName, message.characterId).filter((request) =>
+            request.text.trim(),
+          )
+        : [],
+    [message.characterId, message.content, ttsConfig, ttsSpeakerName],
+  );
+  const hasTTSContent = ttsVoiceRequests.length > 0;
   const [ttsState, setTTSState] = useState(ttsService.getState());
   const [ttsActiveId, setTTSActiveId] = useState<string | null>(ttsService.getActiveId());
   useEffect(
@@ -782,14 +859,12 @@ export const ChatMessage = memo(function ChatMessage({
     if (liveIsThis) {
       ttsService.stop();
     } else {
-      if (!ttsSpeakText) return;
-      void ttsService.speak(ttsSpeakText, message.id, {
-        speaker: ttsSpeakerName,
-        voice: ttsVoice,
+      if (!hasTTSContent) return;
+      void ttsService.speakSequence(ttsVoiceRequests, message.id, {
         playbackRate: clientSidePlaybackRate(ttsConfig),
       });
     }
-  }, [message.id, ttsSpeakText, ttsSpeakerName, ttsVoice, ttsConfig]);
+  }, [hasTTSContent, message.id, ttsConfig, ttsVoiceRequests]);
 
   const handlePauseResumeTTS = useCallback(() => {
     if (ttsService.getActiveId() !== message.id) return;
@@ -846,9 +921,28 @@ export const ChatMessage = memo(function ChatMessage({
     return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
-  const isHiddenFromAI = extra.hiddenFromAI === true;
+  const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
+  const isHiddenExpanded =
+    isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
+  const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
+  const hiddenFromAIHeader = isHiddenFromAI ? (
+    <HiddenFromAIBadge
+      roleplay={isRoleplay}
+      canCollapse={collapseHiddenMessages}
+      isExpanded={isHiddenExpanded}
+      onToggle={() => setManuallyExpandedHidden((value) => !value)}
+    />
+  ) : null;
+
+  useEffect(() => {
+    setManuallyExpandedHidden(false);
+  }, [message.id]);
+
+  useEffect(() => {
+    if (!isHiddenFromAI || !collapseHiddenMessages) setManuallyExpandedHidden(false);
+  }, [collapseHiddenMessages, isHiddenFromAI]);
 
   useEffect(() => {
     if (!generationReplay) setShowGenerationReplay(false);
@@ -1253,7 +1347,7 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     ) : null
   ) : null;
-  const roleplayBubbleContent = editing ? (
+  const roleplayBubbleContent = isHiddenCollapsed ? null : editing ? (
     <EditTextarea
       initialContent={message.content}
       fontSize={chatFontSize}
@@ -1381,15 +1475,18 @@ export const ChatMessage = memo(function ChatMessage({
               )}
               <div className="mb-1 flex items-center gap-2 text-[0.625rem] font-semibold uppercase tracking-widest text-amber-400/70">
                 <span className="h-px flex-1 bg-amber-400/20" />
+                {hiddenFromAIHeader}
                 Narrator
                 <span className="h-px flex-1 bg-amber-400/20" />
               </div>
-              <div
-                className={cn("mari-message-content break-words italic", !isHtmlContent && "whitespace-pre-wrap")}
-                style={messageTextStyle}
-              >
-                {renderedContent}
-              </div>
+              {!isHiddenCollapsed && (
+                <div
+                  className={cn("mari-message-content break-words italic", !isHtmlContent && "whitespace-pre-wrap")}
+                  style={messageTextStyle}
+                >
+                  {renderedContent}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1520,6 +1617,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Name + time (only if not grouped) */}
             {!isGrouped && (
               <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>
+                {hiddenFromAIHeader}
                 <span
                   className={cn(
                     "mari-message-name text-[0.75rem] font-bold tracking-tight",
@@ -1574,7 +1672,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <div className={cn("flex min-h-full items-stretch", isUser && "flex-row-reverse")}>
                   <div
                     className={cn(
-                      "relative flex w-[calc(4.75rem*var(--roleplay-avatar-scale))] shrink-0 items-start self-stretch overflow-hidden md:w-[calc(5.25rem*var(--roleplay-avatar-scale))]",
+                      "relative flex min-h-[calc(11rem*var(--roleplay-avatar-scale))] w-[calc(4.75rem*var(--roleplay-avatar-scale))] shrink-0 items-start self-stretch overflow-hidden md:w-[calc(5.25rem*var(--roleplay-avatar-scale))]",
                       isUser ? "border-l border-white/8" : "border-r border-white/8",
                     )}
                   >
@@ -1659,10 +1757,10 @@ export const ChatMessage = memo(function ChatMessage({
                       />
                     </div>
                   </div>
-                  <div className="min-w-0 flex-1 px-3 py-3">{roleplayBubbleContent}</div>
+                  {roleplayBubbleContent && <div className="min-w-0 flex-1 px-3 py-3">{roleplayBubbleContent}</div>}
                 </div>
               ) : (
-                <div className="px-4 py-3">{roleplayBubbleContent}</div>
+                roleplayBubbleContent ? <div className="px-4 py-3">{roleplayBubbleContent}</div> : null
               )}
             </div>
 
@@ -1753,7 +1851,11 @@ export const ChatMessage = memo(function ChatMessage({
               {onToggleHiddenFromAI && (
                 <ActionBtn
                   icon={
-                    isHiddenFromAI ? <Circle size={MESSAGE_ACTION_ICON_SIZE} /> : <X size={MESSAGE_ACTION_ICON_SIZE} />
+                    isHiddenFromAI ? (
+                      <Eye size={MESSAGE_ACTION_ICON_SIZE} />
+                    ) : (
+                      <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />
+                    )
                   }
                   onClick={() => onToggleHiddenFromAI(message.id, isHiddenFromAI)}
                   title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
@@ -1849,7 +1951,7 @@ export const ChatMessage = memo(function ChatMessage({
                     title={
                       streamingTTSActive
                         ? "Stop streaming narration"
-                        : !ttsSpeakText
+                        : !hasTTSContent
                         ? "No dialogue to speak"
                         : isLoadingThis
                           ? "Loading…"
@@ -1858,7 +1960,7 @@ export const ChatMessage = memo(function ChatMessage({
                             : "Speak"
                     }
                     className={isSpeakingThis || streamingTTSActive ? "text-sky-400 hover:text-sky-300" : undefined}
-                    disabled={!streamingTTSActive && (!ttsSpeakText || (ttsBusy && !isSpeakingThis))}
+                    disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}
                     dark
                   />
                 </>
@@ -2003,15 +2105,18 @@ export const ChatMessage = memo(function ChatMessage({
         >
           {/* Name — only for first in group */}
           {!isGrouped && !isUser && (
-            <span
-              className={cn(
-                "mari-message-name px-3 text-[0.6875rem] font-semibold",
-                !msgNameColor && !isMergedGroup && "text-[var(--muted-foreground)]",
-              )}
-              style={!isMergedGroup ? nameColorStyle(msgNameColor) : undefined}
-            >
-              {isMergedGroup ? mergedNameElement : displayName}
-            </span>
+            <div className="flex items-center gap-2 px-3">
+              {hiddenFromAIHeader}
+              <span
+                className={cn(
+                  "mari-message-name text-[0.6875rem] font-semibold",
+                  !msgNameColor && !isMergedGroup && "text-[var(--muted-foreground)]",
+                )}
+                style={!isMergedGroup ? nameColorStyle(msgNameColor) : undefined}
+              >
+                {isMergedGroup ? mergedNameElement : displayName}
+              </span>
+            </div>
           )}
 
           {/* Conversation start marker */}
@@ -2040,7 +2145,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
             style={{ ...messageTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
           >
-            {editing ? (
+            {isHiddenCollapsed ? null : editing ? (
               <EditTextarea
                 initialContent={message.content}
                 fontSize={chatFontSize}
@@ -2258,7 +2363,7 @@ export const ChatMessage = memo(function ChatMessage({
                   title={
                     streamingTTSActive
                       ? "Stop streaming narration"
-                      : !ttsSpeakText
+                      : !hasTTSContent
                       ? "No dialogue to speak"
                       : isLoadingThis
                         ? "Loading…"
@@ -2267,7 +2372,7 @@ export const ChatMessage = memo(function ChatMessage({
                           : "Speak"
                   }
                   className={isSpeakingThis || streamingTTSActive ? "text-sky-500" : undefined}
-                  disabled={!streamingTTSActive && (!ttsSpeakText || (ttsBusy && !isSpeakingThis))}
+                  disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}
                 />
               </>
             )}

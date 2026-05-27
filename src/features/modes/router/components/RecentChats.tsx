@@ -4,11 +4,10 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import { MessageSquare, BookOpen } from "lucide-react";
-import { useChats } from "../../../catalog/chats/index";
-import { useCharacters } from "../../../catalog/characters/index";
+import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
+import { useCharactersByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import type { Chat } from "../../../../engine/contracts/types/chat";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
   conversation: {
@@ -29,17 +28,24 @@ const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: str
 };
 
 export function RecentChats() {
-  const { data: chats } = useChats();
-  const { data: allCharacters } = useCharacters();
+  const { data: recentChats } = useRecentChatSummaries(3);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
+  const recentCharacterIds = useMemo(
+    () =>
+      Array.from(
+        new Set((recentChats ?? []).flatMap((chat) => (Array.isArray(chat.characterIds) ? chat.characterIds : []))),
+      ),
+    [recentChats],
+  );
+  const { data: recentCharacters } = useCharactersByIds(recentCharacterIds, recentCharacterIds.length > 0);
 
   const charLookup = useMemo(() => {
     const map = new Map<
       string,
       { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }
     >();
-    if (!allCharacters) return map;
-    for (const char of allCharacters as Array<{ id: string; data: Record<string, any>; avatarPath: string | null }>) {
+    if (!recentCharacters) return map;
+    for (const char of recentCharacters as Array<{ id: string; data: Record<string, any>; avatarPath: string | null }>) {
       const parsed = char.data ?? {};
       map.set(char.id, {
         name: parsed.name ?? "Unknown",
@@ -48,14 +54,9 @@ export function RecentChats() {
       });
     }
     return map;
-  }, [allCharacters]);
+  }, [recentCharacters]);
 
-  const recentChats = useMemo(() => {
-    if (!chats || chats.length === 0) return [];
-    return [...chats].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 3);
-  }, [chats]);
-
-  if (recentChats.length === 0) return null;
+  if (!recentChats || recentChats.length === 0) return null;
 
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-1.5">
@@ -76,7 +77,7 @@ function RecentChatChip({
   charLookup,
   onClick,
 }: {
-  chat: Chat;
+  chat: ChatListItem;
   charLookup: Map<
     string,
     { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }

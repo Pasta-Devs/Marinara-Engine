@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
+
+# Local environment and app/runtime data
+.env
+.marinara-legacy-profile-import.json
+packages/
 
 # Rust / Tauri
 target/

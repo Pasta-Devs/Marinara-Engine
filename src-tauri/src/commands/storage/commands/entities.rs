@@ -6,17 +6,45 @@ use serde_json::{json, Value};
 use tauri::State;
 
 #[tauri::command]
-pub fn storage_list(
+pub async fn storage_list(
     state: State<'_, AppState>,
     entity: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
-    let mut rows = match options
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_list_inner(&state, entity, options))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_list_inner(
+    state: &AppState,
+    entity: String,
+    options: Option<Value>,
+) -> Result<Value, AppError> {
+    let filters = options
         .as_ref()
         .and_then(|value| value.get("filters"))
-        .and_then(Value::as_object)
-    {
-        Some(filters) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
+        .and_then(Value::as_object);
+    let mut rows = match (entity.as_str(), filters) {
+        ("messages", Some(filters))
+            if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
+        {
+            let chat_id = filters
+                .get("chatId")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if let Some((limit, before)) = message_page_options(options.as_ref()) {
+                state
+                    .storage
+                    .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+            } else if message_id_projection_only(options.as_ref()) {
+                state.storage.list_message_ids_for_chat(chat_id)?
+            } else {
+                state.storage.list_messages_for_chat(chat_id)?
+            }
+        }
+        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
         _ => state.storage.list(&entity)?,
     };
 
@@ -55,7 +83,10 @@ pub fn storage_list(
         for row in &mut rows {
             shared::materialize_message_swipe_fields(row);
         }
-        return Ok(Value::Array(rows));
+        return Ok(Value::Array(shared::project_list_rows(
+            rows,
+            options.as_ref(),
+        )));
     }
 
     if let Some(limit) = options
@@ -67,36 +98,100 @@ pub fn storage_list(
         rows.truncate(limit);
     }
 
-    Ok(Value::Array(rows))
+    Ok(Value::Array(shared::project_list_rows(
+        rows,
+        options.as_ref(),
+    )))
+}
+
+fn message_id_projection_only(options: Option<&Value>) -> bool {
+    let Some(options) = options else {
+        return false;
+    };
+    if options.get("limit").is_some()
+        || options.get("before").is_some()
+        || options.get("orderBy").is_some()
+        || options.get("fieldSelections").is_some()
+    {
+        return false;
+    }
+    let Some(fields) = options.get("fields").and_then(Value::as_array) else {
+        return false;
+    };
+    fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
+}
+
+fn message_page_options(options: Option<&Value>) -> Option<(usize, Option<String>)> {
+    let options = options?;
+    let limit = options.get("limit").and_then(Value::as_u64)? as usize;
+    let before = options
+        .get("before")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    Some((limit, before))
 }
 
 #[tauri::command]
-pub fn storage_get(
+pub async fn storage_get(
     state: State<'_, AppState>,
     entity: String,
     id: String,
+    options: Option<Value>,
+) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_get_inner(&state, entity, id, options))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_get_inner(
+    state: &AppState,
+    entity: String,
+    id: String,
+    options: Option<Value>,
 ) -> Result<Value, AppError> {
     let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
-    Ok(value)
+    Ok(shared::project_record(value, options.as_ref()))
 }
 
 #[tauri::command]
-pub fn storage_create(
+pub async fn storage_create(
     state: State<'_, AppState>,
     entity: String,
     value: Value,
 ) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_create_inner(&state, entity, value))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
     state
         .storage
         .create(&entity, shared::with_entity_defaults(&entity, value)?)
 }
 
 #[tauri::command]
-pub fn storage_update(
+pub async fn storage_update(
     state: State<'_, AppState>,
+    entity: String,
+    id: String,
+    patch: Value,
+) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || storage_update_inner(&state, entity, id, patch))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn storage_update_inner(
+    state: &AppState,
     entity: String,
     id: String,
     patch: Value,
@@ -109,28 +204,42 @@ pub fn storage_update(
 }
 
 #[tauri::command]
-pub fn storage_delete(
+pub async fn storage_delete(
     state: State<'_, AppState>,
     entity: String,
     id: String,
     force: Option<bool>,
 ) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        delete_entity(&state, &entity, &id, force.unwrap_or(false))
+    })
+    .await
+    .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+pub(crate) fn delete_entity(
+    state: &AppState,
+    entity: &str,
+    id: &str,
+    force: bool,
+) -> Result<Value, AppError> {
     if entity == "connections" {
-        return crate::connection_refs::delete_connection(&state, &id, force.unwrap_or(false));
+        return crate::connection_refs::delete_connection(state, id, force);
     }
     if entity == "chats" {
-        let existed = state.storage.get("chats", &id)?.is_some();
+        let existed = state.storage.get("chats", id)?.is_some();
         if existed {
-            chats::delete_chat_with_messages(&state, &id)?;
+            chats::delete_chat_with_messages(state, id)?;
         }
         return Ok(json!({ "deleted": existed }));
     }
-    if is_protected_record(&entity, &id) {
+    if is_protected_record(entity, id) {
         return Err(AppError::invalid_input(
-            "Built-in Professor Mari cannot be deleted",
+            "Protected records cannot be deleted",
         ));
     }
-    let existing = owned_record_for_delete(&state, &entity, &id)?;
+    let existing = owned_record_for_delete(state, entity, id)?;
     let message_chat_id = if entity == "messages" {
         existing
             .as_ref()
@@ -140,14 +249,14 @@ pub fn storage_delete(
     } else {
         None
     };
-    let deleted = state.storage.delete(&entity, &id)?;
+    let deleted = state.storage.delete(entity, id)?;
     if deleted {
         if let Some(record) = existing.as_ref() {
-            remove_owned_media(&state, &entity, record);
+            remove_owned_media(state, entity, record);
         }
         if let Some(chat_id) = message_chat_id {
-            game_state_snapshots::delete_tracker_snapshots_for_message(&state, &chat_id, &id)?;
-            game_state_snapshots::sync_chat_game_state_to_visible_tracker(&state, &chat_id)?;
+            game_state_snapshots::delete_tracker_snapshots_for_message(state, &chat_id, id)?;
+            game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, &chat_id)?;
         }
     }
     Ok(json!({ "deleted": deleted }))
@@ -173,12 +282,15 @@ fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
 }
 
 #[tauri::command]
-pub fn storage_duplicate(
+pub async fn storage_duplicate(
     state: State<'_, AppState>,
     entity: String,
     id: String,
 ) -> Result<Value, AppError> {
-    shared::duplicate_record(&state, &entity, &id)
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || shared::duplicate_record(&state, &entity, &id))
+        .await
+        .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
 fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> std::cmp::Ordering {

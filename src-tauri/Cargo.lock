@@ -3034,7 +3034,6 @@ dependencies = [
  "image",
  "marinara-core",
  "marinara-security",
- "marinara-storage",
  "serde_json",
 ]
 
@@ -3050,7 +3049,7 @@ dependencies = [
 
 [[package]]
 name = "marinara-engine"
-version = "0.1.0"
+version = "1.6.1"
 dependencies = [
  "autoagents",
  "axum",
@@ -3063,7 +3062,6 @@ dependencies = [
  "log",
  "marinara-assets",
  "marinara-core",
- "marinara-integrations",
  "marinara-llm",
  "marinara-security",
  "marinara-storage",

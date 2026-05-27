@@ -27,6 +27,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../../../shared/lib/utils";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { importApi } from "../../../../shared/api/import-api";
+import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 
 interface Props {
   open: boolean;
@@ -257,6 +258,20 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const handleBrowse = useCallback(async () => {
     setPicking(true);
     setError("");
+    let remoteConfigured = false;
+    try {
+      remoteConfigured = Boolean(remoteRuntimeTarget());
+    } catch (err) {
+      setError(describeImportError(err, "Unable to open remote folder browser"));
+      setPicking(false);
+      return;
+    }
+    if (remoteConfigured) {
+      setShowFolderBrowser(true);
+      await loadDirectory(folderPath || undefined);
+      setPicking(false);
+      return;
+    }
     try {
       const selected = await openDialog({ directory: true, multiple: false });
       if (typeof selected === "string" && selected.trim()) {

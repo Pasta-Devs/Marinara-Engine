@@ -21,9 +21,19 @@ export interface ImageGenerationGateway {
   generate<T = unknown>(input: Record<string, unknown>): Promise<T>;
 }
 
+export interface DiscordGateway {
+  mirrorMessage<T = unknown>(input: {
+    webhookUrl: string;
+    content: string;
+    username?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<T>;
+}
+
 export interface IntegrationGateway {
   spotify: SpotifyGateway;
   haptic: HapticGateway;
   customTools: CustomToolsGateway;
   image: ImageGenerationGateway;
+  discord?: DiscordGateway;
 }

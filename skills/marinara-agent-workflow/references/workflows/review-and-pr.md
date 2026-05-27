@@ -19,11 +19,15 @@ Before push or PR creation:
 3. Confirm only intentional files will ship.
 4. Verify evidence exists for the PR claim.
 5. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
-6. Draft external text exactly.
+6. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
+7. If the work came from or references a GitHub issue, put a GitHub closing keyword in the linked-issue field, such as `Closes #123`, so GitHub links the PR to the issue and automatically closes the issue when the PR merges. Do not use only a bare issue reference such as `#123` when merge-time auto-close is intended.
+8. Draft external text exactly.
 
 Open new PRs as draft unless the user or target workflow says it should be ready for review. Never push directly to protected branches or force-push without explicit approval.
 
 ## After Push
+
+After creating a PR, re-read the submitted PR body and fix it immediately if the repo template sections or closing-keyword issue link did not survive the creation path.
 
 Wait for required checks when available. Inspect unresolved inline review threads, not only PR-level summaries. Address clear in-scope feedback; ask before posting arbitrary external replies.
 

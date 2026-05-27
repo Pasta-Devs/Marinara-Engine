@@ -139,7 +139,22 @@ pub(crate) fn llm_stream_cancel(state: &AppState, stream_id: &str) -> AppResult<
     Ok(json!({ "cancelled": state.cancel_llm_stream(stream_id)? }))
 }
 
+struct ModelLookupResult {
+    models: Vec<Value>,
+    from_provider: bool,
+    fallback: bool,
+    provider_error: Option<AppError>,
+}
+
 pub(crate) async fn llm_models(state: &AppState, connection_id: Option<&str>) -> AppResult<Value> {
+    let lookup = lookup_llm_models(state, connection_id).await?;
+    Ok(Value::Array(lookup.models))
+}
+
+async fn lookup_llm_models(
+    state: &AppState,
+    connection_id: Option<&str>,
+) -> AppResult<ModelLookupResult> {
     let connection = connection_id
         .and_then(|id| state.storage.get("connections", id).ok().flatten())
         .or_else(|| {
@@ -154,11 +169,25 @@ pub(crate) async fn llm_models(state: &AppState, connection_id: Option<&str>) ->
         .and_then(|value| value.get("provider"))
         .and_then(Value::as_str)
         .unwrap_or("openai");
+    let mut from_provider = false;
+    let mut fallback = false;
+    let mut provider_error = None;
     let mut models = match connection.as_ref() {
-        Some(connection) => fetch_provider_models(connection)
-            .await
-            .unwrap_or_else(|_| provider_model_catalog(provider)),
-        None => provider_model_catalog(provider),
+        Some(connection) => match fetch_provider_models(connection).await {
+            Ok(models) => {
+                from_provider = true;
+                models
+            }
+            Err(error) => {
+                fallback = true;
+                provider_error = Some(error);
+                provider_model_catalog(provider)
+            }
+        },
+        None => {
+            fallback = true;
+            provider_model_catalog(provider)
+        }
     };
     if let Some(connection) = connection.as_ref() {
         for key in ["model", "embeddingModel", "imageModel"] {
@@ -171,7 +200,30 @@ pub(crate) async fn llm_models(state: &AppState, connection_id: Option<&str>) ->
             }
         }
     }
-    Ok(Value::Array(models))
+    if fallback {
+        for model in &mut models {
+            if let Some(object) = model.as_object_mut() {
+                object.insert("fromProvider".to_string(), Value::Bool(false));
+                object.insert("fallback".to_string(), Value::Bool(true));
+                if let Some(error) = provider_error.as_ref() {
+                    object.insert(
+                        "providerError".to_string(),
+                        Value::String(error.message.clone()),
+                    );
+                    object.insert(
+                        "providerErrorCode".to_string(),
+                        Value::String(error.code.clone()),
+                    );
+                }
+            }
+        }
+    }
+    Ok(ModelLookupResult {
+        models,
+        from_provider,
+        fallback,
+        provider_error,
+    })
 }
 pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm::LlmConnection> {
     let provider = value
@@ -232,8 +284,17 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
 }
 
 pub(crate) async fn connection_models(state: &AppState, id: &str) -> AppResult<Value> {
-    let models = llm_models(state, Some(id)).await?;
-    Ok(json!({ "models": models }))
+    let lookup = lookup_llm_models(state, Some(id)).await?;
+    let mut response = json!({
+        "models": lookup.models,
+        "fromProvider": lookup.from_provider,
+        "fallback": lookup.fallback
+    });
+    if let Some(error) = lookup.provider_error {
+        response["providerError"] = json!(error.message);
+        response["providerErrorCode"] = json!(error.code);
+    }
+    Ok(response)
 }
 
 pub(crate) async fn connection_auth_check(state: &AppState, id: &str) -> AppResult<Value> {
@@ -983,5 +1044,116 @@ fn sanitize_provider_body(body: &str) -> String {
         "Provider returned HTML instead of JSON".to_string()
     } else {
         body.chars().take(300).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-llm-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp LLM dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    async fn serve_model_failure(status: &'static str, body: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 2048];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response");
+        });
+        format!("http://{address}/v1")
+    }
+
+    #[tokio::test]
+    async fn connection_models_marks_fallback_when_provider_lookup_fails() {
+        let state = test_state("provider-error");
+        let base_url =
+            serve_model_failure("500 Internal Server Error", r#"{"error":"bad key"}"#).await;
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "bad-openai",
+                json!({
+                    "provider": "openai",
+                    "baseUrl": base_url,
+                    "apiKey": "bad-key",
+                    "model": "gpt-custom"
+                }),
+            )
+            .expect("connection should be stored");
+
+        let result = connection_models(&state, "bad-openai")
+            .await
+            .expect("model lookup should return fallback metadata");
+
+        assert_eq!(result["fromProvider"], false);
+        assert_eq!(result["fallback"], true);
+        assert!(result["providerError"]
+            .as_str()
+            .is_some_and(|message| message.contains("Provider returned HTTP")));
+        assert!(result["models"]
+            .as_array()
+            .is_some_and(|models| models.iter().any(|model| model["id"] == "gpt-custom")));
+    }
+
+    #[tokio::test]
+    async fn connection_models_keep_provider_success_distinct_from_fallback() {
+        let state = test_state("provider-success");
+        let base_url = serve_model_failure("200 OK", r#"{"data":[{"id":"live-model"}]}"#).await;
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "good-openai",
+                json!({
+                    "provider": "openai",
+                    "baseUrl": base_url,
+                    "apiKey": "valid-key",
+                    "model": "live-model"
+                }),
+            )
+            .expect("connection should be stored");
+
+        let result = connection_models(&state, "good-openai")
+            .await
+            .expect("model lookup should return provider metadata");
+
+        assert_eq!(result["fromProvider"], true);
+        assert_eq!(result["fallback"], false);
+        assert!(result.get("providerError").is_none());
+        assert_eq!(result["models"][0]["id"], "live-model");
     }
 }

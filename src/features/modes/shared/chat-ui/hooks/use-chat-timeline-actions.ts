@@ -393,8 +393,8 @@ export function useChatTimelineActions({
     [activeChatId, agentProcessing, enabledAgentTypes, isStreaming, retryAgents],
   );
 
-  const handleIllustrate = useCallback(() => {
-    retryAgents(activeChatId, ["illustrator"]);
+  const handleIllustrate = useCallback(async () => {
+    await retryAgents(activeChatId, ["illustrator"]);
   }, [activeChatId, retryAgents]);
 
   const handleSetActiveSwipe = useCallback(
@@ -469,7 +469,7 @@ export function useChatTimelineActions({
 
   const handleToggleHiddenFromAI = useCallback(
     (messageId: string, current: boolean) => {
-      updateMessageExtra.mutate({ messageId, extra: { hiddenFromAI: !current } });
+      updateMessageExtra.mutate({ messageId, extra: { hiddenFromAI: !current, hiddenFromAi: !current } });
     },
     [updateMessageExtra],
   );

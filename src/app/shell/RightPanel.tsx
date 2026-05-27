@@ -85,10 +85,12 @@ export function RightPanel() {
           <h2 className="text-sm font-semibold text-[var(--foreground)]">{config.title}</h2>
         </div>
         <button
+          type="button"
           onClick={close}
-          className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)] active:scale-90"
+          aria-label={`Close ${config.title}`}
+          className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)] active:scale-90 max-md:min-h-11 max-md:min-w-11"
         >
-          <X size="0.875rem" />
+          <X size="0.875rem" aria-hidden="true" />
         </button>
       </div>
 

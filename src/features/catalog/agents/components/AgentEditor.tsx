@@ -58,6 +58,12 @@ import {
 } from "../../../../shared/lib/agent-cadence";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
+import {
+  DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  normalizeCustomAgentActivationKeywords,
+  normalizeCustomAgentActivationScanDepth,
+} from "../../../../engine/contracts/constants/agent-activation";
 import { getDefaultAgentPrompt } from "../../../../engine/contracts/constants/agent-prompts";
 import { BUILT_IN_AGENTS, BUILT_IN_TOOLS, DEFAULT_AGENT_CONTEXT_SIZE, DEFAULT_AGENT_TOOLS, DEFAULT_AGENT_MAX_TOKENS, MAX_AGENT_MAX_TOKENS, MIN_AGENT_MAX_TOKENS, getDefaultBuiltInAgentSettings, type AgentPhase, type AgentResultType, type ToolDefinition } from "../../../../engine/contracts/types/agent";
 
@@ -184,6 +190,10 @@ export function AgentEditor() {
   const [localContextSize, setLocalContextSize] = useState<number | "">("");
   const [localMaxTokens, setLocalMaxTokens] = useState<number | "">("");
   const [localRunInterval, setLocalRunInterval] = useState<number | "">("");
+  const [localActivationKeywordsText, setLocalActivationKeywordsText] = useState("");
+  const [localActivationScanDepth, setLocalActivationScanDepth] = useState<number | "">(
+    DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  );
   const [customCadenceInputFocused, setCustomCadenceInputFocused] = useState(false);
   const [localPrompt, setLocalPrompt] = useState("");
   const [localResultType, setLocalResultType] = useState<CustomAgentResultType>("context_injection");
@@ -240,6 +250,8 @@ export function AgentEditor() {
       setLocalRunInterval(
         (settings.runInterval as number | undefined) ?? (defaultSettings.runInterval as number) ?? "",
       );
+      setLocalActivationKeywordsText(normalizeCustomAgentActivationKeywords(settings.activationKeywords).join("\n"));
+      setLocalActivationScanDepth(normalizeCustomAgentActivationScanDepth(settings.activationScanDepth));
       setLocalInjectAsSection(
         (settings.injectAsSection as boolean | undefined) ?? defaultSettings.injectAsSection === true,
       );
@@ -263,6 +275,8 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens((defaultSettings.maxTokens as number) ?? "");
       setLocalRunInterval((defaultSettings.runInterval as number) ?? "");
+      setLocalActivationKeywordsText("");
+      setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(defaultSettings.injectAsSection === true);
       setLocalEnabledTools(DEFAULT_AGENT_TOOLS[builtIn.id] ?? []);
       setLocalSpotifyClientId("");
@@ -285,6 +299,8 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens(DEFAULT_AGENT_MAX_TOKENS);
       setLocalRunInterval(customRunIntervalMeta?.defaultValue ?? "");
+      setLocalActivationKeywordsText("");
+      setLocalActivationScanDepth(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH);
       setLocalInjectAsSection(false);
       setLocalEnabledTools([]);
       setLocalSpotifyClientId("");
@@ -308,8 +324,9 @@ export function AgentEditor() {
   // Lorebook Keeper agent — run interval setting
   const isLorebookKeeperAgent = agentDetailId === "lorebook-keeper" || dbConfig?.type === "lorebook-keeper";
 
-  // Narrative Director agent — run interval setting
+  // Narrative Director / Illustrator agent cadence
   const isDirectorAgent = agentDetailId === "director" || dbConfig?.type === "director";
+  const isIllustratorAgent = agentDetailId === "illustrator" || dbConfig?.type === "illustrator";
 
   // Chat Summary agent — uses "Triggers After" instead of context size
   const isChatSummaryAgent = agentDetailId === "chat-summary" || dbConfig?.type === "chat-summary";
@@ -427,6 +444,13 @@ export function AgentEditor() {
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
     const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const activationKeywords = isEditingCustomAgent
+      ? normalizeCustomAgentActivationKeywords(localActivationKeywordsText)
+      : [];
+    const activationScanDepth =
+      localActivationScanDepth === ""
+        ? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH
+        : normalizeCustomAgentActivationScanDepth(localActivationScanDepth);
 
     // Preserve OAuth fields the form doesn't expose. The native update replaces
     // `settings` wholesale, so anything we omit here would be wiped — and the
@@ -451,6 +475,12 @@ export function AgentEditor() {
       settings: {
         ...preservedSpotifyFields,
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+        ...(activationKeywords.length > 0
+          ? {
+              activationKeywords,
+              activationScanDepth,
+            }
+          : {}),
         ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
         ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
@@ -500,6 +530,8 @@ export function AgentEditor() {
     localDescription,
     localPhase,
     localResultType,
+    localActivationKeywordsText,
+    localActivationScanDepth,
     localConnectionId,
     localImageConnectionId,
     localPrompt,
@@ -1133,6 +1165,60 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
+          {(isCustomAgent || isNewCustomAgent) && (
+            <FieldGroup
+              label="Activation Keywords"
+              icon={<Activity size="0.875rem" className="text-[var(--primary)]" />}
+              help="When keywords are set, this custom agent is skipped unless at least one keyword appears in the recent chat messages it scans."
+            >
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <div>
+                  <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Keywords
+                  </label>
+                  <textarea
+                    value={localActivationKeywordsText}
+                    onChange={(e) => {
+                      setLocalActivationKeywordsText(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder={"tavern\nsecret door\nmoonlit ritual"}
+                    rows={4}
+                    className="w-full resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Scan Depth
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH}
+                      value={localActivationScanDepth}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLocalActivationScanDepth(
+                          v === ""
+                            ? ""
+                            : Math.max(1, Math.min(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH, parseInt(v, 10) || 1)),
+                        );
+                        markDirty();
+                      }}
+                      placeholder={String(DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH)}
+                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                    <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                Leave keywords empty to run this custom agent on its normal cadence.
+              </p>
+            </FieldGroup>
+          )}
+
           {isChatSummaryAgent && (
             <FieldGroup
               label="Triggers After"
@@ -1191,12 +1277,16 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
-          {/* ── Run Interval (Narrative Director) ── */}
-          {isDirectorAgent && (
+          {/* Run Interval (Narrative Director / Illustrator) */}
+          {(isDirectorAgent || isIllustratorAgent) && (
             <FieldGroup
               label="Run Interval"
               icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
-              help="How many assistant messages between each Narrative Director intervention. Higher values make the director less aggressive. Set to 1 to run every message."
+              help={
+                isIllustratorAgent
+                  ? "How many assistant messages between allowed Illustrator image generations. Set to 1 to allow it every message."
+                  : "How many assistant messages between each Narrative Director intervention. Higher values make the director less aggressive. Set to 1 to run every message."
+              }
             >
               <div className="flex items-center gap-3">
                 <input
@@ -1215,7 +1305,9 @@ export function AgentEditor() {
                 <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The director only jumps in once every N assistant messages instead of steering every reply. Default: 5.
+                {isIllustratorAgent
+                  ? "The Illustrator can only create a new image once every N assistant messages. If it decides not to draw, the timer does not reset. Default: 5."
+                  : "The director only jumps in once every N assistant messages instead of steering every reply. Default: 5."}
               </p>
             </FieldGroup>
           )}

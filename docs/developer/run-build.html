@@ -98,6 +98,75 @@
           <code>Marinara Engine</code>.
         </p>
 
+        <h2>Manual Pre-Alpha Platform Builds</h2>
+        <p>
+          Maintainers can run <strong>Pre-Alpha Platform Builds</strong> from
+          GitHub Actions on the <code>refactor</code> branch. The workflow is
+          manual-only, creates a draft GitHub release first, uploads artifacts,
+          then publishes it as a <strong>pre-release</strong> with
+          <code>make_latest=false</code> so it is not treated as the latest
+          release.
+        </p>
+        <div class="callout">
+          Pre-alpha release notes intentionally warn that almost everything may
+          be broken. These builds are unsigned, not connected to the stable
+          updater, and should be tested only with throwaway data.
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Desktop target</th>
+              <th>CI build path</th>
+              <th>Artifact channel</th>
+              <th>Signing/updater decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Windows x64</td>
+              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-pc-windows-msvc --config src-tauri/tauri.prealpha.conf.json --no-sign</code></td>
+              <td>GitHub pre-release assets, not latest</td>
+              <td>Unsigned Tauri bundles; legacy launcher/updater parity is deferred.</td>
+            </tr>
+            <tr>
+              <td>macOS Intel and Apple Silicon</td>
+              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-apple-darwin</code> and <code>--target aarch64-apple-darwin</code> using the pre-alpha config</td>
+              <td>GitHub pre-release assets, not latest</td>
+              <td>Unsigned and unnotarized; tester Gatekeeper warnings are expected.</td>
+            </tr>
+            <tr>
+              <td>Linux x64</td>
+              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-unknown-linux-gnu --config src-tauri/tauri.prealpha.conf.json --no-sign</code></td>
+              <td>GitHub pre-release assets, not latest</td>
+              <td>Unsigned packages/AppImage; stable updater metadata is not generated.</td>
+            </tr>
+          </tbody>
+        </table>
+        <table>
+          <thead>
+            <tr>
+              <th>Mobile target</th>
+              <th>Status</th>
+              <th>CI build path</th>
+              <th>Distribution decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Android universal debug APK</td>
+              <td>Experimental pre-alpha test build</td>
+              <td><code>pnpm tauri android build --debug --apk --ci</code> with Gradle-provided pre-alpha app id/name overrides</td>
+              <td>Debug-signed APK on the GitHub pre-release using <code>com.marinara_engine.prealpha</code>.</td>
+            </tr>
+            <tr>
+              <td>iOS</td>
+              <td>Deferred</td>
+              <td>Not built in this workflow</td>
+              <td>Requires Apple signing/provisioning/TestFlight planning before CI distribution.</td>
+            </tr>
+          </tbody>
+        </table>
+
         <h2>Run The Remote Rust Runtime</h2>
         <p>
           The remote runtime hosts the Rust API only. It does not serve the
@@ -113,6 +182,16 @@
         <p>Override the bind address and data directory with:</p>
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
 MARINARA_DATA_DIR=/path/to/data</code></pre>
+        <p>
+          Non-loopback clients fail closed unless the runtime has explicit
+          access control. Configure <code>BASIC_AUTH_USER</code> and
+          <code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or an
+          intentional compatibility opt-in such as
+          <code>ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true</code> for trusted
+          LAN/private-network access. Set <code>CORS_ORIGINS</code> or
+          <code>CSRF_TRUSTED_ORIGINS</code> if your desktop client origin is not
+          one of the runtime defaults.
+        </p>
         <div class="callout">
           Remote-capable features must use the shared API HTTP pipeline:
           <code>src/shared/api</code> wrapper, <code>remote-runtime.ts</code>
@@ -146,6 +225,18 @@ docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-serve
             <tr>
               <td><code>pnpm build</code></td>
               <td>Imports, build output, frontend bundling, or production behavior changed.</td>
+            </tr>
+            <tr>
+              <td><code>pnpm test</code></td>
+              <td>Run focused Vitest coverage. This fails if no tests are collected.</td>
+            </tr>
+            <tr>
+              <td><code>pnpm test:ui</code></td>
+              <td>Build the frontend, start a fresh preview server on port 4175 by default, and run Playwright browser smoke tests. Set <code>PLAYWRIGHT_PORT</code> if that port is occupied.</td>
+            </tr>
+            <tr>
+              <td><code>pnpm test:ui:run</code></td>
+              <td>Start a fresh preview server on the Playwright port and run Playwright only after a build already exists.</td>
             </tr>
             <tr>
               <td><code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code></td>

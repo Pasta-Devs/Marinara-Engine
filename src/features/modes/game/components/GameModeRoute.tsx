@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Chat as EngineChat } from "../../../../engine/contracts/types/chat";
+import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
   ChatCommonOverlays,
   useChatMetadataSync,
@@ -15,9 +16,10 @@ type GameModeRouteProps = {
 };
 
 export function GameModeRoute({ activeChatId }: GameModeRouteProps) {
+  const messagesPerPage = useUIStore((state) => state.messagesPerPage);
   const data = useChatSurfaceData({
     activeChatId,
-    messagePageSize: 0,
+    messagePageSize: messagesPerPage,
     fallbackChatMode: "game",
     personaFallback: "none",
   });

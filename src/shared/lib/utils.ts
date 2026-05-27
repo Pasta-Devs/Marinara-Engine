@@ -57,13 +57,26 @@ export interface AvatarCrop {
   srcHeight: number;
 }
 
-export type AvatarCropValue = AvatarCrop;
+/** Avatar crop -- legacy zoom/offset format used by older persona rows. */
+export interface LegacyAvatarCrop {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+  /** Legacy full-image mode rendered the portrait contained instead of covered. */
+  fullImage?: boolean;
+}
+
+export type AvatarCropValue = AvatarCrop | LegacyAvatarCrop;
+
+export function isLegacyAvatarCrop(crop: AvatarCropValue): crop is LegacyAvatarCrop {
+  return "zoom" in crop;
+}
 
 /** Parses a JSON-encoded avatarCrop string (as stored on persona rows and as
  *  emitted from extensions on character rows when serialized) with defensive
  *  shape validation. Malformed data returns null and the caller falls back to
  *  the uncropped render. */
-export function parseAvatarCropJson(raw: string | undefined | null): AvatarCrop | null {
+export function parseAvatarCropJson(raw: string | undefined | null): AvatarCropValue | null {
   if (!raw) return null;
   try {
     const obj = JSON.parse(raw);
@@ -87,6 +100,20 @@ export function parseAvatarCropJson(raw: string | undefined | null): AvatarCrop 
         srcHeight: obj.srcHeight,
       };
     }
+    if (
+      Number.isFinite(obj.zoom) &&
+      Number.isFinite(obj.offsetX) &&
+      Number.isFinite(obj.offsetY) &&
+      obj.zoom > 0 &&
+      (obj.fullImage === undefined || typeof obj.fullImage === "boolean")
+    ) {
+      return {
+        zoom: obj.zoom,
+        offsetX: obj.offsetX,
+        offsetY: obj.offsetY,
+        ...(obj.fullImage ? { fullImage: true } : {}),
+      };
+    }
   } catch {
     /* fall through to null */
   }
@@ -106,8 +133,24 @@ export function parseAvatarCropJson(raw: string | undefined | null): AvatarCrop 
  *    the image, because a square-in-source-pixels crop makes the `<img>` element
  *    box take the source's aspect ratio, and `object-fit: fill` then fills that
  *    box undistorted. */
-export function getAvatarCropStyle(crop?: AvatarCrop | null): CSSProperties {
+export function getAvatarCropStyle(crop?: AvatarCropValue | null): CSSProperties {
   if (!crop) return {};
+
+  if (isLegacyAvatarCrop(crop)) {
+    const isIdentityCrop = crop.zoom === 1 && crop.offsetX === 0 && crop.offsetY === 0;
+    const transform = `scale(${crop.zoom}) translate(${crop.offsetX}px, ${crop.offsetY}px)`;
+
+    if (crop.fullImage) {
+      return {
+        objectFit: "contain",
+        ...(isIdentityCrop ? {} : { transform }),
+      };
+    }
+    if (isIdentityCrop) return {};
+    return {
+      transform,
+    };
+  }
 
   const { srcX, srcY, srcWidth, srcHeight } = crop;
   if (srcWidth <= 0 || srcHeight <= 0) return {};

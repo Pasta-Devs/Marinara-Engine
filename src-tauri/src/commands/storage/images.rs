@@ -6,7 +6,8 @@ mod providers;
 
 pub(crate) use providers::{
     connection_base_url as image_connection_base_url, generate_image_with_connection,
-    generate_image_with_options, image_source as image_generation_source,
+    generate_image_with_options, image_model as image_generation_model,
+    image_source as image_generation_source,
     is_openai_gpt_image_model, ImageGenerationOptions,
 };
 
@@ -188,6 +189,8 @@ pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<V
     let width = image_dimension(&body, "width", 1024);
     let height = image_dimension(&body, "height", 1024);
     let connection = get_required(state, "connections", connection_id)?;
+    let provider = image_generation_source(&connection);
+    let model = image_generation_model(&connection, &provider);
     let (base64, mime_type) = generate_image_with_options(
         &connection,
         prompt,
@@ -199,7 +202,9 @@ pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<V
     Ok(json!({
         "base64": base64,
         "mimeType": mime_type,
-        "image": format!("data:{mime_type};base64,{base64}")
+        "image": format!("data:{mime_type};base64,{base64}"),
+        "provider": provider,
+        "model": model
     }))
 }
 

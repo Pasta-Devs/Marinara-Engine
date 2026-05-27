@@ -45,11 +45,12 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
 
   const enabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
-    if (!data.chatMeta.enableAgents) return set;
     const activeAgentIds: string[] = Array.isArray(data.chatMeta.activeAgentIds) ? data.chatMeta.activeAgentIds : [];
+    if (!data.chatMeta.enableAgents && activeAgentIds.length === 0) return set;
     for (const id of activeAgentIds) set.add(id);
     return set;
   }, [data.chatMeta.activeAgentIds, data.chatMeta.enableAgents]);
+  const agentsUiEnabled = Boolean(data.chatMeta.enableAgents) || enabledAgentTypes.size > 0;
   const expressionAgentEnabled = enabledAgentTypes.has("expression");
   const combatAgentEnabled = enabledAgentTypes.has("combat");
   const timeline = useChatTimelineActions({
@@ -57,7 +58,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
     messages: data.messages,
     messageIdByOrderIndex: data.messageIdByOrderIndex,
     enabledAgentTypes,
-    refreshWorldStateOnTimelineChange: Boolean(data.chatMeta.enableAgents),
+    refreshWorldStateOnTimelineChange: agentsUiEnabled,
   });
   const spriteState = useSpriteMetadataState({ chat: data.chat, chatMeta: data.chatMeta, messages: data.messages });
   const { startEncounter } = useEncounter();
@@ -153,6 +154,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
         centerCompact={centerCompact}
         chatBackground={chatBackground}
         weatherEffects={weatherEffects}
+        agentsUiEnabled={agentsUiEnabled}
         expressionAgentEnabled={expressionAgentEnabled}
         combatAgentEnabled={combatAgentEnabled}
         encounterActive={encounterActive}

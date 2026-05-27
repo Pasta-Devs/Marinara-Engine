@@ -1,4 +1,13 @@
-const SENTENCE_END_RE = /[.!?\u2026\u3002\uff01\uff1f]+(?:["'\u201d\u2019)\]}])?(?=\s|$)/gu;
+const SENTENCE_END_RE = /[.!?\u2026\u3002\uff01\uff1f]+(?:["'\u201d\u2019\u00bb\u300d\u300f)\]}]+)?(?=\s|$)/gu;
+
+const OPEN_QUOTES = new Set(['"', "\u201c", "\u00ab", "\u300c", "\u300e"]);
+const CLOSE_QUOTES_FOR: Record<string, string> = {
+  '"': '"',
+  "\u201c": "\u201d",
+  "\u00ab": "\u00bb",
+  "\u300c": "\u300d",
+  "\u300e": "\u300f",
+};
 
 const ABBREVIATIONS = new Set(["mr", "mrs", "ms", "dr", "st", "prof", "sr", "jr", "vs", "etc", "ie", "eg", "fig", "no"]);
 
@@ -69,7 +78,7 @@ function findUnclosedThinkingStart(tail: string): number | null {
 }
 
 function isEllipsisEndCandidate(matchText: string): boolean {
-  return /^\.{2,}["'\u201d\u2019)\]}]?$/.test(matchText);
+  return /^\.{2,}["'\u201d\u2019\u00bb\u300d\u300f)\]}]*$/.test(matchText);
 }
 
 function lastSentencePunctuationIndex(matchText: string): number {
@@ -82,6 +91,33 @@ function lastSentencePunctuationIndex(matchText: string): number {
     matchText.lastIndexOf("\uff01"),
     matchText.lastIndexOf("\uff1f"),
   );
+}
+
+function isInsideUnclosedQuote(text: string, pos: number): boolean {
+  let asciiOpen = false;
+  const pairStack: string[] = [];
+
+  for (let index = 0; index < pos; index += 1) {
+    const char = text[index]!;
+    if (char === '"' && text[index + 1] === '"') {
+      asciiOpen = !asciiOpen;
+      index += 1;
+      continue;
+    }
+    if (char === '"') {
+      asciiOpen = !asciiOpen;
+      continue;
+    }
+    if (OPEN_QUOTES.has(char)) {
+      pairStack.push(CLOSE_QUOTES_FOR[char]!);
+      continue;
+    }
+    if (pairStack.length > 0 && char === pairStack[pairStack.length - 1]) {
+      pairStack.pop();
+    }
+  }
+
+  return asciiOpen || pairStack.length > 0;
 }
 
 export function extractNewSentences(buffer: string, state: ChunkerState): string {
@@ -107,7 +143,10 @@ export function extractNewSentences(buffer: string, state: ChunkerState): string
     const punctuationIndex = punctuationOffset >= 0 ? localIndex + punctuationOffset : localIndex + matchText.length - 1;
     if (scannable[punctuationIndex] === "." && endsWithAbbreviation(scannable, punctuationIndex)) continue;
 
-    lastEnd = startAt + localIndex + matchText.length;
+    const absoluteEnd = startAt + localIndex + matchText.length;
+    if (isInsideUnclosedQuote(buffer, absoluteEnd)) continue;
+
+    lastEnd = absoluteEnd;
   }
 
   if (lastEnd === -1) return "";

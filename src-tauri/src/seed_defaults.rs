@@ -8,61 +8,17 @@ const MARINARA_PRESET_NAME: &str = "Marinara's Universal Preset";
 const LEGACY_MARINARA_PRESET_NAME: &str = "Default";
 const MARINARA_PRESET_AUTHOR: &str = "Marinara";
 const PROFESSOR_MARI_ID: &str = "__professor_mari__";
+const LEGACY_CLEANUP_MAX_COLLECTION_BYTES: u64 = 4 * 1024 * 1024;
 const BUNDLED_MARINARA_PRESET_JSON: &str =
     include_str!("../resources/default-data/db/default-preset.json");
 
 pub fn seed_bundled_defaults(storage: &FileStorage, default_data: &Path) -> AppResult<()> {
     let db_root = default_data.join("db");
-    seed_professor_mari_character(storage)?;
-    remove_legacy_professor_mari(storage)?;
+    remove_professor_mari_character_records(storage)?;
     seed_marinara_preset(storage, &db_root)?;
     seed_default_chat_presets(storage)?;
     seed_default_regex_scripts(storage)?;
     seed_default_ui_settings(storage)?;
-    Ok(())
-}
-
-fn seed_professor_mari_character(storage: &FileStorage) -> AppResult<()> {
-    if storage.get("characters", PROFESSOR_MARI_ID)?.is_some() {
-        return Ok(());
-    }
-
-    let data = json!({
-        "name": "Professor Mari",
-        "description": "Professor Mari is Marinara Engine's built-in guide. She helps users get oriented, set up chats, understand modes, and learn the app.",
-        "personality": "Helpful, candid, playful, and direct. Mari explains things clearly and nudges users toward practical next steps.",
-        "scenario": "Mari is available as the default Conversation character for a new Marinara install, so first-time users always have someone to message.",
-        "first_mes": "Hey! Welcome to Marinara Engine. I can help you set up a connection, make your first character, or explain what Conversation, Roleplay, and Game mode are for. What do you want to do first?",
-        "mes_example": "",
-        "creator_notes": "Built-in starter guide character for Marinara Engine. Comes pre-installed for new users.",
-        "system_prompt": "",
-        "post_history_instructions": "",
-        "tags": ["assistant", "guide", "built-in"],
-        "creator": "Marinara Engine",
-        "character_version": "1.0.0",
-        "alternate_greetings": [],
-        "extensions": {
-            "talkativeness": 0.8,
-            "fav": true,
-            "world": "",
-            "depth_prompt": { "prompt": "", "depth": 4, "role": "system" },
-            "backstory": "Mari is the app's built-in starter guide.",
-            "appearance": "",
-            "conversationStatus": "online",
-            "isBuiltInAssistant": true
-        },
-        "character_book": Value::Null
-    });
-
-    storage.create(
-        "characters",
-        json!({
-            "id": PROFESSOR_MARI_ID,
-            "data": serde_json::to_string(&data)?,
-            "comment": "Built-in guide",
-            "avatarPath": Value::Null
-        }),
-    )?;
     Ok(())
 }
 
@@ -97,23 +53,41 @@ fn seed_marinara_preset(storage: &FileStorage, db_root: &Path) -> AppResult<()> 
     Ok(())
 }
 
-fn remove_legacy_professor_mari(storage: &FileStorage) -> AppResult<()> {
-    if storage.get("characters", "professor-mari")?.is_some() {
-        storage.delete("characters", "professor-mari")?;
+fn remove_professor_mari_character_records(storage: &FileStorage) -> AppResult<()> {
+    delete_legacy_record_if_small(storage, "characters", PROFESSOR_MARI_ID)?;
+    delete_legacy_record_if_small(storage, "characters", "professor-mari")?;
+    delete_legacy_record_if_small(storage, "chats", "__professor_mari_chat__")?;
+    delete_legacy_record_if_small(storage, "messages", "professor-mari-welcome")?;
+    delete_legacy_record_if_small(storage, "app-settings", "professor-mari-assistant-prompt")?;
+    Ok(())
+}
+
+fn delete_legacy_record_if_small(
+    storage: &FileStorage,
+    collection: &str,
+    id: &str,
+) -> AppResult<()> {
+    if !collection_is_small_enough_for_startup_cleanup(storage, collection)? {
+        return Ok(());
     }
-    if storage.get("chats", "__professor_mari_chat__")?.is_some() {
-        storage.delete("chats", "__professor_mari_chat__")?;
-    }
-    if storage.get("messages", "professor-mari-welcome")?.is_some() {
-        storage.delete("messages", "professor-mari-welcome")?;
-    }
-    if storage
-        .get("app-settings", "professor-mari-assistant-prompt")?
-        .is_some()
-    {
-        storage.delete("app-settings", "professor-mari-assistant-prompt")?;
+    if storage.get(collection, id)?.is_some() {
+        storage.delete(collection, id)?;
     }
     Ok(())
+}
+
+fn collection_is_small_enough_for_startup_cleanup(
+    storage: &FileStorage,
+    collection: &str,
+) -> AppResult<bool> {
+    let path = storage
+        .root()
+        .join("collections")
+        .join(format!("{collection}.json"));
+    if !path.exists() {
+        return Ok(true);
+    }
+    Ok(std::fs::metadata(path)?.len() <= LEGACY_CLEANUP_MAX_COLLECTION_BYTES)
 }
 
 fn rename_legacy_default_preset(storage: &FileStorage) -> AppResult<()> {
@@ -319,35 +293,38 @@ mod tests {
     }
 
     #[test]
-    fn seeds_professor_mari_as_default_character() {
+    fn removes_professor_mari_character_seed() {
         let (storage, root) = temp_storage();
+        storage
+            .create(
+                "characters",
+                json!({
+                    "id": PROFESSOR_MARI_ID,
+                    "data": {
+                        "name": "Professor Mari",
+                        "extensions": {
+                            "isBuiltInAssistant": true
+                        }
+                    },
+                    "comment": "Built-in guide",
+                    "avatarPath": Value::Null
+                }),
+            )
+            .expect("canonical row should be inserted");
 
         seed_bundled_defaults(&storage, &root.0.join("missing-default-data"))
             .expect("defaults should seed");
 
-        let character = storage
+        assert!(storage
             .get("characters", PROFESSOR_MARI_ID)
-            .expect("character lookup should succeed")
-            .expect("Professor Mari should be seeded");
-        let data = character
-            .get("data")
-            .and_then(Value::as_str)
-            .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
-            .expect("character data should be stored as JSON");
-
-        assert_eq!(data["name"], "Professor Mari");
-        assert_eq!(
-            data.pointer("/extensions/isBuiltInAssistant")
-                .and_then(Value::as_bool),
-            Some(true)
-        );
+            .expect("canonical lookup should succeed")
+            .is_none());
     }
 
     #[test]
-    fn preserves_canonical_professor_mari_while_removing_legacy_id() {
+    fn removes_legacy_professor_mari_records() {
         let (storage, root) = temp_storage();
 
-        seed_professor_mari_character(&storage).expect("canonical seed should succeed");
         storage
             .create(
                 "characters",
@@ -363,10 +340,6 @@ mod tests {
         seed_bundled_defaults(&storage, &root.0.join("missing-default-data"))
             .expect("defaults should seed");
 
-        assert!(storage
-            .get("characters", PROFESSOR_MARI_ID)
-            .expect("canonical lookup should succeed")
-            .is_some());
         assert!(storage
             .get("characters", "professor-mari")
             .expect("legacy lookup should succeed")

@@ -245,12 +245,26 @@ pub(super) fn profile_assets(state: &AppState) -> AppResult<Vec<Value>> {
     let mut assets = Vec::new();
     for dir in PROFILE_ASSET_DIRS {
         let relative = Path::new(dir);
-        collect_profile_assets(&state.data_dir, relative, &mut assets)?;
+        collect_profile_assets(&state.data_dir, relative, &mut assets, true)?;
     }
     Ok(assets)
 }
 
-fn collect_profile_assets(root: &Path, relative: &Path, assets: &mut Vec<Value>) -> AppResult<()> {
+pub(super) fn profile_assets_manifest(state: &AppState) -> AppResult<Vec<Value>> {
+    let mut assets = Vec::new();
+    for dir in PROFILE_ASSET_DIRS {
+        let relative = Path::new(dir);
+        collect_profile_assets(&state.data_dir, relative, &mut assets, false)?;
+    }
+    Ok(assets)
+}
+
+fn collect_profile_assets(
+    root: &Path,
+    relative: &Path,
+    assets: &mut Vec<Value>,
+    inline_bytes: bool,
+) -> AppResult<()> {
     let dir = root.join(relative);
     if !dir.exists() {
         return Ok(());
@@ -265,12 +279,23 @@ fn collect_profile_assets(root: &Path, relative: &Path, assets: &mut Vec<Value>)
         }
         let next_relative = relative.join(name);
         if path.is_dir() {
-            collect_profile_assets(root, &next_relative, assets)?;
+            collect_profile_assets(root, &next_relative, assets, inline_bytes)?;
         } else if path.is_file() {
-            assets.push(json!({
+            let mut asset = json!({
                 "path": profile_relative_path(&next_relative),
-                "base64": general_purpose::STANDARD.encode(fs::read(path)?),
-            }));
+            });
+            let object = asset
+                .as_object_mut()
+                .expect("profile asset metadata should be an object");
+            if inline_bytes {
+                object.insert(
+                    "base64".to_string(),
+                    Value::String(general_purpose::STANDARD.encode(fs::read(path)?)),
+                );
+            } else {
+                object.insert("size".to_string(), json!(fs::metadata(path)?.len()));
+            }
+            assets.push(asset);
         }
     }
     Ok(())

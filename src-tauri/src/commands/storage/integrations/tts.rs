@@ -197,9 +197,9 @@ async fn voices(state: &AppState) -> AppResult<Value> {
         ));
     }
     if source == "elevenlabs" {
-        return elevenlabs_voices(&config, &base)
+        return Ok(elevenlabs_voices(&config, &base)
             .await
-            .or_else(|_| Ok(fallback_voices(source)));
+            .unwrap_or_else(|error| fallback_voices_with_error(source, &error)));
     }
     if source == "pockettts" {
         return Ok(fallback_voices(source));
@@ -218,17 +218,49 @@ async fn voices(state: &AppState) -> AppResult<Value> {
         .await;
     match response {
         Ok(response) if response.status().is_success() => {
-            let data = response.json::<Value>().await.unwrap_or(Value::Null);
+            let data = match response.json::<Value>().await {
+                Ok(data) => data,
+                Err(error) => {
+                    return Ok(fallback_voices_with_error(
+                        source,
+                        &AppError::new("tts_response_error", error.to_string()),
+                    ));
+                }
+            };
             let parsed = parse_voice_options(&data);
             if parsed.is_empty() {
-                Ok(fallback_voices(source))
+                Ok(fallback_voices_with_error(
+                    source,
+                    &AppError::new("tts_provider_error", "TTS provider returned no voices"),
+                ))
             } else {
                 Ok(
-                    json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "source": source }),
+                    json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "fallback": false, "source": source }),
                 )
             }
         }
-        _ => Ok(fallback_voices(source)),
+        Ok(response) => {
+            let status = response.status();
+            let detail = response
+                .text()
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(300)
+                .collect::<String>();
+            Ok(fallback_voices_with_error(
+                source,
+                &AppError::with_details(
+                    "tts_provider_error",
+                    format!("TTS provider returned HTTP {status}"),
+                    json!({ "detail": detail }),
+                ),
+            ))
+        }
+        Err(error) => Ok(fallback_voices_with_error(
+            source,
+            &AppError::new("tts_provider_unreachable", error.to_string()),
+        )),
     }
 }
 
@@ -476,6 +508,17 @@ fn fallback_voices(source: &str) -> Value {
     }
 }
 
+fn fallback_voices_with_error(source: &str, error: &AppError) -> Value {
+    let mut response = fallback_voices(source);
+    response["fallback"] = json!(true);
+    response["providerError"] = json!(error.message.clone());
+    response["providerErrorCode"] = json!(error.code.clone());
+    if let Some(details) = error.details.clone() {
+        response["providerErrorDetails"] = details;
+    }
+    response
+}
+
 fn voice_options_response(
     source: &str,
     voices: &[&str],
@@ -496,6 +539,7 @@ fn voice_options_response(
         "voices": voices,
         "voiceOptions": options,
         "fromProvider": from_provider,
+        "fallback": !from_provider,
         "source": source
     })
 }
@@ -519,15 +563,33 @@ async fn elevenlabs_voices(config: &Value, base: &str) -> AppResult<Value> {
         .await
         .map_err(|error| AppError::new("tts_provider_unreachable", error.to_string()))?;
     if !response.status().is_success() {
-        return Ok(fallback_voices("elevenlabs"));
+        let status = response.status();
+        let detail = response
+            .text()
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(300)
+            .collect::<String>();
+        return Err(AppError::with_details(
+            "tts_provider_error",
+            format!("TTS provider returned HTTP {status}"),
+            json!({ "detail": detail }),
+        ));
     }
-    let data = response.json::<Value>().await.unwrap_or(Value::Null);
+    let data = response
+        .json::<Value>()
+        .await
+        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?;
     let parsed = parse_voice_options(&data);
     if parsed.is_empty() {
-        Ok(fallback_voices("elevenlabs"))
+        Err(AppError::new(
+            "tts_provider_error",
+            "TTS provider returned no voices",
+        ))
     } else {
         Ok(
-            json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "source": "elevenlabs" }),
+            json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "fallback": false, "source": "elevenlabs" }),
         )
     }
 }
@@ -772,11 +834,39 @@ mod tests {
         format!("http://{address}/v1")
     }
 
+    async fn serve_voice_failure(status: &'static str, body: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test voice server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test voice server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test voice server should accept one request");
+            let mut buffer = [0_u8; 2048];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test voice server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test voice server should write response");
+        });
+        format!("http://{address}/v1")
+    }
+
     async fn serve_pockettts_audio() -> String {
         const WAV_BYTES: &[u8] = &[
-            82, 73, 70, 70, 38, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0,
-            1, 0, 64, 31, 0, 0, 64, 31, 0, 0, 1, 0, 8, 0, 100, 97, 116, 97, 2, 0, 0, 0, 128,
-            128,
+            82, 73, 70, 70, 38, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1,
+            0, 64, 31, 0, 0, 64, 31, 0, 0, 1, 0, 8, 0, 100, 97, 116, 97, 2, 0, 0, 0, 128, 128,
         ];
 
         let listener = TcpListener::bind("127.0.0.1:0")
@@ -841,7 +931,71 @@ mod tests {
         let result = voices(&state).await.expect("voice lookup should complete");
 
         assert_eq!(result["fromProvider"], true);
+        assert_eq!(result["fallback"], false);
+        assert!(result.get("providerError").is_none());
         assert_eq!(result["voices"], json!(["af_heart"]));
+    }
+
+    #[tokio::test]
+    async fn openai_voice_lookup_marks_fallback_when_provider_fails() {
+        let state = test_state("openai-voices-provider-error");
+        let base_url = serve_voice_failure("401 Unauthorized", r#"{"error":"bad key"}"#).await;
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": base_url,
+                        "apiKey": "bad-key",
+                        "model": "tts-1"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = voices(&state)
+            .await
+            .expect("voice lookup should return fallback metadata");
+
+        assert_eq!(result["fromProvider"], false);
+        assert_eq!(result["fallback"], true);
+        assert!(result["providerError"]
+            .as_str()
+            .is_some_and(|message| message.contains("TTS provider returned HTTP")));
+        assert_eq!(result["voices"], json!(OPENAI_FALLBACK_VOICES));
+    }
+
+    #[tokio::test]
+    async fn disabled_voice_lookup_uses_fallback_without_provider_error() {
+        let state = test_state("openai-voices-disabled");
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": false,
+                        "source": "openai",
+                        "apiKey": "bad-key",
+                        "model": "tts-1"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = voices(&state)
+            .await
+            .expect("disabled voice lookup should use fallback");
+
+        assert_eq!(result["fromProvider"], false);
+        assert_eq!(result["fallback"], true);
+        assert!(result.get("providerError").is_none());
+        assert_eq!(result["voices"], json!(OPENAI_FALLBACK_VOICES));
     }
 
     #[tokio::test]
@@ -869,7 +1023,9 @@ mod tests {
             .expect("TTS speak should return provider audio");
 
         assert_eq!(result["contentType"], "audio/wav");
-        assert!(result["audioBase64"].as_str().is_some_and(|audio| !audio.is_empty()));
+        assert!(result["audioBase64"]
+            .as_str()
+            .is_some_and(|audio| !audio.is_empty()));
     }
 
     #[test]

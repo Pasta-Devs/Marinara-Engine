@@ -93,6 +93,21 @@ export function RoleplayHUD({
 }: RoleplayHUDProps & { mobileCompact?: boolean }) {
   const [agentsOpen, setAgentsOpen] = useState(false);
   const isDesktopHudLayout = useIsDesktopHudLayout();
+  const { data: agentConfigs } = useAgentConfigs();
+  const globalEnabledAgentTypes = useMemo(() => {
+    const set = new Set<string>();
+    if (agentConfigs) {
+      for (const a of agentConfigs as Array<{ type: string; enabled: string }>) {
+        if (a.enabled === "true") set.add(a.type);
+      }
+    }
+    return set;
+  }, [agentConfigs]);
+  const enabledAgentTypes = enabledAgentTypesProp ?? globalEnabledAgentTypes;
+  const trackerStateEnabled = useMemo(
+    () => Object.values(TRACKER_SECTION_AGENT_TYPES).some((agentType) => enabledAgentTypes.has(agentType)),
+    [enabledAgentTypes],
+  );
   const {
     gameState,
     playerStats,
@@ -105,20 +120,8 @@ export function RoleplayHUD({
     getSnapshot,
     patchField,
     patchPlayerStats,
-  } = useTrackerStateController(chatId, "roleplay-hud");
+  } = useTrackerStateController(chatId, "roleplay-hud", trackerStateEnabled);
   const setGameState = useGameStateStore((s) => s.setGameState);
-
-  const { data: agentConfigs } = useAgentConfigs();
-  const globalEnabledAgentTypes = useMemo(() => {
-    const set = new Set<string>();
-    if (agentConfigs) {
-      for (const a of agentConfigs as Array<{ type: string; enabled: string }>) {
-        if (a.enabled === "true") set.add(a.type);
-      }
-    }
-    return set;
-  }, [agentConfigs]);
-  const enabledAgentTypes = enabledAgentTypesProp ?? globalEnabledAgentTypes;
 
   const { data: chatForAgentsMenu } = useChat(chatId);
   const agentsMenuMetadata = useMemo(() => {

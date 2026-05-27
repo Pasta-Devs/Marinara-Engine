@@ -1,6 +1,7 @@
 import { formDataToJson } from "./file-payload";
 import { Channel } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
+import { remoteRuntimeTarget } from "./remote-runtime";
 
 export interface ImportFilePayload {
   file: File;
@@ -52,6 +53,11 @@ export const importApi = {
     signal?: AbortSignal,
   ): AsyncGenerator<{ type: string; data: unknown }> {
     if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    if (remoteRuntimeTarget()) {
+      const data = await invokeTauri("import_st_bulk_run", { payload });
+      yield { type: "done", data };
+      return;
+    }
     const queue: Array<{ type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown }> = [];
     let completed = false;
     let failure: unknown = null;

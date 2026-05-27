@@ -490,6 +490,7 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
 
 export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Readonly<Record<string, number>> = {
   director: 5,
+  illustrator: 5,
   "lorebook-keeper": 8,
   "card-evolution-auditor": 8,
   "chat-summary": 5,

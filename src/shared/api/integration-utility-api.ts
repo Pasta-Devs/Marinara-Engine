@@ -1,4 +1,5 @@
 import { fileToUploadPayload } from "./file-payload";
+import { remoteRuntimeTarget } from "./remote-runtime";
 import { invokeTauri } from "./tauri-client";
 
 export interface GifSearchResult {
@@ -85,8 +86,14 @@ export const ttsApi = {
 
 export const spotifyApi = {
   status: (agentId: string) => invokeTauri<SpotifyStatus>("spotify_status", { body: { agentId } }),
-  authorize: (input: { clientId: string; agentId: string }) =>
-    invokeTauri<SpotifyAuthorizeResponse>("spotify_authorize", { input }),
+  authorize: async (input: { clientId: string; agentId: string }) => {
+    const shouldOpenClientSide = Boolean(remoteRuntimeTarget());
+    const response = await invokeTauri<SpotifyAuthorizeResponse>("spotify_authorize", { input });
+    if (shouldOpenClientSide && response.authUrl) {
+      window.open(response.authUrl, "_blank", "noopener,noreferrer");
+    }
+    return response;
+  },
   exchange: (callbackUrl: string) => invokeTauri<SpotifyExchangeResponse>("spotify_exchange", { callbackUrl }),
   disconnect: (agentId: string) => invokeTauri("spotify_disconnect", { body: { agentId } }),
   accessToken: <T = unknown>() => invokeTauri<T>("spotify_access_token", { body: null }),

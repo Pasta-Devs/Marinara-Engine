@@ -7,6 +7,7 @@ import { WindowTitleBar } from "./WindowTitleBar";
 import { SpotifyMobileWidget } from "../../features/shell/spotify/shell";
 import { ChatNotificationBubbles } from "../../features/shell/notifications/shell";
 import { AgentDebugPanel } from "../../features/catalog/agents/shell";
+import { ProfessorMariSurface } from "../../features/shell/mari/shell";
 import {
   getTrackerPanelWidthForProfile,
   RIGHT_PANEL_WIDTH_MAX,
@@ -19,11 +20,11 @@ import { useChatStore } from "../../shared/stores/chat.store";
 import { useBackgroundAutonomousPolling } from "../../features/modes/conversation/index";
 import { useClearAutonomousUnread } from "../../features/catalog/chats/index";
 import { useIdleDetection } from "../../shared/hooks/use-idle-detection";
-import { usePageActivity } from "../../shared/hooks/use-page-activity";
 import { cn } from "../../shared/lib/utils";
 import { parseChatMetadata } from "../../shared/lib/chat-display";
 import { getDetailRouteView } from "./detail-route-registry";
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import {
   lazy,
   Suspense,
@@ -45,9 +46,6 @@ const BotBrowserView = lazy(() =>
 );
 const GameAssetsBrowserView = lazy(() =>
   import("../../features/modes/game-assets/shell").then((module) => ({ default: module.GameAssetsBrowserView })),
-);
-const ProfessorMariSurface = lazy(() =>
-  import("../../features/shell/mari/shell").then((module) => ({ default: module.ProfessorMariSurface })),
 );
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
 const TrackerDataSidebar = lazy(() =>
@@ -73,6 +71,7 @@ const TRACKER_PANEL_DESKTOP_EXIT_EASE = [0.4, 0, 1, 1] as const;
 const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
+const MOBILE_PANEL_HISTORY_KEY = "__marinaraMobilePanel";
 const FOCUSABLE_SELECTOR = [
   "a[href]",
   "button:not([disabled])",
@@ -96,14 +95,47 @@ function setInert(element: HTMLElement | null, inert: boolean) {
   (element as HTMLElement & { inert?: boolean }).inert = inert;
 }
 
-function MainPaneFallback() {
+function isMobilePanelHistoryState(state: unknown, token: string) {
   return (
-    <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">Loading...</div>
+    typeof state === "object" &&
+    state !== null &&
+    (state as Record<string, unknown>)[MOBILE_PANEL_HISTORY_KEY] === token
   );
+}
+
+function getHistoryStateRecord() {
+  return typeof window.history.state === "object" && window.history.state !== null
+    ? (window.history.state as Record<string, unknown>)
+    : {};
+}
+
+function ShellLoadingFallback({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={cn("flex items-center justify-center", compact ? "h-full" : "flex-1")}>
+      <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
+        <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+        <span>Loading...</span>
+      </div>
+    </div>
+  );
+}
+
+function MainPaneFallback() {
+  return <ShellLoadingFallback />;
 }
 /** Mounts children once `open` becomes true, then keeps them mounted so state persists.
  *  `overlay` mode uses framer-motion slide-in and never unmounts. */
-function MountOnceWhenOpened({ open, children, overlay }: { open: boolean; children: React.ReactNode; overlay?: boolean }) {
+function MountOnceWhenOpened({
+  open,
+  children,
+  overlay,
+  hideOverlayWhenClosed,
+}: {
+  open: boolean;
+  children: React.ReactNode;
+  overlay?: boolean;
+  hideOverlayWhenClosed?: boolean;
+}) {
   const [everOpened, setEverOpened] = useState(false);
   useEffect(() => {
     if (open && !everOpened) setEverOpened(true);
@@ -115,7 +147,11 @@ function MountOnceWhenOpened({ open, children, overlay }: { open: boolean; child
         initial={{ opacity: 0, x: 30 }}
         animate={open ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
         transition={{ duration: 0.2 }}
-        className={cn("absolute inset-0 flex flex-col overflow-hidden bg-[var(--background)]", open ? "z-20" : "z-10 pointer-events-none")}
+        className={cn(
+          "absolute inset-0 flex flex-col overflow-hidden bg-[var(--background)]",
+          open ? "z-20" : "z-10 pointer-events-none",
+        )}
+        style={hideOverlayWhenClosed && !open ? { display: "none" } : undefined}
       >
         <Suspense fallback={<MainPaneFallback />}>
           {children}
@@ -133,9 +169,7 @@ function MountOnceWhenOpened({ open, children, overlay }: { open: boolean; child
 }
 
 function SidePanelFallback() {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">Loading...</div>
-  );
+  return <ShellLoadingFallback compact />;
 }
 
 export function AppShell() {
@@ -208,6 +242,8 @@ export function AppShell() {
   const mobileTrackerPanelRef = useRef<HTMLElement>(null);
   const mobileRightPanelRef = useRef<HTMLElement>(null);
   const lastFocusedBeforeMobilePanelRef = useRef<HTMLElement | null>(null);
+  const mobilePanelHistoryTokenRef = useRef<string | null>(null);
+  const closingMobilePanelFromPopRef = useRef(false);
   const compactWidthRef = useRef(0); // width when we last switched to compact
   const centerCompact = useUIStore((s) => s.centerCompact);
   const setCenterCompact = useUIStore((s) => s.setCenterCompact);
@@ -276,7 +312,6 @@ export function AppShell() {
   const activeChat = useChatStore((s) => s.activeChat);
   const clearUnread = useChatStore((s) => s.clearUnread);
   const { mutate: clearAutonomousUnread, isPending: isClearingAutonomousUnread } = useClearAutonomousUnread();
-  const isPageActive = usePageActivity();
   const [trackerPanelTop, setTrackerPanelTop] = useState(TRACKER_PANEL_EDGE_OFFSET);
   const [trackerPanelExitLayoutHold, setTrackerPanelExitLayoutHold] = useState(false);
   const [trackerPanelToggleAnchorY, setTrackerPanelToggleAnchorY] = useState<number | null>(null);
@@ -433,7 +468,7 @@ export function AppShell() {
     regexDetailId,
   });
 
-  const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
+  const showAmbientDecor = !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !professorMariOpen;
   const hasDetailView = detailView != null;
   useEffect(() => {
     if (hasDetailView) setProfessorMariOpen(false);
@@ -633,6 +668,55 @@ export function AppShell() {
           ? "sidebar"
           : null
     : null;
+
+  const closeActiveMobilePanel = useCallback(() => {
+    if (activeMobilePanel === "right") closeRightPanel();
+    else if (activeMobilePanel === "tracker") setTrackerPanelOpen(false);
+    else if (activeMobilePanel === "sidebar") setSidebarOpen(false);
+  }, [activeMobilePanel, closeRightPanel, setSidebarOpen, setTrackerPanelOpen]);
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding || !isMobile) return;
+
+    const handlePopState = () => {
+      if (!mobilePanelHistoryTokenRef.current || !activeMobilePanel) return;
+      closingMobilePanelFromPopRef.current = true;
+      mobilePanelHistoryTokenRef.current = null;
+      closeActiveMobilePanel();
+      window.setTimeout(() => {
+        closingMobilePanelFromPopRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [activeMobilePanel, closeActiveMobilePanel, hasCompletedOnboarding, isMobile]);
+
+  useEffect(() => {
+    if (!hasCompletedOnboarding || !isMobile) {
+      mobilePanelHistoryTokenRef.current = null;
+      return;
+    }
+
+    if (activeMobilePanel && !mobilePanelHistoryTokenRef.current) {
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      mobilePanelHistoryTokenRef.current = token;
+      window.history.pushState(
+        { ...getHistoryStateRecord(), [MOBILE_PANEL_HISTORY_KEY]: token },
+        "",
+        window.location.href,
+      );
+      return;
+    }
+
+    if (!activeMobilePanel && mobilePanelHistoryTokenRef.current && !closingMobilePanelFromPopRef.current) {
+      const token = mobilePanelHistoryTokenRef.current;
+      mobilePanelHistoryTokenRef.current = null;
+      if (isMobilePanelHistoryState(window.history.state, token)) {
+        window.history.back();
+      }
+    }
+  }, [activeMobilePanel, hasCompletedOnboarding, isMobile]);
 
   const syncMobilePanelInert = useCallback(() => {
     if (!isMobile) {
@@ -901,8 +985,15 @@ export function AppShell() {
           <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
             <GameAssetsBrowserView />
           </MountOnceWhenOpened>
+          <MountOnceWhenOpened open={professorMariOpen} overlay hideOverlayWhenClosed>
+            <ProfessorMariSurface />
+          </MountOnceWhenOpened>
           <div
-            className={botBrowserOpen || gameAssetsBrowserOpen ? "hidden" : "flex flex-1 flex-col overflow-hidden"}
+            className={
+              botBrowserOpen || gameAssetsBrowserOpen || professorMariOpen
+                ? "hidden"
+                : "flex flex-1 flex-col overflow-hidden"
+            }
             style={
               {
                 "--tracker-chat-avoid-left": `${trackerPanelSide === "left" ? trackerPanelChatAvoidance : 0}px`,
@@ -913,7 +1004,7 @@ export function AppShell() {
             }
           >
             <Suspense fallback={<MainPaneFallback />}>
-              {professorMariOpen ? <ProfessorMariSurface /> : detailView ?? <ModeSurface />}
+              {detailView ?? <ModeSurface />}
             </Suspense>
           </div>
         </div>

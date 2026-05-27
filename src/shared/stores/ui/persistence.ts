@@ -2,13 +2,14 @@ import { createJSONStorage } from "zustand/middleware";
 import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
+  normalizeSummaryPopoverSettings,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
 } from "./model";
 import type { UIState } from "./model";
 
 export const UI_STORE_NAME = "marinara-engine-ui-tauri";
-export const UI_STORE_VERSION = 2;
+export const UI_STORE_VERSION = 4;
 
 type PersistedUiState = Partial<UIState> & {
   trackerPanelWidth?: unknown;
@@ -105,12 +106,14 @@ export function partializeUiState(state: UIState) {
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
+    chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
     remoteRuntimeUrl: state.remoteRuntimeUrl,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
     intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
     editLastMessageOnArrowUp: state.editLastMessageOnArrowUp,
+    summaryPopoverSettings: state.summaryPopoverSettings,
     narrationFontColor: state.narrationFontColor,
     narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
@@ -133,8 +136,7 @@ export function partializeUiState(state: UIState) {
     gameTutorialDisabled: state.gameTutorialDisabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     echoChamberSide: state.echoChamberSide,
-    userStatusManual: state.userStatusManual,
-    userStatus: state.userStatus,
+    userStatusManual: state.userStatusManual === "dnd" ? "dnd" : "active",
     userActivity: state.userActivity,
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
@@ -170,6 +172,9 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   );
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
+  persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
+  persisted.userStatusManual = persisted.userStatusManual === "dnd" ? "dnd" : "active";
+  persisted.userStatus = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   delete persisted.trackerPanelWidth;
 
   return persisted;

@@ -77,7 +77,7 @@ import {
   useUpdateChat,
   useUpdateChatMetadata,
   useCreateMessage,
-  useChats,
+  useChatSummaries,
   useConnectChat,
   useDisconnectChat,
   useChatMemories,
@@ -318,7 +318,7 @@ export function ChatSettingsDrawer({
   const { data: agentConfigs } = useAgentConfigs();
   const { data: customTools } = useCustomTools();
   const { data: customToolCapabilities } = useCustomToolCapabilities();
-  const { data: allChats } = useChats();
+  const { data: allChats } = useChatSummaries();
   const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
 
   const chatCharIds: string[] = useMemo(
@@ -397,6 +397,18 @@ export function ChatSettingsDrawer({
       ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
       : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
   const activeAgentIds = useMemo<string[]>(() => metadata.activeAgentIds ?? [], [metadata.activeAgentIds]);
+  const inactiveCharacterIds = useMemo<string[]>(
+    () =>
+      Array.isArray(metadata.inactiveCharacterIds)
+        ? metadata.inactiveCharacterIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
+        : [],
+    [metadata.inactiveCharacterIds],
+  );
+  const inactiveCharacterIdSet = useMemo(() => new Set(inactiveCharacterIds), [inactiveCharacterIds]);
+  const activeChatCharacterCount = useMemo(
+    () => chatCharIds.filter((id) => !inactiveCharacterIdSet.has(id)).length,
+    [chatCharIds, inactiveCharacterIdSet],
+  );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
     ? ((lorebooks ?? []) as Array<{ id: string; name: string }>).find(
@@ -705,6 +717,10 @@ export function ChatSettingsDrawer({
           onSuccess: () => syncGamePartyMetadata(current),
         },
       );
+      const nextInactiveCharacterIds = inactiveCharacterIds.filter((id) => id !== charId);
+      if (nextInactiveCharacterIds.length !== inactiveCharacterIds.length) {
+        updateMeta.mutate({ id: chat.id, inactiveCharacterIds: nextInactiveCharacterIds });
+      }
       if (spriteCharacterIds.includes(charId)) {
         const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
         delete nextSpritePlacements[charId];
@@ -740,6 +756,18 @@ export function ChatSettingsDrawer({
         },
       );
     }
+  };
+
+  const toggleCharacterGenerationActive = (charId: string) => {
+    const isInactive = inactiveCharacterIdSet.has(charId);
+    if (!isInactive && activeChatCharacterCount <= 1) {
+      toast.info("At least one character must stay active.");
+      return;
+    }
+    const next = isInactive
+      ? inactiveCharacterIds.filter((id) => id !== charId)
+      : Array.from(new Set([...inactiveCharacterIds, charId]));
+    updateMeta.mutate({ id: chat.id, inactiveCharacterIds: next });
   };
 
   const toggleSprite = (charId: string) => {
@@ -2333,6 +2361,8 @@ export function ChatSettingsDrawer({
                     if (!c) return null;
                     const name = charName(c);
                     const title = charTitle(c);
+                    const isInactive = inactiveCharacterIdSet.has(c.id);
+                    const canDeactivate = !isInactive && activeChatCharacterCount <= 1;
                     return (
                       <div key={c.id}>
                         {dropIdx === i && dragIdx !== null && dragIdx !== i && (
@@ -2347,7 +2377,10 @@ export function ChatSettingsDrawer({
                           }}
                           onDragEnd={handleCharDragEnd}
                           className={cn(
-                            "flex items-center gap-2 rounded-lg bg-[var(--primary)]/10 px-2 py-2 ring-1 ring-[var(--primary)]/30 transition-opacity",
+                            "flex items-center gap-2 rounded-lg px-2 py-2 ring-1 transition-opacity",
+                            isInactive
+                              ? "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)]"
+                              : "bg-[var(--primary)]/10 ring-[var(--primary)]/30",
                             dragIdx === i && "opacity-40",
                           )}
                         >
@@ -2388,6 +2421,27 @@ export function ChatSettingsDrawer({
                                 </span>
                               )}
                             </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleCharacterGenerationActive(c.id)}
+                            disabled={canDeactivate}
+                            className={cn(
+                              "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
+                              isInactive
+                                ? "bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                                : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15",
+                              canDeactivate && "cursor-not-allowed opacity-50",
+                            )}
+                            title={
+                              isInactive
+                                ? "Mark active for generation"
+                                : canDeactivate
+                                  ? "At least one character must stay active"
+                                  : "Mark inactive for generation"
+                            }
+                          >
+                            {isInactive ? "Inactive" : "Active"}
                           </button>
                           <button
                             onClick={() => toggleCharacter(c.id)}
@@ -2724,6 +2778,44 @@ export function ChatSettingsDrawer({
                         ? "An AI agent decides which characters should respond based on the scene context."
                         : "Characters respond one by one in their listed order."}
                   </p>
+                  <button
+                    onClick={() =>
+                      updateMeta.mutate({
+                        id: chat.id,
+                        groupTurnPromptEnabled: metadata.groupTurnPromptEnabled === false,
+                      })
+                    }
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.groupTurnPromptEnabled !== false
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[0.6875rem] font-medium">Add Turn To Prompt</span>
+                      <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                        {metadata.groupTurnPromptEnabled !== false
+                          ? "Each individual turn includes a short responding-character instruction."
+                          : "Individual turns rely on context without adding a turn instruction."}
+                      </p>
+                    </div>
+                    <div
+                      className={cn(
+                        "ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        metadata.groupTurnPromptEnabled !== false
+                          ? "bg-[var(--primary)]"
+                          : "bg-[var(--muted-foreground)]/50",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          metadata.groupTurnPromptEnabled !== false && "translate-x-3.5",
+                        )}
+                      />
+                    </div>
+                  </button>
                 </div>
               )}
 
@@ -3156,7 +3248,7 @@ export function ChatSettingsDrawer({
             >
               {chat.connectedChatId ? (
                 (() => {
-                  const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                  const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                   return (
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                       <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
@@ -3195,7 +3287,7 @@ export function ChatSettingsDrawer({
                   onClose={() => setShowConnectionPicker(false)}
                   placeholder="Search roleplay or game chats…"
                 >
-                  {((allChats ?? []) as Chat[])
+                  {(allChats ?? [])
                     .filter(
                       (c) =>
                         c.id !== chat.id &&
@@ -3233,7 +3325,7 @@ export function ChatSettingsDrawer({
               <div className="space-y-2">
                 {chat.connectedChatId ? (
                   (() => {
-                    const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                    const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                     return (
                       <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                         <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
@@ -3309,7 +3401,7 @@ export function ChatSettingsDrawer({
               help="Linked to a conversation. `<influence>` tags from the conversation steer the next turn here (one-shot, then consumed). `<note>` tags persist on every turn until cleared. Raw conversation messages are not injected — use `<note>` for facts this chat should keep remembering."
             >
               {(() => {
-                const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                const linked = (allChats ?? []).find((c) => c.id === chat.connectedChatId);
                 return (
                   <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
                     <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
@@ -3359,7 +3451,7 @@ export function ChatSettingsDrawer({
                   onClose={() => setShowConnectionPicker(false)}
                   placeholder="Search conversation chats…"
                 >
-                  {((allChats ?? []) as Chat[])
+                  {(allChats ?? [])
                     .filter(
                       (c) =>
                         c.id !== chat.id &&

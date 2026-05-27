@@ -5,7 +5,9 @@ mod legacy;
 #[path = "profile/zip_import.rs"]
 mod zip_import;
 
-use self::assets::{profile_assets, restore_profile_assets, RestoredProfileAssets};
+use self::assets::{
+    profile_assets, profile_assets_manifest, restore_profile_assets, RestoredProfileAssets,
+};
 use self::legacy::import_legacy_profile_tables;
 use self::zip_import::import_profile_zip;
 use super::shared::*;
@@ -62,6 +64,19 @@ pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
         "data": {
             "collections": profile_collections(state)?,
             "assets": profile_assets(state)?,
+        }
+    }))
+}
+
+pub(crate) fn profile_backup_snapshot(state: &AppState) -> AppResult<Value> {
+    Ok(json!({
+        "type": "marinara_profile",
+        "version": 1,
+        "exportedAt": now_iso(),
+        "runtime": "tauri",
+        "data": {
+            "collections": profile_collections(state)?,
+            "assets": profile_assets_manifest(state)?,
         }
     }))
 }

@@ -60,6 +60,8 @@ function createLiveTestMacroContext(input: string): MacroContext {
       appearance: "Character appearance",
       scenario: "Character scenario",
       example: "Character example",
+      systemPrompt: "Character system prompt",
+      postHistoryInstructions: "Character post-history instructions",
     },
     personaFields: {
       description: "Persona description",

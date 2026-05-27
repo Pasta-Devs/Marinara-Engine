@@ -7,7 +7,7 @@ import type { TreeNode } from "../hooks/use-game-assets";
 import { useGameAssetFileInfo } from "../hooks/use-game-assets";
 import { cn } from "../../../../shared/lib/utils";
 import { formatBytes, formatDate } from "../../../../shared/lib/format";
-import { filePathToAssetUrl } from "../../../../shared/api/local-file-api";
+import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api";
 
 /**
  * Full-screen image preview overlay with optional metadata side panel.
@@ -45,7 +45,7 @@ export function ImagePreviewModal({
       <div className="relative flex max-h-[90vh] max-w-[90vw]">
         <div className="relative">
           <img
-            src={filePathToAssetUrl(node.absolutePath)}
+            src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
             alt={node.name}
             className={cn(
               "max-h-[85vh] rounded-lg object-contain shadow-2xl",

@@ -77,6 +77,21 @@ const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
 
+type RemoteModel = {
+  id: string;
+  name: string;
+  fallback?: boolean;
+  fromProvider?: boolean;
+  providerError?: string;
+};
+
+type ModelLookupResponse = {
+  models: RemoteModel[];
+  fromProvider?: boolean;
+  fallback?: boolean;
+  providerError?: string;
+};
+
 function normalizeCachingAtDepth(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return DEFAULT_CACHING_AT_DEPTH;
   return Math.min(MAX_CACHING_AT_DEPTH, Math.floor(value));
@@ -208,7 +223,7 @@ export function ConnectionEditor() {
   }, [showModelDropdown]);
 
   // Remote models fetched from provider API
-  const [remoteModels, setRemoteModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [remoteModels, setRemoteModels] = useState<RemoteModel[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Populate from the stored connection record.
@@ -333,7 +348,7 @@ export function ConnectionEditor() {
     const knownIds = new Set(providerModels.map((m) => m.id));
     const uniqueRemote = remoteModels
       .filter((m) => !knownIds.has(m.id))
-      .map((m) => ({ id: m.id, name: m.name, context: 0, maxOutput: 0, isRemote: true as const }));
+      .map((m) => ({ id: m.id, name: m.name, context: 0, maxOutput: 0, isRemote: true as const, fallback: m.fallback }));
     const known = providerModels.map((m) => ({ ...m, isRemote: false as const }));
     return [...known, ...uniqueRemote];
   }, [providerModels, remoteModels]);
@@ -556,8 +571,21 @@ export function ConnectionEditor() {
     }
     fetchModels.mutate(connectionDetailId, {
       onSuccess: (data) => {
-        const result = data as { models: Array<{ id: string; name: string }> };
-        setRemoteModels(result.models);
+        const result = data as ModelLookupResponse;
+        const fallback = result.fallback === true;
+        setRemoteModels(
+          result.models.map((model) => ({
+            ...model,
+            fallback: model.fallback ?? fallback,
+            fromProvider: model.fromProvider ?? result.fromProvider,
+            providerError: model.providerError ?? result.providerError,
+          })),
+        );
+        setFetchError(
+          result.providerError
+            ? `Provider lookup failed: ${result.providerError}. Showing fallback models.`
+            : null,
+        );
         setShowModelDropdown(true);
         requestAnimationFrame(() => {
           modelSearchInputRef.current?.focus();
@@ -1126,7 +1154,7 @@ export function ConnectionEditor() {
                                     <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
                                   </div>
                                   <span className="shrink-0 rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                    API
+                                    {m.fallback ? "Fallback" : "API"}
                                   </span>
                                 </button>
                               ))}
@@ -1170,7 +1198,7 @@ export function ConnectionEditor() {
                               <span className="text-sm font-medium">{m.name}</span>
                               {m.isRemote && (
                                 <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                  API
+                                  {m.fallback ? "Fallback" : "API"}
                                 </span>
                               )}
                               {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}

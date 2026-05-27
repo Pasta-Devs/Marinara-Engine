@@ -24,25 +24,30 @@ function getTrackerStateSnapshot(gameState: GameState | null): TrackerStateSnaps
   };
 }
 
-export function useTrackerStateController(chatId: string | null, registrationId?: string): TrackerStateController {
-  const gameState = useGameStateStore((s) => (chatId && s.current?.chatId === chatId ? s.current : null));
+export function useTrackerStateController(
+  chatId: string | null,
+  registrationId?: string,
+  enabled = true,
+): TrackerStateController {
+  const activeChatId = enabled ? chatId : null;
+  const gameState = useGameStateStore((s) => (activeChatId && s.current?.chatId === activeChatId ? s.current : null));
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(chatId, registrationId);
+  const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(activeChatId, registrationId);
   const [loadingGameState, setLoadingGameState] = useState(false);
   const getSnapshot = useCallback(() => {
     const current = useGameStateStore.getState().current;
-    return getTrackerStateSnapshot(chatId && current?.chatId === chatId ? current : null);
-  }, [chatId]);
+    return getTrackerStateSnapshot(activeChatId && current?.chatId === activeChatId ? current : null);
+  }, [activeChatId]);
 
   useEffect(() => {
-    if (!chatId) {
+    if (!activeChatId) {
       setLoadingGameState(false);
       return;
     }
 
     const existing = useGameStateStore.getState().current;
-    if (existing?.chatId === chatId) {
+    if (existing?.chatId === activeChatId) {
       setLoadingGameState(false);
       return;
     }
@@ -50,7 +55,7 @@ export function useTrackerStateController(chatId: string | null, registrationId?
     let cancelled = false;
     setLoadingGameState(true);
     worldStateApi
-      .get(chatId)
+      .get(activeChatId)
       .then((state) => {
         if (!cancelled) setGameState(state ?? null);
       })
@@ -64,7 +69,7 @@ export function useTrackerStateController(chatId: string | null, registrationId?
     return () => {
       cancelled = true;
     };
-  }, [chatId, setGameState]);
+  }, [activeChatId, setGameState]);
 
   const snapshot = useMemo(
     () => ({

@@ -13,12 +13,19 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val androidApplicationId = providers.environmentVariable("MARINARA_ANDROID_APPLICATION_ID")
+    .orElse("com.marinara_engine.app")
+val androidAppName = providers.environmentVariable("MARINARA_ANDROID_APP_NAME")
+    .orElse("Marinara Engine")
+
 android {
     compileSdk = 36
     namespace = "com.marinara_engine.app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.marinara_engine.app"
+        manifestPlaceholders["appName"] = androidAppName.get()
+        manifestPlaceholders["mainActivityTitle"] = androidAppName.get()
+        applicationId = androidApplicationId.get()
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -30,7 +37,8 @@ android {
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+            packaging {
+                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
                 jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86_64/*.so")

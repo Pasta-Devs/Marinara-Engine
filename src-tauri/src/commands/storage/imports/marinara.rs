@@ -507,9 +507,8 @@ fn import_marinara_lorebook(
         .unwrap_or_else(|| data.clone());
     inherit_wrapper_timestamps(&mut lorebook_data, &data);
     remove_fields(&mut lorebook_data, &["id", "entries", "folders"]);
-    // Pre-refactor stored `tags`/`characterIds`/`personaIds` as TEXT columns
-    // (JSON-stringified arrays). Refactor expects real arrays — without this
-    // normalize step the lorebook editor crashes on `formTags.map is not a function`.
+    // Pre-refactor stored `tags`/`characterIds`/`personaIds` as JSON-stringified TEXT columns.
+    // Refactor expects real arrays; otherwise the lorebook editor crashes on `formTags.map is not a function`.
     normalize_legacy_text_array_fields(&mut lorebook_data, &["tags", "characterIds", "personaIds"]);
     // Pre-refactor also stored bool columns as TEXT (`"false"` / `"true"`).
     // Refactor reads these directly, so `lorebook.isGlobal === "false"` is

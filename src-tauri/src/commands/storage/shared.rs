@@ -201,7 +201,7 @@ pub(crate) fn normalize_typed_json_fields(
             normalize_nullable_json_array_fields(object, &["personaStats"])?;
         }
         "game-checkpoints" => {
-            normalize_nullable_json_object_fields(object, &["snapshot", "gameState", "metadata"])?;
+            normalize_nullable_json_object_fields(object, &["snapshot", "metadata"])?;
         }
         "chat-presets" => {
             normalize_json_object_fields(object, &["parameters"])?;
@@ -1009,6 +1009,89 @@ pub(crate) fn upload_gallery_image(
     record.insert("width".to_string(), Value::Null);
     record.insert("height".to_string(), Value::Null);
     state.storage.create(collection, Value::Object(record))
+}
+
+pub(crate) fn project_list_rows(rows: Vec<Value>, options: Option<&Value>) -> Vec<Value> {
+    let Some(fields) = option_string_array(options, "fields") else {
+        return rows;
+    };
+    if fields.is_empty() {
+        return rows;
+    }
+
+    rows.into_iter()
+        .map(|row| project_row(row, &fields, options))
+        .collect()
+}
+
+pub(crate) fn project_record(row: Value, options: Option<&Value>) -> Value {
+    let Some(fields) = option_string_array(options, "fields") else {
+        return row;
+    };
+    if fields.is_empty() {
+        return row;
+    }
+    project_row(row, &fields, options)
+}
+
+fn project_row(row: Value, fields: &[String], options: Option<&Value>) -> Value {
+    let Value::Object(object) = row else {
+        return row;
+    };
+    let mut projected = Map::new();
+    for field in fields {
+        let Some(value) = object.get(field) else {
+            continue;
+        };
+        projected.insert(
+            field.clone(),
+            project_nested_field(field, value.clone(), options),
+        );
+    }
+    Value::Object(projected)
+}
+
+fn project_nested_field(field: &str, value: Value, options: Option<&Value>) -> Value {
+    let Some(nested_fields) = options
+        .and_then(|value| value.get("fieldSelections"))
+        .and_then(Value::as_object)
+        .and_then(|selections| selections.get(field))
+        .and_then(string_array_from_json)
+    else {
+        return value;
+    };
+    if nested_fields.is_empty() {
+        return value;
+    }
+    match value {
+        Value::Object(object) => {
+            let mut projected = Map::new();
+            for nested_field in nested_fields {
+                if let Some(nested_value) = object.get(&nested_field) {
+                    projected.insert(nested_field, nested_value.clone());
+                }
+            }
+            Value::Object(projected)
+        }
+        other => other,
+    }
+}
+
+fn option_string_array(options: Option<&Value>, key: &str) -> Option<Vec<String>> {
+    options
+        .and_then(|value| value.get(key))
+        .and_then(string_array_from_json)
+}
+
+fn string_array_from_json(value: &Value) -> Option<Vec<String>> {
+    value.as_array().map(|items| {
+        items
+            .iter()
+            .filter_map(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(ToOwned::to_owned)
+            .collect()
+    })
 }
 
 pub(crate) fn metadata_map(chat: &Value) -> Map<String, Value> {

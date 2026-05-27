@@ -316,7 +316,6 @@ export function ConversationView({
   pageCount,
   totalMessageCount,
   characterMap,
-  characterNames,
   personaInfo,
   chatMeta,
   chatName,
@@ -350,13 +349,25 @@ export function ConversationView({
   const streamingCharacterId = useChatStore((s) => s.streamingCharacterId);
   const typingCharacterName = useChatStore((s) => s.typingCharacterName);
   const delayedCharacterInfo = useChatStore((s) => s.delayedCharacterInfo);
+  const inactiveCharacterIdSet = useMemo(
+    () => new Set(Array.isArray(chatMeta.inactiveCharacterIds) ? chatMeta.inactiveCharacterIds : []),
+    [chatMeta.inactiveCharacterIds],
+  );
+  const activeChatCharIds = useMemo(
+    () => chatCharIds.filter((id) => !inactiveCharacterIdSet.has(id)),
+    [chatCharIds, inactiveCharacterIdSet],
+  );
+  const activeCharacterNames = useMemo(
+    () => activeChatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [activeChatCharIds, characterMap],
+  );
   const liveTypingName = useMemo(() => {
     if (typingCharacterName) return typingCharacterName;
     if (streamingCharacterId) return characterMap.get(streamingCharacterId)?.name ?? "Character";
-    if (chatCharIds.length === 1) return characterMap.get(chatCharIds[0]!)?.name ?? "Character";
-    if (characterNames.length > 0) return characterNames.join(", ");
+    if (activeChatCharIds.length === 1) return characterMap.get(activeChatCharIds[0]!)?.name ?? "Character";
+    if (activeCharacterNames.length > 0) return activeCharacterNames.join(", ");
     return "Character";
-  }, [characterMap, characterNames, chatCharIds, streamingCharacterId, typingCharacterName]);
+  }, [activeCharacterNames, activeChatCharIds, characterMap, streamingCharacterId, typingCharacterName]);
   const liveTypingVerb = liveTypingName.includes(",") || liveTypingName.includes(" & ") ? "are" : "is";
   const showTypingIndicator =
     isStreaming && !delayedCharacterInfo && (!regenerateMessageId || (!streamBuffer && !thinkingBuffer));
@@ -724,7 +735,7 @@ export function ConversationView({
       }
       void showConversationLocalNotification({
         enabled: uiState.conversationBrowserNotifications,
-        characterName: getAssistantNotificationName(newAssistantMessage, characterMap, characterNames),
+        characterName: getAssistantNotificationName(newAssistantMessage, characterMap, activeCharacterNames),
         tag: `marinara-conversation-${chatId}`,
       });
     }
@@ -775,7 +786,7 @@ export function ConversationView({
     // No cleanup return here — timers are managed via staggerTimersRef and
     // must survive effect re-runs caused by query refetches. Cleanup on
     // unmount is handled by a separate effect below.
-  }, [characterMap, characterNames, chatId, renderedItems]);
+  }, [activeCharacterNames, characterMap, chatId, renderedItems]);
 
   // Clean up stagger timers on unmount only (empty deps = unmount cleanup)
   useEffect(() => {
@@ -1117,17 +1128,17 @@ export function ConversationView({
       {/* ── Input area ── */}
       <ConversationInput
         key={chatId}
-        characterNames={characterNames}
+        characterNames={activeCharacterNames}
         groupResponseOrder={
-          chatMeta.groupResponseOrder === "manual"
-            ? "manual"
-            : chatCharIds.length > 1
-              ? (chatMeta.groupResponseOrder ?? "sequential")
-              : undefined
+          activeChatCharIds.length > 1
+            ? chatMeta.groupResponseOrder === "manual"
+              ? "manual"
+              : (chatMeta.groupResponseOrder ?? "sequential")
+            : undefined
         }
         chatCharacters={
-          chatCharIds.length > 1
-            ? chatCharIds
+          activeChatCharIds.length > 1
+            ? activeChatCharIds
                 .filter((id) => characterMap.has(id))
                 .map((id) => {
                   const info = characterMap.get(id)!;

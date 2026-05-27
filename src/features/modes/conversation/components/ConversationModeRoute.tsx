@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { getChatDisplayName, parseChatMetadata } from "../../../../shared/lib/chat-display";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -12,6 +12,7 @@ import {
   useChatTtsAutoplay,
   useSpriteMetadataState,
 } from "../../shared/chat-ui/index";
+import { useDeleteChat } from "../../../catalog/chats/index";
 import { ChatConversationSurface } from "./ChatConversationSurface";
 
 type ConversationModeRouteProps = {
@@ -22,6 +23,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
   const messagesPerPage = useUIStore((state) => state.messagesPerPage);
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const pendingNewChatMode = useChatStore((state) => state.pendingNewChatMode);
+  const deleteChat = useDeleteChat();
   const data = useChatSurfaceData({
     activeChatId,
     messagePageSize: messagesPerPage,
@@ -93,6 +95,18 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
           sceneChatName: getChatDisplayName(activeSceneChat),
         }
       : undefined;
+  const handleCancelNewConversationSetup = useCallback(() => {
+    const cancellingChatId = activeChatId;
+    overlays.setWizardOpen(false);
+    void deleteChat
+      .mutateAsync(cancellingChatId)
+      .then(() => {
+        if (useChatStore.getState().activeChatId === cancellingChatId) setActiveChatId(null);
+      })
+      .catch(() => {
+        if (useChatStore.getState().activeChatId === cancellingChatId) overlays.setWizardOpen(true);
+      });
+  }, [activeChatId, deleteChat, overlays, setActiveChatId]);
 
   return (
     <>
@@ -141,6 +155,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         onCloseGallery={overlays.closeGallery}
         onIllustrate={timeline.handleIllustrate}
         onWizardFinish={overlays.finishWizard}
+        onWizardCancel={handleCancelNewConversationSetup}
         onClosePeekPrompt={timeline.closePeekPrompt}
         onResetSpritePlacements={spriteState.handleResetSpritePlacements}
         onSpriteSideChange={spriteState.handleSetSpritePosition}

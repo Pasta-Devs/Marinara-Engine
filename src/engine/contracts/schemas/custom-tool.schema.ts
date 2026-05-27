@@ -3,7 +3,12 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const toolExecutionTypeSchema = z.enum(["webhook", "static"]);
+// "script" is a legacy executionType from the pre-refactor staging codebase.
+// The refactor does not execute script bodies (no JS sandbox in the Tauri runtime),
+// but the variant is recognized so legacy data round-trips intact through import,
+// storage, and the editor. See custom_tools.rs + ToolEditor.tsx for the surfaces
+// that explain the unsupported state to the user.
+export const toolExecutionTypeSchema = z.enum(["webhook", "static", "script"]);
 
 export const createCustomToolSchema = z.object({
   name: z
@@ -16,6 +21,7 @@ export const createCustomToolSchema = z.object({
   executionType: toolExecutionTypeSchema.default("static"),
   webhookUrl: z.string().url().nullable().default(null),
   staticResult: z.string().nullable().default(null),
+  scriptBody: z.string().nullable().default(null),
   enabled: z.boolean().default(true),
 });
 

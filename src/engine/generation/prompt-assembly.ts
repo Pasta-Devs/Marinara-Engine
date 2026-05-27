@@ -7,8 +7,11 @@ import { wrapContent } from "../generation-core/prompt/format-engine";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
+import { normalizeUserTimeZone } from "../shared/time/timezone";
 import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, SessionSummary } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
+import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
+import { activeCharacterIds } from "./active-characters";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -68,6 +71,7 @@ export interface PromptAssemblyResult {
     constant: boolean;
   }>;
   chatSummary: string | null;
+  chatSummaryFingerprint: string | null;
 }
 
 export interface PromptAssemblyInput {
@@ -173,7 +177,7 @@ function isRpgStats(value: unknown): GenerationPersonaContext["rpgStats"] | unde
 }
 
 async function loadCharacters(storage: StorageGateway, chat: JsonRecord): Promise<GenerationCharacterContext[]> {
-  const ids = stringArray(chat.characterIds);
+  const ids = activeCharacterIds(chat);
   const rows = await Promise.all(ids.map((id) => storage.get<JsonRecord>("characters", id)));
   return rows.filter(isRecord).map(loadCharacterContext);
 }
@@ -487,6 +491,29 @@ function markerConfig(section: PromptSectionRecord): MarkerConfig | null {
   return null;
 }
 
+function resolveLiveHostTimeZone(): string | undefined {
+  try {
+    return normalizeUserTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  } catch {
+    return undefined;
+  }
+}
+
+function resolvePromptTimeZone(chat: JsonRecord, request: JsonRecord): string | undefined {
+  // Preference order: persisted per-chat override → caller-supplied input →
+  // live host resolution. The live fallback guarantees that every
+  // startGeneration entry point (chat hook, game-turn service, background
+  // autonomous chats, prompt-preview UI, future callers) resolves prompt-time
+  // macros in the user's local zone even when the caller forgot to plumb
+  // `userTimeZone` through the input contract. Engine code runs in the user's
+  // Tauri webview, so `Intl` always reflects the user's OS.
+  const persisted = normalizeUserTimeZone(parseRecord(chat.metadata).promptTimeZone);
+  if (persisted) return persisted;
+  const fromInput = normalizeUserTimeZone(request.userTimeZone);
+  if (fromInput) return fromInput;
+  return resolveLiveHostTimeZone();
+}
+
 function macroContext(input: {
   chat: JsonRecord;
   connection: JsonRecord;
@@ -494,6 +521,7 @@ function macroContext(input: {
   persona: GenerationPersonaContext | null;
   latestUserInput: string;
   agentData?: Record<string, string>;
+  request: JsonRecord;
 }): MacroContext {
   const first = input.characters[0];
   return {
@@ -508,12 +536,15 @@ function macroContext(input: {
       appearance: character.appearance,
       scenario: character.scenario,
       example: character.mesExample,
+      systemPrompt: character.systemPrompt,
+      postHistoryInstructions: character.postHistoryInstructions,
     })),
     variables: stringRecord(input.chat.promptVariables ?? input.chat.variableValues),
     lastInput: input.latestUserInput,
     chatId: readString(input.chat.id),
     model: readString(input.connection.model),
     agentData: input.agentData,
+    timeZone: resolvePromptTimeZone(input.chat, input.request),
     characterFields: first
       ? {
           description: first.description,
@@ -522,6 +553,8 @@ function macroContext(input: {
           appearance: first.appearance,
           scenario: first.scenario,
           example: first.mesExample,
+          systemPrompt: first.systemPrompt,
+          postHistoryInstructions: first.postHistoryInstructions,
         }
       : undefined,
     personaFields: input.persona
@@ -680,9 +713,17 @@ function buildRoleplayScenePromptBlock(
   return parts.join("\n\n");
 }
 
-function chatSummary(chat: JsonRecord): string | null {
+export function chatSummaryForGeneration(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
-  const parts = [meta.conversationSummary, meta.summary, meta.daySummaries, meta.weekSummaries, meta.lastRoleplaySceneSummary]
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const includeSceneSummary = mode !== "conversation" || meta.crossChatAwareness !== false;
+  const parts = [
+    meta.conversationSummary,
+    meta.summary,
+    meta.daySummaries,
+    meta.weekSummaries,
+    includeSceneSummary ? meta.lastRoleplaySceneSummary : null,
+  ]
     .map((value) => (typeof value === "string" ? value : isRecord(value) || Array.isArray(value) ? JSON.stringify(value) : ""))
     .filter((value) => value.trim().length > 0);
   return parts.length > 0 ? parts.join("\n\n") : null;
@@ -834,8 +875,102 @@ function historyMessages(storedMessages: JsonRecord[], limit: number): ChatMLMes
       role: normalizeRole(message.role),
       content: readString(message.content).trim(),
       contextKind: "history" as const,
+      characterId: readString(message.characterId).trim() || undefined,
+      name: readString(message.name).trim() || undefined,
     }))
     .filter((message) => message.content.length > 0);
+}
+
+function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: number } | null {
+  let start = -1;
+  let end = -1;
+  for (let index = 0; index < messages.length; index += 1) {
+    if (messages[index]!.contextKind !== "history") continue;
+    if (start === -1) start = index;
+    end = index + 1;
+  }
+  return start >= 0 ? { start, end } : null;
+}
+
+function shouldMergeSameRolePromptMessage(
+  previous: ChatMLMessage | undefined,
+  message: ChatMLMessage,
+  effectiveRole: "user" | "assistant",
+): previous is ChatMLMessage {
+  if (!previous || previous.role !== effectiveRole) return false;
+
+  const previousCharacterId = previous.characterId ?? null;
+  const messageCharacterId = message.characterId ?? null;
+  const bothCharacterHistory =
+    previous.contextKind === "history" &&
+    message.contextKind === "history" &&
+    previousCharacterId !== null &&
+    messageCharacterId !== null;
+
+  // Keep distinct group-chat speakers split until individual response scoping
+  // has decided which history turns belong to the active speaker.
+  return !(bothCharacterHistory && previousCharacterId !== messageCharacterId);
+}
+
+function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
+  previous.content += "\n\n" + message.content;
+  if (previous.contextKind !== message.contextKind) {
+    delete previous.contextKind;
+  }
+  if ((previous.characterId ?? null) !== (message.characterId ?? null)) {
+    delete previous.characterId;
+    delete previous.name;
+  }
+  if (message.images?.length) {
+    previous.images = [...(previous.images ?? []), ...message.images];
+  }
+  if (message.providerMetadata) {
+    previous.providerMetadata = message.providerMetadata;
+  }
+}
+
+function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
+  if (messages.length === 0) return messages;
+  const historyEnd = findHistoryBounds(messages)?.end ?? -1;
+  const normalizedMessages =
+    historyEnd > 0
+      ? messages.map((message, index) =>
+          index >= historyEnd && message.role === "system" ? { ...message, role: "user" as const } : message,
+        )
+      : messages;
+
+  const result: ChatMLMessage[] = [];
+  let index = 0;
+  const systemParts: string[] = [];
+  while (index < normalizedMessages.length && normalizedMessages[index]!.role === "system") {
+    systemParts.push(normalizedMessages[index]!.content);
+    index += 1;
+  }
+  if (systemParts.length > 0) {
+    result.push({ role: "system", content: systemParts.join("\n\n"), contextKind: "prompt" });
+  }
+
+  let expectedRole: "user" | "assistant" = "user";
+  for (; index < normalizedMessages.length; index += 1) {
+    const message = normalizedMessages[index]!;
+    const effectiveRole = message.role === "system" ? "user" : message.role;
+    if (effectiveRole === expectedRole) {
+      result.push({ ...message, role: effectiveRole });
+      expectedRole = effectiveRole === "user" ? "assistant" : "user";
+      continue;
+    }
+
+    const previous = result[result.length - 1];
+    if (shouldMergeSameRolePromptMessage(previous, message, effectiveRole)) {
+      mergeIntoPreviousPromptMessage(previous, message);
+      continue;
+    }
+
+    result.push({ ...message, role: effectiveRole });
+    expectedRole = effectiveRole === "user" ? "assistant" : "user";
+  }
+
+  return result;
 }
 
 function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
@@ -933,13 +1068,15 @@ async function loadActivatedLore(
   const entries = rows.map(normalizeLorebookEntry).filter((entry) => entry.enabled && entry.content.trim());
   const activeCharacterIds = characters.map((character) => character.id);
   const activeCharacterTags = characters.flatMap((character) => character.tags);
+  const meta = parseRecord(chat.metadata);
+  const gameState = parseRecord(chat.gameState ?? meta.gameState);
   return scanForActivatedEntries(
     storedMessages.filter((message) => !hiddenFromAi(message)).map((message) => ({
       role: readString(message.role, "user"),
       content: readString(message.content),
     })),
     entries,
-    { activeCharacterIds, activeCharacterTags, generationTriggers: ["chat", readString(chat.mode)] },
+    { activeCharacterIds, activeCharacterTags, generationTriggers: ["chat", readString(chat.mode)], gameState },
   );
 }
 
@@ -1002,7 +1139,7 @@ export async function assembleGenerationPrompt(
   const persona = await loadPersona(storage, input.chat);
   const activated = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
   const processedLore = processActivatedEntries(activated, readNumber(input.request.lorebookTokenBudget, 0));
-  const summary = chatSummary(input.chat);
+  const summary = chatSummaryForGeneration(input.chat);
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
     input.chat,
@@ -1021,6 +1158,7 @@ export async function assembleGenerationPrompt(
     persona,
     latestUserInput: input.latestUserInput,
     agentData: input.agentData,
+    request: input.request,
   });
   const agentData = input.agentData ?? {};
   let messages: ChatMLMessage[] = [];
@@ -1118,10 +1256,13 @@ export async function assembleGenerationPrompt(
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
     resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
   });
-  messages = mergeAdjacentMessages(messages);
-  if (boolish(input.request.squashSystemMessages, false)) {
+  const strictRoleFormatting =
+    boolish(input.request.strictRoleFormatting, true) && (chatMode === "roleplay" || chatMode === "visual_novel");
+  messages = strictRoleFormatting ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
+  if (!strictRoleFormatting && boolish(input.request.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
   }
+  const summaryFingerprint = fingerprintChatSummary(summary);
 
   return {
     messages,
@@ -1129,5 +1270,6 @@ export async function assembleGenerationPrompt(
     persona,
     activatedLorebookEntries: activated.map(loreForEvent),
     chatSummary: summary,
+    chatSummaryFingerprint: summaryFingerprint,
   };
 }

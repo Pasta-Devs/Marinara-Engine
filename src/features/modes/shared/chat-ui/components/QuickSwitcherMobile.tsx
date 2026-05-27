@@ -44,9 +44,9 @@ export function QuickSwitcherMobile() {
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { data: connections } = useConnections();
-  const { data: rawPersonas } = usePersonas();
-  const { data: rawPersonaGroups } = usePersonaGroups();
+  const { data: connections } = useConnections(open && tab === "connections");
+  const { data: rawPersonas } = usePersonas(open && tab === "personas");
+  const { data: rawPersonaGroups } = usePersonaGroups(open && tab === "personas");
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const updateConnection = useUpdateConnection();

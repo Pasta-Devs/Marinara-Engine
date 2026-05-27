@@ -3,6 +3,7 @@
 Marinara Engine is a local-first AI chat, roleplay, and game engine built as a Tauri desktop app. It combines a React interface, a TypeScript product engine, and Rust capability modules for local storage, managed assets, provider transport, integrations, and an optional hostable runtime.
 
 This repository is an active refactor branch. The app is usable from source, but public release packaging and end-user installation guides are still being rebuilt around the new architecture.
+The refactor build keeps an explicit in-app update check in Settings > Advanced. It checks Marinara Engine GitHub releases and opens the matching release page for manual install; signed Tauri auto-install artifacts are not configured on this branch yet.
 
 ## Screenshots
 
@@ -91,6 +92,12 @@ Health check:
 curl http://127.0.0.1:8787/health
 ```
 
+Non-loopback clients fail closed unless you configure access control. Use `BASIC_AUTH_USER` and
+`BASIC_AUTH_PASS`, `IP_ALLOWLIST`, or an explicit opt-in such as
+`ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` for trusted LAN/private-network access.
+Set `CORS_ORIGINS` or `CSRF_TRUSTED_ORIGINS` when the desktop client origin is not one of the
+runtime defaults.
+
 With Docker Compose:
 
 ```sh
@@ -125,11 +132,20 @@ Use the checks that match the change:
 
 ```sh
 pnpm typecheck
+pnpm test
 pnpm build
 pnpm check:architecture
 pnpm check:docs
 cargo check --manifest-path src-tauri/Cargo.toml --workspace
 ```
+
+Browser smoke tests are self-contained locally:
+
+```sh
+pnpm test:ui
+```
+
+Both browser smoke commands start a fresh preview server on port `4175` by default. Set `PLAYWRIGHT_PORT` if that port is occupied. Use `pnpm test:ui:run` only after `pnpm build` has already produced `dist/`.
 
 The combined check is:
 

@@ -32,6 +32,10 @@ pub fn run() {
             storage_commands::profile_commands::profile_export,
             storage_commands::profile_commands::profile_import,
             storage_commands::profile_commands::profile_import_file,
+            storage_commands::backup_commands::backup_create,
+            storage_commands::backup_commands::backup_list,
+            storage_commands::backup_commands::backup_delete,
+            storage_commands::backup_commands::backup_download,
             storage_commands::profile_commands::prompt_export,
             storage_commands::profile_commands::prompts_export_bulk,
             storage_commands::profile_commands::character_export,
@@ -82,6 +86,7 @@ pub fn run() {
             storage_commands::integration_commands::tts_voices,
             storage_commands::integration_commands::tts_speak,
             storage_commands::integration_commands::translate_text_command,
+            storage_commands::integration_commands::discord_webhook_send,
             storage_commands::integration_commands::haptic_status,
             storage_commands::integration_commands::haptic_connect,
             storage_commands::integration_commands::haptic_disconnect,
@@ -199,6 +204,8 @@ pub fn run() {
             storage_commands::media_commands::llm_stream_cancel,
             storage_commands::media_commands::llm_list_models,
             storage_commands::mari_commands::professor_mari_prompt,
+            storage_commands::update_commands::update_check,
+            storage_commands::update_commands::update_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

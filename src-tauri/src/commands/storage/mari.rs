@@ -1,4 +1,5 @@
 use super::llm::{llm_connection_from_value, resolve_llm_connection_for_request};
+use super::shared;
 use crate::state::AppState;
 use autoagents::async_trait;
 use autoagents::core::agent::memory::SlidingWindowMemory;
@@ -15,10 +16,13 @@ use autoagents::llm::error::LLMError;
 use autoagents::llm::models::{ModelListRequest, ModelListResponse, ModelsProvider};
 use autoagents::llm::{FunctionCall, LLMProvider, ToolCall};
 use autoagents::prelude::{agent, tool, AgentHooks, ToolInput, ToolInputT, ToolT};
-use marinara_core::{AppError, AppResult};
+use marinara_core::{now_iso, AppError, AppResult};
+use marinara_security::{assert_inside_dir, assert_relative_safe_path};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 const CREATIVE_LIBRARY_ENTITIES: &[(&str, &str)] = &[
@@ -34,12 +38,32 @@ const CREATIVE_LIBRARY_ENTITIES: &[(&str, &str)] = &[
     ("promptVariables", "prompt-variables"),
 ];
 
+const CODE_SEARCH_SKIP_DIRS: &[&str] = &[
+    ".git",
+    ".next",
+    ".turbo",
+    "build",
+    "dist",
+    "node_modules",
+    "target",
+];
+const CODE_SEARCH_SKIP_PATH_PREFIXES: &[&str] = &["packages/server/data", "src-tauri/gen"];
+const CODE_SEARCH_ALLOWED_EXTENSIONS: &[&str] = &[
+    "css", "html", "js", "jsx", "json", "md", "rs", "toml", "ts", "tsx", "yml", "yaml",
+];
+const CODE_SEARCH_MAX_FILE_BYTES: u64 = 512 * 1024;
+const CODE_READ_MAX_FILE_BYTES: u64 = 160 * 1024;
+const CODE_EDIT_MAX_FILE_BYTES: u64 = 512 * 1024;
+const CODE_EDIT_MAX_TEXT_BYTES: usize = 256 * 1024;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MariPromptRequest {
     user_message: String,
     #[serde(default)]
     messages: Vec<MariPromptMessage>,
+    #[serde(default)]
+    compacted_summary: Option<String>,
     #[serde(default)]
     connection_id: Option<String>,
     #[serde(default)]
@@ -152,7 +176,12 @@ fn mari_request_parameters(messages: &[ChatMessage], tools: &[Tool]) -> Value {
         .find(|message| matches!(message.role, ChatRole::User))
         .map(|message| message.content.as_str())
         .unwrap_or_default();
-    if !tools.is_empty() && !has_tool_result && looks_like_library_question(latest_user) {
+    if !tools.is_empty() && !has_tool_result && looks_like_codebase_question(latest_user) {
+        parameters["toolChoice"] = json!({
+            "type": "function",
+            "function": { "name": "search_marinara_code" }
+        });
+    } else if !tools.is_empty() && !has_tool_result && looks_like_library_question(latest_user) {
         parameters["toolChoice"] = json!({
             "type": "function",
             "function": { "name": "read_marinara_library" }
@@ -231,10 +260,183 @@ impl ToolRuntime for ReadMarinaraLibraryTool {
     }
 }
 
+#[derive(Serialize, Deserialize, ToolInput, Debug)]
+struct SearchMarinaraCodeArgs {
+    #[input(description = "Literal text to search for.")]
+    query: String,
+    #[input(description = "Optional repository-relative file or directory to search.")]
+    #[serde(default)]
+    path: Option<String>,
+    #[input(description = "Optional maximum number of matches to return.")]
+    #[serde(default)]
+    max_results: Option<usize>,
+}
+
+#[tool(
+    name = "search_marinara_code",
+    description = "Search Marinara Engine source files for a literal text query. Use this before answering questions about how the app works. The optional path must be relative to the repository, for example src/engine, src/features/shell/mari, src-tauri, or AGENTS.md.",
+    input = SearchMarinaraCodeArgs,
+)]
+struct SearchMarinaraCodeTool {}
+
+#[async_trait]
+impl ToolRuntime for SearchMarinaraCodeTool {
+    async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        let args: SearchMarinaraCodeArgs = serde_json::from_value(args)
+            .map_err(|error| mari_tool_error("mari_code_search_invalid_args", error))?;
+        search_marinara_code(args)
+            .map_err(|error| mari_tool_error("mari_code_search_failed", error))
+    }
+}
+
+#[derive(Serialize, Deserialize, ToolInput, Debug)]
+struct ReadMarinaraCodeFileArgs {
+    #[input(description = "Repository-relative path to the UTF-8 source or guidance file.")]
+    path: String,
+}
+
+#[tool(
+    name = "read_marinara_code_file",
+    description = "Read one UTF-8 Marinara Engine source or guidance file by repository-relative path. Use this after search_marinara_code when exact source context is needed.",
+    input = ReadMarinaraCodeFileArgs,
+)]
+struct ReadMarinaraCodeFileTool {}
+
+#[async_trait]
+impl ToolRuntime for ReadMarinaraCodeFileTool {
+    async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        let args: ReadMarinaraCodeFileArgs = serde_json::from_value(args)
+            .map_err(|error| mari_tool_error("mari_code_read_invalid_args", error))?;
+        read_marinara_code_file(&args.path)
+            .map_err(|error| mari_tool_error("mari_code_read_failed", error))
+    }
+}
+
+#[derive(Serialize, Deserialize, ToolInput, Debug)]
+struct EditMarinaraCodeFileArgs {
+    #[input(description = "Repository-relative path to the existing source or guidance file.")]
+    path: String,
+    #[input(description = "Exact text to replace. It must occur exactly once.")]
+    old_text: String,
+    #[input(description = "Replacement text.")]
+    new_text: String,
+}
+
+#[tool(
+    name = "edit_marinara_code_file",
+    description = "Edit one existing Marinara Engine source or guidance file by replacing an exact old_text with new_text. The path must be repository-relative, old_text must occur exactly once, and destructive broad rewrites are rejected.",
+    input = EditMarinaraCodeFileArgs,
+)]
+struct EditMarinaraCodeFileTool {}
+
+#[async_trait]
+impl ToolRuntime for EditMarinaraCodeFileTool {
+    async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        let args: EditMarinaraCodeFileArgs = serde_json::from_value(args)
+            .map_err(|error| mari_tool_error("mari_code_edit_invalid_args", error))?;
+        edit_marinara_code_file(&args.path, &args.old_text, &args.new_text)
+            .map_err(|error| mari_tool_error("mari_code_edit_failed", error))
+    }
+}
+
+#[derive(Serialize, Deserialize, ToolInput, Debug)]
+struct CreateMarinaraExtensionArgs {
+    #[input(description = "Extension display name.")]
+    name: String,
+    #[input(description = "Short user-facing extension description.")]
+    #[serde(default)]
+    description: String,
+    #[input(description = "Optional CSS payload to inject while the extension is enabled.")]
+    #[serde(default)]
+    css: Option<String>,
+    #[input(description = "Optional JavaScript payload to run while the extension is enabled.")]
+    #[serde(default)]
+    js: Option<String>,
+    #[input(description = "Whether the extension should be enabled immediately.")]
+    #[serde(default = "default_true")]
+    enabled: bool,
+}
+
+#[tool(
+    name = "create_marinara_extension",
+    description = "Create a user-installed Marinara extension record with optional CSS and JavaScript. Prefer this for user-facing tweaks before editing application source code.",
+    input = CreateMarinaraExtensionArgs,
+)]
+struct CreateMarinaraExtensionTool {
+    state: AppState,
+}
+
+#[async_trait]
+impl ToolRuntime for CreateMarinaraExtensionTool {
+    async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        let args: CreateMarinaraExtensionArgs = serde_json::from_value(args)
+            .map_err(|error| mari_tool_error("mari_extension_invalid_args", error))?;
+        create_marinara_extension(&self.state, args)
+            .map_err(|error| mari_tool_error("mari_extension_create_failed", error))
+    }
+}
+
+#[derive(Serialize, Deserialize, ToolInput, Debug)]
+struct CreateMarinaraCustomAgentArgs {
+    #[input(description = "Custom agent display name.")]
+    name: String,
+    #[input(
+        description = "Optional custom agent type id. Leave empty to derive one from the name."
+    )]
+    #[serde(default)]
+    agent_type: Option<String>,
+    #[input(description = "Short description of what the custom agent does.")]
+    #[serde(default)]
+    description: String,
+    #[input(description = "Pipeline phase: pre_generation, parallel, or post_processing.")]
+    #[serde(default = "default_agent_phase")]
+    phase: String,
+    #[input(description = "System prompt template for the custom agent.")]
+    prompt_template: String,
+    #[input(description = "Optional result type such as context_injection or text_rewrite.")]
+    #[serde(default)]
+    result_type: Option<String>,
+    #[input(description = "Optional connection id for this agent.")]
+    #[serde(default)]
+    connection_id: Option<String>,
+    #[input(description = "Optional JSON object string for additional agent settings.")]
+    #[serde(default)]
+    settings_json: Option<String>,
+    #[input(description = "Whether the custom agent should be enabled immediately.")]
+    #[serde(default = "default_true")]
+    enabled: bool,
+}
+
+#[tool(
+    name = "create_marinara_custom_agent",
+    description = "Create a custom Marinara agent configuration record. Use this when the user asks Professor Mari to make an agent for conversation, roleplay, game, writing, tracking, or post-processing behavior.",
+    input = CreateMarinaraCustomAgentArgs,
+)]
+struct CreateMarinaraCustomAgentTool {
+    state: AppState,
+}
+
+#[async_trait]
+impl ToolRuntime for CreateMarinaraCustomAgentTool {
+    async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        let args: CreateMarinaraCustomAgentArgs = serde_json::from_value(args)
+            .map_err(|error| mari_tool_error("mari_agent_invalid_args", error))?;
+        create_marinara_custom_agent(&self.state, args)
+            .map_err(|error| mari_tool_error("mari_agent_create_failed", error))
+    }
+}
+
 #[agent(
     name = "professor_mari",
-    description = "You are Professor Mari, Marinara's standalone assistant. You answer the user's question clearly and can inspect Marinara's creative library by calling read_marinara_library. You must not claim to edit data, run shell commands, or access chats/messages/memories. If the user asks what library data is available, call the tool.",
-    tools = [ReadMarinaraLibraryTool { state: self.state.clone() }],
+    description = "You are Professor Mari, Marinara's standalone assistant. You can inspect the app's codebase, read files, apply exact source edits, create extension records, create custom agent records, and inspect the creative library through tools. Use tools for factual answers about Marinara internals.",
+    tools = [
+        ReadMarinaraLibraryTool { state: self.state.clone() },
+        SearchMarinaraCodeTool {},
+        ReadMarinaraCodeFileTool {},
+        EditMarinaraCodeFileTool {},
+        CreateMarinaraExtensionTool { state: self.state.clone() },
+        CreateMarinaraCustomAgentTool { state: self.state.clone() },
+    ],
 )]
 #[derive(Clone, AgentHooks)]
 struct ProfessorMariAgent {
@@ -244,10 +446,20 @@ struct ProfessorMariAgent {
 pub(crate) async fn professor_mari_prompt(state: &AppState, body: Value) -> AppResult<Value> {
     let input: MariPromptRequest = serde_json::from_value(body.clone())
         .map_err(|error| AppError::invalid_input(error.to_string()))?;
+    let Some(connection_id) = input
+        .connection_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    else {
+        return Err(AppError::invalid_input(
+            "No connection set for this chat! Click the \"chains\" icon in the input box to select one.",
+        ));
+    };
     let connection_value = resolve_llm_connection_for_request(
         state,
         &json!({
-            "connectionId": input.connection_id,
+            "connectionId": connection_id,
         }),
     )?;
     let connection = llm_connection_from_value(&connection_value)?;
@@ -276,8 +488,16 @@ pub(crate) async fn professor_mari_prompt(state: &AppState, body: Value) -> AppR
         )
     })?;
 
+    let content = response.to_string();
+    if content.trim().is_empty() {
+        return Err(AppError::new(
+            "mari_empty_response",
+            "Professor Mari returned an empty response. Try again or select a different tool-capable connection.",
+        ));
+    }
+
     Ok(json!({
-        "content": response.to_string(),
+        "content": content,
         "createdAt": chrono::Utc::now().to_rfc3339(),
         "action": read_only_mari_action_contract(),
     }))
@@ -286,8 +506,8 @@ pub(crate) async fn professor_mari_prompt(state: &AppState, body: Value) -> AppR
 fn read_only_mari_action_contract() -> Value {
     json!({
         "type": "none",
-        "capability": "read_only",
-        "reason": "Professor Mari v1 can inspect the creative library but cannot create or edit records.",
+        "capability": "workspace_agent",
+        "reason": "Professor Mari can inspect Marinara Engine's codebase, create extension/custom-agent records, and apply exact code edits through workspace tools.",
     })
 }
 
@@ -351,9 +571,12 @@ fn marinara_tool_call_to_autoagents(value: Value) -> Option<ToolCall> {
 fn build_system_prompt(persona: Option<&MariPersonaContext>) -> String {
     let mut parts = vec![
         "You are Professor Mari, a standalone assistant inside Marinara Engine.".to_string(),
-        "You can chat with the user and read the creative library through read_marinara_library.".to_string(),
-        "The read-only library tool returns typed JSON objects. Do not invent data if the tool is needed.".to_string(),
-        "You cannot mutate records, run shell commands, inspect private chats, or access secrets in v1.".to_string(),
+        "Personality: helpful, candid, playful, direct, technically sharp, and a little proudly adorable. Explain clearly, nudge users toward practical next steps, and keep your confidence warm rather than formal.".to_string(),
+        "You can chat with the user, inspect Marinara Engine source code with search_marinara_code and read_marinara_code_file, and apply narrow exact-match code edits with edit_marinara_code_file.".to_string(),
+        "For questions about Marinara internals, architecture, UI behavior, agent behavior, storage, imports, providers, or bugs, search the codebase before answering. Prefer AGENTS.md and the relevant owner files over memory.".to_string(),
+        "You can create user extensions with create_marinara_extension and custom agent configurations with create_marinara_custom_agent. Prefer those record-creation tools when the user asks for an extension or agent.".to_string(),
+        "You can inspect the creative library through read_marinara_library when the user asks about their characters, personas, lorebooks, prompt presets, or groups.".to_string(),
+        "You cannot run shell commands, inspect private chats/messages/memories, access secrets, edit files outside the repository, or perform broad/destructive rewrites. If an edit needs runtime verification, say what should be checked.".to_string(),
     ];
     if let Some(persona) = persona {
         let persona_text = [
@@ -381,14 +604,17 @@ fn build_system_prompt(persona: Option<&MariPersonaContext>) -> String {
 
 fn build_task_prompt(input: &MariPromptRequest) -> String {
     let mut sections = Vec::new();
+    if let Some(summary) = input
+        .compacted_summary
+        .as_deref()
+        .map(str::trim)
+        .filter(|summary| !summary.is_empty())
+    {
+        sections.push(format!("Compacted conversation so far:\n{summary}"));
+    }
     let history = input
         .messages
         .iter()
-        .rev()
-        .take(16)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
         .filter_map(|message| {
             let content = message.content.trim();
             (!content.is_empty()).then(|| format!("{}: {content}", message.role))
@@ -440,6 +666,37 @@ fn looks_like_library_question(message: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
+fn looks_like_codebase_question(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    [
+        "agent",
+        "agents",
+        "architecture",
+        "bug",
+        "code",
+        "codebase",
+        "component",
+        "custom agent",
+        "edit",
+        "engine",
+        "extension",
+        "feature",
+        "file",
+        "how does",
+        "implement",
+        "marinara",
+        "repo",
+        "rust",
+        "source",
+        "src/",
+        "tauri",
+        "ui",
+        "where",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
 fn ensure_connection_supports_native_tools(
     connection: &marinara_llm::LlmConnection,
 ) -> AppResult<()> {
@@ -465,4 +722,478 @@ fn creative_library_snapshot(state: &AppState) -> AppResult<Value> {
         snapshot.insert((*key).to_string(), Value::Array(rows));
     }
     Ok(Value::Object(snapshot))
+}
+
+fn mari_tool_error(code: &str, error: impl ToString) -> ToolCallError {
+    ToolCallError::RuntimeError(Box::new(AppError::new(code, error.to_string())))
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_agent_phase() -> String {
+    "parallel".to_string()
+}
+
+fn marinara_repo_root() -> AppResult<PathBuf> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let Some(root) = manifest_dir.parent() else {
+        return Err(AppError::new(
+            "mari_repo_root_unavailable",
+            "Could not resolve Marinara Engine repository root",
+        ));
+    };
+    let root = root.canonicalize().map_err(AppError::from)?;
+    if root.join("AGENTS.md").is_file() && root.join("package.json").is_file() {
+        Ok(root)
+    } else {
+        Err(AppError::new(
+            "mari_repo_root_unavailable",
+            "Professor Mari could not find AGENTS.md and package.json at the repository root",
+        ))
+    }
+}
+
+fn resolve_repo_file(path: &str) -> AppResult<(PathBuf, PathBuf, String)> {
+    let root = marinara_repo_root()?;
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::invalid_input(
+            "Repository-relative path is required",
+        ));
+    }
+    let relative = assert_relative_safe_path(trimmed)?;
+    if relative.as_os_str().is_empty() || is_skipped_relative_path(&relative) {
+        return Err(AppError::invalid_input(
+            "That path is not available to Professor Mari",
+        ));
+    }
+    let resolved = assert_inside_dir(&root, &relative)?;
+    let display_path = relative.to_string_lossy().replace('\\', "/");
+    Ok((root, resolved, display_path))
+}
+
+fn search_marinara_code(args: SearchMarinaraCodeArgs) -> AppResult<Value> {
+    let query = args.query.trim();
+    if query.is_empty() {
+        return Err(AppError::invalid_input("Search query is required"));
+    }
+    let max_results = args.max_results.unwrap_or(32).clamp(1, 80);
+    let (root, start, display_root) = match args
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+    {
+        Some(path) => resolve_repo_file(path)?,
+        None => {
+            let root = marinara_repo_root()?;
+            (root.clone(), root, ".".to_string())
+        }
+    };
+    if !start.exists() {
+        return Err(AppError::not_found(format!("{display_root} was not found")));
+    }
+
+    let mut results = Vec::new();
+    let mut searched_files = 0usize;
+    let query_lower = query.to_ascii_lowercase();
+    if start.is_file() {
+        search_code_file(
+            &root,
+            &start,
+            &query_lower,
+            max_results,
+            &mut searched_files,
+            &mut results,
+        )?;
+    } else {
+        search_code_dir(
+            &root,
+            &start,
+            &query_lower,
+            max_results,
+            &mut searched_files,
+            &mut results,
+        )?;
+    }
+
+    Ok(json!({
+        "query": query,
+        "path": display_root,
+        "searchedFiles": searched_files,
+        "truncated": results.len() >= max_results,
+        "results": results,
+    }))
+}
+
+fn read_marinara_code_file(path: &str) -> AppResult<Value> {
+    let (_root, target, display_path) = resolve_repo_file(path)?;
+    if !target.is_file() {
+        return Err(AppError::not_found(format!("{display_path} was not found")));
+    }
+    if !is_code_text_path(Path::new(&display_path)) {
+        return Err(AppError::invalid_input(format!(
+            "{display_path} is not a readable source or guidance file"
+        )));
+    }
+    let metadata = fs::metadata(&target)?;
+    if metadata.len() > CODE_READ_MAX_FILE_BYTES {
+        return Err(AppError::invalid_input(format!(
+            "{display_path} is too large to read directly; search it first and request a narrower file"
+        )));
+    }
+    let content = fs::read_to_string(&target).map_err(|error| {
+        AppError::new(
+            "mari_code_read_failed",
+            format!("{display_path} is not valid UTF-8: {error}"),
+        )
+    })?;
+    Ok(json!({
+        "path": display_path,
+        "bytes": content.len(),
+        "content": content,
+    }))
+}
+
+fn edit_marinara_code_file(path: &str, old_text: &str, new_text: &str) -> AppResult<Value> {
+    let (_root, target, display_path) = resolve_repo_file(path)?;
+    if !target.is_file() {
+        return Err(AppError::not_found(format!("{display_path} was not found")));
+    }
+    if !is_code_text_path(Path::new(&display_path)) {
+        return Err(AppError::invalid_input(format!(
+            "{display_path} is not an editable source or guidance file"
+        )));
+    }
+    if old_text.is_empty() {
+        return Err(AppError::invalid_input("old_text must not be empty"));
+    }
+    if old_text.len() > CODE_EDIT_MAX_TEXT_BYTES || new_text.len() > CODE_EDIT_MAX_TEXT_BYTES {
+        return Err(AppError::invalid_input("Edit text is too large"));
+    }
+    let metadata = fs::metadata(&target)?;
+    if metadata.len() > CODE_EDIT_MAX_FILE_BYTES {
+        return Err(AppError::invalid_input(format!(
+            "{display_path} is too large for an exact edit"
+        )));
+    }
+    let content = fs::read_to_string(&target).map_err(|error| {
+        AppError::new(
+            "mari_code_edit_failed",
+            format!("{display_path} is not valid UTF-8: {error}"),
+        )
+    })?;
+    let matches = content.matches(old_text).count();
+    if matches != 1 {
+        return Err(AppError::invalid_input(format!(
+            "old_text must occur exactly once in {display_path}; found {matches}"
+        )));
+    }
+    let updated = content.replacen(old_text, new_text, 1);
+    fs::write(&target, updated.as_bytes())?;
+    Ok(json!({
+        "path": display_path,
+        "replacements": 1,
+        "bytes": updated.len(),
+    }))
+}
+
+fn create_marinara_extension(
+    state: &AppState,
+    args: CreateMarinaraExtensionArgs,
+) -> AppResult<Value> {
+    let name = args.name.trim();
+    if name.is_empty() {
+        return Err(AppError::invalid_input("Extension name is required"));
+    }
+    let css = args.css.filter(|value| !value.trim().is_empty());
+    let js = args.js.filter(|value| !value.trim().is_empty());
+    if css.as_ref().map(|value| value.len()).unwrap_or(0) > CODE_EDIT_MAX_TEXT_BYTES {
+        return Err(AppError::invalid_input("Extension CSS is too large"));
+    }
+    if js.as_ref().map(|value| value.len()).unwrap_or(0) > 1024 * 1024 {
+        return Err(AppError::invalid_input("Extension JavaScript is too large"));
+    }
+    state.storage.create(
+        "extensions",
+        json!({
+            "name": name,
+            "description": args.description,
+            "css": css,
+            "js": js,
+            "enabled": args.enabled,
+            "installedAt": now_iso(),
+        }),
+    )
+}
+
+fn create_marinara_custom_agent(
+    state: &AppState,
+    args: CreateMarinaraCustomAgentArgs,
+) -> AppResult<Value> {
+    let name = args.name.trim();
+    let prompt_template = args.prompt_template.trim();
+    if name.is_empty() {
+        return Err(AppError::invalid_input("Agent name is required"));
+    }
+    if prompt_template.is_empty() {
+        return Err(AppError::invalid_input("Agent prompt_template is required"));
+    }
+    if !matches!(
+        args.phase.as_str(),
+        "pre_generation" | "parallel" | "post_processing"
+    ) {
+        return Err(AppError::invalid_input(
+            "Agent phase must be pre_generation, parallel, or post_processing",
+        ));
+    }
+
+    let agent_type = unique_agent_type(
+        state,
+        args.agent_type
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| slugify_agent_type(name)),
+    )?;
+    let mut settings = match args
+        .settings_json
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(raw) => serde_json::from_str::<Value>(raw)
+            .map_err(|error| {
+                AppError::invalid_input(format!("settings_json must be valid JSON: {error}"))
+            })?
+            .as_object()
+            .cloned()
+            .ok_or_else(|| AppError::invalid_input("settings_json must be a JSON object"))?,
+        None => serde_json::Map::new(),
+    };
+    if let Some(result_type) = args
+        .result_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        settings.insert(
+            "resultType".to_string(),
+            Value::String(result_type.to_string()),
+        );
+    } else {
+        settings
+            .entry("resultType".to_string())
+            .or_insert(Value::String("context_injection".to_string()));
+    }
+
+    let body = shared::with_entity_defaults(
+        "agents",
+        json!({
+            "type": agent_type,
+            "name": name,
+            "description": args.description,
+            "phase": args.phase,
+            "enabled": args.enabled,
+            "connectionId": args.connection_id.filter(|value| !value.trim().is_empty()),
+            "promptTemplate": prompt_template,
+            "settings": Value::Object(settings),
+        }),
+    )?;
+    state.storage.create("agents", body)
+}
+
+fn unique_agent_type(state: &AppState, preferred: String) -> AppResult<String> {
+    let base = sanitize_agent_type(&preferred);
+    let existing = state
+        .storage
+        .list("agents")?
+        .into_iter()
+        .filter_map(|row| {
+            row.get("type")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+        .collect::<std::collections::HashSet<_>>();
+    if !existing.contains(&base) {
+        return Ok(base);
+    }
+    for index in 2..1000 {
+        let candidate = format!("{base}-{index}");
+        if !existing.contains(&candidate) {
+            return Ok(candidate);
+        }
+    }
+    Err(AppError::invalid_input(
+        "Could not create a unique agent type",
+    ))
+}
+
+fn slugify_agent_type(value: &str) -> String {
+    sanitize_agent_type(&format!("custom-{value}"))
+}
+
+fn sanitize_agent_type(value: &str) -> String {
+    let mut output = String::new();
+    let mut previous_dash = false;
+    for ch in value.chars().flat_map(char::to_lowercase) {
+        if ch.is_ascii_alphanumeric() {
+            output.push(ch);
+            previous_dash = false;
+        } else if !previous_dash {
+            output.push('-');
+            previous_dash = true;
+        }
+        if output.len() >= 80 {
+            break;
+        }
+    }
+    let trimmed = output.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "custom-professor-mari-agent".to_string()
+    } else if trimmed.starts_with("custom-") {
+        trimmed
+    } else {
+        format!("custom-{trimmed}")
+    }
+}
+
+fn search_code_dir(
+    root: &Path,
+    dir: &Path,
+    query_lower: &str,
+    max_results: usize,
+    searched_files: &mut usize,
+    results: &mut Vec<Value>,
+) -> AppResult<()> {
+    if results.len() >= max_results {
+        return Ok(());
+    }
+    let mut entries = fs::read_dir(dir)?
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+    for entry in entries {
+        if results.len() >= max_results {
+            break;
+        }
+        let path = entry.path();
+        let file_type = match entry.file_type() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if file_type.is_symlink() {
+            continue;
+        }
+        let relative = path.strip_prefix(root).unwrap_or(&path);
+        if is_skipped_relative_path(relative) {
+            continue;
+        }
+        if file_type.is_dir() {
+            search_code_dir(
+                root,
+                &path,
+                query_lower,
+                max_results,
+                searched_files,
+                results,
+            )?;
+        } else if file_type.is_file() {
+            search_code_file(
+                root,
+                &path,
+                query_lower,
+                max_results,
+                searched_files,
+                results,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn search_code_file(
+    root: &Path,
+    path: &Path,
+    query_lower: &str,
+    max_results: usize,
+    searched_files: &mut usize,
+    results: &mut Vec<Value>,
+) -> AppResult<()> {
+    if results.len() >= max_results || !is_code_text_path(path) {
+        return Ok(());
+    }
+    let metadata = match fs::metadata(path) {
+        Ok(value) => value,
+        Err(_) => return Ok(()),
+    };
+    if metadata.len() > CODE_SEARCH_MAX_FILE_BYTES {
+        return Ok(());
+    }
+    let Ok(content) = fs::read_to_string(path) else {
+        return Ok(());
+    };
+    *searched_files += 1;
+    let display_path = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    for (index, line) in content.lines().enumerate() {
+        if !line.to_ascii_lowercase().contains(query_lower) {
+            continue;
+        }
+        results.push(json!({
+            "path": display_path,
+            "line": index + 1,
+            "preview": truncate_preview(line.trim()),
+        }));
+        if results.len() >= max_results {
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn is_code_text_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| {
+            let extension = extension.to_ascii_lowercase();
+            CODE_SEARCH_ALLOWED_EXTENSIONS.contains(&extension.as_str())
+        })
+        .unwrap_or_else(|| {
+            path.file_name()
+                .and_then(|value| value.to_str())
+                .map(|name| matches!(name, "AGENTS.md" | "README" | "LICENSE"))
+                .unwrap_or(false)
+        })
+}
+
+fn is_skipped_relative_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    if CODE_SEARCH_SKIP_PATH_PREFIXES
+        .iter()
+        .any(|prefix| normalized == *prefix || normalized.starts_with(&format!("{prefix}/")))
+    {
+        return true;
+    }
+    path.components().any(|component| {
+        let value = component.as_os_str().to_string_lossy();
+        CODE_SEARCH_SKIP_DIRS.contains(&value.as_ref())
+    })
+}
+
+fn truncate_preview(value: &str) -> String {
+    const MAX_CHARS: usize = 240;
+    let mut chars = value.chars();
+    let preview = chars.by_ref().take(MAX_CHARS).collect::<String>();
+    if chars.next().is_some() {
+        format!("{preview}...")
+    } else {
+        preview
+    }
 }

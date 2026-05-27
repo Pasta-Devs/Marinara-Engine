@@ -1,4 +1,4 @@
-import type { AvatarCrop } from "../../../shared/lib/utils";
+import type { AvatarCropValue } from "../../../shared/lib/utils";
 
 export type CharacterMap = Map<
   string,
@@ -10,11 +10,13 @@ export type CharacterMap = Map<
     appearance?: string;
     scenario?: string;
     example?: string;
+    systemPrompt?: string;
+    postHistoryInstructions?: string;
     avatarUrl: string | null;
     nameColor?: string;
     dialogueColor?: string;
     boxColor?: string;
-    avatarCrop?: AvatarCrop | null;
+    avatarCrop?: AvatarCropValue | null;
     conversationStatus?: "online" | "idle" | "dnd" | "offline";
     conversationActivity?: string;
   }
@@ -28,7 +30,7 @@ export type PersonaInfo = {
   appearance?: string;
   scenario?: string;
   avatarUrl?: string;
-  avatarCrop?: AvatarCrop | null;
+  avatarCrop?: AvatarCropValue | null;
   nameColor?: string;
   dialogueColor?: string;
   boxColor?: string;

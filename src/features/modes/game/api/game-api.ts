@@ -5,6 +5,7 @@ import type { RPGAttributes } from "../../../../engine/contracts/types/game-stat
 import { ApiError, type JsonRepairRequest } from "../../../../shared/api/api-errors";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { imageGenerationApi } from "../../../../shared/api/image-generation-api";
+import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -163,6 +164,23 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function chatMeta(chat: Chat | null | undefined): Record<string, unknown> {
   return asRecord(chat?.metadata);
+}
+
+function discordWebhookUrl(meta: Record<string, unknown>): string {
+  return typeof meta.discordWebhookUrl === "string" ? meta.discordWebhookUrl.trim() : "";
+}
+
+function mirrorGameMessageToDiscord(meta: Record<string, unknown>, content: string, username: string): void {
+  const webhookUrl = discordWebhookUrl(meta);
+  const trimmed = content.trim();
+  if (!webhookUrl || !trimmed) return;
+  if (!integrationGateway.discord) {
+    console.warn("[game] Discord mirror skipped: integration gateway unavailable");
+    return;
+  }
+  void integrationGateway.discord.mirrorMessage({ webhookUrl, content: trimmed, username }).catch((error) => {
+    console.warn("[game] Discord mirror failed", error);
+  });
 }
 
 async function getChat(chatId: string): Promise<Chat> {
@@ -518,6 +536,7 @@ function gameCarryoverPatch(meta: Record<string, unknown>) {
     "gameSessionLorebookId",
     "gameSessionLorebookEntryCount",
     "gameJournal",
+    "discordWebhookUrl",
   ];
   return Object.fromEntries(keys.filter((key) => key in meta).map((key) => [key, meta[key]]));
 }
@@ -954,6 +973,7 @@ export const gameApi = {
         content: `[session-recap]\n${recap.trim()}`,
         extra: { hiddenFromAi: false, isSessionRecap: true },
       });
+      mirrorGameMessageToDiscord(chatMeta(sessionChat), recap.trim(), "Narrator");
     }
     return { sessionChat, sessionNumber, recap };
   },
@@ -1425,6 +1445,7 @@ export const gameApi = {
       swipes: [{ content: `[party-turn]\n${clean}` }],
       activeSwipeIndex: 0,
     });
+    mirrorGameMessageToDiscord(meta, clean, "Party");
     return { raw: clean };
   },
 

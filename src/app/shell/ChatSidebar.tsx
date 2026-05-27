@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import {
   useBulkExportChats,
-  useChats,
+  useChatSummaries,
   useDeleteChat,
   useDeleteChatGroup,
 } from "../../features/catalog/chats/index";
@@ -47,7 +47,7 @@ import { showConfirmDialog } from "../../shared/lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../shared/stores/ui.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../shared/lib/utils";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import type { Chat, ChatFolder } from "../../engine/contracts/types/chat";
+import type { ChatFolder } from "../../engine/contracts/types/chat";
 import { Modal } from "../../shared/components/ui/Modal";
 import { Reorder, useDragControls } from "framer-motion";
 import { parseChatMetadata } from "../../shared/lib/chat-display";
@@ -56,7 +56,7 @@ import { useStartNewChat } from "./useStartNewChat";
 type ChatSortOption = "newest" | "oldest" | "name-asc" | "name-desc";
 export type ChatSidebarTab = "conversation" | "roleplay" | "game";
 
-function getChatTags(chat: Pick<Chat, "metadata">): string[] {
+function getChatTags(chat: { metadata?: { tags?: unknown } | null }): string[] {
   return Array.isArray(chat.metadata?.tags)
     ? chat.metadata.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
     : [];
@@ -123,7 +123,7 @@ export function ChatSidebar({
   activeTab: ChatSidebarTab;
   onActiveTabChange: (tab: ChatSidebarTab) => void;
 }) {
-  const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChats();
+  const { data: chats, isError: chatsError, isLoading, isFetching, refetch: refetchChats } = useChatSummaries();
   const deleteChat = useDeleteChat();
   const deleteChatGroup = useDeleteChatGroup();
   const bulkExportChats = useBulkExportChats();

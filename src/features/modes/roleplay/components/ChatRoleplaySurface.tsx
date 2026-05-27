@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useMemo,
   type ComponentProps,
   type ReactNode,
   type RefObject,
@@ -327,11 +328,13 @@ function SummaryButton({
   chatId,
   summary,
   summaryContextSize,
+  totalMessageCount,
   onContextSizeChange,
 }: {
   chatId: string | null;
   summary: string | null;
   summaryContextSize: number;
+  totalMessageCount: number;
   onContextSizeChange: (size: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -362,6 +365,7 @@ function SummaryButton({
             chatId={chatId}
             summary={summary}
             contextSize={summaryContextSize}
+            totalMessageCount={totalMessageCount}
             onContextSizeChange={onContextSizeChange}
             onClose={() => setOpen(false)}
           />
@@ -479,6 +483,7 @@ type RoleplaySurfaceProps = {
   centerCompact: boolean;
   chatBackground: string | null;
   weatherEffects: boolean;
+  agentsUiEnabled: boolean;
   expressionAgentEnabled: boolean;
   combatAgentEnabled: boolean;
   encounterActive: boolean;
@@ -548,7 +553,7 @@ type RoleplaySurfaceProps = {
   onCloseSettings: () => void;
   onCloseFiles: () => void;
   onCloseGallery: () => void;
-  onIllustrate?: () => void;
+  onIllustrate?: () => void | Promise<void>;
   onWizardFinish: () => void;
   onClosePeekPrompt: () => void;
   onResetSpritePlacements: () => void;
@@ -579,6 +584,7 @@ export function ChatRoleplaySurface({
   centerCompact,
   chatBackground,
   weatherEffects,
+  agentsUiEnabled,
   expressionAgentEnabled,
   combatAgentEnabled,
   encounterActive,
@@ -594,7 +600,6 @@ export function ChatRoleplaySurface({
   enabledAgentTypes,
   chatCharIds,
   characterMap,
-  characterNames,
   personaInfo,
   messages,
   msgPayload,
@@ -703,6 +708,18 @@ export function ChatRoleplaySurface({
       };
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
+  const inactiveCharacterIdSet = useMemo(
+    () => new Set(Array.isArray(chatMeta.inactiveCharacterIds) ? chatMeta.inactiveCharacterIds : []),
+    [chatMeta.inactiveCharacterIds],
+  );
+  const activeChatCharIds = useMemo(
+    () => chatCharIds.filter((id) => !inactiveCharacterIdSet.has(id)),
+    [chatCharIds, inactiveCharacterIdSet],
+  );
+  const activeCharacterNames = useMemo(
+    () => activeChatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [activeChatCharIds, characterMap],
+  );
 
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
@@ -743,7 +760,7 @@ export function ChatRoleplaySurface({
                   paddingRight: "calc(1rem + var(--tracker-panel-hud-clear-right, 0px))",
                 }}
               >
-                {chat && chatMeta.enableAgents && (
+                {chat && agentsUiEnabled && (
                   <div className="pointer-events-auto flex-1 overflow-x-auto">
                     <Suspense fallback={null}>
                       <RoleplayHUD
@@ -773,6 +790,7 @@ export function ChatRoleplaySurface({
                       chatId={chat?.id ?? null}
                       summary={chatMeta.summary ?? null}
                       summaryContextSize={summaryContextSize}
+                      totalMessageCount={totalMessageCount}
                       onContextSizeChange={onSummaryContextSizeChange}
                     />
                     <ActiveWorldInfoButton chatId={chat?.id ?? null} />
@@ -823,7 +841,7 @@ export function ChatRoleplaySurface({
                   centerCompact ? "flex" : "flex md:hidden",
                 )}
               >
-                {chat && chatMeta.enableAgents && (
+                {chat && agentsUiEnabled && (
                   <div
                     className="flex w-full items-center justify-between pb-1 pt-2"
                     style={{
@@ -859,6 +877,7 @@ export function ChatRoleplaySurface({
                           chatId={chat?.id ?? null}
                           summary={chatMeta.summary ?? null}
                           summaryContextSize={summaryContextSize}
+                          totalMessageCount={totalMessageCount}
                           onContextSizeChange={onSummaryContextSizeChange}
                         />
                         <ActiveWorldInfoButton chatId={chat?.id ?? null} />
@@ -903,7 +922,7 @@ export function ChatRoleplaySurface({
                     </div>
                   </div>
                 )}
-                {chat && !chatMeta.enableAgents && (
+                {chat && !agentsUiEnabled && (
                   <div className="flex w-full items-center justify-end gap-1.5 px-2 pb-1 pt-2">
                     <ToolbarMenu>
                       <ChatBranchSelector
@@ -917,6 +936,7 @@ export function ChatRoleplaySurface({
                         chatId={chat?.id ?? null}
                         summary={chatMeta.summary ?? null}
                         summaryContextSize={summaryContextSize}
+                        totalMessageCount={totalMessageCount}
                         onContextSizeChange={onSummaryContextSizeChange}
                       />
                       <ActiveWorldInfoButton chatId={chat?.id ?? null} />
@@ -1108,13 +1128,13 @@ export function ChatRoleplaySurface({
                   <ChatInput
                     key={activeChatId}
                     mode={isRoleplay ? "roleplay" : "conversation"}
-                    characterNames={characterNames}
+                    characterNames={activeCharacterNames}
                     groupResponseOrder={
-                      chatCharIds.length > 1 && groupChatMode === "individual"
+                      activeChatCharIds.length > 1 && groupChatMode === "individual"
                         ? (chatMeta.groupResponseOrder ?? "sequential")
                         : undefined
                     }
-                    chatCharacters={chatCharIds
+                    chatCharacters={activeChatCharIds
                       .filter((id) => characterMap.has(id))
                       .map((id) => {
                         const info = characterMap.get(id)!;

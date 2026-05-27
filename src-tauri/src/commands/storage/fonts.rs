@@ -69,7 +69,7 @@ fn list_fonts(state: &AppState) -> AppResult<Value> {
     Ok(Value::Array(fonts))
 }
 
-fn font_file(state: &AppState, filename: &str) -> AppResult<Value> {
+pub(crate) fn font_file_path(state: &AppState, filename: &str) -> AppResult<std::path::PathBuf> {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return Err(AppError::invalid_input("Invalid font filename"));
     }
@@ -86,6 +86,16 @@ fn font_file(state: &AppState, filename: &str) -> AppResult<Value> {
     if !path.exists() {
         return Err(AppError::not_found("Font file not found"));
     }
+    Ok(path)
+}
+
+fn font_file(state: &AppState, filename: &str) -> AppResult<Value> {
+    let path = font_file_path(state, filename)?;
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
     let content_type = match ext.as_str() {
         "ttf" => "font/ttf",
         "otf" => "font/otf",

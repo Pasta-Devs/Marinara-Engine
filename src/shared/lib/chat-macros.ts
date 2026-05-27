@@ -9,6 +9,8 @@ export interface MacroCharacterData {
   appearance?: string;
   scenario?: string;
   example?: string;
+  systemPrompt?: string;
+  postHistoryInstructions?: string;
 }
 
 export interface MacroPersonaData {
@@ -83,6 +85,8 @@ export function parseCharacterMacroData(
       appearance: getString(extensions?.appearance),
       scenario: getString(data.scenario),
       example: getString(data.mes_example),
+      systemPrompt: getString(data.system_prompt) || getString(data.systemPrompt),
+      postHistoryInstructions: getString(data.post_history_instructions) || getString(data.postHistoryInstructions),
     };
   } catch {
     return { id: raw.id, name: "Unknown" };
@@ -172,6 +176,17 @@ export function buildMessageMacroContext({
     user: userName ?? persona?.name ?? "User",
     char: fallbackCharacter?.name ?? "Character",
     characters: characters.map((character) => character.name).filter((name) => name.trim().length > 0),
+    characterProfiles: characters.map((character) => ({
+      name: character.name,
+      description: character.description ?? "",
+      personality: character.personality ?? "",
+      backstory: character.backstory ?? "",
+      appearance: character.appearance ?? "",
+      scenario: character.scenario ?? "",
+      example: character.example ?? "",
+      systemPrompt: character.systemPrompt ?? "",
+      postHistoryInstructions: character.postHistoryInstructions ?? "",
+    })),
     variables,
     lastInput,
     characterFields: fallbackCharacter
@@ -182,6 +197,8 @@ export function buildMessageMacroContext({
           appearance: fallbackCharacter.appearance ?? "",
           scenario: fallbackCharacter.scenario ?? "",
           example: fallbackCharacter.example ?? "",
+          systemPrompt: fallbackCharacter.systemPrompt ?? "",
+          postHistoryInstructions: fallbackCharacter.postHistoryInstructions ?? "",
         }
       : undefined,
     personaFields: persona

@@ -46,6 +46,7 @@ import {
   useUpdateChatMetadata,
   useUpdateMessage,
 } from "../../../catalog/chats/index";
+import { galleryKeys } from "../../../catalog/gallery/query-keys";
 import { useConnections } from "../../../catalog/connections/index";
 import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,7 +58,7 @@ import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { gameAssetFileUrlFromPath, userBackgroundUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { cn, type AvatarCrop, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { audioManager } from "../lib/game-audio";
 import {
@@ -2554,7 +2555,7 @@ export function GameSurface({
       string,
       {
         url: string;
-        crop?: AvatarCrop | null;
+        crop?: AvatarCropValue | null;
         nameColor?: string;
         dialogueColor?: string;
       }
@@ -3793,7 +3794,7 @@ export function GameSurface({
 
   const installGeneratedIllustration = useCallback(
     async (illustration: { tag: string; segment?: number }) => {
-      void queryClient.invalidateQueries({ queryKey: ["gallery", activeChatId] });
+      void queryClient.invalidateQueries({ queryKey: galleryKeys.images(activeChatId) });
       await fetchManifest();
       if (illustration.segment !== undefined && illustration.segment > 0) {
         setPendingSegmentEffects((previous) => {

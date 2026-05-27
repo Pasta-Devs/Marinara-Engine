@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Marinara Engine Pre-Alpha",
+  "identifier": "com.marinara-engine.prealpha",
+  "app": {
+    "windows": [
+      {
+        "title": "Marinara Engine Pre-Alpha",
+        "width": 800,
+        "height": 600,
+        "dragDropEnabled": false,
+        "decorations": false,
+        "resizable": true,
+        "minWidth": 720,
+        "minHeight": 520
+      }
+    ]
+  }
+}

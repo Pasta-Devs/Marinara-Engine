@@ -16,6 +16,13 @@ export interface TTSSpeakOptions {
   playbackRate?: number;
 }
 
+export interface TTSSpeakRequest {
+  text: string;
+  speaker?: string;
+  tone?: string;
+  voice?: string;
+}
+
 class TTSService {
   private audio: HTMLAudioElement | null = null;
   private currentObjectUrl: string | null = null;
@@ -135,6 +142,134 @@ class TTSService {
       this.lastError = error.message;
       this.setState("error");
       if (options.throwOnError) throw error;
+    }
+  }
+
+  async speakSequence(
+    requests: TTSSpeakRequest[],
+    id?: string,
+    options: Pick<TTSSpeakOptions, "signal" | "throwOnError" | "playbackRate"> = {},
+  ): Promise<void> {
+    const playableRequests = requests.filter((request) => request.text.trim().length > 0);
+    if (playableRequests.length === 0) return;
+
+    this.stop();
+    const sequence = ++this.sequence;
+    this.lastError = null;
+    this.setState("loading", id ?? null);
+
+    const abortController = new AbortController();
+    this.abortController = abortController;
+    const externalAbort = () => abortController.abort();
+    if (options.signal) {
+      if (options.signal.aborted) {
+        abortController.abort();
+      } else {
+        options.signal.addEventListener("abort", externalAbort, { once: true });
+      }
+    }
+
+    try {
+      for (const request of playableRequests) {
+        if (!this.isCurrentSequence(sequence)) return;
+        if (abortController.signal.aborted) {
+          this.setState("idle");
+          return;
+        }
+        this.setState("loading", id ?? null);
+
+        const blob = await this.generateAudio(request.text, {
+          speaker: request.speaker,
+          tone: request.tone,
+          voice: request.voice,
+          signal: abortController.signal,
+        });
+        if (!this.isCurrentSequence(sequence)) return;
+        if (abortController.signal.aborted) {
+          this.setState("idle");
+          return;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        if (!this.isCurrentSequence(sequence) || abortController.signal.aborted) {
+          URL.revokeObjectURL(objectUrl);
+          if (this.isCurrentSequence(sequence)) this.setState("idle");
+          return;
+        }
+
+        this.cleanup();
+        this.currentObjectUrl = objectUrl;
+        const audio = new Audio(objectUrl);
+        if (options.playbackRate && options.playbackRate > 0 && options.playbackRate !== 1) {
+          audio.playbackRate = options.playbackRate;
+        }
+        this.audio = audio;
+        this.setState("playing", id ?? null);
+
+        const playbackResult = await new Promise<"ended" | "aborted">((resolve, reject) => {
+          let onAbort: (() => void) | null = null;
+          const cleanupListeners = () => {
+            audio.onended = null;
+            audio.onerror = null;
+            if (onAbort) abortController.signal.removeEventListener("abort", onAbort);
+          };
+          audio.onended = () => {
+            cleanupListeners();
+            resolve("ended");
+          };
+          audio.onerror = () => {
+            cleanupListeners();
+            reject(new Error("TTS audio playback failed"));
+          };
+          onAbort = () => {
+            audio.pause();
+            cleanupListeners();
+            resolve("aborted");
+          };
+          if (abortController.signal.aborted) {
+            onAbort();
+            return;
+          }
+          abortController.signal.addEventListener("abort", onAbort, { once: true });
+          audio.play().catch((err: unknown) => {
+            cleanupListeners();
+            reject(err instanceof Error ? err : new Error("Browser blocked audio playback"));
+          });
+        });
+
+        if (!this.isCurrentSequence(sequence)) return;
+        if (playbackResult === "aborted") {
+          this.cleanup();
+          this.audio = null;
+          this.setState("idle");
+          return;
+        }
+        this.cleanup();
+        this.audio = null;
+      }
+
+      if (this.isCurrentSequence(sequence)) {
+        this.setState("idle");
+      }
+    } catch (err) {
+      if (!this.isCurrentSequence(sequence)) return;
+      if (err instanceof Error && err.name === "AbortError") {
+        this.setState("idle");
+        return;
+      }
+      const error = err instanceof Error ? err : new Error("TTS request failed");
+      this.lastError = error.message;
+      this.cleanup();
+      this.audio = null;
+      this.setState("error");
+      if (options.throwOnError) throw error;
+    } finally {
+      if (options.signal) {
+        options.signal.removeEventListener("abort", externalAbort);
+      }
+      if (this.abortController === abortController) {
+        this.abortController = null;
+      }
     }
   }
 

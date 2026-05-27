@@ -4,6 +4,7 @@ import { AlertTriangle, Check, Download, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { profileApi } from "../../../../shared/api/profile-api";
+import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { cn } from "../../../../shared/lib/utils";
 
 type ProfileImportStats = {
@@ -112,6 +113,9 @@ export function ProfileImportSection() {
       elapsedSeconds: 0,
     });
     try {
+      if (remoteRuntimeTarget()) {
+        throw new Error("Profile import from a local file path is not available while Remote Runtime is configured.");
+      }
       const selected = await openDialog({
         multiple: false,
         filters: [{ name: "Marinara Profile", extensions: ["json", "zip"] }],

@@ -14,6 +14,8 @@ const baseConfig: TTSConfig = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "",
   voice: "alloy",
+  narratorVoiceEnabled: false,
+  narratorVoice: "",
   model: "tts-1",
   speed: 1,
   elevenLabsStability: 0.5,
@@ -51,12 +53,20 @@ class MockAudio {
   }
 }
 
-function Harness({ enabled = true }: { enabled?: boolean }) {
+function Harness({
+  enabled = true,
+  config = baseConfig,
+  fallbackSpeaker = "Narrator",
+}: {
+  enabled?: boolean;
+  config?: TTSConfig;
+  fallbackSpeaker?: string;
+}) {
   useStreamingTTS({
     enabled,
     chatId: "chat-1",
-    ttsConfig: baseConfig,
-    fallbackSpeaker: "Narrator",
+    ttsConfig: config,
+    fallbackSpeaker,
   });
   return null;
 }
@@ -141,5 +151,44 @@ describe("useStreamingTTS", () => {
 
     await waitFor(() => expect(MockAudio.instances).toHaveLength(2));
     expect(MockAudio.instances[1]?.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes streaming prose to narrator voice without emitting partial quoted dialogue", async () => {
+    const config: TTSConfig = {
+      ...baseConfig,
+      narratorVoiceEnabled: true,
+      narratorVoice: "nova",
+    };
+    act(() => {
+      root.render(<Harness config={config} fallbackSpeaker="Ada" />);
+    });
+
+    act(() => {
+      useChatStore.getState().setStreaming(true, "chat-1");
+      useChatStore.getState().appendStreamBuffer('She smiles. "Hello. How', "chat-1");
+    });
+
+    await waitFor(() => expect(ttsService.generateAudio).toHaveBeenCalledTimes(1));
+    expect(ttsService.generateAudio).toHaveBeenNthCalledWith(
+      1,
+      "She smiles.",
+      expect.objectContaining({ speaker: "Narrator", voice: "nova" }),
+    );
+
+    act(() => {
+      useChatStore.getState().appendStreamBuffer(' are you?" She nods.', "chat-1");
+    });
+
+    await waitFor(() => expect(ttsService.generateAudio).toHaveBeenCalledTimes(3));
+    expect(ttsService.generateAudio).toHaveBeenNthCalledWith(
+      2,
+      "Hello. How are you?",
+      expect.objectContaining({ speaker: "Ada", voice: "alloy" }),
+    );
+    expect(ttsService.generateAudio).toHaveBeenNthCalledWith(
+      3,
+      "She nods.",
+      expect.objectContaining({ speaker: "Narrator", voice: "nova" }),
+    );
   });
 });

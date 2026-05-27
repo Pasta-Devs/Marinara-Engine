@@ -7,14 +7,14 @@
 
     <application
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appName}"
         android:theme="@style/Theme.marinara_engine"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"
-            android:label="@string/main_activity_title"
-            android:name=".MainActivity"
+            android:label="${mainActivityTitle}"
+            android:name="com.marinara_engine.app.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

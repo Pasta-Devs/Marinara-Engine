@@ -28,7 +28,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGenerate } from "../../../runtime/generation/index";
 import { useApplyRegex } from "../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, useChat, chatKeys } from "../../../catalog/chats/index";
-import { characterKeys, usePersonas, useUpdatePersona } from "../../../catalog/characters/index";
+import { characterKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/characters/index";
 import {
   matchSlashCommand,
   getSlashCompletions,
@@ -133,17 +133,6 @@ function parseSavedStatusOptions(value: PersonaStatusRow["savedStatusOptions"]):
     byKey.set(normalized.toLowerCase(), normalized);
   }
   return [...byKey.values()].slice(0, SAVED_STATUS_LIMIT);
-}
-
-function resolveActivePersona(
-  personas: PersonaStatusRow[] | undefined,
-  chat: { personaId?: string | null; mode?: string } | undefined | null,
-) {
-  if (!personas) return undefined;
-  const chatPersonaId = chat?.personaId ?? null;
-  if (chatPersonaId) return personas.find((p) => p.id === chatPersonaId);
-  if (chat?.mode === "game") return undefined;
-  return personas.find((p) => p.isActive === "true" || p.isActive === true);
 }
 
 function readFileAsDataUrl(file: Blob): Promise<string> {
@@ -276,7 +265,10 @@ export function ConversationInput({
   const createMessage = useCreateMessage(activeChatId);
   const deleteMessage = useDeleteMessage(activeChatId);
   const updateMessageExtra = useUpdateMessageExtra(activeChatId);
-  const { data: allPersonas } = usePersonas();
+  const activeChatPersonaId =
+    typeof activeChat?.personaId === "string" && activeChat.personaId.trim() ? activeChat.personaId.trim() : null;
+  const { data: chatPersona } = usePersona(activeChatPersonaId, !!activeChatPersonaId);
+  const { data: fallbackPersona } = useActivePersona(!activeChatPersonaId && activeChat?.mode !== "game");
   const updatePersona = useUpdatePersona();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1360,10 +1352,7 @@ export function ConversationInput({
   }, [charPickerOpen]);
 
   const showCharPicker = groupResponseOrder === "manual" && !!chatCharacters && chatCharacters.length > 1;
-  const activePersona = resolveActivePersona(
-    allPersonas as PersonaStatusRow[] | undefined,
-    activeChat as { personaId?: string | null; mode?: string } | undefined,
-  );
+  const activePersona = (chatPersona ?? fallbackPersona) as PersonaStatusRow | undefined;
   const savedStatusOptions = parseSavedStatusOptions(activePersona?.savedStatusOptions);
   const normalizedUserActivity = normalizeSavedStatus(userActivity);
   const canSaveCurrentStatus =

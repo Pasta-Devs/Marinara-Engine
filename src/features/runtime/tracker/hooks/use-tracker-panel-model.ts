@@ -96,7 +96,6 @@ export function useTrackerPanelModel(): TrackerPanelModel {
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
-  const trackerState = useTrackerStateController(activeChatId, "tracker-data-sidebar");
   const { data: chat } = useChat(activeChatId);
 
   const chatMeta = useMemo(() => {
@@ -210,6 +209,7 @@ export function useTrackerPanelModel(): TrackerPanelModel {
       chatMeta,
     });
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
+  const trackerState = useTrackerStateController(activeChatId, "tracker-data-sidebar", hasFixedTrackerPanel);
   const showTrackerSections =
     !!activeChatId && !trackerState.isLoadingGameState && !!trackerState.gameState && hasFixedTrackerPanel;
 

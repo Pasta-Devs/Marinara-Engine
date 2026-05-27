@@ -28,4 +28,12 @@ export const integrationGateway: IntegrationGateway = {
   image: {
     generate: <T = unknown>(input: Record<string, unknown>) => imageGenerationApi.generate<T>(input),
   },
+  discord: {
+    mirrorMessage: <T = unknown>(input: {
+      webhookUrl: string;
+      content: string;
+      username?: string | null;
+      avatarUrl?: string | null;
+    }) => invokeTauri<T>("discord_webhook_send", { body: input }),
+  },
 };

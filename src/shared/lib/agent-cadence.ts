@@ -18,6 +18,14 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
         defaultValue: 5,
         max: 100,
       };
+    case "illustrator":
+      return {
+        label: "Run Interval",
+        unit: "assistant messages",
+        help: "How many assistant messages should pass before the Illustrator is allowed to create another image.",
+        defaultValue: 5,
+        max: 100,
+      };
     case "lorebook-keeper":
       return {
         label: "Run Interval",

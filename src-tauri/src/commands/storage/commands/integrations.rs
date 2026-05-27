@@ -36,6 +36,11 @@ pub async fn translate_text_command(
 }
 
 #[tauri::command]
+pub async fn discord_webhook_send(body: Value) -> Result<Value, AppError> {
+    integrations::discord_webhook_send(body).await
+}
+
+#[tauri::command]
 pub async fn haptic_status() -> Result<Value, AppError> {
     integrations::haptic_call(&["status"], Value::Null).await
 }

@@ -16,7 +16,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { data: connections } = useConnections();
+  const { data: connections } = useConnections(open);
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const updateConnection = useUpdateConnection();

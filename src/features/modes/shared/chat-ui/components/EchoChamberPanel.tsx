@@ -43,6 +43,59 @@ interface EchoChamberPanelProps {
   hiddenOnMobile?: boolean;
 }
 
+type EchoMessage = { characterName: string; reaction: string; timestamp: number };
+
+function readRecord(value: unknown): Record<string, unknown> {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readTimestamp(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return Date.now();
+}
+
+function normalizeEchoMessages(rows: unknown[]): EchoMessage[] {
+  const messages: EchoMessage[] = [];
+  for (const row of rows) {
+    const record = readRecord(row);
+    const timestamp = readTimestamp(record.timestamp ?? record.createdAt);
+    const directName = readText(record.characterName);
+    const directReaction = readText(record.reaction);
+    if (directName && directReaction) {
+      messages.push({ characterName: directName, reaction: directReaction, timestamp });
+      continue;
+    }
+
+    const resultData = readRecord(record.resultData);
+    const reactions = Array.isArray(resultData.reactions) ? resultData.reactions : [];
+    for (const item of reactions) {
+      const reactionRecord = readRecord(item);
+      const characterName = readText(reactionRecord.characterName);
+      const reaction = readText(reactionRecord.reaction);
+      if (characterName && reaction) {
+        messages.push({ characterName, reaction, timestamp });
+      }
+    }
+  }
+  return messages;
+}
+
 /** Tiny 4-square grid icon; the active corner is highlighted. */
 function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChange: (c: EchoChamberSide) => void }) {
   if (typeof window !== "undefined" && window.innerWidth < 768) return null;
@@ -79,7 +132,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const echoEnabled = useMemo(() => {
     if (!chat) return false;
     const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
-    const meta = typeof raw === "string" ? JSON.parse(raw) : ((raw ?? {}) as Record<string, unknown>);
+    const meta = readRecord(raw);
     if (!meta.enableAgents) return false;
     const activeAgentIds: string[] = Array.isArray(meta.activeAgentIds) ? meta.activeAgentIds : [];
     if (activeAgentIds.length > 0) {
@@ -119,11 +172,12 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     }
 
     storageApi
-      .list<{ characterName: string; reaction: string; timestamp: number }>("agent-runs", {
+      .list<unknown>("agent-runs", {
         filters: { chatId: activeChatId, resultType: "echo_message" },
       })
-      .then((msgs) => {
+      .then((rows) => {
         if (useAgentStore.getState().echoLoadedChatId !== activeChatId) return; // stale
+        const msgs = normalizeEchoMessages(rows);
         if (msgs.length > 0) {
           // If real-time messages already arrived (via addEchoMessage from SSE),
           // don't overwrite visibleCount — the stagger timer owns it.
@@ -177,12 +231,11 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const nameColorMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const msg of echoMessages) {
-      if (!map.has(msg.characterName)) {
+      const characterName = readText(msg.characterName);
+      if (!characterName || map.has(characterName)) continue;
         let hash = 0;
-        for (let i = 0; i < msg.characterName.length; i++)
-          hash = msg.characterName.charCodeAt(i) + ((hash << 5) - hash);
-        map.set(msg.characterName, NAME_COLORS[Math.abs(hash) % NAME_COLORS.length]!);
-      }
+      for (let i = 0; i < characterName.length; i++) hash = characterName.charCodeAt(i) + ((hash << 5) - hash);
+      map.set(characterName, NAME_COLORS[Math.abs(hash) % NAME_COLORS.length]!);
     }
     return map;
   }, [echoMessages]);
@@ -239,7 +292,14 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   }, [echoChamberOpen, echoChamberSide]);
 
   if (!echoChamberOpen || !echoEnabled || (isMobile && hiddenOnMobile)) return null;
-  const visibleMessages = echoMessages.slice(0, visibleCount);
+  const visibleMessages = echoMessages
+    .map((message) => ({
+      characterName: readText(message.characterName),
+      reaction: readText(message.reaction),
+      timestamp: message.timestamp,
+    }))
+    .filter((message) => message.characterName && message.reaction)
+    .slice(0, visibleCount);
 
   return (
     <div

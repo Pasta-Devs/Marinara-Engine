@@ -106,7 +106,7 @@ export function CreateConnectionModal({ open, onClose }: Props) {
           </p>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-3">
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-4 mt-1 flex justify-end gap-2 border-t border-[var(--border)] bg-[var(--card)]/95 px-5 py-3 backdrop-blur">
           <button
             onClick={() => {
               onClose();

@@ -3,6 +3,8 @@ use super::*;
 
 #[path = "integrations/haptic.rs"]
 mod haptic;
+#[path = "integrations/discord.rs"]
+mod discord;
 #[path = "integrations/spotify.rs"]
 mod spotify;
 #[path = "integrations/spotify_callback.rs"]
@@ -31,4 +33,8 @@ pub(crate) async fn spotify_call(
 
 pub(crate) async fn haptic_call(rest: &[&str], body: Value) -> AppResult<Value> {
     haptic::haptic_call(rest, body).await
+}
+
+pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
+    discord::discord_webhook_send(body).await
 }

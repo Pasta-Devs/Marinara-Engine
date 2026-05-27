@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  ChevronRight,
   ScrollText,
   Brain,
   X,
@@ -51,6 +52,41 @@ function nameColorStyle(color?: string): CSSProperties | undefined {
 
 /** Regex to detect a message that is just an image/GIF URL */
 const IMAGE_URL_RE = /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?[^\s]*)?$/i;
+
+function HiddenFromAIConversationButton({
+  canCollapse,
+  isExpanded,
+  onToggle,
+}: {
+  canCollapse: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const className =
+    "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80";
+  if (!canCollapse) {
+    return (
+      <span className={className} title="Hidden from AI">
+        <EyeOff size="0.7rem" />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className={`${className} transition-colors hover:bg-amber-500/10 hover:text-amber-400`}
+      title={isExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
+      aria-label={isExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
+    >
+      <ChevronRight size="0.7rem" className={cn("transition-transform", isExpanded && "rotate-90")} />
+      <EyeOff size="0.7rem" />
+    </button>
+  );
+}
 
 /** Highlight @mentions in a list of ReactNodes. Scans string nodes for @CharacterName and wraps matches in a styled span. */
 function highlightMentions(nodes: ReactNode[], names: string[], keyPrefix: string): ReactNode[] {
@@ -295,12 +331,14 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [copied, setCopied] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
+  const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
   const [imageLightbox, setImageLightbox] = useState<{ url: string; prompt?: string | null } | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const hasInput = useChatStore((s) => s.currentInput.trim().length > 0);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
+  const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
   const messageTextStyle = useMemo<CSSProperties>(() => ({ fontSize: `${chatFontSize}px` }), [chatFontSize]);
   const isGuided = guideGenerations && hasInput;
   const regenerateButtonTitle = isGuided ? "Regenerate (guided)" : "Regenerate";
@@ -322,7 +360,17 @@ export const ConversationMessage = memo(function ConversationMessage({
     return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
   }, [message.extra]);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
-  const isHiddenFromAI = extra.hiddenFromAI === true;
+  const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
+  const isHiddenExpanded =
+    isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || isStreaming === true);
+  const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
+  const hiddenFromAIHeader = isHiddenFromAI ? (
+    <HiddenFromAIConversationButton
+      canCollapse={collapseHiddenMessages}
+      isExpanded={isHiddenExpanded}
+      onToggle={() => setManuallyExpandedHidden((value) => !value)}
+    />
+  ) : null;
   // canRegenerate lets assistant messages retry; isUser messages need generationReplay
   // metadata from hasGenerationReplayDetails, such as /impersonate.
   const canRegenerate = !isUser || generationReplay !== null;
@@ -330,6 +378,14 @@ export const ConversationMessage = memo(function ConversationMessage({
   useEffect(() => {
     if (!generationReplay) setShowGenerationReplay(false);
   }, [generationReplay]);
+
+  useEffect(() => {
+    setManuallyExpandedHidden(false);
+  }, [message.id]);
+
+  useEffect(() => {
+    if (!isHiddenFromAI || !collapseHiddenMessages) setManuallyExpandedHidden(false);
+  }, [collapseHiddenMessages, isHiddenFromAI]);
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;
@@ -601,6 +657,21 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   // ── Render: grouped multi-speaker message (merged group chat) ──
   if (groupedSegments && !editing && !isUser) {
+    if (isHiddenCollapsed) {
+      return (
+        <div
+          className={cn(
+            "relative px-4 py-0.5 transition-colors hover:bg-[var(--secondary)]/30",
+            !noHoverGroup && "group",
+            isGrouped ? "mt-0" : "mt-3",
+          )}
+          data-message-id={message.id}
+          data-message-role={message.role}
+        >
+          <div className="ml-14 flex items-center gap-2 py-1">{hiddenFromAIHeader}</div>
+        </div>
+      );
+    }
     return (
       <div
         className={cn(
@@ -761,7 +832,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Image attachments (selfies, illustrations) */}
-        {extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
+        {!isHiddenCollapsed && extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
           <div className="ml-14 mt-1.5 flex flex-col items-start gap-2">
             {extra.attachments.map((att: any, i: number) =>
               att.type === "image" || att.type?.startsWith("image/") ? (
@@ -974,6 +1045,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         {/* Header — name + timestamp (only for first in group) */}
         {!isGrouped && (
           <div className="mari-message-meta flex items-baseline gap-2 mb-0.5">
+            {hiddenFromAIHeader}
             <span
               className="mari-message-name text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default"
               style={nameColorStyle(nameColor)}
@@ -987,7 +1059,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Message body */}
-        {editing ? (
+        {isHiddenCollapsed ? null : editing ? (
           <div className="space-y-2">
             <textarea
               ref={editRef}
@@ -1051,7 +1123,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Translation */}
-        {(translatedText || isTranslating) && (
+        {!isHiddenCollapsed && (translatedText || isTranslating) && (
           <div className="mt-1.5 border-t border-[var(--border)] pt-1.5">
             {isTranslating ? (
               <span className="text-[0.75rem] italic text-[var(--muted-foreground)]">Translating…</span>
@@ -1064,7 +1136,7 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Image attachments (selfies, illustrations) — skip when content is already an image URL */}
-        {extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
+        {!isHiddenCollapsed && extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
           <div className="mt-1.5 flex flex-col items-center gap-2">
             {extra.attachments.map((att: any, i: number) =>
               att.type === "image" || att.type?.startsWith("image/") ? (

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Character, Group & Persona hooks
 // ──────────────────────────────────────────────
-import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { characterKeys, spriteKeys } from "../query-keys";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { invokeTauri } from "../../../../shared/api/tauri-client";
@@ -74,6 +74,24 @@ export function useCharacter(id: string | null) {
     enabled: !!id,
     staleTime: 5 * 60_000,
   });
+}
+
+export function useCharactersByIds(ids: string[], enabled = true) {
+  const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+  const queries = useQueries({
+    queries: uniqueIds.map((id) => ({
+      queryKey: characterKeys.detail(id),
+      queryFn: () => storageApi.get("characters", id),
+      enabled: enabled && !!id,
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  return {
+    data: queries.map((query) => query.data).filter(Boolean),
+    isLoading: queries.some((query) => query.isLoading),
+    isFetching: queries.some((query) => query.isFetching),
+  };
 }
 
 export function useCreateCharacter() {
@@ -376,6 +394,35 @@ export function usePersonas(enabled = true) {
   });
 }
 
+export function usePersona(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: characterKeys.personaDetail(id ?? ""),
+    queryFn: () => storageApi.get("personas", id!),
+    enabled: enabled && !!id,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useActivePersona(enabled = true) {
+  return useQuery({
+    queryKey: characterKeys.activePersona,
+    queryFn: async () => {
+      for (const filters of [
+        { isActive: true },
+        { isActive: "true" },
+        { active: true },
+        { active: "true" },
+      ]) {
+        const [persona] = await storageApi.list<unknown>("personas", { filters, limit: 1 });
+        if (persona) return persona;
+      }
+      return null;
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useCreatePersona() {
   const qc = useQueryClient();
   return useMutation({
@@ -523,10 +570,11 @@ export function useDeleteGroup() {
 
 // ── Persona Groups ──
 
-export function usePersonaGroups() {
+export function usePersonaGroups(enabled = true) {
   return useQuery({
     queryKey: characterKeys.personaGroups,
     queryFn: () => storageApi.list<unknown>("persona-groups"),
+    enabled,
   });
 }
 

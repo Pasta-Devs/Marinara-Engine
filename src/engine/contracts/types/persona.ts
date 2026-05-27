@@ -16,7 +16,7 @@ export interface Persona {
   /** Avatar image path */
   avatarPath: string | null;
   /** Avatar crop settings for the circle avatar. */
-  avatarCrop?: PersonaAvatarCrop | null;
+  avatarCrop?: PersonaAvatarCropValue | null;
   /** Whether this is the currently active persona */
   isActive: boolean;
   /** Name display color/gradient (CSS value) */
@@ -91,6 +91,16 @@ export interface PersonaAvatarCrop {
   srcWidth: number;
   srcHeight: number;
 }
+
+/** Legacy avatar crop format kept for backwards-compatible persona imports. */
+export interface LegacyPersonaAvatarCrop {
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+  fullImage?: boolean;
+}
+
+export type PersonaAvatarCropValue = PersonaAvatarCrop | LegacyPersonaAvatarCrop;
 
 /** A toggleable alternative/extended description block for a persona. */
 export interface AltDescription {
