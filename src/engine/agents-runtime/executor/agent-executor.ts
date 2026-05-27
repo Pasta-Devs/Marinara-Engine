@@ -205,6 +205,9 @@ export async function executeAgent(
 
     // Parse the result based on agent type
     const parsed = parseAgentResponse(config, responseText);
+    if (parsed.error) {
+      return makeError(config, formatAgentParseError(config, parsed.error), startTime);
+    }
 
     return {
       agentId: config.id,
@@ -264,6 +267,9 @@ async function executeAgentWithTools(
         return makeError(config, `${config.name} returned an empty response.`, startTime);
       }
       const parsed = parseAgentResponse(config, responseText);
+      if (parsed.error) {
+        return makeError(config, formatAgentParseError(config, parsed.error), startTime);
+      }
       return {
         agentId: config.id,
         agentType: config.type,
@@ -335,6 +341,9 @@ async function executeAgentWithTools(
     return makeError(config, `${config.name} returned an empty response.`, startTime);
   }
   const parsed = parseAgentResponse(config, responseText);
+  if (parsed.error) {
+    return makeError(config, formatAgentParseError(config, parsed.error), startTime);
+  }
   return {
     agentId: config.id,
     agentType: config.type,
@@ -645,6 +654,10 @@ function parseBatchResponse(
 
     if (matchedOutput !== null) {
       const parsedResult = parseAgentResponse(config, matchedOutput);
+      if (parsedResult.error) {
+        failed.push(config);
+        continue;
+      }
       parsed.push({
         agentId: config.id,
         agentType: config.type,
@@ -681,6 +694,10 @@ function makeError(config: AgentExecConfig, error: string, startTime: number): A
     success: false,
     error,
   };
+}
+
+function formatAgentParseError(config: Pick<AgentExecConfig, "name">, error: string): string {
+  return `${config.name} returned malformed JSON: ${error}`;
 }
 
 function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type">): boolean {
@@ -1443,6 +1460,7 @@ function parseAgentResponse(
 ): {
   type: AgentResultType;
   data: unknown;
+  error: string | null;
 } {
   const resultType = resolveAgentResultType(config);
 
@@ -1450,15 +1468,15 @@ function parseAgentResponse(
     try {
       const jsonStr = extractJson(responseText);
       const data = JSON.parse(jsonStr);
-      return { type: resultType, data };
-    } catch {
-      return { type: resultType, data: { raw: responseText, parseError: true } };
+      return { type: resultType, data, error: null };
+    } catch (error) {
+      return { type: resultType, data: null, error: extractErrorMessage(error, "Invalid JSON response") };
     }
   }
 
   // Text-based agents (prose-guardian, director). Sanitize before injection so
   // leaked tracker/roleplay content can't reach the main prompt.
-  return { type: resultType, data: { text: sanitizeTextAgentResponse(config.type, responseText) } };
+  return { type: resultType, data: { text: sanitizeTextAgentResponse(config.type, responseText) }, error: null };
 }
 
 /** Extract JSON from a response that may contain markdown fences. */
