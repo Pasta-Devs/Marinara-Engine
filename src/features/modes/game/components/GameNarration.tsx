@@ -33,7 +33,7 @@ import {
   Wand2,
   RotateCcw,
 } from "lucide-react";
-import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCrop } from "../../../../shared/lib/utils";
+import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { findNamedMapValue } from "../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../lib/game-segment-edits";
 import { parseGmTags, stripGmTagsKeepReadables } from "../lib/game-tag-parser";
@@ -250,7 +250,7 @@ function narrationSegmentAnchorKey(segment: NarrationSegment): string {
 
 type SpeakerAvatarInfo = {
   url: string;
-  crop?: AvatarCrop | null;
+  crop?: AvatarCropValue | null;
   nameColor?: string;
   dialogueColor?: string;
 };
@@ -4712,7 +4712,7 @@ function CroppedAvatar({
 }: {
   src: string;
   alt: string;
-  crop?: AvatarCrop | null;
+  crop?: AvatarCropValue | null;
   className?: string;
   onLoadError?: () => void;
 }) {

@@ -13,7 +13,7 @@
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
 import { Crop, Maximize2, RotateCcw, X } from "lucide-react";
-import { type AvatarCrop, getAvatarCropStyle } from "../../lib/utils";
+import { type AvatarCrop, type LegacyAvatarCrop, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 
 interface CropPx {
   x: number;
@@ -28,7 +28,7 @@ export interface AvatarCropWidgetProps {
   src: string;
   alt: string;
   /** Currently saved crop. Pass null when none has been set. */
-  crop: AvatarCrop | null;
+  crop: AvatarCrop | LegacyAvatarCrop | null;
   /** Fired on every change (drag, corner resize, reset). Always emits the
    *  current AvatarCrop shape. */
   onChange: (next: AvatarCrop) => void;
@@ -80,7 +80,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange }: AvatarCropWidgetP
   useEffect(() => {
     if (!imgRect || dragRef.current) return;
     const { w, h } = imgRect;
-    if (crop) {
+    if (crop && !isLegacyAvatarCrop(crop)) {
       const size = clamp(crop.srcWidth * w, MIN_CROP_PX, Math.min(w, h));
       setCropPx({
         x: clamp(crop.srcX * w, 0, w - size),
@@ -117,7 +117,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange }: AvatarCropWidgetP
     setImgRect({ w, h });
 
     let initial: CropPx;
-    if (crop) {
+    if (crop && !isLegacyAvatarCrop(crop)) {
       initial = {
         x: crop.srcX * w,
         y: crop.srcY * h,
