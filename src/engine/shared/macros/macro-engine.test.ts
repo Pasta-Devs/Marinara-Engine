@@ -58,6 +58,9 @@ describe("resolveMacros conditional blocks", () => {
     );
 
     expect(resolveMacros("{{#if off}}Enabled{{else}}Disabled{{/if}}", conditionalContext())).toBe("Disabled");
+    expect(resolveMacros("{{#if missingFlag}}Enabled{{else}}Disabled{{/if}}", conditionalContext())).toBe(
+      "Disabled",
+    );
   });
 
   it("supports legacy comparisons and aliases", () => {
@@ -180,5 +183,20 @@ describe("resolveMacros time macros", () => {
     // never the UTC Z stamp.
     expect(datetime).toMatch(/[+-]\d{2}:\d{2}$/);
     expect(datetime).not.toMatch(/Z$/);
+  });
+
+  it("uses the caller timezone inside grouped character conditional operands", () => {
+    const resolved = resolveMacros(
+      ["[", '{{#if "{{date}}" == "2026-05-26"}}{{char}}: local{{else}}{{char}}: host{{/if}}', "]"].join("\n"),
+      baseContext({
+        characters: ["Dottore", "Pantalone"],
+        characterProfiles: [{ name: "Dottore" }, { name: "Pantalone" }],
+        timeZone: "America/Los_Angeles",
+      }),
+    );
+
+    expect(resolved).toContain("Dottore: local");
+    expect(resolved).toContain("Pantalone: local");
+    expect(resolved).not.toContain("host");
   });
 });

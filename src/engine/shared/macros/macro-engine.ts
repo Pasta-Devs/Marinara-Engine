@@ -161,6 +161,7 @@ function macroContextForCharacterProfile(
     model: base?.model,
     agentData: base?.agentData,
     personaFields: base?.personaFields,
+    timeZone: base?.timeZone,
     characterFields: {
       description: profile.description ?? "",
       personality: profile.personality ?? "",
@@ -357,19 +358,20 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
         const name = token.replace(/^var[:.]/i, "").trim();
         return ctx.variables[name] ?? "";
       }
-      return ctx.variables[token] ?? token;
+      return ctx.variables[token] ?? "";
   }
 }
 
 function parseConditionExpression(condition: string): { left: string; operator: string; right?: string } {
-  const match = condition.match(
-    /^(.+?)\s*(==|!=|=|is\s+not|is|not\s+contains|not\s+includes|contains|includes)\s*(.+)$/i,
-  );
-  if (!match) return { left: condition.trim(), operator: "truthy" };
+  const symbolicMatch = condition.match(/^(.+?)\s*(==|!=|=)\s*(.+)$/i);
+  const wordMatch =
+    symbolicMatch ??
+    condition.match(/^(.+?)\s+(is\s+not|not\s+contains|not\s+includes|contains|includes|is)\s+(.+)$/i);
+  if (!wordMatch) return { left: condition.trim(), operator: "truthy" };
   return {
-    left: match[1]?.trim() ?? "",
-    operator: (match[2] ?? "").toLowerCase().replace(/\s+/g, " "),
-    right: match[3]?.trim() ?? "",
+    left: wordMatch[1]?.trim() ?? "",
+    operator: (wordMatch[2] ?? "").toLowerCase().replace(/\s+/g, " "),
+    right: wordMatch[3]?.trim() ?? "",
   };
 }
 
