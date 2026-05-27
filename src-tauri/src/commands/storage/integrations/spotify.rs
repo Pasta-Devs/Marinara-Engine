@@ -935,6 +935,7 @@ async fn generate_dj_mari_playlist_plan(
     let connection = resolve_dj_mari_llm_connection(state)?;
     let request = marinara_llm::LlmRequest {
         connection: super::super::llm::llm_connection_from_value(&connection)?,
+        session_key: None,
         messages: vec![
             marinara_llm::LlmMessage {
                 role: "system".to_string(),

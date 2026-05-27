@@ -87,6 +87,12 @@ pub(crate) fn llm_request_from_body(
         .collect::<AppResult<Vec<_>>>()?;
     Ok(marinara_llm::LlmRequest {
         connection: llm_connection_from_value(&connection)?,
+        session_key: body
+            .get("sessionKey")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
         messages,
         parameters: body.get("parameters").cloned().unwrap_or_else(|| json!({})),
         tools: body
@@ -326,6 +332,11 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
         Some(Value::String(value)) => value.eq_ignore_ascii_case("true"),
         _ => false,
     };
+    let claude_fast_mode = match value.get("claudeFastMode") {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::String(value)) => value.eq_ignore_ascii_case("true"),
+        _ => false,
+    };
     let caching_at_depth = value.get("cachingAtDepth").and_then(|value| {
         value
             .as_u64()
@@ -346,6 +357,7 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
         base_url,
         openrouter_provider,
         enable_caching,
+        claude_fast_mode,
         caching_at_depth,
         max_tokens_override,
     })

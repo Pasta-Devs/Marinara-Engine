@@ -141,6 +141,7 @@ export function ConnectionEditor() {
   const [localMaxParallelJobs, setLocalMaxParallelJobs] = useState(DEFAULT_MAX_PARALLEL_JOBS);
   const [localEnableCaching, setLocalEnableCaching] = useState(false);
   const [localCachingAtDepth, setLocalCachingAtDepth] = useState(DEFAULT_CACHING_AT_DEPTH);
+  const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localDefaultForAgents, setLocalDefaultForAgents] = useState(false);
   const [localEmbeddingModel, setLocalEmbeddingModel] = useState("");
   const [localEmbeddingBaseUrl, setLocalEmbeddingBaseUrl] = useState("");
@@ -239,6 +240,7 @@ export function ConnectionEditor() {
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalEnableCaching(c.enableCaching === "true" || c.enableCaching === true);
     setLocalCachingAtDepth(normalizeCachingAtDepth(c.cachingAtDepth));
+    setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalDefaultForAgents(c.defaultForAgents === "true" || c.defaultForAgents === true);
     setLocalEmbeddingModel((c.embeddingModel as string) ?? "");
     setLocalEmbeddingBaseUrl((c.embeddingBaseUrl as string) ?? "");
@@ -390,6 +392,7 @@ export function ConnectionEditor() {
       maxParallelJobs: localMaxParallelJobs,
       enableCaching: localEnableCaching,
       cachingAtDepth: localCachingAtDepth,
+      claudeFastMode: localProvider === "claude_subscription" ? localClaudeFastMode : false,
       defaultForAgents: localDefaultForAgents,
       embeddingModel: localEmbeddingModel,
       embeddingBaseUrl: localEmbeddingBaseUrl,
@@ -445,6 +448,7 @@ export function ConnectionEditor() {
     localMaxParallelJobs,
     localEnableCaching,
     localCachingAtDepth,
+    localClaudeFastMode,
     localDefaultForAgents,
     localEmbeddingModel,
     localEmbeddingBaseUrl,
@@ -854,6 +858,35 @@ export function ConnectionEditor() {
           )}
 
           {/* ── API Key ── */}
+          {localProvider === "claude_subscription" && (
+            <FieldGroup
+              label="Claude Fast Mode"
+              icon={<Zap size="0.875rem" className="text-amber-400" />}
+              help="Allows Claude Code fast mode for this connection. Leave off to force the requested model instead of inheriting a faster local Claude Code setting."
+            >
+              <label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--secondary)]/40 px-3 py-2 ring-1 ring-[var(--border)]">
+                <div className="min-w-0">
+                  <span className="block text-sm font-medium">Allow fast mode</span>
+                  <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+                    Fast mode may trade quality for speed and can bill against a different Claude model.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={localClaudeFastMode}
+                  onChange={(e) => {
+                    setLocalClaudeFastMode(e.target.checked);
+                    markDirty();
+                  }}
+                  className="peer sr-only"
+                />
+                <span className="relative h-6 w-11 shrink-0 rounded-full bg-[var(--muted)] transition-colors peer-checked:bg-sky-500">
+                  <span className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+                </span>
+              </label>
+            </FieldGroup>
+          )}
+
           <FieldGroup
             label="API Key"
             icon={<Key size="0.875rem" className="text-sky-400" />}

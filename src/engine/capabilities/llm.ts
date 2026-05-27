@@ -15,6 +15,7 @@ export interface LlmToolDefinition {
 
 export interface LlmRequest {
   connectionId?: string | null;
+  sessionKey?: string | null;
   provider?: string | null;
   model?: string | null;
   messages: LlmMessage[];

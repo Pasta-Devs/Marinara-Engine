@@ -137,6 +137,7 @@ impl ChatProvider for MarinaraLlmProvider {
     ) -> Result<Box<dyn ChatResponse>, LLMError> {
         let request = marinara_llm::LlmRequest {
             connection: self.connection.clone(),
+            session_key: None,
             messages: messages
                 .iter()
                 .map(autoagents_message_to_marinara)

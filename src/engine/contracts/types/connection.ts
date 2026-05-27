@@ -39,6 +39,8 @@ export interface APIConnection {
   enableCaching: boolean;
   /** Conversation message depth for Anthropic cache breakpoints */
   cachingAtDepth: number;
+  /** Whether Claude Code fast mode is allowed for Claude Subscription connections */
+  claudeFastMode: boolean;
   /** Model to use for embedding generation (e.g. "text-embedding-3-small") */
   embeddingModel: string | null;
   /** Separate base URL for the embedding backend (e.g. a second llama.cpp on a different port) */

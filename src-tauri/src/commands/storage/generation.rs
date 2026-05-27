@@ -22,6 +22,7 @@ pub(crate) async fn test_message(state: &AppState, id: &str) -> AppResult<Value>
     let connection = get_required(state, "connections", id)?;
     let request = marinara_llm::LlmRequest {
         connection: llm_connection_from_value(&connection)?,
+        session_key: None,
         messages: vec![marinara_llm::LlmMessage {
             role: "user".to_string(),
             content: "hi".to_string(),

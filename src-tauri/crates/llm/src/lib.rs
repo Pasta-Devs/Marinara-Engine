@@ -41,6 +41,8 @@ pub struct LlmConnection {
     pub openrouter_provider: Option<String>,
     #[serde(rename = "enableCaching", default)]
     pub enable_caching: bool,
+    #[serde(rename = "claudeFastMode", default)]
+    pub claude_fast_mode: bool,
     #[serde(rename = "cachingAtDepth", default)]
     pub caching_at_depth: Option<u64>,
     #[serde(rename = "maxTokensOverride", default)]
@@ -50,6 +52,8 @@ pub struct LlmConnection {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LlmRequest {
     pub connection: LlmConnection,
+    #[serde(rename = "sessionKey", default)]
+    pub session_key: Option<String>,
     pub messages: Vec<LlmMessage>,
     #[serde(default)]
     pub parameters: Value,
@@ -1167,6 +1171,50 @@ fn claude_subscription_command() -> String {
         .unwrap_or_else(|| "claude".to_string())
 }
 
+fn claude_subscription_settings_json(fast_mode: bool) -> String {
+    json!({
+        "fastMode": fast_mode,
+        "env": {
+            "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+        }
+    })
+    .to_string()
+}
+
+fn claude_subscription_session_id(session_key: Option<&str>, connection: &LlmConnection) -> Option<String> {
+    let key = session_key.map(str::trim).filter(|value| !value.is_empty())?;
+    let material = format!("marinara-claude-subscription:{key}:{}", connection.model);
+    let mut bytes = [0_u8; 16];
+    for (index, byte) in material.bytes().enumerate() {
+        let slot = index % bytes.len();
+        bytes[slot] = bytes[slot]
+            .wrapping_mul(31)
+            .wrapping_add(byte)
+            .wrapping_add(index as u8);
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Some(format!(
+        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        bytes[0],
+        bytes[1],
+        bytes[2],
+        bytes[3],
+        bytes[4],
+        bytes[5],
+        bytes[6],
+        bytes[7],
+        bytes[8],
+        bytes[9],
+        bytes[10],
+        bytes[11],
+        bytes[12],
+        bytes[13],
+        bytes[14],
+        bytes[15]
+    ))
+}
+
 pub fn check_claude_subscription_available() -> AppResult<String> {
     let command_name = claude_subscription_command();
     let mut command = Command::new(&command_name);
@@ -1270,6 +1318,7 @@ fn parse_claude_subscription_output(raw: &str) -> AppResult<String> {
 async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> {
     let messages = request_messages(&request);
     let (system_prompt, prompt) = render_claude_subscription_transcript(&messages);
+    let session_id = claude_subscription_session_id(request.session_key.as_deref(), &request.connection);
     let mut command = Command::new(claude_subscription_command());
     command
         .arg("-p")
@@ -1279,15 +1328,24 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         .arg("json")
         .arg("--permission-mode")
         .arg("bypassPermissions")
+        .arg("--tools")
+        .arg("")
+        .arg("--disable-slash-commands")
+        .arg("--settings")
+        .arg(claude_subscription_settings_json(request.connection.claude_fast_mode))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    if let Some(session_id) = session_id.as_ref() {
+        command.arg("--session-id").arg(session_id);
+    }
     if let Some(system_prompt) = system_prompt.as_ref() {
         command.arg("--append-system-prompt").arg(system_prompt);
     }
     if !request.connection.api_key.trim().is_empty() {
         command.env("ANTHROPIC_API_KEY", request.connection.api_key.trim());
     }
+    command.env("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
     log_prompt_connection_request(
         "claude_subscription",
         "claude-code://local",
@@ -1295,7 +1353,9 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         &json!({
             "model": request.connection.model.clone(),
             "outputFormat": "json",
-            "permissionMode": "bypassPermissions"
+            "permissionMode": "bypassPermissions",
+            "fastMode": request.connection.claude_fast_mode,
+            "sessionId": session_id
         }),
     );
     #[cfg(windows)]
@@ -1712,5 +1772,36 @@ mod tests {
             redacted_endpoint("https://api.openai.com/v1/chat/completions"),
             "https://api.openai.com/v1/chat/completions"
         );
+    }
+
+    #[test]
+    fn claude_subscription_settings_explicitly_control_fast_mode() {
+        let enabled: Value = serde_json::from_str(&claude_subscription_settings_json(true)).unwrap();
+        assert_eq!(enabled["fastMode"], true);
+        assert_eq!(enabled["env"]["ENABLE_CLAUDEAI_MCP_SERVERS"], "false");
+
+        let disabled: Value = serde_json::from_str(&claude_subscription_settings_json(false)).unwrap();
+        assert_eq!(disabled["fastMode"], false);
+    }
+
+    #[test]
+    fn claude_subscription_session_id_is_stable_uuid_shape() {
+        let connection = LlmConnection {
+            provider: "claude_subscription".to_string(),
+            model: "claude-opus-4-7".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            openrouter_provider: None,
+            enable_caching: false,
+            claude_fast_mode: false,
+            caching_at_depth: None,
+            max_tokens_override: None,
+        };
+        let first = claude_subscription_session_id(Some("chat:abc:connection:def"), &connection).unwrap();
+        let second = claude_subscription_session_id(Some("chat:abc:connection:def"), &connection).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 36);
+        assert_eq!(&first[14..15], "5");
+        assert!(claude_subscription_session_id(Some(""), &connection).is_none());
     }
 }

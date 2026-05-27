@@ -34,6 +34,7 @@ async fn translate_with_ai(
     let connection = get_required(state, "connections", connection_id)?;
     let request = marinara_llm::LlmRequest {
         connection: llm_connection_from_value(&connection)?,
+        session_key: None,
         messages: vec![
             marinara_llm::LlmMessage {
                 role: "system".to_string(),

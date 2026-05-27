@@ -1243,6 +1243,7 @@ async function* streamMainGenerationLoop(args: {
     for await (const chunk of deps.llm.stream(
       {
         connectionId: readString(connection.id) || input.connectionId,
+        sessionKey: `chat:${readString(args.chat.id) || input.chatId}:connection:${readString(connection.id) || input.connectionId || "default"}`,
         model: readString(connection.model) || undefined,
         messages: conversation,
         parameters,
