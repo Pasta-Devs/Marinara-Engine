@@ -802,12 +802,14 @@ fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Valu
 fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     let entity = required_string(args, "entity")?;
     let id = required_string(args, "id")?;
-    let normalized_patch = if entity == "messages" {
-        shared::normalize_message_update_patch(state, id, optional_value(args, "patch"))?
-    } else {
-        shared::normalize_update_patch(entity, optional_value(args, "patch"))?
-    };
-    state.storage.patch(entity, id, normalized_patch)
+    if entity == "messages" {
+        return shared::patch_message_update(state, id, optional_value(args, "patch"));
+    }
+    state.storage.patch(
+        entity,
+        id,
+        shared::normalize_update_patch(entity, optional_value(args, "patch"))?,
+    )
 }
 
 fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {

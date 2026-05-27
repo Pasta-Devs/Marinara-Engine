@@ -177,6 +177,19 @@ impl FileStorage {
     }
 
     pub fn patch(&self, collection: &str, id: &str, patch: Value) -> AppResult<Value> {
+        self.patch_with(collection, id, patch, |_, _| Ok(()))
+    }
+
+    pub fn patch_with<F>(
+        &self,
+        collection: &str,
+        id: &str,
+        patch: Value,
+        mut after_patch: F,
+    ) -> AppResult<Value>
+    where
+        F: FnMut(&mut Map<String, Value>, &Map<String, Value>) -> AppResult<()>,
+    {
         let _guard = self
             .lock
             .write()
@@ -191,9 +204,10 @@ impl FileStorage {
             let Some(object) = row.as_object_mut() else {
                 return Err(AppError::invalid_input("Stored record is not an object"));
             };
-            for (key, value) in patch {
-                object.insert(key, value);
+            for (key, value) in &patch {
+                object.insert(key.clone(), value.clone());
             }
+            after_patch(object, &patch)?;
             object.insert("updatedAt".to_string(), Value::String(now_iso()));
             found = Some(Value::Object(object.clone()));
             break;

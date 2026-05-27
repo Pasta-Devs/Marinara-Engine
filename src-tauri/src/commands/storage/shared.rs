@@ -144,43 +144,45 @@ pub(crate) fn normalize_update_patch(collection: &str, patch: Value) -> AppResul
     Ok(Value::Object(object))
 }
 
-pub(crate) fn normalize_message_update_patch(
+pub(crate) fn patch_message_update(
     state: &AppState,
     message_id: &str,
     patch: Value,
 ) -> AppResult<Value> {
-    let mut normalized = normalize_update_patch("messages", patch)?;
-    let Some(object) = normalized.as_object_mut() else {
-        return Ok(normalized);
-    };
-    if object.contains_key("swipes") {
-        return Ok(normalized);
+    let normalized = normalize_update_patch("messages", patch)?;
+    state
+        .storage
+        .patch_with("messages", message_id, normalized, |message, patch| {
+            sync_message_patch_content_to_active_swipe(message, patch);
+            Ok(())
+        })
+}
+
+pub(crate) fn sync_message_patch_content_to_active_swipe(
+    message: &mut Map<String, Value>,
+    patch: &Map<String, Value>,
+) {
+    if patch.contains_key("swipes") {
+        return;
     }
-    let Some(content) = object
+    let Some(content) = patch
         .get("content")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned)
     else {
-        return Ok(normalized);
+        return;
     };
-    let Some(mut existing) = state.storage.get("messages", message_id)? else {
-        return Ok(normalized);
-    };
-    let active_index = object
+    let active_index = patch
         .get("activeSwipeIndex")
-        .or_else(|| existing.get("activeSwipeIndex"))
+        .or_else(|| message.get("activeSwipeIndex"))
         .and_then(Value::as_u64)
         .map(|value| value as usize)
         .unwrap_or(0);
-    let Some(swipes) = existing
-        .as_object_mut()
-        .and_then(|existing_object| existing_object.get_mut("swipes"))
-        .and_then(Value::as_array_mut)
-    else {
-        return Ok(normalized);
+    let Some(swipes) = message.get_mut("swipes").and_then(Value::as_array_mut) else {
+        return;
     };
     if swipes.is_empty() {
-        return Ok(normalized);
+        return;
     }
     let active_index = active_index.min(swipes.len().saturating_sub(1));
     match swipes.get_mut(active_index) {
@@ -190,10 +192,8 @@ pub(crate) fn normalize_message_update_patch(
         Some(swipe) => {
             *swipe = json!({ "content": content });
         }
-        None => return Ok(normalized),
+        None => {}
     }
-    object.insert("swipes".to_string(), Value::Array(swipes.clone()));
-    Ok(normalized)
 }
 
 pub(crate) fn normalize_typed_json_fields(
@@ -638,16 +638,9 @@ mod tests {
             )
             .expect("message should be created");
 
-        let patch = normalize_message_update_patch(
-            &state,
-            "message-1",
-            json!({ "content": "edited active" }),
-        )
-        .expect("patch should normalize");
-        let mut updated = state
-            .storage
-            .patch("messages", "message-1", patch)
-            .expect("message should update");
+        let mut updated =
+            patch_message_update(&state, "message-1", json!({ "content": "edited active" }))
+                .expect("message should update");
         materialize_message_swipe_fields(&mut updated);
 
         assert_eq!(updated["content"], json!("edited active"));
@@ -674,18 +667,9 @@ mod tests {
             )
             .expect("message should be created");
 
-        let patch = normalize_message_update_patch(
-            &state,
-            "message-1",
-            json!({ "content": "edited legacy" }),
-        )
-        .expect("patch should normalize");
-
-        assert!(patch.get("swipes").is_none());
-        let mut updated = state
-            .storage
-            .patch("messages", "message-1", patch)
-            .expect("message should update");
+        let mut updated =
+            patch_message_update(&state, "message-1", json!({ "content": "edited legacy" }))
+                .expect("message should update");
         materialize_message_swipe_fields(&mut updated);
 
         assert_eq!(updated["content"], json!("edited legacy"));

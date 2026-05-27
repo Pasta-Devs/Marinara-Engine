@@ -133,9 +133,7 @@ fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
         })
 }
 
-fn projection_field_selections(
-    options: Option<&Value>,
-) -> &serde_json::Map<String, Value> {
+fn projection_field_selections(options: Option<&Value>) -> &serde_json::Map<String, Value> {
     if let Some(selections) = options
         .and_then(|value| value.get("fieldSelections"))
         .and_then(Value::as_object)
@@ -243,12 +241,14 @@ fn storage_update_inner(
     id: String,
     patch: Value,
 ) -> Result<Value, AppError> {
-    let normalized_patch = if entity == "messages" {
-        shared::normalize_message_update_patch(state, &id, patch)?
-    } else {
-        shared::normalize_update_patch(&entity, patch)?
-    };
-    state.storage.patch(&entity, &id, normalized_patch)
+    if entity == "messages" {
+        return shared::patch_message_update(state, &id, patch);
+    }
+    state.storage.patch(
+        &entity,
+        &id,
+        shared::normalize_update_patch(&entity, patch)?,
+    )
 }
 
 #[tauri::command]
