@@ -46,6 +46,7 @@ import {
   useUpdateChatMetadata,
   useUpdateMessage,
 } from "../../../catalog/chats/index";
+import { galleryKeys } from "../../../catalog/gallery/query-keys";
 import { useConnections } from "../../../catalog/connections/index";
 import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -3793,7 +3794,7 @@ export function GameSurface({
 
   const installGeneratedIllustration = useCallback(
     async (illustration: { tag: string; segment?: number }) => {
-      void queryClient.invalidateQueries({ queryKey: ["gallery", activeChatId] });
+      void queryClient.invalidateQueries({ queryKey: galleryKeys.images(activeChatId) });
       await fetchManifest();
       if (illustration.segment !== undefined && illustration.segment > 0) {
         setPendingSegmentEffects((previous) => {

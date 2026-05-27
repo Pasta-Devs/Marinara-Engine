@@ -25,9 +25,10 @@ import { useGalleryStore } from "../../../../../shared/stores/gallery.store";
 import { ImageUploadDropzone } from "../../../../../shared/components/ui/ImageUploadDropzone";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import type { ChatImage } from "../../../../../shared/types/gallery";
+import type { Chat } from "../../../../../engine/contracts/types/chat";
 
 interface ChatGalleryProps {
-  chatId: string;
+  chat: Chat;
   /** Manually trigger the Illustrator agent */
   onIllustrate?: () => void | Promise<void>;
 }
@@ -45,10 +46,10 @@ function formatIllustrateError(error: unknown) {
   return "Illustration failed. Check your text and image generation settings.";
 }
 
-export function ChatGallery({ chatId, onIllustrate }: ChatGalleryProps) {
-  const { data: images, isLoading } = useGalleryImages(chatId);
-  const upload = useUploadGalleryImage(chatId);
-  const remove = useDeleteGalleryImage(chatId);
+export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
+  const { data: images, isLoading } = useGalleryImages(chat);
+  const upload = useUploadGalleryImage(chat.id);
+  const remove = useDeleteGalleryImage(chat.id);
   const [lightbox, setLightbox] = useState<ChatImage | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [illustratePending, setIllustratePending] = useState(false);
