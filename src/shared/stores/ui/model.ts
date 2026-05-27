@@ -1,5 +1,8 @@
 // UI store types, constants, and pure helpers.
 import { TEMPERATURE_UNITS, normalizeTemperatureUnit, type TemperatureUnit } from "../../lib/temperature-units";
+import type { QuoteFormat } from "../../lib/dialogue-quotes";
+
+export type { QuoteFormat };
 
 export type Panel =
   | "chat"
@@ -25,7 +28,7 @@ export type TrackerPanelCollapsedSections = Partial<Record<TrackerDataPanelSecti
 export type TrackerPanelSectionOrder = TrackerDataPanelSection[];
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type UserStatus = "active" | "idle" | "dnd";
-export type RoleplayAvatarStyle = "circles" | "rectangles" | "panel";
+export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel";
 export type GameDialogueDisplayMode = "classic" | "stacked";
 export type SummaryPopoverSourceMode = "last" | "range";
 export interface FloatingWidgetPosition {
@@ -274,6 +277,8 @@ export interface UIState {
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
   chatBackground: string | null;
+  /** Blur applied to the current chat background image in px. */
+  chatBackgroundBlur: number;
   /** When set, the main area shows the full-page character editor instead of chat */
   characterDetailId: string | null;
   /** When set, the main area shows the full-page lorebook editor instead of chat */
@@ -349,6 +354,8 @@ export interface UIState {
   messagesPerPage: number;
   /** Bold quoted dialogue in chat messages; color highlighting can still remain when this is off */
   boldDialogue: boolean;
+  /** Preferred quote style applied to user input and displayed model output. */
+  quoteFormat: QuoteFormat;
   /** When true, model responses are trimmed back to the last complete sentence before saving. */
   trimIncompleteModelOutput: boolean;
   /** When true, chat inputs show a microphone button for browser speech-to-text dictation. */
@@ -497,6 +504,7 @@ export interface UIState {
   closeModal: () => void;
   setTheme: (theme: "dark" | "light") => void;
   setChatBackground: (url: string | null) => void;
+  setChatBackgroundBlur: (v: number) => void;
   openCharacterDetail: (id: string) => void;
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string) => void;
@@ -558,6 +566,7 @@ export interface UIState {
   setConfirmBeforeDelete: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
+  setQuoteFormat: (v: QuoteFormat) => void;
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
   setSpotifyPlayerEnabled: (v: boolean) => void;

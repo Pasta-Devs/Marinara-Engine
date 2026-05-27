@@ -25,7 +25,6 @@ import {
   Trash2,
   Plus,
   Minus,
-  ShieldAlert,
 } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
@@ -33,6 +32,7 @@ import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
   { value: "webhook", label: "Webhook", icon: Globe, description: "Sends a POST request to an external URL." },
+  { value: "script", label: "Script", icon: Code2, description: "Runs a local JavaScript function body." },
 ] as const;
 
 type ExecType = "static" | "webhook" | "script";
@@ -156,18 +156,16 @@ export function ToolEditor() {
       setSaveError("Description is required.");
       return false;
     }
-    if (localExecType === "script") {
-      setSaveError(
-        "Pick \"Convert to Webhook\" or \"Convert to Static Result\" before saving — legacy script tools cannot run in this build.",
-      );
-      return false;
-    }
     if (localExecType === "static" && !localStaticResult.trim()) {
       setSaveError("Static result is required for a static custom tool.");
       return false;
     }
     if (localExecType === "webhook" && !localWebhookUrl.trim()) {
       setSaveError("Webhook URL is required for a webhook custom tool.");
+      return false;
+    }
+    if (localExecType === "script" && !localScriptBody.trim()) {
+      setSaveError("Script body is required for a script custom tool.");
       return false;
     }
     const payload = {
@@ -177,10 +175,7 @@ export function ToolEditor() {
       executionType: localExecType,
       webhookUrl: localExecType === "webhook" ? localWebhookUrl || null : null,
       staticResult: localExecType === "static" ? localStaticResult || null : null,
-      // Script tools are blocked by the guard above; converting to webhook/static
-      // intentionally clears the preserved script body since the tool is no longer
-      // a legacy script row.
-      scriptBody: null,
+      scriptBody: localExecType === "script" ? localScriptBody || null : null,
       enabled: true,
     };
 
@@ -230,14 +225,6 @@ export function ToolEditor() {
     closeToolDetail();
   };
 
-  const convertScriptTo = useCallback(
-    (target: "static" | "webhook") => {
-      setLocalExecType(target);
-      markDirty();
-    },
-    [markDirty],
-  );
-
   // ── Not found ──
   if (!toolDetailId || (!dbTool && !isNew)) {
     return (
@@ -248,7 +235,6 @@ export function ToolEditor() {
   }
 
   const isPending = createTool.isPending || updateTool.isPending;
-  const isLegacyScript = localExecType === "script";
   const execMeta = EXEC_TYPES.find((e) => e.value === localExecType) ?? EXEC_TYPES[0];
 
   return (
@@ -349,21 +335,6 @@ export function ToolEditor() {
       {/* ── Body ── */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-3xl space-y-6">
-          {/* Legacy script-tool banner */}
-          {isLegacyScript && (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-              <ShieldAlert size="1rem" className="mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="font-semibold">Legacy script tool — not executable in this build.</p>
-                <p className="text-amber-200/80">
-                  Script-body execution shipped only in the pre-refactor codebase. This tool's body is preserved
-                  read-only below so you can migrate it. The AI will not call this tool until you convert it to a
-                  Webhook (recommended — run the same logic on your own server) or a Static result.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* ── Name hint ── */}
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             Tool name must be lowercase snake_case (e.g.{" "}
@@ -483,27 +454,19 @@ export function ToolEditor() {
           </FieldGroup>
 
           {/* ── Execution Type ── */}
-          <FieldGroup
-            label={isLegacyScript ? "Convert this tool" : "Execution Type"}
-            icon={<Wrench size="0.875rem" className="text-[var(--primary)]" />}
-          >
-            <div className="grid grid-cols-2 gap-2">
+          <FieldGroup label="Execution Type" icon={<Wrench size="0.875rem" className="text-[var(--primary)]" />}>
+            <div className="grid grid-cols-3 gap-2">
               {EXEC_TYPES.map((et) => {
                 const isActive = localExecType === et.value;
                 const Icon = et.icon;
-                const label = isLegacyScript ? `Convert to ${et.label}` : et.label;
                 return (
                   <button
                     key={et.value}
                     type="button"
                     title={et.description}
                     onClick={() => {
-                      if (isLegacyScript) {
-                        convertScriptTo(et.value);
-                      } else {
-                        setLocalExecType(et.value);
-                        markDirty();
-                      }
+                      setLocalExecType(et.value);
+                      markDirty();
                     }}
                     className={cn(
                       "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs ring-1 transition-all",
@@ -513,36 +476,13 @@ export function ToolEditor() {
                     )}
                   >
                     <Icon size="1rem" />
-                    <span className="font-medium">{label}</span>
+                    <span className="font-medium">{et.label}</span>
                   </button>
                 );
               })}
             </div>
-            {isLegacyScript ? (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Pick a supported execution type to make this tool callable again. The script body below is preserved
-                until you save the conversion.
-              </p>
-            ) : (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{execMeta.description}</p>
-            )}
+            <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{execMeta.description}</p>
           </FieldGroup>
-
-          {/* ── Legacy script body (read-only) ── */}
-          {isLegacyScript && (
-            <FieldGroup label="Script Body (read-only)" icon={<Code2 size="0.875rem" className="text-[var(--primary)]" />}>
-              <textarea
-                value={localScriptBody}
-                readOnly
-                rows={Math.min(20, Math.max(5, localScriptBody.split("\n").length))}
-                className="w-full resize-y rounded-xl bg-[var(--secondary)]/60 px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] text-[var(--muted-foreground)] focus:outline-none"
-              />
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Copy this body into a webhook handler on your own server, then convert this tool to a Webhook
-                pointing at that handler. Direct script execution will not be re-added to the desktop runtime.
-              </p>
-            </FieldGroup>
-          )}
 
           {/* ── Execution Config ── */}
           {localExecType === "static" && (
@@ -579,6 +519,27 @@ export function ToolEditor() {
                 A POST request will be sent with{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">{"{ tool, arguments }"}</code> as JSON body.
                 Response is returned to the AI.
+              </p>
+            </FieldGroup>
+          )}
+
+          {localExecType === "script" && (
+            <FieldGroup label="Script Body" icon={<Code2 size="0.875rem" className="text-[var(--primary)]" />}>
+              <textarea
+                value={localScriptBody}
+                onChange={(e) => {
+                  setLocalScriptBody(e.target.value);
+                  markDirty();
+                }}
+                rows={10}
+                placeholder={`const name = args.name ?? "there";\nreturn { result: \`Hello, \${name}.\` };`}
+                className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              />
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                Runs locally in the Tauri app with <code className="rounded bg-[var(--secondary)] px-1">args</code>,{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">JSON</code>,{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">Math</code>, and{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">Date</code>. Return a JSON-serializable value.
               </p>
             </FieldGroup>
           )}

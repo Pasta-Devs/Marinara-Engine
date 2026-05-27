@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMous
 import { cn } from "../../shared/lib/utils";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
+import { SpotifyMiniPlayer } from "../../features/shell/spotify/shell";
 import { ChatTitleControls } from "./ChatTitleControls";
 import { PanelNavButtons } from "./PanelNavButtons";
 
@@ -45,6 +46,7 @@ export function WindowTitleBar({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const spotifyPlayerEnabled = useUIStore((s) => s.spotifyPlayerEnabled);
   const hasOpenSurface = useUIStore((s) =>
     Boolean(
       s.characterDetailId ||
@@ -205,6 +207,15 @@ export function WindowTitleBar({
             )}
           </button>
         </div>
+        {spotifyPlayerEnabled && (
+          <div
+            className="mari-titlebar-spotify hidden min-w-0 flex-[0_1_31rem] items-center px-2 md:flex"
+            onMouseDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            <SpotifyMiniPlayer />
+          </div>
+        )}
         <div
           className="mari-window-actions flex h-full shrink-0 items-center gap-2"
           onMouseDown={(event) => event.stopPropagation()}

@@ -49,6 +49,26 @@ function storageWithSections(sections: Row[]): StorageGateway {
   };
 }
 
+function storageWithPreset(preset: Row, sections: Row[], variables: Row[] = []): StorageGateway {
+  return {
+    ...storageWithSections(sections),
+    get: async <T,>(entity: string, id: string) => {
+      if (entity === "prompts" && id === preset.id) return preset as T;
+      return null;
+    },
+    list: async <T,>(entity: string, options?: { filters?: Record<string, unknown> }) => {
+      if (entity === "prompts") return [preset] as T[];
+      if (entity === "prompt-sections") {
+        return sections.filter((row) => row.presetId === options?.filters?.presetId) as T[];
+      }
+      if (entity === "prompt-variables") {
+        return variables.filter((row) => row.presetId === options?.filters?.presetId) as T[];
+      }
+      return [] as T[];
+    },
+  };
+}
+
 function storageWithSectionsAndRegex(sections: Row[], regexScripts: Row[]): StorageGateway {
   const base = storageWithSections(sections);
   return {
@@ -155,6 +175,92 @@ describe("assembleGenerationPrompt macro parity", () => {
     expect(prompt).not.toContain("{{charSysInfo}}");
     expect(prompt).not.toContain("{{charPostHistory}}");
   });
+
+  it("uses selected preset wrap format and chat choice variables", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithPreset(
+        {
+          id: "preset",
+          isDefault: false,
+          wrapFormat: "markdown",
+          variableValues: { TONE: "gentle" },
+          defaultChoices: { POV: "second person" },
+          parameters: {},
+        },
+        [
+          section({
+            id: "main",
+            name: "Main Prompt",
+            role: "system",
+            content: "POV={{POV}}\nTone={{TONE}}\nTags={{TAGS}}",
+            sortOrder: 0,
+          }),
+        ],
+        [{ id: "tags", presetId: "preset", variableName: "TAGS", separator: " | ", randomPick: false }],
+      ),
+      {
+        chat: {
+          id: "chat",
+          mode: "roleplay",
+          promptPresetId: "preset",
+          metadata: { presetChoices: { POV: "first person", TAGS: ["slow burn", "soft tension"] } },
+        },
+        storedMessages: [],
+        connection: {},
+        request,
+        latestUserInput: "",
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(assembly.wrapFormat).toBe("markdown");
+    expect(prompt).toContain("## Main Prompt");
+    expect(prompt).toContain("POV=first person");
+    expect(prompt).toContain("Tone=gentle");
+    expect(prompt).toContain("Tags=slow burn | soft tension");
+    expect(prompt).not.toContain("{{POV}}");
+    expect(prompt).not.toContain("{{TAGS}}");
+  });
+});
+
+describe("assembleGenerationPrompt preset parameters", () => {
+  it("uses preset formatting parameters during prompt assembly", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithPreset(
+        {
+          id: "preset",
+          isDefault: false,
+          wrapFormat: "xml",
+          parameters: { strictRoleFormatting: false, singleUserMessage: true },
+        },
+        [
+          section({ id: "main", name: "Main", role: "system", content: "Rules.", sortOrder: 0 }),
+          section({
+            id: "history",
+            name: "History",
+            role: "user",
+            markerConfig: { type: "chat_history" },
+            sortOrder: 1,
+          }),
+        ],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay", promptPresetId: "preset" },
+        storedMessages: [{ role: "assistant", content: "Welcome back.", contextKind: "history" }],
+        connection: {},
+        request: { promptPresetId: "preset", historyLimit: 10 },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.parameters).toMatchObject({ strictRoleFormatting: false, singleUserMessage: true });
+    expect(assembly.messages).toHaveLength(1);
+    expect(assembly.messages[0]).toMatchObject({ role: "user" });
+    expect(assembly.messages[0]?.content).toContain("[SYSTEM]");
+    expect(assembly.messages[0]?.content).toContain("Rules.");
+    expect(assembly.messages[0]?.content).toContain("[ASSISTANT]");
+    expect(assembly.messages[0]?.content).toContain("Welcome back.");
+  });
 });
 
 describe("assembleGenerationPrompt strict roles", () => {
@@ -206,6 +312,47 @@ describe("assembleGenerationPrompt strict roles", () => {
       ["assistant", "Welcome back."],
       ["user", "I missed you."],
     ]);
+  });
+
+  it("excludes stored reasoning from history by default", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: { id: "chat", mode: "roleplay", metadata: {} },
+      storedMessages: [
+        {
+          role: "assistant",
+          content: "Visible answer.",
+          extra: { thinking: "private chain of thought" },
+        },
+      ],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "",
+    });
+
+    const history = assembly.messages.filter((message) => message.contextKind === "history");
+    expect(history[0]?.content).toBe("Visible answer.");
+    expect(history[0]?.content).not.toContain("private chain of thought");
+  });
+
+  it("can opt into replaying stored reasoning metadata in history", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: { id: "chat", mode: "roleplay", metadata: { excludePastReasoning: false } },
+      storedMessages: [
+        {
+          role: "assistant",
+          content: "Visible answer.",
+          extra: { thinking: "brief provider summary" },
+        },
+      ],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "",
+    });
+
+    const history = assembly.messages.filter((message) => message.contextKind === "history");
+    expect(history[0]?.content).toContain("Visible answer.");
+    expect(history[0]?.content).toContain("<provider_reasoning>");
+    expect(history[0]?.content).toContain("brief provider summary");
   });
 
   it("merges post-history system sections into the preceding user-side message", async () => {
@@ -270,6 +417,52 @@ describe("assembleGenerationPrompt strict roles", () => {
     expect(finalMessage?.role).toBe("user");
     expect(finalMessage?.content).toMatch(/What happens next\?/);
     expect(finalMessage?.content).toMatch(/<style_note>\s*Keep the response concise\.\s*<\/style_note>/);
+  });
+});
+
+describe("assembleGenerationPrompt connected conversation notes", () => {
+  it("injects durable notes and unconsumed influences into linked roleplay prompts", async () => {
+    const assembly = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "roleplay-1",
+        mode: "roleplay",
+        connectedChatId: "conversation-1",
+        notes: [
+          {
+            id: "note-1",
+            type: "note",
+            content: "[12:01] Remember that Mari hates being underestimated.",
+            targetChatId: "roleplay-1",
+          },
+          {
+            id: "influence-1",
+            type: "influence",
+            content: "Let the next scene reveal the locked lab door.",
+            targetChatId: "roleplay-1",
+            consumed: false,
+          },
+          {
+            id: "influence-2",
+            type: "influence",
+            content: "This one was already spent.",
+            targetChatId: "roleplay-1",
+            consumed: true,
+          },
+        ],
+      },
+      storedMessages: [{ role: "user", content: "What do I see?", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "", strictRoleFormatting: false },
+      latestUserInput: "What do I see?",
+    });
+
+    const joined = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(joined).toContain("<conversation_notes>");
+    expect(joined).toContain("- Remember that Mari hates being underestimated.");
+    expect(joined).not.toContain("[12:01] Remember");
+    expect(joined).toContain("<ooc_influences>");
+    expect(joined).toContain("- Let the next scene reveal the locked lab door.");
+    expect(joined).not.toContain("This one was already spent.");
   });
 });
 
@@ -465,6 +658,46 @@ describe("assembleGenerationPrompt conversation scene awareness gates", () => {
     const prompt = assembly.messages.map((message) => message.content).join("\n\n");
     expect(prompt).not.toContain("STALE SCENE CONTINUITY SHOULD NOT BE IN CONVO PROMPT");
     expect(prompt).not.toContain("<memories>");
+  });
+
+  it("uses provider query embeddings for memory recall when available", async () => {
+    const base = storageWithSections([]);
+    const storage: StorageGateway = {
+      ...base,
+      listChatMemories: async <T,>() =>
+        [
+          {
+            id: "provider-hit",
+            content: "A memory found only by provider vector.",
+            embedding: [1, 0, 0],
+            embeddingSource: "provider",
+          },
+          {
+            id: "provider-miss",
+            content: "A memory with another vector.",
+            embedding: [0, 1, 0],
+            embeddingSource: "provider",
+          },
+        ] as T[],
+    };
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "conversation-chat",
+        mode: "conversation",
+        characterIds: [],
+        metadata: {},
+      },
+      storedMessages: [{ role: "user", content: "fresh hello", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "semantic-only query",
+      embeddingSource: { embed: async () => [[1, 0, 0]] },
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("A memory found only by provider vector.");
+    expect(prompt).not.toContain("A memory with another vector.");
   });
 
   it("keeps normal conversation summaries when conversation cross-chat awareness is off", async () => {

@@ -1436,7 +1436,7 @@ export function LorebookEditor() {
                 </div>
 
                 {/* Scan settings */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                   <div>
                     <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
                       Scan Depth{" "}
@@ -1504,6 +1504,26 @@ export function LorebookEditor() {
                         />
                       </div>
                     )}
+                  </div>
+                  <div className="flex items-end">
+                    <div className="flex w-full items-center justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
+                      <span className="mr-2 inline-flex items-center gap-1 text-xs">
+                        No Vector
+                        <HelpTooltip text="Skip semantic embeddings for every entry in this lorebook. Keyword matching still works." />
+                      </span>
+                      <button
+                        onClick={() => {
+                          setFormExcludeFromVectorization(!formExcludeFromVectorization);
+                          markLorebookDirty();
+                        }}
+                      >
+                        {formExcludeFromVectorization ? (
+                          <ToggleRight size="1.375rem" className="text-amber-400" />
+                        ) : (
+                          <ToggleLeft size="1.375rem" className="text-[var(--muted-foreground)]" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2131,7 +2151,8 @@ function VectorizeSection({
           {vectorizedCount}/{vectorizableEntryCount} entries vectorized
         </span>
         {missingCount > 0 && <span>{missingCount} still need embeddings.</span>}
-        {excludedCount > 0 && <span>{excludedCount} excluded.</span>}
+        {excludeFromVectorization ? <span>This lorebook excludes every entry.</span> : null}
+        {!excludeFromVectorization && excludedCount > 0 && <span>{excludedCount} excluded.</span>}
       </div>
       {hasUnsavedVectorizationToggle ? (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">

@@ -166,6 +166,7 @@ pub(crate) fn normalize_typed_json_fields(
                     "activeAgentIds",
                     "activeToolIds",
                     "memories",
+                    "notes",
                 ],
             )?;
             normalize_nullable_json_object_fields(object, &["metadata", "gameState"])?;

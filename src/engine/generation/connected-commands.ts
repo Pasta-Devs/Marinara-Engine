@@ -13,7 +13,17 @@ import {
 } from "../modes/chat/commands/character-commands";
 import { createRoleplayScene, planRoleplayScene } from "../modes/roleplay/scene/scene-service";
 import { resolveConversationSelfieSystemPrompt } from "./prompt-overrides";
-import { newId, nowIso, parseArray, parseRecord, readString, stringArray, type JsonRecord } from "./runtime-records";
+import {
+  boolish,
+  isRecord,
+  newId,
+  nowIso,
+  parseArray,
+  parseRecord,
+  readString,
+  stringArray,
+  type JsonRecord,
+} from "./runtime-records";
 
 export type ConnectedCommandEvent =
   | { type: "cross_post"; data: JsonRecord }
@@ -87,6 +97,61 @@ function messageDefaults(chatId: string, value: Record<string, unknown>): Record
     extra: value.extra ?? {},
     swipes: value.swipes ?? [{ content }],
   };
+}
+
+async function connectedNoteStorageChatId(
+  storage: StorageGateway,
+  chat: JsonRecord,
+): Promise<string> {
+  const sourceChatId = readString(chat.id);
+  const connectedChatId = readString(chat.connectedChatId).trim();
+  const mode = readString(chat.mode || chat.chatMode);
+  if (!sourceChatId || !connectedChatId || mode !== "conversation") return sourceChatId;
+  const target = await storage.get<JsonRecord>("chats", connectedChatId).catch(() => null);
+  const targetMode = readString(target?.mode || target?.chatMode);
+  return target && (targetMode === "roleplay" || targetMode === "game") ? readString(target.id) || connectedChatId : sourceChatId;
+}
+
+async function persistNoteWrites(
+  storage: StorageGateway,
+  sourceChat: JsonRecord,
+  writes: Array<{ chatId: string; note: JsonRecord }>,
+): Promise<void> {
+  const byChat = new Map<string, JsonRecord[]>();
+  for (const write of writes) {
+    if (!write.chatId) continue;
+    byChat.set(write.chatId, [...(byChat.get(write.chatId) ?? []), write.note]);
+  }
+  for (const [chatId, notes] of byChat) {
+    const baseChat =
+      chatId === readString(sourceChat.id)
+        ? sourceChat
+        : await storage.get<JsonRecord>("chats", chatId).then((row) => (isRecord(row) ? row : null));
+    if (!baseChat) continue;
+    const existingNotes = parseArray(baseChat.notes).filter(
+      (entry): entry is JsonRecord => !!entry && typeof entry === "object" && !Array.isArray(entry),
+    );
+    await storage.update("chats", chatId, { notes: [...existingNotes, ...notes] });
+  }
+}
+
+export async function consumePendingConnectedInfluences(storage: StorageGateway, chat: JsonRecord): Promise<void> {
+  const chatId = readString(chat.id).trim();
+  const mode = readString(chat.mode || chat.chatMode);
+  const meta = parseRecord(chat.metadata);
+  if (!chatId || (mode !== "roleplay" && mode !== "game") || !readString(chat.connectedChatId).trim()) return;
+  if (readString(meta.sceneStatus) === "active") return;
+  const notes = parseArray(chat.notes).filter(isRecord);
+  let changed = false;
+  const consumedAt = nowIso();
+  const next = notes.map((note) => {
+    const targetChatId = readString(note.targetChatId).trim();
+    const targetsThisChat = !targetChatId || targetChatId === chatId;
+    if (readString(note.type) !== "influence" || boolish(note.consumed, false) || !targetsThisChat) return note;
+    changed = true;
+    return { ...note, consumed: true, consumedAt };
+  });
+  if (changed) await storage.update("chats", chatId, { notes: next });
 }
 
 function formatFetchedRow(type: string, row: JsonRecord, related: JsonRecord[] = []): string {
@@ -511,6 +576,7 @@ async function executeCommand(
   chat: JsonRecord,
   command: CharacterCommand,
   createdNotes: JsonRecord[],
+  pendingNoteWrites: Array<{ chatId: string; note: JsonRecord }>,
   events: ConnectedCommandEvent[],
   assistantAttachments: JsonRecord[],
   visibleContent: string,
@@ -518,26 +584,35 @@ async function executeCommand(
   const chatId = readString(chat.id);
   switch (command.type) {
     case "note":
-    case "influence":
-      createdNotes.push({
+    case "influence": {
+      const storageChatId = await connectedNoteStorageChatId(storage, chat);
+      const targetChatId = storageChatId && storageChatId !== chatId ? storageChatId : null;
+      const note = {
         id: newId(command.type),
         type: command.type,
         content: command.content,
         sourceChatId: chatId,
-        targetChatId: null,
+        targetChatId,
+        ...(command.type === "influence" ? { consumed: false } : {}),
         createdAt: nowIso(),
-      });
+      };
+      createdNotes.push(note);
+      pendingNoteWrites.push({ chatId: storageChatId || chatId, note });
       return { name: command.type };
-    case "memory":
-      createdNotes.push({
+    }
+    case "memory": {
+      const note = {
         id: newId("memory"),
         type: "memory",
         content: `${command.target}: ${command.summary}`,
         sourceChatId: chatId,
         targetChatId: null,
         createdAt: nowIso(),
-      });
+      };
+      createdNotes.push(note);
+      pendingNoteWrites.push({ chatId, note });
       return { name: "memory" };
+    }
     case "haptic":
       if (integrations) {
         await integrations.haptic.command({
@@ -609,6 +684,7 @@ async function executeCommand(
         name: command.character,
         mode: command.mode ?? "conversation",
         characterIds: character?.id ? [readString(character.id)] : [],
+        folderId: chat.folderId ?? null,
         metadata: {},
       });
       return { name: "create_chat" };
@@ -712,9 +788,8 @@ export async function persistConnectedCommandTags(
   llm?: LlmGateway,
   llmConnectionId?: string | null,
 ): Promise<ConnectedCommandResult> {
-  const chatId = readString(chat.id);
-  const existingNotes = parseArray(chat.notes).filter((entry): entry is JsonRecord => !!entry && typeof entry === "object");
   const createdNotes: JsonRecord[] = [];
+  const pendingNoteWrites: Array<{ chatId: string; note: JsonRecord }> = [];
   const parsed = parseCharacterCommands(content);
   const executedCommands: string[] = [];
   const events: ConnectedCommandEvent[] = [];
@@ -730,6 +805,7 @@ export async function persistConnectedCommandTags(
       chat,
       command,
       createdNotes,
+      pendingNoteWrites,
       events,
       assistantAttachments,
       parsed.cleanContent,
@@ -740,8 +816,8 @@ export async function persistConnectedCommandTags(
     }
   }
 
-  if (createdNotes.length > 0 && chatId) {
-    await storage.update("chats", chatId, { notes: [...existingNotes, ...createdNotes] });
+  if (pendingNoteWrites.length > 0) {
+    await persistNoteWrites(storage, chat, pendingNoteWrites);
   }
 
   return {

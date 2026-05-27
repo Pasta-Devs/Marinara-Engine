@@ -13,6 +13,7 @@ export type EditableGenerationParameters = Pick<
   | "presencePenalty"
   | "reasoningEffort"
   | "verbosity"
+  | "serviceTier"
   | "assistantPrefill"
   | "customParameters"
 >;
@@ -21,6 +22,8 @@ type EditableGenerationParameterOverrides = Partial<EditableGenerationParameters
 
 const REASONING_LEVELS = [null, "low", "medium", "high", "maximum"] as const;
 const VERBOSITY_LEVELS = [null, "low", "medium", "high"] as const;
+const OPENROUTER_SERVICE_TIERS = [null, "flex", "priority"] as const;
+const MAX_GENERATION_OUTPUT_TOKENS = 128000;
 
 export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   temperature: 1,
@@ -31,6 +34,7 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   presencePenalty: 0,
   reasoningEffort: "maximum",
   verbosity: "high",
+  serviceTier: null,
   assistantPrefill: "",
   customParameters: {},
 };
@@ -44,6 +48,7 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   presencePenalty: 0,
   reasoningEffort: "maximum",
   verbosity: "high",
+  serviceTier: null,
   assistantPrefill: "",
   customParameters: {},
 };
@@ -86,6 +91,9 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   ) {
     next.verbosity = source.verbosity;
   }
+  if (source.serviceTier === null || source.serviceTier === "flex" || source.serviceTier === "priority") {
+    next.serviceTier = source.serviceTier;
+  }
   if (typeof source.assistantPrefill === "string") {
     next.assistantPrefill = source.assistantPrefill;
   }
@@ -111,9 +119,11 @@ export function getEditableGenerationParameters(
 export function GenerationParametersFields({
   value,
   onChange,
+  showOpenRouterServiceTier = false,
 }: {
   value: EditableGenerationParameters;
   onChange: (next: EditableGenerationParameters) => void;
+  showOpenRouterServiceTier?: boolean;
 }) {
   const set = <K extends keyof EditableGenerationParameters>(key: K, nextValue: EditableGenerationParameters[K]) => {
     onChange({ ...value, [key]: nextValue });
@@ -137,7 +147,7 @@ export function GenerationParametersFields({
           value={value.maxTokens}
           onChange={(nextValue) => set("maxTokens", nextValue)}
           min={1}
-          max={32768}
+          max={MAX_GENERATION_OUTPUT_TOKENS}
           step={256}
         />
         <ParamInput
@@ -200,6 +210,34 @@ export function GenerationParametersFields({
           value={value.customParameters}
           onChange={(nextValue) => set("customParameters", nextValue)}
         />
+        {showOpenRouterServiceTier && (
+          <div>
+            <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+              OpenRouter Service Tier
+              <HelpTooltip
+                text="Optional OpenRouter routing tier. Default sends no service_tier; Flex can be cheaper and slower, Priority can be faster and more expensive."
+                size="0.625rem"
+              />
+            </span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {OPENROUTER_SERVICE_TIERS.map((tier) => (
+                <button
+                  key={tier ?? "default"}
+                  type="button"
+                  onClick={() => set("serviceTier", tier)}
+                  className={cn(
+                    "rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
+                    value.serviceTier === tier
+                      ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  {tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "Default"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             Reasoning Effort

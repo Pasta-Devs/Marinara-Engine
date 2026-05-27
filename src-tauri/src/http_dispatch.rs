@@ -393,13 +393,16 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             "memories",
             Vec::new(),
         ),
-        "chat_memories_refresh" => chats::refresh_chat_memories(state, required_string(&args, "chatId")?),
+        "chat_memories_refresh" => {
+            chats::refresh_chat_memories(state, required_string(&args, "chatId")?).await
+        }
         "chat_memories_export" => chats::export_chat_memories(state, required_string(&args, "chatId")?),
         "chat_memories_import" => chats::import_chat_memories(
             state,
             required_string(&args, "chatId")?,
             optional_value(&args, "body"),
-        ),
+        )
+        .await,
         "chat_notes_list" => {
             chats::chat_array_field(state, required_string(&args, "chatId")?, "notes")
         }
@@ -538,6 +541,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             optional_value(&args, "body"),
         ),
         "llm_complete" => llm::llm_complete(state, optional_value(&args, "request")).await,
+        "llm_embed" => llm::llm_embed(state, optional_value(&args, "body")).await,
         "llm_list_models" => {
             llm::llm_models(state, optional_string(&args, "connectionId").as_deref()).await
         }

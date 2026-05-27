@@ -1,4 +1,5 @@
 import { createJSONStorage } from "zustand/middleware";
+import { normalizeQuoteFormat } from "../../lib/dialogue-quotes";
 import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
@@ -71,6 +72,7 @@ export function partializeUiState(state: UIState) {
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
     chatBackground: state.chatBackground,
+    chatBackgroundBlur: state.chatBackgroundBlur,
     fontSize: state.fontSize,
     language: state.language,
     chatFontSize: state.chatFontSize,
@@ -103,6 +105,7 @@ export function partializeUiState(state: UIState) {
     confirmBeforeDelete: state.confirmBeforeDelete,
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
+    quoteFormat: state.quoteFormat,
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
@@ -173,6 +176,7 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
+  persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);
   persisted.userStatusManual = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   persisted.userStatus = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   delete persisted.trackerPanelWidth;

@@ -24,11 +24,11 @@ pub fn chat_memories_clear(state: State<'_, AppState>, chat_id: String) -> Resul
 }
 
 #[tauri::command]
-pub fn chat_memories_refresh(
+pub async fn chat_memories_refresh(
     state: State<'_, AppState>,
     chat_id: String,
 ) -> Result<Value, AppError> {
-    chats::refresh_chat_memories(&state, &chat_id)
+    chats::refresh_chat_memories(&state, &chat_id).await
 }
 
 #[tauri::command]
@@ -40,12 +40,12 @@ pub fn chat_memories_export(
 }
 
 #[tauri::command]
-pub fn chat_memories_import(
+pub async fn chat_memories_import(
     state: State<'_, AppState>,
     chat_id: String,
     body: Value,
 ) -> Result<Value, AppError> {
-    chats::import_chat_memories(&state, &chat_id, body)
+    chats::import_chat_memories(&state, &chat_id, body).await
 }
 
 #[tauri::command]

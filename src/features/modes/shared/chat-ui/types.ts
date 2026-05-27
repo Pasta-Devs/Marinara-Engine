@@ -12,6 +12,7 @@ export type PeekPromptData = {
     showThoughts?: boolean | null;
     reasoningEffort?: string | null;
     verbosity?: string | null;
+    serviceTier?: string | null;
     assistantPrefill?: string | null;
     tokensPrompt?: number | null;
     tokensCompletion?: number | null;
@@ -26,6 +27,8 @@ export type PeekPromptData = {
 export type MessageWithSwipes = Message & {
   swipes?: Array<{ id: string; content: string }>;
 };
+
+export type ExpressionAvatarResolver = (message: MessageWithSwipes, characterId: string) => string | null;
 
 export type MessageSelectionToggle = {
   messageId: string;

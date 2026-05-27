@@ -96,7 +96,8 @@ Non-loopback clients fail closed unless you configure access control. Use `BASIC
 `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, or an explicit opt-in such as
 `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` for trusted LAN/private-network access.
 Set `CORS_ORIGINS` or `CSRF_TRUSTED_ORIGINS` when the desktop client origin is not one of the
-runtime defaults.
+runtime defaults. Use exact origins; `CORS_ORIGINS=*` does not grant browser-origin trust for
+mutating API requests.
 
 With Docker Compose:
 

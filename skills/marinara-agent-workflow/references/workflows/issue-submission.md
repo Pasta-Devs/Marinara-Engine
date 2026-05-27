@@ -23,7 +23,7 @@ Model-visible pasted images are enough for reading. They are not automatically u
 
 ## Template And Label Gate
 
-This repo may not have issue templates or labels. Use a template exactly when one exists. Do not pretend template fields, defaults, or labels exist when they do not.
+This repo currently has `.github/ISSUE_TEMPLATE/issue_report.md` and `.github/ISSUE_TEMPLATE/feature_request.md`. Use the matching template exactly. Do not pretend template fields, defaults, or labels exist if a future checkout removes them.
 
 When labels are available, apply only labels from the live repo label list. Leave uncertain labels off rather than guessing.
 

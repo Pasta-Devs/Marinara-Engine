@@ -648,6 +648,7 @@ body {
 .mari-window-controls,
 .mari-window-control,
 .mari-window-actions,
+.mari-titlebar-spotify,
 .mari-window-actions button,
 .mari-topbar button,
 .mari-topbar a {
@@ -778,6 +779,13 @@ body {
   width: 1.8rem;
   height: 1.8rem;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.mari-titlebar-avatar-icon,
+.mari-mobile-topbar-button .mari-titlebar-avatar-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .mari-mobile-topbar-button svg,

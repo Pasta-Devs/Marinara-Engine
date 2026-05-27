@@ -51,7 +51,7 @@ type PersonaRow = {
 
 function parseChatCharacterIds(chat: Chat | null | undefined): string[] {
   if (!chat) return [];
-  const raw = chat.characterIds;
+  const raw = chat.characterIds as string[] | string | null | undefined;
   if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw);

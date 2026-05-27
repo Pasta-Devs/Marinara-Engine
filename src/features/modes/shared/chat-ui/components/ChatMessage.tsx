@@ -65,9 +65,14 @@ import {
   buildTTSVoiceRequests,
   clientSidePlaybackRate,
 } from "../../../../../shared/lib/tts-dialogue";
-import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../../../../shared/lib/dialogue-quotes";
+import {
+  DIALOGUE_QUOTE_PATTERN_SOURCE,
+  HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE,
+  formatTextQuotes,
+  type QuoteFormat,
+} from "../../../../../shared/lib/dialogue-quotes";
 import DOMPurify from "dompurify";
-import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "../types";
+import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, PersonaInfo } from "../types";
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
@@ -230,6 +235,7 @@ interface ChatMessageProps {
   personaInfo?: PersonaInfo;
   groupChatMode?: string;
   chatCharacterIds?: string[];
+  expressionAvatarResolver?: ExpressionAvatarResolver;
   /** Distance from the latest message (0 = newest). Used for depth-range regex filtering. */
   messageDepth?: number;
   /** 1-based ordinal position in the message list. Shown under avatar when actions visible. */
@@ -553,9 +559,9 @@ function renderContent(
   speakerColorMap?: Map<string, string>,
   boldDialogue = true,
   htmlScopeClass = "mari-html-message-content",
+  quoteFormat: QuoteFormat = "straight",
 ): ReactNode {
-  // Normalise curly quotes to straight so they display consistently
-  const normalized = text.replace(/[“”„‟]/g, '"').replace(/[‘’]/g, "'");
+  const normalized = formatTextQuotes(text, quoteFormat);
 
   // Strip speaker tags before HTML detection (they aren't real HTML)
   const withoutSpeakerTags = normalized.replace(/<\/?speaker(?:="[^"]*")?>/g, "");
@@ -699,6 +705,7 @@ export const ChatMessage = memo(function ChatMessage({
   personaInfo,
   groupChatMode,
   chatCharacterIds,
+  expressionAvatarResolver,
   messageDepth,
   messageIndex,
   messageOrderIndex,
@@ -916,9 +923,10 @@ export const ChatMessage = memo(function ChatMessage({
   );
 
   // Parse message extra for conversation start flag
-  const extra = useMemo(() => {
-    if (!message.extra) return {};
-    return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
+  const extra = useMemo<Record<string, any>>(() => {
+    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
+      ? message.extra
+      : {};
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
@@ -1119,11 +1127,20 @@ export const ChatMessage = memo(function ChatMessage({
   ]);
 
   const displayName = isUser ? userName : charName;
-  const avatarUrl = isUser ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null) : (charInfo?.avatarUrl ?? null);
+  const baseAvatarUrl = isUser
+    ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+    : (charInfo?.avatarUrl ?? null);
+  const expressionAvatarUrl =
+    !isUser && message.characterId ? (expressionAvatarResolver?.(message, message.characterId) ?? null) : null;
+  const avatarUrl = expressionAvatarUrl ?? baseAvatarUrl;
   const personaAvatarCrop = isUser
     ? (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
     : null;
-  const avatarCropStyle = isUser ? getAvatarCropStyle(personaAvatarCrop) : getAvatarCropStyle(charInfo?.avatarCrop);
+  const avatarCropStyle = expressionAvatarUrl
+    ? {}
+    : isUser
+      ? getAvatarCropStyle(personaAvatarCrop)
+      : getAvatarCropStyle(charInfo?.avatarCrop);
 
   // Resolve colors: character colors for assistant, persona colors for user
   // Prefer per-message persona snapshot colors over current persona
@@ -1163,11 +1180,13 @@ export const ChatMessage = memo(function ChatMessage({
     return chatCharacterIds
       .map((id) => {
         const info = characterMap.get(id);
-        if (!info?.avatarUrl) return null;
-        return { url: info.avatarUrl, crop: info.avatarCrop };
+        const expressionUrl = expressionAvatarResolver?.(message, id) ?? null;
+        const url = expressionUrl ?? info?.avatarUrl;
+        if (!url) return null;
+        return { url, crop: expressionUrl ? null : info?.avatarCrop };
       })
       .filter(Boolean) as { url: string; crop?: AvatarCropValue | null }[];
-  }, [isMergedGroup, characterMap, chatCharacterIds]);
+  }, [isMergedGroup, characterMap, chatCharacterIds, expressionAvatarResolver, message]);
   const mergedNameColors = useMemo(() => {
     if (!isMergedGroup || !characterMap || !chatCharacterIds) return [];
     const fallbackPalette = ["#c084fc", "#f472b6", "#fb923c", "#4ade80", "#60a5fa", "#facc15"];
@@ -1253,6 +1272,7 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Render content with dialogue highlighting (or HTML rendering)
   const text = typeof displayContent === "string" ? displayContent : message.content;
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
   const isHtmlContent = HTML_TAG_RE.test(text);
   const htmlScopeClass = useMemo(() => {
     const suffix = message.id.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -1260,8 +1280,8 @@ export const ChatMessage = memo(function ChatMessage({
   }, [message.id]);
 
   const renderedContent = useMemo(() => {
-    return renderContent(text, dialogueColor, speakerColorMap, boldDialogue, htmlScopeClass);
-  }, [text, dialogueColor, speakerColorMap, boldDialogue, htmlScopeClass]);
+    return renderContent(text, dialogueColor, speakerColorMap, boldDialogue, htmlScopeClass, quoteFormat);
+  }, [text, dialogueColor, speakerColorMap, boldDialogue, htmlScopeClass, quoteFormat]);
 
   const handleCopy = () => {
     copyToClipboard(message.content);
@@ -1296,7 +1316,9 @@ export const ChatMessage = memo(function ChatMessage({
   };
   const compactAvatarCrop: AvatarCropValue | null = isUser
     ? (personaAvatarCrop ?? null)
-    : (charInfo?.avatarCrop ?? null);
+    : expressionAvatarUrl
+      ? null
+      : (charInfo?.avatarCrop ?? null);
   const compactAvatarCropStyle: React.CSSProperties = useCompactRectangleAvatar
     ? rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle)
     : avatarCropStyle;
@@ -1313,7 +1335,9 @@ export const ChatMessage = memo(function ChatMessage({
   const compactAvatarIconSize = useCompactRectangleAvatar
     ? `${Math.max(1, Math.min(1.75, 1.125 * roleplayAvatarScale))}rem`
     : `${Math.max(0.875, Math.min(1.5, roleplayAvatarScale))}rem`;
+  const hideRoleplayAvatar = isRoleplay && roleplayAvatarStyle === "none";
   const showRoleplayAvatarPanel = isRoleplay && roleplayAvatarStyle === "panel" && !isGrouped;
+  const showCompactAvatar = !isGrouped && !showRoleplayAvatarPanel && !hideRoleplayAvatar;
   const roleplayAvatarPanelTail = showRoleplayAvatarPanel ? (
     isMergedGroup && mergedAvatars.length > 0 ? (
       <div className="rpg-avatar-panel-tail absolute inset-0 pointer-events-none overflow-hidden">
@@ -1527,7 +1551,7 @@ export const ChatMessage = memo(function ChatMessage({
             </div>
           )}
           {/* Avatar Column */}
-          {!isGrouped && !showRoleplayAvatarPanel && (
+          {showCompactAvatar && (
             <div className="mari-message-avatar flex flex-col items-center flex-shrink-0 pt-1">
               {isMergedGroup && mergedAvatars.length > 0 ? (
                 <button
@@ -1604,7 +1628,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Spacer if grouped (no avatar) */}
-          {isGrouped && <div className={cn("flex-shrink-0", compactAvatarSpacerClass)} />}
+          {isGrouped && !hideRoleplayAvatar && <div className={cn("flex-shrink-0", compactAvatarSpacerClass)} />}
 
           {/* Content */}
           <div

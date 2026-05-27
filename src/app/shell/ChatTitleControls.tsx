@@ -97,7 +97,7 @@ export function ChatTitleControls({
         <img
           src="/sprites/mari/Mari_profile.png"
           alt=""
-          className="h-[1.125rem] w-[1.125rem] rounded-md object-cover"
+          className="mari-titlebar-avatar-icon rounded-[0.2rem] object-cover"
           draggable={false}
         />
         {professorMariOpen && (

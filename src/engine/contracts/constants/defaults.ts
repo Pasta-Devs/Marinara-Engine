@@ -21,6 +21,7 @@ export const DEFAULT_GENERATION_PARAMS: GenerationParameters = {
   presencePenalty: 0,
   reasoningEffort: null,
   verbosity: null,
+  serviceTier: null,
   assistantPrefill: "",
   customParameters: {},
   squashSystemMessages: true,

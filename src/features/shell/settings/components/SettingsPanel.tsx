@@ -7,6 +7,7 @@ import {
   getTrackerPanelWidthForProfile,
   useUIStore,
   type GameDialogueDisplayMode,
+  type QuoteFormat,
   type RoleplayAvatarStyle,
   type TrackerDataPanelSection,
   type TrackerPanelSizeProfile,
@@ -151,6 +152,11 @@ const ADMIN_SECRET_STORAGE_KEY = "marinara-admin-secret";
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
+    id: "none",
+    label: "None",
+    desc: "Hide roleplay message avatars for the cleanest reading layout.",
+  },
+  {
     id: "circles",
     label: "Small Circles",
     desc: "Compact portrait bubbles beside each roleplay message.",
@@ -178,6 +184,11 @@ const GAME_DIALOGUE_DISPLAY_OPTIONS: Array<{ id: GameDialogueDisplayMode; label:
     label: "History Above VN",
     desc: "Shows prior segments above the VN box and keeps the full session scrollable there.",
   },
+];
+
+const QUOTE_FORMAT_OPTIONS: Array<{ id: QuoteFormat; label: string; sample: string }> = [
+  { id: "straight", label: "Straight", sample: '"Hello", it\'s me.' },
+  { id: "typographic", label: "Typographic", sample: "\u201cHello,\u201d it\u2019s me." },
 ];
 
 const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{ id: TrackerPanelSizeProfile; label: string; desc: string }> = [
@@ -724,6 +735,8 @@ function GeneralSettings() {
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
   const setBoldDialogue = useUIStore((s) => s.setBoldDialogue);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
+  const setQuoteFormat = useUIStore((s) => s.setQuoteFormat);
   const trimIncompleteModelOutput = useUIStore((s) => s.trimIncompleteModelOutput);
   const setTrimIncompleteModelOutput = useUIStore((s) => s.setTrimIncompleteModelOutput);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
@@ -1013,6 +1026,35 @@ function GeneralSettings() {
         }
       />
 
+      <div className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+        <div className="flex items-center gap-2">
+          <span className="text-xs">Quote style</span>
+          <HelpTooltip text="Choose how straight and smart quotation marks are unified in chat inputs and displayed AI output." />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {QUOTE_FORMAT_OPTIONS.map((option) => {
+            const active = quoteFormat === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setQuoteFormat(option.id)}
+                className={cn(
+                  "flex min-w-0 flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all ring-1",
+                  active
+                    ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/35"
+                    : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                )}
+              >
+                <span className="font-medium">{option.label}</span>
+                <span className="max-w-full truncate text-[0.625rem] opacity-80">{option.sample}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <ToggleSetting
         label="Trim incomplete model endings"
         checked={trimIncompleteModelOutput}
@@ -1199,6 +1241,8 @@ function AppearanceSettings() {
   const setVisualTheme = useUIStore((s) => s.setVisualTheme);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const setChatBackgroundRaw = useUIStore((s) => s.setChatBackground);
+  const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const updateMeta = useUpdateChatMetadata();
   // Persist background changes to the active chat's metadata immediately so
@@ -1627,7 +1671,14 @@ function AppearanceSettings() {
               )}
             >
               <div className="w-full overflow-hidden rounded-md bg-[var(--secondary)]/80 ring-1 ring-[var(--border)]/70">
-                {opt.id === "circles" ? (
+                {opt.id === "none" ? (
+                  <div className="flex h-14 items-center px-3">
+                    <div className="flex-1 rounded-2xl bg-black/25 px-3 py-2">
+                      <div className="h-1.5 w-16 rounded-full bg-white/20" />
+                      <div className="mt-1.5 h-1.5 w-24 rounded-full bg-white/12" />
+                    </div>
+                  </div>
+                ) : opt.id === "circles" ? (
                   <div className="flex h-14 items-center px-3">
                     <div className="relative flex-1 rounded-2xl rounded-tl-sm bg-black/25 px-3 py-2">
                       <div className="absolute left-2 top-2 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-rose-400 to-orange-300 shadow-[0_0_0_2px_rgba(255,255,255,0.16)]" />
@@ -1666,28 +1717,30 @@ function AppearanceSettings() {
         <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 ring-1 ring-[var(--border)]/70 sm:w-28">
-              <div
-                className={cn(
-                  "mb-2 border border-white/20 bg-gradient-to-b from-rose-300/85 via-fuchsia-300/65 to-slate-900/90 shadow-lg transition-all",
-                  roleplayAvatarStyle === "circles"
-                    ? "rounded-full"
-                    : roleplayAvatarStyle === "rectangles"
-                      ? "rounded-xl"
-                      : "rounded-md",
-                )}
-                style={{
-                  width: `${
-                    roleplayAvatarStyle === "panel"
-                      ? Math.min(5.5, 2.2 * roleplayAvatarScale)
-                      : Math.min(5.5, (roleplayAvatarStyle === "rectangles" ? 2.15 : 2) * roleplayAvatarScale)
-                  }rem`,
-                  height: `${
+              {roleplayAvatarStyle !== "none" && (
+                <div
+                  className={cn(
+                    "mb-2 border border-white/20 bg-gradient-to-b from-rose-300/85 via-fuchsia-300/65 to-slate-900/90 shadow-lg transition-all",
                     roleplayAvatarStyle === "circles"
-                      ? Math.min(5.5, 2 * roleplayAvatarScale)
-                      : Math.min(6, (roleplayAvatarStyle === "rectangles" ? 2.7 : 3.4) * roleplayAvatarScale)
-                  }rem`,
-                }}
-              />
+                      ? "rounded-full"
+                      : roleplayAvatarStyle === "rectangles"
+                        ? "rounded-xl"
+                        : "rounded-md",
+                  )}
+                  style={{
+                    width: `${
+                      roleplayAvatarStyle === "panel"
+                        ? Math.min(5.5, 2.2 * roleplayAvatarScale)
+                        : Math.min(5.5, (roleplayAvatarStyle === "rectangles" ? 2.15 : 2) * roleplayAvatarScale)
+                    }rem`,
+                    height: `${
+                      roleplayAvatarStyle === "circles"
+                        ? Math.min(5.5, 2 * roleplayAvatarScale)
+                        : Math.min(6, (roleplayAvatarStyle === "rectangles" ? 2.7 : 3.4) * roleplayAvatarScale)
+                    }rem`,
+                  }}
+                />
+              )}
               <div
                 className="mb-1 rounded-full border border-white/20 bg-gradient-to-b from-violet-200/85 via-purple-200/70 to-slate-900/95 shadow-lg transition-all"
                 style={{
@@ -1705,9 +1758,10 @@ function AppearanceSettings() {
                     min={0.75}
                     max={2.5}
                     step={0.05}
+                    disabled={roleplayAvatarStyle === "none"}
                     value={roleplayAvatarScale}
                     onChange={(e) => setRoleplayAvatarScale(Number(e.target.value))}
-                    className="min-w-0 flex-1 accent-[var(--primary)]"
+                    className="min-w-0 flex-1 accent-[var(--primary)] disabled:opacity-50"
                   />
                   <span className="w-12 text-right text-xs tabular-nums text-[var(--muted-foreground)]">
                     {Math.round(roleplayAvatarScale * 100)}%
@@ -1977,6 +2031,26 @@ function AppearanceSettings() {
           )}
         </div>
         <BackgroundPicker selected={chatBackground} onSelect={setChatBackground} />
+        <label className="flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3">
+          <span className="text-[0.6875rem] font-medium inline-flex items-center gap-1">
+            Background Blur
+            <HelpTooltip text="Softens the selected roleplay background image behind the chat. Set to 0px for a sharp background." />
+          </span>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={24}
+              step={1}
+              value={chatBackgroundBlur}
+              onChange={(e) => setChatBackgroundBlur(Number(e.target.value))}
+              className="flex-1 accent-[var(--primary)]"
+            />
+            <span className="w-10 text-right text-xs tabular-nums text-[var(--muted-foreground)]">
+              {chatBackgroundBlur}px
+            </span>
+          </div>
+        </label>
       </div>
     </div>
   );

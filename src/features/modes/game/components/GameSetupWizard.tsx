@@ -1161,7 +1161,11 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading, charac
                 </button>
                 {customizeParameters && (
                   <div className="mt-3 border-t border-[var(--border)] pt-3">
-                    <GenerationParametersFields value={generationParameters} onChange={setGenerationParameters} />
+                    <GenerationParametersFields
+                      value={generationParameters}
+                      onChange={setGenerationParameters}
+                      showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
+                    />
                   </div>
                 )}
               </div>

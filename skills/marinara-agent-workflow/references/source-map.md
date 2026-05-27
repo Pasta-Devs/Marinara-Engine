@@ -14,7 +14,7 @@ This map explains how source files connect to this repo-local skill.
 - `workflows/vault-capture.md` -> `references/workflows/durable-notes.md`
 - `REFACTOR_HANDOFF.md` -> `references/workflows/refactor-handoff.md`
 
-These cards are source-derived but rewritten where needed so they do not assume a root `CHANGELOG.md`, `.agents/automation` helpers, legacy `staging` workflow, issue templates, labels, or Obsidian vaults.
+These cards are source-derived but rewritten where needed so they do not assume a root `CHANGELOG.md`, `.agents/automation` helpers, legacy `staging` workflow, missing templates, missing labels, or Obsidian vaults.
 
 ## Imported As Templates
 
@@ -42,7 +42,10 @@ The JSON and PR proof templates are kept source-shaped. `status-snippets.md` is 
 ## Local Repo Assumptions
 
 - Repo instruction authority: `AGENTS.md`.
+- Additive workflow overlay: `.github/agents/chai-workflow.md`.
+- PR body source: `.github/pull_request_template.md`.
+- Issue templates: `.github/ISSUE_TEMPLATE/issue_report.md` and `.github/ISSUE_TEMPLATE/feature_request.md`.
 - Architecture docs: `docs/developer/architecture.html`, `modules.html`, and `impact-areas.html`.
 - Durable bug/work tracking: GitHub issues and PRs, not repo-local update files.
 - Current refactor workflow target: `Pasta-Devs/Marinara-Engine`, branch `refactor`.
-- No root `CHANGELOG.md`, no `.agents/automation/scripts`, and no `.github/ISSUE_TEMPLATE` directory were present during import.
+- No root `CHANGELOG.md` and no `.agents/automation/scripts` are present in this checkout.

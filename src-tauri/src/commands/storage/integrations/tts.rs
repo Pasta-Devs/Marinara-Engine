@@ -109,6 +109,7 @@ fn default_config() -> Value {
         "apiKey": "",
         "voice": "alloy",
         "model": "tts-1",
+        "audioFormat": "mp3",
         "speed": 1.0,
         "elevenLabsStability": 0.5,
         "elevenLabsLanguageCode": "",
@@ -314,6 +315,12 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
     let tone = body.get("tone").and_then(Value::as_str);
     let speaker = body.get("speaker").and_then(Value::as_str);
     let use_nano_gpt = is_nano_gpt_base_url(&base);
+    let audio_format = if source == "elevenlabs" {
+        "mp3"
+    } else {
+        normalized_audio_format(&config)
+    };
+    let fallback_content_type = audio_format_content_type(audio_format);
     let url = if use_nano_gpt {
         format!("{}/audio/speech", nano_gpt_v1_base_url(&base))
     } else if source == "pockettts" {
@@ -340,7 +347,8 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
     let request = if source == "pockettts" {
         let form = reqwest::multipart::Form::new()
             .text("text", provider_text)
-            .text("voice_url", voice.to_string());
+            .text("voice_url", voice.to_string())
+            .text("output_format", audio_format.to_string());
         client
             .post(url)
             .headers(optional_bearer_headers(api_key)?)
@@ -373,7 +381,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
             "input": provider_text,
             "voice": if voice.trim().is_empty() { "alloy" } else { voice },
             "speed": speed,
-            "response_format": "mp3"
+            "response_format": audio_format
         });
         if let Some(instructions) = instructions {
             payload["instructions"] = json!(instructions);
@@ -395,7 +403,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
-        .unwrap_or("audio/mpeg")
+        .unwrap_or(fallback_content_type)
         .to_string();
     let bytes = response
         .bytes()
@@ -428,8 +436,29 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
     }
     Ok(json!({
         "audioBase64": general_purpose::STANDARD.encode(bytes),
-        "contentType": if content_type.starts_with("audio/") { content_type } else { "audio/mpeg".to_string() }
+        "contentType": if content_type.starts_with("audio/") { content_type } else { fallback_content_type.to_string() }
     }))
+}
+
+fn normalized_audio_format(config: &Value) -> &'static str {
+    match config
+        .get("audioFormat")
+        .and_then(Value::as_str)
+        .unwrap_or("mp3")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "wav" => "wav",
+        _ => "mp3",
+    }
+}
+
+fn audio_format_content_type(format: &str) -> &'static str {
+    match format {
+        "wav" => "audio/wav",
+        _ => "audio/mpeg",
+    }
 }
 
 fn configured_base_url(config: &Value) -> String {

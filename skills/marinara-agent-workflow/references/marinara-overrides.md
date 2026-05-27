@@ -49,9 +49,18 @@ Never push directly to protected branches or force-push without explicit approva
 
 ## Issue Templates And Labels
 
-This repo currently has no issue templates under `.github`. If templates or labels are absent, draft honest issue text without pretending template fields or labels exist.
+This repo currently has issue templates under `.github/ISSUE_TEMPLATE`:
+
+- `.github/ISSUE_TEMPLATE/issue_report.md`
+- `.github/ISSUE_TEMPLATE/feature_request.md`
+
+Use the active template that matches the request. If templates or labels are absent in a future checkout, draft honest issue text without pretending template fields or labels exist.
 
 When labels are available, apply only labels from the live repo label list. Leave uncertain labels off.
+
+## PR Template
+
+The active pull request template is `.github/pull_request_template.md`. Read it before drafting a PR body, preserve its sections, leave human verification checkboxes unchecked, and make the linked-issue/closing-keyword field explicit when a PR is intended to close an issue on merge.
 
 ## UI And Evidence
 

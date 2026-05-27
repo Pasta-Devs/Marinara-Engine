@@ -12,6 +12,9 @@ export type TTSDialogueScope = z.infer<typeof ttsDialogueScopeSchema>;
 export const ttsVoiceModeSchema = z.enum(["single", "per-character"]);
 export type TTSVoiceMode = z.infer<typeof ttsVoiceModeSchema>;
 
+export const ttsAudioFormatSchema = z.enum(["mp3", "wav"]);
+export type TTSAudioFormat = z.infer<typeof ttsAudioFormatSchema>;
+
 export const ttsVoiceAssignmentSchema = z.object({
   characterId: z.string().default(""),
   characterName: z.string().default(""),
@@ -107,6 +110,7 @@ export const ttsConfigSchema = z.object({
   narratorVoiceEnabled: z.boolean().default(false),
   narratorVoice: z.string().default(""),
   model: z.string().default("tts-1"),
+  audioFormat: ttsAudioFormatSchema.default("mp3"),
   /** 0.25 – 4.0 */
   speed: z.number().min(0.25).max(4.0).default(1.0),
   /** ElevenLabs only: 0.0 = more expressive/creative, 1.0 = more stable/robust */

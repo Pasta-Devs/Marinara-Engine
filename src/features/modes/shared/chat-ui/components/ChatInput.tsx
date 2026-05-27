@@ -34,6 +34,7 @@ import {
 } from "../../../../../shared/lib/slash-commands";
 import { createInputMacroResolverForChat, isPromptPreviewMacro } from "../../../../../shared/lib/chat-macros";
 import { parseChatMetadata } from "../../../../../shared/lib/chat-display";
+import { formatTextQuotes } from "../../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../../shared/lib/utils";
 import { translateDraftText } from "../../../../../shared/lib/draft-translation";
 import { EmojiPicker } from "../../../../../shared/components/ui/EmojiPicker";
@@ -104,9 +105,6 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-// Normalize curly/smart quotes to straight quotes (hoisted to avoid recreation)
-const normalizeQuotes = (s: string) => s.replace(/["\u201C\u201D\u201E\u201F]/g, '"').replace(/[\u2018\u2019]/g, "'");
-
 interface ChatInputProps {
   mode?: "conversation" | "roleplay";
   characterNames?: string[];
@@ -169,6 +167,7 @@ export const ChatInput = memo(function ChatInput({
   const showQuickReplyGuide = useUIStore((s) => s.showQuickReplyGuide);
   const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
   const createMessage = useCreateMessage(activeChatId);
   const deleteMessage = useDeleteMessage(activeChatId);
   const updateMessageExtra = useUpdateMessageExtra(activeChatId);
@@ -494,7 +493,7 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
 
-    const normalized = normalizeQuotes(raw.trim());
+    const normalized = formatTextQuotes(raw.trim(), quoteFormat);
 
     if (isPromptPreviewMacro(normalized)) {
       if (textareaRef.current) {
@@ -650,6 +649,7 @@ export const ChatInput = memo(function ChatInput({
     setInputDraft,
     completions,
     onPeekPrompt,
+    quoteFormat,
   ]);
 
   const runQuickSlashCommand = useCallback(
@@ -721,10 +721,10 @@ export const ChatInput = memo(function ChatInput({
       toast.info("Clear or send attachments before using quick impersonate.");
       return;
     }
-    const text = textareaRef.current?.value?.trim() ?? "";
+    const text = formatTextQuotes(textareaRef.current?.value?.trim() ?? "", quoteFormat);
     if (!text) return;
     await runQuickSlashCommand(`/impersonate ${text}`, "Impersonate failed");
-  }, [activeChatId, isStreaming, hasPendingAttachments, runQuickSlashCommand]);
+  }, [activeChatId, isStreaming, hasPendingAttachments, quoteFormat, runQuickSlashCommand]);
 
   const handlePostOnlyButton = useCallback(async () => {
     if (!activeChatId || isStreaming) return;
@@ -743,7 +743,7 @@ export const ChatInput = memo(function ChatInput({
       draftTimerRef.current = null;
     }
 
-    const normalized = normalizeQuotes(raw.trim());
+    const normalized = formatTextQuotes(raw.trim(), quoteFormat);
     const chat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
@@ -843,6 +843,7 @@ export const ChatInput = memo(function ChatInput({
     createMessage,
     deleteMessage,
     updateMessageExtra,
+    quoteFormat,
   ]);
 
   const handleGuidedGenerationButton = useCallback(async () => {
@@ -855,10 +856,10 @@ export const ChatInput = memo(function ChatInput({
       toast.info("Clear or send attachments before using guided generation.");
       return;
     }
-    const text = textareaRef.current?.value?.trim() ?? "";
+    const text = formatTextQuotes(textareaRef.current?.value?.trim() ?? "", quoteFormat);
     if (!text) return;
     await runQuickSlashCommand(`/guided ${text}`, "Guided generation failed");
-  }, [activeChatId, isStreaming, requiresManualGuideTarget, hasPendingAttachments, runQuickSlashCommand]);
+  }, [activeChatId, isStreaming, requiresManualGuideTarget, hasPendingAttachments, quoteFormat, runQuickSlashCommand]);
 
   const quickReplyActions = useMemo<QuickReplyAction[]>(() => {
     const actions: QuickReplyAction[] = [];
@@ -981,7 +982,7 @@ export const ChatInput = memo(function ChatInput({
     if (!el) return;
     // Normalize smart quotes directly in the DOM
     const raw = el.value;
-    const fixed = normalizeQuotes(raw);
+    const fixed = formatTextQuotes(raw, quoteFormat);
     if (raw !== fixed) {
       const pos = el.selectionStart;
       el.value = fixed;
@@ -1131,16 +1132,17 @@ export const ChatInput = memo(function ChatInput({
     try {
       const translated = await translateDraftText(raw);
       if (!translated || !textareaRef.current) return;
-      textareaRef.current.value = translated;
+      const formatted = formatTextQuotes(translated, quoteFormat);
+      textareaRef.current.value = formatted;
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
-      syncInputState(translated);
-      setInputDraft(activeChatId, translated);
+      syncInputState(formatted);
+      setInputDraft(activeChatId, formatted);
       textareaRef.current.focus();
     } finally {
       setIsTranslatingDraft(false);
     }
-  }, [activeChatId, isTranslatingDraft, setInputDraft, syncInputState]);
+  }, [activeChatId, isTranslatingDraft, quoteFormat, setInputDraft, syncInputState]);
 
   const handleSpeechTranscript = useCallback(
     (transcript: string) => {
@@ -1152,7 +1154,7 @@ export const ChatInput = memo(function ChatInput({
       const after = el.value.slice(end);
       const prefix = before && !/\s$/.test(before) ? " " : "";
       const suffix = after && !/^\s/.test(after) ? " " : "";
-      const nextValue = `${before}${prefix}${transcript}${suffix}${after}`;
+      const nextValue = formatTextQuotes(`${before}${prefix}${transcript}${suffix}${after}`, quoteFormat);
       const nextCursor = before.length + prefix.length + transcript.length;
 
       el.value = nextValue;
@@ -1163,7 +1165,7 @@ export const ChatInput = memo(function ChatInput({
       if (activeChatId) setInputDraft(activeChatId, nextValue);
       el.focus();
     },
-    [activeChatId, setInputDraft, syncInputState],
+    [activeChatId, quoteFormat, setInputDraft, syncInputState],
   );
 
   return (

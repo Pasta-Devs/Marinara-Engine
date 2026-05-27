@@ -327,6 +327,9 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
   if (source.verbosity === null || ["low", "medium", "high"].includes(String(source.verbosity))) {
     out.verbosity = source.verbosity as StoredGenerationParameters["verbosity"];
   }
+  if (source.serviceTier === null || ["flex", "priority"].includes(String(source.serviceTier))) {
+    out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
+  }
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;
   if (isPlainRecord(source.customParameters)) {
     out.customParameters = source.customParameters;
@@ -345,6 +348,22 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
     out.stopSequences = source.stopSequences;
   }
   return Object.keys(out).length > 0 ? out : null;
+}
+
+export function mergeStoredGenerationParameters(...sources: Array<unknown>): StoredGenerationParameters | null {
+  const merged: StoredGenerationParameters = {};
+
+  for (const source of sources) {
+    const parsed = parseStoredGenerationParameters(source);
+    if (!parsed) continue;
+    const { customParameters, ...rest } = parsed;
+    Object.assign(merged, rest);
+    if (customParameters) {
+      merged.customParameters = mergeCustomParameters(merged.customParameters, customParameters);
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
 /**

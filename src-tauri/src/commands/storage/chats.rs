@@ -1,4 +1,5 @@
 use super::game_state_snapshots;
+use super::prompts;
 use super::shared::*;
 use super::*;
 use crate::builtins::is_protected_record;
@@ -52,6 +53,104 @@ fn lexical_memory_embedding(text: &str) -> Vec<f64> {
         }
     }
     vector
+}
+
+struct MemoryEmbeddingContext {
+    connection_id: String,
+    connection: Value,
+    model: String,
+}
+
+struct MemoryEmbeddingResult {
+    embedding: Vec<f64>,
+    source: &'static str,
+    connection_id: Option<String>,
+    model: Option<String>,
+}
+
+fn configured_embedding_model(connection: &Value) -> Option<String> {
+    connection
+        .get("embeddingModel")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn memory_embedding_context_from_connection(
+    connection_id: String,
+    mut connection: Value,
+) -> Option<MemoryEmbeddingContext> {
+    let model = configured_embedding_model(&connection)?;
+    if let Some(object) = connection.as_object_mut() {
+        object.insert("model".to_string(), Value::String(model.clone()));
+    }
+    Some(MemoryEmbeddingContext {
+        connection_id,
+        connection,
+        model,
+    })
+}
+
+fn memory_embedding_context(state: &AppState, chat: &Value) -> Option<MemoryEmbeddingContext> {
+    if let Some(connection_id) = chat
+        .get("connectionId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Ok((embedding_connection_id, connection)) =
+            prompts::resolve_embedding_connection_for_id(state, connection_id)
+        {
+            if let Some(context) =
+                memory_embedding_context_from_connection(embedding_connection_id, connection)
+            {
+                return Some(context);
+            }
+        }
+    }
+
+    prompts::resolve_default_embedding_connection(state)
+        .ok()
+        .and_then(|(connection_id, connection)| {
+            memory_embedding_context_from_connection(connection_id, connection)
+        })
+}
+
+async fn embed_memory_content(
+    context: Option<&MemoryEmbeddingContext>,
+    content: &str,
+) -> AppResult<MemoryEmbeddingResult> {
+    if let Some(context) = context {
+        return Ok(MemoryEmbeddingResult {
+            embedding: prompts::embed_text(&context.connection, &context.model, content).await?,
+            source: "provider",
+            connection_id: Some(context.connection_id.clone()),
+            model: Some(context.model.clone()),
+        });
+    }
+    Ok(MemoryEmbeddingResult {
+        embedding: lexical_memory_embedding(content),
+        source: "lexical",
+        connection_id: None,
+        model: None,
+    })
+}
+
+fn insert_memory_embedding_fields(memory: &mut Map<String, Value>, result: MemoryEmbeddingResult) {
+    memory.insert("embedding".to_string(), json!(result.embedding));
+    memory.insert("hasEmbedding".to_string(), json!(true));
+    memory.insert("embeddingStatus".to_string(), json!("vectorized"));
+    memory.insert("embeddingSource".to_string(), json!(result.source));
+    if let Some(connection_id) = result.connection_id {
+        memory.insert(
+            "embeddingConnectionId".to_string(),
+            Value::String(connection_id),
+        );
+    }
+    if let Some(model) = result.model {
+        memory.insert("embeddingModel".to_string(), Value::String(model));
+    }
 }
 
 fn is_hidden_from_ai(message: &Value) -> bool {
@@ -304,39 +403,55 @@ pub(crate) fn delete_chat_array_item(
     set_chat_array_field(state, chat_id, field, values)
 }
 
-pub(crate) fn refresh_chat_memories(state: &AppState, chat_id: &str) -> AppResult<Value> {
-    get_required(state, "chats", chat_id)?;
+pub(crate) async fn refresh_chat_memories(state: &AppState, chat_id: &str) -> AppResult<Value> {
+    let chat = get_required(state, "chats", chat_id)?;
+    let embedding_context = memory_embedding_context(state, &chat);
     let visible_messages = messages_for_chat(state, chat_id)?
         .into_iter()
         .filter(|message| !is_hidden_from_ai(message) && !message_content(message).is_empty())
         .collect::<Vec<_>>();
     let now = now_iso();
-    let chunks = visible_messages
-        .chunks(MEMORY_CHUNK_SIZE)
-        .map(|chunk| {
-            let content = chunk
-                .iter()
-                .map(|message| {
-                    let role = message.get("role").and_then(Value::as_str).unwrap_or("message");
-                    format!("{role}: {}", message_content(message))
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            let embedding = lexical_memory_embedding(&content);
-            json!({
-                "id": new_id(),
-                "chatId": chat_id,
-                "content": content,
-                "embedding": embedding,
-                "messageCount": chunk.len(),
-                "firstMessageAt": chunk.first().and_then(|message| message.get("createdAt")).cloned().unwrap_or(Value::Null),
-                "lastMessageAt": chunk.last().and_then(|message| message.get("createdAt")).cloned().unwrap_or(Value::Null),
-                "createdAt": now,
-                "hasEmbedding": true,
-                "embeddingStatus": "vectorized"
+    let mut chunks = Vec::new();
+    for chunk in visible_messages.chunks(MEMORY_CHUNK_SIZE) {
+        let content = chunk
+            .iter()
+            .map(|message| {
+                let role = message
+                    .get("role")
+                    .and_then(Value::as_str)
+                    .unwrap_or("message");
+                format!("{role}: {}", message_content(message))
             })
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut memory = Map::new();
+        memory.insert("id".to_string(), Value::String(new_id()));
+        memory.insert("chatId".to_string(), Value::String(chat_id.to_string()));
+        memory.insert("content".to_string(), Value::String(content.clone()));
+        memory.insert("messageCount".to_string(), json!(chunk.len()));
+        memory.insert(
+            "firstMessageAt".to_string(),
+            chunk
+                .first()
+                .and_then(|message| message.get("createdAt"))
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
+        memory.insert(
+            "lastMessageAt".to_string(),
+            chunk
+                .last()
+                .and_then(|message| message.get("createdAt"))
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
+        memory.insert("createdAt".to_string(), Value::String(now.clone()));
+        insert_memory_embedding_fields(
+            &mut memory,
+            embed_memory_content(embedding_context.as_ref(), &content).await?,
+        );
+        chunks.push(Value::Object(memory));
+    }
     state
         .storage
         .patch("chats", chat_id, json!({ "memories": chunks }))?;
@@ -363,12 +478,13 @@ pub(crate) fn export_chat_memories(state: &AppState, chat_id: &str) -> AppResult
     }))
 }
 
-pub(crate) fn import_chat_memories(
+pub(crate) async fn import_chat_memories(
     state: &AppState,
     chat_id: &str,
     body: Value,
 ) -> AppResult<Value> {
-    get_required(state, "chats", chat_id)?;
+    let chat = get_required(state, "chats", chat_id)?;
+    let embedding_context = memory_embedding_context(state, &chat);
     let incoming = body
         .get("data")
         .and_then(|data| data.get("chunks"))
@@ -425,18 +541,14 @@ pub(crate) fn import_chat_memories(
             .and_then(Value::as_array)
             .is_some_and(|items| items.iter().any(Value::is_number));
         if !has_embedding {
-            memory.insert(
-                "embedding".to_string(),
-                Value::Array(
-                    lexical_memory_embedding(content)
-                        .into_iter()
-                        .map(|value| json!(value))
-                        .collect(),
-                ),
+            insert_memory_embedding_fields(
+                &mut memory,
+                embed_memory_content(embedding_context.as_ref(), content).await?,
             );
+        } else {
+            memory.insert("hasEmbedding".to_string(), json!(true));
+            memory.insert("embeddingStatus".to_string(), json!("vectorized"));
         }
-        memory.insert("hasEmbedding".to_string(), json!(true));
-        memory.insert("embeddingStatus".to_string(), json!("vectorized"));
         memories.push(Value::Object(memory));
         imported += 1;
     }
@@ -850,6 +962,63 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp chat delete dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn memory_embedding_context_prefers_dedicated_embedding_connection() {
+        let state = test_state("memory-embedding-context");
+        let chat = state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-a",
+                    "name": "Chat",
+                    "connectionId": "chat-connection"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat connection",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": "embedding-connection"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "embedding-connection",
+                    "name": "Embeddings",
+                    "provider": "custom",
+                    "model": "chat-model",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .unwrap();
+
+        let context = memory_embedding_context(&state, &chat).unwrap();
+
+        assert_eq!(context.connection_id, "embedding-connection");
+        assert_eq!(context.model, "text-embedding-3-small");
+    }
+
+    #[tokio::test]
+    async fn embed_memory_content_uses_lexical_fallback_without_context() {
+        let result = embed_memory_content(None, "alpha beta").await.unwrap();
+
+        assert_eq!(result.source, "lexical");
+        assert_eq!(result.embedding.len(), MEMORY_EMBEDDING_DIMS);
+        assert!(result.connection_id.is_none());
+        assert!(result.model.is_none());
     }
 
     #[test]

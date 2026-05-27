@@ -775,6 +775,7 @@ export const gameApi = {
     characterConnectionId?: string;
     promptPresetId?: string;
     chatId?: string;
+    folderId?: string | null;
     partyCharacterIds?: string[];
   }): Promise<CreateGameResponse> {
     const gameId = newId("game");
@@ -795,6 +796,7 @@ export const gameApi = {
       mode: "game",
       characterIds: data.partyCharacterIds ?? chatPatch.characterIds ?? [],
       personaId: data.setupConfig.personaId ?? null,
+      folderId: data.folderId ?? null,
       connectionId: data.connectionId ?? null,
       metadata: {
         gameId,
@@ -904,13 +906,21 @@ export const gameApi = {
   async startGame(data: { chatId: string }): Promise<StartGameResponse> {
     const chat = await getChat(data.chatId);
     const meta = chatMeta(chat);
+    const sessionStatus = typeof meta.gameSessionStatus === "string" ? meta.gameSessionStatus : "ready";
     const recentMessages = await listMessages(data.chatId, 40).catch(() => []);
     const hasExistingGmTurn = recentMessages.some((message) => {
       if (message.role !== "assistant") return false;
       if (typeof message.content !== "string" || !message.content.trim()) return false;
       return asRecord(message.extra).hiddenFromAi !== true;
     });
-    if (meta.gameSessionStatus === "active" && hasExistingGmTurn) {
+    if (sessionStatus === "active" && hasExistingGmTurn) {
+      return { status: "active", alreadyStarted: true };
+    }
+    if (sessionStatus !== "ready" && sessionStatus !== "active") {
+      throw new Error(`Cannot start game: status is "${sessionStatus}", expected "ready"`);
+    }
+    if (hasExistingGmTurn) {
+      await patchChatMetadata(data.chatId, { gameSessionStatus: "active" });
       return { status: "active", alreadyStarted: true };
     }
     await patchChatMetadata(data.chatId, { gameSessionStatus: "active", gameActiveState: "exploration" });
@@ -953,6 +963,7 @@ export const gameApi = {
       mode: "game",
       characterIds: Array.isArray(previousChat?.characterIds) ? previousChat.characterIds : [],
       personaId: previousChat?.personaId ?? null,
+      folderId: previousChat?.folderId ?? null,
       connectionId: data.connectionId ?? previousChat?.connectionId ?? null,
       ...gameStateCarryoverPatch(previousChat, sessionChatId),
       metadata: {

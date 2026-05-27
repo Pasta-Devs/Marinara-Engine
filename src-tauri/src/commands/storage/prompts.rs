@@ -8,14 +8,9 @@ pub(crate) async fn vectorize_lorebook(
     body: Value,
 ) -> AppResult<Value> {
     let connection_id = required_string(&body, "connectionId")?;
-    let mut connection = get_required(state, "connections", connection_id)?;
-    let model = body
-        .get("model")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| connection.get("embeddingModel").and_then(Value::as_str))
-        .ok_or_else(|| AppError::invalid_input("Embedding model is required"))?
-        .to_string();
+    let (embedding_connection_id, mut connection) =
+        resolve_embedding_connection_for_id(state, connection_id)?;
+    let model = embedding_model(&connection, body.get("model").and_then(Value::as_str))?;
     if let Some(object) = connection.as_object_mut() {
         object.insert("model".to_string(), Value::String(model.clone()));
     }
@@ -84,7 +79,7 @@ pub(crate) async fn vectorize_lorebook(
             json!({
                 "embedding": embedding,
                 "embeddingModel": model,
-                "embeddingConnectionId": connection_id,
+                "embeddingConnectionId": embedding_connection_id,
                 "embeddingUpdatedAt": now_iso()
             }),
         )?;
@@ -98,6 +93,77 @@ pub(crate) async fn vectorize_lorebook(
         "vectorized": vectorized,
         "skipped": skipped
     }))
+}
+
+pub(crate) fn resolve_embedding_connection_for_id(
+    state: &AppState,
+    connection_id: &str,
+) -> AppResult<(String, Value)> {
+    let connection = get_required(state, "connections", connection_id)?;
+    if let Some(embedding_connection_id) = connection
+        .get("embeddingConnectionId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Ok((
+            embedding_connection_id.to_string(),
+            get_required(state, "connections", embedding_connection_id)?,
+        ));
+    }
+    Ok((connection_id.to_string(), connection))
+}
+
+pub(crate) fn resolve_default_embedding_connection(state: &AppState) -> AppResult<(String, Value)> {
+    let connections = state.storage.list("connections")?;
+    let selected = connections
+        .iter()
+        .find(|connection| {
+            connection
+                .get("isDefault")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+                && has_embedding_model(connection)
+        })
+        .or_else(|| {
+            connections
+                .iter()
+                .find(|connection| has_embedding_model(connection))
+        })
+        .or_else(|| {
+            connections.iter().find(|connection| {
+                connection
+                    .get("isDefault")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            })
+        })
+        .or_else(|| connections.first())
+        .ok_or_else(|| AppError::invalid_input("No embedding connection is configured"))?;
+    let connection_id = selected
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AppError::invalid_input("Embedding connection is missing an id"))?;
+    resolve_embedding_connection_for_id(state, connection_id)
+}
+
+pub(crate) fn embedding_model(connection: &Value, explicit: Option<&str>) -> AppResult<String> {
+    explicit
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| connection.get("embeddingModel").and_then(Value::as_str))
+        .or_else(|| connection.get("model").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| AppError::invalid_input("Embedding model is required"))
+}
+
+fn has_embedding_model(connection: &Value) -> bool {
+    connection
+        .get("embeddingModel")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
 }
 
 pub(crate) fn value_string_array(value: Option<&Value>) -> Vec<String> {
@@ -141,7 +207,7 @@ fn is_excluded_from_vectorization(row: &Value) -> bool {
         .unwrap_or(false)
 }
 
-async fn embed_text(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
+pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
     let provider = connection
         .get("provider")
         .and_then(Value::as_str)
@@ -265,10 +331,17 @@ fn json_embedding_array(value: &Value) -> Option<Vec<f64>> {
 
 fn embedding_base_url(connection: &Value, fallback: &str) -> String {
     connection
-        .get("baseUrl")
+        .get("embeddingBaseUrl")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .or_else(|| {
+            connection
+                .get("baseUrl")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
         .unwrap_or(fallback)
         .trim_end_matches('/')
         .to_string()
@@ -355,6 +428,98 @@ mod tests {
                 }),
             )
             .expect("entry should be created");
+    }
+
+    #[test]
+    fn embedding_base_url_prefers_embedding_specific_url() {
+        let connection = json!({
+            "baseUrl": "https://chat.example/v1/",
+            "embeddingBaseUrl": "https://embeddings.example/v1/"
+        });
+
+        assert_eq!(
+            embedding_base_url(&connection, "https://fallback.example/v1"),
+            "https://embeddings.example/v1"
+        );
+    }
+
+    #[test]
+    fn resolve_embedding_connection_follows_dedicated_connection() {
+        let state = test_state("dedicated-embedding-connection");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": "embedding-connection"
+                }),
+            )
+            .expect("chat connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "embedding-connection",
+                    "name": "Embeddings",
+                    "provider": "custom",
+                    "model": "chat-model",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("embedding connection should insert");
+
+        let (id, connection) =
+            resolve_embedding_connection_for_id(&state, "chat-connection").unwrap();
+
+        assert_eq!(id, "embedding-connection");
+        assert_eq!(
+            embedding_model(&connection, None).unwrap(),
+            "text-embedding-3-small"
+        );
+    }
+
+    #[test]
+    fn resolve_default_embedding_connection_prefers_default_embedding_model() {
+        let state = test_state("default-embedding-connection");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "isDefault": true
+                }),
+            )
+            .expect("chat connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "embedding-connection",
+                    "name": "Embeddings",
+                    "provider": "custom",
+                    "model": "chat-model",
+                    "embeddingModel": "local-embedding"
+                }),
+            )
+            .expect("embedding connection should insert");
+
+        let (id, connection) = resolve_default_embedding_connection(&state).unwrap();
+
+        assert_eq!(id, "embedding-connection");
+        assert_eq!(
+            embedding_model(&connection, None).unwrap(),
+            "local-embedding"
+        );
     }
 
     #[tokio::test]

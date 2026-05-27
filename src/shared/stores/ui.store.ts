@@ -3,6 +3,7 @@
 // --------------------------------------------------
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeQuoteFormat } from "../lib/dialogue-quotes";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
@@ -36,6 +37,7 @@ import type {
   GameDialogueDisplayMode,
   HudPosition,
   Panel,
+  QuoteFormat,
   RoleplayAvatarStyle,
   TrackerPanelSizeProfile,
   TrackerPanelSide,
@@ -78,6 +80,7 @@ export type {
   GameSetupRememberedText,
   HudPosition,
   Panel,
+  QuoteFormat,
   RoleplayAvatarStyle,
   SummaryPopoverSettings,
   SummaryPopoverSourceMode,
@@ -115,6 +118,7 @@ export const useUIStore = create<UIState>()(
       modal: null,
       theme: "dark" as const,
       chatBackground: null,
+      chatBackgroundBlur: 0,
       characterDetailId: null,
       lorebookDetailId: null,
       presetDetailId: null,
@@ -162,6 +166,7 @@ export const useUIStore = create<UIState>()(
       confirmBeforeDelete: true,
       messagesPerPage: 20,
       boldDialogue: true,
+      quoteFormat: "straight" as QuoteFormat,
       trimIncompleteModelOutput: false,
       speechToTextEnabled: false,
       spotifyPlayerEnabled: false,
@@ -285,6 +290,8 @@ export const useUIStore = create<UIState>()(
       closeModal: () => set({ modal: null }),
       setTheme: (theme) => set({ theme }),
       setChatBackground: (url) => set({ chatBackground: url }),
+      setChatBackgroundBlur: (v) =>
+        set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(Number.isFinite(v) ? v : 0))) }),
       openCharacterDetail: (id) =>
         set(openDetailRouteState({ characterDetailId: id })),
       closeCharacterDetail: () => set({ characterDetailId: null, editorDirty: false }),
@@ -413,6 +420,7 @@ export const useUIStore = create<UIState>()(
       setConfirmBeforeDelete: (v) => set({ confirmBeforeDelete: v }),
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
+      setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),

@@ -1,6 +1,9 @@
+import { Copy } from "lucide-react";
+import { toast } from "sonner";
 import type { MessageExtra } from "../../../../../engine/contracts/types/chat";
 import { stripGenerationGuideInstruction } from "../../../../../engine/shared/text/generation-guide";
 import { Modal } from "../../../../../shared/components/ui/Modal";
+import { copyToClipboard } from "../../../../../shared/lib/utils";
 
 type GenerationReplay = NonNullable<MessageExtra["generationReplay"]>;
 type GuideSource = NonNullable<GenerationReplay["generationGuideSource"]>;
@@ -35,10 +38,42 @@ function guideLabel(source: GenerationReplay["generationGuideSource"]): string {
   return source && source in GUIDE_SOURCE_LABELS ? GUIDE_SOURCE_LABELS[source as GuideSource] : "Stored guidance";
 }
 
-function TextBlock({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+function TextBlock({
+  label,
+  value,
+  muted = false,
+  copyValue,
+  copyLabel = "Copy",
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  copyValue?: string | null;
+  copyLabel?: string;
+}) {
+  const handleCopy = async () => {
+    if (!copyValue) return;
+    const ok = await copyToClipboard(copyValue);
+    toast[ok ? "success" : "error"](ok ? "Copied to clipboard." : "Clipboard copy failed.");
+  };
+
   return (
     <section className="space-y-1.5">
-      <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">{label}</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[0.75rem] font-semibold uppercase tracking-normal text-[var(--muted-foreground)]">
+          {label}
+        </h3>
+        {copyValue && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+          >
+            <Copy size="0.75rem" />
+            {copyLabel}
+          </button>
+        )}
+      </div>
       <pre
         className={`max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-2 text-[0.8125rem] leading-relaxed ${
           muted ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]"
@@ -81,12 +116,23 @@ export function GenerationReplayDetailsModal({
     (storedText(replay?.impersonatePresetId) ||
       storedText(replay?.impersonateConnectionId) ||
       replay?.impersonateBlockAgents === true);
+  const guidedCopyCommand =
+    generationGuide &&
+    !hasImpersonate &&
+    (replay?.generationGuideSource === "narrator" || replay?.generationGuideSource === "guide")
+      ? `/guided ${generationGuide.trim()}`
+      : null;
 
   return (
     <Modal open={open} onClose={onClose} title="Stored guidance" width="max-w-xl">
       <div className="space-y-5">
         {generationGuide && !hasImpersonate && (
-          <TextBlock label={guideLabel(replay?.generationGuideSource)} value={generationGuide} />
+          <TextBlock
+            label={guideLabel(replay?.generationGuideSource)}
+            value={generationGuide}
+            copyValue={guidedCopyCommand}
+            copyLabel="Copy /guided"
+          />
         )}
 
         {hasImpersonate && (

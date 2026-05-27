@@ -35,12 +35,9 @@ type UseChatTimelineActionsOptions = {
 };
 
 function readMessageExtra(message: MessageWithSwipes): Record<string, any> {
-  if (typeof message.extra !== "string") return (message.extra ?? {}) as Record<string, any>;
-  try {
-    return JSON.parse(message.extra);
-  } catch {
-    return {};
-  }
+  return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
+    ? (message.extra as Record<string, any>)
+    : {};
 }
 
 export function useChatTimelineActions({

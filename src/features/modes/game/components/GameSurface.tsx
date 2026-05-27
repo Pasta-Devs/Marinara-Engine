@@ -58,6 +58,7 @@ import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { gameAssetFileUrlFromPath, userBackgroundUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
+import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { audioManager } from "../lib/game-audio";
@@ -1654,6 +1655,8 @@ export function GameSurface({
   const gameMiddleMouseNav = useUIStore((s) => s.gameMiddleMouseNav);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
+  const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
   const { patchField: patchVisibleGameStateField, flushPatch: flushVisibleGameStatePatch } = useGameStatePatcher(
     activeChatId,
@@ -4513,11 +4516,11 @@ export function GameSurface({
         chatId: activeChatId,
         connectionId: null,
         kind: "turn",
-        userMessage: message,
+        userMessage: formatTextQuotes(message, quoteFormat),
         ...(attachments?.length ? { attachments } : {}),
       });
     },
-    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn],
+    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn, quoteFormat],
   );
 
   // Game mutations
@@ -7497,6 +7500,7 @@ export function GameSurface({
         <DirectionEngine
           directions={activeDirections}
           backgroundUrl={displayedBackground ?? undefined}
+          backgroundBlurPx={chatBackgroundBlur}
           onPlayingChange={(playing) => {
             setDirectionsPlaying(playing);
             // When intro cinematic finishes, clear the flag

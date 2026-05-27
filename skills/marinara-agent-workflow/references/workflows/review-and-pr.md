@@ -15,7 +15,7 @@ If the user asks for a review without specifying the type, default to code-revie
 Before push or PR creation:
 
 1. Check dirty tree and include only intentional files.
-2. Verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
+2. Read `CONTRIBUTING.md` and verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
 3. Confirm only intentional files will ship.
 4. Verify evidence exists for the PR claim.
 5. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
@@ -24,6 +24,8 @@ Before push or PR creation:
 8. Draft external text exactly.
 
 Open new PRs as draft unless the user or target workflow says it should be ready for review. Never push directly to protected branches or force-push without explicit approval.
+
+For new implementation work on the refactor line, start from current `origin/refactor` on a fresh topic branch unless the user explicitly says to continue the current branch.
 
 ## After Push
 

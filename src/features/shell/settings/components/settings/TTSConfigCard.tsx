@@ -23,7 +23,13 @@ import { useCharacters } from "../../../../catalog/characters/index";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
-import type { TTSConfig, TTSSource, TTSVoiceAssignment, TTSVoiceMode } from "../../../../../engine/contracts/types/tts";
+import type {
+  TTSAudioFormat,
+  TTSConfig,
+  TTSSource,
+  TTSVoiceAssignment,
+  TTSVoiceMode,
+} from "../../../../../engine/contracts/types/tts";
 import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "../../../../../engine/contracts/types/tts";
 import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
 
@@ -293,6 +299,7 @@ export function TTSConfigCard() {
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("tts-1");
   const [voice, setVoice] = useState("alloy");
+  const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
   const [narratorVoiceEnabled, setNarratorVoiceEnabled] = useState(false);
   const [narratorVoice, setNarratorVoice] = useState("");
   const [voiceMode, setVoiceMode] = useState<TTSVoiceMode>("single");
@@ -337,6 +344,7 @@ export function TTSConfigCard() {
     setApiKey(savedConfig.apiKey); // masked value from server
     setModel(savedConfig.model);
     setVoice(savedConfig.voice);
+    setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setNarratorVoiceEnabled(savedConfig.narratorVoiceEnabled ?? false);
     setNarratorVoice(savedConfig.narratorVoice ?? "");
     setVoiceMode(savedConfig.voiceMode ?? "single");
@@ -382,6 +390,7 @@ export function TTSConfigCard() {
     apiKey: apiKey === TTS_API_KEY_MASK ? TTS_API_KEY_MASK : apiKey,
     model,
     voice,
+    audioFormat,
     narratorVoiceEnabled,
     narratorVoice,
     voiceMode,
@@ -443,6 +452,7 @@ export function TTSConfigCard() {
     setApiKey(nextApiKey);
     setModel(defaults.model);
     setVoice(defaults.voice);
+    setAudioFormat("mp3");
     setNarratorVoiceEnabled(false);
     setNarratorVoice(defaults.voice);
     setVoiceMode("single");
@@ -457,6 +467,7 @@ export function TTSConfigCard() {
       apiKey: nextApiKey,
       model: defaults.model,
       voice: defaults.voice,
+      audioFormat: "mp3",
       narratorVoiceEnabled: false,
       narratorVoice: defaults.voice,
       voiceMode: "single",
@@ -812,6 +823,26 @@ export function TTSConfigCard() {
               </>
             )}
           </FieldRow>
+
+          {source !== "elevenlabs" && (
+            <FieldRow
+              label="Audio Format"
+              help="Output audio format. WAV is useful for local or self-hosted TTS servers that do not support MP3."
+            >
+              <select
+                value={audioFormat}
+                onChange={(e) => {
+                  const nextFormat = e.target.value as TTSAudioFormat;
+                  setAudioFormat(nextFormat);
+                  mark({ audioFormat: nextFormat });
+                }}
+                className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
+              >
+                <option value="mp3">MP3</option>
+                <option value="wav">WAV</option>
+              </select>
+            </FieldRow>
+          )}
 
           {/* Voice assignment mode */}
           <FieldRow

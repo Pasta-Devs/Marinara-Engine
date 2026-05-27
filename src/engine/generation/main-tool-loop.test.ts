@@ -796,12 +796,10 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(noArgsCall!.arguments).toBe("{}");
   });
 
-  it("legacy script custom-tool (executionType=script) is filtered out of LLM toolDefs (refactor #1353)", async () => {
-    // A legacy profile import can leave script-type custom-tool rows on disk. The
-    // refactor desktop runtime has no JS sandbox; customToolRecord must drop them
-    // from the LLM-visible tool set so the AI never tries to invoke them. Use an
-    // open allowlist (activeToolIds: []) so the built-in tools keep the result
-    // non-empty even when the script tool is dropped.
+  it("script custom tools are exposed to the LLM when the Tauri TypeScript runtime can execute them", async () => {
+    // Profile imports can leave script-type custom-tool rows on disk. The Tauri
+    // Rust storage layer preserves those rows, while the TypeScript generation
+    // runtime executes script tools locally.
     const { deps } = makeStubDeps({
       chatMetadata: { enableTools: true, activeToolIds: [] },
       customTools: [
@@ -826,7 +824,7 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     });
     expect(built).not.toBeNull();
     const names = built!.toolDefs.map((tool) => tool.name);
-    expect(names).not.toContain("legacy_calc");
+    expect(names).toContain("legacy_calc");
   });
 
   it("usage is aggregated across multi-turn tool-call loops, not overwritten by the last turn", async () => {

@@ -174,6 +174,8 @@ export interface GenerationParameters {
   reasoningEffort: "low" | "medium" | "high" | "maximum" | null;
   /** Output verbosity for models that support it (GPT-5+) */
   verbosity: "low" | "medium" | "high" | null;
+  /** Optional OpenRouter service tier. */
+  serviceTier: "flex" | "priority" | null;
   /** Optional assistant-role prefill appended after the final user message. */
   assistantPrefill: string;
   /** Raw provider request parameters merged into the outgoing request body. */

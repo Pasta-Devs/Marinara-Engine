@@ -6,8 +6,9 @@ import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { activeCharacterIds, assertChatHasActiveCharacters, assertRequestedCharacterIsActive } from "./active-characters";
+import { persistSecretPlotAgentMemory } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
-import { persistConnectedCommandTags } from "./connected-commands";
+import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
 import type { LLMToolCall } from "../generation-core/llm/base-provider";
 import {
   buildMainToolDefinitions,
@@ -37,7 +38,17 @@ import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-ass
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
-import { boolish, hiddenFromAi, isRecord, nowIso, parseRecord, readString, stringArray, type JsonRecord } from "./runtime-records";
+import {
+  boolish,
+  hiddenFromAi,
+  isRecord,
+  nowIso,
+  parseRecord,
+  readNumber,
+  readString,
+  stringArray,
+  type JsonRecord,
+} from "./runtime-records";
 import {
   commitTrackerSnapshotForTarget,
   createTrackerSnapshotReadContext,
@@ -107,6 +118,20 @@ const CONTINUE_ASSISTANT_RESPONSE_INSTRUCTION =
 
 function inputUserMessage(input: StartGenerationInput): string {
   return readString(input.message) || readString(input.userMessage);
+}
+
+function generationEmbeddingSource(llm: LlmGateway, connection: JsonRecord) {
+  if (!llm.embed) return null;
+  const connectionId = readString(connection.id).trim() || null;
+  const model = readString(connection.embeddingModel).trim() || null;
+  return {
+    embed: (texts: string[]) =>
+      llm.embed!({
+        texts,
+        connectionId,
+        model,
+      }),
+  };
 }
 
 function inputAttachments(input: StartGenerationInput): PromptAttachment[] {
@@ -333,6 +358,12 @@ function requestMessages(input: StartGenerationInput): LlmMessage[] | null {
     .filter((message) => message.content.length > 0);
 }
 
+function generationMessageLoadOptions(input: StartGenerationInput): Parameters<StorageGateway["listChatMessages"]>[1] {
+  if (readString(input.regenerateMessageId).trim()) return undefined;
+  const historyLimit = Math.max(1, Math.min(300, readNumber(input.historyLimit, 80)));
+  return { limit: Math.max(40, Math.min(340, historyLimit + 20)) };
+}
+
 function withImageAttachments(messages: LlmMessage[], images: string[]): LlmMessage[] {
   if (images.length === 0 || messages.length === 0) return messages;
   const next = messages.map((message) => ({ ...message }));
@@ -452,6 +483,27 @@ function resultKey(result: AgentResult): string {
   return `${result.agentId}:${result.agentType}:${result.type}:${JSON.stringify(result.data)}`;
 }
 
+function uniqueAgentResults(results: AgentResult[]): AgentResult[] {
+  const unique = new Map<string, AgentResult>();
+  for (const result of results) {
+    unique.set(resultKey(result), result);
+  }
+  return [...unique.values()];
+}
+
+async function agentNameLookup(storage: StorageGateway): Promise<Map<string, string>> {
+  const lookup = new Map<string, string>();
+  for (const agent of await storage.list<JsonRecord>("agents").catch(() => [])) {
+    const name = readString(agent.name).trim();
+    if (!name) continue;
+    const id = readString(agent.id).trim();
+    const type = readString(agent.type || agent.agentType).trim();
+    if (id) lookup.set(id, name);
+    if (type) lookup.set(type, name);
+  }
+  return lookup;
+}
+
 async function persistAgentResults(
   storage: StorageGateway,
   chatId: string,
@@ -459,6 +511,7 @@ async function persistAgentResults(
   results: AgentResult[],
 ): Promise<void> {
   const seen = new Set<string>();
+  const agentNames = await agentNameLookup(storage);
   for (const result of results) {
     const key = resultKey(result);
     if (seen.has(key)) continue;
@@ -466,8 +519,10 @@ async function persistAgentResults(
     await storage.create("agent-runs", {
       chatId,
       messageId,
+      agentConfigId: result.agentId,
       agentId: result.agentId,
       agentType: result.agentType,
+      agentName: agentNames.get(result.agentId) ?? agentNames.get(result.agentType) ?? result.agentType,
       resultType: result.type,
       resultData: result.data as never,
       success: result.success,
@@ -476,6 +531,18 @@ async function persistAgentResults(
       durationMs: result.durationMs,
       createdAt: nowIso(),
     });
+  }
+}
+
+async function persistSecretPlotAgentMemorySafely(
+  storage: StorageGateway,
+  chatId: string,
+  results: AgentResult[],
+): Promise<void> {
+  try {
+    await persistSecretPlotAgentMemory(storage, chatId, results);
+  } catch (error) {
+    console.warn("[generation] secret plot memory persist failed", error);
   }
 }
 
@@ -746,6 +813,7 @@ async function runGenerationAgentsForTarget(args: {
     connection,
     request: input,
     latestUserInput: "",
+    embeddingSource: generationEmbeddingSource(deps.llm, connection),
   });
   const results: AgentResult[] = [];
   const runtime = await createGenerationAgentRuntime(
@@ -777,6 +845,7 @@ async function runGenerationAgentsForTarget(args: {
   if (target) {
     await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
   }
+  await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
   return finalResults;
 }
@@ -857,9 +926,10 @@ export async function* startGeneration(
   yield { type: "phase", data: "Saving message..." };
   const preparedUserInput = await prepareUserInput(deps.storage, input);
   const savesUserMessage = shouldSaveUserMessage(input, preparedUserInput);
+  const messageLoadOptions = generationMessageLoadOptions(input);
   let storedMessages: JsonRecord[] | null = null;
   if (savesUserMessage) {
-    storedMessages = await loadChatMessages(deps.storage, chatId);
+    storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
     await commitVisibleTrackerSnapshotSafely(deps.storage, chatId, storedMessages);
   }
   const savedUserMessage = await saveUserMessage(deps.storage, input, preparedUserInput);
@@ -869,9 +939,9 @@ export async function* startGeneration(
     const savedTimelineMessage = savedUserMessageForTimeline(savedUserMessage, chatId);
     storedMessages = savedTimelineMessage
       ? [...(storedMessages ?? []), savedTimelineMessage]
-      : await loadChatMessages(deps.storage, chatId);
+      : await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   } else {
-    storedMessages = await loadChatMessages(deps.storage, chatId);
+    storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   }
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
   const generationTrackerBaseline = await selectGenerationTrackerBaseline(
@@ -894,6 +964,7 @@ export async function* startGeneration(
     connection,
     request: input,
     latestUserInput: preparedUserInput.content || inputUserMessage(input),
+    embeddingSource: generationEmbeddingSource(deps.llm, connection),
   });
   mirrorSavedUserMessageToDiscord({ deps, chat, input, prepared: preparedUserInput, persona: assembly.persona });
 
@@ -931,7 +1002,9 @@ export async function* startGeneration(
       request: input,
       latestUserInput: preparedUserInput.content || inputUserMessage(input),
       agentData: runtime?.agentData,
+      embeddingSource: generationEmbeddingSource(deps.llm, connection),
     });
+    await consumePendingConnectedInfluences(deps.storage, chatForGeneration);
     prompt = withImageAttachments(
       [
         ...assembly.messages,
@@ -959,6 +1032,8 @@ export async function* startGeneration(
       deps,
       connection,
       input,
+      chat: chatForGeneration,
+      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
       baseMessages,
       mainTools,
       toolRuntimeInput,
@@ -968,10 +1043,12 @@ export async function* startGeneration(
 
     const parallelResults = await parallelAgents;
     const postResults = runtime ? await runtime.runPost(content) : [];
-    for (const result of [...parallelResults, ...postResults, ...agentEvents]) {
+    const emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+    for (const result of emittedAgentResults) {
       yield { type: "agent_result", data: result };
     }
-    const allAgentResults = [...(runtime?.preResults ?? []), ...parallelResults, ...postResults, ...agentEvents];
+    agentEvents.length = 0;
+    const allAgentResults = uniqueAgentResults([...(runtime?.preResults ?? []), ...emittedAgentResults]);
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     const connected = await persistConnectedCommandTags(
       deps.storage,
@@ -1007,6 +1084,7 @@ export async function* startGeneration(
       });
     }
     if (saved) await persistTrackerSnapshotSafely(deps.storage, chatId, saved, allAgentResults, generationTrackerBaseline);
+    await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
     await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
     if (saved) {
       const autoLorebookResults = await runLorebookKeeperBackfill(
@@ -1050,6 +1128,8 @@ export async function* startGeneration(
     deps,
     connection,
     input,
+    chat: chatForGeneration,
+    parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
     baseMessages: baseMessagesDirect,
     mainTools: mainToolsDirect,
     toolRuntimeInput: toolRuntimeInputDirect,
@@ -1142,12 +1222,14 @@ async function* streamMainGenerationLoop(args: {
   deps: GenerationEngineDeps;
   connection: JsonRecord;
   input: StartGenerationInput;
+  chat: JsonRecord;
+  parameters: Record<string, unknown>;
   baseMessages: LlmMessage[];
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
 }): AsyncGenerator<GenerationEvent, { content: string; usage: unknown }> {
-  const { deps, connection, input, baseMessages, mainTools, toolRuntimeInput, signal } = args;
+  const { deps, connection, input, parameters, baseMessages, mainTools, toolRuntimeInput, signal } = args;
   let content = "";
   const usages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
@@ -1163,7 +1245,7 @@ async function* streamMainGenerationLoop(args: {
         connectionId: readString(connection.id) || input.connectionId,
         model: readString(connection.model) || undefined,
         messages: conversation,
-        parameters: llmParameters(connection, input),
+        parameters,
         tools: mainTools?.toolDefs,
       },
       signal,

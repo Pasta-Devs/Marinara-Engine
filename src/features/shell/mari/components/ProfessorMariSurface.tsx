@@ -28,7 +28,7 @@ const MARI_CONNECTION_SETUP_CONTENT =
   "Oh, whoops! Looks like you're trying to talk to me without having a model connection set up yet. I'm afraid I need the sweet GPU juice to run. Let me take you to the Connections tab first…";
 const MARI_NO_CONNECTION_SELECTED_ERROR =
   'No connection set for this chat! Click the "chains" icon in the input box to select one.';
-const MARI_INPUT_PLACEHOLDER = "Message @Professor Mari, /reset to reset the conversation";
+const MARI_INPUT_PLACEHOLDER = "Message @Professor Mari, /reset to reset the conversation and only then clear it";
 
 type MariAttachment = {
   id: string;
@@ -122,8 +122,11 @@ export function ProfessorMariSurface() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const persistedConnectionIdRef = useRef<ProfessorMariPreferences["selectedConnectionId"] | undefined>(undefined);
+  const persistedPersonaIdRef = useRef<ProfessorMariPreferences["selectedPersonaId"] | undefined>(undefined);
   const connectionSelectionTouchedRef = useRef(false);
-  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !sending && historyLoaded;
+  const personaSelectionTouchedRef = useRef(false);
+  const preferencesReady = preferencesLoaded;
+  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !sending && historyLoaded && preferencesReady;
   const connections = useMemo(
     () =>
       filterLanguageGenerationConnections((rawConnections ?? []) as MariConnection[]).sort((a, b) =>
@@ -179,7 +182,10 @@ export function ProfessorMariSurface() {
     }),
     [],
   );
-  const visibleMessages = useMemo(() => (messages.length > 0 ? messages : [welcomeMessage]), [messages, welcomeMessage]);
+  const visibleMessages = useMemo(() => {
+    if (!historyLoaded) return [];
+    return messages.length > 0 ? messages : [welcomeMessage];
+  }, [historyLoaded, messages, welcomeMessage]);
   const conversationMessages = useMemo(() => visibleMessages.map(toConversationMessage), [visibleMessages]);
 
   useEffect(() => {
@@ -214,13 +220,18 @@ export function ProfessorMariSurface() {
       .then((preferences) => {
         if (!active) return;
         persistedConnectionIdRef.current = preferences.selectedConnectionId;
+        persistedPersonaIdRef.current = preferences.selectedPersonaId;
         if (!connectionSelectionTouchedRef.current) {
           setSelectedConnectionId(preferences.selectedConnectionId);
+        }
+        if (!personaSelectionTouchedRef.current) {
+          setSelectedPersonaId(preferences.selectedPersonaId);
         }
       })
       .catch((error) => {
         if (!active) return;
         persistedConnectionIdRef.current = null;
+        persistedPersonaIdRef.current = null;
         setSendError(error instanceof Error ? error.message : "Professor Mari preferences could not be loaded.");
       })
       .finally(() => {
@@ -232,14 +243,22 @@ export function ProfessorMariSurface() {
   }, []);
 
   useEffect(() => {
-    if (!preferencesLoaded || persistedConnectionIdRef.current === selectedConnectionId) return;
+    if (
+      !preferencesLoaded ||
+      (persistedConnectionIdRef.current === selectedConnectionId && persistedPersonaIdRef.current === selectedPersonaId)
+    ) {
+      return;
+    }
     const nextConnectionId = selectedConnectionId;
+    const nextPersonaId = selectedPersonaId;
     persistedConnectionIdRef.current = nextConnectionId;
-    void mariApi.preferences.save({ selectedConnectionId: nextConnectionId }).catch((error) => {
+    persistedPersonaIdRef.current = nextPersonaId;
+    void mariApi.preferences.save({ selectedConnectionId: nextConnectionId, selectedPersonaId: nextPersonaId }).catch((error) => {
       persistedConnectionIdRef.current = undefined;
+      persistedPersonaIdRef.current = undefined;
       setSendError(error instanceof Error ? error.message : "Professor Mari preferences could not be saved.");
     });
-  }, [preferencesLoaded, selectedConnectionId]);
+  }, [preferencesLoaded, selectedConnectionId, selectedPersonaId]);
 
   useEffect(() => {
     if (!preferencesLoaded || rawConnections === undefined || !selectedConnectionId) return;
@@ -247,6 +266,13 @@ export function ProfessorMariSurface() {
       setSelectedConnectionId(null);
     }
   }, [connections, preferencesLoaded, rawConnections, selectedConnectionId]);
+
+  useEffect(() => {
+    if (!preferencesLoaded || rawPersonas === undefined || !selectedPersonaId) return;
+    if (!personas.some((persona) => persona.id === selectedPersonaId)) {
+      setSelectedPersonaId(null);
+    }
+  }, [personas, preferencesLoaded, rawPersonas, selectedPersonaId]);
 
   useEffect(() => {
     if (hasModelConnections) setConnectionSetupPromptOpen(false);
@@ -290,7 +316,7 @@ export function ProfessorMariSurface() {
 
   const send = async () => {
     const userMessage = draft.trim() || (attachments.length > 0 ? "[attachments]" : "");
-    if (!userMessage || sending || !historyLoaded) return;
+    if (!userMessage || sending || !historyLoaded || !preferencesReady) return;
     if (isMariResetCommand(userMessage)) {
       setDraft("");
       setAttachments([]);
@@ -404,18 +430,29 @@ export function ProfessorMariSurface() {
     setConnectionMenuOpen(false);
     setMobileMenuOpen(false);
   };
+  const selectPersona = (id: string | null) => {
+    personaSelectionTouchedRef.current = true;
+    setSelectedPersonaId(id);
+    setPersonaMenuOpen(false);
+    setMobileMenuOpen(false);
+  };
   const inputIconButtonClass =
     "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-foreground/60 transition-all hover:bg-foreground/10 hover:text-foreground active:scale-90";
   const activeInputIconButtonClass = "bg-foreground/10 text-foreground";
 
   return (
-    <section className="mari-chat-area relative flex h-full flex-col overflow-hidden" style={gradientStyle}>
+    <section
+      className="mari-chat-area relative flex h-full flex-col overflow-hidden"
+      style={gradientStyle}
+      aria-busy={!historyLoaded || sending}
+    >
       <div className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
         <div className="mari-professor-hero mx-auto flex w-full max-w-3xl justify-center px-4 pb-2 pt-5 sm:pt-7">
-          <ProfessorMariPixelScene active={sending} />
+          <ProfessorMariPixelScene active={sending || !historyLoaded} />
         </div>
 
         <div className="mx-auto w-full max-w-3xl px-0 pb-4 pt-1">
+          {!historyLoaded && <ProfessorMariLoadingState />}
           {conversationMessages.map((message, index) => {
             const previous = conversationMessages[index - 1];
             const showSeparator = !previous || getDayKey(previous.createdAt) !== getDayKey(message.createdAt);
@@ -468,11 +505,7 @@ export function ProfessorMariSurface() {
               selectedPersonaId={selectedPersonaId}
               mode={mobileMenuOpen ? "both" : connectionMenuOpen ? "connections" : "personas"}
               onSelectConnection={selectConnection}
-              onSelectPersona={(id) => {
-                setSelectedPersonaId(id);
-                setPersonaMenuOpen(false);
-                setMobileMenuOpen(false);
-              }}
+              onSelectPersona={selectPersona}
             />
           </div>
         )}
@@ -646,6 +679,20 @@ export function ProfessorMariSurface() {
         </div>
       </div>
     </section>
+  );
+}
+
+function ProfessorMariLoadingState() {
+  return (
+    <div className="flex justify-center px-4 py-6">
+      <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
+        <span className="relative flex h-2.5 w-2.5" aria-hidden>
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400/60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-400" />
+        </span>
+        Restoring Professor Mari...
+      </div>
+    </div>
   );
 }
 

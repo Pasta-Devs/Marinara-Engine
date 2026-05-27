@@ -14,6 +14,22 @@ export const llmApi: LlmGateway = {
     invokeTauri("llm_complete", {
       request,
     }),
+  embed: async (request) => {
+    const body = {
+      input: request.texts,
+      connectionId: request.connectionId ?? null,
+      model: request.model ?? null,
+    };
+    const response = await invokeTauri<{ data?: Array<{ embedding?: unknown }> }>("llm_embed", {
+      body,
+    });
+    const vectors = response.data?.map((item) =>
+      Array.isArray(item.embedding)
+        ? item.embedding.filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+        : [],
+    );
+    return vectors?.every((vector) => vector.length > 0) ? vectors : null;
+  },
   stream: async function* (request: LlmRequest, signal?: AbortSignal): AsyncGenerator<LlmChunk> {
     const streamId = createStreamId();
     const remoteTarget = remoteRuntimeTarget();

@@ -32,6 +32,7 @@ import {
   useChatSummaries,
   useDeleteChat,
   useDeleteChatGroup,
+  type BulkChatExportFormat,
 } from "../../features/catalog/chats/index";
 import {
   useChatFolders,
@@ -193,6 +194,7 @@ export function ChatSidebar({
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [lastActiveChatIdsByGroup, setLastActiveChatIdsByGroup] = useState<Map<string, string>>(() => new Map());
+  const [batchExportMenuOpen, setBatchExportMenuOpen] = useState(false);
 
   const toggleSelectChat = useCallback((chatId: string) => {
     setSelectedChatIds((prev) => {
@@ -206,6 +208,7 @@ export function ChatSidebar({
   const exitMultiSelect = useCallback(() => {
     setMultiSelectMode(false);
     setSelectedChatIds(new Set());
+    setBatchExportMenuOpen(false);
   }, []);
 
   // Exit multi-select when switching tabs
@@ -544,9 +547,9 @@ export function ChatSidebar({
     exitMultiSelect();
   }, [selectedChatIds, deleteChat, activeChatId, setActiveChatId, exitMultiSelect]);
 
-  const handleBatchExport = useCallback(async () => {
+  const handleBatchExport = useCallback(async (format: BulkChatExportFormat) => {
     if (selectedChatIds.size === 0) return;
-    await bulkExportChats.mutateAsync({ chatIds: Array.from(selectedChatIds) });
+    await bulkExportChats.mutateAsync({ chatIds: Array.from(selectedChatIds), format });
     exitMultiSelect();
   }, [selectedChatIds, bulkExportChats, exitMultiSelect]);
 
@@ -1114,14 +1117,34 @@ export function ChatSidebar({
                 Move
               </button>
             )}
-            <button
-              onClick={() => void handleBatchExport()}
-              disabled={selectedChatIds.size === 0 || bulkExportChats.isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--accent)] disabled:opacity-40"
-            >
-              <Download size="0.75rem" />
-              Export
-            </button>
+            <div className="relative flex flex-1">
+              <button
+                onClick={() => setBatchExportMenuOpen((open) => !open)}
+                disabled={selectedChatIds.size === 0 || bulkExportChats.isPending}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--accent)] disabled:opacity-40"
+              >
+                <Download size="0.75rem" />
+                Export
+              </button>
+              {batchExportMenuOpen && (
+                <div className="absolute bottom-full left-0 z-20 mb-2 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 shadow-xl">
+                  {[
+                    ["jsonl", "JSONL ZIP"],
+                    ["text", "Text ZIP"],
+                    ["native", "Native JSON"],
+                  ].map(([format, label]) => (
+                    <button
+                      key={format}
+                      type="button"
+                      onClick={() => void handleBatchExport(format as BulkChatExportFormat)}
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleBatchDelete}
               disabled={selectedChatIds.size === 0}

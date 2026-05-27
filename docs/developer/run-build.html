@@ -179,9 +179,37 @@
         <pre><code>http://127.0.0.1:8787</code></pre>
         <p>Check the server with:</p>
         <pre><code>curl http://127.0.0.1:8787/health</code></pre>
+        <p>
+          Legacy local-sidecar embedding clients can use the compatibility
+          endpoint at <code>/api/sidecar/v1/embeddings</code>. In the Tauri
+          refactor this route is backed by the configured Marinara embedding
+          connection, not by the old managed sidecar process. Pass
+          <code>connectionId</code> to target a specific connection, or configure
+          a connection with <code>embeddingModel</code> and
+          <code>embeddingBaseUrl</code> for local OpenAI-compatible, Ollama, or
+          provider embeddings.
+        </p>
+        <pre><code>curl http://127.0.0.1:8787/api/sidecar/v1/embeddings \
+  -H 'content-type: application/json' \
+  -d '{"connectionId":"your-connection-id","model":"text-embedding-3-small","input":"hello"}'</code></pre>
         <p>Override the bind address and data directory with:</p>
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
 MARINARA_DATA_DIR=/path/to/data</code></pre>
+        <p>
+          For prompt/model/connection troubleshooting, start the runtime with
+          <code>LOG_PRESET=prompt-connections</code>. This enables Rust LLM
+          prompt diagnostics and suppresses routine <code>/api/invoke</code>
+          request logs. To suppress routine request logs without prompt
+          diagnostics, set <code>LOG_DISABLE_REQUEST_LOGGING=true</code>.
+        </p>
+        <p>
+          Autonomous conversation scheduling is owned by the desktop/web client
+          pollers in the refactor architecture. The remote Rust runtime stores
+          autonomous unread state and serves the shared generation/storage APIs,
+          but it does not run a privileged background scheduler when no client is
+          connected. Keep a Marinara client open if autonomous messages should
+          continue to trigger.
+        </p>
         <p>
           Non-loopback clients fail closed unless the runtime has explicit
           access control. Configure <code>BASIC_AUTH_USER</code> and
@@ -190,7 +218,9 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
           <code>ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true</code> for trusted
           LAN/private-network access. Set <code>CORS_ORIGINS</code> or
           <code>CSRF_TRUSTED_ORIGINS</code> if your desktop client origin is not
-          one of the runtime defaults.
+          one of the runtime defaults. Use exact origins;
+          <code>CORS_ORIGINS=*</code> does not grant browser-origin trust for
+          mutating API requests.
         </p>
         <div class="callout">
           Remote-capable features must use the shared API HTTP pipeline:

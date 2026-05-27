@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useEncounterStore } from "../../../../shared/stores/encounter.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import { spriteApi } from "../../../../shared/api/image-generation-api";
+import { spriteKeys, type SpriteInfo } from "../../../catalog/characters/index";
 import {
+  type ExpressionAvatarResolver,
+  type MessageWithSwipes,
   NewChatConnectionGate,
   useChatMetadataSync,
   useChatOverlays,
@@ -23,6 +28,41 @@ type RoleplayModeRouteProps = {
   activeChatId: string;
   fallbackChatMode?: "roleplay" | "visual_novel";
 };
+
+function parseMessageExtraRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function normalizeMessageSpriteExpressions(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const expressions: Record<string, string> = {};
+  for (const [key, expression] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof expression !== "string") continue;
+    const trimmed = expression.trim();
+    if (key && trimmed) expressions[key] = trimmed;
+  }
+  return expressions;
+}
+
+function resolveExpressionAvatarSpriteUrl(sprites: SpriteInfo[] | undefined, expression: string): string | null {
+  const normalizedExpression = expression.trim().toLowerCase();
+  if (!normalizedExpression) return null;
+  const exact = (sprites ?? []).find(
+    (sprite) =>
+      !sprite.expression.toLowerCase().startsWith("full_") &&
+      sprite.expression.trim().toLowerCase() === normalizedExpression,
+  );
+  return exact?.url ?? null;
+}
 
 export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" }: RoleplayModeRouteProps) {
   const messagesPerPage = useUIStore((state) => state.messagesPerPage);
@@ -133,6 +173,42 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
   }));
   const isSceneChat = data.chatMeta.sceneStatus === "active" || Boolean(data.chatMeta.sceneOriginChatId);
   const isRoleplay = data.chatMode === "roleplay" || data.chatMode === "visual_novel";
+  const expressionAvatarsEnabled =
+    isRoleplay && data.chatMeta.expressionAvatarsEnabled === true && expressionAgentEnabled && data.chatCharIds.length > 0;
+  const expressionAvatarCharacterIds = useMemo(() => {
+    const configuredIds =
+      spriteState.spriteCharacterIds.length > 0
+        ? spriteState.spriteCharacterIds.filter((id) => data.chatCharIds.includes(id))
+        : data.chatCharIds;
+    return Array.from(new Set(configuredIds.filter((id) => typeof id === "string" && id.trim())));
+  }, [data.chatCharIds, spriteState.spriteCharacterIds]);
+  const expressionAvatarSpriteQueries = useQueries({
+    queries: expressionAvatarCharacterIds.map((characterId) => ({
+      queryKey: spriteKeys.list(characterId),
+      queryFn: () => spriteApi.list<SpriteInfo[]>(characterId),
+      enabled: expressionAvatarsEnabled,
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const expressionAvatarSpriteMap = useMemo(() => {
+    const map = new Map<string, SpriteInfo[]>();
+    expressionAvatarCharacterIds.forEach((characterId, index) => {
+      const sprites = expressionAvatarSpriteQueries[index]?.data;
+      if (Array.isArray(sprites) && sprites.length > 0) map.set(characterId, sprites);
+    });
+    return map;
+  }, [expressionAvatarCharacterIds, expressionAvatarSpriteQueries]);
+  const expressionAvatarResolver = useMemo<ExpressionAvatarResolver | undefined>(() => {
+    if (!expressionAvatarsEnabled) return undefined;
+    return (message: MessageWithSwipes, characterId: string) => {
+      const extra = parseMessageExtraRecord(message.extra);
+      const expressions = normalizeMessageSpriteExpressions(extra.spriteExpressions);
+      const characterName = data.characterMap.get(characterId)?.name;
+      const expression = expressions[characterId] ?? (characterName ? expressions[characterName] : undefined);
+      if (!expression) return null;
+      return resolveExpressionAvatarSpriteUrl(expressionAvatarSpriteMap.get(characterId), expression);
+    };
+  }, [data.characterMap, expressionAvatarSpriteMap, expressionAvatarsEnabled]);
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {
@@ -156,6 +232,8 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
         weatherEffects={weatherEffects}
         agentsUiEnabled={agentsUiEnabled}
         expressionAgentEnabled={expressionAgentEnabled}
+        expressionAvatarsEnabled={expressionAvatarsEnabled}
+        expressionAvatarResolver={expressionAvatarResolver}
         combatAgentEnabled={combatAgentEnabled}
         encounterActive={encounterActive}
         spritePosition={spriteState.spritePosition}

@@ -8,6 +8,7 @@ import {
   useState,
   useMemo,
   type ComponentProps,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -43,6 +44,7 @@ import { ActiveWorldInfoButton } from "../../../runtime/visuals/index";
 import type { SpriteDisplayMode } from "../../../runtime/visuals/sprite-display-modes";
 import type {
   CharacterMap,
+  ExpressionAvatarResolver,
   MessageSelectionToggle,
   MessageWithSwipes,
   PeekPromptData,
@@ -102,12 +104,28 @@ function WeatherEffectsConnected() {
   );
 }
 
-function CrossfadeBackground({ url, className }: { url: string | null; className?: string }) {
+function CrossfadeBackground({
+  url,
+  className,
+  blurPx = 0,
+}: {
+  url: string | null;
+  className?: string;
+  blurPx?: number;
+}) {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(url);
   const [bgA, setBgA] = useState<string | null>(url);
   const [bgB, setBgB] = useState<string | null>(null);
   const [aActive, setAActive] = useState(true);
   const activeSlot = useRef<"a" | "b">("a");
+  const safeBlurPx = Math.max(0, Math.min(24, Number.isFinite(blurPx) ? blurPx : 0));
+  const blurStyle: CSSProperties =
+    safeBlurPx > 0
+      ? {
+          filter: `blur(${safeBlurPx}px)`,
+          transform: `scale(${1 + safeBlurPx / 120})`,
+        }
+      : {};
 
   useEffect(() => {
     let cancelled = false;
@@ -149,14 +167,14 @@ function CrossfadeBackground({ url, className }: { url: string | null; className
           "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
           className,
         )}
-        style={{ backgroundImage: bgA ? `url(${bgA})` : "none", opacity: aActive ? 1 : 0 }}
+        style={{ ...blurStyle, backgroundImage: bgA ? `url(${bgA})` : "none", opacity: aActive ? 1 : 0 }}
       />
       <div
         className={cn(
           "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
           className,
         )}
-        style={{ backgroundImage: bgB ? `url(${bgB})` : "none", opacity: aActive ? 0 : 1 }}
+        style={{ ...blurStyle, backgroundImage: bgB ? `url(${bgB})` : "none", opacity: aActive ? 0 : 1 }}
       />
     </>
   );
@@ -169,6 +187,7 @@ function StreamingIndicator({
   personaInfo,
   chatMode,
   groupChatMode,
+  expressionAvatarResolver,
 }: {
   activeChatId: string;
   chatCharIds: string[];
@@ -176,9 +195,10 @@ function StreamingIndicator({
   personaInfo?: PersonaInfo;
   chatMode: string;
   groupChatMode?: string;
+  expressionAvatarResolver?: ExpressionAvatarResolver;
 }) {
-  const streamBuffer = useChatStore((s) => s.streamBuffer);
-  const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
+  const streamBuffer = useChatStore((s) => s.streamBuffers.get(activeChatId) ?? s.streamBuffer);
+  const thinkingBuffer = useChatStore((s) => s.thinkingBuffers.get(activeChatId) ?? s.thinkingBuffer);
   const streamingCharacterId = useChatStore((s) => s.streamingCharacterId);
 
   return (
@@ -206,6 +226,7 @@ function StreamingIndicator({
         chatMode={chatMode}
         groupChatMode={groupChatMode}
         chatCharacterIds={chatCharIds}
+        expressionAvatarResolver={expressionAvatarResolver}
       />
     </div>
   );
@@ -217,8 +238,8 @@ function RegeneratingMessageContent({
 }: {
   msg: MessageWithSwipes;
 } & Omit<ComponentProps<typeof ChatMessage>, "message" | "isStreaming">) {
-  const streamBuffer = useChatStore((s) => s.streamBuffer);
-  const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
+  const streamBuffer = useChatStore((s) => s.streamBuffers.get(msg.chatId) ?? s.streamBuffer);
+  const thinkingBuffer = useChatStore((s) => s.thinkingBuffers.get(msg.chatId) ?? s.thinkingBuffer);
   // Strip old-swipe attachments so a previous illustration doesn't linger
   // while the new swipe's text is streaming in.
   const parsedExtra = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
@@ -485,6 +506,8 @@ type RoleplaySurfaceProps = {
   weatherEffects: boolean;
   agentsUiEnabled: boolean;
   expressionAgentEnabled: boolean;
+  expressionAvatarsEnabled: boolean;
+  expressionAvatarResolver?: ExpressionAvatarResolver;
   combatAgentEnabled: boolean;
   encounterActive: boolean;
   spritePosition: SpriteSide;
@@ -586,6 +609,8 @@ export function ChatRoleplaySurface({
   weatherEffects,
   agentsUiEnabled,
   expressionAgentEnabled,
+  expressionAvatarsEnabled,
+  expressionAvatarResolver,
   combatAgentEnabled,
   encounterActive,
   spritePosition,
@@ -678,6 +703,7 @@ export function ChatRoleplaySurface({
     : undefined;
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const isConcludedScene = chatMeta.sceneStatus === "concluded";
   const messageActions = isConcludedScene
     ? {
@@ -720,21 +746,30 @@ export function ChatRoleplaySurface({
     () => activeChatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
     [activeChatCharIds, characterMap],
   );
+  const overlaySpriteDisplayModes = useMemo(
+    () =>
+      expressionAvatarsEnabled
+        ? spriteDisplayModes.filter((mode) => mode !== "expressions")
+        : spriteDisplayModes,
+    [expressionAvatarsEnabled, spriteDisplayModes],
+  );
+  const showSpriteOverlay =
+    expressionAgentEnabled && spriteCharacterIds.length > 0 && overlaySpriteDisplayModes.length > 0;
 
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
       <div className="rpg-chat-area mari-chat-area relative flex flex-1 flex-col overflow-hidden">
-        <CrossfadeBackground url={chatBackground} />
+        <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
         {weatherEffects && <WeatherEffectsConnected />}
-        {expressionAgentEnabled && spriteCharacterIds.length > 0 && (
+        {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay
               characterIds={spriteCharacterIds}
               messages={msgPayload}
               side={spritePosition}
-              spriteDisplayModes={spriteDisplayModes}
+              spriteDisplayModes={overlaySpriteDisplayModes}
               spriteExpressions={spriteExpressions}
               spritePlacements={spritePlacements}
               editing={spriteArrangeMode}
@@ -1039,6 +1074,7 @@ export function ChatRoleplaySurface({
                           isGrouped={isGrouped(i)}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
+                          expressionAvatarResolver={expressionAvatarResolver}
                           multiSelectMode={messageActions.multiSelectMode}
                           isSelected={messageActions.isSelected ?? selectedMessageIds.has(msg.id)}
                           onToggleSelect={messageActions.onToggleSelect}
@@ -1067,6 +1103,7 @@ export function ChatRoleplaySurface({
                           isGrouped={isGrouped(i)}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
+                          expressionAvatarResolver={expressionAvatarResolver}
                           multiSelectMode={messageActions.multiSelectMode}
                           isSelected={messageActions.isSelected ?? selectedMessageIds.has(msg.id)}
                           onToggleSelect={messageActions.onToggleSelect}
@@ -1086,6 +1123,7 @@ export function ChatRoleplaySurface({
                     personaInfo={personaInfo}
                     chatMode={chatMode}
                     groupChatMode={groupChatMode}
+                    expressionAvatarResolver={expressionAvatarResolver}
                   />
                 )}
 

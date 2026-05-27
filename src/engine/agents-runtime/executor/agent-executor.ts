@@ -219,6 +219,9 @@ export async function executeAgent(
     if (!responseText && result.content) responseText = result.content;
     responseText = responseText.trim();
     const durationMs = Date.now() - startTime;
+    if (!responseText) {
+      return makeError(config, `${config.name} returned an empty response.`, startTime);
+    }
 
     logger.info(`[agent] ${config.type} done (${responseText.length} chars, ${durationMs}ms)`);
     logger.debug(`[agent] ${config.type} raw response: ${responseText.slice(0, 500)}`);
@@ -292,6 +295,9 @@ async function executeAgentWithTools(
     // No tool calls → final response
     if (!result.toolCalls || result.toolCalls.length === 0) {
       const responseText = result.content?.trim() ?? "";
+      if (!responseText) {
+        return makeError(config, `${config.name} returned an empty response.`, startTime);
+      }
       const parsed = parseAgentResponse(config, responseText);
       return {
         agentId: config.id,
@@ -360,6 +366,9 @@ async function executeAgentWithTools(
   });
   totalTokens += finalResult.usage?.totalTokens ?? 0;
   const responseText = finalResult.content?.trim() ?? "";
+  if (!responseText) {
+    return makeError(config, `${config.name} returned an empty response.`, startTime);
+  }
   const parsed = parseAgentResponse(config, responseText);
   return {
     agentId: config.id,

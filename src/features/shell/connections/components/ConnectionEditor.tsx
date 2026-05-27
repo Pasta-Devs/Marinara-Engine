@@ -1505,6 +1505,7 @@ export function ConnectionEditor() {
                       setLocalDefaultParameters(next);
                       markDirty();
                     }}
+                    showOpenRouterServiceTier={localProvider === "openrouter"}
                   />
                 </div>
               ) : (

@@ -54,7 +54,7 @@ export interface Lorebook {
   isGlobal: boolean;
   /** Master on/off switch for this lorebook */
   enabled: boolean;
-  /** When true, bulk vectorization skips every entry and semantic matching ignores stored vectors */
+  /** When true, semantic vectorization and semantic matching skip every entry. Keyword matching still works. */
   excludeFromVectorization: boolean;
   /** Tags for organizing/filtering lorebooks */
   tags: string[];

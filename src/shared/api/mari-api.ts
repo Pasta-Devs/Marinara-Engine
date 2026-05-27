@@ -7,6 +7,7 @@ const PROFESSOR_MARI_SETTINGS_ID = "professor-mari";
 
 export type ProfessorMariPreferences = {
   selectedConnectionId: string | null;
+  selectedPersonaId: string | null;
 };
 
 type ProfessorMariSettingsRecord = {
@@ -38,7 +39,9 @@ function normalizePreferences(value: unknown): ProfessorMariPreferences {
     typeof object.selectedConnectionId === "string" && object.selectedConnectionId.trim()
       ? object.selectedConnectionId
       : null;
-  return { selectedConnectionId };
+  const selectedPersonaId =
+    typeof object.selectedPersonaId === "string" && object.selectedPersonaId.trim() ? object.selectedPersonaId : null;
+  return { selectedConnectionId, selectedPersonaId };
 }
 
 function normalizeCompaction(value: unknown): MariCompactionState {
@@ -112,6 +115,7 @@ export const mariApi = {
       return normalizePreferences(
         await saveSettingsPatch({
           selectedConnectionId: preferences.selectedConnectionId,
+          selectedPersonaId: preferences.selectedPersonaId,
         }),
       );
     },

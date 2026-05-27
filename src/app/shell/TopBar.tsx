@@ -131,7 +131,7 @@ export function TopBar({
         <img
           src="/sprites/mari/Mari_profile.png"
           alt=""
-          className="h-[1.15rem] w-[1.15rem] rounded-md object-cover"
+          className="mari-titlebar-avatar-icon rounded-[0.2rem] object-cover"
           draggable={false}
         />
       </button>

@@ -6,7 +6,7 @@ pub(crate) fn custom_tool_capabilities() -> Value {
     json!({
         "staticResults": true,
         "webhooks": true,
-        "scriptExecutionEnabled": false
+        "scriptExecutionEnabled": true
     })
 }
 
@@ -42,7 +42,7 @@ pub(crate) async fn execute_custom_tool(state: &AppState, body: Value) -> AppRes
         "script" => Err(AppError::with_details(
             "custom_tool_script_unsupported",
             format!(
-                "Custom tool '{tool_name}' uses the legacy script executionType, which the refactor desktop runtime does not execute. Open the tool in the editor and convert it to a Webhook (recommended) or a Static result."
+                "Custom tool '{tool_name}' uses the script executionType. Script custom tools run in the Tauri TypeScript generation runtime; native custom_tool_execute only supports static results and webhooks. Use this tool during generation, or convert it to a Webhook or Static result for direct native execution."
             ),
             json!({ "executionType": "script", "migration": "convert-to-webhook-or-static" }),
         )),
@@ -122,8 +122,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be after unix epoch")
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("marinara-custom-tools-{label}-{nonce}"));
+        let path = std::env::temp_dir().join(format!("marinara-custom-tools-{label}-{nonce}"));
         if path.exists() {
             std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
         }
@@ -158,7 +157,8 @@ mod tests {
             error.message
         );
         assert!(
-            error.message.contains("legacy script") || error.message.contains("script executionType"),
+            error.message.contains("legacy script")
+                || error.message.contains("script executionType"),
             "error should identify the legacy script issue, got: {}",
             error.message
         );
@@ -184,7 +184,9 @@ mod tests {
             .await
             .expect_err("unknown executionType must reject");
         assert!(
-            error.message.contains("Unsupported custom tool execution type"),
+            error
+                .message
+                .contains("Unsupported custom tool execution type"),
             "unknown types must keep the generic message, got: {}",
             error.message
         );

@@ -21,6 +21,7 @@ interface GenerationInfo {
   showThoughts?: boolean | null;
   reasoningEffort?: string | null;
   verbosity?: string | null;
+  serviceTier?: string | null;
   assistantPrefill?: string | null;
   tokensPrompt?: number | null;
   tokensCompletion?: number | null;
@@ -382,6 +383,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
       if (gen.showThoughts) pills.push({ label: "Thinking", value: "On" });
       if (gen.reasoningEffort) pills.push({ label: "Reasoning", value: gen.reasoningEffort });
       if (gen.verbosity) pills.push({ label: "Verbosity", value: gen.verbosity });
+      if (gen.serviceTier) pills.push({ label: "Service Tier", value: gen.serviceTier });
       if (gen.assistantPrefill) pills.push({ label: "Assistant Prefill", value: "On" });
     } else if (params) {
       if (params.temperature != null) pills.push({ label: "Temperature", value: String(params.temperature) });
@@ -397,6 +399,7 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
       if (params.showThoughts) pills.push({ label: "Thinking", value: "On" });
       if (params.reasoningEffort) pills.push({ label: "Reasoning", value: String(params.reasoningEffort) });
       if (params.verbosity) pills.push({ label: "Verbosity", value: String(params.verbosity) });
+      if (params.serviceTier) pills.push({ label: "Service Tier", value: String(params.serviceTier) });
       if (params.assistantPrefill) pills.push({ label: "Assistant Prefill", value: "On" });
     }
     return pills;

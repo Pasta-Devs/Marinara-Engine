@@ -1,5 +1,6 @@
 use super::super::{
     game_state_snapshots,
+    new_id, now_iso,
     shared::{
         materialize_message_swipe_fields, non_negative_i64_value,
         normalize_legacy_text_array_fields, normalize_legacy_text_bool_fields,
@@ -96,6 +97,8 @@ where
     let mut imported = Map::new();
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
+    let mut imported_conversation_notes = 0usize;
+    let mut imported_ooc_influences = 0usize;
     for (table, collection) in LEGACY_PROFILE_TABLES {
         let mut rows = table_rows(tables, table);
         match *collection {
@@ -105,7 +108,12 @@ where
                 unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)
             }
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
-            "chats" => add_legacy_chat_memories(&mut rows, tables),
+            "chats" => {
+                add_legacy_chat_memories(&mut rows, tables);
+                let counts = add_legacy_connected_notes(&mut rows, tables);
+                imported_conversation_notes = counts.notes;
+                imported_ooc_influences = counts.influences;
+            }
             "messages" => add_legacy_message_swipes(&mut rows, tables),
             "game-state-snapshots" => normalize_legacy_game_state_snapshots(&mut rows),
             _ => {}
@@ -126,6 +134,15 @@ where
             "unsupportedPromptOverrides".to_string(),
             json!(unsupported_prompt_overrides),
         );
+    }
+    if imported_conversation_notes > 0 {
+        imported.insert(
+            "conversation-notes".to_string(),
+            json!(imported_conversation_notes),
+        );
+    }
+    if imported_ooc_influences > 0 {
+        imported.insert("ooc-influences".to_string(), json!(imported_ooc_influences));
     }
     insert_profile_import_aliases(&mut imported);
     Ok(json!({ "success": true, "imported": imported }))
@@ -320,6 +337,111 @@ fn normalize_legacy_memory_chunk(mut chunk: Value) -> Value {
         );
     }
     chunk
+}
+
+#[derive(Default)]
+struct LegacyConnectedNoteCounts {
+    notes: usize,
+    influences: usize,
+}
+
+fn add_legacy_connected_notes(
+    rows: &mut [Value],
+    tables: &Map<String, Value>,
+) -> LegacyConnectedNoteCounts {
+    let mut counts = LegacyConnectedNoteCounts::default();
+    let mut notes_by_chat: HashMap<String, Vec<Value>> = HashMap::new();
+    for row in table_rows(tables, "conversation_notes") {
+        if let Some((target_chat_id, note)) = normalize_legacy_connected_note(row, "note") {
+            counts.notes += 1;
+            notes_by_chat.entry(target_chat_id).or_default().push(note);
+        }
+    }
+    for row in table_rows(tables, "ooc_influences") {
+        if let Some((target_chat_id, note)) = normalize_legacy_connected_note(row, "influence") {
+            counts.influences += 1;
+            notes_by_chat.entry(target_chat_id).or_default().push(note);
+        }
+    }
+    if notes_by_chat.is_empty() {
+        return counts;
+    }
+    for row in rows {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let Some(chat_id) = object.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(mut imported_notes) = notes_by_chat.remove(chat_id) else {
+            continue;
+        };
+        let mut notes = object
+            .get("notes")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        notes.append(&mut imported_notes);
+        object.insert("notes".to_string(), Value::Array(notes));
+    }
+    counts
+}
+
+fn normalize_legacy_connected_note(row: Value, note_type: &str) -> Option<(String, Value)> {
+    let object = row.as_object()?;
+    let target_chat_id = legacy_string(object, &["targetChatId", "target_chat_id"])?;
+    let content = legacy_string(object, &["content"])?;
+    let source_chat_id = legacy_string(object, &["sourceChatId", "source_chat_id"]);
+    let anchor_message_id = legacy_string(object, &["anchorMessageId", "anchor_message_id"]);
+    let mut note = Map::new();
+    note.insert(
+        "id".to_string(),
+        Value::String(legacy_string(object, &["id"]).unwrap_or_else(new_id)),
+    );
+    note.insert("type".to_string(), Value::String(note_type.to_string()));
+    note.insert("content".to_string(), Value::String(content));
+    note.insert(
+        "sourceChatId".to_string(),
+        source_chat_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    note.insert("targetChatId".to_string(), Value::String(target_chat_id.clone()));
+    note.insert(
+        "anchorMessageId".to_string(),
+        anchor_message_id.map(Value::String).unwrap_or(Value::Null),
+    );
+    note.insert(
+        "createdAt".to_string(),
+        Value::String(legacy_string(object, &["createdAt", "created_at"]).unwrap_or_else(now_iso)),
+    );
+    if note_type == "influence" {
+        note.insert(
+            "consumed".to_string(),
+            Value::Bool(legacy_bool(object.get("consumed"), false)),
+        );
+    }
+    Some((target_chat_id, Value::Object(note)))
+}
+
+fn legacy_string(object: &Map<String, Value>, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| object.get(*key))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn legacy_bool(value: Option<&Value>, fallback: bool) -> bool {
+    match value {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::Number(value)) => value.as_i64().map(|number| number != 0).unwrap_or(fallback),
+        Some(Value::String(value)) => match value.trim().to_ascii_lowercase().as_str() {
+            "true" | "1" | "yes" | "on" => true,
+            "false" | "0" | "no" | "off" => false,
+            _ => fallback,
+        },
+        _ => fallback,
+    }
 }
 
 fn add_legacy_message_swipes(rows: &mut [Value], tables: &Map<String, Value>) {
@@ -555,6 +677,78 @@ mod tests {
     }
 
     #[test]
+    fn legacy_connected_notes_import_onto_target_chat_notes() {
+        let state = test_state("connected-notes");
+        let mut tables = Map::new();
+        tables.insert(
+            "chats".to_string(),
+            json!([
+                {
+                    "id": "conversation-1",
+                    "name": "OOC",
+                    "mode": "conversation",
+                    "connectedChatId": "roleplay-1"
+                },
+                {
+                    "id": "roleplay-1",
+                    "name": "Scene",
+                    "mode": "roleplay",
+                    "connectedChatId": "conversation-1"
+                }
+            ]),
+        );
+        tables.insert(
+            "conversation_notes".to_string(),
+            json!([
+                {
+                    "id": "note-1",
+                    "source_chat_id": "conversation-1",
+                    "target_chat_id": "roleplay-1",
+                    "content": "Remember the locked door.",
+                    "anchor_message_id": "message-1",
+                    "created_at": "2026-05-20T12:00:00Z"
+                }
+            ]),
+        );
+        tables.insert(
+            "ooc_influences".to_string(),
+            json!([
+                {
+                    "id": "influence-1",
+                    "source_chat_id": "conversation-1",
+                    "target_chat_id": "roleplay-1",
+                    "content": "Trigger the alarm next turn.",
+                    "consumed": "false",
+                    "created_at": "2026-05-20T12:01:00Z"
+                }
+            ]),
+        );
+
+        let result =
+            import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+                .expect("legacy profile import should carry connected notes");
+
+        let roleplay = state
+            .storage
+            .get("chats", "roleplay-1")
+            .expect("chat lookup should not fail")
+            .expect("roleplay chat should import");
+        let notes = roleplay["notes"]
+            .as_array()
+            .expect("connected notes should live on target chat");
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[0]["type"], "note");
+        assert_eq!(notes[0]["content"], "Remember the locked door.");
+        assert_eq!(notes[0]["sourceChatId"], "conversation-1");
+        assert_eq!(notes[0]["targetChatId"], "roleplay-1");
+        assert_eq!(notes[1]["type"], "influence");
+        assert_eq!(notes[1]["content"], "Trigger the alarm next turn.");
+        assert_eq!(notes[1]["consumed"], false);
+        assert_eq!(result["imported"]["conversation-notes"], 1);
+        assert_eq!(result["imported"]["ooc-influences"], 1);
+    }
+
+    #[test]
     fn legacy_game_state_snapshot_maps_sqlite_field_names_to_tracker_rows() {
         let snapshot = normalize_legacy_game_state_snapshot(&json!({
             "id": "snapshot-1",
@@ -637,5 +831,112 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["id"], "snapshot-1");
         assert_eq!(rows[0]["chatId"], "chat-1");
+    }
+
+    #[test]
+    fn legacy_chat_import_preserves_folder_assignment() {
+        let state = test_state("chat-folder-id");
+        let mut tables = Map::new();
+        tables.insert(
+            "chat_folders".to_string(),
+            json!([
+                {
+                    "id": "folder-1",
+                    "name": "My Folder",
+                    "mode": "conversation",
+                    "color": "#abc",
+                    "sortOrder": 0,
+                    "collapsed": false
+                }
+            ]),
+        );
+        tables.insert(
+            "chats".to_string(),
+            json!([
+                {
+                    "id": "chat-1",
+                    "name": "Imported Chat",
+                    "mode": "conversation",
+                    "characterIds": [],
+                    "groupId": null,
+                    "personaId": null,
+                    "promptPresetId": null,
+                    "connectionId": null,
+                    "connectedChatId": null,
+                    "folderId": "folder-1",
+                    "sortOrder": 0,
+                    "metadata": {}
+                }
+            ]),
+        );
+
+        import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+            .expect("legacy profile import should succeed");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should not fail")
+            .expect("imported chat should be addressable by id");
+        assert_eq!(chat["folderId"], "folder-1");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-1")
+            .expect("chat-folders lookup should not fail")
+            .expect("imported folder should be addressable by id");
+        assert_eq!(folder["id"], "folder-1");
+        assert_eq!(folder["name"], "My Folder");
+    }
+
+    #[test]
+    fn legacy_connection_import_preserves_folder_assignment() {
+        let state = test_state("connection-folder-id");
+        let mut tables = Map::new();
+        tables.insert(
+            "api_connection_folders".to_string(),
+            json!([
+                {
+                    "id": "folder-1",
+                    "name": "Provider Folder",
+                    "color": "#22c55e",
+                    "sortOrder": 3,
+                    "collapsed": true
+                }
+            ]),
+        );
+        tables.insert(
+            "api_connections".to_string(),
+            json!([
+                {
+                    "id": "conn-1",
+                    "name": "Imported Provider",
+                    "provider": "openai",
+                    "model": "gpt-4.1",
+                    "folderId": "folder-1",
+                    "sortOrder": 9
+                }
+            ]),
+        );
+
+        import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+            .expect("legacy profile import should succeed");
+
+        let connection = state
+            .storage
+            .get("connections", "conn-1")
+            .expect("connection lookup should not fail")
+            .expect("imported connection should be addressable by id");
+        assert_eq!(connection["folderId"], "folder-1");
+        assert_eq!(connection["sortOrder"], 9);
+
+        let folder = state
+            .storage
+            .get("connection-folders", "folder-1")
+            .expect("connection-folders lookup should not fail")
+            .expect("imported folder should be addressable by id");
+        assert_eq!(folder["id"], "folder-1");
+        assert_eq!(folder["name"], "Provider Folder");
+        assert_eq!(folder["collapsed"], true);
     }
 }

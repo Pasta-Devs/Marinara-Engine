@@ -30,7 +30,7 @@ export function isCustomToolSelectable(tool: CustomToolRow, _capabilities?: Cust
   if (!enabled) return false;
   if (tool.executionType === "static") return !!tool.staticResult?.trim();
   if (tool.executionType === "webhook") return !!tool.webhookUrl?.trim();
-  // executionType === "script" is preserved legacy data; refactor has no JS sandbox.
+  if (tool.executionType === "script") return _capabilities?.scriptExecutionEnabled === true && !!tool.scriptBody?.trim();
   return false;
 }
 

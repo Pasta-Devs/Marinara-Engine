@@ -22,6 +22,7 @@ export interface PromptPreviewResult {
     showThoughts?: boolean | null;
     reasoningEffort?: string | null;
     verbosity?: string | null;
+    serviceTier?: string | null;
     assistantPrefill?: string | null;
     tokensPrompt?: number | null;
     tokensCompletion?: number | null;
@@ -53,7 +54,7 @@ export async function previewGenerationPrompt(
     request,
     latestUserInput: "",
   });
-  const parameters = llmParameters(connection, {});
+  const parameters = llmParameters(connection, {}, previewChat, assembly.parameters);
   return {
     messages: assembly.messages,
     parameters,
@@ -66,6 +67,7 @@ export async function previewGenerationPrompt(
       showThoughts: typeof parameters.showThoughts === "boolean" ? parameters.showThoughts : null,
       reasoningEffort: typeof parameters.reasoningEffort === "string" ? parameters.reasoningEffort : null,
       verbosity: typeof parameters.verbosity === "string" ? parameters.verbosity : null,
+      serviceTier: typeof parameters.serviceTier === "string" ? parameters.serviceTier : null,
       assistantPrefill: typeof parameters.assistantPrefill === "string" ? parameters.assistantPrefill : null,
       tokensPrompt: null,
       tokensCompletion: null,

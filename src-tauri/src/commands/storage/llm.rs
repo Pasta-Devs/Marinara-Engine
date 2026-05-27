@@ -1,5 +1,6 @@
 use super::shared::*;
 use super::*;
+use super::prompts;
 use marinara_security::is_allowed_outbound_url;
 
 pub(crate) fn resolve_llm_connection_for_request(
@@ -99,6 +100,73 @@ pub(crate) fn llm_request_from_body(
 pub(crate) async fn llm_complete(state: &AppState, body: Value) -> AppResult<Value> {
     let content = marinara_llm::complete(llm_request_from_body(state, body)?).await?;
     Ok(Value::String(content))
+}
+
+pub(crate) async fn llm_embed(state: &AppState, body: Value) -> AppResult<Value> {
+    let inputs = embedding_inputs(&body)?;
+    let (connection_id, mut connection) =
+        if let Some(connection) = body.get("connection").filter(|value| value.is_object()) {
+            ("request".to_string(), connection.clone())
+        } else if body.get("provider").is_some() {
+            ("request".to_string(), body.clone())
+        } else if let Some(connection_id) = body
+            .get("connectionId")
+            .or_else(|| body.get("connection_id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            prompts::resolve_embedding_connection_for_id(state, connection_id)?
+        } else {
+            prompts::resolve_default_embedding_connection(state)?
+        };
+    let model = prompts::embedding_model(&connection, body.get("model").and_then(Value::as_str))?;
+    if let Some(object) = connection.as_object_mut() {
+        object.insert("model".to_string(), Value::String(model.clone()));
+    }
+    let mut data = Vec::with_capacity(inputs.len());
+    for (index, input) in inputs.iter().enumerate() {
+        data.push(json!({
+            "object": "embedding",
+            "index": index,
+            "embedding": prompts::embed_text(&connection, &model, input).await?
+        }));
+    }
+    Ok(json!({
+        "object": "list",
+        "data": data,
+        "model": model,
+        "marinara": {
+            "embeddingConnectionId": connection_id
+        }
+    }))
+}
+
+fn embedding_inputs(body: &Value) -> AppResult<Vec<String>> {
+    let input = body
+        .get("input")
+        .ok_or_else(|| AppError::invalid_input("input is required"))?;
+    match input {
+        Value::String(value) => Ok(vec![value.clone()]),
+        Value::Array(items) => {
+            let values = items
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .map(ToOwned::to_owned)
+                        .ok_or_else(|| AppError::invalid_input("input array must contain strings"))
+                })
+                .collect::<AppResult<Vec<_>>>()?;
+            if values.is_empty() {
+                Err(AppError::invalid_input("input must not be empty"))
+            } else {
+                Ok(values)
+            }
+        }
+        _ => Err(AppError::invalid_input(
+            "input must be a string or an array of strings",
+        )),
+    }
 }
 
 pub(crate) async fn llm_stream_channel(

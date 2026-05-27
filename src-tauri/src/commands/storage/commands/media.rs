@@ -223,6 +223,11 @@ pub async fn llm_complete(state: State<'_, AppState>, request: Value) -> Result<
 }
 
 #[tauri::command]
+pub async fn llm_embed(state: State<'_, AppState>, body: Value) -> Result<Value, AppError> {
+    llm::llm_embed(&state, body).await
+}
+
+#[tauri::command]
 pub async fn llm_stream_channel(
     state: State<'_, AppState>,
     stream_id: String,

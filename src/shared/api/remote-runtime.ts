@@ -165,6 +165,7 @@ const REMOTE_COMMANDS = new Set([
   "npc_avatar_upload",
   "lorebook_image_upload",
   "llm_complete",
+  "llm_embed",
   "llm_stream_cancel",
   "llm_list_models",
   "professor_mari_prompt",

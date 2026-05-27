@@ -37,6 +37,7 @@ import {
 } from "../../../../shared/lib/slash-commands";
 import { createInputMacroResolverForChat, isPromptPreviewMacro } from "../../../../shared/lib/chat-macros";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
+import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { loadUrlBlob } from "../../../../shared/lib/url-blob";
 import { translateDraftText } from "../../../../shared/lib/draft-translation";
@@ -260,6 +261,7 @@ export function ConversationInput({
   const showQuickReplyGuide = useUIStore((s) => s.showQuickReplyGuide);
   const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
   const userActivity = useUIStore((s) => s.userActivity);
   const setUserActivity = useUIStore((s) => s.setUserActivity);
   const createMessage = useCreateMessage(activeChatId);
@@ -563,7 +565,7 @@ export function ConversationInput({
       toast.info("Still reading attached files. Send will be ready in a moment.");
       return;
     }
-    const raw = textareaRef.current?.value.trim() ?? "";
+    const raw = formatTextQuotes(textareaRef.current?.value.trim() ?? "", quoteFormat);
     if (!raw && attachments.length === 0) {
       if (canRetry) {
         try {
@@ -777,6 +779,7 @@ export function ConversationInput({
     replaceAttachments,
     updateAttachments,
     onPeekPrompt,
+    quoteFormat,
   ]);
 
   const runQuickSlashCommand = useCallback(
@@ -868,10 +871,10 @@ export function ConversationInput({
       toast.info("Clear or send attachments before using quick impersonate.");
       return;
     }
-    const text = textareaRef.current?.value?.trim() ?? "";
+    const text = formatTextQuotes(textareaRef.current?.value?.trim() ?? "", quoteFormat);
     if (!text) return;
     await runQuickSlashCommand(`/impersonate ${text}`, "Impersonate failed");
-  }, [activeChatId, isStreaming, hasPendingAttachments, runQuickSlashCommand]);
+  }, [activeChatId, isStreaming, hasPendingAttachments, quoteFormat, runQuickSlashCommand]);
 
   const handlePostOnlyButton = useCallback(async () => {
     if (!activeChatId || isStreaming) return;
@@ -880,7 +883,7 @@ export function ConversationInput({
       toast.info("Still reading attached files. Post will be ready in a moment.");
       return;
     }
-    const raw = textareaRef.current?.value.trim() ?? "";
+    const raw = formatTextQuotes(textareaRef.current?.value.trim() ?? "", quoteFormat);
     const hasText = raw.length > 0;
     const hasFiles = attachments.length > 0;
     if (!hasText && !hasFiles) return;
@@ -997,6 +1000,7 @@ export function ConversationInput({
     createMessage,
     deleteMessage,
     updateMessageExtra,
+    quoteFormat,
   ]);
 
   const handleGuidedGenerationButton = useCallback(async () => {
@@ -1009,10 +1013,10 @@ export function ConversationInput({
       toast.info("Clear or send attachments before using guided generation.");
       return;
     }
-    const text = textareaRef.current?.value?.trim() ?? "";
+    const text = formatTextQuotes(textareaRef.current?.value?.trim() ?? "", quoteFormat);
     if (!text) return;
     await runQuickSlashCommand(`/guided ${text}`, "Guided generation failed");
-  }, [activeChatId, isStreaming, requiresManualGuideTarget, hasPendingAttachments, runQuickSlashCommand]);
+  }, [activeChatId, isStreaming, requiresManualGuideTarget, hasPendingAttachments, quoteFormat, runQuickSlashCommand]);
 
   const quickReplyActions = useMemo<QuickReplyAction[]>(() => {
     const actions: QuickReplyAction[] = [];
@@ -1167,6 +1171,15 @@ export function ConversationInput({
   const handleInput = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
+    const raw = el.value;
+    const fixed = formatTextQuotes(raw, quoteFormat);
+    if (fixed !== raw) {
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const direction = el.selectionDirection;
+      el.value = fixed;
+      el.setSelectionRange(start, end, direction);
+    }
     // Debounced resize to reduce layout reflows during fast typing
     if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
     resizeTimerRef.current = setTimeout(() => {
@@ -1174,12 +1187,12 @@ export function ConversationInput({
       el.style.height = "auto";
       el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     }, 150);
-    syncInputState(el.value);
+    syncInputState(fixed);
 
     if (activeChatId) {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       const chatId = activeChatId;
-      const draft = el.value;
+      const draft = fixed;
       draftTimerRef.current = setTimeout(() => {
         if (draft.trim()) {
           setInputDraft(chatId, draft);
@@ -1190,8 +1203,8 @@ export function ConversationInput({
     }
 
     // Slash completions
-    if (el.value.startsWith("/")) {
-      const results = getSlashCompletions(el.value);
+    if (fixed.startsWith("/")) {
+      const results = getSlashCompletions(fixed);
       setCompletions(results);
       setSelectedCompletion(0);
     } else {
@@ -1200,7 +1213,7 @@ export function ConversationInput({
 
     // @mention detection — look backwards from cursor for an @ trigger
     const cursor = el.selectionStart;
-    const textBefore = el.value.slice(0, cursor);
+    const textBefore = fixed.slice(0, cursor);
     // Find the last @ that isn't preceded by a word character
     const atMatch = textBefore.match(/(?:^|[^a-zA-Z0-9])@([a-zA-Z0-9 ]*)$/);
     if (atMatch && characterNames.length > 0) {
@@ -1220,7 +1233,7 @@ export function ConversationInput({
       setMentionQuery(null);
       setMentionCompletions([]);
     }
-  }, [activeChatId, characterNames, clearInputDraft, setInputDraft, syncInputState]);
+  }, [activeChatId, characterNames, clearInputDraft, quoteFormat, setInputDraft, syncInputState]);
 
   useEffect(() => {
     if (hasInput && feedback) setFeedback(null);
@@ -1396,16 +1409,17 @@ export function ConversationInput({
     try {
       const translated = await translateDraftText(raw);
       if (!translated || !textareaRef.current) return;
-      textareaRef.current.value = translated;
+      const formatted = formatTextQuotes(translated, quoteFormat);
+      textareaRef.current.value = formatted;
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-      syncInputState(translated);
-      setInputDraft(activeChatId, translated);
+      syncInputState(formatted);
+      setInputDraft(activeChatId, formatted);
       textareaRef.current.focus();
     } finally {
       setIsTranslatingDraft(false);
     }
-  }, [activeChatId, isTranslatingDraft, setInputDraft, syncInputState]);
+  }, [activeChatId, isTranslatingDraft, quoteFormat, setInputDraft, syncInputState]);
 
   const persistSavedStatusOptions = useCallback(
     async (nextOptions: string[]) => {
@@ -1458,7 +1472,7 @@ export function ConversationInput({
       const after = el.value.slice(end);
       const prefix = before && !/\s$/.test(before) ? " " : "";
       const suffix = after && !/^\s/.test(after) ? " " : "";
-      const nextValue = `${before}${prefix}${transcript}${suffix}${after}`;
+      const nextValue = formatTextQuotes(`${before}${prefix}${transcript}${suffix}${after}`, quoteFormat);
       const nextCursor = before.length + prefix.length + transcript.length;
 
       el.value = nextValue;
@@ -1469,7 +1483,7 @@ export function ConversationInput({
       if (activeChatId) setInputDraft(activeChatId, nextValue);
       el.focus();
     },
-    [activeChatId, setInputDraft, syncInputState],
+    [activeChatId, quoteFormat, setInputDraft, syncInputState],
   );
 
   const statusDotClass = (status?: string) =>

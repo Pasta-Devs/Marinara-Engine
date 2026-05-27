@@ -19,6 +19,68 @@ function asArray<T = unknown>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function parseStoredJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizeArrayField(record: Record<string, unknown>, field: string): void {
+  const parsed = parseStoredJson(record[field]);
+  if (Array.isArray(parsed)) {
+    record[field] = parsed;
+  } else if (field in record) {
+    record[field] = [];
+  }
+}
+
+function normalizeObjectField(record: Record<string, unknown>, field: string, fallback: Record<string, unknown> | null): void {
+  const parsed = parseStoredJson(record[field]);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    record[field] = parsed as Record<string, unknown>;
+  } else if (field in record || fallback !== null) {
+    record[field] = fallback;
+  }
+}
+
+function normalizeStorageRecord(entity: string, value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = { ...(value as Record<string, unknown>) };
+
+  switch (entity) {
+    case "chats":
+      for (const field of [
+        "characterIds",
+        "activeLorebookIds",
+        "activeAgentIds",
+        "activeToolIds",
+        "memories",
+        "notes",
+      ]) {
+        normalizeArrayField(record, field);
+      }
+      normalizeObjectField(record, "metadata", {});
+      normalizeObjectField(record, "gameState", null);
+      break;
+    case "messages":
+      for (const field of ["swipes", "images", "attachments"]) normalizeArrayField(record, field);
+      normalizeObjectField(record, "extra", {});
+      break;
+    default:
+      break;
+  }
+
+  return record;
+}
+
+function normalizeStorageReadResult(entity: string, value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => normalizeStorageRecord(entity, item));
+  return normalizeStorageRecord(entity, value);
+}
+
 function chatMessageDefaults(chatId: string, value: Record<string, unknown>): Record<string, unknown> {
   const content = typeof value.content === "string" ? value.content : "";
   return {
@@ -40,28 +102,40 @@ async function patchChatObjectField<T>(chatId: string, field: string, patch: Rec
 }
 
 export const storageApi: StorageGateway = {
-  list: (entity: string, options?: StorageListOptions) =>
-    invokeTauri("storage_list", {
+  list: async (entity: string, options?: StorageListOptions) =>
+    normalizeStorageReadResult(
+      entity,
+      await invokeTauri("storage_list", {
       entity,
       options: options ?? null,
     }),
-  get: (entity: string, id: string, options?: Pick<StorageListOptions, "fields" | "fieldSelections">) =>
-    invokeTauri("storage_get", {
+    ) as never,
+  get: async (entity: string, id: string, options?: Pick<StorageListOptions, "fields" | "fieldSelections">) =>
+    normalizeStorageReadResult(
+      entity,
+      await invokeTauri("storage_get", {
       entity,
       id,
       options: options ?? null,
     }),
-  create: (entity: string, value: Record<string, unknown>) =>
-    invokeTauri("storage_create", {
+    ) as never,
+  create: async (entity: string, value: Record<string, unknown>) =>
+    normalizeStorageReadResult(
+      entity,
+      await invokeTauri("storage_create", {
       entity,
       value,
     }),
-  update: (entity: string, id: string, patch: Record<string, unknown>) =>
-    invokeTauri("storage_update", {
+    ) as never,
+  update: async (entity: string, id: string, patch: Record<string, unknown>) =>
+    normalizeStorageReadResult(
+      entity,
+      await invokeTauri("storage_update", {
       entity,
       id,
       patch,
     }),
+    ) as never,
   delete: (entity: string, id: string) =>
     invokeTauri("storage_delete", {
       entity,
