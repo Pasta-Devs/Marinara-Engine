@@ -28,26 +28,17 @@ pub(crate) async fn vectorize_lorebook(
             Value::Array(rows) => rows,
             _ => Vec::new(),
         };
+    let total = entries.len();
     if lorebook_excludes_vectorization(state.storage.get("lorebooks", lorebook_id)?.as_ref()) {
-        let skipped = entries.len();
         return Ok(json!({
             "success": true,
             "lorebookId": lorebook_id,
             "model": model,
-            "total": skipped,
+            "total": total,
             "vectorized": 0,
-            "skipped": skipped
+            "skipped": total
         }));
     }
-    let total = entries
-        .iter()
-        .filter(|entry| {
-            !entry
-                .get("excludeFromVectorization")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-        })
-        .count();
     let mut vectorized = 0usize;
     let mut skipped = 0usize;
     for entry in entries {
@@ -125,10 +116,20 @@ fn lorebook_excludes_vectorization(lorebook: Option<&Value>) -> bool {
         .unwrap_or(false)
 }
 
+fn lorebook_entry_secondary_keys(entry: &Value) -> Vec<String> {
+    for field in ["secondaryKeys", "secondary_keys", "keysecondary"] {
+        let keys = value_string_array(entry.get(field));
+        if !keys.is_empty() {
+            return keys;
+        }
+    }
+    Vec::new()
+}
+
 fn lorebook_entry_embedding_text(entry: &Value) -> String {
     let keys = value_string_array(entry.get("keys"))
         .into_iter()
-        .chain(value_string_array(entry.get("secondaryKeys")))
+        .chain(lorebook_entry_secondary_keys(entry))
         .collect::<Vec<_>>()
         .join(", ");
     [
@@ -368,6 +369,19 @@ mod tests {
                 }),
             )
             .expect("entry should be stored");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-2",
+                    "lorebookId": "lorebook-1",
+                    "name": "Entry excluded at entry level",
+                    "excludeFromVectorization": true,
+                    "content": "This still counts in the book-level total."
+                }),
+            )
+            .expect("excluded entry should be stored");
 
         let result = vectorize_lorebook(
             &state,
@@ -382,15 +396,38 @@ mod tests {
         .expect("excluded lorebook should return a successful no-op");
 
         assert_eq!(result["success"], json!(true));
-        assert_eq!(result["total"], json!(1));
+        assert_eq!(result["total"], json!(2));
         assert_eq!(result["vectorized"], json!(0));
-        assert_eq!(result["skipped"], json!(1));
+        assert_eq!(result["skipped"], json!(2));
         let entry = state
             .storage
             .get("lorebook-entries", "entry-1")
             .expect("entry lookup should succeed")
             .expect("entry should still exist");
         assert!(entry.get("embedding").is_none());
+    }
+
+    #[test]
+    fn lorebook_entry_embedding_text_uses_legacy_secondary_key_aliases() {
+        for (field, alias_value, expected_keys) in [
+            ("secondary_keys", "snake case", "primary, snake case"),
+            ("keysecondary", "silly tavern", "primary, silly tavern"),
+        ] {
+            let mut entry = json!({
+                "name": "Alias entry",
+                "keys": ["primary"],
+                "content": "Alias content."
+            });
+            entry
+                .as_object_mut()
+                .expect("entry should be an object")
+                .insert(field.to_string(), json!([alias_value]));
+
+            assert_eq!(
+                lorebook_entry_embedding_text(&entry),
+                format!("Alias entry\n{expected_keys}\nAlias content.")
+            );
+        }
     }
 
     #[test]
