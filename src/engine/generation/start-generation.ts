@@ -57,6 +57,13 @@ export interface StartGenerationInput extends JsonRecord {
   forCharacterId?: string | null;
   mentionedCharacterNames?: string[];
   attachments?: PromptAttachment[];
+  /**
+   * IANA timezone resolved on the client (e.g. via
+   * `Intl.DateTimeFormat().resolvedOptions().timeZone`). When set, prompt-time
+   * macros like {{date}} and {{time}} resolve in this zone instead of UTC.
+   * A persisted per-chat `metadata.promptTimeZone` takes precedence.
+   */
+  userTimeZone?: string;
   debugMode?: boolean;
   debugSink?: AgentContext["debugSink"];
 }

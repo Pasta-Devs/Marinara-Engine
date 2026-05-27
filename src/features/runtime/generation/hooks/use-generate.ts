@@ -66,6 +66,14 @@ function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function resolveUserTimeZone(): string {
+  // Engine has its own live-host fallback in resolvePromptTimeZone, so this is
+  // explicit-intent plumbing rather than a load-bearing source of truth.
+  // Kept so non-default callers (e.g. remote runtime in future) can override
+  // via the `userTimeZone` input field.
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 function streamRevealChunkLength(speed: number, pendingLength: number): number {
   if (pendingLength <= 0) return 0;
   if (speed >= 100) return pendingLength;
@@ -955,6 +963,7 @@ export function useGenerate() {
             { storage: storageApi, llm: llmApi, integrations: integrationGateway },
             {
               ...streamArgs,
+              userTimeZone: resolveUserTimeZone(),
               debugMode: useUIStore.getState().debugMode,
               debugSink: (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) =>
                 useAgentStore.getState().addDebugEntry(entry),

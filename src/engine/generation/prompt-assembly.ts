@@ -7,6 +7,7 @@ import { wrapContent } from "../generation-core/prompt/format-engine";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
+import { normalizeUserTimeZone } from "../shared/time/timezone";
 import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, SessionSummary } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
@@ -487,6 +488,29 @@ function markerConfig(section: PromptSectionRecord): MarkerConfig | null {
   return null;
 }
 
+function resolveLiveHostTimeZone(): string | undefined {
+  try {
+    return normalizeUserTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  } catch {
+    return undefined;
+  }
+}
+
+function resolvePromptTimeZone(chat: JsonRecord, request: JsonRecord): string | undefined {
+  // Preference order: persisted per-chat override → caller-supplied input →
+  // live host resolution. The live fallback guarantees that every
+  // startGeneration entry point (chat hook, game-turn service, background
+  // autonomous chats, prompt-preview UI, future callers) resolves prompt-time
+  // macros in the user's local zone even when the caller forgot to plumb
+  // `userTimeZone` through the input contract. Engine code runs in the user's
+  // Tauri webview, so `Intl` always reflects the user's OS.
+  const persisted = normalizeUserTimeZone(parseRecord(chat.metadata).promptTimeZone);
+  if (persisted) return persisted;
+  const fromInput = normalizeUserTimeZone(request.userTimeZone);
+  if (fromInput) return fromInput;
+  return resolveLiveHostTimeZone();
+}
+
 function macroContext(input: {
   chat: JsonRecord;
   connection: JsonRecord;
@@ -494,6 +518,7 @@ function macroContext(input: {
   persona: GenerationPersonaContext | null;
   latestUserInput: string;
   agentData?: Record<string, string>;
+  request: JsonRecord;
 }): MacroContext {
   const first = input.characters[0];
   return {
@@ -514,6 +539,7 @@ function macroContext(input: {
     chatId: readString(input.chat.id),
     model: readString(input.connection.model),
     agentData: input.agentData,
+    timeZone: resolvePromptTimeZone(input.chat, input.request),
     characterFields: first
       ? {
           description: first.description,
@@ -1125,6 +1151,7 @@ export async function assembleGenerationPrompt(
     persona,
     latestUserInput: input.latestUserInput,
     agentData: input.agentData,
+    request: input.request,
   });
   const agentData = input.agentData ?? {};
   let messages: ChatMLMessage[] = [];

@@ -2,6 +2,13 @@
 // Macro Engine — {{user}}, {{char}}, {{date}}, etc.
 // ──────────────────────────────────────────────
 
+import {
+  formatZonedDate,
+  formatZonedIsoDateTime,
+  formatZonedTime,
+  getZonedWeekdayName,
+} from "../time/timezone";
+
 export interface MacroContext {
   user: string;
   char: string;
@@ -44,6 +51,12 @@ export interface MacroContext {
     appearance?: string;
     scenario?: string;
   };
+  /**
+   * IANA timezone (e.g. "America/Los_Angeles") used to resolve {{date}},
+   * {{time}}, {{datetime}}, {{isotime}}, and {{weekday}}. When unset, macros
+   * fall back to the host machine's local timezone.
+   */
+  timeZone?: string;
 }
 
 export interface ResolveMacroOptions {
@@ -664,12 +677,15 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   });
 
   // ── Date/time ──
+  // Resolve in the caller-provided IANA timezone so prompts reflect the user's
+  // local frame rather than UTC. Falls back to the host machine's local zone.
   const now = new Date();
-  result = result.replace(/\{\{date\}\}/gi, now.toISOString().slice(0, 10));
-  result = result.replace(/\{\{time\}\}/gi, now.toTimeString().slice(0, 5));
-  result = result.replace(/\{\{datetime\}\}/gi, now.toISOString());
-  result = result.replace(/\{\{isotime\}\}/gi, now.toISOString());
-  result = result.replace(/\{\{weekday\}\}/gi, now.toLocaleDateString("en-US", { weekday: "long" }));
+  const tz = ctx.timeZone;
+  result = result.replace(/\{\{date\}\}/gi, formatZonedDate(now, tz));
+  result = result.replace(/\{\{time\}\}/gi, formatZonedTime(now, tz));
+  result = result.replace(/\{\{datetime\}\}/gi, formatZonedIsoDateTime(now, tz));
+  result = result.replace(/\{\{isotime\}\}/gi, formatZonedIsoDateTime(now, tz));
+  result = result.replace(/\{\{weekday\}\}/gi, getZonedWeekdayName(now, tz));
 
   // ── Random values ──
   result = result.replace(/\{\{random\}\}/gi, () => String(Math.floor(Math.random() * 101)));
