@@ -160,6 +160,17 @@ describe("resolveMacros character instruction macros", () => {
     expect(resolved).toBe("");
   });
 
+  it("stops self-referential character field conditionals at a bounded depth", () => {
+    const ctx = conditionalContext({
+      characterFields: {
+        systemPrompt: "{{#if charSysInfo}}loop{{/if}}",
+      },
+    });
+
+    expect(resolveMacros("{{charSysInfo}}", ctx)).toBe("");
+    expect(resolveMacros("{{#if charSysInfo}}present{{else}}missing{{/if}}", ctx)).toBe("missing");
+  });
+
   it("preserves acyclic terminal character field values at the depth boundary", () => {
     const resolved = resolveMacros(
       "{{description}}",
