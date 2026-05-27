@@ -222,6 +222,18 @@ function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit 
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 async function readRemoteError(response: Response): Promise<ApiError> {
   const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
   try {
@@ -236,6 +248,24 @@ async function readRemoteError(response: Response): Promise<ApiError> {
       retryAfterMs === null ? undefined : { retryAfterMs },
     );
   }
+}
+
+function remoteStreamError(event: LlmChunk): ApiError {
+  const record = event as LlmChunk & { code?: unknown; message?: unknown };
+  const data = event.data;
+  const dataRecord = isRecord(data) ? data : {};
+  const message =
+    readString(record.message) ||
+    readString(event.text) ||
+    readString(data) ||
+    readString(dataRecord.message) ||
+    "LLM stream failed";
+  const status = readNumber(dataRecord.status) ?? readNumber(dataRecord.statusCode) ?? 0;
+  const code = readString(record.code) || readString(dataRecord.code);
+  return new ApiError(message, status, {
+    ...(code ? { code } : {}),
+    event,
+  });
 }
 
 export async function invokeRemote<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -293,7 +323,7 @@ export async function* streamRemoteLlm(
       buffer = parsed.rest;
       for (const data of parsed.events) {
         const event = JSON.parse(data) as LlmChunk;
-        if (event.type === "error") throw new Error(String(event.text ?? event.data ?? "LLM stream failed"));
+        if (event.type === "error") throw remoteStreamError(event);
         yield event;
       }
     }

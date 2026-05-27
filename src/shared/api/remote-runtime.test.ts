@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useUIStore } from "../stores/ui.store";
-import { cancelRemoteLlmStream } from "./remote-runtime";
+import { cancelRemoteLlmStream, streamRemoteLlm } from "./remote-runtime";
 
 describe("remote LLM stream cancellation", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -90,6 +90,68 @@ describe("remote LLM stream cancellation", () => {
         name: "TypeError",
         message: "fetch failed",
       },
+    });
+  });
+
+  it.each([
+    ["500", "fake provider 500", 500],
+    ["429", "fake provider 429", 429],
+  ])("surfaces provider messages from remote stream error events for HTTP %s recovery", async (_scenario, message, status) => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        `data: ${JSON.stringify({
+          type: "error",
+          code: "provider_error",
+          message,
+          data: { status },
+        })}\n\n`,
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const consumeStream = async () => {
+      for await (const _chunk of streamRemoteLlm(
+        `stream-${status}`,
+        { model: "marinara-fake", messages: [{ role: "user", content: "trigger provider failure" }] },
+        { baseUrl: "http://127.0.0.1:8787" },
+      )) {
+        // The fake stream only emits an error event.
+      }
+    };
+
+    await expect(consumeStream()).rejects.toMatchObject({
+      message,
+      status,
+      details: {
+        code: "provider_error",
+      },
+    });
+  });
+
+  it.each([
+    ["text", { type: "error", text: "legacy text failure" }, "legacy text failure"],
+    ["string data", { type: "error", data: "legacy data failure" }, "legacy data failure"],
+  ])("keeps legacy remote stream %s error messages readable", async (_scenario, event, message) => {
+    fetchMock.mockResolvedValue(
+      new Response(`data: ${JSON.stringify(event)}\n\n`, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+    );
+
+    const consumeStream = async () => {
+      for await (const _chunk of streamRemoteLlm(
+        "stream-legacy",
+        { model: "marinara-fake", messages: [{ role: "user", content: "trigger legacy failure" }] },
+        { baseUrl: "http://127.0.0.1:8787" },
+      )) {
+        // The fake stream only emits an error event.
+      }
+    };
+
+    await expect(consumeStream()).rejects.toMatchObject({
+      message,
+      status: 0,
     });
   });
 });
