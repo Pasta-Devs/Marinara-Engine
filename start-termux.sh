@@ -256,7 +256,12 @@ if [ ! -d "node_modules" ] || [ "$TERMUX_FORCE_INSTALL" = "1" ]; then
     echo "  [..] Installing dependencies${TERMUX_FORCE_INSTALL:+ (refreshing for platform fix)}..."
     echo "       This may take several minutes on mobile."
     echo ""
-    run_pnpm install
+    if ! run_pnpm install; then
+        echo "  [ERR] pnpm install failed."
+        echo "        This is often caused by native dependency build failures (e.g. 'sharp')."
+        echo "        Ensure you have build-essential, libvips, and pkg-config installed via pkg."
+        exit 1
+    fi
 fi
 
 # ── Build if needed ──
