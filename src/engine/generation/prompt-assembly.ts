@@ -10,6 +10,7 @@ import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine"
 import { normalizeUserTimeZone } from "../shared/time/timezone";
 import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, SessionSummary } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
+import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
@@ -70,6 +71,7 @@ export interface PromptAssemblyResult {
     constant: boolean;
   }>;
   chatSummary: string | null;
+  chatSummaryFingerprint: string | null;
 }
 
 export interface PromptAssemblyInput {
@@ -1260,6 +1262,7 @@ export async function assembleGenerationPrompt(
   if (!strictRoleFormatting && boolish(input.request.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
   }
+  const summaryFingerprint = fingerprintChatSummary(summary);
 
   return {
     messages,
@@ -1267,5 +1270,6 @@ export async function assembleGenerationPrompt(
     persona,
     activatedLorebookEntries: activated.map(loreForEvent),
     chatSummary: summary,
+    chatSummaryFingerprint: summaryFingerprint,
   };
 }

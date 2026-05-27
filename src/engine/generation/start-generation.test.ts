@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DiscordGateway } from "../capabilities/integrations";
 import type { LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
+import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { retryGenerationAgents, startGeneration, type GenerationEngineDeps } from "./start-generation";
 
 function mockDiscordMirror() {
@@ -245,6 +246,59 @@ describe("startGeneration chat message loading", () => {
   });
 });
 
+describe("startGeneration chat summary fingerprint metadata", () => {
+  it("stores the chat summary fingerprint on generated assistant messages when summary context is injected", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatMetadata: { summary: "The user met Nia at the market." },
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "hello",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    expect(
+      (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+        .map((message) => message.content)
+        .join("\n"),
+    ).toContain("The user met Nia at the market.");
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    expect(assistantSave?.[1]).toMatchObject({
+      extra: {
+        chatSummaryFingerprint: fingerprintChatSummary("The user met Nia at the market."),
+      },
+    });
+  });
+
+  it("stamps the current summary fingerprint when direct request messages bypass assembled summary context", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatMetadata: { summary: "This summary should not be injected." },
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        messages: [{ role: "user", content: "Direct prompt" }],
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    expect(
+      (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+        .map((message) => message.content)
+        .join("\n"),
+    ).not.toContain("This summary should not be injected.");
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    const assistantExtra = (assistantSave?.[1] as { extra?: Record<string, unknown> } | undefined)?.extra ?? {};
+    expect(assistantExtra).toMatchObject({
+      chatSummaryFingerprint: fingerprintChatSummary("This summary should not be injected."),
+    });
+  });
+});
+
 describe("startGeneration generation replay metadata", () => {
   it("stores guided replay metadata on the generated assistant message", async () => {
     const { deps, createChatMessage } = generationDepsForChat();
@@ -293,6 +347,7 @@ describe("startGeneration generation replay metadata", () => {
         generationGuide: "Make this one colder.",
         generationGuideSource: "guide",
       },
+      chatSummaryFingerprint: null,
     });
   });
 
@@ -334,10 +389,29 @@ describe("startGeneration generation replay metadata", () => {
 
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
 
-    expect(patchChatMessageExtra).not.toHaveBeenCalled();
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", { chatSummaryFingerprint: null });
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
+  });
+
+  it("clears stale summary fingerprints on regenerates when the current summary is empty", async () => {
+    const { deps, patchChatMessageExtra } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "first reply",
+          extra: { chatSummaryFingerprint: "stale-fingerprint" },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", { chatSummaryFingerprint: null });
   });
 
   it("ignores stored replay metadata from a target outside the active chat", async () => {

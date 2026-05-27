@@ -35,6 +35,7 @@ export interface MessageExtra {
   thinking?: string | null;
   hiddenFromUser?: boolean;
   hiddenFromAI?: boolean;
+  chatSummaryFingerprint?: string | null;
   isConversationStart?: boolean;
   personaSnapshot?: {
     name?: string | null;

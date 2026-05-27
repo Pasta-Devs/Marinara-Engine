@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StorageGateway } from "../capabilities/storage";
 import { DEFAULT_GENERATION_PARAMS } from "../contracts/constants/defaults";
+import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 
 type Row = Record<string, unknown>;
@@ -45,6 +46,17 @@ function storageWithSections(sections: Row[]): StorageGateway {
     listLorebookEntries: async () => [],
     createLorebookEntries: async () => [],
     promptFull: async <T,>() => null as T | null,
+  };
+}
+
+function storageWithSectionsAndRegex(sections: Row[], regexScripts: Row[]): StorageGateway {
+  const base = storageWithSections(sections);
+  return {
+    ...base,
+    list: async <T,>(entity: string, options?: { filters?: Record<string, unknown> }) => {
+      if (entity === "regex-scripts") return regexScripts as T[];
+      return base.list<T>(entity, options);
+    },
   };
 }
 
@@ -383,6 +395,51 @@ describe("assembleGenerationPrompt inactive chat characters", () => {
     expect(assembly.characters.map((character) => character.id)).toEqual(["char-active"]);
     expect(prompt).toContain("ACTIVE CARD SHOULD APPEAR");
     expect(prompt).not.toContain("INACTIVE CARD SHOULD NOT APPEAR");
+  });
+});
+
+describe("assembleGenerationPrompt chat summary fingerprints", () => {
+  it("fingerprints the current summary even when prompt regex scripts transform the final prompt text", async () => {
+    const summary = "The user met Nia at the market.";
+    const assembly = await assembleGenerationPrompt(
+      storageWithSectionsAndRegex(
+        [
+          section({
+            id: "summary",
+            name: "Summary",
+            role: "system",
+            markerConfig: { type: "chat_summary" },
+            sortOrder: 0,
+          }),
+        ],
+        [
+          {
+            enabled: true,
+            promptOnly: true,
+            placement: ["ai_output"],
+            findRegex: "Nia at the market",
+            replaceString: "Nia near the docks",
+          },
+        ],
+      ),
+      {
+        chat: {
+          id: "conversation-chat",
+          mode: "conversation",
+          characterIds: [],
+          metadata: { summary },
+        },
+        storedMessages: [],
+        connection: {},
+        request,
+        latestUserInput: "hello",
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("The user met Nia near the docks.");
+    expect(prompt).not.toContain(summary);
+    expect(assembly.chatSummaryFingerprint).toBe(fingerprintChatSummary(summary));
   });
 });
 

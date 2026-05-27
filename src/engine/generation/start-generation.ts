@@ -498,6 +498,7 @@ async function saveAssistantMessage(args: {
   content: string;
   agentResults: AgentResult[];
   noteCount: number;
+  chatSummaryFingerprint: string | null;
   attachments?: JsonRecord[];
   usage?: unknown;
 }): Promise<unknown | null> {
@@ -506,9 +507,11 @@ async function saveAssistantMessage(args: {
   const regenerateMessageId = readString(args.input.regenerateMessageId).trim();
   const generationReplay = buildGenerationReplay(args.input);
   if (regenerateMessageId) {
-    const saved = await args.storage.addChatMessageSwipe(args.input.chatId, regenerateMessageId, args.content);
-    if (!generationReplay) return saved;
-    return args.storage.patchChatMessageExtra(regenerateMessageId, { generationReplay });
+    await args.storage.addChatMessageSwipe(args.input.chatId, regenerateMessageId, args.content);
+    const extraPatch: Record<string, unknown> = {};
+    if (generationReplay) extraPatch.generationReplay = generationReplay;
+    extraPatch.chatSummaryFingerprint = args.chatSummaryFingerprint;
+    return args.storage.patchChatMessageExtra(regenerateMessageId, extraPatch);
   }
 
   const requestedCharacterId = readString(args.input.forCharacterId).trim();
@@ -528,6 +531,7 @@ async function saveAssistantMessage(args: {
     extra: {
       ...(args.attachments?.length ? { attachments: args.attachments } : {}),
       ...(generationReplay ? { generationReplay } : {}),
+      chatSummaryFingerprint: args.chatSummaryFingerprint,
     },
     generationInfo: {
       connectionId: readString(args.connection.id) || null,
@@ -981,6 +985,7 @@ export async function* startGeneration(
           content: connected.displayContent,
           agentResults: allAgentResults,
           noteCount: connected.createdNotes.length + connected.executedCommands.length,
+          chatSummaryFingerprint: assembly.chatSummaryFingerprint,
           attachments: connected.assistantAttachments,
           usage,
         });
@@ -1064,6 +1069,7 @@ export async function* startGeneration(
         content: connected.displayContent,
         agentResults: [],
         noteCount: connected.createdNotes.length + connected.executedCommands.length,
+        chatSummaryFingerprint: assembly.chatSummaryFingerprint,
         attachments: connected.assistantAttachments,
         usage,
       });
