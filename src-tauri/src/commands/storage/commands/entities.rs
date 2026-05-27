@@ -243,11 +243,12 @@ fn storage_update_inner(
     id: String,
     patch: Value,
 ) -> Result<Value, AppError> {
-    state.storage.patch(
-        &entity,
-        &id,
-        shared::normalize_update_patch(&entity, patch)?,
-    )
+    let normalized_patch = if entity == "messages" {
+        shared::normalize_message_update_patch(state, &id, patch)?
+    } else {
+        shared::normalize_update_patch(&entity, patch)?
+    };
+    state.storage.patch(&entity, &id, normalized_patch)
 }
 
 #[tauri::command]
