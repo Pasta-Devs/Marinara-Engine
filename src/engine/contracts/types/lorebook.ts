@@ -54,6 +54,8 @@ export interface Lorebook {
   isGlobal: boolean;
   /** Master on/off switch for this lorebook */
   enabled: boolean;
+  /** When true, bulk vectorization skips every entry and semantic matching ignores stored vectors */
+  excludeFromVectorization: boolean;
   /** Tags for organizing/filtering lorebooks */
   tags: string[];
   /** Agent/generation origin tracking */

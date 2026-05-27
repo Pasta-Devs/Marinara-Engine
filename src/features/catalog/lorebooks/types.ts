@@ -6,6 +6,7 @@ export interface Lorebook {
   description: string;
   category: LorebookCategory;
   enabled: boolean;
+  excludeFromVectorization?: boolean;
   isGlobal?: boolean;
   characterId?: string | null;
   characterIds?: string[];

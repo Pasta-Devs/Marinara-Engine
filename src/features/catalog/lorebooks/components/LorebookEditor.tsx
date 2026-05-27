@@ -117,6 +117,16 @@ type LinkedResourceItem = {
   deleted?: boolean;
 };
 
+function readBoolFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+  return false;
+}
+
 function LinkedResourcePicker({
   label,
   help,
@@ -411,6 +421,7 @@ export function LorebookEditor() {
   const [formCategory, setFormCategory] = useState<LorebookCategory>("uncategorized");
   const [formEnabled, setFormEnabled] = useState(true);
   const [formIsGlobal, setFormIsGlobal] = useState(false);
+  const [formExcludeFromVectorization, setFormExcludeFromVectorization] = useState(false);
   const [formScanDepth, setFormScanDepth] = useState(2);
   const [formTokenBudget, setFormTokenBudget] = useState(2048);
   const [formRecursive, setFormRecursive] = useState(false);
@@ -483,6 +494,7 @@ export function LorebookEditor() {
     setFormCategory(lorebook.category);
     setFormEnabled(lorebook.enabled);
     setFormIsGlobal(lorebook.isGlobal ?? false);
+    setFormExcludeFromVectorization(readBoolFlag(lorebook.excludeFromVectorization));
     setFormScanDepth(lorebook.scanDepth);
     setFormTokenBudget(lorebook.tokenBudget);
     setFormRecursive(lorebook.recursiveScanning);
@@ -912,6 +924,7 @@ export function LorebookEditor() {
         category: formCategory,
         enabled: formEnabled,
         isGlobal: formIsGlobal,
+        excludeFromVectorization: formExcludeFromVectorization,
         scanDepth: formScanDepth,
         tokenBudget: formTokenBudget,
         recursiveScanning: formRecursive,
@@ -931,6 +944,7 @@ export function LorebookEditor() {
     formCategory,
     formEnabled,
     formIsGlobal,
+    formExcludeFromVectorization,
     formScanDepth,
     formTokenBudget,
     formRecursive,
@@ -1393,6 +1407,28 @@ export function LorebookEditor() {
                       )}
                     </button>
                   </div>
+
+                  <div className="flex min-h-[4.75rem] items-center justify-between rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)]">
+                    <div>
+                      <p className="text-xs font-medium">No Vector</p>
+                      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                        Skips semantic vectors; keyword matching still works
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setFormExcludeFromVectorization(!formExcludeFromVectorization);
+                        markLorebookDirty();
+                      }}
+                      className="transition-colors"
+                    >
+                      {formExcludeFromVectorization ? (
+                        <ToggleRight size="1.75rem" className="text-amber-400" />
+                      ) : (
+                        <ToggleLeft size="1.75rem" className="text-[var(--muted-foreground)]" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Scan settings */}
@@ -1468,7 +1504,14 @@ export function LorebookEditor() {
                 </div>
 
                 {/* Vectorize (Embeddings) */}
-                <VectorizeSection lorebookId={lorebookId!} entries={entries} />
+                <VectorizeSection
+                  lorebookId={lorebookId!}
+                  entries={entries}
+                  excludeFromVectorization={formExcludeFromVectorization}
+                  hasUnsavedVectorizationToggle={
+                    formExcludeFromVectorization !== readBoolFlag(lorebook.excludeFromVectorization)
+                  }
+                />
               </div>
             )}
 
@@ -1997,7 +2040,17 @@ export function LorebookEditor() {
 }
 
 /** Vectorize lorebook entries for semantic matching. */
-function VectorizeSection({ lorebookId, entries }: { lorebookId: string; entries: LorebookEntry[] }) {
+function VectorizeSection({
+  lorebookId,
+  entries,
+  excludeFromVectorization,
+  hasUnsavedVectorizationToggle,
+}: {
+  lorebookId: string;
+  entries: LorebookEntry[];
+  excludeFromVectorization: boolean;
+  hasUnsavedVectorizationToggle: boolean;
+}) {
   const queryClient = useQueryClient();
   const { data: rawConnections } = useConnections();
   const connections = (rawConnections ?? []) as Array<{ id: string; name: string; embeddingModel?: string }>;
@@ -2005,8 +2058,10 @@ function VectorizeSection({ lorebookId, entries }: { lorebookId: string; entries
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizing, setVectorizing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-  const excludedCount = entries.filter((entry) => entry.excludeFromVectorization).length;
-  const vectorizableEntries = entries.filter((entry) => !entry.excludeFromVectorization);
+  const excludedCount = excludeFromVectorization
+    ? entries.length
+    : entries.filter((entry) => entry.excludeFromVectorization).length;
+  const vectorizableEntries = excludeFromVectorization ? [] : entries.filter((entry) => !entry.excludeFromVectorization);
   const vectorizableEntryCount = vectorizableEntries.length;
   const vectorizedCount = vectorizableEntries.filter(
     (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
@@ -2030,9 +2085,9 @@ function VectorizeSection({ lorebookId, entries }: { lorebookId: string; entries
       const res = await invokeTauri("lorebook_vectorize", {
         id: lorebookId,
         body: {
-        connectionId: selectedConnectionId,
-        model: conn?.embeddingModel ?? "",
-        onlyMissing: !allVectorized,
+          connectionId: selectedConnectionId,
+          model: conn?.embeddingModel ?? "",
+          onlyMissing: !allVectorized,
         },
       });
       const data = res as { vectorized: number; total?: number; skipped?: number };
@@ -2072,7 +2127,15 @@ function VectorizeSection({ lorebookId, entries }: { lorebookId: string; entries
         {missingCount > 0 && <span>{missingCount} still need embeddings.</span>}
         {excludedCount > 0 && <span>{excludedCount} excluded.</span>}
       </div>
-      {embeddingConnections.length === 0 ? (
+      {hasUnsavedVectorizationToggle ? (
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+          Save this lorebook before vectorizing so the No Vector setting is applied.
+        </p>
+      ) : excludeFromVectorization ? (
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+          Semantic vectorization is disabled by this lorebook's No Vector toggle. Keyword matching still works.
+        </p>
+      ) : embeddingConnections.length === 0 ? (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           No connections with an embedding model configured. Set an Embedding Model on a connection first.
         </p>

@@ -1061,7 +1061,10 @@ async function loadActivatedLore(
         const id = readString(book.id);
         // The refactor storage API has no path-style routes; use the
         // dedicated capability that filters lorebook-entries by lorebookId.
-        return id ? storage.listLorebookEntries<JsonRecord>(id) : [];
+        if (!id) return [];
+        const rows = await storage.listLorebookEntries<JsonRecord>(id);
+        if (!boolish(book.excludeFromVectorization, false)) return rows;
+        return rows.map((row) => ({ ...row, excludeFromVectorization: true }));
       }),
     )
   ).flat();
