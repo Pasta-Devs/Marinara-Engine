@@ -68,6 +68,7 @@ describe("game gallery scope", () => {
     const sessions = [
       chat({ id: "session-1", mode: "game", groupId: "game-1", metadata: metadata({ gameId: "game-1" }) }),
       active,
+      chat({ id: "other-game-session", mode: "game", groupId: "game-2", metadata: metadata({ gameId: "game-2" }) }),
       chat({ id: "conversation-1", mode: "conversation", groupId: "game-1" }),
     ];
 

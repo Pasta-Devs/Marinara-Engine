@@ -23,7 +23,7 @@ export function getGalleryChatIds(chat: Chat | null, gameSessions: readonly Chat
   if (!gameId) return [chat.id];
 
   const sessionIds = gameSessions
-    .filter((session) => session.mode === "game")
+    .filter((session) => session.mode === "game" && getGameGalleryScopeId(session) === gameId)
     .map((session) => session.id)
     .filter(Boolean);
 
