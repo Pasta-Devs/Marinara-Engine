@@ -354,6 +354,182 @@ describe("createGenerationAgentRuntime", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("skips automatic custom agents until their user-message interval has elapsed", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-scene-scout",
+              name: "Scene Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              promptTemplate: "Watch for scene keywords.",
+              settings: { resultType: "context_injection", runInterval: 5 },
+            },
+          ],
+          {
+            "agent-runs": [
+              {
+                chatId: "chat-a",
+                agentType: "custom-scene-scout",
+                resultType: "context_injection",
+                resultData: { text: "old note" },
+                messageId: "assistant-1",
+                success: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { id: "assistant-1", role: "assistant", content: "First response." },
+          { id: "user-2", role: "user", content: "Second request." },
+          { id: "assistant-2", role: "assistant", content: "Second response." },
+          { id: "user-3", role: "user", content: "Third request." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([]);
+    expect(runtime.preInjections).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("runs automatic custom agents when their user-message interval has elapsed", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-scene-scout",
+              name: "Scene Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              promptTemplate: "Watch for scene keywords.",
+              settings: { resultType: "context_injection", runInterval: 5 },
+            },
+          ],
+          {
+            "agent-runs": [
+              {
+                chatId: "chat-a",
+                agentType: "custom-scene-scout",
+                resultType: "context_injection",
+                resultData: { text: "old note" },
+                messageId: "assistant-1",
+                success: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { id: "assistant-1", role: "assistant", content: "First response." },
+          { id: "user-2", role: "user", content: "Second request." },
+          { id: "user-3", role: "user", content: "Third request." },
+          { id: "user-4", role: "user", content: "Fourth request." },
+          { id: "user-5", role: "user", content: "Fifth request." },
+          { id: "user-6", role: "user", content: "Sixth request." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preInjections).toEqual([
+      {
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+        text: "ok",
+      },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("lets explicit custom agent retries bypass the automatic user-message interval", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-scene-scout",
+              name: "Scene Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              promptTemplate: "Watch for scene keywords.",
+              settings: { resultType: "context_injection", runInterval: 5 },
+            },
+          ],
+          {
+            "agent-runs": [
+              {
+                chatId: "chat-a",
+                agentType: "custom-scene-scout",
+                resultType: "context_injection",
+                resultData: { text: "old note" },
+                messageId: "assistant-1",
+                success: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { id: "assistant-1", role: "assistant", content: "First response." },
+          { id: "user-2", role: "user", content: "Second request." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+        agentTypes: new Set(["custom-scene-scout"]),
+      },
+    );
+
+    expect(runtime.preInjections).toEqual([
+      {
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+        text: "ok",
+      },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
   it("skips automatic Illustrator runs until the assistant-message interval has elapsed", async () => {
     const calls: unknown[] = [];
     const runtime = await createGenerationAgentRuntime(

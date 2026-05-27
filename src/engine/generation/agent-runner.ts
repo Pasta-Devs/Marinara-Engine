@@ -76,6 +76,15 @@ interface ResolvedAgentsResult {
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const ILLUSTRATOR_AGENT_TYPE = "illustrator";
 const MAX_ASSISTANT_RUN_INTERVAL = 100;
+const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
+type AutomaticIntervalMessageRole = "assistant" | "user";
+
+interface AutomaticIntervalGate {
+  agentType: string;
+  messageRole: AutomaticIntervalMessageRole;
+  includePendingMessage: boolean;
+  runInterval: number;
+}
 
 function llmProvider(llm: LlmGateway, connectionId: string | null): BaseLLMProvider {
   return {
@@ -195,9 +204,41 @@ function positiveInteger(value: unknown, fallback: number, max: number): number 
   return Math.max(1, Math.min(max, Math.floor(parsed)));
 }
 
-function automaticAssistantIntervalAgentType(input: GenerationAgentRuntimeInput, type: string): string | null {
+function automaticIntervalGate(
+  input: GenerationAgentRuntimeInput,
+  type: string,
+  settings: Record<string, unknown>,
+  builtInAgent: boolean,
+): AutomaticIntervalGate | null {
   if (input.agentTypes && input.agentTypes.size > 0) return null;
-  return type === ILLUSTRATOR_AGENT_TYPE ? type : null;
+  if (type === ILLUSTRATOR_AGENT_TYPE) {
+    const fallback = positiveInteger(
+      BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[type],
+      5,
+      MAX_ASSISTANT_RUN_INTERVAL,
+    );
+    const runInterval = positiveInteger(settings.runInterval, fallback, MAX_ASSISTANT_RUN_INTERVAL);
+    return runInterval > 1
+      ? {
+          agentType: type,
+          messageRole: "assistant",
+          includePendingMessage: true,
+          runInterval,
+        }
+      : null;
+  }
+  if (!builtInAgent) {
+    const runInterval = positiveInteger(settings.runInterval, 1, MAX_CUSTOM_AGENT_USER_RUN_INTERVAL);
+    return runInterval > 1
+      ? {
+          agentType: type,
+          messageRole: "user",
+          includePendingMessage: false,
+          runInterval,
+        }
+      : null;
+  }
+  return null;
 }
 
 function runAgentType(run: JsonRecord): string {
@@ -242,37 +283,33 @@ function intervalAnchorRun(
   );
 }
 
-function assistantMessagesSinceRun(input: GenerationAgentRuntimeInput, messageId: string): number | null {
+function visibleMessagesSinceRun(
+  input: GenerationAgentRuntimeInput,
+  messageId: string,
+  role: AutomaticIntervalMessageRole,
+): number | null {
   const index = input.storedMessages.findIndex((message) => readString(message.id).trim() === messageId);
   if (index < 0) return null;
   return input.storedMessages
     .slice(index + 1)
     .filter((message) => !hiddenFromAi(message))
-    .filter((message) => readString(message.role).trim() === "assistant").length;
+    .filter((message) => readString(message.role).trim() === role).length;
 }
 
-async function automaticAssistantIntervalAllowsRun(
+async function automaticIntervalAllowsRun(
   storage: StorageGateway,
   input: GenerationAgentRuntimeInput,
-  agentType: string,
-  settings: Record<string, unknown>,
+  gate: AutomaticIntervalGate,
 ): Promise<boolean> {
-  const fallback = positiveInteger(
-    BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[agentType],
-    agentType === ILLUSTRATOR_AGENT_TYPE ? 5 : 1,
-    MAX_ASSISTANT_RUN_INTERVAL,
-  );
-  const runInterval = positiveInteger(settings.runInterval, fallback, MAX_ASSISTANT_RUN_INTERVAL);
-  if (runInterval <= 1) return true;
   const chatId = readString(input.chat.id).trim();
   if (!chatId) return true;
-  const lastRun = intervalAnchorRun(await storage.list<JsonRecord>("agent-runs"), input, chatId, agentType);
+  const lastRun = intervalAnchorRun(await storage.list<JsonRecord>("agent-runs"), input, chatId, gate.agentType);
   if (!lastRun) return true;
   const messageId = readString(lastRun.messageId).trim();
   if (!messageId) return true;
-  const assistantMessagesSince = assistantMessagesSinceRun(input, messageId);
-  if (assistantMessagesSince === null) return true;
-  return assistantMessagesSince + 1 >= runInterval;
+  const messagesSince = visibleMessagesSinceRun(input, messageId, gate.messageRole);
+  if (messagesSince === null) return true;
+  return messagesSince + (gate.includePendingMessage ? 1 : 0) >= gate.runInterval;
 }
 
 // Tool-runtime helpers live in ./tools-runtime.ts and are imported above.
@@ -354,15 +391,13 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   for (const agent of rows) {
     const type = readString(agent.type || agent.agentType) || "agent";
     const settings = agentSettings(agent);
-    if (!input.bypassCustomAgentActivation && !isBuiltInAgent(agent)) {
+    const builtInAgent = isBuiltInAgent(agent);
+    if (!input.bypassCustomAgentActivation && !builtInAgent) {
       const activation = matchCustomAgentActivation(settings, activationMessages);
       if (activation.configured && !activation.matched) continue;
     }
-    const assistantIntervalAgentType = automaticAssistantIntervalAgentType(input, type);
-    if (
-      assistantIntervalAgentType &&
-      !(await automaticAssistantIntervalAllowsRun(deps.storage, input, assistantIntervalAgentType, settings))
-    ) {
+    const intervalGate = automaticIntervalGate(input, type, settings, builtInAgent);
+    if (intervalGate && !(await automaticIntervalAllowsRun(deps.storage, input, intervalGate))) {
       continue;
     }
     const requestedConnectionId = readString(agent.connectionId).trim();
