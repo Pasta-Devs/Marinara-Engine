@@ -533,6 +533,8 @@ function macroContext(input: {
       appearance: character.appearance,
       scenario: character.scenario,
       example: character.mesExample,
+      systemPrompt: character.systemPrompt,
+      postHistoryInstructions: character.postHistoryInstructions,
     })),
     variables: stringRecord(input.chat.promptVariables ?? input.chat.variableValues),
     lastInput: input.latestUserInput,
@@ -548,6 +550,8 @@ function macroContext(input: {
           appearance: first.appearance,
           scenario: first.scenario,
           example: first.mesExample,
+          systemPrompt: first.systemPrompt,
+          postHistoryInstructions: first.postHistoryInstructions,
         }
       : undefined,
     personaFields: input.persona

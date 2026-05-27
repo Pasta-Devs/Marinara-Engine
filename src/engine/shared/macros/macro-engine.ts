@@ -23,6 +23,8 @@ export interface MacroContext {
     appearance?: string;
     scenario?: string;
     example?: string;
+    systemPrompt?: string;
+    postHistoryInstructions?: string;
   }>;
   /** Custom variables from prompt toggle groups */
   variables: Record<string, string>;
@@ -42,6 +44,8 @@ export interface MacroContext {
     appearance?: string;
     scenario?: string;
     example?: string;
+    systemPrompt?: string;
+    postHistoryInstructions?: string;
   };
   /** Active persona card fields used by {{persona}} */
   personaFields?: {
@@ -70,7 +74,13 @@ export interface SupportedMacroDefinition {
 }
 
 const CHARACTER_MACRO_PATTERN =
-  /\{\{(?:char|charName|description|personality|backstory|appearance|scenario|example)\}\}|\{\{\s*#if\s+[^}]*\b(?:char|charName|character|speaker|description|personality|backstory|appearance|scenario|example)\b/i;
+  /\{\{(?:char|charName|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:char|charName|character|speaker|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
+const CHARACTER_FIELD_MACRO_PATTERN =
+  /\{\{(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
+const MAX_CHARACTER_FIELD_RESOLUTION_DEPTH = 4;
+
+type CharacterMacroProfile = NonNullable<MacroContext["characterProfiles"]>[number];
+type CharacterFieldMacroName = keyof NonNullable<MacroContext["characterFields"]>;
 
 export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{user}}", description: "Current user or persona name" },
@@ -89,6 +99,12 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Character", syntax: "{{appearance}}", description: "Current character appearance" },
   { category: "Character", syntax: "{{scenario}}", description: "Current character scenario" },
   { category: "Character", syntax: "{{example}}", description: "Current character example dialogue" },
+  { category: "Character", syntax: "{{charSysInfo}}", description: "Current character system prompt" },
+  {
+    category: "Character",
+    syntax: "{{charPostHistory}}",
+    description: "Current character post-history instructions",
+  },
   { category: "Context", syntax: "{{input}}", description: "Most recent user message" },
   { category: "Context", syntax: "{{model}}", description: "Current model name" },
   { category: "Context", syntax: "{{chatId}}", description: "Current chat ID" },
@@ -146,10 +162,64 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   },
 ];
 
-function macroContextForCharacterProfile(
-  profile: NonNullable<MacroContext["characterProfiles"]>[number],
-  base?: MacroContext,
-): MacroContext {
+function stripMacroComments(value: string): string {
+  return value.replace(/\{\{\/\/[^}]*\}\}/g, "");
+}
+
+function getCharacterFieldValue(profile: CharacterMacroProfile, field: CharacterFieldMacroName): string {
+  return stripMacroComments(profile[field] ?? "");
+}
+
+function resolveTerminalCharacterFieldValue(
+  value: string,
+  profile: CharacterMacroProfile,
+  baseContext?: MacroContext,
+): string {
+  if (CHARACTER_FIELD_MACRO_PATTERN.test(value)) return "";
+  return resolveConditionalBlocks(value, macroContextForCharacterProfile(profile, baseContext)).replace(
+    /\{\{char(?:Name)?\}\}/gi,
+    profile.name,
+  );
+}
+
+function resolveCharacterFieldValue(
+  profile: CharacterMacroProfile,
+  field: CharacterFieldMacroName,
+  depth: number,
+  baseContext?: MacroContext,
+): string {
+  const value = getCharacterFieldValue(profile, field);
+  if (!value) return "";
+  if (depth >= MAX_CHARACTER_FIELD_RESOLUTION_DEPTH) {
+    return resolveTerminalCharacterFieldValue(value, profile, baseContext);
+  }
+  return resolveCharacterScopedMacros(value, profile, baseContext, depth + 1);
+}
+
+function profileFromMacroContext(ctx: MacroContext): CharacterMacroProfile {
+  return {
+    name: ctx.char,
+    description: ctx.characterFields?.description ?? "",
+    personality: ctx.characterFields?.personality ?? "",
+    backstory: ctx.characterFields?.backstory ?? "",
+    appearance: ctx.characterFields?.appearance ?? "",
+    scenario: ctx.characterFields?.scenario ?? "",
+    example: ctx.characterFields?.example ?? "",
+    systemPrompt: ctx.characterFields?.systemPrompt ?? "",
+    postHistoryInstructions: ctx.characterFields?.postHistoryInstructions ?? "",
+  };
+}
+
+function resolveContextCharacterFieldValue(ctx: MacroContext, field: CharacterFieldMacroName): string {
+  return resolveCharacterFieldValue(profileFromMacroContext(ctx), field, 0, ctx);
+}
+
+function resolveContextCharacterFieldOperand(ctx: MacroContext, field: CharacterFieldMacroName): string {
+  const value = resolveContextCharacterFieldValue(ctx, field);
+  return value.includes("{{") ? resolveMacros(value, ctx, { trimResult: false }) : value;
+}
+
+function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: MacroContext): MacroContext {
   return {
     user: base?.user ?? "User",
     char: profile.name,
@@ -169,24 +239,34 @@ function macroContextForCharacterProfile(
       appearance: profile.appearance ?? "",
       scenario: profile.scenario ?? "",
       example: profile.example ?? "",
+      systemPrompt: profile.systemPrompt ?? "",
+      postHistoryInstructions: profile.postHistoryInstructions ?? "",
     },
   };
 }
 
 function resolveCharacterScopedMacros(
   template: string,
-  profile: NonNullable<MacroContext["characterProfiles"]>[number],
+  profile: CharacterMacroProfile,
   baseContext?: MacroContext,
+  depth = 0,
 ): string {
-  const scoped = resolveConditionalBlocks(template, macroContextForCharacterProfile(profile, baseContext));
+  const scoped = resolveConditionalBlocks(
+    stripMacroComments(template),
+    macroContextForCharacterProfile(profile, baseContext),
+  );
   return scoped
     .replace(/\{\{char(?:Name)?\}\}/gi, profile.name)
-    .replace(/\{\{description\}\}/gi, profile.description ?? "")
-    .replace(/\{\{personality\}\}/gi, profile.personality ?? "")
-    .replace(/\{\{backstory\}\}/gi, profile.backstory ?? "")
-    .replace(/\{\{appearance\}\}/gi, profile.appearance ?? "")
-    .replace(/\{\{scenario\}\}/gi, profile.scenario ?? "")
-    .replace(/\{\{example\}\}/gi, profile.example ?? "");
+    .replace(/\{\{description\}\}/gi, () => resolveCharacterFieldValue(profile, "description", depth, baseContext))
+    .replace(/\{\{personality\}\}/gi, () => resolveCharacterFieldValue(profile, "personality", depth, baseContext))
+    .replace(/\{\{backstory\}\}/gi, () => resolveCharacterFieldValue(profile, "backstory", depth, baseContext))
+    .replace(/\{\{appearance\}\}/gi, () => resolveCharacterFieldValue(profile, "appearance", depth, baseContext))
+    .replace(/\{\{scenario\}\}/gi, () => resolveCharacterFieldValue(profile, "scenario", depth, baseContext))
+    .replace(/\{\{example\}\}/gi, () => resolveCharacterFieldValue(profile, "example", depth, baseContext))
+    .replace(/\{\{charSysInfo\}\}/gi, () => resolveCharacterFieldValue(profile, "systemPrompt", depth, baseContext))
+    .replace(/\{\{charPostHistory\}\}/gi, () =>
+      resolveCharacterFieldValue(profile, "postHistoryInstructions", depth, baseContext),
+    );
 }
 
 function expandBracketedCharacterBlocks(template: string, ctx: MacroContext): string {
@@ -342,17 +422,21 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
     case "chatid":
       return ctx.chatId ?? "";
     case "description":
-      return ctx.characterFields?.description ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "description");
     case "personality":
-      return ctx.characterFields?.personality ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "personality");
     case "backstory":
-      return ctx.characterFields?.backstory ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "backstory");
     case "appearance":
-      return ctx.characterFields?.appearance ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "appearance");
     case "scenario":
-      return ctx.characterFields?.scenario ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "scenario");
     case "example":
-      return ctx.characterFields?.example ?? "";
+      return resolveContextCharacterFieldOperand(ctx, "example");
+    case "charsysinfo":
+      return resolveContextCharacterFieldOperand(ctx, "systemPrompt");
+    case "charposthistory":
+      return resolveContextCharacterFieldOperand(ctx, "postHistoryInstructions");
     default:
       if (/^var[:.]/i.test(token)) {
         const name = token.replace(/^var[:.]/i, "").trim();
@@ -658,17 +742,24 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{noop\}\}/gi, "");
   result = result.replace(/\{\{banned\s+"[^"]*"\}\}/gi, "");
 
+  // ── Character field substitutions ──
+  result = result.replace(/\{\{description\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "description"));
+  result = result.replace(/\{\{personality\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "personality"));
+  result = result.replace(/\{\{backstory\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "backstory"));
+  result = result.replace(/\{\{appearance\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "appearance"));
+  result = result.replace(/\{\{scenario\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "scenario"));
+  result = result.replace(/\{\{example\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "example"));
+  result = result.replace(/\{\{charSysInfo\}\}/gi, () => resolveContextCharacterFieldValue(ctx, "systemPrompt"));
+  result = result.replace(
+    /\{\{charPostHistory\}\}/gi,
+    () => resolveContextCharacterFieldValue(ctx, "postHistoryInstructions"),
+  );
+
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
   result = result.replace(/\{\{persona\}\}/gi, personaText);
   result = result.replace(/\{\{char(?:Name)?\}\}/gi, ctx.char);
   result = result.replace(/\{\{characters\}\}/gi, ctx.characters.join(", "));
-  result = result.replace(/\{\{description\}\}/gi, ctx.characterFields?.description ?? "");
-  result = result.replace(/\{\{personality\}\}/gi, ctx.characterFields?.personality ?? "");
-  result = result.replace(/\{\{backstory\}\}/gi, ctx.characterFields?.backstory ?? "");
-  result = result.replace(/\{\{appearance\}\}/gi, ctx.characterFields?.appearance ?? "");
-  result = result.replace(/\{\{scenario\}\}/gi, ctx.characterFields?.scenario ?? "");
-  result = result.replace(/\{\{example\}\}/gi, ctx.characterFields?.example ?? "");
   result = result.replace(/\{\{input\}\}/gi, ctx.lastInput ?? "");
   result = result.replace(/\{\{model\}\}/gi, ctx.model ?? "");
   result = result.replace(/\{\{chatId\}\}/gi, ctx.chatId ?? "");

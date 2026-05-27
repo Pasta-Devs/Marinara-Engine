@@ -10,6 +10,8 @@ export type CharacterMap = Map<
     appearance?: string;
     scenario?: string;
     example?: string;
+    systemPrompt?: string;
+    postHistoryInstructions?: string;
     avatarUrl: string | null;
     nameColor?: string;
     dialogueColor?: string;

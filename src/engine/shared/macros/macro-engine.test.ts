@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatZonedDate, formatZonedTime, getZonedWeekdayName } from "../time/timezone";
-import { resolveMacros, type MacroContext } from "./macro-engine";
+import { resolveMacros, SUPPORTED_MACROS, type MacroContext } from "./macro-engine";
 
 function baseContext(overrides: Partial<MacroContext> = {}): MacroContext {
   return {
@@ -34,22 +34,160 @@ function conditionalContext(overrides: Partial<MacroContext> = {}): MacroContext
       appearance: "mask and coat",
       scenario: "winter palace",
       example: "Observe carefully.",
+      systemPrompt: "Prioritize clinical precision.",
+      postHistoryInstructions: "Keep experiments consistent after chat history.",
     },
     characterProfiles: [
       {
         name: "Dottore",
         description: "Harbinger doctor",
         personality: "calculating",
+        systemPrompt: "Dottore system guidance",
+        postHistoryInstructions: "Dottore post-history guidance",
       },
       {
         name: "Pantalone",
         description: "Banker harbinger",
         personality: "polished",
+        systemPrompt: "Pantalone system guidance",
+        postHistoryInstructions: "Pantalone post-history guidance",
       },
     ],
     ...rest,
   });
 }
+
+describe("resolveMacros character instruction macros", () => {
+  it("advertises charSysInfo and charPostHistory in the supported macro reference", () => {
+    expect(SUPPORTED_MACROS.map((macro) => macro.syntax)).toEqual(
+      expect.arrayContaining(["{{charSysInfo}}", "{{charPostHistory}}"]),
+    );
+  });
+
+  it("resolves character instruction macros from the active character fields", () => {
+    const resolved = resolveMacros("Sys: {{charSysInfo}}\nPost: {{charPostHistory}}", conditionalContext());
+
+    expect(resolved).toBe(
+      "Sys: Prioritize clinical precision.\nPost: Keep experiments consistent after chat history.",
+    );
+  });
+
+  it("resolves nested macros inside active character instruction fields", () => {
+    const resolved = resolveMacros(
+      "Sys: {{charSysInfo}}\nPost: {{charPostHistory}}",
+      conditionalContext({
+        characterFields: {
+          description: "Harbinger doctor",
+          systemPrompt: "Guide {{char}} for {{user}} using {{description}}.",
+          postHistoryInstructions: "After history: {{charSysInfo}}",
+        },
+      }),
+    );
+
+    expect(resolved).toBe(
+      "Sys: Guide Dottore for Xel using Harbinger doctor.\nPost: After history: Guide Dottore for Xel using Harbinger doctor.",
+    );
+  });
+
+  it("expands character instruction macros per repeated group-chat profile", () => {
+    const resolved = resolveMacros(
+      [
+        "[",
+        "{{char}}",
+        "sys={{charSysInfo}}",
+        "post={{charPostHistory}}",
+        '{{#if charSysInfo contains "Pantalone"}}banker{{else}}other{{/if}}',
+        "]",
+      ].join("\n"),
+      conditionalContext(),
+    );
+
+    expect(resolved).toContain("Dottore\nsys=Dottore system guidance\npost=Dottore post-history guidance\nother");
+    expect(resolved).toContain(
+      "Pantalone\nsys=Pantalone system guidance\npost=Pantalone post-history guidance\nbanker",
+    );
+    expect(resolved).not.toContain("{{charSysInfo}}");
+    expect(resolved).not.toContain("{{charPostHistory}}");
+  });
+
+  it("resolves nested character instruction fields per repeated group-chat profile", () => {
+    const resolved = resolveMacros(
+      [
+        "[",
+        "{{char}}",
+        "sys={{charSysInfo}}",
+        "post={{charPostHistory}}",
+        '{{#if charPostHistory contains "Harbinger doctor"}}nested{{else}}miss{{/if}}',
+        "]",
+      ].join("\n"),
+      conditionalContext({
+        characterProfiles: [
+          {
+            name: "Dottore",
+            description: "Harbinger doctor",
+            systemPrompt: "Guide {{char}} for {{user}} using {{description}}.",
+            postHistoryInstructions: "After history: {{charSysInfo}}",
+          },
+          {
+            name: "Pantalone",
+            description: "Banker harbinger",
+            systemPrompt: "Guide {{char}} for {{user}} using {{description}}.",
+            postHistoryInstructions: "After history: {{charSysInfo}}",
+          },
+        ],
+      }),
+    );
+
+    expect(resolved).toContain(
+      "Dottore\nsys=Guide Dottore for Xel using Harbinger doctor.\npost=After history: Guide Dottore for Xel using Harbinger doctor.\nnested",
+    );
+    expect(resolved).toContain(
+      "Pantalone\nsys=Guide Pantalone for Xel using Banker harbinger.\npost=After history: Guide Pantalone for Xel using Banker harbinger.\nmiss",
+    );
+  });
+
+  it("stops recursive character instruction fields at a bounded depth", () => {
+    const resolved = resolveMacros(
+      "{{charSysInfo}}",
+      conditionalContext({
+        characterFields: {
+          systemPrompt: "{{charPostHistory}}",
+          postHistoryInstructions: "{{charSysInfo}}",
+        },
+      }),
+    );
+
+    expect(resolved).toBe("");
+  });
+
+  it("preserves acyclic terminal character field values at the depth boundary", () => {
+    const resolved = resolveMacros(
+      "{{description}}",
+      conditionalContext({
+        characterFields: {
+          description: "{{personality}}",
+          personality: "{{backstory}}",
+          backstory: "{{appearance}}",
+          appearance: "{{scenario}}",
+          scenario: "Terminal for {{char}} and {{user}}.",
+        },
+      }),
+    );
+
+    expect(resolved).toBe("Terminal for Dottore and Xel.");
+  });
+
+  it("does not evaluate unused character fields", () => {
+    const ctx = conditionalContext({
+      characterFields: {
+        description: "{{#if {{setvar::leaked::yes}}}}unused{{/if}}",
+      },
+    });
+
+    expect(resolveMacros("No character field macros here.", ctx)).toBe("No character field macros here.");
+    expect(ctx.variables.leaked).toBeUndefined();
+  });
+});
 
 describe("resolveMacros conditional blocks", () => {
   it("selects truthy and else branches from variables", () => {

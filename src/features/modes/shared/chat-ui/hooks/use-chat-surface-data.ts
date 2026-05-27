@@ -205,6 +205,8 @@ export function useChatSurfaceData({
           appearance: parsed.extensions?.appearance ?? "",
           scenario: parsed.scenario ?? "",
           example: parsed.mes_example ?? "",
+          systemPrompt: parsed.system_prompt ?? parsed.systemPrompt ?? "",
+          postHistoryInstructions: parsed.post_history_instructions ?? parsed.postHistoryInstructions ?? "",
           avatarUrl: character.avatarPath ?? null,
           nameColor: parsed.extensions?.nameColor || undefined,
           dialogueColor: parsed.extensions?.dialogueColor || undefined,

@@ -66,6 +66,21 @@ function storageWithCharacters(characters: Row[]): StorageGateway {
   };
 }
 
+function storageWithSectionsAndCharacters(sections: Row[], characters: Row[]): StorageGateway {
+  const base = storageWithSections(sections);
+  return {
+    ...base,
+    list: async <T,>(entity: string, options?: { filters?: Record<string, unknown> }) => {
+      if (entity === "characters") return characters as T[];
+      return base.list<T>(entity, options);
+    },
+    get: async <T,>(entity: string, id: string) => {
+      if (entity === "characters") return (characters.find((character) => character.id === id) as T) ?? null;
+      return base.get<T>(entity, id);
+    },
+  };
+}
+
 function storageWithLore(entries: Row[]): StorageGateway {
   return {
     ...storageWithSections([]),
@@ -87,6 +102,48 @@ const request = {
   strictRoleFormatting: true,
   singleUserMessage: false,
 };
+
+describe("assembleGenerationPrompt macro parity", () => {
+  it("resolves charSysInfo and charPostHistory from active character instruction fields", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithSectionsAndCharacters(
+        [
+          section({
+            id: "main",
+            name: "main",
+            role: "system",
+            content: "Sys={{charSysInfo}}\nPost={{charPostHistory}}",
+            sortOrder: 0,
+          }),
+        ],
+        [
+          {
+            id: "char-a",
+            data: {
+              name: "Aster",
+              description: "A roleplay card.",
+              system_prompt: "Always keep Aster's system guidance.",
+              post_history_instructions: "Always keep Aster's post-history guidance.",
+            },
+          },
+        ],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay", characterIds: ["char-a"] },
+        storedMessages: [],
+        connection: {},
+        request,
+        latestUserInput: "",
+      },
+    );
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Sys=Always keep Aster's system guidance.");
+    expect(prompt).toContain("Post=Always keep Aster's post-history guidance.");
+    expect(prompt).not.toContain("{{charSysInfo}}");
+    expect(prompt).not.toContain("{{charPostHistory}}");
+  });
+});
 
 describe("assembleGenerationPrompt strict roles", () => {
   it("preserves preset chat history roles when history begins with an assistant greeting", async () => {
