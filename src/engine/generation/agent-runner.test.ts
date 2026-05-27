@@ -409,7 +409,7 @@ describe("createGenerationAgentRuntime", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("uses legacy type fields on persisted Illustrator runs when gating automatic intervals", async () => {
+  it("uses legacy type fields and string result data on persisted Illustrator runs when gating automatic intervals", async () => {
     const calls: unknown[] = [];
     const runtime = await createGenerationAgentRuntime(
       {
@@ -432,7 +432,7 @@ describe("createGenerationAgentRuntime", () => {
                 chatId: "chat-a",
                 type: "illustrator",
                 resultType: "image_prompt",
-                resultData: illustratorDrawData,
+                resultData: JSON.stringify(illustratorDrawData),
                 messageId: "assistant-1",
                 success: true,
                 createdAt: "2026-01-01T00:00:00.000Z",
