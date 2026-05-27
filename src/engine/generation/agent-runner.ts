@@ -43,6 +43,7 @@ export interface GenerationAgentRuntimeInput {
   chat: JsonRecord;
   connection: JsonRecord;
   storedMessages: JsonRecord[];
+  cadenceMessages?: JsonRecord[];
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
@@ -80,6 +81,7 @@ const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 type AutomaticIntervalMessageRole = "assistant" | "user";
 
 interface AutomaticIntervalGate {
+  agentId: string;
   agentType: string;
   messageRole: AutomaticIntervalMessageRole;
   includePendingMessage: boolean;
@@ -206,6 +208,7 @@ function positiveInteger(value: unknown, fallback: number, max: number): number 
 
 function automaticIntervalGate(
   input: GenerationAgentRuntimeInput,
+  id: string,
   type: string,
   settings: Record<string, unknown>,
   builtInAgent: boolean,
@@ -220,6 +223,7 @@ function automaticIntervalGate(
     const runInterval = positiveInteger(settings.runInterval, fallback, MAX_ASSISTANT_RUN_INTERVAL);
     return runInterval > 1
       ? {
+          agentId: id,
           agentType: type,
           messageRole: "assistant",
           includePendingMessage: true,
@@ -231,6 +235,7 @@ function automaticIntervalGate(
     const runInterval = positiveInteger(settings.runInterval, 1, MAX_CUSTOM_AGENT_USER_RUN_INTERVAL);
     return runInterval > 1
       ? {
+          agentId: id,
           agentType: type,
           messageRole: "user",
           includePendingMessage: false,
@@ -245,6 +250,17 @@ function runAgentType(run: JsonRecord): string {
   return readString(run.agentType || run.type).trim();
 }
 
+function runAgentId(run: JsonRecord): string {
+  return readString(run.agentId || run.agentConfigId).trim();
+}
+
+function runMatchesAgent(run: JsonRecord, agentType: string, agentId: string): boolean {
+  const type = runAgentType(run);
+  if (type) return type === agentType;
+  const id = runAgentId(run);
+  return !!agentId && id === agentId;
+}
+
 function illustratorRunCountsTowardInterval(run: JsonRecord): boolean {
   const resultType = readString(run.resultType).trim();
   if (resultType && resultType !== "image_prompt") return false;
@@ -256,7 +272,8 @@ function illustratorRunCountsTowardInterval(run: JsonRecord): boolean {
 
 function messageIndexById(input: GenerationAgentRuntimeInput): Map<string, number> {
   const indexes = new Map<string, number>();
-  input.storedMessages.forEach((message, index) => {
+  const messages = input.cadenceMessages ?? input.storedMessages;
+  messages.forEach((message, index) => {
     const id = readString(message.id).trim();
     if (id) indexes.set(id, index);
   });
@@ -268,12 +285,13 @@ function intervalAnchorRun(
   input: GenerationAgentRuntimeInput,
   chatId: string,
   agentType: string,
+  agentId: string,
 ): JsonRecord | null {
   const indexes = messageIndexById(input);
   return (
     runs
       .filter((run) => readString(run.chatId).trim() === chatId)
-      .filter((run) => runAgentType(run) === agentType)
+      .filter((run) => runMatchesAgent(run, agentType, agentId))
       .filter((run) => boolish(run.success, false))
       .filter((run) => agentType !== ILLUSTRATOR_AGENT_TYPE || illustratorRunCountsTowardInterval(run))
       .map((run) => ({ run, messageIndex: indexes.get(readString(run.messageId).trim()) ?? -1 }))
@@ -288,9 +306,10 @@ function visibleMessagesSinceRun(
   messageId: string,
   role: AutomaticIntervalMessageRole,
 ): number | null {
-  const index = input.storedMessages.findIndex((message) => readString(message.id).trim() === messageId);
+  const messages = input.cadenceMessages ?? input.storedMessages;
+  const index = messages.findIndex((message) => readString(message.id).trim() === messageId);
   if (index < 0) return null;
-  return input.storedMessages
+  return messages
     .slice(index + 1)
     .filter((message) => !hiddenFromAi(message))
     .filter((message) => readString(message.role).trim() === role).length;
@@ -303,7 +322,13 @@ async function automaticIntervalAllowsRun(
 ): Promise<boolean> {
   const chatId = readString(input.chat.id).trim();
   if (!chatId) return true;
-  const lastRun = intervalAnchorRun(await storage.list<JsonRecord>("agent-runs"), input, chatId, gate.agentType);
+  const lastRun = intervalAnchorRun(
+    await storage.list<JsonRecord>("agent-runs"),
+    input,
+    chatId,
+    gate.agentType,
+    gate.agentId,
+  );
   if (!lastRun) return true;
   const messageId = readString(lastRun.messageId).trim();
   if (!messageId) return true;
@@ -390,13 +415,14 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   const skippedResults: AgentResult[] = [];
   for (const agent of rows) {
     const type = readString(agent.type || agent.agentType) || "agent";
+    const id = readString(agent.id) || type;
     const settings = agentSettings(agent);
     const builtInAgent = isBuiltInAgent(agent);
     if (!input.bypassCustomAgentActivation && !builtInAgent) {
       const activation = matchCustomAgentActivation(settings, activationMessages);
       if (activation.configured && !activation.matched) continue;
     }
-    const intervalGate = automaticIntervalGate(input, type, settings, builtInAgent);
+    const intervalGate = automaticIntervalGate(input, id, type, settings, builtInAgent);
     if (intervalGate && !(await automaticIntervalAllowsRun(deps.storage, input, intervalGate))) {
       continue;
     }

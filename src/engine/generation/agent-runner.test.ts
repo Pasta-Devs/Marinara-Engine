@@ -409,6 +409,113 @@ describe("createGenerationAgentRuntime", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("uses legacy agentConfigId-only custom runs when enforcing user-message intervals", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-scene-scout",
+              name: "Scene Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              promptTemplate: "Watch for scene keywords.",
+              settings: { resultType: "context_injection", runInterval: 5 },
+            },
+          ],
+          {
+            "agent-runs": [
+              {
+                chatId: "chat-a",
+                agentConfigId: "agent-a",
+                resultType: "context_injection",
+                resultData: { text: "old note" },
+                messageId: "assistant-1",
+                success: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { id: "assistant-1", role: "assistant", content: "First response." },
+          { id: "user-2", role: "user", content: "Second request." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([]);
+    expect(runtime.preInjections).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("uses the full cadence timeline when prompt context excludes the previous run anchor", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-scene-scout",
+              name: "Scene Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              promptTemplate: "Watch for scene keywords.",
+              settings: { resultType: "context_injection", runInterval: 5 },
+            },
+          ],
+          {
+            "agent-runs": [
+              {
+                chatId: "chat-a",
+                agentType: "custom-scene-scout",
+                resultType: "context_injection",
+                resultData: { text: "old note" },
+                messageId: "assistant-1",
+                success: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [{ id: "user-1", role: "user", content: "First request." }],
+        cadenceMessages: [
+          { id: "user-1", role: "user", content: "First request." },
+          { id: "assistant-1", role: "assistant", content: "First response." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([]);
+    expect(runtime.preInjections).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
   it("runs automatic custom agents when their user-message interval has elapsed", async () => {
     const calls: unknown[] = [];
     const runtime = await createGenerationAgentRuntime(

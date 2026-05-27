@@ -523,6 +523,47 @@ describe("startGeneration automatic Illustrator cadence", () => {
   });
 });
 
+describe("startGeneration automatic custom agent cadence", () => {
+  it("checks custom cadence against the full timeline during regenerations", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatMetadata: { enableAgents: true },
+      agents: [
+        {
+          id: "custom-agent",
+          type: "custom-scene-scout",
+          name: "Scene Scout",
+          enabled: true,
+          phase: "pre_generation",
+          connectionId: null,
+          model: "agent-model",
+          promptTemplate: "Watch for scene keywords.",
+          settings: { resultType: "context_injection", runInterval: 5 },
+        },
+      ],
+      agentRuns: [
+        {
+          id: "run-1",
+          chatId: "chat-1",
+          messageId: "assistant-1",
+          agentType: "custom-scene-scout",
+          resultType: "context_injection",
+          resultData: { text: "old note" },
+          success: true,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "first reply", extra: {} },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect(streamedRequests).toHaveLength(1);
+  });
+});
+
 describe("startGeneration Discord mirror", () => {
   it("mirrors saved user and assistant messages when a chat has a Discord webhook", async () => {
     const mirrorMessage = mockDiscordMirror();
