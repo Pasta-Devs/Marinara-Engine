@@ -119,7 +119,7 @@ import {
   useSetActiveChatPreset,
 } from "../../../../catalog/chat-presets/index";
 import type { AgentPhase } from "../../../../../engine/contracts/types/agent";
-import type { ChatMode, ChatMemoryChunk, ConversationNote } from "../../../../../engine/contracts/types/chat";
+import type { Chat, ChatMode, ChatMemoryChunk, ConversationNote } from "../../../../../engine/contracts/types/chat";
 import type { ChatPreset, ChatPresetSettings } from "../../../../../engine/contracts/types/chat-preset";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../../../catalog/agents/index";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
@@ -130,7 +130,6 @@ import { BUILT_IN_AGENTS, BUILT_IN_TOOLS, DEFAULT_AGENT_CONTEXT_SIZE, DEFAULT_AG
 import { estimateAgentLoadCost, AGENT_COST_HIGH_CALLS, AGENT_COST_HIGH_TOKENS } from "../../../../../engine/shared/scoring/agent-cost";
 import { boolish as isEnabledFlag } from "../../../../../engine/generation/runtime-records";
 import type { CharacterGroup } from "../../../../../engine/contracts/types/character";
-import type { Chat } from "../../../../../engine/contracts/types/chat";
 import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
 import {
   isCustomToolSelectable,
@@ -165,17 +164,23 @@ const HIDDEN_ROLEPLAY_AGENTS = new Set([
   "autonomous-messenger",
 ]);
 
-type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
+type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
-const GAME_SPOTIFY_SOURCE_OPTIONS: Array<{ id: GameSpotifySourceType; label: string; description: string }> = [
+const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
   { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
   { id: "playlist", label: "Playlist", description: "Keep choices inside one Spotify playlist." },
   { id: "artist", label: "Artist", description: "Search only around a named artist, like HOYO-MiX." },
   { id: "any", label: "Any Spotify", description: "Let the DJ use Spotify search when it fits." },
 ];
 
-function normalizeGameSpotifySourceType(value: unknown): GameSpotifySourceType {
+const GAME_SPOTIFY_SOURCE_OPTIONS = SPOTIFY_SOURCE_OPTIONS;
+
+function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
   return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
+}
+
+function normalizeGameSpotifySourceType(value: unknown): SpotifySourceType {
+  return normalizeSpotifySourceType(value);
 }
 
 const MODE_INTROS: Record<ChatMode, string> = {
@@ -261,7 +266,7 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number, max: numb
 }
 
 function getChatActiveAgentIds(chat: Chat): string[] {
-  const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+  const metadata = chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {};
   const activeIds =
     metadata && typeof metadata === "object" ? (metadata as { activeAgentIds?: unknown }).activeAgentIds : [];
   return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
@@ -326,8 +331,11 @@ export function ChatSettingsDrawer({
     [chat.characterIds],
   );
 
-  const metadata = useMemo(
-    () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
+  const metadata = useMemo<Record<string, any>>(
+    () =>
+      chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata)
+        ? chat.metadata
+        : {},
     [chat.metadata],
   );
   const isSceneChat = metadata.sceneStatus === "active" || typeof metadata.sceneOriginChatId === "string";
@@ -410,11 +418,15 @@ export function ChatSettingsDrawer({
     [chatCharIds, inactiveCharacterIdSet],
   );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
+  const spotifyActive = activeAgentIds.includes("spotify");
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
     ? ((lorebooks ?? []) as Array<{ id: string; name: string }>).find(
         (book) => book.id === gameLorebookKeeperLorebookId,
       )
     : null;
+  const spotifySourceType = normalizeSpotifySourceType(metadata.spotifySourceType);
+  const spotifyPlaylistId = typeof metadata.spotifyPlaylistId === "string" ? metadata.spotifyPlaylistId : "";
+  const spotifyArtist = typeof metadata.spotifyArtist === "string" ? metadata.spotifyArtist : "";
   const gameUseSpotifyMusic = metadata.gameUseSpotifyMusic === true;
   const gameSpotifySourceType = normalizeGameSpotifySourceType(metadata.gameSpotifySourceType);
   const gameSpotifyPlaylistId =
@@ -443,7 +455,10 @@ export function ChatSettingsDrawer({
           owned: boolean | null;
         }>;
       }>({ limit: 50 }),
-    enabled: open && isGame && gameUseSpotifyMusic && gameSpotifySourceType === "playlist",
+    enabled:
+      open &&
+      ((isGame && gameUseSpotifyMusic && gameSpotifySourceType === "playlist") ||
+        (isRoleplayMode && metadata.enableAgents && spotifyActive && spotifySourceType === "playlist")),
     staleTime: 60_000,
     retry: false,
   });
@@ -1155,6 +1170,7 @@ export function ChatSettingsDrawer({
   const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
     (metadata.gameImagePromptInstructions as string) ?? "",
   );
+  const [spotifyArtistDraft, setSpotifyArtistDraft] = useState(spotifyArtist);
   const [gameSpotifyArtistDraft, setGameSpotifyArtistDraft] = useState(gameSpotifyArtist);
 
   // ── Chat Settings Presets ──
@@ -1190,6 +1206,10 @@ export function ChatSettingsDrawer({
   useEffect(() => {
     setGameImagePromptInstructionsDraft((metadata.gameImagePromptInstructions as string) ?? "");
   }, [chat.id, metadata.gameImagePromptInstructions]);
+
+  useEffect(() => {
+    setSpotifyArtistDraft(spotifyArtist);
+  }, [chat.id, spotifyArtist]);
 
   useEffect(() => {
     setGameSpotifyArtistDraft(gameSpotifyArtist);
@@ -4193,6 +4213,130 @@ export function ChatSettingsDrawer({
                   </div>
                 )}
 
+                {metadata.enableAgents && isRoleplayMode && spotifyActive && (
+                  <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
+                    <div className="flex items-start gap-2">
+                      <Music2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[0.6875rem] font-medium">Spotify DJ</div>
+                        <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                          Choose where the DJ should look for roleplay music when it reacts to the scene.
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Music source</span>
+                      <select
+                        value={spotifySourceType}
+                        onChange={(event) => {
+                          const next = normalizeSpotifySourceType(event.target.value);
+                          updateMeta.mutate({
+                            id: chat.id,
+                            spotifySourceType: next,
+                            spotifyPlaylistId: next === "playlist" ? spotifyPlaylistId || null : null,
+                            spotifyPlaylistName:
+                              next === "playlist" ? (metadata.spotifyPlaylistName as string) || null : null,
+                            spotifyArtist: next === "artist" ? spotifyArtistDraft.trim() || null : null,
+                          });
+                        }}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                      >
+                        {SPOTIFY_SOURCE_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                        {SPOTIFY_SOURCE_OPTIONS.find((option) => option.id === spotifySourceType)?.description ?? ""}
+                      </span>
+                    </label>
+
+                    {spotifySourceType === "playlist" && (
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Playlist</span>
+                        {spotifyPlaylistsQuery.data?.playlists.length ? (
+                          <select
+                            value={spotifyPlaylistId}
+                            onChange={(event) => {
+                              const playlist = spotifyPlaylistsQuery.data?.playlists.find(
+                                (entry) => entry.id === event.target.value,
+                              );
+                              updateMeta.mutate({
+                                id: chat.id,
+                                spotifyPlaylistId: event.target.value || null,
+                                spotifyPlaylistName: playlist?.name ?? null,
+                              });
+                            }}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                          >
+                            <option value="">Choose playlist...</option>
+                            {spotifyPlaylistsQuery.data.playlists.map((playlist) => {
+                              const suffix =
+                                typeof playlist.trackCount === "number"
+                                  ? ` (${playlist.trackCount})`
+                                  : playlist.owned === false
+                                    ? " (followed, unavailable)"
+                                    : "";
+                              return (
+                                <option key={playlist.id} value={playlist.id}>
+                                  {playlist.name}
+                                  {suffix}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <input
+                            key={`${chat.id}-${spotifyPlaylistId}`}
+                            defaultValue={spotifyPlaylistId}
+                            onBlur={(event) =>
+                              updateMeta.mutate({
+                                id: chat.id,
+                                spotifyPlaylistId: event.target.value.trim() || null,
+                                spotifyPlaylistName: null,
+                              })
+                            }
+                            placeholder={
+                              spotifyPlaylistsQuery.isFetching ? "Loading playlists..." : "Paste playlist ID"
+                            }
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+                          />
+                        )}
+                        {spotifyPlaylistsQuery.isError && (
+                          <span className="text-[0.5625rem] text-amber-400/90">
+                            Connect Spotify in the Spotify DJ agent to load playlist names.
+                          </span>
+                        )}
+                      </label>
+                    )}
+
+                    {spotifySourceType === "artist" && (
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Artist</span>
+                        <input
+                          value={spotifyArtistDraft}
+                          onChange={(event) => setSpotifyArtistDraft(event.target.value)}
+                          onBlur={() =>
+                            updateMeta.mutate({
+                              id: chat.id,
+                              spotifyArtist: spotifyArtistDraft.trim() || null,
+                            })
+                          }
+                          placeholder="HOYO-MiX"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+                        />
+                      </label>
+                    )}
+
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      Roleplay DJ queues several fitting tracks when it changes music. Spotify Premium, a connected
+                      account, and an active Spotify device are still required.
+                    </p>
+                  </div>
+                )}
+
                 {/* Manual trackers toggle — not for game mode */}
                 {metadata.enableAgents && !isGame && (
                   <button
@@ -5331,6 +5475,40 @@ export function ChatSettingsDrawer({
                   <span className="text-[0.625rem] text-[var(--muted-foreground)]">messages</span>
                 </div>
               )}
+              <button
+                onClick={() => {
+                  const enabled = metadata.excludePastReasoning !== false;
+                  updateMeta.mutate({ id: chat.id, excludePastReasoning: !enabled });
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                  metadata.excludePastReasoning !== false
+                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                )}
+              >
+                <div>
+                  <span className="text-xs font-medium">Exclude Past Reasoning</span>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    Keep stored thinking/reasoning metadata out of future prompts.
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
+                    metadata.excludePastReasoning !== false
+                      ? "bg-[var(--primary)]"
+                      : "bg-[var(--muted-foreground)]/50",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      metadata.excludePastReasoning !== false && "translate-x-3.5",
+                    )}
+                  />
+                </div>
+              </button>
             </div>
           </Section>
 

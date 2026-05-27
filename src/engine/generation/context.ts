@@ -40,12 +40,14 @@ export function llmParameters(
   connection: JsonRecord,
   input: { parameters?: Record<string, unknown> | null },
   chat?: JsonRecord | null,
+  promptPresetParameters?: unknown,
 ): Record<string, unknown> {
   const meta = parseRecord(chat?.metadata);
   const mode = readString(chat?.mode || chat?.chatMode);
   const setupConfig = parseRecord(meta.gameSetupConfig);
   const merged = mergeStoredGenerationParameters(
     connection.defaultParameters,
+    promptPresetParameters,
     mode === "game" ? setupConfig.generationParameters : null,
     mode === "game" ? meta.gameGenerationParameters : null,
     meta.chatParameters,

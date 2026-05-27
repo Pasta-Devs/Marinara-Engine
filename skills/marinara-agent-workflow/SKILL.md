@@ -52,6 +52,8 @@ Before nontrivial edits, scale the gate to risk:
 - Normal: owner, impact area, callers, contracts, affected modes/capabilities, checks.
 - Risky or cross-layer: boundary path, input/output/persistence/error behavior, dependency direction, shared-code justification, forbidden shortcuts avoided, docs/skills impact.
 
+For new implementation work on the refactor line, read `CONTRIBUTING.md`, confirm the current checkout against `origin/refactor`, and start from a fresh topic branch unless the user explicitly says to continue the current branch. For PRs, read `.github/pull_request_template.md` and preserve its sections.
+
 This workflow does not restate Marinara's architecture rules. For module ownership, import direction, mode boundaries, or hostable runtime details, load the specific owner skill:
 
 - `marinara-architecture-guard` for layer placement, shared API wrappers, Tauri/HTTP dispatch, Rust capabilities, and remote runtime allowlists.

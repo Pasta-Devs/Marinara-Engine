@@ -684,6 +684,7 @@ async function executeCommand(
         name: command.character,
         mode: command.mode ?? "conversation",
         characterIds: character?.id ? [readString(character.id)] : [],
+        folderId: chat.folderId ?? null,
         metadata: {},
       });
       return { name: "create_chat" };

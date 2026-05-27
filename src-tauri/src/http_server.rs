@@ -14,6 +14,7 @@ use marinara_core::AppError;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::convert::Infallible;
+use std::env;
 use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::{Path as FsPath, PathBuf};
@@ -34,6 +35,45 @@ const DEFAULT_CORS_ORIGINS: [&str; 7] = [
     "http://tauri.localhost",
     "https://tauri.localhost",
 ];
+
+fn normalize_env_value(value: Option<String>) -> Option<String> {
+    value
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+}
+
+fn enabled_env_flag(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+fn is_prompt_connection_log_preset_value(value: Option<&str>) -> bool {
+    value
+        .map(|item| item.trim().to_ascii_lowercase().replace('_', "-"))
+        .as_deref()
+        == Some("prompt-connections")
+}
+
+fn is_request_logging_disabled_values(log_preset: Option<&str>, disabled: Option<&str>) -> bool {
+    if is_prompt_connection_log_preset_value(log_preset) {
+        return true;
+    }
+    disabled.is_some_and(enabled_env_flag)
+}
+
+fn is_request_logging_disabled() -> bool {
+    let log_preset = normalize_env_value(env::var("LOG_PRESET").ok());
+    let disabled = normalize_env_value(env::var("LOG_DISABLE_REQUEST_LOGGING").ok());
+    is_request_logging_disabled_values(log_preset.as_deref(), disabled.as_deref())
+}
+
+fn request_log(message: impl AsRef<str>) {
+    if !is_request_logging_disabled() {
+        println!("{}", message.as_ref());
+    }
+}
 
 #[derive(Clone)]
 pub struct HttpState {
@@ -179,19 +219,22 @@ async fn invoke(
 ) -> Result<Json<Value>, HttpError> {
     let command = request.command.clone();
     let started = Instant::now();
-    println!("invoke {command} started");
+    request_log(format!("invoke {command} started"));
     match dispatch(&state.app, request).await {
         Ok(value) => {
-            println!("invoke {command} ok in {}ms", started.elapsed().as_millis());
+            request_log(format!(
+                "invoke {command} ok in {}ms",
+                started.elapsed().as_millis()
+            ));
             Ok(Json(value))
         }
         Err(error) => {
-            println!(
+            request_log(format!(
                 "invoke {command} error code={} message={} in {}ms",
                 error.code,
                 error.message,
                 started.elapsed().as_millis()
-            );
+            ));
             Err(error.into())
         }
     }
@@ -205,7 +248,7 @@ async fn llm_stream(
     tokio::spawn(async move {
         let stream_id = body.stream_id.clone();
         let started = Instant::now();
-        println!("llm_stream {stream_id} started");
+        request_log(format!("llm_stream {stream_id} started"));
         let result = llm::llm_stream_events(&state.app, body.stream_id, body.request, |event| {
             let data = serde_json::to_string(&event)?;
             tx.send(Ok(Event::default().data(data)))
@@ -215,18 +258,18 @@ async fn llm_stream(
 
         match result {
             Ok(()) => {
-                println!(
+                request_log(format!(
                     "llm_stream {stream_id} ok in {}ms",
                     started.elapsed().as_millis()
-                );
+                ));
             }
             Err(error) => {
-                println!(
+                request_log(format!(
                     "llm_stream {stream_id} error code={} message={} in {}ms",
                     error.code,
                     error.message,
                     started.elapsed().as_millis()
-                );
+                ));
                 let payload = json!({
                     "type": "error",
                     "code": error.code,
@@ -246,22 +289,22 @@ async fn llm_stream_cancel(
     Path(stream_id): Path<String>,
 ) -> Result<Json<Value>, HttpError> {
     let started = Instant::now();
-    println!("llm_stream_cancel {stream_id} started");
+    request_log(format!("llm_stream_cancel {stream_id} started"));
     match llm::llm_stream_cancel(&state.app, &stream_id) {
         Ok(value) => {
-            println!(
+            request_log(format!(
                 "llm_stream_cancel {stream_id} ok in {}ms",
                 started.elapsed().as_millis()
-            );
+            ));
             Ok(Json(value))
         }
         Err(error) => {
-            println!(
+            request_log(format!(
                 "llm_stream_cancel {stream_id} error code={} message={} in {}ms",
                 error.code,
                 error.message,
                 started.elapsed().as_millis()
-            );
+            ));
             Err(error.into())
         }
     }
@@ -280,6 +323,7 @@ impl IntoResponse for HttpError {
         let status = match self.0.code.as_str() {
             "not_found" => StatusCode::NOT_FOUND,
             "invalid_input" => StatusCode::BAD_REQUEST,
+            "custom_tool_script_unsupported" => StatusCode::UNPROCESSABLE_ENTITY,
             "unsupported_command" => StatusCode::NOT_IMPLEMENTED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
@@ -836,6 +880,20 @@ mod tests {
             )
             .into_bytes(),
         }
+    }
+
+    #[test]
+    fn request_logging_disable_values_match_legacy_env_knobs() {
+        assert!(is_prompt_connection_log_preset_value(Some("prompt-connections")));
+        assert!(is_prompt_connection_log_preset_value(Some("prompt_connections")));
+        assert!(is_request_logging_disabled_values(
+            Some("prompt-connections"),
+            None
+        ));
+        assert!(is_request_logging_disabled_values(Some("default"), Some("true")));
+        assert!(is_request_logging_disabled_values(None, Some("1")));
+        assert!(!is_request_logging_disabled_values(Some("default"), Some("false")));
+        assert!(!is_request_logging_disabled_values(None, None));
     }
 
     #[test]

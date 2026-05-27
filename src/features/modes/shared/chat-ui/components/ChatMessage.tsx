@@ -923,9 +923,10 @@ export const ChatMessage = memo(function ChatMessage({
   );
 
   // Parse message extra for conversation start flag
-  const extra = useMemo(() => {
-    if (!message.extra) return {};
-    return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
+  const extra = useMemo<Record<string, any>>(() => {
+    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
+      ? message.extra
+      : {};
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;

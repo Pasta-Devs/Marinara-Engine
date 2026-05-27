@@ -39,6 +39,9 @@ function generationDepsForChat(options: {
   agentRuns?: Record<string, unknown>[];
   initialMessages?: Record<string, unknown>[];
   connectionPatch?: Record<string, unknown>;
+  prompts?: Record<string, unknown>[];
+  promptSections?: Record<string, unknown>[];
+  promptVariables?: Record<string, unknown>[];
 } = {}) {
   const chat = {
     id: "chat-1",
@@ -94,12 +97,20 @@ function generationDepsForChat(options: {
       if (entity === "characters") return options.characters?.find((character) => character.id === id) ?? null;
       if (entity === "personas") return options.personas?.find((persona) => persona.id === id) ?? null;
       if (entity === "messages") return messagesById.get(id) ?? null;
+      if (entity === "prompts") return options.prompts?.find((prompt) => prompt.id === id) ?? null;
       return null;
     }),
-    list: vi.fn(async (entity: string) => {
+    list: vi.fn(async (entity: string, listOptions?: { filters?: Record<string, unknown> }) => {
       if (entity === "personas") return options.personas ?? [];
       if (entity === "agents") return options.agents ?? [];
       if (entity === "agent-runs") return options.agentRuns ?? [];
+      if (entity === "prompts") return options.prompts ?? [];
+      if (entity === "prompt-sections") {
+        return (options.promptSections ?? []).filter((section) => section.presetId === listOptions?.filters?.presetId);
+      }
+      if (entity === "prompt-variables") {
+        return (options.promptVariables ?? []).filter((variable) => variable.presetId === listOptions?.filters?.presetId);
+      }
       return [];
     }),
     create: vi.fn(async (_entity: string, value: Record<string, unknown>) => value),
@@ -308,6 +319,76 @@ describe("startGeneration chat message loading", () => {
             base: true,
             setup: true,
             game: true,
+            chat: true,
+            request: true,
+          },
+        },
+      },
+    });
+  });
+
+  it("merges selected prompt preset parameters into the LLM request", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay", promptPresetId: "preset-1" },
+      connectionPatch: {
+        defaultParameters: {
+          temperature: 0.2,
+          maxTokens: 512,
+          customParameters: { provider: { connection: true } },
+        },
+      },
+      chatMetadata: {
+        chatParameters: {
+          maxTokens: 1200,
+          customParameters: { provider: { chat: true } },
+        },
+      },
+      prompts: [
+        {
+          id: "preset-1",
+          parameters: {
+            temperature: 0.8,
+            maxTokens: 900,
+            reasoningEffort: "high",
+            customParameters: { provider: { preset: true } },
+          },
+        },
+      ],
+      promptSections: [
+        {
+          id: "main",
+          presetId: "preset-1",
+          name: "Main",
+          role: "system",
+          content: "Preset rules.",
+          enabled: true,
+          sortOrder: 0,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "advance",
+        impersonateBlockAgents: true,
+        parameters: {
+          topP: 0.7,
+          customParameters: { provider: { request: true } },
+        },
+      }),
+    );
+
+    expect(streamedRequests[0]).toMatchObject({
+      parameters: {
+        temperature: 0.8,
+        maxTokens: 1200,
+        topP: 0.7,
+        reasoningEffort: "high",
+        customParameters: {
+          provider: {
+            connection: true,
+            preset: true,
             chat: true,
             request: true,
           },
@@ -627,6 +708,155 @@ describe("startGeneration automatic custom agent cadence", () => {
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
 
     expect(streamedRequests).toHaveLength(1);
+  });
+});
+
+describe("startGeneration agent runtime parity", () => {
+  it("injects pre-generation agent data into preset agent_data markers before the main call", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay", promptPresetId: "preset-1" },
+      chatMetadata: { enableAgents: true, activeAgentIds: ["agent-a"] },
+      agents: [
+        {
+          id: "agent-a",
+          type: "prose-guardian",
+          name: "Prose Guardian",
+          enabled: true,
+          phase: "pre_generation",
+          connectionId: null,
+          model: "agent-model",
+          promptTemplate: "Add a concise style note.",
+        },
+      ],
+      prompts: [{ id: "preset-1", parameters: {} }],
+      promptSections: [
+        {
+          id: "main",
+          presetId: "preset-1",
+          name: "Main",
+          role: "system",
+          content: "Main prompt.",
+          enabled: true,
+          sortOrder: 0,
+        },
+        {
+          id: "agent-data",
+          presetId: "preset-1",
+          name: "Agent Data",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "agent_data", agentType: "prose-guardian" },
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", userMessage: "hello" }));
+
+    expect(streamedRequests).toHaveLength(2);
+    const mainRequest = streamedRequests[1] as { messages: Array<{ content: string }> };
+    const mainPrompt = mainRequest.messages.map((message) => message.content).join("\n\n");
+    expect(mainPrompt).toContain("Main prompt.");
+    expect(mainPrompt).toContain("Done.");
+  });
+
+  it("persists secret plot agent output into agent memory", async () => {
+    const plotData = {
+      overarchingArc: { description: "Recover the anchor", completed: false },
+      sceneDirections: [
+        { direction: "Send a coded invitation", fulfilled: false },
+        { direction: "Retire the decoy", fulfilled: true },
+      ],
+      pacing: "mounting-pressure",
+      staleDetected: true,
+    };
+    let turn = 0;
+    const stream: LlmGateway["stream"] = vi.fn(async function* () {
+      if (turn === 0) {
+        turn += 1;
+        yield { type: "token" as const, text: JSON.stringify(plotData) };
+        return;
+      }
+      turn += 1;
+      yield { type: "token" as const, text: "Main response." };
+    });
+    const { deps } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      chatMetadata: { enableAgents: true, activeAgentIds: ["secret-agent"] },
+      agents: [
+        {
+          id: "secret-agent",
+          type: "secret-plot-driver",
+          name: "Secret Plot Driver",
+          enabled: true,
+          phase: "pre_generation",
+          connectionId: null,
+          model: "agent-model",
+          promptTemplate: "Plan the hidden arc.",
+        },
+      ],
+    });
+    deps.llm = { ...deps.llm, stream };
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", userMessage: "hello" }));
+
+    const createMock = deps.storage.create as unknown as {
+      mock: { calls: Array<[string, Record<string, unknown>]> };
+    };
+    const memoryWrites = createMock.mock.calls
+      .filter(([entity]) => entity === "agent-memory")
+      .map(([, value]) => value);
+    const memoryByKey = new Map(memoryWrites.map((value) => [String(value.key), value]));
+
+    expect(JSON.parse(String(memoryByKey.get("overarchingArc")?.value))).toEqual(plotData.overarchingArc);
+    expect(JSON.parse(String(memoryByKey.get("sceneDirections")?.value))).toEqual([
+      { direction: "Send a coded invitation", fulfilled: false },
+    ]);
+    expect(JSON.parse(String(memoryByKey.get("recentlyFulfilled")?.value))).toEqual(["Retire the decoy"]);
+    expect(memoryByKey.get("pacing")?.value).toBe("mounting-pressure");
+    expect(JSON.parse(String(memoryByKey.get("staleDetected")?.value))).toBe(true);
+  });
+
+  it("does not duplicate parallel agent results from callback and return paths", async () => {
+    const events: unknown[] = [];
+    const { deps, createChatMessage } = generationDepsForChat({
+      chatMetadata: { enableAgents: true },
+      agents: [
+        {
+          id: "agent-a",
+          type: "custom-scene-scout",
+          name: "Scene Scout",
+          enabled: true,
+          phase: "parallel",
+          connectionId: null,
+          model: "agent-model",
+          promptTemplate: "Watch the scene.",
+          settings: { resultType: "context_injection" },
+        },
+      ],
+    });
+
+    for await (const event of startGeneration(deps, { chatId: "chat-1", userMessage: "hello" })) {
+      events.push(event);
+    }
+
+    const agentEvents = events.filter((event) => (event as { type?: string }).type === "agent_result");
+    expect(agentEvents).toHaveLength(1);
+    const assistantCreate = createChatMessage.mock.calls.find(
+      (call) => (call[1] as { role?: unknown }).role === "assistant",
+    );
+    expect(assistantCreate?.[1]).toMatchObject({
+      generationInfo: { agentResults: 1 },
+    });
+    expect(deps.storage.create).toHaveBeenCalledWith(
+      "agent-runs",
+      expect.objectContaining({
+        agentConfigId: "agent-a",
+        agentId: "agent-a",
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+      }),
+    );
   });
 });
 

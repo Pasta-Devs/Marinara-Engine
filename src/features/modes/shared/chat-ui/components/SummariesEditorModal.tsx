@@ -111,8 +111,11 @@ function computeDelta(
 }
 
 export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorModalProps) {
-  const metadata = useMemo(
-    () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
+  const metadata = useMemo<ChatMetadata>(
+    () =>
+      chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata)
+        ? chat.metadata
+        : ({} as ChatMetadata),
     [chat.metadata],
   );
 

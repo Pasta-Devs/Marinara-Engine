@@ -421,6 +421,8 @@ async function executeScriptCustomTool(tool: CustomToolRecord, args: JsonRecord)
   const scriptBody = tool.scriptBody?.trim();
   if (!scriptBody) return { error: `No script body configured for custom tool: ${tool.name}` };
   try {
+    // Sloppy mode lets us shadow eval/Function as parameters and mirror args onto
+    // the legacy `arguments.foo` shape used by older imported script tools.
     const runner = new Function(
       "args",
       "JSON",
@@ -441,7 +443,18 @@ async function executeScriptCustomTool(tool: CustomToolRecord, args: JsonRecord)
       "sessionStorage",
       "Function",
       "eval",
-      `"use strict";\n${scriptBody}`,
+      `const __marinaraToolArgs = args && typeof args === "object" ? args : {};
+for (const __marinaraToolKey of Object.keys(__marinaraToolArgs)) {
+  if (__marinaraToolKey !== "length" && __marinaraToolKey !== "callee") {
+    Object.defineProperty(arguments, __marinaraToolKey, {
+      value: __marinaraToolArgs[__marinaraToolKey],
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+}
+${scriptBody}`,
     );
     const result = runner(
       args,

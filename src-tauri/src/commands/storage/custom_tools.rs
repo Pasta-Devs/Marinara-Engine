@@ -39,11 +39,12 @@ pub(crate) async fn execute_custom_tool(state: &AppState, body: Value) -> AppRes
                 .ok_or_else(|| AppError::invalid_input(format!("Static result is missing for custom tool: {tool_name}")))?
         })),
         "webhook" => execute_webhook_tool(&tool, tool_name, arguments).await,
-        "script" => Err(AppError::new(
+        "script" => Err(AppError::with_details(
             "custom_tool_script_unsupported",
             format!(
-                "Custom tool {tool_name} uses legacy script executionType. Migrate it to a Webhook or static result before running it in the refactor runtime."
+                "Custom tool '{tool_name}' uses the script executionType. Script custom tools run in the Tauri TypeScript generation runtime; native custom_tool_execute only supports static results and webhooks. Use this tool during generation, or convert it to a Webhook or Static result for direct native execution."
             ),
+            json!({ "executionType": "script", "migration": "convert-to-webhook-or-static" }),
         )),
         other => Err(AppError::invalid_input(format!(
             "Unsupported custom tool execution type: {other}"

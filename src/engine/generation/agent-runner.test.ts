@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IntegrationGateway } from "../capabilities/integrations";
-import type { LlmGateway } from "../capabilities/llm";
+import type { LlmGateway, LlmRequest } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { createGenerationAgentRuntime } from "./agent-runner";
 
@@ -51,6 +51,81 @@ function countingLlm(calls: unknown[], responseText = "ok"): LlmGateway {
     },
     async listModels() {
       return [];
+    },
+  };
+}
+
+function emptyLlm(calls: unknown[]): LlmGateway {
+  return {
+    async *stream(request) {
+      calls.push(request);
+    },
+    async complete() {
+      return "";
+    },
+    async listModels() {
+      return [];
+    },
+  };
+}
+
+function toolCallingLlm(
+  calls: LlmRequest[],
+  toolName: string,
+  args: Record<string, unknown>,
+  finalResponse = "tool done",
+): LlmGateway {
+  let turn = 0;
+  return {
+    async *stream(request) {
+      calls.push(request);
+      if (turn === 0) {
+        turn += 1;
+        yield {
+          type: "tool_call",
+          data: {
+            id: `call-${toolName}`,
+            function: { name: toolName, arguments: JSON.stringify(args) },
+          },
+        };
+        return;
+      }
+      turn += 1;
+      yield { type: "token", text: finalResponse };
+    },
+    async complete() {
+      return finalResponse;
+    },
+    async listModels() {
+      return [];
+    },
+  };
+}
+
+function integrationWithCustomTool(
+  execute: (input: { toolName: string; arguments: unknown }) => Promise<unknown>,
+): IntegrationGateway {
+  const empty = async <T = unknown>() => ({}) as T;
+  return {
+    customTools: {
+      execute: async <T = unknown>(input: { toolName: string; arguments: unknown }) =>
+        (await execute(input)) as T,
+    },
+    spotify: {
+      player: empty,
+      playlists: empty,
+      playlistTracks: empty,
+      searchTracks: empty,
+      playTrack: empty,
+      play: empty,
+      volume: empty,
+    },
+    haptic: {
+      command: empty,
+      stopAll: empty,
+    },
+    image: {
+      generate: empty,
     },
   };
 }
@@ -115,6 +190,326 @@ describe("createGenerationAgentRuntime", () => {
       }),
     ]);
     expect(results).toEqual(runtime.preResults);
+  });
+
+  it("surfaces empty agent responses as visible failures instead of silent no-op results", async () => {
+    const calls: unknown[] = [];
+    const results: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "agent-a",
+            type: "prose-guardian",
+            name: "Prose Guardian",
+            enabled: true,
+            phase: "pre_generation",
+            connectionId: null,
+            model: "agent-model",
+            promptTemplate: "Add a concise style note.",
+          },
+        ]),
+        llm: emptyLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { activeAgentIds: ["agent-a"] } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+      (result) => results.push(result),
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(runtime.preInjections).toEqual([]);
+    expect(runtime.preResults).toEqual([
+      expect.objectContaining({
+        agentId: "agent-a",
+        agentType: "prose-guardian",
+        success: false,
+        error: "Prose Guardian returned an empty response.",
+      }),
+    ]);
+    expect(results).toEqual(runtime.preResults);
+  });
+
+  it("passes roleplay Spotify DJ source constraints to the Spotify agent", async () => {
+    const calls: LlmRequest[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "spotify-agent",
+            type: "spotify",
+            name: "Spotify DJ",
+            enabled: true,
+            phase: "post_processing",
+            connectionId: null,
+            model: "agent-model",
+            promptTemplate: "Pick music.",
+            settings: { enabledTools: [] },
+          },
+        ]),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: {
+          id: "chat-a",
+          mode: "roleplay",
+          metadata: {
+            activeAgentIds: ["spotify"],
+            spotifySourceType: "artist",
+            spotifyArtist: "HOYO-MiX",
+          },
+        },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [{ role: "user", content: "The scene turns melancholy." }],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    await runtime.runPost("The rain starts.");
+
+    const systemPrompt = calls[0]?.messages?.[0]?.content ?? "";
+    expect(systemPrompt).toContain("<spotify_dj_constraints>");
+    expect(systemPrompt).toContain('"sourceType":"artist"');
+    expect(systemPrompt).toContain('"artist":"HOYO-MiX"');
+  });
+
+  it("advertises and executes script custom tools for tool-capable agents", async () => {
+    const calls: LlmRequest[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-calculator",
+              name: "Calculator",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              model: "agent-model",
+              promptTemplate: "Use the calculator tool.",
+              settings: {
+                resultType: "context_injection",
+                enabledTools: ["legacy_calc"],
+              },
+            },
+          ],
+          {
+            "custom-tools": [
+              {
+                id: "tool-a",
+                name: "legacy_calc",
+                description: "Add two numbers.",
+                enabled: true,
+                executionType: "script",
+                parametersSchema: {
+                  type: "object",
+                  properties: {
+                    a: { type: "number" },
+                    b: { type: "number" },
+                  },
+                },
+                webhookUrl: null,
+                staticResult: null,
+                scriptBody: "return { sum: arguments.a + arguments.b };",
+              },
+            ],
+          },
+        ),
+        llm: toolCallingLlm(calls, "legacy_calc", { a: 2, b: 3 }),
+        integrations,
+      },
+      {
+        chat: {
+          id: "chat-a",
+          metadata: {
+            enableAgents: true,
+            activeAgentIds: ["agent-a"],
+            enableTools: true,
+            activeToolIds: ["legacy_calc"],
+          },
+        },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([
+      expect.objectContaining({
+        agentId: "agent-a",
+        agentType: "custom-calculator",
+        success: true,
+        data: { text: "tool done" },
+      }),
+    ]);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]!.tools?.map((tool) => tool.name)).toEqual(["legacy_calc"]);
+    const toolMessages = calls[1]!.messages.filter((message) => message.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+    expect(JSON.parse(toolMessages[0]!.content) as { sum: number }).toEqual({ sum: 5 });
+  });
+
+  it("routes static custom tool calls through the Tauri custom-tool integration for agents", async () => {
+    const calls: LlmRequest[] = [];
+    const customToolCalls: Array<{ toolName: string; arguments: unknown }> = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "agent-a",
+              type: "custom-weather",
+              name: "Weather Scout",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              model: "agent-model",
+              promptTemplate: "Use the weather tool.",
+              settings: {
+                resultType: "context_injection",
+                enabledTools: ["weather_report"],
+              },
+            },
+          ],
+          {
+            "custom-tools": [
+              {
+                id: "tool-a",
+                name: "weather_report",
+                description: "Return the current weather.",
+                enabled: true,
+                executionType: "static",
+                parametersSchema: {
+                  type: "object",
+                  properties: {
+                    city: { type: "string" },
+                  },
+                },
+                webhookUrl: null,
+                staticResult: "cloudy",
+                scriptBody: null,
+              },
+            ],
+          },
+        ),
+        llm: toolCallingLlm(calls, "weather_report", { city: "Gdansk" }, "weather noted"),
+        integrations: integrationWithCustomTool(async (input) => {
+          customToolCalls.push(input);
+          return { result: `Forecast for ${(input.arguments as { city?: string }).city}: cloudy` };
+        }),
+      },
+      {
+        chat: {
+          id: "chat-a",
+          metadata: {
+            enableAgents: true,
+            activeAgentIds: ["agent-a"],
+            enableTools: true,
+            activeToolIds: ["weather_report"],
+          },
+        },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([
+      expect.objectContaining({
+        agentId: "agent-a",
+        agentType: "custom-weather",
+        success: true,
+        data: { text: "weather noted" },
+      }),
+    ]);
+    expect(customToolCalls).toEqual([{ toolName: "weather_report", arguments: { city: "Gdansk" } }]);
+    expect(calls[0]!.tools?.map((tool) => tool.name)).toEqual(["weather_report"]);
+    const toolMessages = calls[1]!.messages.filter((message) => message.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+    expect(toolMessages[0]!.content).toBe("Forecast for Gdansk: cloudy");
+  });
+
+  it("injects persisted secret plot memory into the secret plot agent prompt", async () => {
+    const calls: LlmRequest[] = [];
+    await createGenerationAgentRuntime(
+      {
+        storage: storage(
+          [
+            {
+              id: "secret-agent",
+              type: "secret-plot-driver",
+              name: "Secret Plot Driver",
+              enabled: true,
+              phase: "pre_generation",
+              connectionId: null,
+              model: "agent-model",
+              promptTemplate: "Plan the hidden arc.",
+            },
+          ],
+          {
+            "agent-memory": [
+              {
+                id: "memory-arc",
+                agentConfigId: "secret-agent",
+                chatId: "chat-a",
+                key: "overarchingArc",
+                value: JSON.stringify({ description: "Recover the anchor", completed: false }),
+              },
+              {
+                id: "memory-directions",
+                agentConfigId: "secret-agent",
+                chatId: "chat-a",
+                key: "sceneDirections",
+                value: JSON.stringify([{ direction: "Send a coded invitation", fulfilled: false }]),
+              },
+              {
+                id: "memory-fulfilled",
+                agentConfigId: "secret-agent",
+                chatId: "chat-a",
+                key: "recentlyFulfilled",
+                value: JSON.stringify(["Close the old lead"]),
+              },
+            ],
+          },
+        ),
+        llm: countingLlm(calls, JSON.stringify({ sceneDirections: [] })),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true, activeAgentIds: ["secret-agent"] } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(calls).toHaveLength(1);
+    const promptText = calls[0]!.messages.map((message) => message.content).join("\n");
+    expect(promptText).toContain("<secret_plot_state>");
+    expect(promptText).toContain("Recover the anchor");
+    expect(promptText).toContain("Send a coded invitation");
+    expect(promptText).toContain("Close the old lead");
   });
 
   it("runs chat-scoped built-in agents even before a config row exists", async () => {

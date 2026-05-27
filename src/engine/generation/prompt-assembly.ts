@@ -13,6 +13,7 @@ import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, Se
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
+import { mergeStoredGenerationParameters, type StoredGenerationParameters } from "./generate-route-utils";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -60,6 +61,9 @@ export interface GenerationPersonaContext {
 
 export interface PromptAssemblyResult {
   messages: ChatMLMessage[];
+  promptPresetId: string | null;
+  parameters: StoredGenerationParameters | null;
+  wrapFormat: WrapFormat;
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   activatedLorebookEntries: Array<{
@@ -93,6 +97,21 @@ type PromptSectionRecord = JsonRecord & {
   markerConfig?: unknown;
 };
 
+type PromptChoiceBlockRecord = JsonRecord & {
+  variableName?: unknown;
+  separator?: unknown;
+  randomPick?: unknown;
+};
+
+interface SelectedPromptPreset {
+  id: string;
+  preset: JsonRecord | null;
+  sections: PromptSectionRecord[];
+  variables: Record<string, string>;
+  parameters: StoredGenerationParameters | null;
+  wrapFormat: WrapFormat | null;
+}
+
 const PARTY_NPC_ID_PREFIX = "npc:";
 
 function dataRecord(record: JsonRecord): JsonRecord {
@@ -113,6 +132,40 @@ function stringRecord(value: unknown): Record<string, string> {
       )
       .map(([key, entry]) => [key, String(entry)]),
   );
+}
+
+function normalizeWrapFormat(value: unknown): WrapFormat | null {
+  return value === "xml" || value === "markdown" || value === "none" ? value : null;
+}
+
+function normalizedSelectionValue(value: unknown, block?: PromptChoiceBlockRecord): string | null {
+  if (Array.isArray(value)) {
+    const values = value
+      .map((entry) => (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean" ? String(entry) : ""))
+      .filter(Boolean);
+    if (values.length === 0) return null;
+    if (boolish(block?.randomPick, false)) {
+      return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
+    }
+    return values.join(readString(block?.separator, ", "));
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return null;
+}
+
+function promptChoiceVariables(
+  rawChoices: unknown,
+  blocksByName: Map<string, PromptChoiceBlockRecord>,
+): Record<string, string> {
+  const choices = parseRecord(rawChoices);
+  const variables: Record<string, string> = {};
+  for (const [name, value] of Object.entries(choices)) {
+    const normalized = normalizedSelectionValue(value, blocksByName.get(name));
+    if (normalized !== null) variables[name] = normalized;
+  }
+  return variables;
 }
 
 function loadCharacterContext(record: JsonRecord): GenerationCharacterContext {
@@ -475,6 +528,61 @@ async function loadPromptSections(storage: StorageGateway, presetId: string): Pr
   return sections.filter(isRecord).sort(bySortOrder);
 }
 
+async function loadPromptChoiceBlocks(storage: StorageGateway, presetId: string): Promise<PromptChoiceBlockRecord[]> {
+  const blocks = await storage.list<PromptChoiceBlockRecord>("prompt-variables", { filters: { presetId } });
+  return blocks.filter(isRecord).sort(bySortOrder);
+}
+
+async function loadPromptPresetRecord(storage: StorageGateway, presetId: string): Promise<JsonRecord | null> {
+  const direct = await storage.get<JsonRecord>("prompts", presetId).catch(() => null);
+  if (direct && isRecord(direct)) return direct;
+  const prompts = await storage.list<JsonRecord>("prompts").catch(() => []);
+  return prompts.find((prompt) => readString(prompt.id).trim() === presetId) ?? null;
+}
+
+async function loadSelectedPromptPreset(
+  storage: StorageGateway,
+  input: {
+    chat: JsonRecord;
+    connection: JsonRecord;
+    request: JsonRecord;
+  },
+): Promise<SelectedPromptPreset | null> {
+  const defaultPromptId = await loadDefaultPromptId(storage);
+  const presetId = promptPresetId(input.chat, input.connection, input.request, defaultPromptId);
+  if (!presetId) return null;
+
+  const [preset, sections, choiceBlocks] = await Promise.all([
+    loadPromptPresetRecord(storage, presetId),
+    loadPromptSections(storage, presetId),
+    loadPromptChoiceBlocks(storage, presetId),
+  ]);
+  const blocksByName = new Map(
+    choiceBlocks
+      .map((block) => [readString(block.variableName).trim(), block] as const)
+      .filter(([name]) => name.length > 0),
+  );
+  const metadata = parseRecord(input.chat.metadata);
+  const explicitVariables = stringRecord(input.chat.promptVariables ?? input.chat.variableValues);
+  const chatPresetId = readString(input.chat.promptPresetId).trim();
+  const chatChoices = chatPresetId === presetId ? metadata.presetChoices ?? input.chat.presetChoices : null;
+  const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+
+  return {
+    id: presetId,
+    preset,
+    sections,
+    variables: {
+      ...stringRecord(preset?.variableValues),
+      ...promptChoiceVariables(preset?.defaultChoices, blocksByName),
+      ...promptChoiceVariables(chatChoices, blocksByName),
+      ...explicitVariables,
+    },
+    parameters: mode === "game" ? null : mergeStoredGenerationParameters(preset?.parameters),
+    wrapFormat: normalizeWrapFormat(preset?.wrapFormat),
+  };
+}
+
 function markerConfig(section: PromptSectionRecord): MarkerConfig | null {
   const raw = section.markerConfig;
   if (isRecord(raw) && typeof raw.type === "string") return raw as unknown as MarkerConfig;
@@ -523,6 +631,7 @@ function macroContext(input: {
   persona: GenerationPersonaContext | null;
   latestUserInput: string;
   agentData?: Record<string, string>;
+  variables?: Record<string, string>;
   request: JsonRecord;
 }): MacroContext {
   const first = input.characters[0];
@@ -541,7 +650,7 @@ function macroContext(input: {
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
     })),
-    variables: stringRecord(input.chat.promptVariables ?? input.chat.variableValues),
+    variables: input.variables ?? stringRecord(input.chat.promptVariables ?? input.chat.variableValues),
     lastInput: input.latestUserInput,
     chatId: readString(input.chat.id),
     model: readString(input.connection.model),
@@ -933,13 +1042,27 @@ function normalizeRole(value: unknown): "system" | "user" | "assistant" {
   return value === "system" || value === "assistant" ? value : "user";
 }
 
-function historyMessages(storedMessages: JsonRecord[], limit: number): ChatMLMessage[] {
+function messageStoredReasoning(message: JsonRecord): string {
+  const extra = parseRecord(message.extra);
+  const thinking = readString(extra.thinking ?? extra.reasoning ?? extra.reasoning_content).trim();
+  return thinking;
+}
+
+function historyMessageContent(message: JsonRecord, includePastReasoning: boolean): string {
+  const content = readString(message.content).trim();
+  if (!includePastReasoning || readString(message.role) !== "assistant") return content;
+  const thinking = messageStoredReasoning(message);
+  if (!thinking) return content;
+  return `${content}\n\n<provider_reasoning>\n${thinking}\n</provider_reasoning>`;
+}
+
+function historyMessages(storedMessages: JsonRecord[], limit: number, includePastReasoning = false): ChatMLMessage[] {
   return storedMessages
     .filter((message) => !hiddenFromAi(message))
     .slice(-limit)
     .map((message) => ({
       role: normalizeRole(message.role),
-      content: readString(message.content).trim(),
+      content: historyMessageContent(message, includePastReasoning),
       contextKind: "history" as const,
       characterId: readString(message.characterId).trim() || undefined,
       name: readString(message.name).trim() || undefined,
@@ -1039,6 +1162,14 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   return result;
 }
 
+function collapseToSingleUserMessage(messages: ChatMLMessage[]): ChatMLMessage[] {
+  const content = messages
+    .map((message) => (message.role === "user" ? message.content : `[${message.role.toUpperCase()}]\n${message.content}`))
+    .filter((content) => content.trim())
+    .join("\n\n");
+  return content ? [{ role: "user", content, contextKind: "prompt" }] : [];
+}
+
 function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
   return {
     id: readString(entry.id),
@@ -1127,7 +1258,10 @@ async function loadActivatedLore(
         const id = readString(book.id);
         // The refactor storage API has no path-style routes; use the
         // dedicated capability that filters lorebook-entries by lorebookId.
-        return id ? storage.listLorebookEntries<JsonRecord>(id) : [];
+        if (!id) return [];
+        const rows = await storage.listLorebookEntries<JsonRecord>(id);
+        if (!boolish(book.excludeFromVectorization, false)) return rows;
+        return rows.map((entry) => ({ ...entry, excludeFromVectorization: true }));
       }),
     )
   ).flat();
@@ -1212,11 +1346,25 @@ export async function assembleGenerationPrompt(
     input.latestUserInput,
     readNumber(input.connection.maxContext, 0) || undefined,
   );
-  const defaultPrompt = await loadDefaultPromptId(storage);
-  const presetId = promptPresetId(input.chat, input.connection, input.request, defaultPrompt);
-  const wrapFormat = (readString(input.chat.wrapFormat) || readString(input.connection.wrapFormat) || "xml") as WrapFormat;
+  const selectedPreset = await loadSelectedPromptPreset(storage, {
+    chat: input.chat,
+    connection: input.connection,
+    request: input.request,
+  });
+  const presetId = selectedPreset?.id ?? null;
+  const promptParameters = mergeStoredGenerationParameters(
+    selectedPreset?.parameters,
+    input.request.parameters,
+    input.request,
+  );
+  const wrapFormat =
+    selectedPreset?.wrapFormat ??
+    normalizeWrapFormat(input.chat.wrapFormat) ??
+    normalizeWrapFormat(input.connection.wrapFormat) ??
+    "xml";
   const historyLimit = Math.max(1, Math.min(300, readNumber(input.request.historyLimit, 80)));
-  const history = historyMessages(input.storedMessages, historyLimit);
+  const chatMeta = parseRecord(input.chat.metadata);
+  const history = historyMessages(input.storedMessages, historyLimit, chatMeta.excludePastReasoning === false);
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,
@@ -1224,15 +1372,15 @@ export async function assembleGenerationPrompt(
     persona,
     latestUserInput: input.latestUserInput,
     agentData: input.agentData,
+    variables: selectedPreset?.variables,
     request: input.request,
   });
   const agentData = input.agentData ?? {};
   let messages: ChatMLMessage[] = [];
   let insertedHistory = false;
 
-  if (presetId) {
-    const sections = await loadPromptSections(storage, presetId);
-    for (const section of sections) {
+  if (selectedPreset) {
+    for (const section of selectedPreset.sections) {
       if (!boolish(section.enabled, true)) continue;
       const marker = markerConfig(section);
       if (marker?.type === "chat_history") {
@@ -1325,15 +1473,22 @@ export async function assembleGenerationPrompt(
     resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
   });
   const strictRoleFormatting =
-    boolish(input.request.strictRoleFormatting, true) && (chatMode === "roleplay" || chatMode === "visual_novel");
+    boolish(promptParameters?.strictRoleFormatting, true) &&
+    (chatMode === "roleplay" || chatMode === "visual_novel");
   messages = strictRoleFormatting ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
-  if (!strictRoleFormatting && boolish(input.request.squashSystemMessages, false)) {
+  if (!strictRoleFormatting && boolish(promptParameters?.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
+  }
+  if (boolish(promptParameters?.singleUserMessage, false)) {
+    messages = collapseToSingleUserMessage(messages);
   }
   const summaryFingerprint = fingerprintChatSummary(summary);
 
   return {
     messages,
+    promptPresetId: presetId,
+    parameters: selectedPreset?.parameters ?? null,
+    wrapFormat,
     characters,
     persona,
     activatedLorebookEntries: activated.map(loreForEvent),

@@ -198,6 +198,8 @@ export function AgentEditor() {
   const [localPrompt, setLocalPrompt] = useState("");
   const [localResultType, setLocalResultType] = useState<CustomAgentResultType>("context_injection");
   const [localInjectAsSection, setLocalInjectAsSection] = useState(false);
+  const [localIncludePreGenInjections, setLocalIncludePreGenInjections] = useState(false);
+  const [localIncludeParallelResults, setLocalIncludeParallelResults] = useState(false);
   const [localEnabledTools, setLocalEnabledTools] = useState<string[]>([]);
   const [localSpotifyClientId, setLocalSpotifyClientId] = useState("");
   const [localSourceLorebookIds, setLocalSourceLorebookIds] = useState<string[]>([]);
@@ -265,6 +267,8 @@ export function AgentEditor() {
       setLocalImagePositivePrompt((settings.imagePositivePrompt as string) ?? "");
       setLocalImageNegativePrompt((settings.imageNegativePrompt as string) ?? "");
       setLocalResultType(normalizeCustomResultType(settings.resultType));
+      setLocalIncludePreGenInjections(settings.includePreGenInjections === true);
+      setLocalIncludeParallelResults(settings.includeParallelResults === true);
       setLocalPrompt(dbConfig.promptTemplate || "");
     } else if (builtIn) {
       setLocalName(builtIn.name);
@@ -288,6 +292,8 @@ export function AgentEditor() {
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
       setLocalResultType("context_injection");
+      setLocalIncludePreGenInjections(false);
+      setLocalIncludeParallelResults(false);
       setLocalPrompt("");
     } else {
       // Brand new custom agent — start empty
@@ -312,6 +318,8 @@ export function AgentEditor() {
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
       setLocalResultType("context_injection");
+      setLocalIncludePreGenInjections(false);
+      setLocalIncludeParallelResults(false);
       setLocalPrompt("");
     }
     setDirty(false);
@@ -444,6 +452,7 @@ export function AgentEditor() {
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
     const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
     const activationKeywords = isEditingCustomAgent
       ? normalizeCustomAgentActivationKeywords(localActivationKeywordsText)
       : [];
@@ -481,6 +490,8 @@ export function AgentEditor() {
               activationScanDepth,
             }
           : {}),
+        ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
+        ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
         ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
         ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
@@ -539,6 +550,8 @@ export function AgentEditor() {
     localMaxTokens,
     localRunInterval,
     localInjectAsSection,
+    localIncludePreGenInjections,
+    localIncludeParallelResults,
     localEnabledTools,
     localSpotifyClientId,
     localSourceLorebookIds,
@@ -597,6 +610,9 @@ export function AgentEditor() {
     closeAgentDetail();
   };
 
+  const effectivePhase =
+    (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+  const showTurnDataAccess = (isCustomAgent || isNewCustomAgent) && effectivePhase === "post_processing";
   const isPending = updateAgent.isPending || createAgent.isPending;
 
   return (
@@ -801,6 +817,67 @@ export function AgentEditor() {
                   .
                 </p>
               )}
+            </FieldGroup>
+          )}
+
+          {showTurnDataAccess && (
+            <FieldGroup
+              label="Turn Data Access"
+              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+              help="Optional current-turn data for custom post-processing agents. Existing agents stay isolated unless these are enabled."
+            >
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalIncludePreGenInjections((value) => !value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                    localIncludePreGenInjections
+                      ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]"
+                      : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  {localIncludePreGenInjections ? (
+                    <ToggleRight size="1rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                  ) : (
+                    <ToggleLeft size="1rem" className="mt-0.5 shrink-0" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block font-semibold">Pre-generation injections</span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                      Current-turn context injected before the reply.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalIncludeParallelResults((value) => !value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                    localIncludeParallelResults
+                      ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]"
+                      : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  {localIncludeParallelResults ? (
+                    <ToggleRight size="1rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                  ) : (
+                    <ToggleLeft size="1rem" className="mt-0.5 shrink-0" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block font-semibold">Parallel agent results</span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                      Results from agents that ran alongside the reply.
+                    </span>
+                  </span>
+                </button>
+              </div>
             </FieldGroup>
           )}
 

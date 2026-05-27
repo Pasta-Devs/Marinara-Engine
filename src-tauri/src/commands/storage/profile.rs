@@ -411,6 +411,69 @@ mod tests {
     }
 
     #[test]
+    fn profile_export_import_preserves_connection_folders() {
+        let source = test_state("connection-folders-export-source");
+        source
+            .storage
+            .upsert_with_id(
+                "connection-folders",
+                "folder-1",
+                json!({
+                    "id": "folder-1",
+                    "name": "Providers",
+                    "color": "#38bdf8",
+                    "sortOrder": 2,
+                    "collapsed": true
+                }),
+            )
+            .expect("connection folder should write");
+        source
+            .storage
+            .upsert_with_id(
+                "connections",
+                "conn-1",
+                json!({
+                    "id": "conn-1",
+                    "name": "OpenAI",
+                    "provider": "openai",
+                    "model": "gpt-4.1",
+                    "folderId": "folder-1",
+                    "sortOrder": 7
+                }),
+            )
+            .expect("connection should write");
+
+        let snapshot = profile_snapshot(&source).expect("profile snapshot should export");
+        assert_eq!(
+            snapshot["data"]["collections"]["connection-folders"][0]["id"],
+            "folder-1"
+        );
+        assert_eq!(
+            snapshot["data"]["collections"]["connections"][0]["folderId"],
+            "folder-1"
+        );
+
+        let target = test_state("connection-folders-export-target");
+        import_profile(&target, snapshot).expect("native profile import should succeed");
+
+        let folder = target
+            .storage
+            .get("connection-folders", "folder-1")
+            .expect("connection folder lookup should not fail")
+            .expect("imported connection folder should exist");
+        assert_eq!(folder["name"], "Providers");
+        assert_eq!(folder["collapsed"], true);
+
+        let connection = target
+            .storage
+            .get("connections", "conn-1")
+            .expect("connection lookup should not fail")
+            .expect("imported connection should exist");
+        assert_eq!(connection["folderId"], "folder-1");
+        assert_eq!(connection["sortOrder"], 7);
+    }
+
+    #[test]
     fn profile_import_legacy_file_storage_app_settings_key_sets_ui_id() {
         let state = test_state("legacy-file-storage-app-settings");
         state

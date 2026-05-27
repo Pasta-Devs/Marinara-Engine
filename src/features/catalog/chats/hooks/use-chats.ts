@@ -13,7 +13,15 @@ import { invokeTauri } from "../../../../shared/api/tauri-client";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { apiQueryRetryDelay, shouldRetryApiQuery } from "../../../../shared/api/query-retry";
-import { createStoredZip, type StoredZipFile } from "../../../../shared/lib/zip";
+import { createStoredZip } from "../../../../shared/lib/zip";
+import {
+  buildChatTranscriptZipFiles,
+  chatExportFilename,
+  formatChatJsonl,
+  formatChatText,
+  type BulkChatExportFormat,
+  type ChatTranscriptExportFormat,
+} from "../lib/chat-transcript-export";
 import { lorebookKeys } from "../../lorebooks/query-keys";
 import type {
   Chat,
@@ -26,6 +34,7 @@ import type {
 } from "../../../../engine/contracts/types/chat";
 
 export { chatKeys } from "../query-keys";
+export type { BulkChatExportFormat, ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
 
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 20;
@@ -806,39 +815,6 @@ function downloadBlobFile(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export type ChatTranscriptExportFormat = "jsonl" | "text";
-export type BulkChatExportFormat = ChatTranscriptExportFormat | "native";
-
-function chatExportFilename(chat: Chat, format: ChatTranscriptExportFormat) {
-  const ext = format === "text" ? ".txt" : ".jsonl";
-  const sourceName = getChatNameForExport(chat) || chat.id;
-  const safeName = sourceName.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
-  return `${safeName || `chat-${chat.id}`}${ext}`;
-}
-
-function getChatNameForExport(chat: Chat) {
-  const metadata = chat.metadata;
-  if (metadata && typeof metadata === "object" && "branchName" in metadata) {
-    const branchName = (metadata as { branchName?: unknown }).branchName;
-    if (typeof branchName === "string" && branchName.trim()) return branchName.trim();
-  }
-  return typeof chat.name === "string" ? chat.name.trim() : "";
-}
-
-function formatChatText(messages: Message[]) {
-  return messages
-    .map((message) => {
-      const role = message.role ? `${message.role}: ` : "";
-      return `${role}${message.content ?? ""}`;
-    })
-    .join("\n\n");
-}
-
-function formatChatJsonl(messages: Message[]) {
-  const jsonl = messages.map((message) => JSON.stringify(message)).join("\n");
-  return jsonl ? `${jsonl}\n` : "";
-}
-
 function parseRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
     try {
@@ -1044,10 +1020,7 @@ export function useBulkExportChats() {
       const chats = await loadChatsForExport(exportIds);
       const exportedAt = new Date().toISOString();
       if (format === "jsonl" || format === "text") {
-        const files: StoredZipFile[] = chats.map(({ chat, messages }) => ({
-          name: chatExportFilename(chat, format),
-          data: format === "text" ? formatChatText(messages) : formatChatJsonl(messages),
-        }));
+        const files = buildChatTranscriptZipFiles(chats, format);
         downloadBlobFile(createStoredZip(files), `chat-transcripts-${format}-${exportedAt.slice(0, 10)}.zip`);
         return;
       }

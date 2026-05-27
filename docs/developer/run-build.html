@@ -183,6 +183,21 @@
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
 MARINARA_DATA_DIR=/path/to/data</code></pre>
         <p>
+          For prompt/model/connection troubleshooting, start the runtime with
+          <code>LOG_PRESET=prompt-connections</code>. This enables Rust LLM
+          prompt diagnostics and suppresses routine <code>/api/invoke</code>
+          request logs. To suppress routine request logs without prompt
+          diagnostics, set <code>LOG_DISABLE_REQUEST_LOGGING=true</code>.
+        </p>
+        <p>
+          Autonomous conversation scheduling is owned by the desktop/web client
+          pollers in the refactor architecture. The remote Rust runtime stores
+          autonomous unread state and serves the shared generation/storage APIs,
+          but it does not run a privileged background scheduler when no client is
+          connected. Keep a Marinara client open if autonomous messages should
+          continue to trigger.
+        </p>
+        <p>
           Non-loopback clients fail closed unless the runtime has explicit
           access control. Configure <code>BASIC_AUTH_USER</code> and
           <code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or an

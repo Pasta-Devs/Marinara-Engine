@@ -54,7 +54,7 @@ export async function previewGenerationPrompt(
     request,
     latestUserInput: "",
   });
-  const parameters = llmParameters(connection, {});
+  const parameters = llmParameters(connection, {}, previewChat, assembly.parameters);
   return {
     messages: assembly.messages,
     parameters,

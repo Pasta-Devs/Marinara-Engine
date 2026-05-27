@@ -21,6 +21,7 @@ import { matchCustomAgentActivation, type ActivationScanMessage } from "../agent
 import { createAgentPipeline, type AgentInjection, type ResolvedAgent } from "../agents-runtime/pipeline/agent-pipeline";
 import type { AgentToolContext } from "../agents-runtime/executor/agent-executor";
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
+import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
 import {
   boolish,
   hiddenFromAi,
@@ -143,19 +144,6 @@ async function loadConnection(storage: StorageGateway, connectionId: string | nu
   if (!connectionId) return null;
   const connection = await storage.get<JsonRecord>("connections", connectionId);
   return isRecord(connection) ? connection : null;
-}
-
-async function loadAgentMemory(storage: StorageGateway, agentId: string, chatId: string): Promise<Record<string, unknown>> {
-  const rows = await storage.list<JsonRecord>("agent-memory");
-  const memory: Record<string, unknown> = {};
-  for (const row of rows) {
-    if (readString(row.agentConfigId) !== agentId || readString(row.chatId) !== chatId) continue;
-    const key = readString(row.key);
-    if (!key) continue;
-    const value = row.value;
-    memory[key] = typeof value === "string" ? parseMaybeJson(value) : value;
-  }
-  return memory;
 }
 
 function enabledToolNames(settings: Record<string, unknown>): string[] {
@@ -399,14 +387,6 @@ function buildAgentToolContext(
   };
 }
 
-function parseMaybeJson(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
 function skippedDanglingConnectionResult(agent: JsonRecord, connectionId: string): AgentResult {
   const type = readString(agent.type || agent.agentType) || "agent";
   const name = readString(agent.name) || type;
@@ -502,17 +482,69 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   return { agents: resolved, skippedResults };
 }
 
+type SpotifyDjSourceType = "liked" | "playlist" | "artist" | "any";
+
+function normalizeSpotifyDjSourceType(value: unknown): SpotifyDjSourceType {
+  return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
+}
+
+function cleanOptionalString(value: unknown): string | null {
+  const text = readString(value).trim();
+  return text || null;
+}
+
+function buildSpotifyDjConstraints(chatMode: string, chatMeta: JsonRecord): Record<string, unknown> {
+  const isGame = chatMode === "game";
+  const sourceType = normalizeSpotifyDjSourceType(
+    isGame ? chatMeta.gameSpotifySourceType : chatMeta.spotifySourceType,
+  );
+  const playlistId = cleanOptionalString(isGame ? chatMeta.gameSpotifyPlaylistId : chatMeta.spotifyPlaylistId);
+  const playlistName = cleanOptionalString(isGame ? chatMeta.gameSpotifyPlaylistName : chatMeta.spotifyPlaylistName);
+  const artist = cleanOptionalString(isGame ? chatMeta.gameSpotifyArtist : chatMeta.spotifyArtist);
+  const constraints: Record<string, unknown> = {
+    mode: isGame ? "game" : "roleplay",
+    replaceBuiltInMusic: isGame && chatMeta.gameUseSpotifyMusic === true,
+    sourceType,
+    playlistId: sourceType === "liked" ? "liked" : sourceType === "playlist" ? playlistId : null,
+    playlistName: sourceType === "playlist" ? playlistName : null,
+    artist: sourceType === "artist" ? artist : null,
+  };
+
+  if (sourceType === "liked") {
+    constraints.note =
+      "Use the user's Liked Songs first by calling spotify_get_playlist_tracks with playlistId='liked'. Search wider only when no fitting liked track exists.";
+  } else if (sourceType === "playlist") {
+    constraints.note = playlistId
+      ? "Use this configured playlist first by calling spotify_get_playlist_tracks with the provided playlistId. Search wider only if the playlist has no fitting track."
+      : "Playlist source is selected, but no playlist ID is configured. Call spotify_get_playlists to inspect available playlists, then fall back to Liked Songs if needed.";
+  } else if (sourceType === "artist") {
+    constraints.note = artist
+      ? `Search around this artist first. Prefer queries using artist:${artist}.`
+      : "Artist source is selected, but no artist is configured. Fall back to Liked Songs if needed.";
+  } else {
+    constraints.note =
+      "Spotify catalogue search is allowed. Still inspect current playback first and prefer the user's library when it fits.";
+  }
+
+  return constraints;
+}
+
 async function buildAgentContext(deps: AgentDeps, input: GenerationAgentRuntimeInput): Promise<AgentContext> {
   const chatId = readString(input.chat.id);
+  const chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay");
+  const chatMeta = parseRecord(input.chat.metadata);
   const memoryRows = await Promise.all(
     (await deps.storage.list<JsonRecord>("agents"))
       .filter((agent) => readString(agent.id).trim())
       .map((agent) => loadAgentMemory(deps.storage, readString(agent.id), chatId)),
   );
   const memory = Object.assign({}, ...memoryRows);
+  const secretPlotState = secretPlotStateFromMemory(memory);
+  if (secretPlotState) memory._secretPlotState = secretPlotState;
+  memory._spotifyDjConstraints = buildSpotifyDjConstraints(chatMode, chatMeta);
   return {
     chatId,
-    chatMode: readString(input.chat.mode || input.chat.chatMode, "roleplay"),
+    chatMode,
     recentMessages: input.storedMessages
       .filter((message) => !hiddenFromAi(message))
       .slice(-60)

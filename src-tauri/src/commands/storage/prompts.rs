@@ -28,8 +28,9 @@ pub(crate) async fn vectorize_lorebook(
             Value::Array(rows) => rows,
             _ => Vec::new(),
         };
+    let lorebook = get_required(state, "lorebooks", lorebook_id)?;
     let total = entries.len();
-    if lorebook_excludes_vectorization(state.storage.get("lorebooks", lorebook_id)?.as_ref()) {
+    if lorebook_excludes_vectorization(Some(&lorebook)) {
         return Ok(json!({
             "success": true,
             "lorebookId": lorebook_id,
@@ -117,13 +118,15 @@ fn lorebook_excludes_vectorization(lorebook: Option<&Value>) -> bool {
 }
 
 fn lorebook_entry_secondary_keys(entry: &Value) -> Vec<String> {
+    let mut keys = Vec::new();
     for field in ["secondaryKeys", "secondary_keys", "keysecondary"] {
-        let keys = value_string_array(entry.get(field));
-        if !keys.is_empty() {
-            return keys;
+        for key in value_string_array(entry.get(field)) {
+            if !keys.iter().any(|existing| existing == &key) {
+                keys.push(key);
+            }
         }
     }
-    Vec::new()
+    keys
 }
 
 fn lorebook_entry_embedding_text(entry: &Value) -> String {
@@ -428,6 +431,23 @@ mod tests {
                 format!("Alias entry\n{expected_keys}\nAlias content.")
             );
         }
+    }
+
+    #[test]
+    fn lorebook_entry_embedding_text_merges_secondary_key_aliases() {
+        let entry = json!({
+            "name": "Merged aliases",
+            "keys": ["primary"],
+            "secondaryKeys": ["canonical", "shared"],
+            "secondary_keys": ["snake case", "shared"],
+            "keysecondary": ["silly tavern"],
+            "content": "Alias content."
+        });
+
+        assert_eq!(
+            lorebook_entry_embedding_text(&entry),
+            "Merged aliases\nprimary, canonical, shared, snake case, silly tavern\nAlias content."
+        );
     }
 
     #[test]

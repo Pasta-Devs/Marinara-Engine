@@ -119,6 +119,76 @@ pub async fn stream_events(
     Ok(())
 }
 
+fn normalize_env_value(value: Option<String>) -> Option<String> {
+    value
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+}
+
+fn enabled_env_flag(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+fn is_prompt_connection_log_preset_value(value: Option<&str>) -> bool {
+    value
+        .map(|item| item.trim().to_ascii_lowercase().replace('_', "-"))
+        .as_deref()
+        == Some("prompt-connections")
+}
+
+fn prompt_connection_diagnostics_enabled_values(log_preset: Option<&str>, explicit: Option<&str>) -> bool {
+    is_prompt_connection_log_preset_value(log_preset) || explicit.is_some_and(enabled_env_flag)
+}
+
+fn prompt_connection_diagnostics_enabled() -> bool {
+    let log_preset = normalize_env_value(env::var("LOG_PRESET").ok());
+    let explicit = normalize_env_value(env::var("MARINARA_PROMPT_CONNECTION_DIAGNOSTICS").ok());
+    prompt_connection_diagnostics_enabled_values(log_preset.as_deref(), explicit.as_deref())
+}
+
+fn redacted_endpoint(endpoint: &str) -> String {
+    endpoint
+        .split_once('?')
+        .map(|(base, _)| format!("{base}?<redacted>"))
+        .unwrap_or_else(|| endpoint.to_string())
+}
+
+fn compact_json(value: &Value) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "<unserializable>".to_string())
+}
+
+fn log_prompt_connection_request(kind: &str, endpoint: &str, request: &LlmRequest, body: &Value) {
+    if !prompt_connection_diagnostics_enabled() {
+        return;
+    }
+    let messages = request_messages(request);
+    eprintln!(
+        "[prompt-connections] {kind} provider={} model={} endpoint={} messages={} tools={} parameters={}",
+        request.connection.provider,
+        request.connection.model,
+        redacted_endpoint(endpoint),
+        messages.len(),
+        request.tools.len(),
+        compact_json(&request.parameters),
+    );
+    for (index, message) in messages.iter().enumerate() {
+        eprintln!(
+            "[prompt-connections] message[{index}] role={} images={} chars={}\n{}",
+            message.role,
+            message.images.len(),
+            message.content.chars().count(),
+            message.content
+        );
+    }
+    if !request.tools.is_empty() {
+        eprintln!("[prompt-connections] tools={}", compact_json(&json!(&request.tools)));
+    }
+    eprintln!("[prompt-connections] body={}", compact_json(body));
+}
+
 pub fn unavailable_payload(message: impl Into<String>) -> Value {
     json!({ "type": "error", "error": message.into() })
 }
@@ -572,6 +642,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
         body["temperature"] = json!(temp);
     }
     apply_openai_parameters(&mut body, &request);
+    log_prompt_connection_request("openai.chat.completions", &url, &request, &body);
     let client = reqwest::Client::new();
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
@@ -610,6 +681,7 @@ async fn stream_openai_compatible(
         body["temperature"] = json!(temp);
     }
     apply_openai_parameters(&mut body, &request);
+    log_prompt_connection_request("openai.chat.completions.stream", &url, &request, &body);
     let client = reqwest::Client::new();
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
@@ -735,6 +807,7 @@ async fn openai_responses_request(
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = format!("{base}/responses");
     ensure_url_allowed(&url)?;
+    log_prompt_connection_request("openai.responses", &url, request, body);
     let req = reqwest::Client::new().post(url).json(body);
     let req = if request.connection.provider == "openai_chatgpt" {
         apply_chatgpt_auth_headers(req).await?
@@ -1215,6 +1288,16 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
     if !request.connection.api_key.trim().is_empty() {
         command.env("ANTHROPIC_API_KEY", request.connection.api_key.trim());
     }
+    log_prompt_connection_request(
+        "claude_subscription",
+        "claude-code://local",
+        &request,
+        &json!({
+            "model": request.connection.model.clone(),
+            "outputFormat": "json",
+            "permissionMode": "bypassPermissions"
+        }),
+    );
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -1316,6 +1399,7 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["stop_sequences"] = json!(stop);
     }
+    log_prompt_connection_request("anthropic.messages", &url, &request, &body);
     let response = reqwest::Client::new()
         .post(url)
         .header("x-api-key", request.connection.api_key.trim())
@@ -1418,6 +1502,7 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["generationConfig"]["stopSequences"] = json!(stop);
     }
+    log_prompt_connection_request("google.generateContent", &url, &request, &body);
     let response = reqwest::Client::new()
         .post(url)
         .json(&body)
@@ -1597,4 +1682,35 @@ fn normalize_tool_call(call: Value) -> Value {
             "arguments": arguments
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_connection_diagnostics_follow_legacy_preset_and_explicit_flag() {
+        assert!(is_prompt_connection_log_preset_value(Some("prompt-connections")));
+        assert!(is_prompt_connection_log_preset_value(Some("prompt_connections")));
+        assert!(prompt_connection_diagnostics_enabled_values(
+            Some("prompt-connections"),
+            None
+        ));
+        assert!(prompt_connection_diagnostics_enabled_values(None, Some("true")));
+        assert!(prompt_connection_diagnostics_enabled_values(None, Some("1")));
+        assert!(!prompt_connection_diagnostics_enabled_values(Some("default"), Some("false")));
+        assert!(!prompt_connection_diagnostics_enabled_values(None, None));
+    }
+
+    #[test]
+    fn prompt_connection_endpoint_redaction_removes_query_secrets() {
+        assert_eq!(
+            redacted_endpoint("https://generativelanguage.googleapis.com/v1beta/models/gemini:generateContent?key=secret"),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini:generateContent?<redacted>"
+        );
+        assert_eq!(
+            redacted_endpoint("https://api.openai.com/v1/chat/completions"),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
 }

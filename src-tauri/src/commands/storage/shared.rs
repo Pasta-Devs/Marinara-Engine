@@ -418,6 +418,9 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
             object
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
+            object
+                .entry("excludeFromVectorization".to_string())
+                .or_insert(Value::Bool(false));
             object.entry("tags".to_string()).or_insert(json!([]));
             object
                 .entry("generatedBy".to_string())

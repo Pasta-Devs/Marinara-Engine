@@ -775,6 +775,7 @@ export const gameApi = {
     characterConnectionId?: string;
     promptPresetId?: string;
     chatId?: string;
+    folderId?: string | null;
     partyCharacterIds?: string[];
   }): Promise<CreateGameResponse> {
     const gameId = newId("game");
@@ -795,6 +796,7 @@ export const gameApi = {
       mode: "game",
       characterIds: data.partyCharacterIds ?? chatPatch.characterIds ?? [],
       personaId: data.setupConfig.personaId ?? null,
+      folderId: data.folderId ?? null,
       connectionId: data.connectionId ?? null,
       metadata: {
         gameId,
@@ -961,6 +963,7 @@ export const gameApi = {
       mode: "game",
       characterIds: Array.isArray(previousChat?.characterIds) ? previousChat.characterIds : [],
       personaId: previousChat?.personaId ?? null,
+      folderId: previousChat?.folderId ?? null,
       connectionId: data.connectionId ?? previousChat?.connectionId ?? null,
       ...gameStateCarryoverPatch(previousChat, sessionChatId),
       metadata: {

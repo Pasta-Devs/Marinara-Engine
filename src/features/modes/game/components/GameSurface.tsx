@@ -1656,6 +1656,7 @@ export function GameSurface({
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
+  const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
   const { patchField: patchVisibleGameStateField, flushPatch: flushVisibleGameStatePatch } = useGameStatePatcher(
     activeChatId,
@@ -7499,6 +7500,7 @@ export function GameSurface({
         <DirectionEngine
           directions={activeDirections}
           backgroundUrl={displayedBackground ?? undefined}
+          backgroundBlurPx={chatBackgroundBlur}
           onPlayingChange={(playing) => {
             setDirectionsPlaying(playing);
             // When intro cinematic finishes, clear the flag

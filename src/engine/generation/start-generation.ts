@@ -6,6 +6,7 @@ import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { activeCharacterIds, assertChatHasActiveCharacters, assertRequestedCharacterIsActive } from "./active-characters";
+import { persistSecretPlotAgentMemory } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
 import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
 import type { LLMToolCall } from "../generation-core/llm/base-provider";
@@ -468,6 +469,27 @@ function resultKey(result: AgentResult): string {
   return `${result.agentId}:${result.agentType}:${result.type}:${JSON.stringify(result.data)}`;
 }
 
+function uniqueAgentResults(results: AgentResult[]): AgentResult[] {
+  const unique = new Map<string, AgentResult>();
+  for (const result of results) {
+    unique.set(resultKey(result), result);
+  }
+  return [...unique.values()];
+}
+
+async function agentNameLookup(storage: StorageGateway): Promise<Map<string, string>> {
+  const lookup = new Map<string, string>();
+  for (const agent of await storage.list<JsonRecord>("agents").catch(() => [])) {
+    const name = readString(agent.name).trim();
+    if (!name) continue;
+    const id = readString(agent.id).trim();
+    const type = readString(agent.type || agent.agentType).trim();
+    if (id) lookup.set(id, name);
+    if (type) lookup.set(type, name);
+  }
+  return lookup;
+}
+
 async function persistAgentResults(
   storage: StorageGateway,
   chatId: string,
@@ -475,6 +497,7 @@ async function persistAgentResults(
   results: AgentResult[],
 ): Promise<void> {
   const seen = new Set<string>();
+  const agentNames = await agentNameLookup(storage);
   for (const result of results) {
     const key = resultKey(result);
     if (seen.has(key)) continue;
@@ -482,8 +505,10 @@ async function persistAgentResults(
     await storage.create("agent-runs", {
       chatId,
       messageId,
+      agentConfigId: result.agentId,
       agentId: result.agentId,
       agentType: result.agentType,
+      agentName: agentNames.get(result.agentId) ?? agentNames.get(result.agentType) ?? result.agentType,
       resultType: result.type,
       resultData: result.data as never,
       success: result.success,
@@ -492,6 +517,18 @@ async function persistAgentResults(
       durationMs: result.durationMs,
       createdAt: nowIso(),
     });
+  }
+}
+
+async function persistSecretPlotAgentMemorySafely(
+  storage: StorageGateway,
+  chatId: string,
+  results: AgentResult[],
+): Promise<void> {
+  try {
+    await persistSecretPlotAgentMemory(storage, chatId, results);
+  } catch (error) {
+    console.warn("[generation] secret plot memory persist failed", error);
   }
 }
 
@@ -793,6 +830,7 @@ async function runGenerationAgentsForTarget(args: {
   if (target) {
     await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
   }
+  await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
   return finalResults;
 }
@@ -978,6 +1016,7 @@ export async function* startGeneration(
       connection,
       input,
       chat: chatForGeneration,
+      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
       baseMessages,
       mainTools,
       toolRuntimeInput,
@@ -987,10 +1026,12 @@ export async function* startGeneration(
 
     const parallelResults = await parallelAgents;
     const postResults = runtime ? await runtime.runPost(content) : [];
-    for (const result of [...parallelResults, ...postResults, ...agentEvents]) {
+    const emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+    for (const result of emittedAgentResults) {
       yield { type: "agent_result", data: result };
     }
-    const allAgentResults = [...(runtime?.preResults ?? []), ...parallelResults, ...postResults, ...agentEvents];
+    agentEvents.length = 0;
+    const allAgentResults = uniqueAgentResults([...(runtime?.preResults ?? []), ...emittedAgentResults]);
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     const connected = await persistConnectedCommandTags(
       deps.storage,
@@ -1026,6 +1067,7 @@ export async function* startGeneration(
       });
     }
     if (saved) await persistTrackerSnapshotSafely(deps.storage, chatId, saved, allAgentResults, generationTrackerBaseline);
+    await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
     await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
     if (saved) {
       const autoLorebookResults = await runLorebookKeeperBackfill(
@@ -1070,6 +1112,7 @@ export async function* startGeneration(
     connection,
     input,
     chat: chatForGeneration,
+    parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
     baseMessages: baseMessagesDirect,
     mainTools: mainToolsDirect,
     toolRuntimeInput: toolRuntimeInputDirect,
@@ -1163,12 +1206,13 @@ async function* streamMainGenerationLoop(args: {
   connection: JsonRecord;
   input: StartGenerationInput;
   chat: JsonRecord;
+  parameters: Record<string, unknown>;
   baseMessages: LlmMessage[];
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
 }): AsyncGenerator<GenerationEvent, { content: string; usage: unknown }> {
-  const { deps, connection, input, chat, baseMessages, mainTools, toolRuntimeInput, signal } = args;
+  const { deps, connection, input, parameters, baseMessages, mainTools, toolRuntimeInput, signal } = args;
   let content = "";
   const usages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
@@ -1184,7 +1228,7 @@ async function* streamMainGenerationLoop(args: {
         connectionId: readString(connection.id) || input.connectionId,
         model: readString(connection.model) || undefined,
         messages: conversation,
-        parameters: llmParameters(connection, input, chat),
+        parameters,
         tools: mainTools?.toolDefs,
       },
       signal,

@@ -6,6 +6,7 @@ import type { GenerationGuideSource } from "../../shared/text/generation-guide.j
 
 /** The four primary chat modes the engine supports. */
 export type ChatMode = "conversation" | "roleplay" | "visual_novel" | "game";
+export type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
 /** How a multi-character (group) chat is handled. */
 export type GroupChatMode = "merged" | "individual";
@@ -202,6 +203,8 @@ export interface ChatMetadata {
   entryTimingStates?: Record<string, import("./lorebook.js").LorebookEntryTimingState>;
   /** Per-chat global lorebook token budget. Missing uses app default; 0 means unlimited. */
   lorebookTokenBudget?: number | null;
+  /** When true or omitted, stored provider thinking/reasoning is not replayed into future prompts. */
+  excludePastReasoning?: boolean;
   /** ID of the chat preset most recently applied to this chat (drives the preset bar dropdown). */
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */
@@ -212,6 +215,14 @@ export interface ChatMetadata {
   roleplayDmCommandsEnabled?: boolean;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
+  /** Music source constraint for Spotify DJ in roleplay and visual novel chats. */
+  spotifySourceType?: SpotifySourceType;
+  /** Spotify playlist ID used when spotifySourceType is "playlist". */
+  spotifyPlaylistId?: string | null;
+  /** Human-readable playlist name cached for prompts/display. */
+  spotifyPlaylistName?: string | null;
+  /** Spotify artist name used when spotifySourceType is "artist". */
+  spotifyArtist?: string | null;
   /** Durable count of autonomous messages the user has not viewed yet. */
   autonomousUnreadCount?: number;
   /** Character IDs that contributed to the current autonomous unread state. */
@@ -291,7 +302,7 @@ export interface ChatMetadata {
   /** When true, Game Mode uses Spotify DJ for music instead of local music assets. */
   gameUseSpotifyMusic?: boolean;
   /** Music source constraint for Spotify DJ in Game Mode. */
-  gameSpotifySourceType?: "liked" | "playlist" | "artist" | "any";
+  gameSpotifySourceType?: SpotifySourceType;
   /** Spotify playlist ID used when gameSpotifySourceType is "playlist". */
   gameSpotifyPlaylistId?: string | null;
   /** Human-readable playlist name cached for prompts/display. */

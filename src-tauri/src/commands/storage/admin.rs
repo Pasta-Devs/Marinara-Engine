@@ -135,3 +135,74 @@ fn clear_runtime_media(state: &AppState) -> AppResult<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use serde_json::json;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-admin-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp admin dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn admin_expunge_connections_clears_connection_folders() {
+        let state = test_state("connection-folders");
+        state
+            .storage
+            .upsert_with_id(
+                "connection-folders",
+                "folder-1",
+                json!({
+                    "id": "folder-1",
+                    "name": "Providers",
+                    "color": "#38bdf8",
+                    "sortOrder": 1,
+                    "collapsed": false
+                }),
+            )
+            .expect("connection folder should write");
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "conn-1",
+                json!({
+                    "id": "conn-1",
+                    "name": "Provider",
+                    "provider": "openai",
+                    "model": "gpt-4.1",
+                    "folderId": "folder-1"
+                }),
+            )
+            .expect("connection should write");
+
+        let result = admin_expunge(&state, json!({ "confirm": true, "scopes": ["connections"] }))
+            .expect("connection expunge should succeed");
+
+        assert_eq!(
+            result["clearedCollections"],
+            json!(["connection-folders", "connections"])
+        );
+        assert!(state
+            .storage
+            .list("connection-folders")
+            .expect("connection folders should be readable")
+            .is_empty());
+        assert!(state
+            .storage
+            .list("connections")
+            .expect("connections should be readable")
+            .is_empty());
+    }
+}
