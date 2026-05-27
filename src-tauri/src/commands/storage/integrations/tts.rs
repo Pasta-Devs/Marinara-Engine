@@ -109,6 +109,7 @@ fn default_config() -> Value {
         "apiKey": "",
         "voice": "alloy",
         "model": "tts-1",
+        "audioFormat": "mp3",
         "speed": 1.0,
         "elevenLabsStability": 0.5,
         "elevenLabsLanguageCode": "",
@@ -311,6 +312,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .and_then(Value::as_f64)
         .unwrap_or(1.0)
         .clamp(0.25, 4.0);
+    let audio_format = configured_audio_format(&config);
     let tone = body.get("tone").and_then(Value::as_str);
     let speaker = body.get("speaker").and_then(Value::as_str);
     let use_nano_gpt = is_nano_gpt_base_url(&base);
@@ -373,7 +375,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
             "input": provider_text,
             "voice": if voice.trim().is_empty() { "alloy" } else { voice },
             "speed": speed,
-            "response_format": "mp3"
+            "response_format": audio_format
         });
         if let Some(instructions) = instructions {
             payload["instructions"] = json!(instructions);
@@ -450,6 +452,20 @@ fn configured_base_url(config: &Value) -> String {
         "elevenlabs" => "https://api.elevenlabs.io".to_string(),
         "pockettts" => "http://localhost:8000".to_string(),
         _ => "https://api.openai.com/v1".to_string(),
+    }
+}
+
+fn configured_audio_format(config: &Value) -> &'static str {
+    match config
+        .get("audioFormat")
+        .and_then(Value::as_str)
+        .unwrap_or("mp3")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "wav" => "wav",
+        _ => "mp3",
     }
 }
 
@@ -906,6 +922,50 @@ mod tests {
         format!("http://{address}")
     }
 
+    async fn serve_openai_speech(expected_format: &'static str) -> String {
+        const AUDIO_BYTES: &[u8] = b"fake-audio";
+
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test TTS server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test TTS server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test TTS server should accept one request");
+            let mut buffer = [0_u8; 8192];
+            let bytes = stream
+                .read(&mut buffer)
+                .await
+                .expect("test TTS server should read request");
+            let request = String::from_utf8_lossy(&buffer[..bytes]);
+            assert!(request.starts_with("POST /v1/audio/speech "));
+            assert!(request.contains(&format!(r#""response_format":"{expected_format}""#)));
+
+            let content_type = if expected_format == "wav" {
+                "audio/wav"
+            } else {
+                "audio/mpeg"
+            };
+            let header = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                AUDIO_BYTES.len()
+            );
+            stream
+                .write_all(header.as_bytes())
+                .await
+                .expect("test TTS server should write response header");
+            stream
+                .write_all(AUDIO_BYTES)
+                .await
+                .expect("test TTS server should write response body");
+        });
+        format!("http://{address}/v1")
+    }
+
     #[tokio::test]
     async fn openai_compatible_voice_lookup_passes_configured_model() {
         let state = test_state("openai-voices-model");
@@ -1023,6 +1083,72 @@ mod tests {
             .expect("TTS speak should return provider audio");
 
         assert_eq!(result["contentType"], "audio/wav");
+        assert!(result["audioBase64"]
+            .as_str()
+            .is_some_and(|audio| !audio.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn openai_compatible_speak_uses_configured_audio_format() {
+        let state = test_state("openai-speak-audio-format");
+        let base_url = serve_openai_speech("wav").await;
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": base_url,
+                        "apiKey": "",
+                        "model": "tts-1",
+                        "voice": "alloy",
+                        "audioFormat": "wav"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = speak(&state, json!({ "text": "Hello as wav." }))
+            .await
+            .expect("TTS speak should return provider audio");
+
+        assert_eq!(result["contentType"], "audio/wav");
+        assert!(result["audioBase64"]
+            .as_str()
+            .is_some_and(|audio| !audio.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn openai_compatible_speak_rejects_invalid_audio_format_config() {
+        let state = test_state("openai-speak-invalid-audio-format");
+        let base_url = serve_openai_speech("mp3").await;
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": base_url,
+                        "apiKey": "",
+                        "model": "tts-1",
+                        "voice": "alloy",
+                        "audioFormat": "flac"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = speak(&state, json!({ "text": "Hello as fallback mp3." }))
+            .await
+            .expect("TTS speak should return provider audio");
+
+        assert_eq!(result["contentType"], "audio/mpeg");
         assert!(result["audioBase64"]
             .as_str()
             .is_some_and(|audio| !audio.is_empty()));

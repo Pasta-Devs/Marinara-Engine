@@ -23,7 +23,13 @@ import { useCharacters } from "../../../../catalog/characters/index";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
-import type { TTSConfig, TTSSource, TTSVoiceAssignment, TTSVoiceMode } from "../../../../../engine/contracts/types/tts";
+import type {
+  TTSAudioFormat,
+  TTSConfig,
+  TTSSource,
+  TTSVoiceAssignment,
+  TTSVoiceMode,
+} from "../../../../../engine/contracts/types/tts";
 import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "../../../../../engine/contracts/types/tts";
 import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
 
@@ -75,6 +81,11 @@ const TTS_SOURCE_OPTIONS: Array<{ value: TTSSource; label: string }> = [
   { value: "openai", label: "OpenAI-compatible" },
   { value: "elevenlabs", label: "ElevenLabs" },
   { value: "pockettts", label: "PocketTTS" },
+];
+
+const TTS_AUDIO_FORMAT_OPTIONS: Array<{ value: TTSAudioFormat; label: string }> = [
+  { value: "mp3", label: "MP3" },
+  { value: "wav", label: "WAV" },
 ];
 
 const ELEVENLABS_TTS_MODELS = [
@@ -292,6 +303,7 @@ export function TTSConfigCard() {
   const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("tts-1");
+  const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
   const [voice, setVoice] = useState("alloy");
   const [narratorVoiceEnabled, setNarratorVoiceEnabled] = useState(false);
   const [narratorVoice, setNarratorVoice] = useState("");
@@ -336,6 +348,7 @@ export function TTSConfigCard() {
     setBaseUrl(savedConfig.baseUrl);
     setApiKey(savedConfig.apiKey); // masked value from server
     setModel(savedConfig.model);
+    setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setVoice(savedConfig.voice);
     setNarratorVoiceEnabled(savedConfig.narratorVoiceEnabled ?? false);
     setNarratorVoice(savedConfig.narratorVoice ?? "");
@@ -381,6 +394,7 @@ export function TTSConfigCard() {
     baseUrl,
     apiKey: apiKey === TTS_API_KEY_MASK ? TTS_API_KEY_MASK : apiKey,
     model,
+    audioFormat,
     voice,
     narratorVoiceEnabled,
     narratorVoice,
@@ -442,6 +456,7 @@ export function TTSConfigCard() {
     setBaseUrl(defaults.baseUrl);
     setApiKey(nextApiKey);
     setModel(defaults.model);
+    setAudioFormat("mp3");
     setVoice(defaults.voice);
     setNarratorVoiceEnabled(false);
     setNarratorVoice(defaults.voice);
@@ -456,6 +471,7 @@ export function TTSConfigCard() {
       baseUrl: defaults.baseUrl,
       apiKey: nextApiKey,
       model: defaults.model,
+      audioFormat: "mp3",
       voice: defaults.voice,
       narratorVoiceEnabled: false,
       narratorVoice: defaults.voice,
@@ -812,6 +828,26 @@ export function TTSConfigCard() {
               </>
             )}
           </FieldRow>
+
+          {source === "openai" && (
+            <FieldRow label="Audio Format" help="Output container for OpenAI-compatible TTS providers that support it.">
+              <select
+                value={audioFormat}
+                onChange={(e) => {
+                  const nextFormat = e.target.value as TTSAudioFormat;
+                  setAudioFormat(nextFormat);
+                  mark({ audioFormat: nextFormat });
+                }}
+                className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
+              >
+                {TTS_AUDIO_FORMAT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+          )}
 
           {/* Voice assignment mode */}
           <FieldRow

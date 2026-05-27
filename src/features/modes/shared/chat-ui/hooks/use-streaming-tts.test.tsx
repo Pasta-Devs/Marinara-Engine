@@ -17,6 +17,7 @@ const baseConfig: TTSConfig = {
   narratorVoiceEnabled: false,
   narratorVoice: "",
   model: "tts-1",
+  audioFormat: "mp3",
   speed: 1,
   elevenLabsStability: 0.5,
   elevenLabsLanguageCode: "",
