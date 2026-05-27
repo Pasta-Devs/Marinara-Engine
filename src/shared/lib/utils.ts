@@ -137,15 +137,18 @@ export function getAvatarCropStyle(crop?: AvatarCropValue | null): CSSProperties
   if (!crop) return {};
 
   if (isLegacyAvatarCrop(crop)) {
+    const isIdentityCrop = crop.zoom === 1 && crop.offsetX === 0 && crop.offsetY === 0;
+    const transform = `scale(${crop.zoom}) translate(${crop.offsetX}px, ${crop.offsetY}px)`;
+
     if (crop.fullImage) {
       return {
         objectFit: "contain",
-        transform: `scale(${crop.zoom}) translate(${crop.offsetX}px, ${crop.offsetY}px)`,
+        ...(isIdentityCrop ? {} : { transform }),
       };
     }
-    if (crop.zoom <= 1) return {};
+    if (isIdentityCrop) return {};
     return {
-      transform: `scale(${crop.zoom}) translate(${crop.offsetX}px, ${crop.offsetY}px)`,
+      transform,
     };
   }
 

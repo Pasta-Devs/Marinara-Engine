@@ -21,16 +21,21 @@ describe("avatar crop compatibility", () => {
   it("rejects malformed legacy crops", () => {
     expect(parseAvatarCropJson('{"zoom":0,"offsetX":12,"offsetY":-8}')).toBeNull();
     expect(parseAvatarCropJson('{"zoom":1.2,"offsetX":12,"offsetY":-8,"fullImage":"yes"}')).toBeNull();
+    expect(parseAvatarCropJson('{"zoom":1.2,"offsetX":"12","offsetY":-8}')).toBeNull();
+    expect(parseAvatarCropJson('{"zoom":1.2,"offsetX":12}')).toBeNull();
+    expect(parseAvatarCropJson('{"zoom":1.2,"offsetX":12,"offsetY":null}')).toBeNull();
   });
 
   it("renders legacy crop transforms", () => {
     expect(getAvatarCropStyle({ zoom: 1.4, offsetX: 12, offsetY: -8 })).toEqual({
       transform: "scale(1.4) translate(12px, -8px)",
     });
-    expect(getAvatarCropStyle({ zoom: 1, offsetX: 12, offsetY: -8 })).toEqual({});
+    expect(getAvatarCropStyle({ zoom: 1, offsetX: 12, offsetY: -8 })).toEqual({
+      transform: "scale(1) translate(12px, -8px)",
+    });
+    expect(getAvatarCropStyle({ zoom: 1, offsetX: 0, offsetY: 0 })).toEqual({});
     expect(getAvatarCropStyle({ zoom: 1, offsetX: 0, offsetY: 0, fullImage: true })).toEqual({
       objectFit: "contain",
-      transform: "scale(1) translate(0px, 0px)",
     });
   });
 });

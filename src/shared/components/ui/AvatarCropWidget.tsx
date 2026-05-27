@@ -193,15 +193,17 @@ export function AvatarCropWidget({ src, alt, crop, onChange }: AvatarCropWidgetP
 
   // Live preview reads cropPx (instant) rather than the saved crop prop, so the
   // preview stays in sync with the overlay even between onChange ticks.
-  const previewCrop: AvatarCrop | null =
-    imgRect && cropPx
-      ? {
-          srcX: cropPx.x / imgRect.w,
-          srcY: cropPx.y / imgRect.h,
-          srcWidth: cropPx.size / imgRect.w,
-          srcHeight: cropPx.size / imgRect.h,
-        }
-      : null;
+  const previewCrop: AvatarCrop | LegacyAvatarCrop | null =
+    crop && isLegacyAvatarCrop(crop)
+      ? crop
+      : imgRect && cropPx
+        ? {
+            srcX: cropPx.x / imgRect.w,
+            srcY: cropPx.y / imgRect.h,
+            srcWidth: cropPx.size / imgRect.w,
+            srcHeight: cropPx.size / imgRect.h,
+          }
+        : null;
 
   return (
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4">
