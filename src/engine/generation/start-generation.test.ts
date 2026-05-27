@@ -401,3 +401,67 @@ describe("retryGenerationAgents lorebook keeper backfill", () => {
     expect(promptTexts[1]).not.toContain("Assistant message 31");
   });
 });
+
+describe("retryGenerationAgents custom agent activation", () => {
+  const keywordGatedCustomAgent = {
+    id: "custom-agent",
+    type: "custom-scene-scout",
+    name: "Scene Scout",
+    enabled: true,
+    phase: "pre_generation",
+    connectionId: null,
+    model: "agent-model",
+    promptTemplate: "Watch for scene keywords.",
+    settings: {
+      resultType: "context_injection",
+      activationKeywords: ["secret"],
+      activationScanDepth: 1,
+    },
+  };
+
+  it("respects activation keywords by default", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      agents: [keywordGatedCustomAgent],
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "The secret door glows." },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "The room is quiet." },
+        { id: "user-2", chatId: "chat-1", role: "user", content: "We wait in silence." },
+        { id: "assistant-2", chatId: "chat-1", role: "assistant", content: "Nothing changes." },
+      ],
+    });
+
+    const results = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["custom-scene-scout"],
+    });
+
+    expect(results).toEqual([]);
+    expect(streamedRequests).toHaveLength(0);
+  });
+
+  it("bypasses activation keywords only when retry options request it", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      agents: [keywordGatedCustomAgent],
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "The secret door glows." },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "The room is quiet." },
+        { id: "user-2", chatId: "chat-1", role: "user", content: "We wait in silence." },
+        { id: "assistant-2", chatId: "chat-1", role: "assistant", content: "Nothing changes." },
+      ],
+    });
+
+    const results = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["custom-scene-scout"],
+      options: { bypassActivation: true },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      agentId: "custom-agent",
+      agentType: "custom-scene-scout",
+      success: true,
+    });
+    expect(streamedRequests).toHaveLength(1);
+  });
+});

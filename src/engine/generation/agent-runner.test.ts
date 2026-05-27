@@ -40,6 +40,21 @@ const llm: LlmGateway = {
   },
 };
 
+function countingLlm(calls: unknown[]): LlmGateway {
+  return {
+    async *stream(request) {
+      calls.push(request);
+      yield { type: "token", text: "ok" };
+    },
+    async complete() {
+      return "ok";
+    },
+    async listModels() {
+      return [];
+    },
+  };
+}
+
 const integrations = {} as IntegrationGateway;
 
 describe("createGenerationAgentRuntime", () => {
@@ -133,5 +148,197 @@ describe("createGenerationAgentRuntime", () => {
     });
     expect(runtime.preInjections).toEqual([]);
     expect(results).toEqual(runtime.preResults);
+  });
+
+  it("skips custom agents when activation keywords miss the scan window", async () => {
+    const calls: unknown[] = [];
+    const listedEntities: string[] = [];
+    const testStorage = storage([
+      {
+        id: "agent-a",
+        type: "custom-scene-scout",
+        name: "Scene Scout",
+        enabled: true,
+        phase: "pre_generation",
+        connectionId: null,
+        promptTemplate: "Watch for scene keywords.",
+        settings: {
+          resultType: "context_injection",
+          activationKeywords: ["secret"],
+          activationScanDepth: 1,
+        },
+      },
+    ]);
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: {
+          ...testStorage,
+          async list<T>(entity: string) {
+            listedEntities.push(entity);
+            return testStorage.list<T>(entity);
+          },
+        },
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { role: "user", content: "The secret door glows." },
+          { role: "assistant", content: "The room is quiet." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preResults).toEqual([]);
+    expect(runtime.preInjections).toEqual([]);
+    expect(await runtime.runParallel()).toEqual([]);
+    expect(await runtime.runPost("response")).toEqual([]);
+    expect(calls).toHaveLength(0);
+    expect(listedEntities).toEqual(["agents"]);
+  });
+
+  it("runs custom agents when activation keywords match inside the scan window", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "agent-a",
+            type: "custom-scene-scout",
+            name: "Scene Scout",
+            enabled: true,
+            phase: "pre_generation",
+            connectionId: null,
+            promptTemplate: "Watch for scene keywords.",
+            settings: {
+              resultType: "context_injection",
+              activationKeywords: ["secret"],
+              activationScanDepth: 2,
+            },
+          },
+        ]),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { role: "user", content: "The secret door glows." },
+          { role: "assistant", content: "The room is quiet." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preInjections).toEqual([
+      {
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+        text: "ok",
+      },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs custom agents with legacy string activation settings", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "agent-a",
+            type: "custom-scene-scout",
+            name: "Scene Scout",
+            enabled: true,
+            phase: "pre_generation",
+            connectionId: null,
+            promptTemplate: "Watch for scene keywords.",
+            settings: {
+              resultType: "context_injection",
+              activationKeywords: "secret, moonlit ritual",
+              activationScanDepth: "1",
+            },
+          },
+        ]),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [{ role: "user", content: "The moonlit ritual begins." }],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(runtime.preInjections).toEqual([
+      {
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+        text: "ok",
+      },
+    ]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs custom agents with missed activation keywords when explicitly bypassed", async () => {
+    const calls: unknown[] = [];
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storage([
+          {
+            id: "agent-a",
+            type: "custom-scene-scout",
+            name: "Scene Scout",
+            enabled: true,
+            phase: "pre_generation",
+            connectionId: null,
+            promptTemplate: "Watch for scene keywords.",
+            settings: {
+              resultType: "context_injection",
+              activationKeywords: ["secret"],
+              activationScanDepth: 1,
+            },
+          },
+        ]),
+        llm: countingLlm(calls),
+        integrations,
+      },
+      {
+        chat: { id: "chat-a", metadata: { enableAgents: true } },
+        connection: { id: "chat-connection", model: "chat-model" },
+        storedMessages: [
+          { role: "user", content: "The secret door glows." },
+          { role: "assistant", content: "The room is quiet." },
+        ],
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+        bypassCustomAgentActivation: true,
+      },
+    );
+
+    expect(runtime.preInjections).toEqual([
+      {
+        agentType: "custom-scene-scout",
+        agentName: "Scene Scout",
+        text: "ok",
+      },
+    ]);
+    expect(calls).toHaveLength(1);
   });
 });

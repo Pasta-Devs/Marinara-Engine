@@ -1009,7 +1009,7 @@ export function useGenerate() {
         }
         const results = await retryGenerationAgents(
           { storage: storageApi, llm: llmApi, integrations: integrationGateway },
-          { chatId, agentTypes, options },
+          { chatId, agentTypes, options: { ...(options ?? {}), bypassActivation: options?.bypassActivation ?? true } },
         );
         for (const result of results) {
           await applyAgentResultEffects(queryClient, chatId, result);
