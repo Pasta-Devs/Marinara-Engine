@@ -12,6 +12,11 @@ import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../../shared/lib/utils";
 import { boolish as isRandomPoolEnabled } from "../../../../../engine/generation/runtime-records";
+import {
+  CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_CLASS,
+  CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
+} from "./input-button-styles";
 
 interface Persona {
   id: string;
@@ -234,8 +239,8 @@ export function QuickSwitcherMobile() {
         onClick={() => setOpen((v) => !v)}
         title="Quick Switcher"
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-xl transition-all",
-          open ? "text-foreground bg-foreground/10" : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground",
+          CHAT_INPUT_ICON_BUTTON_CLASS,
+          open ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
         )}
       >
         <ChevronUp size="1rem" className={cn("transition-transform", open && "rotate-180")} />

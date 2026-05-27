@@ -132,6 +132,7 @@ export function useLorebooks(category?: string) {
       return lorebooks.filter((lorebook) => (lorebook.category ?? "uncategorized") === category);
     },
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -144,6 +145,7 @@ export function useLorebook(id: string | null) {
     }),
     enabled: !!id,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => !(error instanceof ApiError && error.status === 404) && failureCount < 3,
   });
 }

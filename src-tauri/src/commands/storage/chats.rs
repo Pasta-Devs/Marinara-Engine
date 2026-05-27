@@ -712,15 +712,8 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     delete_ids.dedup();
 
     game_state_snapshots::delete_tracker_snapshots_for_chats(state, &delete_ids)?;
-    let delete_id_set = delete_ids
-        .iter()
-        .map(String::as_str)
-        .collect::<HashSet<_>>();
-    state.storage.delete_where_matching("messages", |row| {
-        row.get("chatId")
-            .and_then(Value::as_str)
-            .is_some_and(|chat_id| delete_id_set.contains(chat_id))
-    })?;
+    let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
+    state.storage.delete_messages_for_chats(&delete_id_set)?;
 
     for delete_id in delete_ids {
         state.storage.delete("chats", &delete_id)?;
@@ -760,11 +753,20 @@ fn scene_delete_scope(
         chat_id,
         meta.get("activeSceneChatId"),
     )?;
+    let mut has_declared_scene_children = meta
+        .get("activeSceneChatId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|id| !id.is_empty());
     if let Some(history) = meta.get("roleplaySceneHistory").and_then(Value::as_array) {
+        has_declared_scene_children = has_declared_scene_children || !history.is_empty();
         for entry in history {
             let record = object_or_parse(Some(entry));
             insert_owned_scene_chat_id(state, &mut delete_ids, chat_id, record.get("sceneChatId"))?;
         }
+    }
+    if !has_declared_scene_children {
+        return Ok(delete_ids.into_iter().collect());
     }
 
     for chat in state.storage.list("chats")? {

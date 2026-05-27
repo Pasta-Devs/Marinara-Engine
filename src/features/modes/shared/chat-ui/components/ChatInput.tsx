@@ -44,6 +44,13 @@ import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
 import { SlashCommandFeedback } from "./SlashCommandFeedback";
 import { QuickReplyMenu, type QuickReplyAction } from "./QuickReplyMenu";
+import {
+  CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_CLASS,
+  CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
+  CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_READY_CLASS,
+} from "./input-button-styles";
 
 interface Attachment {
   type: string; // MIME type
@@ -1266,10 +1273,12 @@ export const ChatInput = memo(function ChatInput({
           onClick={() => fileInputRef.current?.click()}
           disabled={!activeChatId}
           className={cn(
-            "rounded-lg p-1.5 transition-all active:scale-90",
-            attachments.length
-              ? "bg-foreground/10 text-foreground/75"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+            CHAT_INPUT_ICON_BUTTON_CLASS,
+            !activeChatId
+              ? CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS
+              : attachments.length
+                ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS
+                : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
           )}
           title="Attach files"
         >
@@ -1291,11 +1300,13 @@ export const ChatInput = memo(function ChatInput({
           onPaste={handlePaste}
           placeholder={
             activeChatId
-              ? characterNames.length > 0
-                ? characterNames.length > 1
-                  ? `Message @${characterNames.join(", @")}, / for commands`
-                  : `Message @${characterNames[0]}, / for commands`
-                : "Type here, / for commands."
+              ? mode === "roleplay"
+                ? "Respond here, / for commands"
+                : characterNames.length > 0
+                  ? characterNames.length > 1
+                    ? `Message @${characterNames.join(", @")}, / for commands`
+                    : `Message @${characterNames[0]}, / for commands`
+                  : "Type here, / for commands."
               : "Select a chat first"
           }
           disabled={!activeChatId}
@@ -1311,10 +1322,8 @@ export const ChatInput = memo(function ChatInput({
             ref={emojiButtonRef}
             onClick={() => setEmojiOpen((v) => !v)}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-              emojiOpen
-                ? "bg-foreground/10 text-foreground/75"
-                : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+              CHAT_INPUT_ICON_BUTTON_CLASS,
+              emojiOpen ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
             )}
             title="Emoji"
           >
@@ -1335,12 +1344,12 @@ export const ChatInput = memo(function ChatInput({
             ref={charPickerBtnRef}
             onClick={() => setCharPickerOpen((v) => !v)}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+              CHAT_INPUT_ICON_BUTTON_CLASS,
               guideGenerations && hasInput
-                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
+                ? `${CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS} ring-1 ring-foreground/20`
                 : charPickerOpen
-                  ? "bg-foreground/10 text-foreground/75"
-                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+                  ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS
+                  : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
             )}
             title={guideGenerations && hasInput ? "Trigger character response (guided)" : "Trigger character response"}
           >
@@ -1354,10 +1363,10 @@ export const ChatInput = memo(function ChatInput({
             onClick={() => void handleTranslateDraft()}
             disabled={!activeChatId || !hasInput || isStreaming || isTranslatingDraft}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
+              CHAT_INPUT_ICON_BUTTON_CLASS,
               hasInput && !isStreaming && !isTranslatingDraft
-                ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70 active:scale-90"
-                : "text-foreground/25",
+                ? CHAT_INPUT_ICON_BUTTON_IDLE_CLASS
+                : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
             )}
             title="Translate draft"
           >
@@ -1369,7 +1378,7 @@ export const ChatInput = memo(function ChatInput({
           <SpeechToTextButton
             disabled={!activeChatId}
             onTranscript={handleSpeechTranscript}
-            className="rounded-full"
+            className={CHAT_INPUT_ICON_BUTTON_CLASS}
             iconSize={16}
           />
         )}
@@ -1391,12 +1400,13 @@ export const ChatInput = memo(function ChatInput({
             !activeChatId
           }
           className={cn(
-            "mari-chat-send-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
+            "mari-chat-send-btn",
+            CHAT_INPUT_ICON_BUTTON_CLASS,
             isStreaming
-              ? "text-foreground/75 hover:text-foreground/90"
+              ? CHAT_INPUT_ICON_BUTTON_READY_CLASS
               : (hasInput || attachments.length || canRetry || canContinue) && activeChatId && !isReadingAttachments
-                ? "text-foreground/75 hover:text-foreground/90 active:scale-90"
-                : "text-foreground/20",
+                ? CHAT_INPUT_ICON_BUTTON_READY_CLASS
+                : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
           )}
         >
           {isStreaming ? (

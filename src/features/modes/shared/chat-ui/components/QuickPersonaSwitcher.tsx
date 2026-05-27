@@ -8,6 +8,11 @@ import { usePersona, usePersonas, usePersonaGroups } from "../../../../catalog/c
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../../shared/lib/utils";
+import {
+  CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_CLASS,
+  CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
+} from "./input-button-styles";
 
 interface Persona {
   id: string;
@@ -204,8 +209,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             : "Quick Persona Switcher"
         }
         className={cn(
-          "relative flex h-8 w-8 items-center justify-center rounded-full overflow-hidden transition-all border-2",
-          open ? "border-foreground/40" : "border-transparent hover:border-foreground/30 hover:opacity-90",
+          CHAT_INPUT_ICON_BUTTON_CLASS,
+          "relative overflow-hidden border-2 p-0",
+          open
+            ? `${CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS} border-foreground/40`
+            : `${CHAT_INPUT_ICON_BUTTON_IDLE_CLASS} border-transparent hover:border-foreground/30`,
           className,
         )}
       >

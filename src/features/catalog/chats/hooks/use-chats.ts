@@ -409,6 +409,7 @@ export function useCreateChat() {
     }) => storageApi.create<Chat>("chats", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: chatKeys.summaries() });
     },
   });
 }
@@ -424,24 +425,34 @@ export function useDeleteChat() {
       if (providedGroupId) {
         await qc.cancelQueries({ queryKey: chatKeys.group(providedGroupId) });
       }
+      await qc.cancelQueries({ queryKey: chatKeys.summaries() });
       const previous = qc.getQueryData<Chat[]>(chatKeys.list());
+      const previousSummaries = qc.getQueriesData<ChatListItem[]>({ queryKey: chatKeys.summaries() });
       const previousGroup = providedGroupId ? qc.getQueryData<Chat[]>(chatKeys.group(providedGroupId)) : undefined;
-      const deletedChat = previous?.find((c) => c.id === id) ?? previousGroup?.find((c) => c.id === id) ?? null;
+      const deletedChat =
+        previous?.find((c) => c.id === id) ??
+        previousGroup?.find((c) => c.id === id) ??
+        previousSummaries.flatMap(([, rows]) => rows ?? []).find((c) => c.id === id) ??
+        null;
       const groupId = deletedChat?.groupId ?? providedGroupId;
 
       qc.setQueryData<Chat[]>(chatKeys.list(), (old) => old?.filter((c) => c.id !== id));
+      qc.setQueriesData<ChatListItem[]>({ queryKey: chatKeys.summaries() }, (old) => old?.filter((c) => c.id !== id));
 
       if (groupId) {
         qc.setQueryData<Chat[]>(chatKeys.group(groupId), (old) => old?.filter((c) => c.id !== id));
       }
 
-      return { previous, previousGroup, groupId };
+      return { previous, previousSummaries, previousGroup, groupId };
     },
     onError: (_err, _id, context) => {
       if (context?.previous) {
         qc.setQueryData(chatKeys.list(), context.previous);
       } else {
         qc.invalidateQueries({ queryKey: chatKeys.list() });
+      }
+      for (const [queryKey, data] of context?.previousSummaries ?? []) {
+        qc.setQueryData(queryKey, data);
       }
       if (context?.groupId) {
         if (context.previousGroup) {
@@ -454,6 +465,7 @@ export function useDeleteChat() {
     onSettled: (_data, _err, input, context) => {
       const groupId = context?.groupId ?? getDeleteChatGroupId(input);
       qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: chatKeys.summaries() });
       if (groupId) {
         qc.invalidateQueries({ queryKey: chatKeys.group(groupId) });
       }

@@ -141,11 +141,11 @@ export function SpeechToTextButton({ disabled, onTranscript, className, iconSize
       onClick={startListening}
       disabled={disabled}
       className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90",
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90 sm:h-8 sm:w-8",
         listening
-          ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+          ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
           : supported
-            ? "text-foreground/50 hover:bg-foreground/10 hover:text-foreground/75"
+            ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
             : "text-foreground/25",
         disabled && "cursor-not-allowed opacity-50",
         className,

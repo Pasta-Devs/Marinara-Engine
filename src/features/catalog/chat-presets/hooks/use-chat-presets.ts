@@ -59,6 +59,7 @@ export function useChatPresets(mode?: ChatMode | null) {
       return mode ? presets.filter((preset) => preset.mode === mode) : presets;
     },
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -80,6 +81,7 @@ export function useActiveChatPreset(mode: ChatMode | null) {
     },
     enabled: !!mode,
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

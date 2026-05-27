@@ -394,6 +394,7 @@ export function usePersonas(enabled = true) {
     queryFn: () => storageApi.list<unknown>("personas"),
     enabled,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -403,6 +404,7 @@ export function usePersona(id: string | null, enabled = true) {
     queryFn: () => storageApi.get("personas", id!),
     enabled: enabled && !!id,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -423,6 +425,7 @@ export function useActivePersona(enabled = true) {
     },
     enabled,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

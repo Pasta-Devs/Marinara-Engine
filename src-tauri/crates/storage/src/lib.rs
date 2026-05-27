@@ -3,10 +3,10 @@ use marinara_security::validate_collection_name;
 use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer as _;
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, BufWriter, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -58,6 +58,19 @@ impl FileStorage {
                 .iter()
                 .all(|(key, expected)| obj.get(key) == Some(expected))
         })
+    }
+
+    pub fn list_projected(
+        &self,
+        collection: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.read_collection_projected(collection, fields, field_selections)
     }
 
     pub fn list_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
@@ -130,7 +143,7 @@ impl FileStorage {
             .entry("updatedAt".to_string())
             .or_insert_with(|| Value::String(now));
         let record = Value::Object(object);
-        if collection == "messages" && !had_id {
+        if matches!(collection, "messages" | "chats") && !had_id {
             self.append_collection_row(collection, &record)?;
             return Ok(record);
         }
@@ -231,6 +244,32 @@ impl FileStorage {
         Ok(deleted)
     }
 
+    pub fn delete_messages_for_chats(&self, chat_ids: &HashSet<String>) -> AppResult<usize> {
+        if chat_ids.is_empty() {
+            return Ok(0);
+        }
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        if let Some(deleted) = self.delete_pretty_messages_for_chats(chat_ids)? {
+            return Ok(deleted);
+        }
+
+        let mut rows = self.read_collection("messages")?;
+        let before = rows.len();
+        rows.retain(|row| {
+            row.get("chatId")
+                .and_then(Value::as_str)
+                .is_none_or(|chat_id| !chat_ids.contains(chat_id))
+        });
+        let deleted = before.saturating_sub(rows.len());
+        if deleted > 0 {
+            self.write_collection("messages", &rows)?;
+        }
+        Ok(deleted)
+    }
+
     pub fn replace_all(&self, collection: &str, rows: Vec<Value>) -> AppResult<()> {
         let _guard = self
             .lock
@@ -305,6 +344,38 @@ impl FileStorage {
             .into_iter()
             .filter(|row| predicate(row))
             .collect())
+    }
+
+    fn read_collection_projected(
+        &self,
+        collection: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        let path = self.collection_path(collection)?;
+        if fields.is_empty() {
+            return Ok(Vec::new());
+        }
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedRowsVisitor {
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => Ok(self
+                .read_collection(collection)?
+                .into_iter()
+                .map(|row| project_row(row, &field_set, &nested_field_sets))
+                .collect()),
+        }
     }
 
     fn read_collection_find_by_id(&self, collection: &str, id: &str) -> AppResult<Option<Value>> {
@@ -484,6 +555,88 @@ impl FileStorage {
         output.sync_all()?;
         fs::rename(tmp, path)?;
         Ok(())
+    }
+
+    fn delete_pretty_messages_for_chats(&self, chat_ids: &HashSet<String>) -> AppResult<Option<usize>> {
+        let path = self.collection_path("messages")?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Some(0));
+        }
+
+        let file = fs::File::open(&path)?;
+        let mut reader = BufReader::new(file);
+        let tmp = unique_sibling_path(&path, "tmp")?;
+        let output = fs::File::create(&tmp)?;
+        let mut output = BufWriter::new(output);
+        output.write_all(b"[\n")?;
+
+        let mut line = String::new();
+        let mut record_lines: Vec<String> = Vec::new();
+        let mut in_record = false;
+        let mut saw_array_start = false;
+        let mut saw_record = false;
+        let mut wrote_record = false;
+        let mut deleted = 0;
+
+        loop {
+            line.clear();
+            if reader.read_line(&mut line)? == 0 {
+                break;
+            }
+            let trimmed = line.trim_start();
+
+            if !in_record {
+                if trimmed.starts_with('[') {
+                    saw_array_start = true;
+                    continue;
+                }
+                if trimmed.starts_with(']') {
+                    break;
+                }
+                if trimmed.trim().is_empty() {
+                    continue;
+                }
+                if trimmed.starts_with('{') {
+                    in_record = true;
+                    saw_record = true;
+                    record_lines.clear();
+                    record_lines.push(line.clone());
+                    continue;
+                }
+                let _ = fs::remove_file(&tmp);
+                return Ok(None);
+            }
+
+            record_lines.push(line.clone());
+            if is_pretty_top_level_record_end(&line) {
+                if pretty_message_record_matches_chat(&record_lines, chat_ids) {
+                    deleted += 1;
+                } else {
+                    write_pretty_record(&mut output, &record_lines, wrote_record)?;
+                    wrote_record = true;
+                }
+                in_record = false;
+                record_lines.clear();
+            }
+        }
+
+        if !saw_array_start || in_record || (!saw_record && deleted == 0) {
+            let _ = fs::remove_file(&tmp);
+            return Ok(None);
+        }
+
+        output.write_all(b"]\n")?;
+        output.flush()?;
+        output.get_ref().sync_all()?;
+
+        if deleted == 0 {
+            let _ = fs::remove_file(&tmp);
+            return Ok(Some(0));
+        }
+
+        refresh_collection_backup(&path)?;
+        fs::rename(tmp, path)?;
+        Ok(Some(deleted))
     }
 
     fn recover_collection_after_read_error(
@@ -787,6 +940,258 @@ impl<'de, 'a> Visitor<'de> for FindRowByIdRowVisitor<'a> {
     }
 }
 
+fn selected_nested_fields(field_selections: &Map<String, Value>) -> HashMap<String, HashSet<String>> {
+    field_selections
+        .iter()
+        .filter_map(|(field, selection)| {
+            let nested = selection
+                .as_array()?
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect::<HashSet<_>>();
+            (!nested.is_empty()).then(|| (field.clone(), nested))
+        })
+        .collect()
+}
+
+fn project_row(
+    row: Value,
+    fields: &HashSet<String>,
+    field_selections: &HashMap<String, HashSet<String>>,
+) -> Value {
+    let Some(object) = row.as_object() else {
+        return row;
+    };
+    let mut projected = Map::new();
+    for field in fields {
+        let Some(value) = object.get(field) else {
+            continue;
+        };
+        let next = field_selections
+            .get(field)
+            .map(|nested| project_nested_value(value.clone(), nested))
+            .unwrap_or_else(|| value.clone());
+        projected.insert(field.clone(), next);
+    }
+    Value::Object(projected)
+}
+
+fn project_nested_value(value: Value, fields: &HashSet<String>) -> Value {
+    match value {
+        Value::Object(object) => {
+            let projected = fields
+                .iter()
+                .filter_map(|field| object.get(field).cloned().map(|value| (field.clone(), value)))
+                .collect();
+            Value::Object(projected)
+        }
+        Value::String(raw) => match serde_json::from_str::<Value>(&raw) {
+            Ok(Value::Object(object)) => {
+                let projected = fields
+                    .iter()
+                    .filter_map(|field| object.get(field).cloned().map(|value| (field.clone(), value)))
+                    .collect();
+                Value::Object(projected)
+            }
+            _ => Value::String(raw),
+        },
+        other => other,
+    }
+}
+
+struct ProjectedRowsVisitor<'a> {
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowsVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array of records")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(ProjectedRowSeed {
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            rows.push(row);
+        }
+        Ok(rows)
+    }
+}
+
+struct ProjectedRowSeed<'a> {
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedRowSeed<'a> {
+    type Value = Value;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedRowVisitor {
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedRowVisitor<'a> {
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowVisitor<'a> {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a record object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
+            object.insert(key, value);
+        }
+        Ok(Value::Object(object))
+    }
+}
+
+struct ProjectedNestedSeed<'a> {
+    fields: &'a HashSet<String>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedNestedSeed<'a> {
+    type Value = Value;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ProjectedNestedVisitor {
+            fields: self.fields,
+        })
+    }
+}
+
+struct ProjectedNestedVisitor<'a> {
+    fields: &'a HashSet<String>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedNestedVisitor<'a> {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a nested object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if self.fields.contains(&key) {
+                object.insert(key, map.next_value::<Value>()?);
+            } else {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+            }
+        }
+        Ok(Value::Object(object))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(project_nested_value(Value::String(value.to_string()), self.fields))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(project_nested_value(Value::String(value), self.fields))
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::Null)
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::Null)
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::Bool(value))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::Number(value.into()))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::Number(value.into()))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(serde_json::Number::from_f64(value)
+            .map(Value::Number)
+            .unwrap_or(Value::Null))
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+        Ok(Value::Array(Vec::new()))
+    }
+}
+
 struct MessageRowsForChatVisitor<'a> {
     chat_id: &'a str,
 }
@@ -1054,6 +1459,48 @@ fn count_pretty_messages_for_chat(path: &Path, chat_id: &str) -> AppResult<Optio
     }
 
     Ok(saw_chat_id_field.then_some(count))
+}
+
+fn is_pretty_top_level_record_end(line: &str) -> bool {
+    line.starts_with("  }") && matches!(line.trim(), "}" | "},")
+}
+
+fn pretty_message_record_matches_chat(record_lines: &[String], chat_ids: &HashSet<String>) -> bool {
+    record_lines.iter().any(|line| {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("\"chatId\"") {
+            return false;
+        }
+        let Some((_, raw_value)) = trimmed.split_once(':') else {
+            return false;
+        };
+        let value = raw_value.trim().trim_end_matches(',');
+        serde_json::from_str::<String>(value).is_ok_and(|chat_id| chat_ids.contains(&chat_id))
+    })
+}
+
+fn write_pretty_record<W: Write>(writer: &mut W, record_lines: &[String], needs_comma: bool) -> AppResult<()> {
+    if needs_comma {
+        writer.write_all(b",\n")?;
+    }
+
+    for (index, line) in record_lines.iter().enumerate() {
+        if index + 1 == record_lines.len() {
+            writer.write_all(strip_record_trailing_comma(line).as_bytes())?;
+        } else {
+            writer.write_all(line.as_bytes())?;
+        }
+    }
+    Ok(())
+}
+
+fn strip_record_trailing_comma(line: &str) -> String {
+    let newline = if line.ends_with('\n') { "\n" } else { "" };
+    let without_newline = line.trim_end_matches('\n');
+    let without_comma = without_newline
+        .strip_suffix(',')
+        .unwrap_or(without_newline);
+    format!("{without_comma}{newline}")
 }
 
 fn read_pretty_message_page_from_file(

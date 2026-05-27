@@ -134,6 +134,7 @@ export function usePresets() {
     queryKey: presetKeys.list(),
     queryFn: () => storageApi.list<PromptPreset>("prompts"),
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -143,6 +144,7 @@ export function usePreset(id: string | null) {
     queryFn: () => storageApi.get<PromptPreset>("prompts", id!),
     enabled: !!id,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

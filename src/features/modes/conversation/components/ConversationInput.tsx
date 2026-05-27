@@ -41,11 +41,22 @@ import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { loadUrlBlob } from "../../../../shared/lib/url-blob";
 import { translateDraftText } from "../../../../shared/lib/draft-translation";
-import { QuickConnectionSwitcher, QuickPersonaSwitcher, QuickSwitcherMobile } from "../../shared/chat-ui";
+import {
+  CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_CLASS,
+  CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
+  CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_READY_CLASS,
+  QuickConnectionSwitcher,
+  QuickPersonaSwitcher,
+  QuickReplyMenu,
+  QuickSwitcherMobile,
+  SlashCommandFeedback,
+  type QuickReplyAction,
+} from "../../shared/chat-ui";
 import { EmojiPicker } from "../../../../shared/components/ui/EmojiPicker";
 import { GifPicker } from "../../../../shared/components/ui/GifPicker";
 import { SpeechToTextButton } from "../../../../shared/components/ui/SpeechToTextButton";
-import { QuickReplyMenu, SlashCommandFeedback, type QuickReplyAction } from "../../shared/chat-ui";
 import type { Message } from "../../../../engine/contracts/types/chat";
 import { buildGuidedGenerationInstructionMessage } from "../../../../engine/shared/text/generation-guide";
 
@@ -1500,10 +1511,8 @@ export function ConversationInput({
     <button
       onClick={() => fileInputRef.current?.click()}
       className={cn(
-        "rounded-lg p-1.5 transition-all active:scale-90",
-        attachments.length
-          ? "bg-foreground/10 text-foreground/75"
-          : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+        CHAT_INPUT_ICON_BUTTON_CLASS,
+        attachments.length ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
       )}
       title="Attach file"
       aria-label="Attach file"
@@ -1673,10 +1682,8 @@ export function ConversationInput({
                 setEmojiOpen(false);
               }}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-                gifOpen
-                  ? "bg-foreground/10 text-foreground/75"
-                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+                CHAT_INPUT_ICON_BUTTON_CLASS,
+                gifOpen ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
               )}
               title="GIF"
             >
@@ -1699,10 +1706,8 @@ export function ConversationInput({
                 setGifOpen(false);
               }}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-                emojiOpen
-                  ? "bg-foreground/10 text-foreground/75"
-                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+                CHAT_INPUT_ICON_BUTTON_CLASS,
+                emojiOpen ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
               )}
               title="Emoji"
             >
@@ -1722,12 +1727,12 @@ export function ConversationInput({
               ref={charPickerBtnRef}
               onClick={() => setCharPickerOpen((v) => !v)}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                CHAT_INPUT_ICON_BUTTON_CLASS,
                 guideGenerations && hasInput
-                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
+                  ? `${CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS} ring-1 ring-foreground/20`
                   : charPickerOpen
-                    ? "bg-foreground/10 text-foreground/75"
-                    : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+                    ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS
+                    : CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
               )}
               title={
                 guideGenerations && hasInput ? "Trigger character response (guided)" : "Trigger character response"
@@ -1743,10 +1748,10 @@ export function ConversationInput({
               onClick={() => void handleTranslateDraft()}
               disabled={!activeChatId || !hasInput || isTranslatingDraft}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                CHAT_INPUT_ICON_BUTTON_CLASS,
                 hasInput && !isTranslatingDraft
-                  ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
-                  : "text-foreground/25",
+                  ? CHAT_INPUT_ICON_BUTTON_IDLE_CLASS
+                  : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
               )}
               title="Translate draft"
             >
@@ -1758,7 +1763,7 @@ export function ConversationInput({
             <SpeechToTextButton
               disabled={!activeChatId}
               onTranscript={handleSpeechTranscript}
-              className="rounded-full"
+              className={CHAT_INPUT_ICON_BUTTON_CLASS}
               iconSize={16}
             />
           )}
@@ -1769,12 +1774,12 @@ export function ConversationInput({
             onClick={() => setStatusMenuOpen((v) => !v)}
             disabled={!activePersona}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+              CHAT_INPUT_ICON_BUTTON_CLASS,
               statusMenuOpen
-                ? "bg-foreground/10 text-foreground/75"
+                ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS
                 : activePersona
-                  ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
-                  : "text-foreground/25",
+                  ? CHAT_INPUT_ICON_BUTTON_IDLE_CLASS
+                  : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
             )}
             title={activePersona ? "Saved persona statuses" : "Choose a persona to save statuses"}
           >
@@ -1793,12 +1798,12 @@ export function ConversationInput({
             disabled={!isActuallyGenerating && (isReadingAttachments || !activeChatId || !canSubmit)}
             aria-label={sendButtonTitle}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200",
+              CHAT_INPUT_ICON_BUTTON_CLASS,
               isActuallyGenerating
-                ? "text-foreground/75 hover:text-foreground/90"
+                ? CHAT_INPUT_ICON_BUTTON_READY_CLASS
                 : canSubmit && !isReadingAttachments
-                  ? "text-foreground/75 hover:text-foreground/90 active:scale-90"
-                  : "text-foreground/20",
+                  ? CHAT_INPUT_ICON_BUTTON_READY_CLASS
+                  : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
             )}
             title={sendButtonTitle}
           >

@@ -26,6 +26,8 @@ fn storage_list_inner(
         .as_ref()
         .and_then(|value| value.get("filters"))
         .and_then(Value::as_object);
+    let projection_fields = projection_fields(options.as_ref());
+    let empty_filters = filters.is_none_or(|filters| filters.is_empty());
     let mut rows = match (entity.as_str(), filters) {
         ("messages", Some(filters))
             if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
@@ -43,6 +45,18 @@ fn storage_list_inner(
             } else {
                 state.storage.list_messages_for_chat(chat_id)?
             }
+        }
+        (_, _)
+            if empty_filters
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            state.storage.list_projected(
+                &entity,
+                projection_fields.as_deref().unwrap_or(&[]),
+                projection_field_selections(options.as_ref()),
+            )?
         }
         (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
         _ => state.storage.list(&entity)?,
@@ -102,6 +116,39 @@ fn storage_list_inner(
         rows,
         options.as_ref(),
     )))
+}
+
+fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
+    options
+        .and_then(|value| value.get("fields"))
+        .and_then(Value::as_array)
+        .map(|fields| {
+            fields
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|field| !field.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+}
+
+fn projection_field_selections(
+    options: Option<&Value>,
+) -> &serde_json::Map<String, Value> {
+    if let Some(selections) = options
+        .and_then(|value| value.get("fieldSelections"))
+        .and_then(Value::as_object)
+    {
+        selections
+    } else {
+        empty_projection_field_selections()
+    }
+}
+
+fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value> {
+    static EMPTY: std::sync::OnceLock<serde_json::Map<String, Value>> = std::sync::OnceLock::new();
+    EMPTY.get_or_init(serde_json::Map::new)
 }
 
 fn message_id_projection_only(options: Option<&Value>) -> bool {

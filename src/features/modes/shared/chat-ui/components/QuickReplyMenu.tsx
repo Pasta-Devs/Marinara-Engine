@@ -9,6 +9,12 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "../../../../../shared/lib/utils";
+import {
+  CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
+  CHAT_INPUT_ICON_BUTTON_CLASS,
+  CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
+  CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
+} from "./input-button-styles";
 
 export interface QuickReplyAction {
   id: string;
@@ -147,10 +153,9 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
         disabled={singleDisabled}
         aria-label={`${singleAction.label}: ${singleAction.description}`}
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
-          !singleDisabled
-            ? "text-foreground/70 hover:bg-foreground/10 hover:text-[var(--primary)] active:scale-90"
-            : "cursor-not-allowed text-foreground/20",
+          CHAT_INPUT_ICON_BUTTON_CLASS,
+          "focus-visible:ring-2 focus-visible:ring-foreground/20",
+          !singleDisabled ? CHAT_INPUT_ICON_BUTTON_IDLE_CLASS : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
         )}
         title={formatActionTitle(singleAction)}
       >
@@ -160,7 +165,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
   }
 
   return (
-    <div ref={rootRef} className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+    <div ref={rootRef} className={cn("relative", CHAT_INPUT_ICON_BUTTON_CLASS)}>
       <button
         ref={triggerRef}
         type="button"
@@ -171,12 +176,12 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
         aria-haspopup="menu"
         aria-expanded={open}
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200",
+          CHAT_INPUT_ICON_BUTTON_CLASS,
           open
-            ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+            ? CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS
             : !isDisabled
-              ? "text-foreground/70 hover:bg-foreground/10 hover:text-foreground active:scale-90"
-              : "text-foreground/20",
+              ? CHAT_INPUT_ICON_BUTTON_IDLE_CLASS
+              : CHAT_INPUT_ICON_BUTTON_DISABLED_CLASS,
         )}
         title="Quick replies"
       >
@@ -216,7 +221,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
                     "group relative flex h-10 w-10 items-center justify-center rounded-full border shadow-xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
                     action.disabled
                       ? "cursor-not-allowed border-[var(--border)] bg-[var(--card)]/75 opacity-45"
-                      : "border-[var(--primary)]/25 bg-[var(--card)] text-[var(--primary)] hover:border-[var(--primary)]/45 hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] active:scale-95",
+                      : "border-foreground/15 bg-[var(--card)] text-foreground/60 hover:border-foreground/25 hover:bg-foreground/10 hover:text-foreground/80 active:scale-95",
                   )}
                   title={formatActionTitle(action)}
                   variants={{
@@ -247,7 +252,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 transition-colors",
                       action.disabled
                         ? "bg-foreground/5 text-foreground/40 ring-transparent"
-                        : "bg-[var(--primary)]/12 ring-[var(--primary)]/20 group-hover:bg-transparent group-hover:ring-transparent",
+                        : "bg-foreground/10 ring-foreground/15 group-hover:bg-transparent group-hover:ring-transparent",
                     )}
                   >
                     {action.icon}
