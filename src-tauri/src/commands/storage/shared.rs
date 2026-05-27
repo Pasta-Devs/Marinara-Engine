@@ -417,6 +417,9 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
             object
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
+            object
+                .entry("excludeFromVectorization".to_string())
+                .or_insert(Value::Bool(false));
             object.entry("tags".to_string()).or_insert(json!([]));
             object
                 .entry("generatedBy".to_string())
@@ -569,6 +572,14 @@ mod tests {
         normalize_typed_json_fields("game-state-snapshots", empty_object)
             .expect("empty personaStats should normalize");
         assert!(empty_object["personaStats"].is_null());
+    }
+
+    #[test]
+    fn lorebook_defaults_include_vectorization_enabled() {
+        let row = with_entity_defaults("lorebooks", json!({ "name": "World Book" }))
+            .expect("lorebook defaults should apply");
+
+        assert_eq!(row["excludeFromVectorization"], json!(false));
     }
 
     #[test]

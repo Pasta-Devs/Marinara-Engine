@@ -1416,11 +1416,15 @@ export function LorebookEditor() {
                       </p>
                     </div>
                     <button
+                      type="button"
+                      aria-label={formExcludeFromVectorization ? "Disable lorebook No Vector" : "Enable lorebook No Vector"}
+                      aria-pressed={formExcludeFromVectorization}
+                      disabled={saving}
                       onClick={() => {
                         setFormExcludeFromVectorization(!formExcludeFromVectorization);
                         markLorebookDirty();
                       }}
-                      className="transition-colors"
+                      className="transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {formExcludeFromVectorization ? (
                         <ToggleRight size="1.75rem" className="text-amber-400" />
@@ -2155,15 +2159,17 @@ function VectorizeSection({
             </select>
             <button
               onClick={handleVectorize}
-              disabled={vectorizing || vectorizableEntryCount === 0}
+              disabled={vectorizing || hasUnsavedVectorizationToggle || vectorizableEntryCount === 0}
               className="flex items-center gap-1.5 rounded-xl bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-400 ring-1 ring-violet-500/30 transition-all hover:bg-violet-500/25 active:scale-[0.98] disabled:opacity-50"
             >
               {vectorizing ? <Loader2 size="0.75rem" className="animate-spin" /> : <Sparkles size="0.75rem" />}
               {vectorizing
                 ? "Vectorizing..."
-                : allVectorized
-                  ? `Re-vectorize ${vectorizableEntryCount} entries`
-                  : `Vectorize ${missingCount} missing`}
+                : hasUnsavedVectorizationToggle
+                  ? "Save first"
+                  : allVectorized
+                    ? `Re-vectorize ${vectorizableEntryCount} entries`
+                    : `Vectorize ${missingCount} missing`}
             </button>
           </div>
           {result && (
