@@ -3186,6 +3186,7 @@ function AdvancedSettings() {
         toast.info("Marinara is up to date.");
       }
     } catch (err) {
+      setUpdateInfo(null);
       toast.error(err instanceof Error ? err.message : "Failed to check for updates");
     } finally {
       setCheckingUpdates(false);
@@ -3193,7 +3194,7 @@ function AdvancedSettings() {
   };
 
   const handleOpenUpdate = async () => {
-    if (!updateInfo || openingUpdate) return;
+    if (!updateInfo || !updateInfo.updateAvailable || openingUpdate || checkingUpdates) return;
     setOpeningUpdate(true);
     try {
       const result = await updatesApi.apply(updateInfo);
@@ -3328,7 +3329,7 @@ function AdvancedSettings() {
             <button
               type="button"
               onClick={() => void handleOpenUpdate()}
-              disabled={!updateInfo || openingUpdate}
+              disabled={!updateInfo || !updateInfo.updateAvailable || openingUpdate || checkingUpdates}
               className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {openingUpdate ? (

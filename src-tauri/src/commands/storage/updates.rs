@@ -7,6 +7,7 @@ use std::time::Duration;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const GITHUB_REPO: &str = "Pasta-Devs/Marinara-Engine";
 const GITHUB_REPO_URL: &str = "https://github.com/Pasta-Devs/Marinara-Engine";
+const GITHUB_RELEASES_URL: &str = "https://github.com/Pasta-Devs/Marinara-Engine/releases/latest";
 const GITHUB_TAGS_API: &str =
     "https://api.github.com/repos/Pasta-Devs/Marinara-Engine/git/matching-refs/tags/v";
 
@@ -127,6 +128,18 @@ fn fallback_release(tag: &str) -> ReleaseInfo {
     }
 }
 
+fn is_trusted_release_url(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value) else {
+        return false;
+    };
+
+    url.scheme() == "https"
+        && url.host_str() == Some("github.com")
+        && url
+            .path()
+            .starts_with("/Pasta-Devs/Marinara-Engine/releases/")
+}
+
 async fn fetch_latest_release() -> AppResult<ReleaseInfo> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
@@ -231,8 +244,8 @@ pub fn apply_update(input: Value) -> AppResult<Value> {
     let release_url = body
         .and_then(|object| object.get("releaseUrl"))
         .and_then(Value::as_str)
-        .filter(|value| value.starts_with(GITHUB_REPO_URL))
-        .unwrap_or("https://github.com/Pasta-Devs/Marinara-Engine/releases/latest");
+        .filter(|value| is_trusted_release_url(value))
+        .unwrap_or(GITHUB_RELEASES_URL);
 
     Ok(json!({
         "status": "manual_update_required",
@@ -305,5 +318,16 @@ mod tests {
             response["releaseUrl"],
             "https://github.com/Pasta-Devs/Marinara-Engine/releases/latest"
         );
+    }
+
+    #[test]
+    fn apply_update_rejects_prefix_spoofed_release_urls() {
+        let response = apply_update(json!({
+            "confirm": true,
+            "releaseUrl": "https://github.com/Pasta-Devs/Marinara-Engine.evil.example/releases/tag/v9.9.9"
+        }))
+        .expect("confirmed apply should return manual instructions");
+
+        assert_eq!(response["releaseUrl"], GITHUB_RELEASES_URL);
     }
 }
