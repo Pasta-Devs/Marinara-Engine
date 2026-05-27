@@ -1549,6 +1549,32 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
+          {/* ── Claude Subscription Fast Mode ── */}
+          {localProvider === "claude_subscription" && (
+            <FieldGroup
+              label="Claude Fast Mode"
+              icon={<Zap size="0.875rem" className="text-amber-400" />}
+              help="When enabled, Marinara asks Claude Code to use its fast-mode routing for this subscription connection. When disabled, Marinara explicitly forces fast mode off so a persisted Claude CLI preference cannot silently downgrade the selected model."
+            >
+              <label className="flex cursor-pointer select-none items-center gap-3 px-2 py-1">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={localClaudeFastMode}
+                    onChange={(e) => {
+                      setLocalClaudeFastMode(e.target.checked);
+                      markDirty();
+                    }}
+                    className="peer sr-only"
+                  />
+                  <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-amber-400/70" />
+                  <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span className="text-sm">Allow fast mode</span>
+              </label>
+            </FieldGroup>
+          )}
+
           {/* ── Prompt Caching (Anthropic + OpenRouter Claude) ── */}
           {(localProvider === "anthropic" || localProvider === "openrouter") && (
             <FieldGroup

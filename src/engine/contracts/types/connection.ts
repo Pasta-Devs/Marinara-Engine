@@ -39,7 +39,7 @@ export interface APIConnection {
   enableCaching: boolean;
   /** Conversation message depth for Anthropic cache breakpoints */
   cachingAtDepth: number;
-  /** Whether Claude Code fast mode is allowed for Claude Subscription connections */
+  /** Whether Claude Code subscription requests may use Claude's fast-mode routing. */
   claudeFastMode: boolean;
   /** Model to use for embedding generation (e.g. "text-embedding-3-small") */
   embeddingModel: string | null;

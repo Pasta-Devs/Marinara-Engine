@@ -192,6 +192,19 @@
         <pre><code>curl http://127.0.0.1:8787/api/sidecar/v1/embeddings \
   -H 'content-type: application/json' \
   -d '{"connectionId":"your-connection-id","model":"text-embedding-3-small","input":"hello"}'</code></pre>
+        <h3>Managed Local Sidecar Status</h3>
+        <p>
+          The Node-era managed local model sidecar is intentionally retired in
+          the Tauri refactor. Marinara no longer downloads curated Hugging Face
+          models, starts or stops a bundled inference process, or exposes the
+          old <code>LOCAL_SIDECAR_CONNECTION_ID</code> path. Use a normal
+          Marinara connection for local models instead: OpenAI-compatible local
+          servers such as LM Studio and KoboldCpp can use the Custom provider,
+          and Ollama can be reached through its OpenAI-compatible
+          <code>/v1</code> endpoint or through dedicated embedding settings.
+          The only retained sidecar URL is the compatibility embedding route
+          above, backed by the configured connection.
+        </p>
         <p>Override the bind address and data directory with:</p>
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
 MARINARA_DATA_DIR=/path/to/data</code></pre>

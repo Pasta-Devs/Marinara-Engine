@@ -265,6 +265,38 @@ describe("startGeneration chat message loading", () => {
     });
   });
 
+  it("passes chat-scoped Claude subscription runtime metadata without changing user parameters", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      connectionPatch: {
+        provider: "claude_subscription",
+        defaultParameters: {
+          temperature: 0.6,
+        },
+      },
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "continue",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    expect(streamedRequests[0]).toMatchObject({
+      parameters: {
+        temperature: 0.6,
+        _marinara: {
+          chatId: "chat-1",
+          mode: "roleplay",
+          regenerateMessageId: null,
+          impersonate: false,
+        },
+      },
+    });
+  });
+
   it("merges stored chat and game generation parameters into the LLM request", async () => {
     const { deps, streamedRequests } = generationDepsForChat({
       chatPatch: { mode: "game" },
