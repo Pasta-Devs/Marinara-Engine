@@ -133,9 +133,9 @@ fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
         })
 }
 
-fn projection_field_selections<'a>(
-    options: Option<&'a Value>,
-) -> &'a serde_json::Map<String, Value> {
+fn projection_field_selections(
+    options: Option<&Value>,
+) -> &serde_json::Map<String, Value> {
     if let Some(selections) = options
         .and_then(|value| value.get("fieldSelections"))
         .and_then(Value::as_object)
