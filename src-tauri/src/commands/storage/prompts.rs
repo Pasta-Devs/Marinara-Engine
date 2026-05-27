@@ -28,6 +28,17 @@ pub(crate) async fn vectorize_lorebook(
             Value::Array(rows) => rows,
             _ => Vec::new(),
         };
+    if lorebook_excludes_vectorization(state.storage.get("lorebooks", lorebook_id)?.as_ref()) {
+        let skipped = entries.len();
+        return Ok(json!({
+            "success": true,
+            "lorebookId": lorebook_id,
+            "model": model,
+            "total": skipped,
+            "vectorized": 0,
+            "skipped": skipped
+        }));
+    }
     let total = entries
         .iter()
         .filter(|entry| {
@@ -107,8 +118,19 @@ pub(crate) fn value_string_array(value: Option<&Value>) -> Vec<String> {
     }
 }
 
+fn lorebook_excludes_vectorization(lorebook: Option<&Value>) -> bool {
+    lorebook
+        .and_then(|book| book.get("excludeFromVectorization"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 fn lorebook_entry_embedding_text(entry: &Value) -> String {
-    let keys = value_string_array(entry.get("keys")).join(", ");
+    let keys = value_string_array(entry.get("keys"))
+        .into_iter()
+        .chain(value_string_array(entry.get("secondaryKeys")))
+        .collect::<Vec<_>>()
+        .join(", ");
     [
         entry.get("name").and_then(Value::as_str).unwrap_or(""),
         keys.as_str(),
@@ -264,5 +286,156 @@ fn ensure_embedding_url_allowed(url: &str) -> AppResult<()> {
         Err(AppError::invalid_input(format!(
             "Outbound embedding URL is not allowed: {url}"
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn temp_state(label: &str) -> (TempRoot, AppState) {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("marinara-lorebook-vectorize-{label}-{nonce}")),
+        );
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        (root, state)
+    }
+
+    #[test]
+    fn lorebook_excludes_vectorization_only_for_boolean_true() {
+        assert!(lorebook_excludes_vectorization(Some(&json!({
+            "excludeFromVectorization": true
+        }))));
+        assert!(!lorebook_excludes_vectorization(Some(&json!({
+            "excludeFromVectorization": false
+        }))));
+        assert!(!lorebook_excludes_vectorization(Some(&json!({
+            "excludeFromVectorization": "true"
+        }))));
+        assert!(!lorebook_excludes_vectorization(None));
+    }
+
+    #[tokio::test]
+    async fn vectorize_lorebook_skips_lorebook_level_exclusion_without_provider_call() {
+        let (_root, state) = temp_state("excluded-book");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "connection-1",
+                    "provider": "openai",
+                    "embeddingModel": "text-embedding-test"
+                }),
+            )
+            .expect("connection should be stored");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({
+                    "id": "lorebook-1",
+                    "name": "Excluded book",
+                    "excludeFromVectorization": true
+                }),
+            )
+            .expect("lorebook should be stored");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-1",
+                    "lorebookId": "lorebook-1",
+                    "name": "Entry that would call the provider",
+                    "keys": ["dragon"],
+                    "secondaryKeys": ["wyrm"],
+                    "content": "Provider calls must be skipped."
+                }),
+            )
+            .expect("entry should be stored");
+
+        let result = vectorize_lorebook(
+            &state,
+            "lorebook-1",
+            json!({
+                "connectionId": "connection-1",
+                "model": "text-embedding-test",
+                "onlyMissing": false
+            }),
+        )
+        .await
+        .expect("excluded lorebook should return a successful no-op");
+
+        assert_eq!(result["success"], json!(true));
+        assert_eq!(result["total"], json!(1));
+        assert_eq!(result["vectorized"], json!(0));
+        assert_eq!(result["skipped"], json!(1));
+        let entry = state
+            .storage
+            .get("lorebook-entries", "entry-1")
+            .expect("entry lookup should succeed")
+            .expect("entry should still exist");
+        assert!(entry.get("embedding").is_none());
+    }
+
+    #[test]
+    fn lorebook_entry_embedding_text_includes_secondary_keys() {
+        let entry = json!({
+            "name": "Ancient beast",
+            "keys": ["dragon"],
+            "secondaryKeys": ["wyrm", "drake"],
+            "description": "Mythic creature",
+            "content": "Breathes fire."
+        });
+
+        assert_eq!(
+            lorebook_entry_embedding_text(&entry),
+            "Ancient beast\ndragon, wyrm, drake\nMythic creature\nBreathes fire."
+        );
+    }
+
+    #[test]
+    fn lorebook_entry_embedding_text_parses_secondary_key_string() {
+        let entry = json!({
+            "name": "Hidden city",
+            "keys": "ruins",
+            "secondaryKeys": "[\"lost capital\", \"old empire\"]",
+            "content": "Buried below the salt flats."
+        });
+
+        assert_eq!(
+            lorebook_entry_embedding_text(&entry),
+            "Hidden city\nruins, lost capital, old empire\nBuried below the salt flats."
+        );
+    }
+
+    #[test]
+    fn lorebook_entry_embedding_text_omits_empty_key_section() {
+        let entry = json!({
+            "name": "Empty trigger entry",
+            "keys": [],
+            "secondaryKeys": [],
+            "content": "Constant lore content."
+        });
+
+        assert_eq!(
+            lorebook_entry_embedding_text(&entry),
+            "Empty trigger entry\nConstant lore content."
+        );
     }
 }
