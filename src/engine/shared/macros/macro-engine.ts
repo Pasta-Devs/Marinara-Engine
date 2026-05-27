@@ -57,7 +57,7 @@ export interface SupportedMacroDefinition {
 }
 
 const CHARACTER_MACRO_PATTERN =
-  /\{\{(?:char|charName|description|personality|backstory|appearance|scenario|example)\}\}/i;
+  /\{\{(?:char|charName|description|personality|backstory|appearance|scenario|example)\}\}|\{\{\s*#if\s+[^}]*\b(?:char|charName|character|speaker|description|personality|backstory|appearance|scenario|example)\b/i;
 
 export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{user}}", description: "Current user or persona name" },
@@ -119,6 +119,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: "{{lowercase}}...{{/lowercase}}",
     description: "Lowercase a wrapped block",
   },
+  {
+    category: "Formatting",
+    syntax: '{{#if char == "Name"}}...{{else}}...{{/if}}',
+    description: "Conditional block; supports ==, !=, contains, and straight or typographic quotes",
+  },
   { category: "Formatting", syntax: "{{noop}}", description: "No-op placeholder removed from output" },
   { category: "Formatting", syntax: "{{// comment}}", description: "Inline author comment removed from output" },
   {
@@ -128,11 +133,39 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   },
 ];
 
+function macroContextForCharacterProfile(
+  profile: NonNullable<MacroContext["characterProfiles"]>[number],
+  base?: MacroContext,
+): MacroContext {
+  return {
+    user: base?.user ?? "User",
+    char: profile.name,
+    characters: base?.characters ?? [profile.name],
+    characterProfiles: base?.characterProfiles ?? [profile],
+    variables: base?.variables ?? {},
+    lastInput: base?.lastInput,
+    chatId: base?.chatId,
+    model: base?.model,
+    agentData: base?.agentData,
+    personaFields: base?.personaFields,
+    characterFields: {
+      description: profile.description ?? "",
+      personality: profile.personality ?? "",
+      backstory: profile.backstory ?? "",
+      appearance: profile.appearance ?? "",
+      scenario: profile.scenario ?? "",
+      example: profile.example ?? "",
+    },
+  };
+}
+
 function resolveCharacterScopedMacros(
   template: string,
   profile: NonNullable<MacroContext["characterProfiles"]>[number],
+  baseContext?: MacroContext,
 ): string {
-  return template
+  const scoped = resolveConditionalBlocks(template, macroContextForCharacterProfile(profile, baseContext));
+  return scoped
     .replace(/\{\{char(?:Name)?\}\}/gi, profile.name)
     .replace(/\{\{description\}\}/gi, profile.description ?? "")
     .replace(/\{\{personality\}\}/gi, profile.personality ?? "")
@@ -179,7 +212,7 @@ function expandBracketedCharacterBlocks(template: string, ctx: MacroContext): st
     changed = true;
     expandedLines.push(
       ...profiles
-        .map((profile) => resolveCharacterScopedMacros(block, profile))
+        .map((profile) => resolveCharacterScopedMacros(block, profile, ctx))
         .join("\n")
         .split("\n"),
     );
@@ -242,6 +275,218 @@ function replaceBalancedMacros(
       result += "{{";
       index = start + 2;
     }
+  }
+
+  return result;
+}
+
+function quoteKind(value?: string): "single" | "double" | null {
+  if (!value) return null;
+  if (/["\u201c\u201d\u201e\u201f]/u.test(value)) return "double";
+  if (/['\u2018\u2019\u201a\u201b]/u.test(value)) return "single";
+  return null;
+}
+
+function stripOuterQuotes(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return null;
+  const openingKind = quoteKind(trimmed[0]);
+  if (!openingKind || quoteKind(trimmed.at(-1)) !== openingKind) return null;
+  return trimmed
+    .slice(1, -1)
+    .replace(/\\(["'\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f\\])/g, "$1")
+    .replace(/\\n/g, "\n");
+}
+
+function normalizeConditionKey(value: string): string {
+  return value.trim().replace(/^@/, "").toLowerCase();
+}
+
+function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
+  const quoted = stripOuterQuotes(raw);
+  if (quoted !== null) return quoted.includes("{{") ? resolveMacros(quoted, ctx, { trimResult: false }) : quoted;
+
+  const token = raw.trim();
+  if (token.includes("{{")) return resolveMacros(token, ctx, { trimResult: false });
+
+  const normalized = normalizeConditionKey(token);
+  switch (normalized) {
+    case "char":
+    case "charname":
+    case "character":
+    case "speaker":
+      return ctx.char;
+    case "user":
+    case "username":
+      return ctx.user;
+    case "characters":
+      return ctx.characters.join(", ");
+    case "input":
+      return ctx.lastInput ?? "";
+    case "model":
+      return ctx.model ?? "";
+    case "chatid":
+      return ctx.chatId ?? "";
+    case "description":
+      return ctx.characterFields?.description ?? "";
+    case "personality":
+      return ctx.characterFields?.personality ?? "";
+    case "backstory":
+      return ctx.characterFields?.backstory ?? "";
+    case "appearance":
+      return ctx.characterFields?.appearance ?? "";
+    case "scenario":
+      return ctx.characterFields?.scenario ?? "";
+    case "example":
+      return ctx.characterFields?.example ?? "";
+    default:
+      if (/^var[:.]/i.test(token)) {
+        const name = token.replace(/^var[:.]/i, "").trim();
+        return ctx.variables[name] ?? "";
+      }
+      return ctx.variables[token] ?? token;
+  }
+}
+
+function parseConditionExpression(condition: string): { left: string; operator: string; right?: string } {
+  const match = condition.match(
+    /^(.+?)\s*(==|!=|=|is\s+not|is|not\s+contains|not\s+includes|contains|includes)\s*(.+)$/i,
+  );
+  if (!match) return { left: condition.trim(), operator: "truthy" };
+  return {
+    left: match[1]?.trim() ?? "",
+    operator: (match[2] ?? "").toLowerCase().replace(/\s+/g, " "),
+    right: match[3]?.trim() ?? "",
+  };
+}
+
+function compareConditionValues(left: string, operator: string, right: string): boolean {
+  const leftNormalized = left.trim().toLowerCase();
+  const rightNormalized = right.trim().toLowerCase();
+  switch (operator) {
+    case "=":
+    case "==":
+    case "is":
+      return leftNormalized === rightNormalized;
+    case "!=":
+    case "is not":
+      return leftNormalized !== rightNormalized;
+    case "contains":
+    case "includes":
+      return leftNormalized.includes(rightNormalized);
+    case "not contains":
+    case "not includes":
+      return !leftNormalized.includes(rightNormalized);
+    default:
+      return false;
+  }
+}
+
+function evaluateCondition(condition: string, ctx: MacroContext): boolean {
+  const parsed = parseConditionExpression(condition);
+  const left = resolveConditionalOperand(parsed.left, ctx);
+  if (parsed.operator === "truthy") return left.trim().length > 0 && !/^(false|0|no|off|null|undefined)$/i.test(left);
+  const right = resolveConditionalOperand(parsed.right ?? "", ctx);
+  return compareConditionValues(left, parsed.operator, right);
+}
+
+function readConditionalTag(input: string, start: number): { body: string; end: number } | null {
+  if (input[start] !== "{" || input[start + 1] !== "{") return null;
+  const end = findBalancedMacroEnd(input, start);
+  if (end === -1) return null;
+  return { body: input.slice(start + 2, end - 2).trim(), end };
+}
+
+function findConditionalStart(
+  input: string,
+  fromIndex: number,
+): { index: number; end: number; condition: string } | null {
+  let start = input.indexOf("{{", fromIndex);
+  while (start !== -1) {
+    const tag = readConditionalTag(input, start);
+    if (tag) {
+      const match = tag.body.match(/^#if\b([\s\S]*)$/i);
+      if (match) {
+        return { index: start, end: tag.end, condition: (match[1] ?? "").trim() };
+      }
+      start = input.indexOf("{{", tag.end);
+      continue;
+    }
+    start = input.indexOf("{{", start + 2);
+  }
+
+  return null;
+}
+
+function findConditionalEnd(
+  input: string,
+  contentStart: number,
+): { elseStart: number | null; elseEnd: number | null; endStart: number; endEnd: number } | null {
+  let depth = 1;
+  let elseStart: number | null = null;
+  let elseEnd: number | null = null;
+
+  let start = input.indexOf("{{", contentStart);
+  while (start !== -1) {
+    const tag = readConditionalTag(input, start);
+    if (!tag) {
+      start = input.indexOf("{{", start + 2);
+      continue;
+    }
+
+    const body = tag.body.toLowerCase();
+    if (/^#if\b/.test(body)) {
+      depth += 1;
+      start = input.indexOf("{{", tag.end);
+      continue;
+    }
+    if (body === "/if") {
+      depth -= 1;
+      if (depth === 0) {
+        return { elseStart, elseEnd, endStart: start, endEnd: tag.end };
+      }
+      start = input.indexOf("{{", tag.end);
+      continue;
+    }
+    if (body === "else" && depth === 1 && elseStart === null) {
+      elseStart = start;
+      elseEnd = tag.end;
+    }
+    start = input.indexOf("{{", tag.end);
+  }
+
+  return null;
+}
+
+function resolveConditionalBlocks(input: string, ctx: MacroContext): string {
+  let result = "";
+  let index = 0;
+
+  while (index < input.length) {
+    const startMatch = findConditionalStart(input, index);
+    if (!startMatch) {
+      result += input.slice(index);
+      break;
+    }
+
+    const blockStart = startMatch.index;
+    const condition = startMatch.condition;
+    const contentStart = startMatch.end;
+    const blockEnd = findConditionalEnd(input, contentStart);
+    if (!blockEnd) {
+      result += input.slice(index, contentStart);
+      index = contentStart;
+      continue;
+    }
+
+    const truthy = input.slice(contentStart, blockEnd.elseStart ?? blockEnd.endStart);
+    const falsy =
+      blockEnd.elseStart === null ? "" : input.slice(blockEnd.elseEnd ?? blockEnd.endStart, blockEnd.endStart);
+    const selected = evaluateCondition(condition, ctx) ? truthy : falsy;
+
+    result += input.slice(index, blockStart);
+    result += resolveConditionalBlocks(selected, ctx);
+    index = blockEnd.endEnd;
   }
 
   return result;
@@ -373,6 +618,7 @@ function pickWeightedRandomChoice(choices: string[]): string {
  *  - {{banned "text"}} — content filter (removed for now)
  *  - {{uppercase}}...{{/uppercase}} — convert to uppercase
  *  - {{lowercase}}...{{/lowercase}} — convert to lowercase
+ *  - {{#if char == "Name"}}...{{else}}...{{/if}} - conditional block
  */
 export function resolveMacros(template: string, ctx: MacroContext, options: ResolveMacroOptions = {}): string {
   let result = template;
@@ -391,6 +637,7 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Multi-character bracket blocks — expand before global substitutions ──
   result = expandBracketedCharacterBlocks(result, ctx);
+  result = resolveConditionalBlocks(result, ctx);
 
   // ── No-op & banned ──
   result = result.replace(/\{\{noop\}\}/gi, "");
