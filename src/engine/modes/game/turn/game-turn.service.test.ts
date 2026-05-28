@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { IntegrationGateway } from "../../../capabilities/integrations";
 import type { LlmGateway } from "../../../capabilities/llm";
 import type { StorageGateway } from "../../../capabilities/storage";
+import type { PromptAttachment } from "../../../generation/generate-route-utils";
 import { startGameTurnGeneration } from "./game-turn.service";
 
 function depsForGameChat() {
@@ -70,6 +71,7 @@ describe("startGameTurnGeneration", () => {
 
   it("keeps attachment-only player turns eligible for generation", async () => {
     const { deps, listChatMessages } = depsForGameChat();
+    const textAttachment: PromptAttachment = { type: "text/plain", data: "note" };
 
     await expect(() =>
       drain(
@@ -78,7 +80,7 @@ describe("startGameTurnGeneration", () => {
           connectionId: "connection-1",
           kind: "turn",
           userMessage: " ",
-          attachments: [{ type: "text/plain", data: "note" }],
+          attachments: [textAttachment],
         }),
       ),
     ).rejects.toThrow("listChatMessages should not be called");
