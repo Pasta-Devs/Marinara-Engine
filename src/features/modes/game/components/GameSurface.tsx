@@ -8656,12 +8656,16 @@ export function GameSurface({
               />
 
               {/* Gallery drawer */}
-              <ChatGalleryDrawer
-                chat={chat}
-                open={galleryOpen}
-                onClose={() => setGalleryOpen(false)}
-                onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
-              />
+              <Suspense fallback={null}>
+                {galleryOpen && (
+                  <ChatGalleryDrawer
+                    chat={chat}
+                    open={galleryOpen}
+                    onClose={() => setGalleryOpen(false)}
+                    onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
+                  />
+                )}
+              </Suspense>
 
               {/* Inventory overlay */}
               <GameInventory

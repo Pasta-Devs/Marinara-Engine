@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { ChatGallery } from "./ChatGallery";
 import type { Chat } from "../../../../../engine/contracts/types/chat";
 
-interface ChatGalleryDrawerProps {
+export interface ChatGalleryDrawerProps {
   chat: Chat;
   open: boolean;
   onClose: () => void;
