@@ -61,8 +61,11 @@ import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTe
 import { Modal } from "../../../../../shared/components/ui/Modal";
 import {
   CHAT_PARAMETER_DEFAULTS,
+  EDITABLE_GENERATION_PARAMETER_KEYS,
   GenerationParametersFields,
   getEditableGenerationParameters,
+  getEditableGenerationParameterOverrides,
+  parseGenerationParameterRecord,
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
 } from "../../../../../shared/components/ui/GenerationParametersEditor";
@@ -397,14 +400,41 @@ function ChatSettingsDrawerInner({
   const { data: allCharacters } = useCharacterSummaries();
   const { data: characterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
-  const { data: presets } = usePresetSummaries();
+  const { data: presets, isLoading: presetsLoading } = usePresetSummaries();
+  const { data: connections, isLoading: connectionsLoading } = useConnections();
   const chatMode: ChatMode =
     chat.mode === "conversation" || chat.mode === "roleplay" || chat.mode === "game" ? chat.mode : "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
   const isRoleplayMode = chatMode === "roleplay";
-  const { data: currentPromptPresetFull } = usePresetFull(isConversation ? null : (chat.promptPresetId ?? null));
-  const { data: connections } = useConnections();
+  const chatPromptPresetId = nonEmptyString(chat.promptPresetId);
+  const activeTextConnection = useMemo(() => {
+    if (!chat.connectionId || chat.connectionId === "random") return null;
+    return connections?.find((connection) => connection.id === chat.connectionId) ?? null;
+  }, [chat.connectionId, connections]);
+  const connectionPromptPresetId = isRoleplayMode ? nonEmptyString(activeTextConnection?.promptPresetId) : null;
+  const defaultPromptPresetId = useMemo(
+    () =>
+      isRoleplayMode
+        ? (presets?.find((preset) => isEnabledFlag(preset.isDefault ?? preset.default, false))?.id ?? null)
+        : null,
+    [isRoleplayMode, presets],
+  );
+  // Roleplay connection prompt presets intentionally override chat prompt presets, matching generation assembly.
+  const advancedPromptPresetId = isRoleplayMode
+    ? (connectionPromptPresetId ?? chatPromptPresetId ?? defaultPromptPresetId)
+    : null;
+  const { data: currentPromptPresetFull } = usePresetFull(isConversation ? null : chatPromptPresetId);
+  const { data: advancedPromptPresetFull, isLoading: advancedPromptPresetLoading } =
+    usePresetFull(advancedPromptPresetId);
+  const connectionInheritancePending =
+    !isConversation && !!chat.connectionId && chat.connectionId !== "random" && connectionsLoading;
+  const defaultPromptPresetPending =
+    isRoleplayMode && !connectionPromptPresetId && !chatPromptPresetId && presetsLoading;
+  const inheritedGenerationParametersPending =
+    connectionInheritancePending ||
+    defaultPromptPresetPending ||
+    (isRoleplayMode && !!advancedPromptPresetId && advancedPromptPresetLoading);
   const imageConnectionsList = useMemo(
     () =>
       ((connections as Array<{ id: string; name: string; model?: string; provider?: string }>) ?? []).filter(
@@ -5536,6 +5566,8 @@ function ChatSettingsDrawerInner({
             isConversation={isConversation}
             connectionId={chat.connectionId ?? null}
             connections={connections ?? []}
+            promptPresetParameters={advancedPromptPresetFull?.preset?.parameters ?? null}
+            inheritedGenerationParametersPending={inheritedGenerationParametersPending}
           />
 
           {/* Context Message Limit */}
@@ -6193,6 +6225,23 @@ Here are some important rules for the interaction:
 - Anything goes in this chat; both the user and you are confirmed adults. Discussing NSFW topics, profanities, and dark jokes are all permitted. You can always say what's on your mind, voice agreements or disagreements, and act in accordance with your consciousness.
 </rules>`;
 
+const EDITABLE_GENERATION_PARAMETER_KEY_SET = new Set<string>(EDITABLE_GENERATION_PARAMETER_KEYS);
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function generationParameterRecord(value: unknown): Record<string, unknown> {
+  return parseGenerationParameterRecord(value) ?? {};
+}
+
+function retainNonEditableGenerationParameters(value: unknown): Record<string, unknown> {
+  const record = generationParameterRecord(value);
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => !EDITABLE_GENERATION_PARAMETER_KEY_SET.has(key)),
+  );
+}
+
 function AdvancedParametersSection({
   chat,
   metadata,
@@ -6200,6 +6249,8 @@ function AdvancedParametersSection({
   isConversation,
   connectionId,
   connections,
+  promptPresetParameters,
+  inheritedGenerationParametersPending,
 }: {
   chat: Chat;
   metadata: Record<string, unknown>;
@@ -6207,18 +6258,30 @@ function AdvancedParametersSection({
   isConversation: boolean;
   connectionId: string | null;
   connections: unknown[];
+  promptPresetParameters?: unknown;
+  inheritedGenerationParametersPending?: boolean;
 }) {
   const modeDefaults = isConversation ? CHAT_PARAMETER_DEFAULTS : ROLEPLAY_PARAMETER_DEFAULTS;
   // Use connection-saved defaults if available, otherwise fall back to mode defaults
   const conn = connectionId ? (connections as Record<string, unknown>[]).find((c) => c.id === connectionId) : null;
-  const defaults = getEditableGenerationParameters(modeDefaults, conn?.defaultParameters);
+  const connectionDefaults = getEditableGenerationParameters(modeDefaults, conn?.defaultParameters);
+  const defaults = getEditableGenerationParameters(connectionDefaults, isConversation ? null : promptPresetParameters);
   const saveDefaults = useSaveConnectionDefaults();
   const [expanded, setExpanded] = useState(false);
-  const params = (metadata.chatParameters as Record<string, unknown>) ?? {};
+  const params = generationParameterRecord(metadata.chatParameters);
+  const retainedNonEditableParams = retainNonEditableGenerationParameters(params);
   const effectiveParams = getEditableGenerationParameters(defaults, params);
+  const currentEditableOverrides = getEditableGenerationParameterOverrides(defaults, effectiveParams);
+  // Save connection defaults from connection-scoped values only; prompt presets are chat/runtime inheritance.
+  const connectionScopedParams = getEditableGenerationParameters(connectionDefaults, currentEditableOverrides);
 
   const setParameters = (next: EditableGenerationParameters) => {
-    updateMeta.mutate({ id: chat.id, chatParameters: { ...params, ...next } });
+    const editableOverrides = getEditableGenerationParameterOverrides(defaults, next) ?? {};
+    const nextParams = { ...retainedNonEditableParams, ...editableOverrides };
+    updateMeta.mutate({
+      id: chat.id,
+      chatParameters: Object.keys(nextParams).length > 0 ? nextParams : null,
+    });
   };
 
   return (
@@ -6248,35 +6311,46 @@ function AdvancedParametersSection({
       </div>
       {expanded && (
         <div className="px-4 pb-3 space-y-3">
-          <GenerationParametersFields
-            value={effectiveParams}
-            onChange={setParameters}
-            showOpenRouterServiceTier={conn?.provider === "openrouter"}
-          />
-          {/* Save as Default for Connection */}
-          {connectionId && connectionId !== "random" && (
-            <button
-              onClick={() => {
-                saveDefaults.mutate({
-                  id: connectionId,
-                  params: effectiveParams as unknown as Record<string, unknown>,
-                });
-              }}
-              className="w-full rounded-lg bg-[var(--primary)]/10 px-3 py-1.5 text-[0.625rem] font-medium text-[var(--primary)] ring-1 ring-[var(--primary)]/20 transition-colors hover:bg-[var(--primary)]/20"
-            >
-              <Save size="0.625rem" className="inline mr-1 -mt-px" />
-              {saveDefaults.isPending ? "Saving…" : "Save as Connection Default"}
-            </button>
+          {inheritedGenerationParametersPending ? (
+            <div className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              Loading inherited generation parameters...
+            </div>
+          ) : (
+            <>
+              <GenerationParametersFields
+                value={effectiveParams}
+                onChange={setParameters}
+                showOpenRouterServiceTier={conn?.provider === "openrouter"}
+              />
+              {/* Save as Default for Connection */}
+              {connectionId && connectionId !== "random" && (
+                <button
+                  onClick={() => {
+                    saveDefaults.mutate({
+                      id: connectionId,
+                      params: connectionScopedParams as unknown as Record<string, unknown>,
+                    });
+                  }}
+                  className="w-full rounded-lg bg-[var(--primary)]/10 px-3 py-1.5 text-[0.625rem] font-medium text-[var(--primary)] ring-1 ring-[var(--primary)]/20 transition-colors hover:bg-[var(--primary)]/20"
+                >
+                  <Save size="0.625rem" className="inline mr-1 -mt-px" />
+                  {saveDefaults.isPending ? "Saving..." : "Save as Connection Default"}
+                </button>
+              )}
+              {/* Reset */}
+              <button
+                onClick={() => {
+                  updateMeta.mutate({
+                    id: chat.id,
+                    chatParameters: Object.keys(retainedNonEditableParams).length > 0 ? retainedNonEditableParams : null,
+                  });
+                }}
+                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+              >
+                Reset to Inherited Defaults
+              </button>
+            </>
           )}
-          {/* Reset */}
-          <button
-            onClick={() => {
-              updateMeta.mutate({ id: chat.id, chatParameters: defaults });
-            }}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
-          >
-            Reset to Defaults
-          </button>
         </div>
       )}
     </div>
