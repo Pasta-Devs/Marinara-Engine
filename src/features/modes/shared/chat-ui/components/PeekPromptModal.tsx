@@ -35,9 +35,12 @@ interface GenerationInfo {
   finishReason?: string | null;
 }
 
+type PeekPromptMessage = { role: string; content: string; displayName?: string; images?: string[] };
+
 interface PeekPromptModalProps {
   data: {
-    messages: Array<{ role: string; content: string; images?: string[] }>;
+    messages: PeekPromptMessage[];
+    previewMessages?: PeekPromptMessage[];
     parameters: unknown;
     generationInfo?: GenerationInfo | null;
     agentNote?: string;
@@ -86,7 +89,7 @@ type DisplaySection = SectionBlock | ChatHistoryBlock;
  * Returns named blocks; anything between/around sections becomes a block
  * named after the message role.
  */
-function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[] {
+function parseXmlSections(content: string, fallbackLabel: string, fallbackRole = fallbackLabel): SectionBlock[] {
   const blocks: SectionBlock[] = [];
   // Match <tag_name>\n...\n</tag_name> where both tags sit on their own line.
   const tagRegex = /(?:^|\n)(<([a-z_][a-z0-9_-]*)>\n[\s\S]*?\n<\/\2>)(?:\n|$)/gi;
@@ -97,20 +100,20 @@ function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[
     const realStart = content[matchStart] === "\n" ? matchStart + 1 : matchStart;
     const before = content.slice(lastIndex, realStart);
     if (before.trim()) {
-      blocks.push({ kind: "section", label: fallbackLabel, role: fallbackLabel, content: before.trim() });
+      blocks.push({ kind: "section", label: fallbackLabel, role: fallbackRole, content: before.trim() });
     }
     const tagName = match[2]!;
     const tagContent = match[1]!;
-    blocks.push({ kind: "section", label: tagName, role: fallbackLabel, content: tagContent.trimEnd() });
+    blocks.push({ kind: "section", label: tagName, role: fallbackRole, content: tagContent.trimEnd() });
     lastIndex = match.index! + match[0].length;
   }
 
   const remaining = content.slice(lastIndex);
   if (remaining.trim()) {
-    blocks.push({ kind: "section", label: fallbackLabel, role: fallbackLabel, content: remaining.trim() });
+    blocks.push({ kind: "section", label: fallbackLabel, role: fallbackRole, content: remaining.trim() });
   }
 
-  return blocks.length > 0 ? blocks : [{ kind: "section", label: fallbackLabel, role: fallbackLabel, content }];
+  return blocks.length > 0 ? blocks : [{ kind: "section", label: fallbackLabel, role: fallbackRole, content }];
 }
 
 /**
@@ -120,7 +123,7 @@ function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[
  * with bare user/assistant messages in between. We detect boundaries at the
  * array level first, then handle each region appropriately.
  */
-function buildDisplaySections(messages: Array<{ role: string; content: string; images?: string[] }>): DisplaySection[] {
+function buildDisplaySections(messages: PeekPromptMessage[]): DisplaySection[] {
   // ── Pass 1: find chat history boundaries across the messages array ──
   let chStartIdx = -1;
   let chEndIdx = -1;
@@ -231,7 +234,7 @@ function buildDisplaySections(messages: Array<{ role: string; content: string; i
     }
 
     // ── System/other messages: parse XML sections within them ──
-    const blocks = parseXmlSections(msg.content, msg.role);
+    const blocks = parseXmlSections(msg.content, msg.displayName || msg.role, msg.role);
     for (const b of blocks) {
       result.push(b);
     }
@@ -374,7 +377,8 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 // ═══════════════════════════════════════════════
 
 export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
-  const sections = useMemo(() => buildDisplaySections(data.messages), [data.messages]);
+  const displayMessages = data.previewMessages?.length ? data.previewMessages : data.messages;
+  const sections = useMemo(() => buildDisplaySections(displayMessages), [displayMessages]);
   const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
   const isLoading = data.loading === true;
 

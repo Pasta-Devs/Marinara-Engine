@@ -17,7 +17,11 @@ import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, Se
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
-import { mergeStoredGenerationParameters, type StoredGenerationParameters } from "./generate-route-utils";
+import {
+  generationParameterSources,
+  mergeStoredGenerationParameters,
+  type StoredGenerationParameters,
+} from "./generate-route-utils";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -65,6 +69,7 @@ export interface GenerationPersonaContext {
 
 export interface PromptAssemblyResult {
   messages: ChatMLMessage[];
+  previewMessages: ChatMLMessage[];
   promptPresetId: string | null;
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat;
@@ -1252,17 +1257,6 @@ function historyMessages(storedMessages: JsonRecord[], limit: number, includePas
     .filter((message) => message.content.length > 0);
 }
 
-function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: number } | null {
-  let start = -1;
-  let end = -1;
-  for (let index = 0; index < messages.length; index += 1) {
-    if (messages[index]!.contextKind !== "history") continue;
-    if (start === -1) start = index;
-    end = index + 1;
-  }
-  return start >= 0 ? { start, end } : null;
-}
-
 function shouldMergeSameRolePromptMessage(
   previous: ChatMLMessage | undefined,
   _message: ChatMLMessage,
@@ -1275,6 +1269,9 @@ function shouldMergeSameRolePromptMessage(
 function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
   previous.content += "\n\n" + message.content;
   previous.content = collapseExcessBlankLines(previous.content);
+  if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
+    delete previous.displayName;
+  }
   if (previous.contextKind !== message.contextKind) {
     delete previous.contextKind;
   }
@@ -1344,29 +1341,35 @@ function scopeIndividualGroupHistoryRoles(messages: ChatMLMessage[], targetChara
 
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
-  const historyEnd = findHistoryBounds(messages)?.end ?? -1;
-  const normalizedMessages =
-    historyEnd > 0
-      ? messages.map((message, index) =>
-          index >= historyEnd && message.role === "system" ? { ...message, role: "user" as const } : message,
-        )
-      : messages;
-
   const result: ChatMLMessage[] = [];
   let index = 0;
   const systemParts: string[] = [];
-  while (index < normalizedMessages.length && normalizedMessages[index]!.role === "system") {
-    systemParts.push(normalizedMessages[index]!.content);
+  while (index < messages.length && messages[index]!.role === "system") {
+    if (messages[index]!.contextKind === "history") {
+      break;
+    }
+    systemParts.push(messages[index]!.content);
     index += 1;
   }
   if (systemParts.length > 0) {
-    result.push({ role: "system", content: systemParts.join("\n\n"), contextKind: "prompt" });
+    result.push({
+      role: "system",
+      content: systemParts.join("\n\n"),
+      contextKind: "prompt",
+      ...(index === 1 && messages[0]?.displayName ? { displayName: messages[0].displayName } : {}),
+    });
   }
 
   let expectedRole: "user" | "assistant" = "user";
-  for (; index < normalizedMessages.length; index += 1) {
-    const message = normalizedMessages[index]!;
-    const effectiveRole = message.role === "system" ? "user" : message.role;
+  for (; index < messages.length; index += 1) {
+    const message = messages[index]!;
+    if (message.role === "system") {
+      result.push(message);
+      expectedRole = "user";
+      continue;
+    }
+
+    const effectiveRole = message.role;
     if (effectiveRole === expectedRole) {
       result.push(promptMessageWithRole(message, effectiveRole));
       expectedRole = effectiveRole === "user" ? "assistant" : "user";
@@ -1392,6 +1395,10 @@ function collapseToSingleUserMessage(messages: ChatMLMessage[]): ChatMLMessage[]
     .filter((content) => content.trim())
     .join("\n\n");
   return content ? [{ role: "user", content, contextKind: "prompt" }] : [];
+}
+
+function previewMessagesForPrompt(messages: ChatMLMessage[]): ChatMLMessage[] {
+  return messages.map((message) => ({ ...message }));
 }
 
 function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
@@ -1579,9 +1586,7 @@ export async function assembleGenerationPrompt(
   });
   const presetId = selectedPreset?.id ?? null;
   const promptParameters = mergeStoredGenerationParameters(
-    selectedPreset?.parameters,
-    input.request.parameters,
-    input.request,
+    ...generationParameterSources(input.connection, input.request, input.chat, selectedPreset?.parameters),
   );
   const wrapFormat =
     selectedPreset?.wrapFormat ??
@@ -1638,6 +1643,7 @@ export async function assembleGenerationPrompt(
         role: normalizeRole(section.role),
         content: wrapContent(resolved, name, wrapFormat),
         contextKind: "prompt",
+        displayName: name,
       });
     }
   }
@@ -1721,6 +1727,7 @@ export async function assembleGenerationPrompt(
   if (individualGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, individualGroupTarget);
   }
+  const previewMessages = previewMessagesForPrompt(messages);
   const strictRoleFormatting =
     boolish(promptParameters?.strictRoleFormatting, true) &&
     chatMode === "roleplay";
@@ -1735,6 +1742,7 @@ export async function assembleGenerationPrompt(
 
   return {
     messages,
+    previewMessages,
     promptPresetId: presetId,
     parameters: selectedPreset?.parameters ?? null,
     wrapFormat,

@@ -10,7 +10,11 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { chatKeys } from "../query-keys";
-import { previewGenerationPrompt } from "../../../../engine/generation/prompt-preview";
+import {
+  previewGenerationPrompt,
+  type PromptPreviewInput,
+  type PromptPreviewResult,
+} from "../../../../engine/generation/prompt-preview";
 import { boolish } from "../../../../engine/generation/runtime-records";
 import { backfillConversationSummaries } from "../../../../engine/modes/chat/core/summaries/auto-summary.service";
 import { appendChatSummaryEntryToMetadata } from "../../../../engine/shared/text/chat-summary-entries";
@@ -1154,33 +1158,9 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
 /** Peek at the assembled prompt for a chat */
 export function usePeekPrompt() {
   return useMutation({
-    mutationFn: (input: string | { chatId: string; forCharacterId?: string | null; messageId?: string | null }) => {
-      const request = typeof input === "string" ? { chatId: input } : input;
-      return previewGenerationPrompt(storageApi, request) as Promise<{
-        messages: Array<{ role: string; content: string }>;
-        parameters: unknown;
-        generationInfo: {
-          model?: string;
-          provider?: string;
-          temperature?: number | null;
-          maxTokens?: number | null;
-          topP?: number | null;
-          topK?: number | null;
-          frequencyPenalty?: number | null;
-          presencePenalty?: number | null;
-          showThoughts?: boolean | null;
-          reasoningEffort?: string | null;
-          verbosity?: string | null;
-          serviceTier?: string | null;
-          assistantPrefill?: string | null;
-          tokensPrompt?: number | null;
-          tokensCompletion?: number | null;
-          tokensCachedPrompt?: number | null;
-          tokensCacheWritePrompt?: number | null;
-          durationMs?: number | null;
-          finishReason?: string | null;
-        } | null;
-      }>;
+    mutationFn: (input: string | PromptPreviewInput): Promise<PromptPreviewResult> => {
+      const request: PromptPreviewInput = typeof input === "string" ? { chatId: input } : input;
+      return previewGenerationPrompt(storageApi, request);
     },
   });
 }

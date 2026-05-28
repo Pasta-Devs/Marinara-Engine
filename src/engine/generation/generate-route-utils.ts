@@ -3,7 +3,7 @@ import { generationParametersSchema } from "../contracts/schemas/prompt.schema";
 import type { GameState } from "../contracts/types/game-state";
 import type { GenerationParameters } from "../contracts/types/prompt";
 import { wrapContent } from "../generation-core/prompt/format-engine.js";
-import { readNonNegativeInteger } from "./runtime-records";
+import { parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
 
 export type SimpleMessage = { role: "system" | "user" | "assistant"; content: string };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
@@ -364,6 +364,25 @@ export function mergeStoredGenerationParameters(...sources: Array<unknown>): Sto
   }
 
   return Object.keys(merged).length > 0 ? merged : null;
+}
+
+export function generationParameterSources(
+  connection: Record<string, unknown> | null | undefined,
+  input: Record<string, unknown> | null | undefined,
+  chat?: Record<string, unknown> | null,
+  promptPresetParameters?: unknown,
+): unknown[] {
+  const meta = parseRecord(chat?.metadata);
+  const mode = readString(chat?.mode || chat?.chatMode);
+  const setupConfig = parseRecord(meta.gameSetupConfig);
+  return [
+    connection?.defaultParameters,
+    promptPresetParameters,
+    mode === "game" ? setupConfig.generationParameters : null,
+    mode === "game" ? meta.gameGenerationParameters : null,
+    meta.chatParameters,
+    input?.parameters,
+  ];
 }
 
 /**

@@ -9,14 +9,24 @@ import { hiddenFromAi, isRecord, parseRecord, readNumber, readString, type JsonR
 
 export interface PromptPreviewInput {
   chatId: string;
+  connectionId?: string | null;
   presetId?: string | null;
   choices?: Record<string, string> | null;
   forCharacterId?: string | null;
   messageId?: string | null;
+  parameters?: Record<string, unknown> | null;
 }
 
+type PromptPreviewMessage = {
+  role: ChatMLMessage["role"] | LlmMessage["role"];
+  content: string;
+  displayName?: string;
+  images?: string[];
+};
+
 export interface PromptPreviewResult {
-  messages: Array<{ role: ChatMLMessage["role"] | LlmMessage["role"]; content: string; images?: string[] }>;
+  messages: PromptPreviewMessage[];
+  previewMessages?: PromptPreviewMessage[];
   parameters: Partial<GenerationParameters> | Record<string, unknown> | null;
   messageCount: number;
   generationInfo: {
@@ -56,7 +66,7 @@ async function cachedPromptPreview(
   storedMessages: JsonRecord[],
   input: PromptPreviewInput,
 ): Promise<PromptPreviewResult | null> {
-  if (input.presetId || input.choices) return null;
+  if (input.connectionId || input.presetId || input.choices || input.parameters) return null;
 
   const currentFingerprint = fingerprintChatSummary(chatSummaryForGeneration(chat));
   const requestedMessageId = readString(input.messageId).trim();
@@ -67,6 +77,7 @@ async function cachedPromptPreview(
       if (cached) {
         return {
           messages: cached.messages,
+          previewMessages: cached.messages,
           parameters: null,
           messageCount: cached.messages.length,
           generationInfo: cached.generationInfo,
@@ -83,6 +94,7 @@ async function cachedPromptPreview(
   if (!cached) return null;
   return {
     messages: cached.messages,
+    previewMessages: cached.messages,
     parameters: null,
     messageCount: cached.messages.length,
     generationInfo: cached.generationInfo,
@@ -94,7 +106,7 @@ export async function previewGenerationPrompt(
   input: PromptPreviewInput,
 ): Promise<PromptPreviewResult> {
   const chat = requireRecord(await storage.get("chats", input.chatId), "Chat");
-  const connection = await resolveGenerationConnection(storage, chat, {});
+  const connection = await resolveGenerationConnection(storage, chat, input);
   const storedMessages = await loadChatMessages(storage, input.chatId, promptPreviewMessageLoadOptions(chat));
   const cached = await cachedPromptPreview(storage, chat, storedMessages, input);
   if (cached) return cached;
@@ -102,10 +114,21 @@ export async function previewGenerationPrompt(
   const request = {
     promptPresetId: input.presetId ?? (readString(chat.promptPresetId) || null),
     forCharacterId: input.forCharacterId ?? null,
+    parameters: input.parameters ?? null,
   };
+  const chatMetadata = parseRecord(chat.metadata);
   const previewChat = {
     ...chat,
-    ...(input.choices ? { promptVariables: input.choices, variableValues: input.choices } : {}),
+    ...(input.choices
+      ? {
+          metadata: {
+            ...chatMetadata,
+            presetChoices: input.choices,
+          },
+          promptVariables: input.choices,
+          variableValues: input.choices,
+        }
+      : {}),
   };
   const assembly = await assembleGenerationPrompt(storage, {
     chat: previewChat,
@@ -114,9 +137,10 @@ export async function previewGenerationPrompt(
     request,
     latestUserInput: "",
   });
-  const parameters = llmParameters(connection, {}, previewChat, assembly.parameters);
+  const parameters = llmParameters(connection, request, previewChat, assembly.parameters);
   return {
     messages: assembly.messages,
+    previewMessages: assembly.previewMessages,
     parameters,
     messageCount: assembly.messages.length,
     generationInfo: {
