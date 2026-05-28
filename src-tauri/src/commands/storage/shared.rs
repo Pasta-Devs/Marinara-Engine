@@ -124,7 +124,7 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     }
 }
 
-const SWIPE_SCOPED_EXTRA_KEYS: [&str; 13] = [
+const SWIPE_SCOPED_EXTRA_KEYS: [&str; 14] = [
     "displayText",
     "isGenerated",
     "tokenCount",
@@ -138,6 +138,7 @@ const SWIPE_SCOPED_EXTRA_KEYS: [&str; 13] = [
     "generationReplay",
     "attachments",
     "reasoning",
+    "reasoning_content",
 ];
 
 pub(crate) fn clear_swipe_scoped_extra(base: Option<&Value>) -> Value {
@@ -788,6 +789,7 @@ mod tests {
             "activeSwipeIndex": 1,
             "extra": {
                 "hiddenFromAI": true,
+                "reasoning_content": "old reasoning",
                 "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
                 "generationInfo": { "model": "old-model" }
             },
@@ -798,7 +800,10 @@ mod tests {
                 },
                 {
                     "content": "second",
-                    "extra": { "generationInfo": { "model": "second-model" } }
+                    "extra": {
+                        "generationInfo": { "model": "second-model" },
+                        "reasoning_content": "second reasoning"
+                    }
                 }
             ]
         });
@@ -808,6 +813,7 @@ mod tests {
         assert_eq!(message["content"], json!("second"));
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(message["extra"]["generationInfo"]["model"], json!("second-model"));
+        assert_eq!(message["extra"]["reasoning_content"], json!("second reasoning"));
         assert!(message["extra"]["cachedPrompt"].is_null());
     }
 
@@ -818,6 +824,7 @@ mod tests {
             "activeSwipeIndex": 1,
             "extra": {
                 "hiddenFromAI": true,
+                "reasoning_content": "stale reasoning",
                 "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
                 "generationInfo": { "model": "old-model" }
             },
@@ -832,6 +839,7 @@ mod tests {
         assert_eq!(message["content"], json!("second"));
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
         assert!(message["extra"]["generationInfo"].is_null());
+        assert!(message["extra"]["reasoning_content"].is_null());
         assert!(message["extra"]["cachedPrompt"].is_null());
     }
 

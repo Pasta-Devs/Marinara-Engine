@@ -1066,6 +1066,7 @@ mod tests {
                     "activeSwipeIndex": 0,
                     "extra": {
                         "hiddenFromAI": true,
+                        "reasoning_content": "first reasoning",
                         "cachedPrompt": [{ "role": "system", "content": "first prompt" }],
                         "generationInfo": { "model": "first-model" }
                     },
@@ -1083,6 +1084,7 @@ mod tests {
                 "content": "second",
                 "extra": {
                     "cachedPrompt": [{ "role": "system", "content": "second prompt" }],
+                    "reasoning_content": "second reasoning",
                     "generationInfo": { "model": "second-model" }
                 }
             }),
@@ -1092,7 +1094,9 @@ mod tests {
         assert_eq!(updated["activeSwipeIndex"], json!(1));
         assert_eq!(updated["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(updated["extra"]["generationInfo"]["model"], json!("second-model"));
+        assert_eq!(updated["extra"]["reasoning_content"], json!("second reasoning"));
         assert_eq!(updated["swipes"][0]["extra"]["generationInfo"]["model"], json!("first-model"));
+        assert_eq!(updated["swipes"][0]["extra"]["reasoning_content"], json!("first reasoning"));
         assert_eq!(updated["swipes"][1]["extra"]["generationInfo"]["model"], json!("second-model"));
 
         let switched = set_active_swipe(
@@ -1106,6 +1110,7 @@ mod tests {
         assert_eq!(switched["content"], json!("first"));
         assert_eq!(switched["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(switched["extra"]["generationInfo"]["model"], json!("first-model"));
+        assert_eq!(switched["extra"]["reasoning_content"], json!("first reasoning"));
     }
 
     #[test]

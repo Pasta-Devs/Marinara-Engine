@@ -970,13 +970,15 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     Object.prototype.hasOwnProperty.call(swipe, "extra")
       ? parseRecord((swipe as { extra?: unknown }).extra)
       : null;
+  const nextExtra =
+    swipeExtra ?? (swipeCount > 1 ? extraForActiveSwipe(message.extra, {}) : null);
 
   return {
     ...message,
     activeSwipeIndex,
     swipeCount: swipeCount || message.swipeCount,
     content: swipeContent ?? message.content,
-    ...(swipeExtra ? { extra: extraForActiveSwipe(message.extra, swipeExtra) as unknown as Message["extra"] } : {}),
+    ...(nextExtra ? { extra: nextExtra as unknown as Message["extra"] } : {}),
   };
 }
 
@@ -994,6 +996,7 @@ const SWIPE_SCOPED_EXTRA_KEYS = new Set([
   "generationReplay",
   "attachments",
   "reasoning",
+  "reasoning_content",
 ]);
 
 function extraForActiveSwipe(baseExtra: unknown, swipeExtra: Record<string, unknown>): Record<string, unknown> {

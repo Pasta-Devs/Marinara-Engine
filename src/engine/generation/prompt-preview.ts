@@ -1,4 +1,5 @@
 import type { ChatMLMessage, GenerationParameters } from "../contracts/types/prompt";
+import type { LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
@@ -15,7 +16,7 @@ export interface PromptPreviewInput {
 }
 
 export interface PromptPreviewResult {
-  messages: ChatMLMessage[];
+  messages: Array<{ role: ChatMLMessage["role"] | LlmMessage["role"]; content: string }>;
   parameters: Partial<GenerationParameters> | Record<string, unknown> | null;
   messageCount: number;
   generationInfo: {

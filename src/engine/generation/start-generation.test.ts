@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DiscordGateway } from "../capabilities/integrations";
-import type { LlmGateway } from "../capabilities/llm";
+import type { LlmChunk, LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { retryGenerationAgents, startGeneration, type GenerationEngineDeps } from "./start-generation";
@@ -42,6 +42,7 @@ function generationDepsForChat(options: {
   prompts?: Record<string, unknown>[];
   promptSections?: Record<string, unknown>[];
   promptVariables?: Record<string, unknown>[];
+  streamChunks?: LlmChunk[];
 } = {}) {
   const chat = {
     id: "chat-1",
@@ -69,7 +70,9 @@ function generationDepsForChat(options: {
   const streamedRequests: unknown[] = [];
   const stream: LlmGateway["stream"] = vi.fn(async function* (request) {
     streamedRequests.push(request);
-    yield { type: "token" as const, text: "Done." };
+    for (const chunk of options.streamChunks ?? [{ type: "token" as const, text: "Done." }]) {
+      yield chunk;
+    }
   });
   const createChatMessage = vi.fn(async (_chatId: string, value: Record<string, unknown>) => {
     if (value.role === "user") {
@@ -901,6 +904,42 @@ describe("startGeneration generation replay metadata", () => {
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
+  });
+
+  it("normalizes Gemini usage metadata aliases into saved generation info", async () => {
+    const { deps, createChatMessage } = generationDepsForChat({
+      streamChunks: [
+        { type: "token", text: "Done." },
+        {
+          type: "usage",
+          data: {
+            promptTokenCount: 11,
+            candidatesTokenCount: 5,
+            totalTokenCount: 16,
+            cachedContentTokenCount: 3,
+          },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", message: "hello" }));
+
+    const assistantCall = createChatMessage.mock.calls.find(
+      ([, body]) => (body as Record<string, unknown>).role === "assistant",
+    );
+    expect(assistantCall).toBeDefined();
+    const generationInfo = (assistantCall![1] as {
+      extra: {
+        generationInfo: {
+          tokensPrompt: number | null;
+          tokensCompletion: number | null;
+          tokensCachedPrompt: number | null;
+        };
+      };
+    }).extra.generationInfo;
+    expect(generationInfo.tokensPrompt).toBe(11);
+    expect(generationInfo.tokensCompletion).toBe(5);
+    expect(generationInfo.tokensCachedPrompt).toBe(3);
   });
 
   it("clears stale summary fingerprints on regenerates when the current summary is empty", async () => {

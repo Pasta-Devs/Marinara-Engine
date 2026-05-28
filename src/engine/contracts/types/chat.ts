@@ -383,6 +383,10 @@ export interface MessageExtra {
   isConversationStart?: boolean;
   /** Model's reasoning/thinking content (if available) */
   thinking?: string | null;
+  /** Provider-shaped reasoning content from OpenAI-compatible responses. */
+  reasoning?: string | null;
+  /** Provider-shaped reasoning content from OpenAI-compatible streaming deltas. */
+  reasoning_content?: string | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Per-swipe CYOA choices from the CYOA Choices agent */
@@ -410,7 +414,13 @@ export interface MessageExtra {
   /** Fingerprint of the chat summary text used in the generation prompt. */
   chatSummaryFingerprint?: string | null;
   /** Exact initial prompt messages sent for this generation, used by Peek Prompt. */
-  cachedPrompt?: Array<{ role: "system" | "user" | "assistant"; content: string }> | null;
+  cachedPrompt?: Array<{
+    role: "system" | "user" | "assistant" | "tool";
+    content: string;
+    name?: string;
+    tool_call_id?: string;
+    tool_calls?: unknown;
+  }> | null;
   /**
    * Hidden command-generation options needed to make swipes/regenerations replay
    * the same slash-command or guided-regenerate prompt behavior.

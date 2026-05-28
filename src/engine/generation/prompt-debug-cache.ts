@@ -3,14 +3,46 @@ import { chatSummaryFingerprintMatches } from "../shared/text/chat-summary-finge
 import { isRecord, parseRecord, readNumber, readString, type JsonRecord } from "./runtime-records";
 
 export type CachedPromptMessage = {
-  role: "system" | "user" | "assistant";
+  role: LlmMessage["role"];
   content: string;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: unknown;
 };
 
 export type SavedGenerationInfo = Record<string, unknown>;
 
 function cachedRole(role: unknown): CachedPromptMessage["role"] | null {
-  return role === "system" || role === "user" || role === "assistant" ? role : null;
+  return role === "system" || role === "user" || role === "assistant" || role === "tool" ? role : null;
+}
+
+function prettyJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return readString(value);
+  }
+}
+
+function cachedPromptDisplayContent(entry: JsonRecord): string {
+  const parts: string[] = [];
+  const content = readString(entry.content);
+  if (content) parts.push(content);
+
+  if (entry.tool_calls !== undefined) {
+    parts.push(`<tool_calls>\n${prettyJson(entry.tool_calls)}\n</tool_calls>`);
+  }
+
+  const toolMetadata: Record<string, string> = {};
+  const name = readString(entry.name).trim();
+  const toolCallId = readString(entry.tool_call_id).trim();
+  if (name) toolMetadata.name = name;
+  if (toolCallId) toolMetadata.tool_call_id = toolCallId;
+  if (Object.keys(toolMetadata).length > 0) {
+    parts.push(`<tool_metadata>\n${prettyJson(toolMetadata)}\n</tool_metadata>`);
+  }
+
+  return parts.join("\n\n");
 }
 
 export function cachedPromptMessages(messages: LlmMessage[]): CachedPromptMessage[] {
@@ -18,9 +50,20 @@ export function cachedPromptMessages(messages: LlmMessage[]): CachedPromptMessag
     .map((message) => {
       const role = cachedRole(message.role);
       if (!role) return null;
-      return { role, content: readString(message.content) };
+      const cached: CachedPromptMessage = { role, content: readString(message.content) };
+      if (message.name) cached.name = message.name;
+      if (message.tool_call_id) cached.tool_call_id = message.tool_call_id;
+      if (message.tool_calls !== undefined) cached.tool_calls = message.tool_calls;
+      return cached;
     })
-    .filter((message): message is CachedPromptMessage => message !== null && message.content.length > 0);
+    .filter(
+      (message): message is CachedPromptMessage =>
+        message !== null &&
+        (message.content.length > 0 ||
+          message.name !== undefined ||
+          message.tool_call_id !== undefined ||
+          message.tool_calls !== undefined),
+    );
 }
 
 function readNullableNumber(value: unknown): number | null {
@@ -65,15 +108,29 @@ export function savedGenerationInfo(args: {
     agentResults: args.agentResults,
     notes: args.notes,
     usage: args.usage ?? null,
-    tokensPrompt: readUsageNumber(usage, "promptTokens", "prompt_tokens", "inputTokens", "input_tokens"),
+    tokensPrompt: readUsageNumber(
+      usage,
+      "promptTokens",
+      "prompt_tokens",
+      "inputTokens",
+      "input_tokens",
+      "promptTokenCount",
+    ),
     tokensCompletion: readUsageNumber(
       usage,
       "completionTokens",
       "completion_tokens",
       "outputTokens",
       "output_tokens",
+      "candidatesTokenCount",
     ),
-    tokensCachedPrompt: readUsageNumber(usage, "cachedPromptTokens", "tokensCachedPrompt", "cached_tokens"),
+    tokensCachedPrompt: readUsageNumber(
+      usage,
+      "cachedPromptTokens",
+      "tokensCachedPrompt",
+      "cached_tokens",
+      "cachedContentTokenCount",
+    ),
     tokensCacheWritePrompt: readUsageNumber(usage, "cacheWritePromptTokens", "tokensCacheWritePrompt"),
     durationMs: readNullableNumber(usage.durationMs),
     finishReason: readString(usage.finishReason).trim() || null,
@@ -105,7 +162,7 @@ export function readCachedGenerationPrompt(
     .map((entry) => {
       if (!isRecord(entry)) return null;
       const role = cachedRole(entry.role);
-      const content = readString(entry.content);
+      const content = cachedPromptDisplayContent(entry);
       return role && content ? { role, content } : null;
     })
     .filter((entry): entry is CachedPromptMessage => entry !== null);

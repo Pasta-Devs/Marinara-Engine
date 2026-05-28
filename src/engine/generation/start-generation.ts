@@ -1285,8 +1285,12 @@ export async function* startGeneration(
       (message): message is LlmMessage => !!message,
     );
     const generationParameters = llmParameters(connection, input, chatForGeneration, assembly.parameters);
-    const cachedPrompt = cachedPromptMessages(fitMessagesToContextWindow(baseMessages, generationParameters));
-    const { content: streamedContent, thinking: streamedThinking, usage } = yield* streamMainGenerationLoop({
+    const {
+      content: streamedContent,
+      thinking: streamedThinking,
+      usage,
+      cachedPrompt,
+    } = yield* streamMainGenerationLoop({
       deps,
       connection,
       input,
@@ -1405,8 +1409,12 @@ export async function* startGeneration(
     (message): message is LlmMessage => !!message,
   );
   const generationParametersDirect = llmParameters(connection, input, chatForGeneration, assembly.parameters);
-  const cachedPromptDirect = cachedPromptMessages(fitMessagesToContextWindow(baseMessagesDirect, generationParametersDirect));
-  const { content: streamedContentDirect, thinking: streamedThinkingDirect, usage } = yield* streamMainGenerationLoop({
+  const {
+    content: streamedContentDirect,
+    thinking: streamedThinkingDirect,
+    usage,
+    cachedPrompt: cachedPromptDirect,
+  } = yield* streamMainGenerationLoop({
     deps,
     connection,
     input,
@@ -1536,12 +1544,13 @@ async function* streamMainGenerationLoop(args: {
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
-}): AsyncGenerator<GenerationEvent, { content: string; thinking: string; usage: unknown }> {
+}): AsyncGenerator<GenerationEvent, { content: string; thinking: string; usage: unknown; cachedPrompt: CachedPromptMessage[] }> {
   const { deps, connection, input, chat, parameters, baseMessages, mainTools, toolRuntimeInput, signal } = args;
   let content = "";
   let thinking = "";
   const usages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
+  let lastRequestMessages: LlmMessage[] = [];
   let iteration = 0;
 
   while (true) {
@@ -1563,11 +1572,13 @@ async function* streamMainGenerationLoop(args: {
       }
     };
 
+    const requestMessages = fitMessagesToContextWindow(conversation, parameters);
+    lastRequestMessages = requestMessages;
     for await (const chunk of deps.llm.stream(
       {
         connectionId: readString(connection.id) || input.connectionId,
         model: readString(connection.model) || undefined,
-        messages: fitMessagesToContextWindow(conversation, parameters),
+        messages: requestMessages,
         parameters: runtimeLlmParameters(connection, input, chat, parameters),
         tools: mainTools?.toolDefs,
       },
@@ -1648,7 +1659,7 @@ async function* streamMainGenerationLoop(args: {
     }
   }
 
-  return { content, thinking, usage: mergeUsages(usages) };
+  return { content, thinking, usage: mergeUsages(usages), cachedPrompt: cachedPromptMessages(lastRequestMessages) };
 }
 
 /**

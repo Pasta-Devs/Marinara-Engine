@@ -856,5 +856,17 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(generationInfo.usage.promptTokens).toBe(250);
     expect(generationInfo.usage.completionTokens).toBe(50);
     expect(generationInfo.usage.totalTokens).toBe(300);
+
+    const cachedPrompt = (assistantCall![1] as {
+      extra: {
+        cachedPrompt: Array<{ role: string; content: string; tool_calls?: unknown }>;
+      };
+    }).extra.cachedPrompt;
+    expect(cachedPrompt).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: "assistant", content: "thinking...", tool_calls: expect.any(Array) }),
+        expect.objectContaining({ role: "tool", content: expect.stringContaining('"notation"') }),
+      ]),
+    );
   });
 });
