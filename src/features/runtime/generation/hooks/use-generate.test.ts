@@ -99,6 +99,7 @@ describe("runGenerationWithUi", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     storageApiMock.get.mockReset();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     useChatStore.getState().reset();
@@ -109,6 +110,8 @@ describe("runGenerationWithUi", () => {
   });
 
   afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     warnSpy.mockRestore();
     useChatStore.getState().reset();
     useAgentStore.getState().reset();
