@@ -646,7 +646,7 @@ describe("assembleGenerationPrompt strict roles", () => {
     expect(history[0]?.content).toContain("brief provider summary");
   });
 
-  it("merges post-history system sections into the preceding user-side message", async () => {
+  it("preserves post-history system sections as system messages", async () => {
     const assembly = await assembleGenerationPrompt(
       storageWithSections([
         section({ id: "main", name: "main", role: "system", content: "Main rules.", sortOrder: 0 }),
@@ -669,11 +669,14 @@ describe("assembleGenerationPrompt strict roles", () => {
     );
 
     const finalMessage = assembly.messages.at(-1);
-    expect(finalMessage?.role).toBe("user");
-    expect(finalMessage?.content).toMatch(/Pantalone speaks first\./);
+    expect(finalMessage?.role).toBe("system");
     expect(finalMessage?.content).toMatch(/<output_format>\s*Return only prose\.\s*<\/output_format>/);
     expect(finalMessage?.characterId).toBeUndefined();
-    expect(assembly.messages.filter((message) => message.role === "system")).toHaveLength(1);
+    expect(assembly.messages.filter((message) => message.role === "system")).toHaveLength(2);
+    expect(assembly.messages.find((message) => message.contextKind === "history")).toMatchObject({
+      role: "user",
+      content: "Pantalone speaks first.",
+    });
   });
 
   it("merges same-role post-history preset sections instead of forcing alternation", async () => {

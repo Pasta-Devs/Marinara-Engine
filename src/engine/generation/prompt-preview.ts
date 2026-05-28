@@ -6,9 +6,11 @@ import { parseRecord, readNumber, readString } from "./runtime-records";
 
 export interface PromptPreviewInput {
   chatId: string;
+  connectionId?: string | null;
   presetId?: string | null;
   choices?: Record<string, string> | null;
   forCharacterId?: string | null;
+  parameters?: Record<string, unknown> | null;
 }
 
 export interface PromptPreviewResult {
@@ -47,15 +49,26 @@ export async function previewGenerationPrompt(
   input: PromptPreviewInput,
 ): Promise<PromptPreviewResult> {
   const chat = requireRecord(await storage.get("chats", input.chatId), "Chat");
-  const connection = await resolveGenerationConnection(storage, chat, {});
+  const connection = await resolveGenerationConnection(storage, chat, input);
   const storedMessages = await loadChatMessages(storage, input.chatId, promptPreviewMessageLoadOptions(chat));
   const request = {
     promptPresetId: input.presetId ?? (readString(chat.promptPresetId) || null),
     forCharacterId: input.forCharacterId ?? null,
+    parameters: input.parameters ?? null,
   };
+  const chatMetadata = parseRecord(chat.metadata);
   const previewChat = {
     ...chat,
-    ...(input.choices ? { promptVariables: input.choices, variableValues: input.choices } : {}),
+    ...(input.choices
+      ? {
+          metadata: {
+            ...chatMetadata,
+            presetChoices: input.choices,
+          },
+          promptVariables: input.choices,
+          variableValues: input.choices,
+        }
+      : {}),
   };
   const assembly = await assembleGenerationPrompt(storage, {
     chat: previewChat,
@@ -64,7 +77,7 @@ export async function previewGenerationPrompt(
     request,
     latestUserInput: "",
   });
-  const parameters = llmParameters(connection, {}, previewChat, assembly.parameters);
+  const parameters = llmParameters(connection, request, previewChat, assembly.parameters);
   return {
     messages: assembly.messages,
     parameters,

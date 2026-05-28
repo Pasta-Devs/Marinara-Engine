@@ -188,7 +188,7 @@ export interface GenerationParameters {
   useMaxContext: boolean;
   /** Custom stop sequences */
   stopSequences: string[];
-  /** Strict role formatting: system first, then alternating user/assistant. Sections after chat_history become user role. */
+  /** Strict role formatting: merge leading system prompt, preserve later authored system sections, and alternate user/assistant history. */
   strictRoleFormatting: boolean;
   /** Send entire prompt + chat history as a single user message */
   singleUserMessage: boolean;

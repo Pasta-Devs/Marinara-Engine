@@ -1252,17 +1252,6 @@ function historyMessages(storedMessages: JsonRecord[], limit: number, includePas
     .filter((message) => message.content.length > 0);
 }
 
-function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: number } | null {
-  let start = -1;
-  let end = -1;
-  for (let index = 0; index < messages.length; index += 1) {
-    if (messages[index]!.contextKind !== "history") continue;
-    if (start === -1) start = index;
-    end = index + 1;
-  }
-  return start >= 0 ? { start, end } : null;
-}
-
 function shouldMergeSameRolePromptMessage(
   previous: ChatMLMessage | undefined,
   _message: ChatMLMessage,
@@ -1344,19 +1333,11 @@ function scopeIndividualGroupHistoryRoles(messages: ChatMLMessage[], targetChara
 
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
-  const historyEnd = findHistoryBounds(messages)?.end ?? -1;
-  const normalizedMessages =
-    historyEnd > 0
-      ? messages.map((message, index) =>
-          index >= historyEnd && message.role === "system" ? { ...message, role: "user" as const } : message,
-        )
-      : messages;
-
   const result: ChatMLMessage[] = [];
   let index = 0;
   const systemParts: string[] = [];
-  while (index < normalizedMessages.length && normalizedMessages[index]!.role === "system") {
-    systemParts.push(normalizedMessages[index]!.content);
+  while (index < messages.length && messages[index]!.role === "system") {
+    systemParts.push(messages[index]!.content);
     index += 1;
   }
   if (systemParts.length > 0) {
@@ -1364,9 +1345,15 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   }
 
   let expectedRole: "user" | "assistant" = "user";
-  for (; index < normalizedMessages.length; index += 1) {
-    const message = normalizedMessages[index]!;
-    const effectiveRole = message.role === "system" ? "user" : message.role;
+  for (; index < messages.length; index += 1) {
+    const message = messages[index]!;
+    if (message.role === "system") {
+      result.push(message);
+      expectedRole = "user";
+      continue;
+    }
+
+    const effectiveRole = message.role;
     if (effectiveRole === expectedRole) {
       result.push(promptMessageWithRole(message, effectiveRole));
       expectedRole = effectiveRole === "user" ? "assistant" : "user";
