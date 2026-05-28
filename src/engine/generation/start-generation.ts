@@ -821,7 +821,6 @@ async function saveRegeneratedMessage(args: {
   cachedPrompt: CachedPromptMessage[] | null;
   generationInfo: Record<string, unknown>;
 }): Promise<unknown | null> {
-  await args.storage.addChatMessageSwipe(args.chatId, args.messageId, collapseExcessBlankLines(args.content));
   const extraPatch = generationReplayExtraPatch(
     args.generationReplay,
     args.chatSummaryFingerprint,
@@ -829,6 +828,7 @@ async function saveRegeneratedMessage(args: {
     args.cachedPrompt,
     args.generationInfo,
   );
+  await args.storage.addChatMessageSwipe(args.chatId, args.messageId, collapseExcessBlankLines(args.content), extraPatch);
   return args.storage.patchChatMessageExtra(args.messageId, extraPatch);
 }
 

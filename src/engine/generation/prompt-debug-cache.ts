@@ -80,11 +80,24 @@ export function savedGenerationInfo(args: {
   };
 }
 
+function activeSwipeExtra(message: JsonRecord): JsonRecord | null {
+  const swipes = Array.isArray(message.swipes) ? message.swipes : [];
+  if (swipes.length === 0) return null;
+
+  const rawIndex = readNumber(message.activeSwipeIndex, 0);
+  const activeIndex = Number.isFinite(rawIndex)
+    ? Math.min(Math.max(Math.floor(rawIndex), 0), swipes.length - 1)
+    : 0;
+  const swipe = swipes[activeIndex];
+  if (!isRecord(swipe) || !Object.prototype.hasOwnProperty.call(swipe, "extra")) return null;
+  return parseRecord(swipe.extra);
+}
+
 export function readCachedGenerationPrompt(
   message: JsonRecord,
   currentChatSummaryFingerprint: string | null,
 ): { messages: CachedPromptMessage[]; generationInfo: SavedGenerationInfo | null } | null {
-  const extra = parseRecord(message.extra);
+  const extra = activeSwipeExtra(message) ?? parseRecord(message.extra);
   const rawPrompt = Array.isArray(extra.cachedPrompt) ? extra.cachedPrompt : [];
   const messages = rawPrompt
     .map((entry) => {

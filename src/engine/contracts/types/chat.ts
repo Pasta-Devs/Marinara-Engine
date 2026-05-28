@@ -463,7 +463,7 @@ export interface MessageSwipe {
   index: number;
   content: string;
   createdAt: string;
-  extra: MessageExtra;
+  extra?: MessageExtra;
 }
 
 /** Payload sent to start a generation. */

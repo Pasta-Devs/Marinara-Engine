@@ -108,14 +108,15 @@ function normalizeStorageReadResult(entity: string, value: unknown): unknown {
 
 function chatMessageDefaults(chatId: string, value: Record<string, unknown>): Record<string, unknown> {
   const content = typeof value.content === "string" ? collapseExcessBlankLines(value.content) : "";
+  const extra = value.extra ?? {};
   return {
     ...value,
     chatId,
     role: value.role ?? "user",
     content,
-    extra: value.extra ?? {},
+    extra,
     activeSwipeIndex: value.activeSwipeIndex ?? 0,
-    swipes: value.swipes ?? [{ content }],
+    swipes: value.swipes ?? [{ content, extra }],
   };
 }
 
@@ -181,11 +182,11 @@ export const storageApi: StorageGateway = {
       extra: { ...asRecord(message.extra), ...patch },
     });
   },
-  addChatMessageSwipe: (chatId, messageId, content) =>
+  addChatMessageSwipe: (chatId, messageId, content, extra) =>
     invokeTauri("chat_message_add_swipe", {
       chatId,
       messageId,
-      body: { content: collapseExcessBlankLines(content) },
+      body: { content: collapseExcessBlankLines(content), extra: extra ?? {} },
     }),
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
   patchChatSummaries: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),

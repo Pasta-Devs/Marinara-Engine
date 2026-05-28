@@ -963,12 +963,20 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     swipe && typeof swipe === "object" && !Array.isArray(swipe) && typeof (swipe as { content?: unknown }).content === "string"
       ? (swipe as { content: string }).content
       : null;
+  const swipeExtra =
+    swipe &&
+    typeof swipe === "object" &&
+    !Array.isArray(swipe) &&
+    Object.prototype.hasOwnProperty.call(swipe, "extra")
+      ? parseRecord((swipe as { extra?: unknown }).extra)
+      : null;
 
   return {
     ...message,
     activeSwipeIndex,
     swipeCount: swipeCount || message.swipeCount,
     content: swipeContent ?? message.content,
+    ...(swipeExtra ? { extra: swipeExtra as unknown as Message["extra"] } : {}),
   };
 }
 

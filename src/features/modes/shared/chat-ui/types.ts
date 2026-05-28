@@ -1,4 +1,4 @@
-import type { Message } from "../../../../engine/contracts/types/chat";
+import type { Message, MessageSwipe } from "../../../../engine/contracts/types/chat";
 export type { CharacterMap, PersonaInfo } from "../../../runtime/visuals/types";
 
 export type PeekPromptData = {
@@ -36,7 +36,7 @@ export type PeekPromptOptions = {
 };
 
 export type MessageWithSwipes = Message & {
-  swipes?: Array<{ id: string; content: string }>;
+  swipes?: Array<Pick<MessageSwipe, "content" | "extra"> & { id?: string }>;
 };
 
 export type ExpressionAvatarResolver = (message: MessageWithSwipes, characterId: string) => string | null;

@@ -77,12 +77,15 @@ function generationDepsForChat(options: {
     }
     return { id: "assistant-2", chatId: "chat-1", ...value };
   });
-  const addChatMessageSwipe = vi.fn(async (_chatId: string, messageId: string, content: string) => ({
-    ...messagesById.get(messageId),
-    content,
-    activeSwipeIndex: 1,
-    swipeCount: 2,
-  }));
+  const addChatMessageSwipe = vi.fn(
+    async (_chatId: string, messageId: string, content: string, extra?: Record<string, unknown>) => ({
+      ...messagesById.get(messageId),
+      content,
+      extra,
+      activeSwipeIndex: 1,
+      swipeCount: 2,
+    }),
+  );
   const patchChatMessageExtra = vi.fn(async (messageId: string, patch: Record<string, unknown>) => ({
     ...messagesById.get(messageId),
     extra: {
@@ -718,8 +721,7 @@ describe("startGeneration generation replay metadata", () => {
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "impersonate-1" }));
 
     expect(createChatMessage).not.toHaveBeenCalled();
-    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "impersonate-1", "Done.");
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("impersonate-1", expect.objectContaining({
+    const expectedExtra = expect.objectContaining({
       generationReplay: {
         impersonate: true,
         userMessage: "a tiny answer",
@@ -727,7 +729,9 @@ describe("startGeneration generation replay metadata", () => {
       chatSummaryFingerprint: null,
       cachedPrompt: expect.arrayContaining([expect.objectContaining({ role: "user" })]),
       generationInfo: expect.objectContaining({ model: "test-model" }),
-    }));
+    });
+    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "impersonate-1", "Done.", expectedExtra);
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("impersonate-1", expectedExtra);
   });
 
   it("stores guided replay metadata on the generated assistant message", async () => {
@@ -771,8 +775,7 @@ describe("startGeneration generation replay metadata", () => {
       }),
     );
 
-    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.");
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expect.objectContaining({
+    const expectedExtra = expect.objectContaining({
       generationReplay: {
         generationGuide: "Make this one colder.",
         generationGuideSource: "guide",
@@ -780,7 +783,9 @@ describe("startGeneration generation replay metadata", () => {
       chatSummaryFingerprint: null,
       cachedPrompt: expect.arrayContaining([expect.objectContaining({ content: "Make this one colder." })]),
       generationInfo: expect.objectContaining({ model: "test-model" }),
-    }));
+    });
+    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.", expectedExtra);
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expectedExtra);
   });
 
   it("applies stored assistant replay metadata for direct engine regenerates", async () => {
