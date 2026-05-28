@@ -1940,7 +1940,7 @@ export const ChatMessage = memo(function ChatMessage({
               {isLastAssistantMessage && !isUser && (
                 <ActionBtn
                   icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null })}
+                  onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null, messageId: message.id })}
                   title="Peek prompt"
                   dark
                 />
@@ -2362,7 +2362,7 @@ export const ChatMessage = memo(function ChatMessage({
             {isLastAssistantMessage && !isUser && (
               <ActionBtn
                 icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null })}
+                onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null, messageId: message.id })}
                 title="Peek prompt"
               />
             )}

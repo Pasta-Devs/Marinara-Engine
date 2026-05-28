@@ -851,7 +851,8 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
 
     const assistantCall = createChatMessage.mock.calls.find(([, body]) => (body as Record<string, unknown>).role === "assistant");
     expect(assistantCall).toBeDefined();
-    const generationInfo = (assistantCall![1] as { generationInfo: { usage: Record<string, number> } }).generationInfo;
+    const generationInfo = (assistantCall![1] as { extra: { generationInfo: { usage: Record<string, number> } } }).extra
+      .generationInfo;
     expect(generationInfo.usage.promptTokens).toBe(250);
     expect(generationInfo.usage.completionTokens).toBe(50);
     expect(generationInfo.usage.totalTokens).toBe(300);

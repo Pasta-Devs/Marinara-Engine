@@ -409,6 +409,8 @@ export interface MessageExtra {
   contextInjections?: Array<{ agentType: string; agentName?: string; text: string }> | null;
   /** Fingerprint of the chat summary text used in the generation prompt. */
   chatSummaryFingerprint?: string | null;
+  /** Exact initial prompt messages sent for this generation, used by Peek Prompt. */
+  cachedPrompt?: Array<{ role: "system" | "user" | "assistant"; content: string }> | null;
   /**
    * Hidden command-generation options needed to make swipes/regenerations replay
    * the same slash-command or guided-regenerate prompt behavior.
@@ -427,11 +429,27 @@ export interface MessageExtra {
 
 /** Metadata about how a message was generated. */
 export interface GenerationInfo {
-  model: string;
-  provider: string;
-  temperature: number | null;
-  tokensPrompt: number | null;
-  tokensCompletion: number | null;
+  connectionId?: string | null;
+  model?: string;
+  provider?: string;
+  temperature?: number | null;
+  maxTokens?: number | null;
+  maxContext?: number | null;
+  topP?: number | null;
+  topK?: number | null;
+  frequencyPenalty?: number | null;
+  presencePenalty?: number | null;
+  showThoughts?: boolean | null;
+  reasoningEffort?: string | null;
+  verbosity?: string | null;
+  serviceTier?: string | null;
+  assistantPrefill?: string | null;
+  customParameters?: Record<string, unknown> | null;
+  agentResults?: number;
+  notes?: number;
+  usage?: unknown;
+  tokensPrompt?: number | null;
+  tokensCompletion?: number | null;
   tokensCachedPrompt?: number | null;
   tokensCacheWritePrompt?: number | null;
   durationMs: number | null;

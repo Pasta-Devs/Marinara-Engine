@@ -1111,7 +1111,7 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
 /** Peek at the assembled prompt for a chat */
 export function usePeekPrompt() {
   return useMutation({
-    mutationFn: (input: string | { chatId: string; forCharacterId?: string | null }) => {
+    mutationFn: (input: string | { chatId: string; forCharacterId?: string | null; messageId?: string | null }) => {
       const request = typeof input === "string" ? { chatId: input } : input;
       return previewGenerationPrompt(storageApi, request) as Promise<{
         messages: Array<{ role: string; content: string }>;
@@ -1121,6 +1121,10 @@ export function usePeekPrompt() {
           provider?: string;
           temperature?: number | null;
           maxTokens?: number | null;
+          topP?: number | null;
+          topK?: number | null;
+          frequencyPenalty?: number | null;
+          presencePenalty?: number | null;
           showThoughts?: boolean | null;
           reasoningEffort?: string | null;
           verbosity?: string | null;

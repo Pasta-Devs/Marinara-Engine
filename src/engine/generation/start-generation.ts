@@ -41,6 +41,7 @@ import {
 } from "./generation-replay";
 import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-assembly";
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
+import { cachedPromptMessages, savedGenerationInfo, type CachedPromptMessage } from "./prompt-debug-cache";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
 import {
   boolish,
@@ -722,6 +723,8 @@ async function saveAssistantMessage(args: {
   agentResults: AgentResult[];
   noteCount: number;
   chatSummaryFingerprint: string | null;
+  cachedPrompt: CachedPromptMessage[];
+  parameters: Record<string, unknown>;
   attachments?: JsonRecord[];
   usage?: unknown;
 }): Promise<unknown | null> {
@@ -729,6 +732,14 @@ async function saveAssistantMessage(args: {
   const generationReplay = buildGenerationReplay(args.input);
   const content = collapseExcessBlankLines(args.content);
   const thinking = collapseExcessBlankLines(readString(args.thinking).trim());
+  const generationInfo = savedGenerationInfo({
+    connection: args.connection,
+    parameters: args.parameters,
+    agentResults: args.agentResults.length,
+    notes: args.noteCount,
+    usage: args.usage,
+  });
+  const cachedPrompt = args.cachedPrompt.length > 0 ? args.cachedPrompt : null;
 
   if (args.input.impersonate === true) {
     if (regenerateMessageId) {
@@ -740,6 +751,8 @@ async function saveAssistantMessage(args: {
         thinking: thinking || undefined,
         generationReplay,
         chatSummaryFingerprint: args.chatSummaryFingerprint,
+        cachedPrompt,
+        generationInfo,
       });
     }
 
@@ -752,6 +765,8 @@ async function saveAssistantMessage(args: {
         ...(thinking ? { thinking } : {}),
         ...(generationReplay ? { generationReplay } : {}),
         chatSummaryFingerprint: args.chatSummaryFingerprint,
+        cachedPrompt,
+        generationInfo,
       },
     });
   }
@@ -765,6 +780,8 @@ async function saveAssistantMessage(args: {
       thinking: thinking || undefined,
       generationReplay,
       chatSummaryFingerprint: args.chatSummaryFingerprint,
+      cachedPrompt,
+      generationInfo,
     });
   }
 
@@ -787,13 +804,8 @@ async function saveAssistantMessage(args: {
       ...(thinking ? { thinking } : {}),
       ...(generationReplay ? { generationReplay } : {}),
       chatSummaryFingerprint: args.chatSummaryFingerprint,
-    },
-    generationInfo: {
-      connectionId: readString(args.connection.id) || null,
-      model: readString(args.connection.model) || null,
-      agentResults: args.agentResults.length,
-      notes: args.noteCount,
-      usage: args.usage ?? null,
+      cachedPrompt,
+      generationInfo,
     },
   });
 }
@@ -806,9 +818,17 @@ async function saveRegeneratedMessage(args: {
   thinking?: string | null;
   generationReplay: GenerationReplay | null;
   chatSummaryFingerprint: string | null;
+  cachedPrompt: CachedPromptMessage[] | null;
+  generationInfo: Record<string, unknown>;
 }): Promise<unknown | null> {
   await args.storage.addChatMessageSwipe(args.chatId, args.messageId, collapseExcessBlankLines(args.content));
-  const extraPatch = generationReplayExtraPatch(args.generationReplay, args.chatSummaryFingerprint, args.thinking);
+  const extraPatch = generationReplayExtraPatch(
+    args.generationReplay,
+    args.chatSummaryFingerprint,
+    args.thinking,
+    args.cachedPrompt,
+    args.generationInfo,
+  );
   return args.storage.patchChatMessageExtra(args.messageId, extraPatch);
 }
 
@@ -816,10 +836,14 @@ function generationReplayExtraPatch(
   generationReplay: GenerationReplay | null,
   chatSummaryFingerprint: string | null,
   thinking?: string | null,
+  cachedPrompt?: CachedPromptMessage[] | null,
+  generationInfo?: Record<string, unknown>,
 ): Record<string, unknown> {
   const extraPatch: Record<string, unknown> = {};
   if (generationReplay) extraPatch.generationReplay = generationReplay;
   extraPatch.chatSummaryFingerprint = chatSummaryFingerprint;
+  if (cachedPrompt !== undefined) extraPatch.cachedPrompt = cachedPrompt;
+  if (generationInfo) extraPatch.generationInfo = generationInfo;
   const trimmedThinking = collapseExcessBlankLines(readString(thinking).trim());
   if (trimmedThinking) extraPatch.thinking = trimmedThinking;
   return extraPatch;
@@ -1254,12 +1278,14 @@ export async function* startGeneration(
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input)].filter(
       (message): message is LlmMessage => !!message,
     );
+    const generationParameters = llmParameters(connection, input, chatForGeneration, assembly.parameters);
+    const cachedPrompt = cachedPromptMessages(fitMessagesToContextWindow(baseMessages, generationParameters));
     const { content: streamedContent, thinking: streamedThinking, usage } = yield* streamMainGenerationLoop({
       deps,
       connection,
       input,
       chat: chatForGeneration,
-      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+      parameters: generationParameters,
       baseMessages,
       mainTools,
       toolRuntimeInput,
@@ -1313,6 +1339,8 @@ export async function* startGeneration(
           agentResults: allAgentResults,
           noteCount: connected.createdNotes.length + connected.executedCommands.length,
           chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+          cachedPrompt,
+          parameters: generationParameters,
           attachments: [...connected.assistantAttachments, ...illustration.attachments],
           usage,
         });
@@ -1370,12 +1398,14 @@ export async function* startGeneration(
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,
   );
+  const generationParametersDirect = llmParameters(connection, input, chatForGeneration, assembly.parameters);
+  const cachedPromptDirect = cachedPromptMessages(fitMessagesToContextWindow(baseMessagesDirect, generationParametersDirect));
   const { content: streamedContentDirect, thinking: streamedThinkingDirect, usage } = yield* streamMainGenerationLoop({
     deps,
     connection,
     input,
     chat: chatForGeneration,
-    parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+    parameters: generationParametersDirect,
     baseMessages: baseMessagesDirect,
     mainTools: mainToolsDirect,
     toolRuntimeInput: toolRuntimeInputDirect,
@@ -1408,6 +1438,8 @@ export async function* startGeneration(
         agentResults: [],
         noteCount: connected.createdNotes.length + connected.executedCommands.length,
         chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+        cachedPrompt: cachedPromptDirect,
+        parameters: generationParametersDirect,
         attachments: connected.assistantAttachments,
         usage,
       });

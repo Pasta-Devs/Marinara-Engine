@@ -482,7 +482,7 @@ export function useChatTimelineActions({
     const actionId = ++peekPromptActionSeq.current;
     setPeekPromptData({ messages: [], parameters: null, generationInfo: null, loading: true });
     peekPromptRef.current.mutate(
-      { chatId: activeChatId, forCharacterId: options?.forCharacterId ?? null },
+      { chatId: activeChatId, forCharacterId: options?.forCharacterId ?? null, messageId: options?.messageId ?? null },
       {
         onSuccess: (data) => {
           if (peekPromptActionSeq.current === actionId) setPeekPromptData(data);

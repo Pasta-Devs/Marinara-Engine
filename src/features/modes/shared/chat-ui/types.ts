@@ -9,6 +9,10 @@ export type PeekPromptData = {
     provider?: string;
     temperature?: number | null;
     maxTokens?: number | null;
+    topP?: number | null;
+    topK?: number | null;
+    frequencyPenalty?: number | null;
+    presencePenalty?: number | null;
     showThoughts?: boolean | null;
     reasoningEffort?: string | null;
     verbosity?: string | null;
@@ -28,6 +32,7 @@ export type PeekPromptData = {
 
 export type PeekPromptOptions = {
   forCharacterId?: string | null;
+  messageId?: string | null;
 };
 
 export type MessageWithSwipes = Message & {

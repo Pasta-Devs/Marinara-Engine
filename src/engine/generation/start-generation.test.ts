@@ -541,6 +541,60 @@ describe("startGeneration chat message loading", () => {
       },
     });
   });
+
+  it("stores the sent prompt cache and generation info on generated assistant message extras", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay", promptPresetId: "preset-1" },
+      connectionPatch: {
+        provider: "openai",
+        defaultParameters: { temperature: 0.2, maxTokens: 512 },
+      },
+      prompts: [
+        {
+          id: "preset-1",
+          parameters: { temperature: 0.8, maxTokens: 900 },
+        },
+      ],
+      promptSections: [
+        {
+          id: "main",
+          presetId: "preset-1",
+          name: "Main",
+          role: "system",
+          content: "Preset rules.",
+          enabled: true,
+          sortOrder: 0,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "advance",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    const streamedPrompt = (streamedRequests[0] as { messages: Array<{ role: string; content: string }> }).messages.map(
+      (message) => ({ role: message.role, content: message.content }),
+    );
+    expect(assistantSave?.[1]).not.toHaveProperty("generationInfo");
+    expect(assistantSave?.[1]).toMatchObject({
+      extra: {
+        cachedPrompt: streamedPrompt,
+        generationInfo: {
+          model: "test-model",
+          provider: "openai",
+          temperature: 0.8,
+          maxTokens: 900,
+          agentResults: 0,
+          notes: 0,
+        },
+      },
+    });
+  });
 });
 
 describe("startGeneration chat summary fingerprint metadata", () => {
@@ -665,13 +719,15 @@ describe("startGeneration generation replay metadata", () => {
 
     expect(createChatMessage).not.toHaveBeenCalled();
     expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "impersonate-1", "Done.");
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("impersonate-1", {
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("impersonate-1", expect.objectContaining({
       generationReplay: {
         impersonate: true,
         userMessage: "a tiny answer",
       },
       chatSummaryFingerprint: null,
-    });
+      cachedPrompt: expect.arrayContaining([expect.objectContaining({ role: "user" })]),
+      generationInfo: expect.objectContaining({ model: "test-model" }),
+    }));
   });
 
   it("stores guided replay metadata on the generated assistant message", async () => {
@@ -716,13 +772,15 @@ describe("startGeneration generation replay metadata", () => {
     );
 
     expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.");
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", {
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expect.objectContaining({
       generationReplay: {
         generationGuide: "Make this one colder.",
         generationGuideSource: "guide",
       },
       chatSummaryFingerprint: null,
-    });
+      cachedPrompt: expect.arrayContaining([expect.objectContaining({ content: "Make this one colder." })]),
+      generationInfo: expect.objectContaining({ model: "test-model" }),
+    }));
   });
 
   it("applies stored assistant replay metadata for direct engine regenerates", async () => {
@@ -781,9 +839,11 @@ describe("startGeneration generation replay metadata", () => {
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", {
+    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expect.objectContaining({
       chatSummaryFingerprint: fingerprintChatSummary("Current summary."),
-    });
+      cachedPrompt: expect.any(Array),
+      generationInfo: expect.objectContaining({ model: "test-model" }),
+    }));
   });
 
   it("does not invent replay metadata for plain regenerates without stored replay", async () => {
@@ -796,7 +856,14 @@ describe("startGeneration generation replay metadata", () => {
 
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
 
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", { chatSummaryFingerprint: null });
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({
+        chatSummaryFingerprint: null,
+        cachedPrompt: expect.any(Array),
+        generationInfo: expect.objectContaining({ model: "test-model" }),
+      }),
+    );
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
@@ -818,7 +885,14 @@ describe("startGeneration generation replay metadata", () => {
 
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
 
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", { chatSummaryFingerprint: null });
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({
+        chatSummaryFingerprint: null,
+        cachedPrompt: expect.any(Array),
+        generationInfo: expect.objectContaining({ model: "test-model" }),
+      }),
+    );
   });
 
   it("ignores stored replay metadata from a target outside the active chat", async () => {
@@ -1068,7 +1142,7 @@ describe("startGeneration agent runtime parity", () => {
       (call) => (call[1] as { role?: unknown }).role === "assistant",
     );
     expect(assistantCreate?.[1]).toMatchObject({
-      generationInfo: { agentResults: 1 },
+      extra: { generationInfo: { agentResults: 1 } },
     });
     expect(deps.storage.create).toHaveBeenCalledWith(
       "agent-runs",

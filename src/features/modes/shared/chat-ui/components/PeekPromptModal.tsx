@@ -18,6 +18,10 @@ interface GenerationInfo {
   provider?: string;
   temperature?: number | null;
   maxTokens?: number | null;
+  topP?: number | null;
+  topK?: number | null;
+  frequencyPenalty?: number | null;
+  presencePenalty?: number | null;
   showThoughts?: boolean | null;
   reasoningEffort?: string | null;
   verbosity?: string | null;
@@ -383,6 +387,12 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
     if (gen) {
       if (gen.temperature != null) pills.push({ label: "Temperature", value: String(gen.temperature) });
       if (gen.maxTokens != null) pills.push({ label: "Max Output Tokens", value: fmtTokens(gen.maxTokens) });
+      if (gen.topP != null && gen.topP !== 1) pills.push({ label: "Top P", value: String(gen.topP) });
+      if (gen.topK != null && gen.topK !== 0) pills.push({ label: "Top K", value: String(gen.topK) });
+      if (gen.frequencyPenalty != null && gen.frequencyPenalty !== 0)
+        pills.push({ label: "Freq Penalty", value: String(gen.frequencyPenalty) });
+      if (gen.presencePenalty != null && gen.presencePenalty !== 0)
+        pills.push({ label: "Pres Penalty", value: String(gen.presencePenalty) });
       if (gen.showThoughts) pills.push({ label: "Thinking", value: "On" });
       if (gen.reasoningEffort) pills.push({ label: "Reasoning", value: gen.reasoningEffort });
       if (gen.verbosity) pills.push({ label: "Verbosity", value: gen.verbosity });
