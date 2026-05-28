@@ -121,7 +121,7 @@ const DEFAULT_LOREBOOK_KEEPER_RUN_INTERVAL = BUILT_IN_AGENT_RUN_INTERVAL_DEFAULT
 const CONTINUE_ASSISTANT_RESPONSE_INSTRUCTION =
   "[Generation instruction: continue from the latest assistant message. Do not repeat or summarize the previous response; pick up naturally from where it stopped.]";
 
-function inputUserMessage(input: StartGenerationInput): string {
+export function inputUserMessage(input: StartGenerationInput): string {
   return readString(input.message) || readString(input.userMessage);
 }
 

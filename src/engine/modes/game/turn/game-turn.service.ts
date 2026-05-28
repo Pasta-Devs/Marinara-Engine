@@ -1,5 +1,5 @@
 import type { GenerationEngineDeps, StartGenerationInput } from "../../../generation/start-generation";
-import { startGeneration } from "../../../generation/start-generation";
+import { inputUserMessage, startGeneration } from "../../../generation/start-generation";
 import { isRecord, parseRecord, readString, type JsonRecord } from "../../../generation/runtime-records";
 
 export type GameTurnKind = "start" | "turn" | "retry";
@@ -24,6 +24,15 @@ function gameGuideSourceFor(kind: GameTurnKind): "game_start" | "game_turn" | "g
   return "game_turn";
 }
 
+function hasExplicitBlankUserMessage(input: StartGameTurnInput): boolean {
+  if (input.message == null && input.userMessage == null) return false;
+  return !inputUserMessage(input).trim();
+}
+
+function hasAttachments(input: StartGameTurnInput): boolean {
+  return Array.isArray(input.attachments) && input.attachments.length > 0;
+}
+
 function assertGameChat(chat: JsonRecord, kind: GameTurnKind): void {
   const mode = readString(chat.mode || chat.chatMode);
   if (mode !== "game") {
@@ -44,6 +53,7 @@ export async function* startGameTurnGeneration(
 ) {
   const chatId = readString(input.chatId).trim();
   if (!chatId) throw new Error("chatId is required");
+  if (input.kind === "turn" && hasExplicitBlankUserMessage(input) && !hasAttachments(input)) return;
 
   const rawChat = await deps.storage.get("chats", chatId);
   if (!isRecord(rawChat)) throw new Error("Chat was not found.");

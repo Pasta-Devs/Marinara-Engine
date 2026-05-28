@@ -6729,6 +6729,7 @@ export function GameSurface({
       options?: { commitPendingMove?: boolean },
     ) => {
       if (!sessionInteractive) return;
+      if (!message.trim() && !attachments?.length) return;
       audioManager.unlock();
       // Commit a pending interrupt: persist the truncated GM message before generating
       // so the server-side prompt build doesn't see segments the player never read. We
