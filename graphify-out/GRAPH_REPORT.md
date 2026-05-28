@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 852 files · ~2,819,833 words
+- 852 files · ~2,820,075 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10384 nodes · 22590 edges · 457 communities (421 shown, 36 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 274 edges (avg confidence: 0.8)
+- 10387 nodes · 22601 edges · 457 communities (421 shown, 36 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 275 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9c079f19`
+- Built from commit: `bc3d89e3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -635,8 +635,8 @@ Cohesion: 0.06
 Nodes (41): ACTION_MENU, ActionNarration(), buildCombatVoiceLineKey(), COMBAT_SFX, CombatantCard(), CombatantSpriteVisual(), CombatImpactTone, combatItemTargetsAllies() (+33 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.11
-Nodes (50): today_label(), is_protected_record(), new_id(), now_iso(), active_swipe_index(), active_swipe_update_response(), branch_chat(), bulk_delete_messages() (+42 more)
+Cohesion: 0.10
+Nodes (53): today_label(), is_protected_record(), new_id(), now_iso(), active_swipe_index(), active_swipe_update_response(), branch_chat(), bulk_delete_messages() (+45 more)
 
 ### Community 44 - "Community 44"
 Cohesion: 0.11

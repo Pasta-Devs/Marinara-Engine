@@ -25522,7 +25522,7 @@
       "label": "memory_embedding_context_prefers_dedicated_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1177",
+      "source_location": "L1242",
       "id": "storage_chats_memory_embedding_context_prefers_dedicated_embedding_connection",
       "community": 43,
       "norm_label": "memory_embedding_context_prefers_dedicated_embedding_connection()"
@@ -25531,7 +25531,7 @@
       "label": "embed_memory_content_uses_lexical_fallback_without_context()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1224",
+      "source_location": "L1289",
       "id": "storage_chats_embed_memory_content_uses_lexical_fallback_without_context",
       "community": 43,
       "norm_label": "embed_memory_content_uses_lexical_fallback_without_context()"
@@ -25540,7 +25540,7 @@
       "label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1234",
+      "source_location": "L1299",
       "id": "storage_chats_delete_origin_chat_removes_scene_chats_and_character_scene_memories",
       "community": 43,
       "norm_label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()"
@@ -25549,7 +25549,7 @@
       "label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1349",
+      "source_location": "L1414",
       "id": "storage_chats_delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link",
       "community": 43,
       "norm_label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()"
@@ -25612,7 +25612,7 @@
       "label": "non_negative_i64_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L178",
+      "source_location": "L186",
       "id": "storage_shared_non_negative_i64_value",
       "community": 58,
       "norm_label": "non_negative_i64_value()"
@@ -25621,7 +25621,7 @@
       "label": "swipe_index_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L189",
+      "source_location": "L197",
       "id": "storage_shared_swipe_index_value",
       "community": 58,
       "norm_label": "swipe_index_value()"
@@ -25630,7 +25630,7 @@
       "label": "collapse_excess_blank_lines()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L198",
+      "source_location": "L206",
       "id": "storage_shared_collapse_excess_blank_lines",
       "community": 30,
       "norm_label": "collapse_excess_blank_lines()"
@@ -25639,7 +25639,7 @@
       "label": "normalize_message_text_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L229",
+      "source_location": "L237",
       "id": "storage_shared_normalize_message_text_fields",
       "community": 30,
       "norm_label": "normalize_message_text_fields()"
@@ -25648,7 +25648,7 @@
       "label": "normalize_character_data_for_storage()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L246",
+      "source_location": "L254",
       "id": "storage_shared_normalize_character_data_for_storage",
       "community": 30,
       "norm_label": "normalize_character_data_for_storage()"
@@ -25657,7 +25657,7 @@
       "label": "normalize_update_patch()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L255",
+      "source_location": "L263",
       "id": "storage_shared_normalize_update_patch",
       "community": 30,
       "norm_label": "normalize_update_patch()"
@@ -25666,7 +25666,7 @@
       "label": "patch_message_update()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L261",
+      "source_location": "L269",
       "id": "storage_shared_patch_message_update",
       "community": 30,
       "norm_label": "patch_message_update()"
@@ -25675,7 +25675,7 @@
       "label": "sync_message_patch_content_to_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L275",
+      "source_location": "L283",
       "id": "storage_shared_sync_message_patch_content_to_active_swipe",
       "community": 30,
       "norm_label": "sync_message_patch_content_to_active_swipe()"
@@ -25684,7 +25684,7 @@
       "label": "normalize_typed_json_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L329",
+      "source_location": "L337",
       "id": "storage_shared_normalize_typed_json_fields",
       "community": 30,
       "norm_label": "normalize_typed_json_fields()"
@@ -25693,7 +25693,7 @@
       "label": "normalize_json_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L425",
+      "source_location": "L433",
       "id": "storage_shared_normalize_json_array_fields",
       "community": 30,
       "norm_label": "normalize_json_array_fields()"
@@ -25702,7 +25702,7 @@
       "label": "normalize_nullable_json_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L436",
+      "source_location": "L444",
       "id": "storage_shared_normalize_nullable_json_array_fields",
       "community": 30,
       "norm_label": "normalize_nullable_json_array_fields()"
@@ -25711,7 +25711,7 @@
       "label": "normalize_json_object_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L453",
+      "source_location": "L461",
       "id": "storage_shared_normalize_json_object_fields",
       "community": 30,
       "norm_label": "normalize_json_object_fields()"
@@ -25720,7 +25720,7 @@
       "label": "normalize_nullable_json_object_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L464",
+      "source_location": "L472",
       "id": "storage_shared_normalize_nullable_json_object_fields",
       "community": 30,
       "norm_label": "normalize_nullable_json_object_fields()"
@@ -25729,7 +25729,7 @@
       "label": "normalize_json_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L481",
+      "source_location": "L489",
       "id": "storage_shared_normalize_json_field",
       "community": 30,
       "norm_label": "normalize_json_field()"
@@ -25738,7 +25738,7 @@
       "label": "with_entity_defaults()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L512",
+      "source_location": "L520",
       "id": "storage_shared_with_entity_defaults",
       "community": 155,
       "norm_label": "with_entity_defaults()"
@@ -25747,7 +25747,7 @@
       "label": "TempRoot",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L699",
+      "source_location": "L707",
       "id": "storage_shared_temproot",
       "community": 30,
       "norm_label": "temproot"
@@ -25756,7 +25756,7 @@
       "label": ".drop()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L702",
+      "source_location": "L710",
       "id": "storage_shared_temproot_drop",
       "community": 30,
       "norm_label": ".drop()"
@@ -25765,7 +25765,7 @@
       "label": "temp_root()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L707",
+      "source_location": "L715",
       "id": "storage_shared_temp_root",
       "community": 30,
       "norm_label": "temp_root()"
@@ -25774,7 +25774,7 @@
       "label": "character_update_patch_preserves_object_data()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L718",
+      "source_location": "L726",
       "id": "storage_shared_character_update_patch_preserves_object_data",
       "community": 30,
       "norm_label": "character_update_patch_preserves_object_data()"
@@ -25783,7 +25783,7 @@
       "label": "character_update_patch_rejects_invalid_data_shape()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L735",
+      "source_location": "L743",
       "id": "storage_shared_character_update_patch_rejects_invalid_data_shape",
       "community": 30,
       "norm_label": "character_update_patch_rejects_invalid_data_shape()"
@@ -25792,7 +25792,7 @@
       "label": "message_content_update_patch_updates_active_swipe_content()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L749",
+      "source_location": "L757",
       "id": "storage_shared_message_content_update_patch_updates_active_swipe_content",
       "community": 30,
       "norm_label": "message_content_update_patch_updates_active_swipe_content()"
@@ -25801,7 +25801,7 @@
       "label": "message_content_update_patch_collapses_excess_blank_lines()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L847",
+      "source_location": "L870",
       "id": "storage_shared_message_content_update_patch_collapses_excess_blank_lines",
       "community": 30,
       "norm_label": "message_content_update_patch_collapses_excess_blank_lines()"
@@ -25810,7 +25810,7 @@
       "label": "message_content_update_patch_does_not_invent_missing_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L882",
+      "source_location": "L905",
       "id": "storage_shared_message_content_update_patch_does_not_invent_missing_swipes",
       "community": 30,
       "norm_label": "message_content_update_patch_does_not_invent_missing_swipes()"
@@ -25819,7 +25819,7 @@
       "label": "game_state_snapshot_normalizes_persona_stats_as_nullable_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L909",
+      "source_location": "L932",
       "id": "storage_shared_game_state_snapshot_normalizes_persona_stats_as_nullable_array",
       "community": 30,
       "norm_label": "game_state_snapshot_normalizes_persona_stats_as_nullable_array()"
@@ -25828,7 +25828,7 @@
       "label": "lorebook_defaults_include_vectorization_enabled()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L942",
+      "source_location": "L965",
       "id": "storage_shared_lorebook_defaults_include_vectorization_enabled",
       "community": 30,
       "norm_label": "lorebook_defaults_include_vectorization_enabled()"
@@ -25837,7 +25837,7 @@
       "label": "game_state_snapshot_rejects_malformed_persona_stats_string()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L950",
+      "source_location": "L973",
       "id": "storage_shared_game_state_snapshot_rejects_malformed_persona_stats_string",
       "community": 30,
       "norm_label": "game_state_snapshot_rejects_malformed_persona_stats_string()"
@@ -25846,7 +25846,7 @@
       "label": "normalize_legacy_text_array_fields_preserves_existing_arrays()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L962",
+      "source_location": "L985",
       "id": "storage_shared_normalize_legacy_text_array_fields_preserves_existing_arrays",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_preserves_existing_arrays()"
@@ -25855,7 +25855,7 @@
       "label": "normalize_legacy_text_array_fields_parses_text_encoded_json_arrays()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L969",
+      "source_location": "L992",
       "id": "storage_shared_normalize_legacy_text_array_fields_parses_text_encoded_json_arrays",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_parses_text_encoded_json_arrays()"
@@ -25864,7 +25864,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L976",
+      "source_location": "L999",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty()"
@@ -25873,7 +25873,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L983",
+      "source_location": "L1006",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty()"
@@ -25882,7 +25882,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_scalar_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L990",
+      "source_location": "L1013",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_scalar_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_scalar_with_empty()"
@@ -25891,7 +25891,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_null_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L997",
+      "source_location": "L1020",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_null_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_null_with_empty()"
@@ -25900,7 +25900,7 @@
       "label": "normalize_legacy_text_array_fields_leaves_missing_keys_alone()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1004",
+      "source_location": "L1027",
       "id": "storage_shared_normalize_legacy_text_array_fields_leaves_missing_keys_alone",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_leaves_missing_keys_alone()"
@@ -25909,7 +25909,7 @@
       "label": "normalize_legacy_text_array_fields_ignores_non_object_records()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1011",
+      "source_location": "L1034",
       "id": "storage_shared_normalize_legacy_text_array_fields_ignores_non_object_records",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_ignores_non_object_records()"
@@ -25918,7 +25918,7 @@
       "label": "normalize_legacy_text_bool_fields_preserves_existing_bools()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1018",
+      "source_location": "L1041",
       "id": "storage_shared_normalize_legacy_text_bool_fields_preserves_existing_bools",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_preserves_existing_bools()"
@@ -25927,7 +25927,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_text_true_and_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1026",
+      "source_location": "L1049",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_text_true_and_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_text_true_and_false()"
@@ -25936,7 +25936,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_truthy_text_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1034",
+      "source_location": "L1057",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_truthy_text_aliases",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_truthy_text_aliases()"
@@ -25945,7 +25945,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_falsy_text_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1047",
+      "source_location": "L1070",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_falsy_text_aliases",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_falsy_text_aliases()"
@@ -25954,7 +25954,7 @@
       "label": "normalize_legacy_text_bool_fields_defaults_unknown_string_to_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1060",
+      "source_location": "L1083",
       "id": "storage_shared_normalize_legacy_text_bool_fields_defaults_unknown_string_to_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_defaults_unknown_string_to_false()"
@@ -25963,7 +25963,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1067",
+      "source_location": "L1090",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers()"
@@ -25972,7 +25972,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1076",
+      "source_location": "L1099",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero()"
@@ -25981,7 +25981,7 @@
       "label": "normalize_legacy_text_bool_fields_defaults_null_to_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1084",
+      "source_location": "L1107",
       "id": "storage_shared_normalize_legacy_text_bool_fields_defaults_null_to_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_defaults_null_to_false()"
@@ -25990,7 +25990,7 @@
       "label": "normalize_legacy_text_bool_fields_leaves_missing_keys_alone()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1091",
+      "source_location": "L1114",
       "id": "storage_shared_normalize_legacy_text_bool_fields_leaves_missing_keys_alone",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_leaves_missing_keys_alone()"
@@ -25999,7 +25999,7 @@
       "label": "normalize_legacy_text_bool_fields_ignores_non_object_records()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1098",
+      "source_location": "L1121",
       "id": "storage_shared_normalize_legacy_text_bool_fields_ignores_non_object_records",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_ignores_non_object_records()"
@@ -26008,7 +26008,7 @@
       "label": "decode_uploaded_image_file_rejects_declared_oversized_upload()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1105",
+      "source_location": "L1128",
       "id": "storage_shared_decode_uploaded_image_file_rejects_declared_oversized_upload",
       "community": 30,
       "norm_label": "decode_uploaded_image_file_rejects_declared_oversized_upload()"
@@ -26017,7 +26017,7 @@
       "label": "decode_uploaded_image_file_rejects_non_image_content_type()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1123",
+      "source_location": "L1146",
       "id": "storage_shared_decode_uploaded_image_file_rejects_non_image_content_type",
       "community": 30,
       "norm_label": "decode_uploaded_image_file_rejects_non_image_content_type()"
@@ -26026,7 +26026,7 @@
       "label": "duplicate_record()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1141",
+      "source_location": "L1164",
       "id": "storage_shared_duplicate_record",
       "community": 30,
       "norm_label": "duplicate_record()"
@@ -26035,7 +26035,7 @@
       "label": "find_by_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1157",
+      "source_location": "L1180",
       "id": "storage_shared_find_by_field",
       "community": 30,
       "norm_label": "find_by_field()"
@@ -26044,7 +26044,7 @@
       "label": "decode_path()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1172",
+      "source_location": "L1195",
       "id": "storage_shared_decode_path",
       "community": 217,
       "norm_label": "decode_path()"
@@ -26053,7 +26053,7 @@
       "label": "required_string()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1179",
+      "source_location": "L1202",
       "id": "storage_shared_required_string",
       "community": 30,
       "norm_label": "required_string()"
@@ -26062,7 +26062,7 @@
       "label": "string_array_from_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1186",
+      "source_location": "L1209",
       "id": "storage_shared_string_array_from_value",
       "community": 17,
       "norm_label": "string_array_from_value()"
@@ -26071,7 +26071,7 @@
       "label": "normalize_legacy_text_bool_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1205",
+      "source_location": "L1228",
       "id": "storage_shared_normalize_legacy_text_bool_fields",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields()"
@@ -26080,7 +26080,7 @@
       "label": "normalize_legacy_text_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1240",
+      "source_location": "L1263",
       "id": "storage_shared_normalize_legacy_text_array_fields",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields()"
@@ -26089,7 +26089,7 @@
       "label": "UploadedFile",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1267",
+      "source_location": "L1290",
       "id": "storage_shared_uploadedfile",
       "community": 30,
       "norm_label": "uploadedfile"
@@ -26098,7 +26098,7 @@
       "label": "image_upload_too_large_error()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1276",
+      "source_location": "L1299",
       "id": "storage_shared_image_upload_too_large_error",
       "community": 30,
       "norm_label": "image_upload_too_large_error()"
@@ -26107,7 +26107,7 @@
       "label": "image_upload_invalid_type_error()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1280",
+      "source_location": "L1303",
       "id": "storage_shared_image_upload_invalid_type_error",
       "community": 30,
       "norm_label": "image_upload_invalid_type_error()"
@@ -26116,7 +26116,7 @@
       "label": "decode_uploaded_file_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1284",
+      "source_location": "L1307",
       "id": "storage_shared_decode_uploaded_file_value",
       "community": 30,
       "norm_label": "decode_uploaded_file_value()"
@@ -26125,7 +26125,7 @@
       "label": "decode_uploaded_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1310",
+      "source_location": "L1333",
       "id": "storage_shared_decode_uploaded_file",
       "community": 30,
       "norm_label": "decode_uploaded_file()"
@@ -26134,7 +26134,7 @@
       "label": "decode_uploaded_image_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1318",
+      "source_location": "L1341",
       "id": "storage_shared_decode_uploaded_image_file",
       "community": 30,
       "norm_label": "decode_uploaded_image_file()"
@@ -26143,7 +26143,7 @@
       "label": "decode_uploaded_files()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1350",
+      "source_location": "L1373",
       "id": "storage_shared_decode_uploaded_files",
       "community": 30,
       "norm_label": "decode_uploaded_files()"
@@ -26152,7 +26152,7 @@
       "label": "upload_gallery_image()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1363",
+      "source_location": "L1386",
       "id": "storage_shared_upload_gallery_image",
       "community": 30,
       "norm_label": "upload_gallery_image()"
@@ -26161,7 +26161,7 @@
       "label": "project_list_rows()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1389",
+      "source_location": "L1412",
       "id": "storage_shared_project_list_rows",
       "community": 30,
       "norm_label": "project_list_rows()"
@@ -26170,7 +26170,7 @@
       "label": "project_record()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1402",
+      "source_location": "L1425",
       "id": "storage_shared_project_record",
       "community": 30,
       "norm_label": "project_record()"
@@ -26179,7 +26179,7 @@
       "label": "project_row()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1412",
+      "source_location": "L1435",
       "id": "storage_shared_project_row",
       "community": 30,
       "norm_label": "project_row()"
@@ -26188,7 +26188,7 @@
       "label": "project_nested_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1429",
+      "source_location": "L1452",
       "id": "storage_shared_project_nested_field",
       "community": 30,
       "norm_label": "project_nested_field()"
@@ -26197,7 +26197,7 @@
       "label": "option_string_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1455",
+      "source_location": "L1478",
       "id": "storage_shared_option_string_array",
       "community": 30,
       "norm_label": "option_string_array()"
@@ -26206,7 +26206,7 @@
       "label": "string_array_from_json()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1461",
+      "source_location": "L1484",
       "id": "storage_shared_string_array_from_json",
       "community": 30,
       "norm_label": "string_array_from_json()"
@@ -26215,7 +26215,7 @@
       "label": "metadata_map()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1472",
+      "source_location": "L1495",
       "id": "storage_shared_metadata_map",
       "community": 43,
       "norm_label": "metadata_map()"
@@ -93139,7 +93139,7 @@
       "label": "livePrompt",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.test.ts",
-      "source_location": "L208",
+      "source_location": "L228",
       "id": "generation_prompt_preview_test_liveprompt",
       "community": 129,
       "norm_label": "liveprompt"
@@ -93256,7 +93256,7 @@
       "label": "clear_swipe_scoped_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L144",
+      "source_location": "L136",
       "id": "storage_shared_clear_swipe_scoped_extra",
       "community": 30,
       "norm_label": "clear_swipe_scoped_extra()"
@@ -93266,15 +93266,15 @@
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
       "source_location": "L821",
-      "id": "storage_shared_materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes",
       "community": 30,
-      "norm_label": "materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes()"
+      "norm_label": "materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes()",
+      "id": "storage_shared_materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes"
     },
     {
       "label": "materialize_message_swipe_fields_uses_active_swipe_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L786",
+      "source_location": "L794",
       "id": "storage_shared_materialize_message_swipe_fields_uses_active_swipe_extra",
       "community": 30,
       "norm_label": "materialize_message_swipe_fields_uses_active_swipe_extra()"
@@ -93283,7 +93283,7 @@
       "label": "merge_active_swipe_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L163",
+      "source_location": "L158",
       "id": "storage_shared_merge_active_swipe_extra",
       "community": 30,
       "norm_label": "merge_active_swipe_extra()"
@@ -93292,7 +93292,7 @@
       "label": "swipe_scoped_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L152",
+      "source_location": "L146",
       "id": "storage_shared_swipe_scoped_extra",
       "community": 30,
       "norm_label": "swipe_scoped_extra()"
@@ -93301,7 +93301,7 @@
       "label": "delete_swipe_preserves_shifted_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1122",
+      "source_location": "L1184",
       "id": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
       "community": 43,
       "norm_label": "delete_swipe_preserves_shifted_active_swipe()"
@@ -93458,6 +93458,33 @@
       "id": "chat_ui_types_peekpromptmessage",
       "community": 6,
       "norm_label": "peekpromptmessage"
+    },
+    {
+      "label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1138",
+      "id": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
+      "community": 43,
+      "norm_label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()"
+    },
+    {
+      "label": "json_object_value()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L176",
+      "id": "storage_shared_json_object_value",
+      "community": 43,
+      "norm_label": "json_object_value()"
+    },
+    {
+      "label": "materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L835",
+      "id": "storage_shared_materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra",
+      "community": 43,
+      "norm_label": "materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra()"
     }
   ],
   "links": [
@@ -332358,8 +332385,126 @@
       "source": "storage_shared_sync_message_patch_content_to_active_swipe",
       "target": "storage_shared_swipe_scoped_extra",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1144",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_json_object_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L833",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1162",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1145",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "source": "storage_chats_object_extra",
+      "target": "storage_shared_json_object_value"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "storage_shared_clear_swipe_scoped_extra",
+      "target": "storage_shared_json_object_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L95",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields",
+      "target": "storage_shared_json_object_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L849",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra",
+      "target": "storage_shared_materialize_message_swipe_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L163",
+      "weight": 1.0,
+      "source": "storage_shared_merge_active_swipe_extra",
+      "target": "storage_shared_json_object_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L147",
+      "weight": 1.0,
+      "source": "storage_shared_swipe_scoped_extra",
+      "target": "storage_shared_json_object_value",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "9c079f19bffdb146c7b0e69090275a5902182c9d"
+  "built_at_commit": "bc3d89e3ff0d5e162ecee35e116ea5244390f6c0"
 }

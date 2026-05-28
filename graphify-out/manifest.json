@@ -295,12 +295,12 @@
     "semantic_hash": ""
   },
   "src-tauri/src/http_dispatch.rs": {
-    "mtime": 1779978430.7932003,
+    "mtime": 1779990181.7632122,
     "ast_hash": "19e8033165ab040f958aa166a7a5c2ae",
     "semantic_hash": ""
   },
   "src-tauri/src/http_server.rs": {
-    "mtime": 1779978430.7932003,
+    "mtime": 1779990181.7632122,
     "ast_hash": "de252348326f4c49a587fba9f0820f5e",
     "semantic_hash": ""
   },
@@ -415,7 +415,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/integrations.rs": {
-    "mtime": 1779924805.7043095,
+    "mtime": 1779990181.7612128,
     "ast_hash": "b29e60ef26fc51c8ea73c76791517b1e",
     "semantic_hash": ""
   },
@@ -450,7 +450,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/images.rs": {
-    "mtime": 1779924805.7033095,
+    "mtime": 1779990181.760215,
     "ast_hash": "040845317ff53f8c903599b62aac1672",
     "semantic_hash": ""
   },
@@ -475,13 +475,13 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/chats.rs": {
-    "mtime": 1779986504.0483968,
-    "ast_hash": "65af509f503de160df951b004539c1f0",
+    "mtime": 1779990200.3379657,
+    "ast_hash": "8f74d90aa76aba79fc2298b37b1848d5",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/shared.rs": {
-    "mtime": 1779986361.5633688,
-    "ast_hash": "c709211103f683779b93552ff17c7fd2",
+    "mtime": 1779990204.5220628,
+    "ast_hash": "5bbbdf6f9e9095106f2e84f785cb2c8e",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/custom_tools.rs": {
@@ -490,12 +490,12 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/admin.rs": {
-    "mtime": 1779924823.7614946,
+    "mtime": 1779990181.760215,
     "ast_hash": "e7266480d4c56371e6109224503c06ab",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/images/providers.rs": {
-    "mtime": 1779924823.7624948,
+    "mtime": 1779990181.7612128,
     "ast_hash": "3f843a57f170a39c70dfe683b362510a",
     "semantic_hash": ""
   },
@@ -565,7 +565,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/integrations/discord.rs": {
-    "mtime": 1779924805.7043095,
+    "mtime": 1779990181.7622123,
     "ast_hash": "e1f8a8e4f44050617144e6070884b230",
     "semantic_hash": ""
   },
@@ -580,7 +580,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/profile/legacy.rs": {
-    "mtime": 1779924823.7624948,
+    "mtime": 1779990181.7622123,
     "ast_hash": "ae337a77f2438a65da87ce535d03a784",
     "semantic_hash": ""
   },
@@ -630,7 +630,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/commands/entities.rs": {
-    "mtime": 1779978430.7922,
+    "mtime": 1779990181.760215,
     "ast_hash": "8b350e3089c63826023ddfbabb712bb6",
     "semantic_hash": ""
   },
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/hooks/use-chat-timeline-actions.ts": {
-    "mtime": 1779986273.144897,
-    "ast_hash": "efc8b67e8ad38a87ab69ba2df378598a",
+    "mtime": 1779990090.7340882,
+    "ast_hash": "2bbee986d429a8175f48ed5a4d7aee06",
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/hooks/use-chat-surface-data.ts": {
@@ -3900,8 +3900,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-preview.ts": {
-    "mtime": 1779989105.6622524,
-    "ast_hash": "dffd86ef619405315a45eb5420964377",
+    "mtime": 1779989745.2211702,
+    "ast_hash": "15b2a7236fb6b7583057a69b1e5b330f",
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-overrides.test.ts": {
@@ -5780,8 +5780,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-preview.test.ts": {
-    "mtime": 1779988399.129577,
-    "ast_hash": "8f1ea4d1ae51f11731b61f59148c4e19",
+    "mtime": 1779989753.577447,
+    "ast_hash": "736643d0537031b18c29eba874ce782c",
     "semantic_hash": ""
   },
   "src/features/runtime/generation/hooks/use-generate.test.ts": {

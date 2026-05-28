@@ -106,11 +106,11 @@ export async function previewGenerationPrompt(
   input: PromptPreviewInput,
 ): Promise<PromptPreviewResult> {
   const chat = requireRecord(await storage.get("chats", input.chatId), "Chat");
-  const connection = await resolveGenerationConnection(storage, chat, input);
   const storedMessages = await loadChatMessages(storage, input.chatId, promptPreviewMessageLoadOptions(chat));
   const cached = await cachedPromptPreview(storage, chat, storedMessages, input);
   if (cached) return cached;
 
+  const connection = await resolveGenerationConnection(storage, chat, input);
   const request = {
     promptPresetId: input.presetId ?? (readString(chat.promptPresetId) || null),
     forCharacterId: input.forCharacterId ?? null,

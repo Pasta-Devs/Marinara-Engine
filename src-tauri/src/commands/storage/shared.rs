@@ -92,10 +92,7 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
                 .and_then(|swipe| swipe.get("content"))
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
-            let active_extra = active_swipe
-                .and_then(|swipe| swipe.get("extra"))
-                .filter(|extra| extra.is_object())
-                .cloned();
+            let active_extra = json_object_value(active_swipe.and_then(|swipe| swipe.get("extra")));
             (swipe_count, active_index, active_content, active_extra)
         })
     else {
@@ -115,11 +112,6 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
         object.insert(
             "extra".to_string(),
             merge_active_swipe_extra(object.get("extra"), extra),
-        );
-    } else if swipe_count > 1 {
-        object.insert(
-            "extra".to_string(),
-            clear_swipe_scoped_extra(object.get("extra")),
         );
     }
 }
@@ -142,7 +134,9 @@ const SWIPE_SCOPED_EXTRA_KEYS: [&str; 14] = [
 ];
 
 pub(crate) fn clear_swipe_scoped_extra(base: Option<&Value>) -> Value {
-    let mut merged = base.and_then(Value::as_object).cloned().unwrap_or_default();
+    let mut merged = json_object_value(base)
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
     for key in SWIPE_SCOPED_EXTRA_KEYS {
         merged.remove(key);
     }
@@ -150,7 +144,8 @@ pub(crate) fn clear_swipe_scoped_extra(base: Option<&Value>) -> Value {
 }
 
 pub(crate) fn swipe_scoped_extra(value: Option<&Value>) -> Option<Value> {
-    let object = value.and_then(Value::as_object)?;
+    let value = json_object_value(value)?;
+    let object = value.as_object()?;
     let mut scoped = Map::new();
     for key in SWIPE_SCOPED_EXTRA_KEYS {
         if let Some(value) = object.get(key) {
@@ -165,7 +160,10 @@ pub(crate) fn merge_active_swipe_extra(base: Option<&Value>, active_extra: Value
         .as_object()
         .cloned()
         .unwrap_or_default();
-    if let Some(active) = active_extra.as_object() {
+    if let Some(active_value) = json_object_value(Some(&active_extra)) {
+        let Some(active) = active_value.as_object() else {
+            return Value::Object(merged);
+        };
         for key in SWIPE_SCOPED_EXTRA_KEYS {
             if let Some(value) = active.get(key) {
                 merged.insert(key.to_string(), value.clone());
@@ -173,6 +171,16 @@ pub(crate) fn merge_active_swipe_extra(base: Option<&Value>, active_extra: Value
         }
     }
     Value::Object(merged)
+}
+
+pub(crate) fn json_object_value(value: Option<&Value>) -> Option<Value> {
+    match value? {
+        Value::Object(_) => value.cloned(),
+        Value::String(raw) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .filter(Value::is_object),
+        _ => None,
+    }
 }
 
 pub(crate) fn non_negative_i64_value(value: Option<&Value>) -> Option<i64> {
@@ -812,13 +820,19 @@ mod tests {
 
         assert_eq!(message["content"], json!("second"));
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
-        assert_eq!(message["extra"]["generationInfo"]["model"], json!("second-model"));
-        assert_eq!(message["extra"]["reasoning_content"], json!("second reasoning"));
+        assert_eq!(
+            message["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
+        assert_eq!(
+            message["extra"]["reasoning_content"],
+            json!("second reasoning")
+        );
         assert!(message["extra"]["cachedPrompt"].is_null());
     }
 
     #[test]
-    fn materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes() {
+    fn materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra() {
         let mut message = json!({
             "content": "old visible",
             "activeSwipeIndex": 1,
@@ -838,9 +852,18 @@ mod tests {
 
         assert_eq!(message["content"], json!("second"));
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
-        assert!(message["extra"]["generationInfo"].is_null());
-        assert!(message["extra"]["reasoning_content"].is_null());
-        assert!(message["extra"]["cachedPrompt"].is_null());
+        assert_eq!(
+            message["extra"]["generationInfo"]["model"],
+            json!("old-model")
+        );
+        assert_eq!(
+            message["extra"]["reasoning_content"],
+            json!("stale reasoning")
+        );
+        assert_eq!(
+            message["extra"]["cachedPrompt"][0]["content"],
+            json!("old prompt")
+        );
     }
 
     #[test]

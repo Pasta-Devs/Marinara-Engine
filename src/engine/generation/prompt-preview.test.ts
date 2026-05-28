@@ -165,6 +165,26 @@ describe("previewGenerationPrompt cached prompts", () => {
     expect(result.messages).toEqual([{ role: "system", content: "Older cached prompt." }]);
   });
 
+  it("returns a saved prompt cache without requiring the current connection", async () => {
+    const { storage } = previewStorage({
+      chat: { connectionId: "missing-connection" },
+      messages: [
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "Visible reply.",
+          extra: { cachedPrompt: [{ role: "system", content: "Cached prompt survives connection changes." }] },
+        },
+      ],
+    });
+
+    const result = await previewGenerationPrompt(storage, { chatId: "chat-1", messageId: "assistant-1" });
+
+    expect(result.messages).toEqual([{ role: "system", content: "Cached prompt survives connection changes." }]);
+    expect(storage.get).not.toHaveBeenCalledWith("connections", "missing-connection");
+  });
+
   it("uses the active swipe prompt cache before message-level fallback metadata", async () => {
     const { storage } = previewStorage({
       messages: [

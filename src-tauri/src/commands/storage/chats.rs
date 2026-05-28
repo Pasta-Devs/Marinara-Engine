@@ -183,7 +183,7 @@ fn active_swipe_update_response(message: &Value) -> Value {
 }
 
 fn object_extra(value: Option<&Value>) -> Option<Value> {
-    value.filter(|extra| extra.is_object()).cloned()
+    json_object_value(value)
 }
 
 fn preserve_active_swipe_extra(swipes: &mut [Value], active_index: usize, extra: Option<Value>) {
@@ -1093,19 +1093,29 @@ mod tests {
 
         assert_eq!(updated["activeSwipeIndex"], json!(1));
         assert_eq!(updated["extra"]["hiddenFromAI"], json!(true));
-        assert_eq!(updated["extra"]["generationInfo"]["model"], json!("second-model"));
-        assert_eq!(updated["extra"]["reasoning_content"], json!("second reasoning"));
-        assert_eq!(updated["swipes"][0]["extra"]["generationInfo"]["model"], json!("first-model"));
-        assert_eq!(updated["swipes"][0]["extra"]["reasoning_content"], json!("first reasoning"));
-        assert_eq!(updated["swipes"][1]["extra"]["generationInfo"]["model"], json!("second-model"));
+        assert_eq!(
+            updated["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
+        assert_eq!(
+            updated["extra"]["reasoning_content"],
+            json!("second reasoning")
+        );
+        assert_eq!(
+            updated["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(
+            updated["swipes"][0]["extra"]["reasoning_content"],
+            json!("first reasoning")
+        );
+        assert_eq!(
+            updated["swipes"][1]["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
 
-        let switched = set_active_swipe(
-            &state,
-            "chat-1",
-            "message-1",
-            json!({ "index": 0 }),
-        )
-        .expect("swipe should switch");
+        let switched = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 0 }))
+            .expect("swipe should switch");
 
         assert_eq!(switched["content"], json!("first"));
         let persisted = state
@@ -1114,8 +1124,60 @@ mod tests {
             .expect("message lookup should succeed")
             .expect("message should exist");
         assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
-        assert_eq!(persisted["extra"]["generationInfo"]["model"], json!("first-model"));
-        assert_eq!(persisted["extra"]["reasoning_content"], json!("first reasoning"));
+        assert_eq!(
+            persisted["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(
+            persisted["extra"]["reasoning_content"],
+            json!("first reasoning")
+        );
+    }
+
+    #[test]
+    fn message_swipes_parse_stringified_parent_extra_before_preserving_active_extra() {
+        let state = test_state("swipe-string-extra");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "extra": r#"{"hiddenFromAI":true,"generationInfo":{"model":"first-model"},"reasoning_content":"first reasoning"}"#,
+                    "swipes": [{ "content": "first" }]
+                }),
+            )
+            .expect("message should be created");
+
+        let updated = message_swipes(
+            &state,
+            "POST",
+            "chat-1",
+            "message-1",
+            json!({
+                "content": "second",
+                "extra": { "generationInfo": { "model": "second-model" } }
+            }),
+        )
+        .expect("swipe should be added");
+
+        assert_eq!(updated["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(
+            updated["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
+        assert_eq!(
+            updated["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(
+            updated["swipes"][0]["extra"]["reasoning_content"],
+            json!("first reasoning")
+        );
     }
 
     #[test]
@@ -1170,7 +1232,10 @@ mod tests {
         assert_eq!(updated["activeSwipeIndex"], json!(0));
         assert_eq!(updated["content"], json!("second"));
         assert_eq!(updated["extra"]["hiddenFromAI"], json!(true));
-        assert_eq!(updated["extra"]["generationInfo"]["model"], json!("second-model"));
+        assert_eq!(
+            updated["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
     }
 
     #[test]

@@ -478,27 +478,41 @@ export function useChatTimelineActions({
     [activeChatId, branchChatRef],
   );
 
-  const handlePeekPrompt = useCallback((options?: PeekPromptOptions) => {
-    const actionId = ++peekPromptActionSeq.current;
-    setPeekPromptData({ messages: [], parameters: null, generationInfo: null, loading: true });
-    peekPromptRef.current.mutate(
-      { chatId: activeChatId, forCharacterId: options?.forCharacterId ?? null, messageId: options?.messageId ?? null },
-      {
-        onSuccess: (data) => {
-          if (peekPromptActionSeq.current === actionId) setPeekPromptData(data);
-        },
-        onError: (error) => {
-          if (peekPromptActionSeq.current !== actionId) return;
-          setPeekPromptData({
-            messages: [],
-            parameters: null,
-            generationInfo: null,
-            error: error instanceof Error ? error.message : "Could not assemble prompt.",
-          });
-        },
-      },
-    );
-  }, [activeChatId, peekPromptRef]);
+  const handlePeekPrompt = useCallback(
+    (options?: PeekPromptOptions) => {
+      const actionId = ++peekPromptActionSeq.current;
+      const messageId = options?.messageId ?? null;
+      setPeekPromptData({ messages: [], parameters: null, generationInfo: null, loading: true });
+
+      void (async () => {
+        while (messageId) {
+          const pendingSwipeMutation = pendingSwipeMutationsRef.current.get(messageId);
+          if (!pendingSwipeMutation) break;
+          await pendingSwipeMutation;
+          if (pendingSwipeMutationsRef.current.get(messageId) === pendingSwipeMutation) break;
+        }
+        if (peekPromptActionSeq.current !== actionId) return;
+        peekPromptRef.current.mutate(
+          { chatId: activeChatId, forCharacterId: options?.forCharacterId ?? null, messageId },
+          {
+            onSuccess: (data) => {
+              if (peekPromptActionSeq.current === actionId) setPeekPromptData(data);
+            },
+            onError: (error) => {
+              if (peekPromptActionSeq.current !== actionId) return;
+              setPeekPromptData({
+                messages: [],
+                parameters: null,
+                generationInfo: null,
+                error: error instanceof Error ? error.message : "Could not assemble prompt.",
+              });
+            },
+          },
+        );
+      })();
+    },
+    [activeChatId, peekPromptRef],
+  );
 
   const closePeekPrompt = useCallback(() => {
     peekPromptActionSeq.current++;
