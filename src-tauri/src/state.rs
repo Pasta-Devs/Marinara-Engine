@@ -322,7 +322,7 @@ fn migrate_collection_media_references(
         let reference = std::iter::once(migration.primary_field)
             .chain(migration.mirror_fields.iter().copied())
             .filter_map(|field| object.get(field).and_then(Value::as_str))
-            .find_map(|value| local_path_from_media_reference(value))
+            .find_map(local_path_from_media_reference)
             .and_then(|path| {
                 migrate_media_file(
                     data_dir,
@@ -452,12 +452,10 @@ fn local_path_from_media_reference(value: &str) -> Option<PathBuf> {
         || trimmed.starts_with("blob:")
         || trimmed.starts_with("tauri-api:")
         || trimmed.starts_with("marinara-")
-        || trimmed.starts_with("http://")
+        || (trimmed.starts_with("http://") && !trimmed.starts_with("http://asset.localhost/"))
         || trimmed.starts_with("https://")
     {
-        if !trimmed.starts_with("http://asset.localhost/") {
-            return None;
-        }
+        return None;
     }
 
     let path = if let Some(encoded) = trimmed.strip_prefix("asset://localhost/") {

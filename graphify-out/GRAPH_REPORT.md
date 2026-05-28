@@ -1,7 +1,7 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 851 files · ~2,820,448 words
+- 851 files · ~2,820,445 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `09b7bf13`
+- Built from commit: `d6098867`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

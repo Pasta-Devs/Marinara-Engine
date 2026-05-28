@@ -77092,7 +77092,7 @@
       "label": "is_absolute_filesystem_path()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L487",
+      "source_location": "L485",
       "id": "src_state_is_absolute_filesystem_path",
       "community": 171,
       "norm_label": "is_absolute_filesystem_path()"
@@ -77101,7 +77101,7 @@
       "label": "is_supported_media_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L496",
+      "source_location": "L494",
       "id": "src_state_is_supported_media_file",
       "community": 171,
       "norm_label": "is_supported_media_file()"
@@ -77110,7 +77110,7 @@
       "label": "managed_media_filename()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L507",
+      "source_location": "L505",
       "id": "src_state_managed_media_filename",
       "community": 171,
       "norm_label": "managed_media_filename()"
@@ -77119,7 +77119,7 @@
       "label": "media_filename_hint()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L520",
+      "source_location": "L518",
       "id": "src_state_media_filename_hint",
       "community": 171,
       "norm_label": "media_filename_hint()"
@@ -77128,7 +77128,7 @@
       "label": "is_path_inside_dir()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L537",
+      "source_location": "L535",
       "id": "src_state_is_path_inside_dir",
       "community": 171,
       "norm_label": "is_path_inside_dir()"
@@ -77137,7 +77137,7 @@
       "label": "percent_decode()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L547",
+      "source_location": "L545",
       "id": "src_state_percent_decode",
       "community": 171,
       "norm_label": "percent_decode()"
@@ -77146,7 +77146,7 @@
       "label": "hex_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L573",
+      "source_location": "L571",
       "id": "src_state_hex_value",
       "community": 171,
       "norm_label": "hex_value()"
@@ -77155,7 +77155,7 @@
       "label": "repair_snapshot_persona_stats_for_startup()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L582",
+      "source_location": "L580",
       "id": "src_state_repair_snapshot_persona_stats_for_startup",
       "community": 171,
       "norm_label": "repair_snapshot_persona_stats_for_startup()"
@@ -77164,7 +77164,7 @@
       "label": "TempRoot",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L619",
+      "source_location": "L617",
       "id": "src_state_temproot",
       "community": 166,
       "norm_label": "temproot"
@@ -77173,7 +77173,7 @@
       "label": ".drop()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L622",
+      "source_location": "L620",
       "id": "src_state_temproot_drop",
       "community": 166,
       "norm_label": ".drop()"
@@ -77182,7 +77182,7 @@
       "label": "temp_root()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L627",
+      "source_location": "L625",
       "id": "src_state_temp_root",
       "community": 166,
       "norm_label": "temp_root()"
@@ -77191,7 +77191,7 @@
       "label": "app_state_startup_accepts_snapshot_persona_stats_arrays()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L636",
+      "source_location": "L634",
       "id": "src_state_app_state_startup_accepts_snapshot_persona_stats_arrays",
       "community": 166,
       "norm_label": "app_state_startup_accepts_snapshot_persona_stats_arrays()"
@@ -77200,7 +77200,7 @@
       "label": "app_state_startup_repairs_malformed_snapshot_persona_stats_to_null()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L666",
+      "source_location": "L664",
       "id": "src_state_app_state_startup_repairs_malformed_snapshot_persona_stats_to_null",
       "community": 166,
       "norm_label": "app_state_startup_repairs_malformed_snapshot_persona_stats_to_null()"
@@ -77209,7 +77209,7 @@
       "label": "app_state_startup_copies_stale_local_avatar_references_into_managed_storage()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L704",
+      "source_location": "L702",
       "id": "src_state_app_state_startup_copies_stale_local_avatar_references_into_managed_storage",
       "community": 166,
       "norm_label": "app_state_startup_copies_stale_local_avatar_references_into_managed_storage()"
@@ -77218,7 +77218,7 @@
       "label": "app_state_startup_copies_stale_chat_background_references_into_managed_storage()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L751",
+      "source_location": "L749",
       "id": "src_state_app_state_startup_copies_stale_chat_background_references_into_managed_storage",
       "community": 166,
       "norm_label": "app_state_startup_copies_stale_chat_background_references_into_managed_storage()"
@@ -77227,7 +77227,7 @@
       "label": "app_state_startup_recovers_when_collection_and_backup_are_corrupt()",
       "file_type": "code",
       "source_file": "src-tauri/src/state.rs",
-      "source_location": "L787",
+      "source_location": "L785",
       "id": "src_state_app_state_startup_recovers_when_collection_and_backup_are_corrupt",
       "community": 166,
       "norm_label": "app_state_startup_recovers_when_collection_and_backup_are_corrupt()"
@@ -331763,5 +331763,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "09b7bf13b15c2aa4f917c50c9d6ba98e83abda25"
+  "built_at_commit": "d60988672286d9993c117d70210fde601f943298"
 }
