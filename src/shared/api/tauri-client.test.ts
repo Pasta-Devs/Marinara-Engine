@@ -69,12 +69,13 @@ describe("invokeTauri remote runtime routing", () => {
   });
 
   it.each([
+    ["load_url_binary", { url: "https://example.com/image.png", fallbackMime: "image/png" }],
     ["tts_config", undefined],
     ["tts_update_config", { config: { enabled: true } }],
     ["tts_voices", undefined],
     ["tts_speak", { input: { text: "hello" } }],
     ["translate_text_command", { input: { text: "bonjour", provider: "google", targetLanguage: "en" } }],
-  ])("routes remote-capable integration command %s to the configured remote runtime", async (command, args) => {
+  ])("routes remote-capable shared command %s to the configured remote runtime", async (command, args) => {
     useUIStore.setState({ remoteRuntimeUrl: "https://remote.example/runtime" });
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 

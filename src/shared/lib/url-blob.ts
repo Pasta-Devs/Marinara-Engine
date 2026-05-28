@@ -1,9 +1,4 @@
-import { invokeTauri } from "../api/tauri-client";
-
-type BinaryLoadResponse = {
-  base64?: string;
-  mimeType?: string;
-};
+import { urlBinaryApi } from "../api/url-binary-api";
 
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -31,12 +26,7 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 }
 
 async function loadRemoteBlob(url: string, fallbackMimeType: string): Promise<Blob> {
-  const response = await invokeTauri<BinaryLoadResponse>("load_url_binary", {
-    url,
-    fallbackMime: fallbackMimeType,
-  });
-  const base64 = response.base64 ?? "";
-  return new Blob([bytesToArrayBuffer(base64ToBytes(base64))], { type: response.mimeType ?? fallbackMimeType });
+  return urlBinaryApi.load(url, fallbackMimeType);
 }
 
 export async function loadUrlBlob(
