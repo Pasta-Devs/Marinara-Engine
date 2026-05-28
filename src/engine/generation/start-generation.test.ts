@@ -541,6 +541,67 @@ describe("startGeneration chat message loading", () => {
       },
     });
   });
+
+  it("uses the same merged parameter sources for assembly formatting and the LLM request", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      connectionPatch: {
+        defaultParameters: {
+          strictRoleFormatting: false,
+        },
+      },
+      chatMetadata: {
+        chatParameters: {
+          singleUserMessage: true,
+        },
+      },
+      prompts: [{ id: "preset" }],
+      promptSections: [
+        {
+          id: "main",
+          presetId: "preset",
+          name: "Main",
+          role: "system",
+          content: "Rules.",
+          enabled: true,
+          sortOrder: 0,
+        },
+        {
+          id: "history",
+          presetId: "preset",
+          name: "History",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          enabled: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "advance",
+        impersonateBlockAgents: true,
+        promptPresetId: "preset",
+      }),
+    );
+
+    expect(streamedRequests[0]).toMatchObject({
+      parameters: {
+        strictRoleFormatting: false,
+        singleUserMessage: true,
+      },
+    });
+    const messages = (streamedRequests[0] as { messages: Array<{ role: string; content: string }> }).messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ role: "user" });
+    expect(messages[0]?.content).toContain("[SYSTEM]");
+    expect(messages[0]?.content).toContain("Rules.");
+    expect(messages[0]?.content).toContain("[ASSISTANT]");
+    expect(messages[0]?.content).toContain("What now?");
+    expect(messages[0]?.content).toContain("advance");
+  });
 });
 
 describe("startGeneration chat summary fingerprint metadata", () => {

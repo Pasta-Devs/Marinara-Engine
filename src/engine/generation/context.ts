@@ -1,6 +1,6 @@
 import type { StorageGateway } from "../capabilities/storage";
-import { mergeStoredGenerationParameters } from "./generate-route-utils";
-import { boolish, isRecord, parseRecord, readString, type JsonRecord } from "./runtime-records";
+import { generationParameterSources, mergeStoredGenerationParameters } from "./generate-route-utils";
+import { boolish, isRecord, readString, type JsonRecord } from "./runtime-records";
 
 export function requireRecord(value: unknown, label: string): JsonRecord {
   if (isRecord(value)) return value;
@@ -42,16 +42,7 @@ export function llmParameters(
   chat?: JsonRecord | null,
   promptPresetParameters?: unknown,
 ): Record<string, unknown> {
-  const meta = parseRecord(chat?.metadata);
-  const mode = readString(chat?.mode || chat?.chatMode);
-  const setupConfig = parseRecord(meta.gameSetupConfig);
-  const merged = mergeStoredGenerationParameters(
-    connection.defaultParameters,
-    promptPresetParameters,
-    mode === "game" ? setupConfig.generationParameters : null,
-    mode === "game" ? meta.gameGenerationParameters : null,
-    meta.chatParameters,
-    input.parameters,
-  );
+  const sources = generationParameterSources(connection, input, chat, promptPresetParameters);
+  const merged = mergeStoredGenerationParameters(...sources);
   return merged ?? {};
 }

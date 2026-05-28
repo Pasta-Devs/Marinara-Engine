@@ -17,7 +17,11 @@ import type { GameActiveState, GameCampaignPlan, GameMap, GameNpc, HudWidget, Se
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
-import { mergeStoredGenerationParameters, type StoredGenerationParameters } from "./generate-route-utils";
+import {
+  generationParameterSources,
+  mergeStoredGenerationParameters,
+  type StoredGenerationParameters,
+} from "./generate-route-utils";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -1566,9 +1570,7 @@ export async function assembleGenerationPrompt(
   });
   const presetId = selectedPreset?.id ?? null;
   const promptParameters = mergeStoredGenerationParameters(
-    selectedPreset?.parameters,
-    input.request.parameters,
-    input.request,
+    ...generationParameterSources(input.connection, input.request, input.chat, selectedPreset?.parameters),
   );
   const wrapFormat =
     selectedPreset?.wrapFormat ??

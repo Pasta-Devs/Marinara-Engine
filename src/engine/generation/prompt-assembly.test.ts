@@ -509,6 +509,48 @@ describe("assembleGenerationPrompt preset parameters", () => {
     expect(assembly.messages[0]?.content).toContain("[ASSISTANT]");
     expect(assembly.messages[0]?.content).toContain("Welcome back.");
   });
+
+  it("uses connection and chat-scoped formatting parameters during prompt assembly", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithSections([
+        section({ id: "main", name: "Main", role: "system", content: "Rules.", sortOrder: 0 }),
+        section({
+          id: "history",
+          name: "History",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          sortOrder: 1,
+        }),
+      ]),
+      {
+        chat: {
+          id: "chat",
+          mode: "roleplay",
+          metadata: {
+            chatParameters: {
+              singleUserMessage: true,
+            },
+          },
+        },
+        storedMessages: [{ role: "assistant", content: "Welcome back.", contextKind: "history" }],
+        connection: {
+          defaultParameters: {
+            strictRoleFormatting: false,
+          },
+        },
+        request: { promptPresetId: "preset", historyLimit: 10 },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.parameters).toBeNull();
+    expect(assembly.messages).toHaveLength(1);
+    expect(assembly.messages[0]).toMatchObject({ role: "user" });
+    expect(assembly.messages[0]?.content).toContain("[SYSTEM]");
+    expect(assembly.messages[0]?.content).toContain("Rules.");
+    expect(assembly.messages[0]?.content).toContain("[ASSISTANT]");
+    expect(assembly.messages[0]?.content).toContain("Welcome back.");
+  });
 });
 
 describe("assembleGenerationPrompt strict roles", () => {
