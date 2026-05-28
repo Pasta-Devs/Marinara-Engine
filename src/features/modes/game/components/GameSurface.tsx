@@ -4552,12 +4552,15 @@ export function GameSurface({
   const sendMessage = useCallback(
     (message: string, attachments?: Array<{ type: string; data: string }>) => {
       if ((chatMeta.gameSessionStatus as string) === "concluded") return;
+      const trimmedMessage = message.trim();
+      const hasAttachments = !!attachments?.length;
+      if (!trimmedMessage && !hasAttachments) return;
       generateGameTurn({
         chatId: activeChatId,
         connectionId: null,
         kind: "turn",
-        userMessage: formatTextQuotes(message, quoteFormat),
-        ...(attachments?.length ? { attachments } : {}),
+        userMessage: formatTextQuotes(trimmedMessage, quoteFormat),
+        ...(hasAttachments ? { attachments } : {}),
       });
     },
     [activeChatId, chatMeta.gameSessionStatus, generateGameTurn, quoteFormat],

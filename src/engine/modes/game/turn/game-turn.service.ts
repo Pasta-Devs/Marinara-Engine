@@ -37,6 +37,12 @@ function assertGameChat(chat: JsonRecord, kind: GameTurnKind): void {
   }
 }
 
+function hasPlayerTurnInput(input: StartGameTurnInput): boolean {
+  const text = readString(input.message).trim() || readString(input.userMessage).trim();
+  const attachments = Array.isArray(input.attachments) ? input.attachments : [];
+  return !!text || attachments.length > 0;
+}
+
 export async function* startGameTurnGeneration(
   deps: GenerationEngineDeps,
   input: StartGameTurnInput,
@@ -49,6 +55,7 @@ export async function* startGameTurnGeneration(
   if (!isRecord(rawChat)) throw new Error("Chat was not found.");
   const chat = rawChat;
   assertGameChat(chat, input.kind);
+  if (input.kind === "turn" && !hasPlayerTurnInput(input)) return;
 
   const generationInput: StartGenerationInput = {
     ...input,
