@@ -106,6 +106,49 @@ describe("gameApi.createGame folderId inheritance", () => {
   });
 });
 
+describe("gameApi.setupGame response contract", () => {
+  beforeEach(() => {
+    Object.values(storageApiMock).forEach((fn) => fn.mockReset());
+  });
+
+  it("returns the updated ready session chat after setup succeeds", async () => {
+    let chat = {
+      id: "chat-game",
+      name: "Game",
+      mode: "game",
+      characterIds: [],
+      connectionId: "conn-gm",
+      metadata: {
+        gameId: "game-1",
+        gameSessionStatus: "setup",
+        gameSetupConfig: minimalSetupConfig(),
+      },
+    } as unknown as Chat;
+
+    storageApiMock.get.mockImplementation(async (entity: string, id: string) => {
+      if (entity === "chats" && id === chat.id) return chat;
+      return null;
+    });
+    storageApiMock.update.mockImplementation(async (entity: string, id: string, patch: Record<string, unknown>) => {
+      if (entity !== "chats" || id !== chat.id) return null;
+      chat = { ...chat, ...patch } as Chat;
+      return chat;
+    });
+
+    const result = await gameApi.setupGame({
+      chatId: chat.id,
+      preferences: "short local test",
+    });
+
+    expect(result.sessionChat.id).toBe("chat-game");
+    expect(result.sessionChat.metadata).toMatchObject({
+      gameSessionStatus: "ready",
+      gameWorldOverview: expect.any(String),
+      gameMap: expect.any(Object),
+    });
+  });
+});
+
 describe("gameApi.startSession folderId inheritance", () => {
   beforeEach(() => {
     Object.values(storageApiMock).forEach((fn) => fn.mockReset());

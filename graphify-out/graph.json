@@ -42685,7 +42685,7 @@
       "label": "useGameSetup()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L86",
+      "source_location": "L90",
       "id": "hooks_use_game_usegamesetup",
       "community": 2,
       "norm_label": "usegamesetup()"
@@ -42694,7 +42694,7 @@
       "label": "useStartGame()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L112",
+      "source_location": "L120",
       "id": "hooks_use_game_usestartgame",
       "community": 2,
       "norm_label": "usestartgame()"
@@ -42703,7 +42703,7 @@
       "label": "useStartSession()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L138",
+      "source_location": "L146",
       "id": "hooks_use_game_usestartsession",
       "community": 2,
       "norm_label": "usestartsession()"
@@ -42712,7 +42712,7 @@
       "label": "useConcludeSession()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L173",
+      "source_location": "L181",
       "id": "hooks_use_game_useconcludesession",
       "community": 2,
       "norm_label": "useconcludesession()"
@@ -42721,7 +42721,7 @@
       "label": "useRegenerateSessionConclusion()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L209",
+      "source_location": "L217",
       "id": "hooks_use_game_useregeneratesessionconclusion",
       "community": 2,
       "norm_label": "useregeneratesessionconclusion()"
@@ -42730,7 +42730,7 @@
       "label": "useRegenerateSessionLorebook()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L243",
+      "source_location": "L251",
       "id": "hooks_use_game_useregeneratesessionlorebook",
       "community": 2,
       "norm_label": "useregeneratesessionlorebook()"
@@ -42739,7 +42739,7 @@
       "label": "useUpdateCampaignProgression()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L281",
+      "source_location": "L289",
       "id": "hooks_use_game_useupdatecampaignprogression",
       "community": 2,
       "norm_label": "useupdatecampaignprogression()"
@@ -42748,7 +42748,7 @@
       "label": "useRecruitPartyMember()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L317",
+      "source_location": "L325",
       "id": "hooks_use_game_userecruitpartymember",
       "community": 2,
       "norm_label": "userecruitpartymember()"
@@ -42757,7 +42757,7 @@
       "label": "useRegeneratePartyCard()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L340",
+      "source_location": "L348",
       "id": "hooks_use_game_useregeneratepartycard",
       "community": 2,
       "norm_label": "useregeneratepartycard()"
@@ -42766,7 +42766,7 @@
       "label": "useRemovePartyMember()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L359",
+      "source_location": "L367",
       "id": "hooks_use_game_useremovepartymember",
       "community": 2,
       "norm_label": "useremovepartymember()"
@@ -42775,7 +42775,7 @@
       "label": "useRollDice()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L380",
+      "source_location": "L388",
       "id": "hooks_use_game_userolldice",
       "community": 2,
       "norm_label": "userolldice()"
@@ -42784,7 +42784,7 @@
       "label": "useSkillCheck()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L392",
+      "source_location": "L400",
       "id": "hooks_use_game_useskillcheck",
       "community": 2,
       "norm_label": "useskillcheck()"
@@ -42793,7 +42793,7 @@
       "label": "useTransitionGameState()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L415",
+      "source_location": "L423",
       "id": "hooks_use_game_usetransitiongamestate",
       "community": 2,
       "norm_label": "usetransitiongamestate()"
@@ -42802,7 +42802,7 @@
       "label": "useGenerateMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L429",
+      "source_location": "L437",
       "id": "hooks_use_game_usegeneratemap",
       "community": 2,
       "norm_label": "usegeneratemap()"
@@ -42811,7 +42811,7 @@
       "label": "useMoveOnMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L447",
+      "source_location": "L455",
       "id": "hooks_use_game_usemoveonmap",
       "community": 2,
       "norm_label": "usemoveonmap()"
@@ -42820,7 +42820,7 @@
       "label": "useUpdateGameWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L466",
+      "source_location": "L474",
       "id": "hooks_use_game_useupdategamewidgets",
       "community": 76,
       "norm_label": "useupdategamewidgets()"
@@ -42829,7 +42829,7 @@
       "label": "useGameSessions()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L492",
+      "source_location": "L500",
       "id": "hooks_use_game_usegamesessions",
       "community": 2,
       "norm_label": "usegamesessions()"
@@ -42838,7 +42838,7 @@
       "label": "isNumericHudWidgetType()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L503",
+      "source_location": "L511",
       "id": "hooks_use_game_isnumerichudwidgettype",
       "community": 2,
       "norm_label": "isnumerichudwidgettype()"
@@ -42847,7 +42847,7 @@
       "label": "finiteNumber()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L507",
+      "source_location": "L515",
       "id": "hooks_use_game_finitenumber",
       "community": 2,
       "norm_label": "finitenumber()"
@@ -42856,7 +42856,7 @@
       "label": "normalizeHudWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L512",
+      "source_location": "L520",
       "id": "hooks_use_game_normalizehudwidgets",
       "community": 2,
       "norm_label": "normalizehudwidgets()"
@@ -42865,7 +42865,7 @@
       "label": "useSyncGameState()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L550",
+      "source_location": "L558",
       "id": "hooks_use_game_usesyncgamestate",
       "community": 2,
       "norm_label": "usesyncgamestate()"
@@ -42874,7 +42874,7 @@
       "label": "useCombatRound()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L630",
+      "source_location": "L638",
       "id": "hooks_use_game_usecombatround",
       "community": 45,
       "norm_label": "usecombatround()"
@@ -42883,7 +42883,7 @@
       "label": "useCombatLoot()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L642",
+      "source_location": "L650",
       "id": "hooks_use_game_usecombatloot",
       "community": 2,
       "norm_label": "usecombatloot()"
@@ -42892,7 +42892,7 @@
       "label": "useLootGenerate()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L656",
+      "source_location": "L664",
       "id": "hooks_use_game_uselootgenerate",
       "community": 2,
       "norm_label": "uselootgenerate()"
@@ -42901,7 +42901,7 @@
       "label": "useAdvanceTime()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L663",
+      "source_location": "L671",
       "id": "hooks_use_game_useadvancetime",
       "community": 2,
       "norm_label": "useadvancetime()"
@@ -42910,7 +42910,7 @@
       "label": "useUpdateWeather()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L684",
+      "source_location": "L692",
       "id": "hooks_use_game_useupdateweather",
       "community": 2,
       "norm_label": "useupdateweather()"
@@ -42919,7 +42919,7 @@
       "label": "useRollEncounter()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L706",
+      "source_location": "L714",
       "id": "hooks_use_game_userollencounter",
       "community": 2,
       "norm_label": "userollencounter()"
@@ -42928,7 +42928,7 @@
       "label": "useUpdateReputation()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L713",
+      "source_location": "L721",
       "id": "hooks_use_game_useupdatereputation",
       "community": 2,
       "norm_label": "useupdatereputation()"
@@ -42937,7 +42937,7 @@
       "label": "useJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L727",
+      "source_location": "L735",
       "id": "hooks_use_game_usejournalentry",
       "community": 2,
       "norm_label": "usejournalentry()"
@@ -42946,7 +42946,7 @@
       "label": "useGameJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L738",
+      "source_location": "L746",
       "id": "hooks_use_game_usegamejournal",
       "community": 2,
       "norm_label": "usegamejournal()"
@@ -42955,7 +42955,7 @@
       "label": "useGameCheckpoints()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L749",
+      "source_location": "L757",
       "id": "hooks_use_game_usegamecheckpoints",
       "community": 29,
       "norm_label": "usegamecheckpoints()"
@@ -42964,7 +42964,7 @@
       "label": "useCreateCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L758",
+      "source_location": "L766",
       "id": "hooks_use_game_usecreatecheckpoint",
       "community": 29,
       "norm_label": "usecreatecheckpoint()"
@@ -42973,7 +42973,7 @@
       "label": "useLoadCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L765",
+      "source_location": "L773",
       "id": "hooks_use_game_useloadcheckpoint",
       "community": 29,
       "norm_label": "useloadcheckpoint()"
@@ -42982,7 +42982,7 @@
       "label": "useDeleteCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L772",
+      "source_location": "L780",
       "id": "hooks_use_game_usedeletecheckpoint",
       "community": 29,
       "norm_label": "usedeletecheckpoint()"
@@ -44242,7 +44242,7 @@
       "label": "previousChat",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L119",
+      "source_location": "L162",
       "id": "api_game_api_test_previouschat",
       "community": 29,
       "norm_label": "previouschat"
@@ -44278,7 +44278,7 @@
       "label": "StartGameResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L38",
+      "source_location": "L39",
       "id": "api_game_api_startgameresponse",
       "community": 3,
       "norm_label": "startgameresponse"
@@ -44287,7 +44287,7 @@
       "label": "StartSessionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L43",
+      "source_location": "L44",
       "id": "api_game_api_startsessionresponse",
       "community": 3,
       "norm_label": "startsessionresponse"
@@ -44296,7 +44296,7 @@
       "label": "SessionSummaryResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L49",
+      "source_location": "L50",
       "id": "api_game_api_sessionsummaryresponse",
       "community": 128,
       "norm_label": "sessionsummaryresponse"
@@ -44305,7 +44305,7 @@
       "label": "RegenerateSessionLorebookResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L53",
+      "source_location": "L54",
       "id": "api_game_api_regeneratesessionlorebookresponse",
       "community": 3,
       "norm_label": "regeneratesessionlorebookresponse"
@@ -44314,7 +44314,7 @@
       "label": "UpdateCampaignProgressionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L59",
+      "source_location": "L60",
       "id": "api_game_api_updatecampaignprogressionresponse",
       "community": 3,
       "norm_label": "updatecampaignprogressionresponse"
@@ -44323,7 +44323,7 @@
       "label": "PartyCardResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L69",
+      "source_location": "L70",
       "id": "api_game_api_partycardresponse",
       "community": 3,
       "norm_label": "partycardresponse"
@@ -44332,7 +44332,7 @@
       "label": "MapResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L78",
+      "source_location": "L79",
       "id": "api_game_api_mapresponse",
       "community": 78,
       "norm_label": "mapresponse"
@@ -44341,7 +44341,7 @@
       "label": "GameJournalResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L84",
+      "source_location": "L85",
       "id": "api_game_api_gamejournalresponse",
       "community": 3,
       "norm_label": "gamejournalresponse"
@@ -44350,7 +44350,7 @@
       "label": "GameImagePromptReviewItem",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L90",
+      "source_location": "L91",
       "id": "api_game_api_gameimagepromptreviewitem",
       "community": 3,
       "norm_label": "gameimagepromptreviewitem"
@@ -44359,7 +44359,7 @@
       "label": "GameAssetGenerationResult",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L99",
+      "source_location": "L100",
       "id": "api_game_api_gameassetgenerationresult",
       "community": 3,
       "norm_label": "gameassetgenerationresult"
@@ -44368,7 +44368,7 @@
       "label": "ImagePromptSettings",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L106",
+      "source_location": "L107",
       "id": "api_game_api_imagepromptsettings",
       "community": 3,
       "norm_label": "imagepromptsettings"
@@ -44377,7 +44377,7 @@
       "label": "GameAssetGenerationPayload",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L111",
+      "source_location": "L112",
       "id": "api_game_api_gameassetgenerationpayload",
       "community": 3,
       "norm_label": "gameassetgenerationpayload"
@@ -44386,7 +44386,7 @@
       "label": "ChatMessage",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L125",
+      "source_location": "L126",
       "id": "api_game_api_chatmessage",
       "community": 3,
       "norm_label": "chatmessage"
@@ -44395,7 +44395,7 @@
       "label": "PromptOverride",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L132",
+      "source_location": "L133",
       "id": "api_game_api_promptoverride",
       "community": 3,
       "norm_label": "promptoverride"
@@ -44404,7 +44404,7 @@
       "label": "GameJsonRepairKind",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L137",
+      "source_location": "L138",
       "id": "api_game_api_gamejsonrepairkind",
       "community": 3,
       "norm_label": "gamejsonrepairkind"
@@ -44413,7 +44413,7 @@
       "label": "GameJsonRepairContext",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L139",
+      "source_location": "L140",
       "id": "api_game_api_gamejsonrepaircontext",
       "community": 3,
       "norm_label": "gamejsonrepaircontext"
@@ -44422,7 +44422,7 @@
       "label": "EMPTY_JOURNAL",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L145",
+      "source_location": "L146",
       "id": "api_game_api_empty_journal",
       "community": 3,
       "norm_label": "empty_journal"
@@ -44431,7 +44431,7 @@
       "label": "newId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L147",
+      "source_location": "L148",
       "id": "api_game_api_newid",
       "community": 3,
       "norm_label": "newid()"
@@ -44440,7 +44440,7 @@
       "label": "nowIso()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L155",
+      "source_location": "L156",
       "id": "api_game_api_nowiso",
       "community": 3,
       "norm_label": "nowiso()"
@@ -44449,7 +44449,7 @@
       "label": "asRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L159",
+      "source_location": "L160",
       "id": "api_game_api_asrecord",
       "community": 3,
       "norm_label": "asrecord()"
@@ -44458,7 +44458,7 @@
       "label": "chatMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L171",
+      "source_location": "L172",
       "id": "api_game_api_chatmeta",
       "community": 3,
       "norm_label": "chatmeta()"
@@ -44467,7 +44467,7 @@
       "label": "discordWebhookUrl()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L175",
+      "source_location": "L176",
       "id": "api_game_api_discordwebhookurl",
       "community": 3,
       "norm_label": "discordwebhookurl()"
@@ -44476,7 +44476,7 @@
       "label": "mirrorGameMessageToDiscord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L179",
+      "source_location": "L180",
       "id": "api_game_api_mirrorgamemessagetodiscord",
       "community": 3,
       "norm_label": "mirrorgamemessagetodiscord()"
@@ -44485,7 +44485,7 @@
       "label": "getChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L192",
+      "source_location": "L193",
       "id": "api_game_api_getchat",
       "community": 3,
       "norm_label": "getchat()"
@@ -44494,7 +44494,7 @@
       "label": "patchChatMetadata()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L198",
+      "source_location": "L199",
       "id": "api_game_api_patchchatmetadata",
       "community": 3,
       "norm_label": "patchchatmetadata()"
@@ -44503,7 +44503,7 @@
       "label": "patchChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L203",
+      "source_location": "L204",
       "id": "api_game_api_patchchat",
       "community": 3,
       "norm_label": "patchchat()"
@@ -44512,7 +44512,7 @@
       "label": "listMessages()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L207",
+      "source_location": "L208",
       "id": "api_game_api_listmessages",
       "community": 3,
       "norm_label": "listmessages()"
@@ -44521,7 +44521,7 @@
       "label": "createChatRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L211",
+      "source_location": "L212",
       "id": "api_game_api_createchatrecord",
       "community": 3,
       "norm_label": "createchatrecord()"
@@ -44530,7 +44530,7 @@
       "label": "createChatMessage()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L215",
+      "source_location": "L216",
       "id": "api_game_api_createchatmessage",
       "community": 3,
       "norm_label": "createchatmessage()"
@@ -44539,7 +44539,7 @@
       "label": "parseJsonObject()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L219",
+      "source_location": "L220",
       "id": "api_game_api_parsejsonobject",
       "community": 3,
       "norm_label": "parsejsonobject()"
@@ -44548,7 +44548,7 @@
       "label": "fallbackGameBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L240",
+      "source_location": "L241",
       "id": "api_game_api_fallbackgameblueprint",
       "community": 3,
       "norm_label": "fallbackgameblueprint()"
@@ -44557,7 +44557,7 @@
       "label": "defaultGameMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L260",
+      "source_location": "L261",
       "id": "api_game_api_defaultgamemap",
       "community": 3,
       "norm_label": "defaultgamemap()"
@@ -44566,7 +44566,7 @@
       "label": "setupMapFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L283",
+      "source_location": "L284",
       "id": "api_game_api_setupmapfromresponse",
       "community": 3,
       "norm_label": "setupmapfromresponse()"
@@ -44575,7 +44575,7 @@
       "label": "setupNpcsFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L328",
+      "source_location": "L329",
       "id": "api_game_api_setupnpcsfromresponse",
       "community": 3,
       "norm_label": "setupnpcsfromresponse()"
@@ -44584,7 +44584,7 @@
       "label": "setupCharacterCards()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L347",
+      "source_location": "L348",
       "id": "api_game_api_setupcharactercards",
       "community": 3,
       "norm_label": "setupcharactercards()"
@@ -44593,7 +44593,7 @@
       "label": "setupBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L351",
+      "source_location": "L352",
       "id": "api_game_api_setupblueprint",
       "community": 3,
       "norm_label": "setupblueprint()"
@@ -44602,7 +44602,7 @@
       "label": "gameTimeFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L366",
+      "source_location": "L367",
       "id": "api_game_api_gametimefrommeta",
       "community": 3,
       "norm_label": "gametimefrommeta()"
@@ -44611,7 +44611,7 @@
       "label": "moraleFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L378",
+      "source_location": "L379",
       "id": "api_game_api_moralefrommeta",
       "community": 3,
       "norm_label": "moralefrommeta()"
@@ -44620,7 +44620,7 @@
       "label": "syncMoraleWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L384",
+      "source_location": "L385",
       "id": "api_game_api_syncmoralewidgets",
       "community": 3,
       "norm_label": "syncmoralewidgets()"
@@ -44629,7 +44629,7 @@
       "label": "moraleMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L402",
+      "source_location": "L403",
       "id": "api_game_api_moralemetadatapatch",
       "community": 3,
       "norm_label": "moralemetadatapatch()"
@@ -44638,7 +44638,7 @@
       "label": "journalFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L420",
+      "source_location": "L421",
       "id": "api_game_api_journalfrommeta",
       "community": 3,
       "norm_label": "journalfrommeta()"
@@ -44647,7 +44647,7 @@
       "label": "isGameSetupConfig()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L431",
+      "source_location": "L432",
       "id": "api_game_api_isgamesetupconfig",
       "community": 3,
       "norm_label": "isgamesetupconfig()"
@@ -44656,7 +44656,7 @@
       "label": "gameSetupChatPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L436",
+      "source_location": "L437",
       "id": "api_game_api_gamesetupchatpatch",
       "community": 3,
       "norm_label": "gamesetupchatpatch()"
@@ -44665,7 +44665,7 @@
       "label": "gameSetupMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L445",
+      "source_location": "L446",
       "id": "api_game_api_gamesetupmetadatapatch",
       "community": 3,
       "norm_label": "gamesetupmetadatapatch()"
@@ -44674,7 +44674,7 @@
       "label": "sessionSummary()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L465",
+      "source_location": "L466",
       "id": "api_game_api_sessionsummary",
       "community": 3,
       "norm_label": "sessionsummary()"
@@ -44683,7 +44683,7 @@
       "label": "normalizeSessionSummaryPayload()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L476",
+      "source_location": "L477",
       "id": "api_game_api_normalizesessionsummarypayload",
       "community": 3,
       "norm_label": "normalizesessionsummarypayload()"
@@ -44692,7 +44692,7 @@
       "label": "gameSessionSortValue()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L511",
+      "source_location": "L512",
       "id": "api_game_api_gamesessionsortvalue",
       "community": 3,
       "norm_label": "gamesessionsortvalue()"
@@ -44701,7 +44701,7 @@
       "label": "gameCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L517",
+      "source_location": "L518",
       "id": "api_game_api_gamecarryoverpatch",
       "community": 3,
       "norm_label": "gamecarryoverpatch()"
@@ -44710,7 +44710,7 @@
       "label": "gameStateCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L550",
+      "source_location": "L551",
       "id": "api_game_api_gamestatecarryoverpatch",
       "community": 3,
       "norm_label": "gamestatecarryoverpatch()"
@@ -44719,7 +44719,7 @@
       "label": "normalizeJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L564",
+      "source_location": "L565",
       "id": "api_game_api_normalizejournalentry",
       "community": 3,
       "norm_label": "normalizejournalentry()"
@@ -44728,7 +44728,7 @@
       "label": "applyJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L588",
+      "source_location": "L589",
       "id": "api_game_api_applyjournalentry",
       "community": 3,
       "norm_label": "applyjournalentry()"
@@ -44737,7 +44737,7 @@
       "label": "buildGameCard()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L621",
+      "source_location": "L622",
       "id": "api_game_api_buildgamecard",
       "community": 3,
       "norm_label": "buildgamecard()"
@@ -44746,7 +44746,7 @@
       "label": "playerAttributes()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L644",
+      "source_location": "L645",
       "id": "api_game_api_playerattributes",
       "community": 3,
       "norm_label": "playerattributes()"
@@ -44755,7 +44755,7 @@
       "label": "generatedAssetSlug()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L651",
+      "source_location": "L652",
       "id": "api_game_api_generatedassetslug",
       "community": 3,
       "norm_label": "generatedassetslug()"
@@ -44764,7 +44764,7 @@
       "label": "imageReviewId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L661",
+      "source_location": "L662",
       "id": "api_game_api_imagereviewid",
       "community": 3,
       "norm_label": "imagereviewid()"
@@ -44773,7 +44773,7 @@
       "label": "imageSize()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L671",
+      "source_location": "L672",
       "id": "api_game_api_imagesize",
       "community": 3,
       "norm_label": "imagesize()"
@@ -44782,7 +44782,7 @@
       "label": "joinedImageTags()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L685",
+      "source_location": "L686",
       "id": "api_game_api_joinedimagetags",
       "community": 3,
       "norm_label": "joinedimagetags()"
@@ -44791,7 +44791,7 @@
       "label": "sceneAssetPrompt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L699",
+      "source_location": "L700",
       "id": "api_game_api_sceneassetprompt",
       "community": 3,
       "norm_label": "sceneassetprompt()"
@@ -44800,7 +44800,7 @@
       "label": "assetTagFromPath()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L754",
+      "source_location": "L755",
       "id": "api_game_api_assettagfrompath",
       "community": 3,
       "norm_label": "assettagfrompath()"
@@ -44809,7 +44809,7 @@
       "label": "imageExt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L758",
+      "source_location": "L759",
       "id": "api_game_api_imageext",
       "community": 3,
       "norm_label": "imageext()"
@@ -44818,7 +44818,7 @@
       "label": "base64File()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L764",
+      "source_location": "L765",
       "id": "api_game_api_base64file",
       "community": 3,
       "norm_label": "base64file()"
@@ -44827,7 +44827,7 @@
       "label": "uploadGeneratedAsset()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L771",
+      "source_location": "L772",
       "id": "api_game_api_uploadgeneratedasset",
       "community": 3,
       "norm_label": "uploadgeneratedasset()"
@@ -44836,7 +44836,7 @@
       "label": "spotifyQuery()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L788",
+      "source_location": "L789",
       "id": "api_game_api_spotifyquery",
       "community": 3,
       "norm_label": "spotifyquery()"
@@ -44845,7 +44845,7 @@
       "label": "recentSpotifyTracks()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L794",
+      "source_location": "L795",
       "id": "api_game_api_recentspotifytracks",
       "community": 3,
       "norm_label": "recentspotifytracks()"
@@ -44854,7 +44854,7 @@
       "label": "llmJson()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L801",
+      "source_location": "L802",
       "id": "api_game_api_llmjson",
       "community": 3,
       "norm_label": "llmjson()"
@@ -44863,7 +44863,7 @@
       "label": "sessionTranscript()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L834",
+      "source_location": "L835",
       "id": "api_game_api_sessiontranscript",
       "community": 3,
       "norm_label": "sessiontranscript()"
@@ -44872,7 +44872,7 @@
       "label": "gameApi",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L842",
+      "source_location": "L843",
       "id": "api_game_api_gameapi",
       "community": 29,
       "norm_label": "gameapi"
@@ -44881,7 +44881,7 @@
       "label": "applyGameJsonRepair()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L1786",
+      "source_location": "L1787",
       "id": "api_game_api_applygamejsonrepair",
       "community": 3,
       "norm_label": "applygamejsonrepair()"
@@ -44890,7 +44890,7 @@
       "label": "getEmptyJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L1833",
+      "source_location": "L1834",
       "id": "api_game_api_getemptyjournal",
       "community": 3,
       "norm_label": "getemptyjournal()"
@@ -93235,13 +93235,31 @@
       "id": "repo_src_tauri_src_commands_storage_imports_st_preset_rs"
     },
     {
-      "label": "is_context_safe_source_text()",
+      "label": "chat",
       "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1353",
-      "id": "storage_mari_is_context_safe_source_text",
-      "community": 186,
-      "norm_label": "is_context_safe_source_text()"
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L115",
+      "id": "api_game_api_test_chat",
+      "community": 81,
+      "norm_label": "chat"
+    },
+    {
+      "label": "isMariImageFile()",
+      "file_type": "code",
+      "source_file": "src/features/shell/mari/components/ProfessorMariSurface.tsx",
+      "source_location": "L68",
+      "id": "components_professormarisurface_ismariimagefile",
+      "community": 22,
+      "norm_label": "ismariimagefile()"
+    },
+    {
+      "label": "MARI_IMAGE_ATTACHMENT_EXTENSIONS",
+      "file_type": "code",
+      "source_file": "src/features/shell/mari/components/ProfessorMariSurface.tsx",
+      "source_location": "L33",
+      "id": "components_professormarisurface_mari_image_attachment_extensions",
+      "community": 22,
+      "norm_label": "mari_image_attachment_extensions"
     },
     {
       "label": "mari.rs",
@@ -93269,6 +93287,15 @@
       "id": "storage_mari_attachment_omission_reason",
       "community": 36,
       "norm_label": "attachment_omission_reason()"
+    },
+    {
+      "label": "is_context_safe_source_text()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1353",
+      "id": "storage_mari_is_context_safe_source_text",
+      "community": 36,
+      "norm_label": "is_context_safe_source_text()"
     },
     {
       "label": "is_readable_mari_attachment()",
@@ -93307,6 +93334,15 @@
       "norm_label": "professor_mari_code_tools_reject_encoded_source_payloads()"
     },
     {
+      "label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1486",
+      "id": "storage_mari_professor_mari_code_tools_reject_wrapped_encoded_source_payloads",
+      "community": 36,
+      "norm_label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()"
+    },
+    {
       "label": "professor_mari_code_tools_skip_generated_graphify_output()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
@@ -93314,6 +93350,15 @@
       "id": "storage_mari_professor_mari_code_tools_skip_generated_graphify_output",
       "community": 36,
       "norm_label": "professor_mari_code_tools_skip_generated_graphify_output()"
+    },
+    {
+      "label": "professor_mari_prompt_bounds_attachment_metadata()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1446",
+      "id": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
+      "community": 36,
+      "norm_label": "professor_mari_prompt_bounds_attachment_metadata()"
     },
     {
       "label": "professor_mari_prompt_omits_raw_image_attachment_data_urls()",
@@ -93343,48 +93388,12 @@
       "norm_label": "prompt_with_attachment()"
     },
     {
-      "label": "truncate_to_chars()",
-      "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L787",
-      "id": "storage_mari_truncate_to_chars",
-      "community": 36,
-      "norm_label": "truncate_to_chars()"
-    },
-    {
-      "label": "isMariImageFile()",
-      "file_type": "code",
-      "source_file": "src/features/shell/mari/components/ProfessorMariSurface.tsx",
-      "source_location": "L68",
-      "id": "components_professormarisurface_ismariimagefile",
-      "community": 38,
-      "norm_label": "ismariimagefile()"
-    },
-    {
-      "label": "MARI_IMAGE_ATTACHMENT_EXTENSIONS",
-      "file_type": "code",
-      "source_file": "src/features/shell/mari/components/ProfessorMariSurface.tsx",
-      "source_location": "L33",
-      "id": "components_professormarisurface_mari_image_attachment_extensions",
-      "community": 38,
-      "norm_label": "mari_image_attachment_extensions"
-    },
-    {
-      "label": "professor_mari_prompt_bounds_attachment_metadata()",
-      "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1446",
-      "id": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
-      "community": 230,
-      "norm_label": "professor_mari_prompt_bounds_attachment_metadata()"
-    },
-    {
       "label": "prompt_with_attachments()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L1403",
       "id": "storage_mari_prompt_with_attachments",
-      "community": 230,
+      "community": 36,
       "norm_label": "prompt_with_attachments()"
     },
     {
@@ -93393,26 +93402,17 @@
       "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L734",
       "id": "storage_mari_take_attachment_budget",
-      "community": 230,
+      "community": 36,
       "norm_label": "take_attachment_budget()"
     },
     {
-      "label": "shared.rs",
-      "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1",
-      "community": 32,
-      "norm_label": "shared.rs",
-      "id": "src_tauri_src_commands_storage_shared_rs"
-    },
-    {
-      "label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()",
+      "label": "truncate_to_chars()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1486",
-      "id": "storage_mari_professor_mari_code_tools_reject_wrapped_encoded_source_payloads",
+      "source_location": "L787",
+      "id": "storage_mari_truncate_to_chars",
       "community": 36,
-      "norm_label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()"
+      "norm_label": "truncate_to_chars()"
     }
   ],
   "links": [
@@ -330982,6 +330982,27 @@
       "target": "api_readme_api_wrappers"
     },
     {
+      "relation": "references",
+      "context": "field",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "api_game_api_setupresponse",
+      "target": "types_chat_chat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L115",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "api_game_api_test_chat",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/features/shell/mari/components/ProfessorMariSurface.tsx",
@@ -331005,7 +331026,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L655",
+      "source_location": "L677",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_attachment_context_block",
@@ -331015,7 +331036,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L694",
+      "source_location": "L743",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_attachment_omission_reason",
@@ -331025,7 +331046,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L523",
+      "source_location": "L526",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_autoagents_message_to_marinara",
@@ -331035,7 +331056,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L580",
+      "source_location": "L583",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_build_system_prompt",
@@ -331045,7 +331066,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L614",
+      "source_location": "L617",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_build_task_prompt",
@@ -331055,7 +331076,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1032",
+      "source_location": "L1081",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_create_marinara_custom_agent",
@@ -331065,7 +331086,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1003",
+      "source_location": "L1052",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_create_marinara_extension",
@@ -331075,7 +331096,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L389",
+      "source_location": "L392",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_createmarinaracustomagentargs",
@@ -331085,7 +331106,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L424",
+      "source_location": "L427",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_createmarinaracustomagenttool",
@@ -331095,7 +331116,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L352",
+      "source_location": "L355",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_createmarinaraextensionargs",
@@ -331105,7 +331126,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L374",
+      "source_location": "L377",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_createmarinaraextensiontool",
@@ -331115,7 +331136,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L813",
+      "source_location": "L862",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_creative_library_snapshot",
@@ -331125,7 +331146,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L830",
+      "source_location": "L879",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_default_agent_phase",
@@ -331135,7 +331156,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L826",
+      "source_location": "L875",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_default_true",
@@ -331145,7 +331166,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L960",
+      "source_location": "L1009",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_edit_marinara_code_file",
@@ -331155,7 +331176,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L325",
+      "source_location": "L328",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_editmarinaracodefileargs",
@@ -331165,7 +331186,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L339",
+      "source_location": "L342",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_editmarinaracodefiletool",
@@ -331175,7 +331196,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L795",
+      "source_location": "L844",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_ensure_connection_supports_native_tools",
@@ -331185,7 +331206,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1264",
+      "source_location": "L1313",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_is_code_text_path",
@@ -331195,7 +331216,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1304",
+      "source_location": "L1353",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_is_context_safe_source_text",
@@ -331205,7 +331226,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L711",
+      "source_location": "L760",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_is_readable_mari_attachment",
@@ -331215,7 +331236,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1279",
+      "source_location": "L1328",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_is_skipped_relative_path",
@@ -331225,7 +331246,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L764",
+      "source_location": "L813",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_looks_like_codebase_question",
@@ -331235,7 +331256,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1312",
+      "source_location": "L1363",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_looks_like_encoded_blob",
@@ -331245,7 +331266,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L745",
+      "source_location": "L794",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_looks_like_library_question",
@@ -331255,7 +331276,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L174",
+      "source_location": "L177",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_mari_request_parameters",
@@ -331265,7 +331286,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L822",
+      "source_location": "L871",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_mari_tool_error",
@@ -331275,7 +331296,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L103",
+      "source_location": "L106",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_mariattachment",
@@ -331285,7 +331306,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L834",
+      "source_location": "L883",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_marinara_repo_root",
@@ -331295,7 +331316,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L551",
+      "source_location": "L554",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_marinara_tool_call_to_autoagents",
@@ -331305,7 +331326,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L118",
+      "source_location": "L121",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_marinarachatresponse",
@@ -331315,7 +331336,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L113",
+      "source_location": "L116",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_marinarallmprovider",
@@ -331325,7 +331346,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L92",
+      "source_location": "L95",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_maripersonacontext",
@@ -331335,7 +331356,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L85",
+      "source_location": "L88",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_maripromptmessage",
@@ -331345,7 +331366,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_maripromptrequest",
@@ -331355,7 +331376,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L731",
+      "source_location": "L780",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_path_extension",
@@ -331365,371 +331386,10 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1401",
+      "source_location": "L1475",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_professor_mari_code_tools_reject_encoded_source_payloads",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1391",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_professor_mari_code_tools_skip_generated_graphify_output",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L455",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_professor_mari_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1360",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1375",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L451",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_professormariagent",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1348",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_prompt_with_attachment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L926",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_read_marinara_code_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L515",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_read_only_mari_action_contract",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L302",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_readmarinaracodefileargs",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L312",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_readmarinaracodefiletool",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L249",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_readmarinaralibraryargs",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L256",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_readmarinaralibrarytool",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L853",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_resolve_repo_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1139",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_sanitize_agent_type",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1164",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_search_code_dir",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1218",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_search_code_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L872",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_search_marinara_code",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L273",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_searchmarinaracodeargs",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L289",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_searchmarinaracodetool",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1135",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_slugify_agent_type",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L806",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_tool_call_error_message",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1293",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_truncate_preview",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L738",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_truncate_to_chars",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1109",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_mari_rs",
-      "target": "storage_mari_unique_agent_type",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L665",
-      "weight": 1.0,
-      "source": "storage_mari_attachment_context_block",
-      "target": "storage_mari_attachment_omission_reason",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L675",
-      "weight": 1.0,
-      "source": "storage_mari_attachment_context_block",
-      "target": "storage_mari_truncate_to_chars",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L702",
-      "weight": 1.0,
-      "source": "storage_mari_attachment_omission_reason",
-      "target": "storage_mari_is_readable_mari_attachment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L705",
-      "weight": 1.0,
-      "source": "storage_mari_attachment_omission_reason",
-      "target": "storage_mari_looks_like_encoded_blob",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L641",
-      "weight": 1.0,
-      "source": "storage_mari_build_task_prompt",
-      "target": "storage_mari_attachment_context_block",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L726",
-      "weight": 1.0,
-      "source": "storage_mari_is_readable_mari_attachment",
-      "target": "storage_mari_path_extension",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1362",
-      "weight": 1.0,
-      "source": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
-      "target": "storage_mari_prompt_with_attachment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1378",
-      "weight": 1.0,
-      "source": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
-      "target": "storage_mari_prompt_with_attachment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1349",
-      "weight": 1.0,
-      "source": "storage_mari_prompt_with_attachment",
-      "target": "storage_mari_build_task_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L948",
-      "weight": 1.0,
-      "source": "storage_mari_read_marinara_code_file",
-      "target": "storage_mari_is_context_safe_source_text",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1239",
-      "weight": 1.0,
-      "source": "storage_mari_search_code_file",
-      "target": "storage_mari_is_context_safe_source_text",
       "confidence_score": 1.0
     },
     {
@@ -331746,10 +331406,70 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1465",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_code_tools_skip_generated_graphify_output",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L458",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_prompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L1446",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
       "target": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1415",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1430",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L454",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professormariagent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1399",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_prompt_with_attachment",
       "confidence_score": 1.0
     },
     {
@@ -331766,6 +331486,146 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L975",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_read_marinara_code_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L518",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_read_only_mari_action_contract",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L305",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_readmarinaracodefileargs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L315",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_readmarinaracodefiletool",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L252",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_readmarinaralibraryargs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L259",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_readmarinaralibrarytool",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L902",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_resolve_repo_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1188",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_sanitize_agent_type",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1213",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_search_code_dir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1267",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_search_code_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L921",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_search_marinara_code",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L276",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_searchmarinaracodeargs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L292",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_searchmarinaracodetool",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1184",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_slugify_agent_type",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L734",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_mari_rs",
@@ -331775,711 +331635,52 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L634",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L855",
       "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_character_update_patch_preserves_object_data",
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_tool_call_error_message",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L651",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1342",
       "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_character_update_patch_rejects_invalid_data_shape",
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_truncate_preview",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L132",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L787",
       "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_collapse_excess_blank_lines",
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_truncate_to_chars",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1027",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1158",
       "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_path",
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_unique_agent_type",
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1165",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1139",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_file_value",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1205",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_files",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1173",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_image_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L960",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_image_file_rejects_declared_oversized_upload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L978",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_decode_uploaded_image_file_rejects_non_image_content_type",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L996",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_duplicate_record",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1012",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_find_by_field",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L764",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_game_state_snapshot_normalizes_persona_stats_as_nullable_array",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L805",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_game_state_snapshot_rejects_malformed_persona_stats_string",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L64",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_get_required",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1135",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_image_upload_invalid_type_error",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1131",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_image_upload_too_large_error",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L28",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_list_collection",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L797",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_lorebook_defaults_include_vectorization_enabled",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L71",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_materialize_message_swipe_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L702",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_message_content_update_patch_collapses_excess_blank_lines",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L737",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_message_content_update_patch_does_not_invent_missing_swipes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L665",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_message_content_update_patch_updates_active_swipe_content",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1327",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_metadata_map",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L112",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_non_negative_i64_value",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L180",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_character_data_for_storage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L343",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_json_array_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L399",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_json_field",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L371",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_json_object_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1095",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L866",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_ignores_non_object_records",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L859",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_leaves_missing_keys_alone",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L824",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_parses_text_encoded_json_arrays",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L817",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_preserves_existing_arrays",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L838",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L852",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_null_with_empty",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L845",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_scalar_with_empty",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L831",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1060",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L902",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_falsy_text_aliases",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L931",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L881",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_text_true_and_false",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L889",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_truthy_text_aliases",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L922",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L939",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_null_to_false",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L915",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_unknown_string_to_false",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L953",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_ignores_non_object_records",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L946",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_leaves_missing_keys_alone",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L873",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_legacy_text_bool_fields_preserves_existing_bools",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L163",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_message_text_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L354",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_nullable_json_array_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L382",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_nullable_json_object_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L247",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_typed_json_fields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L189",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_normalize_update_patch",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1310",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_option_string_array",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_parsedpath",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L195",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_patch_message_update",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1244",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_project_list_rows",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1284",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_project_nested_field",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1257",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_project_record",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1267",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_project_row",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1034",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_required_string",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1316",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_string_array_from_json",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1041",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_string_array_from_value",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L123",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_swipe_index_value",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L209",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_sync_message_patch_content_to_active_swipe",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L625",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_temp_root",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L617",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_temproot",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1218",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_upload_gallery_image",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1122",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_uploadedfile",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
+      "relation": "calls",
+      "context": "call",
       "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L430",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L700",
       "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_shared_rs",
-      "target": "storage_shared_with_entity_defaults",
+      "source": "storage_mari_attachment_context_block",
+      "target": "storage_mari_attachment_omission_reason",
       "confidence_score": 1.0
     },
     {
@@ -332491,6 +331692,50 @@
       "weight": 1.0,
       "source": "storage_mari_attachment_context_block",
       "target": "storage_mari_take_attachment_budget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L683",
+      "weight": 1.0,
+      "source": "storage_mari_attachment_context_block",
+      "target": "storage_mari_truncate_to_chars",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L751",
+      "weight": 1.0,
+      "source": "storage_mari_attachment_omission_reason",
+      "target": "storage_mari_is_readable_mari_attachment",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L754",
+      "weight": 1.0,
+      "source": "storage_mari_attachment_omission_reason",
+      "target": "storage_mari_looks_like_encoded_blob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L646",
+      "weight": 1.0,
+      "source": "storage_mari_build_task_prompt",
+      "target": "storage_mari_attachment_context_block",
       "confidence_score": 1.0
     },
     {
@@ -332520,10 +331765,43 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L775",
+      "weight": 1.0,
+      "source": "storage_mari_is_readable_mari_attachment",
+      "target": "storage_mari_path_extension",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L1457",
       "weight": 1.0,
       "source": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
       "target": "storage_mari_prompt_with_attachments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1417",
+      "weight": 1.0,
+      "source": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
+      "target": "storage_mari_prompt_with_attachment",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1433",
+      "weight": 1.0,
+      "source": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
+      "target": "storage_mari_prompt_with_attachment",
       "confidence_score": 1.0
     },
     {
@@ -332553,6 +331831,28 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L997",
+      "weight": 1.0,
+      "source": "storage_mari_read_marinara_code_file",
+      "target": "storage_mari_is_context_safe_source_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1288",
+      "weight": 1.0,
+      "source": "storage_mari_search_code_file",
+      "target": "storage_mari_is_context_safe_source_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
       "source_location": "L738",
       "weight": 1.0,
       "source": "storage_mari_take_attachment_budget",
@@ -332561,5 +331861,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "98e88e2fab1e49080eefe47b44ca321b217b048b"
+  "built_at_commit": "07d3be94276a48b97dbacdb6e492ed37923a23b4"
 }
