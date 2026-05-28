@@ -216,6 +216,8 @@ export interface ChatMLMessage {
   content: string;
   /** Internal context-fitting hint: prompt data is preserved before chat history. */
   contextKind?: "prompt" | "history" | "injection";
+  /** Optional: preview-only section label for assembled prompt inspection. */
+  displayName?: string;
   /** Optional: name of the speaker for multi-character */
   name?: string;
   /** Optional: originating character id for multi-character history turns. */

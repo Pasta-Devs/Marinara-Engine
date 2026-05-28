@@ -15,6 +15,7 @@ export interface PromptPreviewInput {
 
 export interface PromptPreviewResult {
   messages: ChatMLMessage[];
+  previewMessages: ChatMLMessage[];
   parameters: Partial<GenerationParameters> | Record<string, unknown>;
   messageCount: number;
   generationInfo: {
@@ -80,6 +81,7 @@ export async function previewGenerationPrompt(
   const parameters = llmParameters(connection, request, previewChat, assembly.parameters);
   return {
     messages: assembly.messages,
+    previewMessages: assembly.previewMessages,
     parameters,
     messageCount: assembly.messages.length,
     generationInfo: {

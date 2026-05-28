@@ -2,7 +2,8 @@ import type { Message } from "../../../../engine/contracts/types/chat";
 export type { CharacterMap, PersonaInfo } from "../../../runtime/visuals/types";
 
 export type PeekPromptData = {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; displayName?: string }>;
+  previewMessages?: Array<{ role: string; content: string; displayName?: string }>;
   parameters: unknown;
   generationInfo?: {
     model?: string;

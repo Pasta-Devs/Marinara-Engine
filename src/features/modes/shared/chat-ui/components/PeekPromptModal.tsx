@@ -33,7 +33,8 @@ interface GenerationInfo {
 
 interface PeekPromptModalProps {
   data: {
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<{ role: string; content: string; displayName?: string }>;
+    previewMessages?: Array<{ role: string; content: string; displayName?: string }>;
     parameters: unknown;
     generationInfo?: GenerationInfo | null;
     agentNote?: string;
@@ -116,7 +117,7 @@ function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[
  * with bare user/assistant messages in between. We detect boundaries at the
  * array level first, then handle each region appropriately.
  */
-function buildDisplaySections(messages: Array<{ role: string; content: string }>): DisplaySection[] {
+function buildDisplaySections(messages: Array<{ role: string; content: string; displayName?: string }>): DisplaySection[] {
   // ── Pass 1: find chat history boundaries across the messages array ──
   let chStartIdx = -1;
   let chEndIdx = -1;
@@ -227,7 +228,7 @@ function buildDisplaySections(messages: Array<{ role: string; content: string }>
     }
 
     // ── System/other messages: parse XML sections within them ──
-    const blocks = parseXmlSections(msg.content, msg.role);
+    const blocks = parseXmlSections(msg.content, msg.displayName || msg.role);
     for (const b of blocks) {
       result.push(b);
     }
@@ -370,7 +371,8 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 // ═══════════════════════════════════════════════
 
 export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
-  const sections = useMemo(() => buildDisplaySections(data.messages), [data.messages]);
+  const displayMessages = data.previewMessages?.length ? data.previewMessages : data.messages;
+  const sections = useMemo(() => buildDisplaySections(displayMessages), [displayMessages]);
   const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
   const isLoading = data.loading === true;
 

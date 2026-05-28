@@ -1114,7 +1114,8 @@ export function usePeekPrompt() {
     mutationFn: (input: string | { chatId: string; forCharacterId?: string | null }) => {
       const request = typeof input === "string" ? { chatId: input } : input;
       return previewGenerationPrompt(storageApi, request) as Promise<{
-        messages: Array<{ role: string; content: string }>;
+        messages: Array<{ role: string; content: string; displayName?: string }>;
+        previewMessages?: Array<{ role: string; content: string; displayName?: string }>;
         parameters: unknown;
         generationInfo: {
           model?: string;

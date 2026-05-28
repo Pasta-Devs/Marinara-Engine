@@ -69,6 +69,7 @@ export interface GenerationPersonaContext {
 
 export interface PromptAssemblyResult {
   messages: ChatMLMessage[];
+  previewMessages: ChatMLMessage[];
   promptPresetId: string | null;
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat;
@@ -1268,6 +1269,9 @@ function shouldMergeSameRolePromptMessage(
 function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
   previous.content += "\n\n" + message.content;
   previous.content = collapseExcessBlankLines(previous.content);
+  if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
+    delete previous.displayName;
+  }
   if (previous.contextKind !== message.contextKind) {
     delete previous.contextKind;
   }
@@ -1345,7 +1349,12 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     index += 1;
   }
   if (systemParts.length > 0) {
-    result.push({ role: "system", content: systemParts.join("\n\n"), contextKind: "prompt" });
+    result.push({
+      role: "system",
+      content: systemParts.join("\n\n"),
+      contextKind: "prompt",
+      ...(index === 1 && messages[0]?.displayName ? { displayName: messages[0].displayName } : {}),
+    });
   }
 
   let expectedRole: "user" | "assistant" = "user";
@@ -1383,6 +1392,10 @@ function collapseToSingleUserMessage(messages: ChatMLMessage[]): ChatMLMessage[]
     .filter((content) => content.trim())
     .join("\n\n");
   return content ? [{ role: "user", content, contextKind: "prompt" }] : [];
+}
+
+function previewMessagesForPrompt(messages: ChatMLMessage[]): ChatMLMessage[] {
+  return messages.map((message) => ({ ...message }));
 }
 
 function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
@@ -1627,6 +1640,7 @@ export async function assembleGenerationPrompt(
         role: normalizeRole(section.role),
         content: wrapContent(resolved, name, wrapFormat),
         contextKind: "prompt",
+        displayName: name,
       });
     }
   }
@@ -1710,6 +1724,7 @@ export async function assembleGenerationPrompt(
   if (individualGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, individualGroupTarget);
   }
+  const previewMessages = previewMessagesForPrompt(messages);
   const strictRoleFormatting =
     boolish(promptParameters?.strictRoleFormatting, true) &&
     chatMode === "roleplay";
@@ -1724,6 +1739,7 @@ export async function assembleGenerationPrompt(
 
   return {
     messages,
+    previewMessages,
     promptPresetId: presetId,
     parameters: selectedPreset?.parameters ?? null,
     wrapFormat,

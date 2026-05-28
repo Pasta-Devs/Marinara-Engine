@@ -508,6 +508,12 @@ describe("assembleGenerationPrompt preset parameters", () => {
     expect(assembly.messages[0]?.content).toContain("Rules.");
     expect(assembly.messages[0]?.content).toContain("[ASSISTANT]");
     expect(assembly.messages[0]?.content).toContain("Welcome back.");
+    expect(assembly.previewMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: "system", displayName: "Main" }),
+        expect.objectContaining({ role: "assistant", content: "Welcome back." }),
+      ]),
+    );
   });
 
   it("uses connection and chat-scoped formatting parameters during prompt assembly", async () => {
