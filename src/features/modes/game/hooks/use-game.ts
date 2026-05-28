@@ -73,6 +73,10 @@ export function useCreateGame() {
     onSuccess: (res) => {
       store.getState().setActiveGame(res.gameId, res.sessionChat.id, null);
       store.getState().setSetupActive(true);
+      qc.setQueryData(chatKeys.detail(res.sessionChat.id), res.sessionChat);
+      if (useChatStore.getState().activeChatId === res.sessionChat.id) {
+        useChatStore.getState().setActiveChat(res.sessionChat);
+      }
       // Collapse sidebar when starting a new game to maximize game area
       useUIStore.getState().setSidebarOpen(false);
       qc.invalidateQueries({ queryKey: chatKeys.list() });
@@ -90,9 +94,13 @@ export function useGameSetup() {
   return useMutation({
     mutationFn: (data: { chatId: string; connectionId?: string; preferences: string; setupConfig?: GameSetupConfig }) =>
       gameApi.setupGame(data),
-    onSuccess: () => {
+    onSuccess: (res) => {
       store.getState().setSetupActive(false);
-      const sessionChatId = store.getState().activeSessionChatId;
+      const sessionChatId = res.sessionChat.id || store.getState().activeSessionChatId;
+      qc.setQueryData(chatKeys.detail(res.sessionChat.id), res.sessionChat);
+      if (useChatStore.getState().activeChatId === res.sessionChat.id) {
+        useChatStore.getState().setActiveChat(res.sessionChat);
+      }
       if (sessionChatId) {
         qc.invalidateQueries({ queryKey: chatKeys.detail(sessionChatId) });
         qc.invalidateQueries({ queryKey: chatKeys.messages(sessionChatId) });

@@ -447,13 +447,14 @@ fn migrate_media_file(
 
 fn local_path_from_media_reference(value: &str) -> Option<PathBuf> {
     let trimmed = value.trim();
-    if trimmed.is_empty()
+    if (trimmed.is_empty()
         || trimmed.starts_with("data:")
         || trimmed.starts_with("blob:")
         || trimmed.starts_with("tauri-api:")
         || trimmed.starts_with("marinara-")
-        || (trimmed.starts_with("http://") && !trimmed.starts_with("http://asset.localhost/"))
-        || trimmed.starts_with("https://")
+        || trimmed.starts_with("http://")
+        || trimmed.starts_with("https://"))
+        && !trimmed.starts_with("http://asset.localhost/")
     {
         return None;
     }

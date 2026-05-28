@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 851 files · ~2,821,080 words
+- 851 files · ~2,821,934 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10386 nodes · 22594 edges · 451 communities (418 shown, 33 thin omitted)
+- 10387 nodes · 22596 edges · 451 communities (418 shown, 33 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 280 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5d27d798`
+- Built from commit: `00912276`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -279,7 +279,6 @@
 - [[_COMMUNITY_Community 267|Community 267]]
 - [[_COMMUNITY_Community 268|Community 268]]
 - [[_COMMUNITY_Community 270|Community 270]]
-- [[_COMMUNITY_Community 272|Community 272]]
 - [[_COMMUNITY_Community 273|Community 273]]
 - [[_COMMUNITY_Community 274|Community 274]]
 - [[_COMMUNITY_Community 275|Community 275]]
@@ -291,6 +290,7 @@
 - [[_COMMUNITY_Community 281|Community 281]]
 - [[_COMMUNITY_Community 282|Community 282]]
 - [[_COMMUNITY_Community 283|Community 283]]
+- [[_COMMUNITY_Community 284|Community 284]]
 - [[_COMMUNITY_Community 287|Community 287]]
 - [[_COMMUNITY_Community 288|Community 288]]
 - [[_COMMUNITY_Community 289|Community 289]]
@@ -444,13 +444,13 @@
 ## Surprising Connections (you probably didn't know these)
 - `executeScriptCustomTool()` --calls--> `runner`  [INFERRED]
   src/engine/generation/tools-runtime.ts → scripts/run-vite.mjs
+- `runGenerationWithUi()` --calls--> `streamFactory`  [INFERRED]
+  src/features/runtime/generation/hooks/use-generate.ts → src/features/runtime/generation/hooks/use-generate.test.ts
 - `today_label()` --calls--> `now_iso()`  [INFERRED]
   src-tauri/src/commands/storage/integrations/spotify.rs → src-tauri/crates/core/src/lib.rs
 - `import_persona_avatar_file()` --calls--> `modified_at()`  [INFERRED]
   src-tauri/src/commands/storage/imports/bulk_imports.rs → src-tauri/src/commands/storage/imports/access.rs
 - `ShellLoadingFallback()` --calls--> `cn()`  [EXTRACTED]
-  src/app/shell/AppShell.tsx → src/shared/lib/utils.ts
-- `MountOnceWhenOpened()` --calls--> `cn()`  [EXTRACTED]
   src/app/shell/AppShell.tsx → src/shared/lib/utils.ts
 
 ## Communities (451 total, 33 thin omitted)
@@ -461,7 +461,7 @@ Nodes (455): vocab, [CLS], [MASK], [PAD], [SEP], [UNK], [unused0], [unused1] (+4
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
-Nodes (79): ExpressionAvatarResolver, MessageWithSwipes, PeekPromptOptions, AgentInjectionReviewModal(), AgentInjectionReviewModalProps, ChatBranchSelector(), ChatBranchSelectorProps, ChatFilesDrawer() (+71 more)
+Nodes (80): ExpressionAvatarResolver, MessageWithSwipes, PeekPromptMessage, PeekPromptOptions, AgentInjectionReviewModal(), AgentInjectionReviewModalProps, ChatBranchSelector(), ChatBranchSelectorProps (+72 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.02
@@ -516,8 +516,8 @@ Cohesion: 0.06
 Nodes (84): background_remover_runtime_dir(), background_remover_status(), BackgroundRemoverCommand, build_sprite_plan(), builtin_fallback_reports_builtin_source(), bulk_upload_rejects_unsafe_character_id(), bulk_upload_reports_partial_failures_and_returns_refreshed_list(), bundled_background_remover_roots() (+76 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.07
-Nodes (55): applyAgentResultEffects(), applyAssistantAction(), applyBackgroundChoice(), applyHapticAgentResult(), applyQuestUpdates(), applyTrackerResultToGameState(), assertChatCanGenerate(), buildPendingCardUpdates() (+47 more)
+Cohesion: 0.09
+Nodes (47): applyAgentResultEffects(), applyAssistantAction(), applyBackgroundChoice(), applyHapticAgentResult(), applyQuestUpdates(), applyTrackerResultToGameState(), assertChatCanGenerate(), buildPendingCardUpdates() (+39 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.05
@@ -584,8 +584,8 @@ Cohesion: 0.07
 Nodes (25): importApi, asRecord(), chatMessageDefaults(), normalizeArrayField(), normalizeMessageWrite(), normalizeObjectField(), normalizeStorageReadResult(), normalizeStorageRecord() (+17 more)
 
 ### Community 32 - "Community 32"
-Cohesion: 0.09
-Nodes (59): message_swipes(), character_update_patch_preserves_object_data(), character_update_patch_rejects_invalid_data_shape(), collapse_excess_blank_lines(), decode_uploaded_image_file(), decode_uploaded_image_file_rejects_declared_oversized_upload(), decode_uploaded_image_file_rejects_non_image_content_type(), game_state_snapshot_normalizes_persona_stats_as_nullable_array() (+51 more)
+Cohesion: 0.08
+Nodes (66): message_swipes(), message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra(), object_extra(), preserve_active_swipe_extra(), character_update_patch_preserves_object_data(), character_update_patch_rejects_invalid_data_shape(), clear_swipe_scoped_extra(), collapse_excess_blank_lines() (+58 more)
 
 ### Community 33 - "Community 33"
 Cohesion: 0.04
@@ -593,7 +593,7 @@ Nodes (57): backgroundsApi, fontsApi, UpdateApplyResponse, UpdateCheckResponse, 
 
 ### Community 34 - "Community 34"
 Cohesion: 0.04
-Nodes (50): PeekPromptMessage, ActionBtn(), CHAT_HTML_ALLOWED_ATTR, CHAT_HTML_ALLOWED_TAGS, ChatMessage, ChatMessageProps, collectInlineMarkdownRanges(), EditTextarea (+42 more)
+Nodes (49): ActionBtn(), CHAT_HTML_ALLOWED_ATTR, CHAT_HTML_ALLOWED_TAGS, ChatMessage, ChatMessageProps, collectInlineMarkdownRanges(), EditTextarea, extractChatStyleBlocks() (+41 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.08
@@ -621,7 +621,7 @@ Nodes (51): resolveRegenerationGameStateAnchor(), resolveRegenerationGameStateFa
 
 ### Community 41 - "Community 41"
 Cohesion: 0.08
-Nodes (51): is_protected_record(), new_id(), activate_persona(), restore_character_version(), active_swipe_index(), active_swipe_update_response(), branch_chat(), bulk_delete_messages() (+43 more)
+Nodes (50): is_protected_record(), new_id(), activate_persona(), restore_character_version(), active_swipe_index(), active_swipe_update_response(), branch_chat(), bulk_delete_messages() (+42 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.05
@@ -780,8 +780,8 @@ Cohesion: 0.12
 Nodes (33): collect_profile_assets(), create_profile_import_temp_dir(), data_url_from_file(), decode_profile_asset_data(), decoded_profile_json_assets(), decoded_profile_zip_assets(), is_legacy_cleanup_backup_asset_path(), legacy_cleanup_backup_asset_paths_do_not_reject_profile_assets() (+25 more)
 
 ### Community 81 - "Community 81"
-Cohesion: 0.11
-Nodes (18): cleanNpcDisplayName(), dedupeAdjacentInventoryEntries(), dedupeNpcInteractions(), GameJournal(), InventoryView(), isDuplicateInventoryEntry(), Journal, JournalEntry (+10 more)
+Cohesion: 0.10
+Nodes (19): chat, cleanNpcDisplayName(), dedupeAdjacentInventoryEntries(), dedupeNpcInteractions(), GameJournal(), InventoryView(), isDuplicateInventoryEntry(), Journal (+11 more)
 
 ### Community 82 - "Community 82"
 Cohesion: 0.10
@@ -1503,10 +1503,6 @@ Nodes (6): computeTooltipStyle(), GameTutorial(), GameTutorialProps, GameTutoria
 Cohesion: 0.22
 Nodes (8): code:text (Status: <phase>. Proof: <best evidence or "not yet">. Blocke), code:text (Done: <result or root cause>. Files: <paths + tiny summaries), code:text (Verdict: <ship|needs work|blocked>. Findings: <none or bulle), code:text (Debt: <none|quadrant + follow-up>.), code:text (Mud risk: <none|label + containment/follow-up>.), code:text (PR: <url or not opened>. Checks: <passed|failed|pending|not ), code:text (Decision: <one thing needed>. Autonomous next: <safe step or), Status Snippets
 
-### Community 272 - "Community 272"
-Cohesion: 0.40
-Nodes (6): object_extra(), preserve_active_swipe_extra(), clear_swipe_scoped_extra(), json_object_value(), merge_active_swipe_extra(), swipe_scoped_extra()
-
 ### Community 273 - "Community 273"
 Cohesion: 0.39
 Nodes (7): LlmMessage, estimatedMessageTokens(), estimatedTokens(), firstHistoryIndex(), fitMessagesToContextWindow(), historyCount(), truncateOldestHistory()
@@ -1550,6 +1546,10 @@ Nodes (6): child, findModernNode(), readNodeVersion(), repoRoot, supportsVite(),
 ### Community 283 - "Community 283"
 Cohesion: 0.25
 Nodes (7): CreateRegexScriptInput, createRegexScriptSchema, regexPlacementSchema, ReorderRegexScriptsInput, reorderRegexScriptsSchema, UpdateRegexScriptInput, updateRegexScriptSchema
+
+### Community 284 - "Community 284"
+Cohesion: 0.20
+Nodes (8): existing, newer, queryClient, state, storageApiMock, StreamEvent, streamFactory, TestStreamFactory
 
 ### Community 287 - "Community 287"
 Cohesion: 0.29
@@ -1984,16 +1984,16 @@ Nodes (15): CombatEndScreen(), CombatLog(), EncounterConfig(), EncounterErrorBou
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `Community 18` to `Community 128`, `Community 384`, `Community 2`, `Community 3`, `Community 4`, `Community 1`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 144`, `Community 145`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 151`, `Community 153`, `Community 25`, `Community 29`, `Community 30`, `Community 33`, `Community 34`, `Community 418`, `Community 163`, `Community 37`, `Community 170`, `Community 43`, `Community 45`, `Community 50`, `Community 51`, `Community 179`, `Community 59`, `Community 192`, `Community 64`, `Community 197`, `Community 70`, `Community 198`, `Community 72`, `Community 76`, `Community 77`, `Community 78`, `Community 81`, `Community 210`, `Community 89`, `Community 220`, `Community 93`, `Community 96`, `Community 105`, `Community 106`, `Community 109`, `Community 111`, `Community 112`, `Community 117`, `Community 119`?**
-  _High betweenness centrality (0.061) - this node is a cross-community bridge._
-- **Why does `useUIStore` connect `Community 111` to `Community 384`, `Community 1`, `Community 2`, `Community 4`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 15`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 151`, `Community 154`, `Community 29`, `Community 30`, `Community 31`, `Community 33`, `Community 34`, `Community 35`, `Community 164`, `Community 37`, `Community 49`, `Community 51`, `Community 179`, `Community 57`, `Community 187`, `Community 189`, `Community 64`, `Community 70`, `Community 72`, `Community 89`, `Community 93`, `Community 97`, `Community 229`, `Community 106`, `Community 112`, `Community 117`, `Community 127`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `get_required()` connect `Community 41` to `Community 32`, `Community 103`, `Community 7`, `Community 71`, `Community 14`, `Community 47`, `Community 113`, `Community 17`, `Community 91`?**
-  _High betweenness centrality (0.011) - this node is a cross-community bridge._
+  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+- **Why does `useUIStore` connect `Community 111` to `Community 384`, `Community 1`, `Community 2`, `Community 4`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 15`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 151`, `Community 154`, `Community 284`, `Community 29`, `Community 30`, `Community 31`, `Community 33`, `Community 34`, `Community 35`, `Community 164`, `Community 37`, `Community 49`, `Community 51`, `Community 179`, `Community 57`, `Community 187`, `Community 189`, `Community 64`, `Community 70`, `Community 72`, `Community 89`, `Community 93`, `Community 97`, `Community 229`, `Community 106`, `Community 112`, `Community 117`, `Community 127`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
   _3251 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004395604395604396 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.03873598369011213 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.03819849874895746 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.020843672456575684 - nodes in this community are weakly interconnected._
+- **Should `Community 3` be split into smaller, more focused modules?**
+  _Cohesion score 0.02555717054263566 - nodes in this community are weakly interconnected._
