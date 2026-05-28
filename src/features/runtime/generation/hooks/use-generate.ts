@@ -877,9 +877,14 @@ export async function runGenerationWithUi(
 ): Promise<boolean> {
   const chatId = args.chatId;
   const regenerateMessageId = readString(args.regenerateMessageId).trim() || null;
-  const controller = new AbortController();
   await assertChatCanGenerate(queryClient, chatId);
   const chatStore = useChatStore.getState();
+  if (chatStore.abortControllers.has(chatId)) {
+    console.warn("[generation] Generation already in progress for chat", chatId);
+    return false;
+  }
+
+  const controller = new AbortController();
   chatStore.setAbortController(chatId, controller);
   chatStore.setStreaming(true, chatId);
   chatStore.setRegenerateMessageId(regenerateMessageId);
@@ -973,19 +978,26 @@ export async function runGenerationWithUi(
     });
   };
 
+  const ownsChatController = () => useChatStore.getState().abortControllers.get(chatId) === controller;
+
   const stopGenerationUi = () => {
     clearRevealTimer();
     pendingReveal = "";
     resolveAllRevealWaiters();
     const state = useChatStore.getState();
+    if (!ownsChatController()) return;
     state.setAbortController(chatId, null);
-    state.setStreaming(false, chatId);
     state.setMariPhase(chatId, "idle");
-    state.setRegenerateMessageId(null);
-    state.setGenerationPhase(null);
-    state.setTypingCharacterName(null);
-    state.setStreamingCharacterId(null);
-    useAgentStore.getState().setProcessing(false);
+    if (state.streamingChatId === chatId) {
+      state.setStreaming(false, chatId);
+      state.setRegenerateMessageId(null);
+      state.setGenerationPhase(null);
+      state.setTypingCharacterName(null);
+      state.setStreamingCharacterId(null);
+    }
+    if (useChatStore.getState().abortControllers.size === 0) {
+      useAgentStore.getState().setProcessing(false);
+    }
   };
 
   controller.signal.addEventListener("abort", stopGenerationUi, { once: true });
@@ -995,6 +1007,7 @@ export async function runGenerationWithUi(
     await options.beforeStart?.(args, controller.signal);
     if (controller.signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     for await (const event of streamFactory(args, controller.signal)) {
+      if (!ownsChatController()) break;
       switch (event.type) {
         case "phase":
           if (typeof event.data === "string") {
@@ -1099,17 +1112,7 @@ export async function runGenerationWithUi(
     throw error;
   } finally {
     controller.signal.removeEventListener("abort", stopGenerationUi);
-    clearRevealTimer();
-    revealWaiters.clear();
-    const finalChatStore = useChatStore.getState();
-    finalChatStore.setAbortController(chatId, null);
-    finalChatStore.setStreaming(false, chatId);
-    finalChatStore.setMariPhase(chatId, "idle");
-    finalChatStore.setRegenerateMessageId(null);
-    finalChatStore.setGenerationPhase(null);
-    finalChatStore.setTypingCharacterName(null);
-    finalChatStore.setStreamingCharacterId(null);
-    useAgentStore.getState().setProcessing(false);
+    stopGenerationUi();
     scheduleChatQueryRefresh(queryClient, chatId);
   }
 }
