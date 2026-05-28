@@ -29,6 +29,8 @@ const MARI_CONNECTION_SETUP_CONTENT =
 const MARI_NO_CONNECTION_SELECTED_ERROR =
   'No connection set for this chat! Click the "chains" icon in the input box to select one.';
 const MARI_INPUT_PLACEHOLDER = "Message @Professor Mari, /reset to reset the conversation and only then clear it";
+const MARI_ATTACHMENT_CLIENT_TEXT_BYTES = 64 * 1024;
+const MARI_IMAGE_ATTACHMENT_EXTENSIONS = new Set(["avif", "gif", "jpeg", "jpg", "png", "webp"]);
 
 type MariAttachment = {
   id: string;
@@ -61,6 +63,12 @@ type MariPersona = {
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isMariImageFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+  const extension = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : null;
+  return !!extension && MARI_IMAGE_ATTACHMENT_EXTENSIONS.has(extension);
 }
 
 function formatDaySeparator(value: string) {
@@ -299,14 +307,23 @@ export function ProfessorMariSurface() {
                 size: file.size,
                 content,
               });
-            if (file.type.startsWith("image/")) {
-              const reader = new FileReader();
-              reader.onload = () => finish(String(reader.result ?? ""));
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(file);
+            if (isMariImageFile(file)) {
+              finish("");
               return;
             }
-            file.text().then(finish).catch(reject);
+            file
+              .slice(0, MARI_ATTACHMENT_CLIENT_TEXT_BYTES)
+              .text()
+              .then((content) => {
+                if (file.size <= MARI_ATTACHMENT_CLIENT_TEXT_BYTES) {
+                  finish(content);
+                  return;
+                }
+                finish(
+                  `${content}\n\n[Attachment truncated in the browser after ${MARI_ATTACHMENT_CLIENT_TEXT_BYTES} bytes.]`,
+                );
+              })
+              .catch(reject);
           }),
       ),
     );

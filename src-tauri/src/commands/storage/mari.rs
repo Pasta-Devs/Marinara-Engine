@@ -39,11 +39,15 @@ const CREATIVE_LIBRARY_ENTITIES: &[(&str, &str)] = &[
 ];
 
 const CODE_SEARCH_SKIP_DIRS: &[&str] = &[
+    ".codex",
     ".git",
     ".next",
+    ".pnpm-store",
     ".turbo",
     "build",
+    "coverage",
     "dist",
+    "graphify-out",
     "node_modules",
     "target",
 ];
@@ -52,9 +56,14 @@ const CODE_SEARCH_ALLOWED_EXTENSIONS: &[&str] = &[
     "css", "html", "js", "jsx", "json", "md", "rs", "toml", "ts", "tsx", "yml", "yaml",
 ];
 const CODE_SEARCH_MAX_FILE_BYTES: u64 = 512 * 1024;
-const CODE_READ_MAX_FILE_BYTES: u64 = 160 * 1024;
+const CODE_READ_MAX_FILE_BYTES: u64 = 96 * 1024;
 const CODE_EDIT_MAX_FILE_BYTES: u64 = 512 * 1024;
 const CODE_EDIT_MAX_TEXT_BYTES: usize = 256 * 1024;
+const MARI_ATTACHMENT_MAX_CHARS: usize = 24 * 1024;
+const MARI_ATTACHMENT_TOTAL_MAX_CHARS: usize = 48 * 1024;
+const MARI_TEXT_ATTACHMENT_EXTENSIONS: &[&str] = &[
+    "csv", "json", "jsonl", "log", "md", "markdown", "txt", "xml", "yaml", "yml",
+];
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -625,15 +634,11 @@ fn build_task_prompt(input: &MariPromptRequest) -> String {
         sections.push(format!("Conversation history:\n{history}"));
     }
     if !input.attachments.is_empty() {
+        let mut remaining_attachment_chars = MARI_ATTACHMENT_TOTAL_MAX_CHARS;
         let attachments = input
             .attachments
             .iter()
-            .map(|attachment| {
-                format!(
-                    "File: {}\nType: {}\nSize: {}\nContent:\n{}",
-                    attachment.name, attachment.r#type, attachment.size, attachment.content
-                )
-            })
+            .map(|attachment| attachment_context_block(attachment, &mut remaining_attachment_chars))
             .collect::<Vec<_>>()
             .join("\n\n---\n\n");
         sections.push(format!(
@@ -645,6 +650,96 @@ fn build_task_prompt(input: &MariPromptRequest) -> String {
         input.user_message.trim()
     ));
     sections.join("\n\n")
+}
+
+fn attachment_context_block(attachment: &MariAttachment, remaining_chars: &mut usize) -> String {
+    let name = attachment.name.trim();
+    let name = if name.is_empty() { "attachment" } else { name };
+    let mime_type = attachment.r#type.trim();
+    let mime_type = if mime_type.is_empty() {
+        "application/octet-stream"
+    } else {
+        mime_type
+    };
+    let content = attachment.content.trim();
+    let content_block = match attachment_omission_reason(attachment, content) {
+        Some(reason) => format!("[Attachment omitted: {reason}]"),
+        None if content.is_empty() => {
+            "[Attachment omitted: no readable text content was provided.]".to_string()
+        }
+        None if *remaining_chars == 0 => {
+            "[Attachment omitted: attachment context budget was already exhausted.]".to_string()
+        }
+        None => {
+            let per_file_limit = MARI_ATTACHMENT_MAX_CHARS.min(*remaining_chars);
+            let (snippet, truncated_for_limit) = truncate_to_chars(content, per_file_limit);
+            *remaining_chars = remaining_chars.saturating_sub(snippet.chars().count());
+            let truncated_by_client =
+                attachment.size > 0 && attachment.size as usize > attachment.content.len();
+            if truncated_for_limit || truncated_by_client {
+                format!(
+                    "{snippet}\n\n[Attachment truncated before prompting to keep Professor Mari within the context budget.]"
+                )
+            } else {
+                snippet
+            }
+        }
+    };
+    format!(
+        "File: {name}\nType: {mime_type}\nSize: {}\nContent:\n{content_block}",
+        attachment.size
+    )
+}
+
+fn attachment_omission_reason(attachment: &MariAttachment, content: &str) -> Option<String> {
+    let mime_type = attachment.r#type.trim().to_ascii_lowercase();
+    if mime_type.starts_with("image/") {
+        return Some(
+            "image attachments are not sent as raw base64 to Professor Mari; describe the image or attach text instead"
+                .to_string(),
+        );
+    }
+    if !is_readable_mari_attachment(attachment) {
+        return Some(format!("{mime_type} is not a readable text attachment"));
+    }
+    if looks_like_encoded_blob(content) {
+        return Some("content looks like encoded binary/base64 data".to_string());
+    }
+    None
+}
+
+fn is_readable_mari_attachment(attachment: &MariAttachment) -> bool {
+    let mime_type = attachment.r#type.trim().to_ascii_lowercase();
+    if mime_type.starts_with("text/") {
+        return true;
+    }
+    if matches!(
+        mime_type.as_str(),
+        "application/json"
+            | "application/ld+json"
+            | "application/xml"
+            | "application/x-yaml"
+            | "application/yaml"
+    ) {
+        return true;
+    }
+    path_extension(&attachment.name)
+        .map(|extension| MARI_TEXT_ATTACHMENT_EXTENSIONS.contains(&extension.as_str()))
+        .unwrap_or(false)
+}
+
+fn path_extension(path: &str) -> Option<String> {
+    Path::new(path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+}
+
+fn truncate_to_chars(value: &str, max_chars: usize) -> (String, bool) {
+    let mut chars = value.chars();
+    let truncated = chars.by_ref().take(max_chars).collect::<String>();
+    let was_truncated = chars.next().is_some();
+    (truncated, was_truncated)
 }
 
 fn looks_like_library_question(message: &str) -> bool {
@@ -850,6 +945,11 @@ fn read_marinara_code_file(path: &str) -> AppResult<Value> {
             format!("{display_path} is not valid UTF-8: {error}"),
         )
     })?;
+    if !is_context_safe_source_text(&content) {
+        return Err(AppError::invalid_input(format!(
+            "{display_path} appears to contain generated, encoded, or binary-like content; search narrower source files instead"
+        )));
+    }
     Ok(json!({
         "path": display_path,
         "bytes": content.len(),
@@ -1136,6 +1236,9 @@ fn search_code_file(
     let Ok(content) = fs::read_to_string(path) else {
         return Ok(());
     };
+    if !is_context_safe_source_text(&content) {
+        return Ok(());
+    }
     *searched_files += 1;
     let display_path = path
         .strip_prefix(root)
@@ -1195,5 +1298,113 @@ fn truncate_preview(value: &str) -> String {
         format!("{preview}...")
     } else {
         preview
+    }
+}
+
+fn is_context_safe_source_text(content: &str) -> bool {
+    !content.as_bytes().contains(&0)
+        && !content
+            .lines()
+            .map(str::trim)
+            .any(looks_like_encoded_blob)
+}
+
+fn looks_like_encoded_blob(value: &str) -> bool {
+    const MIN_BLOB_CHARS: usize = 2048;
+    if value.len() < MIN_BLOB_CHARS {
+        return false;
+    }
+    let lower = value
+        .chars()
+        .take(64)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if lower.starts_with("data:") || lower.contains(";base64,") {
+        return true;
+    }
+    let mut encoded_chars = 0usize;
+    let mut whitespace_chars = 0usize;
+    let mut total_chars = 0usize;
+    for ch in value.chars() {
+        total_chars += 1;
+        if ch.is_whitespace() {
+            whitespace_chars += 1;
+            continue;
+        }
+        if ch.is_ascii_alphanumeric() || matches!(ch, '+' | '/' | '=' | '-' | '_') {
+            encoded_chars += 1;
+        }
+    }
+    let non_whitespace_chars = total_chars.saturating_sub(whitespace_chars);
+    non_whitespace_chars >= MIN_BLOB_CHARS
+        && whitespace_chars * 100 / total_chars <= 5
+        && encoded_chars * 100 / non_whitespace_chars >= 96
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn prompt_with_attachment(attachment: MariAttachment) -> String {
+        build_task_prompt(&MariPromptRequest {
+            user_message: "Please inspect this attachment.".to_string(),
+            messages: Vec::new(),
+            compacted_summary: None,
+            connection_id: Some("connection".to_string()),
+            persona: None,
+            attachments: vec![attachment],
+        })
+    }
+
+    #[test]
+    fn professor_mari_prompt_omits_raw_image_attachment_data_urls() {
+        let raw_data_url = format!("data:image/png;base64,{}", "A".repeat(4096));
+        let prompt = prompt_with_attachment(MariAttachment {
+            name: "screenshot.png".to_string(),
+            r#type: "image/png".to_string(),
+            size: 4096,
+            content: raw_data_url.clone(),
+        });
+
+        assert!(!prompt.contains(&raw_data_url));
+        assert!(prompt.contains("screenshot.png"));
+        assert!(prompt.contains("omitted"));
+    }
+
+    #[test]
+    fn professor_mari_prompt_truncates_large_text_attachments() {
+        let marker = "tail-that-should-not-enter-context";
+        let content = format!("{}{}", "safe text\n".repeat(20_000), marker);
+        let prompt = prompt_with_attachment(MariAttachment {
+            name: "debug.log".to_string(),
+            r#type: "text/plain".to_string(),
+            size: content.len() as u64,
+            content,
+        });
+
+        assert!(prompt.contains("debug.log"));
+        assert!(prompt.contains("Attachment truncated"));
+        assert!(!prompt.contains(marker));
+    }
+
+    #[test]
+    fn professor_mari_code_tools_skip_generated_graphify_output() {
+        assert!(is_skipped_relative_path(Path::new(
+            "graphify-out/graph.json"
+        )));
+        assert!(is_skipped_relative_path(Path::new(
+            "graphify-out/cache/chunk.json"
+        )));
+    }
+
+    #[test]
+    fn professor_mari_code_tools_reject_encoded_source_payloads() {
+        assert!(is_context_safe_source_text(
+            "export function usefulSource() {\n  return 'readable code';\n}\n"
+        ));
+        assert!(!is_context_safe_source_text(&format!(
+            "{{\"image\":\"data:image/png;base64,{}\"}}",
+            "A".repeat(4096)
+        )));
     }
 }

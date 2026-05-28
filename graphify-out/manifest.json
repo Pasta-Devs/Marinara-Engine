@@ -2730,8 +2730,8 @@
     "semantic_hash": ""
   },
   "src/features/shell/mari/components/ProfessorMariSurface.tsx": {
-    "mtime": 1779985053.7870157,
-    "ast_hash": "00c9fe08ad4312cd0ace9ed1ceb81d44",
+    "mtime": 1779991063.786102,
+    "ast_hash": "98db877d7f192ed58fe6839713c4d6e7",
     "semantic_hash": ""
   },
   "src/features/shell/notifications/shell.ts": {
@@ -3845,8 +3845,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/mari.rs": {
-    "mtime": 1779861244.3701043,
-    "ast_hash": "f7e41b00c67f01e6faf6e87ee0bfd241",
+    "mtime": 1779990775.522,
+    "ast_hash": "475522de7e1c79f9c0ce4ac7dfff4a13",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/media_uploads.rs": {
