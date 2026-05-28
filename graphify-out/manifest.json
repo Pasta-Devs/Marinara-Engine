@@ -475,13 +475,13 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/chats.rs": {
-    "mtime": 1779983097.8257117,
-    "ast_hash": "aa7b13b9d82bb7d04c88c1f524f65877",
+    "mtime": 1779986361.562366,
+    "ast_hash": "090f979c3ea3658fb5223485d4b04054",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/shared.rs": {
-    "mtime": 1779966352.9878886,
-    "ast_hash": "cbd1ca5891dbf7b390ae09a18785110b",
+    "mtime": 1779986361.5633688,
+    "ast_hash": "c709211103f683779b93552ff17c7fd2",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/custom_tools.rs": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/types.ts": {
-    "mtime": 1779961269.2032723,
-    "ast_hash": "b06cd7f55492fb140f8d99abc1df281f",
+    "mtime": 1779986305.109226,
+    "ast_hash": "724abb7eddac803f8e7d62b727404930",
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/index.ts": {
@@ -955,8 +955,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/components/ChatMessage.tsx": {
-    "mtime": 1779980025.117918,
-    "ast_hash": "db30ba60d3f97d3e3459191d1433a5ca",
+    "mtime": 1779986349.6786685,
+    "ast_hash": "e4ff32a6b4d9375ec0d7b3fcb184b58a",
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/components/ChatInput.tsx": {
@@ -965,8 +965,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx": {
-    "mtime": 1779961269.2021506,
-    "ast_hash": "4677769ec54ebd0cb0bd4dfa3583975d",
+    "mtime": 1779986242.1680732,
+    "ast_hash": "559d9d0dc03306fee4c29404e60836ac",
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/components/ChatBranchSelector.tsx": {
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/hooks/use-chat-timeline-actions.ts": {
-    "mtime": 1779983035.528843,
-    "ast_hash": "978ef2d7f348d3425c4effdc062dda8b",
+    "mtime": 1779986273.144897,
+    "ast_hash": "efc8b67e8ad38a87ab69ba2df378598a",
     "semantic_hash": ""
   },
   "src/features/modes/shared/chat-ui/hooks/use-chat-surface-data.ts": {
@@ -1995,8 +1995,8 @@
     "semantic_hash": ""
   },
   "src/features/catalog/chats/hooks/use-chats.ts": {
-    "mtime": 1779982667.5830343,
-    "ast_hash": "ae8d2b1c1ecfb4362c3b1053d1268de5",
+    "mtime": 1779986361.584244,
+    "ast_hash": "a3465d05e5f3ac1a190a14049793ff9c",
     "semantic_hash": ""
   },
   "src/features/catalog/chats/hooks/use-chat-folders.ts": {
@@ -2450,8 +2450,8 @@
     "semantic_hash": ""
   },
   "src/features/runtime/generation/hooks/use-generate.ts": {
-    "mtime": 1779984675.0680475,
-    "ast_hash": "7cc32dd812bbd460b4a276ceeb1b1d42",
+    "mtime": 1779986227.5619812,
+    "ast_hash": "8de7e801c9925dd1525cdf9856f67f07",
     "semantic_hash": ""
   },
   "src/features/runtime/world-state/types.ts": {
@@ -3110,8 +3110,8 @@
     "semantic_hash": ""
   },
   "src/shared/api/storage-api.ts": {
-    "mtime": 1779961269.2068708,
-    "ast_hash": "41c0fc5650275baad57e85141c0ac48d",
+    "mtime": 1779986305.1102269,
+    "ast_hash": "b79b252f12ab54f7e07188d8b724998d",
     "semantic_hash": ""
   },
   "src/shared/api/api-errors.ts": {
@@ -3235,8 +3235,8 @@
     "semantic_hash": ""
   },
   "src/engine/capabilities/storage.ts": {
-    "mtime": 1779835633.802667,
-    "ast_hash": "ae097f231b67c33804daf8bd10496a5c",
+    "mtime": 1779986305.088224,
+    "ast_hash": "e03d2140acd7184dfc0db260e3724640",
     "semantic_hash": ""
   },
   "src/engine/capabilities/assets.ts": {
@@ -3500,8 +3500,8 @@
     "semantic_hash": ""
   },
   "src/engine/contracts/types/chat.ts": {
-    "mtime": 1779906888.3971996,
-    "ast_hash": "660c100e21597fc4a293a95de67707c1",
+    "mtime": 1779986361.5633688,
+    "ast_hash": "893331e4c50b8adc9b6ffeca37f7a1d1",
     "semantic_hash": ""
   },
   "src/engine/contracts/types/connection.ts": {
@@ -3900,8 +3900,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-preview.ts": {
-    "mtime": 1779967730.240956,
-    "ast_hash": "baeb01177440c4a22e7e5904af275fe0",
+    "mtime": 1779986361.566624,
+    "ast_hash": "dfb42bdebc965ca47e0650bebaca1662",
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-overrides.test.ts": {
@@ -3930,8 +3930,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/main-tool-loop.test.ts": {
-    "mtime": 1779877016.3487828,
-    "ast_hash": "fc022a75251f3033bd75a681badd2cef",
+    "mtime": 1779986361.5643687,
+    "ast_hash": "4cfa42cdcf7cf4ee9854f8b191074864",
     "semantic_hash": ""
   },
   "src/engine/generation/prompt-overrides.ts": {
@@ -3970,8 +3970,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/start-generation.ts": {
-    "mtime": 1779971703.2822304,
-    "ast_hash": "acad9e1ae8a8521b3e710b4c35f4467b",
+    "mtime": 1779986361.567629,
+    "ast_hash": "41c4155b375a25cbf87b26716bcb645f",
     "semantic_hash": ""
   },
   "src/engine/generation/agent-memory-runtime.ts": {
@@ -4010,8 +4010,8 @@
     "semantic_hash": ""
   },
   "src/engine/generation/start-generation.test.ts": {
-    "mtime": 1779971294.279923,
-    "ast_hash": "f1210af67688c121b6dcbba4a8a5c08e",
+    "mtime": 1779986361.566624,
+    "ast_hash": "36ad0307ac938a9dec03c1d8e861a98d",
     "semantic_hash": ""
   },
   "src/engine/generation/active-characters.ts": {
@@ -5772,6 +5772,21 @@
   ".prettierrc.json": {
     "mtime": 1779985014.509952,
     "ast_hash": "eb2ab6b9534540be620788d3e09aff93",
+    "semantic_hash": ""
+  },
+  "src/engine/generation/prompt-debug-cache.ts": {
+    "mtime": 1779986361.5653706,
+    "ast_hash": "f1c346aa580b544e9a2c87f89b4b9dec",
+    "semantic_hash": ""
+  },
+  "src/engine/generation/prompt-preview.test.ts": {
+    "mtime": 1779986349.6631622,
+    "ast_hash": "83cb40265217c533ae579b3a1b24ff98",
+    "semantic_hash": ""
+  },
+  "src/features/runtime/generation/hooks/use-generate.test.ts": {
+    "mtime": 1779986201.4143496,
+    "ast_hash": "ffad4a2008e85f1907802576725fdf6f",
     "semantic_hash": ""
   }
 }

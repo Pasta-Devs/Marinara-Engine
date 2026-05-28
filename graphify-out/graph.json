@@ -25306,7 +25306,7 @@
       "label": "merge_chat_metadata()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L185",
+      "source_location": "L199",
       "id": "storage_chats_merge_chat_metadata",
       "community": 43,
       "norm_label": "merge_chat_metadata()"
@@ -25315,7 +25315,7 @@
       "label": "message_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L201",
+      "source_location": "L215",
       "id": "storage_chats_message_swipes",
       "community": 43,
       "norm_label": "message_swipes()"
@@ -25324,7 +25324,7 @@
       "label": "set_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L244",
+      "source_location": "L274",
       "id": "storage_chats_set_active_swipe",
       "community": 43,
       "norm_label": "set_active_swipe()"
@@ -25333,7 +25333,7 @@
       "label": "delete_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L291",
+      "source_location": "L345",
       "id": "storage_chats_delete_swipe",
       "community": 43,
       "norm_label": "delete_swipe()"
@@ -25342,7 +25342,7 @@
       "label": "bulk_delete_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L327",
+      "source_location": "L396",
       "id": "storage_chats_bulk_delete_messages",
       "community": 43,
       "norm_label": "bulk_delete_messages()"
@@ -25351,7 +25351,7 @@
       "label": "mark_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L351",
+      "source_location": "L420",
       "id": "storage_chats_mark_autonomous_unread",
       "community": 43,
       "norm_label": "mark_autonomous_unread()"
@@ -25360,7 +25360,7 @@
       "label": "clear_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L380",
+      "source_location": "L449",
       "id": "storage_chats_clear_autonomous_unread",
       "community": 43,
       "norm_label": "clear_autonomous_unread()"
@@ -25369,7 +25369,7 @@
       "label": "chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L388",
+      "source_location": "L457",
       "id": "storage_chats_chat_array_field",
       "community": 43,
       "norm_label": "chat_array_field()"
@@ -25378,7 +25378,7 @@
       "label": "set_chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L393",
+      "source_location": "L462",
       "id": "storage_chats_set_chat_array_field",
       "community": 43,
       "norm_label": "set_chat_array_field()"
@@ -25387,7 +25387,7 @@
       "label": "delete_chat_array_item()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L404",
+      "source_location": "L473",
       "id": "storage_chats_delete_chat_array_item",
       "community": 43,
       "norm_label": "delete_chat_array_item()"
@@ -25396,7 +25396,7 @@
       "label": "refresh_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L422",
+      "source_location": "L491",
       "id": "storage_chats_refresh_chat_memories",
       "community": 43,
       "norm_label": "refresh_chat_memories()"
@@ -25405,7 +25405,7 @@
       "label": "export_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L477",
+      "source_location": "L546",
       "id": "storage_chats_export_chat_memories",
       "community": 43,
       "norm_label": "export_chat_memories()"
@@ -25414,7 +25414,7 @@
       "label": "import_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L497",
+      "source_location": "L566",
       "id": "storage_chats_import_chat_memories",
       "community": 43,
       "norm_label": "import_chat_memories()"
@@ -25423,7 +25423,7 @@
       "label": "touch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L575",
+      "source_location": "L644",
       "id": "storage_chats_touch_chat",
       "community": 43,
       "norm_label": "touch_chat()"
@@ -25432,7 +25432,7 @@
       "label": "delete_chat_group()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L584",
+      "source_location": "L653",
       "id": "storage_chats_delete_chat_group",
       "community": 43,
       "norm_label": "delete_chat_group()"
@@ -25441,7 +25441,7 @@
       "label": "branch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L602",
+      "source_location": "L671",
       "id": "storage_chats_branch_chat",
       "community": 43,
       "norm_label": "branch_chat()"
@@ -25450,7 +25450,7 @@
       "label": "delete_chat_with_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L712",
+      "source_location": "L781",
       "id": "storage_chats_delete_chat_with_messages",
       "community": 43,
       "norm_label": "delete_chat_with_messages()"
@@ -25459,7 +25459,7 @@
       "label": "chat_game_state_is_bootstrap()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L740",
+      "source_location": "L809",
       "id": "storage_chats_chat_game_state_is_bootstrap",
       "community": 43,
       "norm_label": "chat_game_state_is_bootstrap()"
@@ -25468,7 +25468,7 @@
       "label": "scene_delete_scope()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L750",
+      "source_location": "L819",
       "id": "storage_chats_scene_delete_scope",
       "community": 43,
       "norm_label": "scene_delete_scope()"
@@ -25477,7 +25477,7 @@
       "label": "insert_owned_scene_chat_id()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L805",
+      "source_location": "L874",
       "id": "storage_chats_insert_owned_scene_chat_id",
       "community": 43,
       "norm_label": "insert_owned_scene_chat_id()"
@@ -25486,7 +25486,7 @@
       "label": "clear_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L833",
+      "source_location": "L902",
       "id": "storage_chats_clear_character_scene_memories",
       "community": 43,
       "norm_label": "clear_character_scene_memories()"
@@ -25495,7 +25495,7 @@
       "label": "clear_deleted_scene_references()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L875",
+      "source_location": "L944",
       "id": "storage_chats_clear_deleted_scene_references",
       "community": 43,
       "norm_label": "clear_deleted_scene_references()"
@@ -25504,7 +25504,7 @@
       "label": "object_or_parse()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L956",
+      "source_location": "L1025",
       "id": "storage_chats_object_or_parse",
       "community": 43,
       "norm_label": "object_or_parse()"
@@ -25513,7 +25513,7 @@
       "label": "test_state()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L973",
+      "source_location": "L1042",
       "id": "storage_chats_test_state",
       "community": 43,
       "norm_label": "test_state()"
@@ -25522,7 +25522,7 @@
       "label": "memory_embedding_context_prefers_dedicated_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L986",
+      "source_location": "L1172",
       "id": "storage_chats_memory_embedding_context_prefers_dedicated_embedding_connection",
       "community": 43,
       "norm_label": "memory_embedding_context_prefers_dedicated_embedding_connection()"
@@ -25531,7 +25531,7 @@
       "label": "embed_memory_content_uses_lexical_fallback_without_context()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1033",
+      "source_location": "L1219",
       "id": "storage_chats_embed_memory_content_uses_lexical_fallback_without_context",
       "community": 43,
       "norm_label": "embed_memory_content_uses_lexical_fallback_without_context()"
@@ -25540,7 +25540,7 @@
       "label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1043",
+      "source_location": "L1229",
       "id": "storage_chats_delete_origin_chat_removes_scene_chats_and_character_scene_memories",
       "community": 43,
       "norm_label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()"
@@ -25549,7 +25549,7 @@
       "label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1158",
+      "source_location": "L1344",
       "id": "storage_chats_delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link",
       "community": 43,
       "norm_label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()"
@@ -25559,9 +25559,9 @@
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
       "source_location": "L1",
-      "id": "repo_src_tauri_src_commands_storage_shared_rs",
       "community": 30,
-      "norm_label": "shared.rs"
+      "norm_label": "shared.rs",
+      "id": "repo_src_tauri_src_commands_storage_shared_rs"
     },
     {
       "label": "ParsedPath",
@@ -25612,7 +25612,7 @@
       "label": "non_negative_i64_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L112",
+      "source_location": "L178",
       "id": "storage_shared_non_negative_i64_value",
       "community": 58,
       "norm_label": "non_negative_i64_value()"
@@ -25621,7 +25621,7 @@
       "label": "swipe_index_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L123",
+      "source_location": "L189",
       "id": "storage_shared_swipe_index_value",
       "community": 58,
       "norm_label": "swipe_index_value()"
@@ -25630,7 +25630,7 @@
       "label": "collapse_excess_blank_lines()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L132",
+      "source_location": "L198",
       "id": "storage_shared_collapse_excess_blank_lines",
       "community": 30,
       "norm_label": "collapse_excess_blank_lines()"
@@ -25639,7 +25639,7 @@
       "label": "normalize_message_text_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L163",
+      "source_location": "L229",
       "id": "storage_shared_normalize_message_text_fields",
       "community": 30,
       "norm_label": "normalize_message_text_fields()"
@@ -25648,7 +25648,7 @@
       "label": "normalize_character_data_for_storage()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L180",
+      "source_location": "L246",
       "id": "storage_shared_normalize_character_data_for_storage",
       "community": 30,
       "norm_label": "normalize_character_data_for_storage()"
@@ -25657,7 +25657,7 @@
       "label": "normalize_update_patch()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L189",
+      "source_location": "L255",
       "id": "storage_shared_normalize_update_patch",
       "community": 30,
       "norm_label": "normalize_update_patch()"
@@ -25666,7 +25666,7 @@
       "label": "patch_message_update()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L195",
+      "source_location": "L261",
       "id": "storage_shared_patch_message_update",
       "community": 30,
       "norm_label": "patch_message_update()"
@@ -25675,7 +25675,7 @@
       "label": "sync_message_patch_content_to_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L209",
+      "source_location": "L275",
       "id": "storage_shared_sync_message_patch_content_to_active_swipe",
       "community": 30,
       "norm_label": "sync_message_patch_content_to_active_swipe()"
@@ -25684,7 +25684,7 @@
       "label": "normalize_typed_json_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L247",
+      "source_location": "L329",
       "id": "storage_shared_normalize_typed_json_fields",
       "community": 30,
       "norm_label": "normalize_typed_json_fields()"
@@ -25693,7 +25693,7 @@
       "label": "normalize_json_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L343",
+      "source_location": "L425",
       "id": "storage_shared_normalize_json_array_fields",
       "community": 30,
       "norm_label": "normalize_json_array_fields()"
@@ -25702,7 +25702,7 @@
       "label": "normalize_nullable_json_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L354",
+      "source_location": "L436",
       "id": "storage_shared_normalize_nullable_json_array_fields",
       "community": 30,
       "norm_label": "normalize_nullable_json_array_fields()"
@@ -25711,7 +25711,7 @@
       "label": "normalize_json_object_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L371",
+      "source_location": "L453",
       "id": "storage_shared_normalize_json_object_fields",
       "community": 30,
       "norm_label": "normalize_json_object_fields()"
@@ -25720,7 +25720,7 @@
       "label": "normalize_nullable_json_object_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L382",
+      "source_location": "L464",
       "id": "storage_shared_normalize_nullable_json_object_fields",
       "community": 30,
       "norm_label": "normalize_nullable_json_object_fields()"
@@ -25729,7 +25729,7 @@
       "label": "normalize_json_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L399",
+      "source_location": "L481",
       "id": "storage_shared_normalize_json_field",
       "community": 30,
       "norm_label": "normalize_json_field()"
@@ -25738,7 +25738,7 @@
       "label": "with_entity_defaults()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L430",
+      "source_location": "L512",
       "id": "storage_shared_with_entity_defaults",
       "community": 155,
       "norm_label": "with_entity_defaults()"
@@ -25747,7 +25747,7 @@
       "label": "TempRoot",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L617",
+      "source_location": "L699",
       "id": "storage_shared_temproot",
       "community": 30,
       "norm_label": "temproot"
@@ -25756,7 +25756,7 @@
       "label": ".drop()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L620",
+      "source_location": "L702",
       "id": "storage_shared_temproot_drop",
       "community": 30,
       "norm_label": ".drop()"
@@ -25765,7 +25765,7 @@
       "label": "temp_root()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L625",
+      "source_location": "L707",
       "id": "storage_shared_temp_root",
       "community": 30,
       "norm_label": "temp_root()"
@@ -25774,7 +25774,7 @@
       "label": "character_update_patch_preserves_object_data()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L636",
+      "source_location": "L718",
       "id": "storage_shared_character_update_patch_preserves_object_data",
       "community": 30,
       "norm_label": "character_update_patch_preserves_object_data()"
@@ -25783,7 +25783,7 @@
       "label": "character_update_patch_rejects_invalid_data_shape()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L653",
+      "source_location": "L735",
       "id": "storage_shared_character_update_patch_rejects_invalid_data_shape",
       "community": 30,
       "norm_label": "character_update_patch_rejects_invalid_data_shape()"
@@ -25792,7 +25792,7 @@
       "label": "message_content_update_patch_updates_active_swipe_content()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L667",
+      "source_location": "L749",
       "id": "storage_shared_message_content_update_patch_updates_active_swipe_content",
       "community": 30,
       "norm_label": "message_content_update_patch_updates_active_swipe_content()"
@@ -25801,7 +25801,7 @@
       "label": "message_content_update_patch_collapses_excess_blank_lines()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L704",
+      "source_location": "L847",
       "id": "storage_shared_message_content_update_patch_collapses_excess_blank_lines",
       "community": 30,
       "norm_label": "message_content_update_patch_collapses_excess_blank_lines()"
@@ -25810,7 +25810,7 @@
       "label": "message_content_update_patch_does_not_invent_missing_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L739",
+      "source_location": "L882",
       "id": "storage_shared_message_content_update_patch_does_not_invent_missing_swipes",
       "community": 30,
       "norm_label": "message_content_update_patch_does_not_invent_missing_swipes()"
@@ -25819,7 +25819,7 @@
       "label": "game_state_snapshot_normalizes_persona_stats_as_nullable_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L766",
+      "source_location": "L909",
       "id": "storage_shared_game_state_snapshot_normalizes_persona_stats_as_nullable_array",
       "community": 30,
       "norm_label": "game_state_snapshot_normalizes_persona_stats_as_nullable_array()"
@@ -25828,7 +25828,7 @@
       "label": "lorebook_defaults_include_vectorization_enabled()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L799",
+      "source_location": "L942",
       "id": "storage_shared_lorebook_defaults_include_vectorization_enabled",
       "community": 30,
       "norm_label": "lorebook_defaults_include_vectorization_enabled()"
@@ -25837,7 +25837,7 @@
       "label": "game_state_snapshot_rejects_malformed_persona_stats_string()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L807",
+      "source_location": "L950",
       "id": "storage_shared_game_state_snapshot_rejects_malformed_persona_stats_string",
       "community": 30,
       "norm_label": "game_state_snapshot_rejects_malformed_persona_stats_string()"
@@ -25846,7 +25846,7 @@
       "label": "normalize_legacy_text_array_fields_preserves_existing_arrays()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L819",
+      "source_location": "L962",
       "id": "storage_shared_normalize_legacy_text_array_fields_preserves_existing_arrays",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_preserves_existing_arrays()"
@@ -25855,7 +25855,7 @@
       "label": "normalize_legacy_text_array_fields_parses_text_encoded_json_arrays()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L826",
+      "source_location": "L969",
       "id": "storage_shared_normalize_legacy_text_array_fields_parses_text_encoded_json_arrays",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_parses_text_encoded_json_arrays()"
@@ -25864,7 +25864,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L833",
+      "source_location": "L976",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty()"
@@ -25873,7 +25873,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L840",
+      "source_location": "L983",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty()"
@@ -25882,7 +25882,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_scalar_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L847",
+      "source_location": "L990",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_scalar_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_scalar_with_empty()"
@@ -25891,7 +25891,7 @@
       "label": "normalize_legacy_text_array_fields_replaces_null_with_empty()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L854",
+      "source_location": "L997",
       "id": "storage_shared_normalize_legacy_text_array_fields_replaces_null_with_empty",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_replaces_null_with_empty()"
@@ -25900,7 +25900,7 @@
       "label": "normalize_legacy_text_array_fields_leaves_missing_keys_alone()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L861",
+      "source_location": "L1004",
       "id": "storage_shared_normalize_legacy_text_array_fields_leaves_missing_keys_alone",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_leaves_missing_keys_alone()"
@@ -25909,7 +25909,7 @@
       "label": "normalize_legacy_text_array_fields_ignores_non_object_records()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L868",
+      "source_location": "L1011",
       "id": "storage_shared_normalize_legacy_text_array_fields_ignores_non_object_records",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields_ignores_non_object_records()"
@@ -25918,7 +25918,7 @@
       "label": "normalize_legacy_text_bool_fields_preserves_existing_bools()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L875",
+      "source_location": "L1018",
       "id": "storage_shared_normalize_legacy_text_bool_fields_preserves_existing_bools",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_preserves_existing_bools()"
@@ -25927,7 +25927,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_text_true_and_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L883",
+      "source_location": "L1026",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_text_true_and_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_text_true_and_false()"
@@ -25936,7 +25936,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_truthy_text_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L891",
+      "source_location": "L1034",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_truthy_text_aliases",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_truthy_text_aliases()"
@@ -25945,7 +25945,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_falsy_text_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L904",
+      "source_location": "L1047",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_falsy_text_aliases",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_falsy_text_aliases()"
@@ -25954,7 +25954,7 @@
       "label": "normalize_legacy_text_bool_fields_defaults_unknown_string_to_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L917",
+      "source_location": "L1060",
       "id": "storage_shared_normalize_legacy_text_bool_fields_defaults_unknown_string_to_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_defaults_unknown_string_to_false()"
@@ -25963,7 +25963,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L924",
+      "source_location": "L1067",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers()"
@@ -25972,7 +25972,7 @@
       "label": "normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L933",
+      "source_location": "L1076",
       "id": "storage_shared_normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero()"
@@ -25981,7 +25981,7 @@
       "label": "normalize_legacy_text_bool_fields_defaults_null_to_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L941",
+      "source_location": "L1084",
       "id": "storage_shared_normalize_legacy_text_bool_fields_defaults_null_to_false",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_defaults_null_to_false()"
@@ -25990,7 +25990,7 @@
       "label": "normalize_legacy_text_bool_fields_leaves_missing_keys_alone()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L948",
+      "source_location": "L1091",
       "id": "storage_shared_normalize_legacy_text_bool_fields_leaves_missing_keys_alone",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_leaves_missing_keys_alone()"
@@ -25999,7 +25999,7 @@
       "label": "normalize_legacy_text_bool_fields_ignores_non_object_records()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L955",
+      "source_location": "L1098",
       "id": "storage_shared_normalize_legacy_text_bool_fields_ignores_non_object_records",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields_ignores_non_object_records()"
@@ -26008,7 +26008,7 @@
       "label": "decode_uploaded_image_file_rejects_declared_oversized_upload()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L962",
+      "source_location": "L1105",
       "id": "storage_shared_decode_uploaded_image_file_rejects_declared_oversized_upload",
       "community": 30,
       "norm_label": "decode_uploaded_image_file_rejects_declared_oversized_upload()"
@@ -26017,7 +26017,7 @@
       "label": "decode_uploaded_image_file_rejects_non_image_content_type()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L980",
+      "source_location": "L1123",
       "id": "storage_shared_decode_uploaded_image_file_rejects_non_image_content_type",
       "community": 30,
       "norm_label": "decode_uploaded_image_file_rejects_non_image_content_type()"
@@ -26026,7 +26026,7 @@
       "label": "duplicate_record()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L998",
+      "source_location": "L1141",
       "id": "storage_shared_duplicate_record",
       "community": 30,
       "norm_label": "duplicate_record()"
@@ -26035,7 +26035,7 @@
       "label": "find_by_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1014",
+      "source_location": "L1157",
       "id": "storage_shared_find_by_field",
       "community": 30,
       "norm_label": "find_by_field()"
@@ -26044,7 +26044,7 @@
       "label": "decode_path()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1029",
+      "source_location": "L1172",
       "id": "storage_shared_decode_path",
       "community": 217,
       "norm_label": "decode_path()"
@@ -26053,7 +26053,7 @@
       "label": "required_string()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1036",
+      "source_location": "L1179",
       "id": "storage_shared_required_string",
       "community": 30,
       "norm_label": "required_string()"
@@ -26062,7 +26062,7 @@
       "label": "string_array_from_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1043",
+      "source_location": "L1186",
       "id": "storage_shared_string_array_from_value",
       "community": 17,
       "norm_label": "string_array_from_value()"
@@ -26071,7 +26071,7 @@
       "label": "normalize_legacy_text_bool_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1062",
+      "source_location": "L1205",
       "id": "storage_shared_normalize_legacy_text_bool_fields",
       "community": 30,
       "norm_label": "normalize_legacy_text_bool_fields()"
@@ -26080,7 +26080,7 @@
       "label": "normalize_legacy_text_array_fields()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1097",
+      "source_location": "L1240",
       "id": "storage_shared_normalize_legacy_text_array_fields",
       "community": 30,
       "norm_label": "normalize_legacy_text_array_fields()"
@@ -26089,7 +26089,7 @@
       "label": "UploadedFile",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1124",
+      "source_location": "L1267",
       "id": "storage_shared_uploadedfile",
       "community": 30,
       "norm_label": "uploadedfile"
@@ -26098,7 +26098,7 @@
       "label": "image_upload_too_large_error()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1133",
+      "source_location": "L1276",
       "id": "storage_shared_image_upload_too_large_error",
       "community": 30,
       "norm_label": "image_upload_too_large_error()"
@@ -26107,7 +26107,7 @@
       "label": "image_upload_invalid_type_error()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1137",
+      "source_location": "L1280",
       "id": "storage_shared_image_upload_invalid_type_error",
       "community": 30,
       "norm_label": "image_upload_invalid_type_error()"
@@ -26116,7 +26116,7 @@
       "label": "decode_uploaded_file_value()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1141",
+      "source_location": "L1284",
       "id": "storage_shared_decode_uploaded_file_value",
       "community": 167,
       "norm_label": "decode_uploaded_file_value()"
@@ -26125,7 +26125,7 @@
       "label": "decode_uploaded_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1167",
+      "source_location": "L1310",
       "id": "storage_shared_decode_uploaded_file",
       "community": 361,
       "norm_label": "decode_uploaded_file()"
@@ -26134,7 +26134,7 @@
       "label": "decode_uploaded_image_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1175",
+      "source_location": "L1318",
       "id": "storage_shared_decode_uploaded_image_file",
       "community": 30,
       "norm_label": "decode_uploaded_image_file()"
@@ -26143,7 +26143,7 @@
       "label": "decode_uploaded_files()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1207",
+      "source_location": "L1350",
       "id": "storage_shared_decode_uploaded_files",
       "community": 167,
       "norm_label": "decode_uploaded_files()"
@@ -26152,7 +26152,7 @@
       "label": "upload_gallery_image()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1220",
+      "source_location": "L1363",
       "id": "storage_shared_upload_gallery_image",
       "community": 30,
       "norm_label": "upload_gallery_image()"
@@ -26161,7 +26161,7 @@
       "label": "project_list_rows()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1246",
+      "source_location": "L1389",
       "id": "storage_shared_project_list_rows",
       "community": 30,
       "norm_label": "project_list_rows()"
@@ -26170,7 +26170,7 @@
       "label": "project_record()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1259",
+      "source_location": "L1402",
       "id": "storage_shared_project_record",
       "community": 30,
       "norm_label": "project_record()"
@@ -26179,7 +26179,7 @@
       "label": "project_row()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1269",
+      "source_location": "L1412",
       "id": "storage_shared_project_row",
       "community": 30,
       "norm_label": "project_row()"
@@ -26188,7 +26188,7 @@
       "label": "project_nested_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1286",
+      "source_location": "L1429",
       "id": "storage_shared_project_nested_field",
       "community": 30,
       "norm_label": "project_nested_field()"
@@ -26197,7 +26197,7 @@
       "label": "option_string_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1312",
+      "source_location": "L1455",
       "id": "storage_shared_option_string_array",
       "community": 30,
       "norm_label": "option_string_array()"
@@ -26206,7 +26206,7 @@
       "label": "string_array_from_json()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1318",
+      "source_location": "L1461",
       "id": "storage_shared_string_array_from_json",
       "community": 30,
       "norm_label": "string_array_from_json()"
@@ -26215,7 +26215,7 @@
       "label": "metadata_map()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/shared.rs",
-      "source_location": "L1329",
+      "source_location": "L1472",
       "id": "storage_shared_metadata_map",
       "community": 43,
       "norm_label": "metadata_map()"
@@ -34810,7 +34810,7 @@
       "label": "PeekPromptOptions",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/types.ts",
-      "source_location": "L29",
+      "source_location": "L33",
       "id": "chat_ui_types_peekpromptoptions",
       "community": 120,
       "norm_label": "peekpromptoptions"
@@ -34819,7 +34819,7 @@
       "label": "MessageWithSwipes",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/types.ts",
-      "source_location": "L33",
+      "source_location": "L38",
       "id": "chat_ui_types_messagewithswipes",
       "community": 6,
       "norm_label": "messagewithswipes"
@@ -34828,7 +34828,7 @@
       "label": "ExpressionAvatarResolver",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/types.ts",
-      "source_location": "L37",
+      "source_location": "L42",
       "id": "chat_ui_types_expressionavatarresolver",
       "community": 6,
       "norm_label": "expressionavatarresolver"
@@ -34837,7 +34837,7 @@
       "label": "MessageSelectionToggle",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/types.ts",
-      "source_location": "L39",
+      "source_location": "L44",
       "id": "chat_ui_types_messageselectiontoggle",
       "community": 4,
       "norm_label": "messageselectiontoggle"
@@ -36511,7 +36511,7 @@
       "label": "PeekPromptModalProps",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L34",
+      "source_location": "L38",
       "id": "components_peekpromptmodal_peekpromptmodalprops",
       "community": 243,
       "norm_label": "peekpromptmodalprops"
@@ -36520,7 +36520,7 @@
       "label": "prettifyTag()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L46",
+      "source_location": "L50",
       "id": "components_peekpromptmodal_prettifytag",
       "community": 243,
       "norm_label": "prettifytag()"
@@ -36529,7 +36529,7 @@
       "label": "SectionBlock",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L54",
+      "source_location": "L58",
       "id": "components_peekpromptmodal_sectionblock",
       "community": 243,
       "norm_label": "sectionblock"
@@ -36538,7 +36538,7 @@
       "label": "ChatHistoryEntry",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L61",
+      "source_location": "L65",
       "id": "components_peekpromptmodal_chathistoryentry",
       "community": 243,
       "norm_label": "chathistoryentry"
@@ -36547,7 +36547,7 @@
       "label": "ChatHistoryBlock",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L66",
+      "source_location": "L70",
       "id": "components_peekpromptmodal_chathistoryblock",
       "community": 243,
       "norm_label": "chathistoryblock"
@@ -36556,7 +36556,7 @@
       "label": "DisplaySection",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L72",
+      "source_location": "L76",
       "id": "components_peekpromptmodal_displaysection",
       "community": 243,
       "norm_label": "displaysection"
@@ -36565,7 +36565,7 @@
       "label": "parseXmlSections()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L85",
+      "source_location": "L89",
       "id": "components_peekpromptmodal_parsexmlsections",
       "community": 243,
       "norm_label": "parsexmlsections()"
@@ -36574,7 +36574,7 @@
       "label": "buildDisplaySections()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L119",
+      "source_location": "L123",
       "id": "components_peekpromptmodal_builddisplaysections",
       "community": 243,
       "norm_label": "builddisplaysections()"
@@ -36583,7 +36583,7 @@
       "label": "CollapsibleBlock()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L243",
+      "source_location": "L247",
       "id": "components_peekpromptmodal_collapsibleblock",
       "community": 243,
       "norm_label": "collapsibleblock()"
@@ -36592,7 +36592,7 @@
       "label": "ChatHistorySection()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L286",
+      "source_location": "L290",
       "id": "components_peekpromptmodal_chathistorysection",
       "community": 243,
       "norm_label": "chathistorysection()"
@@ -36601,7 +36601,7 @@
       "label": "ChatHistoryMessage()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L333",
+      "source_location": "L337",
       "id": "components_peekpromptmodal_chathistorymessage",
       "community": 243,
       "norm_label": "chathistorymessage()"
@@ -36610,7 +36610,7 @@
       "label": "PeekPromptModal()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/PeekPromptModal.tsx",
-      "source_location": "L372",
+      "source_location": "L376",
       "id": "components_peekpromptmodal_peekpromptmodal",
       "community": 243,
       "norm_label": "peekpromptmodal()"
@@ -53395,7 +53395,7 @@
       "label": "downloadTextFile()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L975",
+      "source_location": "L1015",
       "id": "hooks_use_chats_downloadtextfile",
       "community": 120,
       "norm_label": "downloadtextfile()"
@@ -53404,7 +53404,7 @@
       "label": "downloadBlobFile()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L980",
+      "source_location": "L1020",
       "id": "hooks_use_chats_downloadblobfile",
       "community": 120,
       "norm_label": "downloadblobfile()"
@@ -53413,7 +53413,7 @@
       "label": "parseRecord()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L989",
+      "source_location": "L1029",
       "id": "hooks_use_chats_parserecord",
       "community": 120,
       "norm_label": "parserecord()"
@@ -53422,7 +53422,7 @@
       "label": "messageHiddenFromAi()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1001",
+      "source_location": "L1041",
       "id": "hooks_use_chats_messagehiddenfromai",
       "community": 120,
       "norm_label": "messagehiddenfromai()"
@@ -53431,7 +53431,7 @@
       "label": "GenerateSummaryInput",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1006",
+      "source_location": "L1046",
       "id": "hooks_use_chats_generatesummaryinput",
       "community": 120,
       "norm_label": "generatesummaryinput"
@@ -53440,7 +53440,7 @@
       "label": "GenerateSummaryResult",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1013",
+      "source_location": "L1053",
       "id": "hooks_use_chats_generatesummaryresult",
       "community": 120,
       "norm_label": "generatesummaryresult"
@@ -53449,7 +53449,7 @@
       "label": "compactTranscript()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1018",
+      "source_location": "L1058",
       "id": "hooks_use_chats_compacttranscript",
       "community": 120,
       "norm_label": "compacttranscript()"
@@ -53458,7 +53458,7 @@
       "label": "resolveSummaryConnectionId()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1027",
+      "source_location": "L1067",
       "id": "hooks_use_chats_resolvesummaryconnectionid",
       "community": 120,
       "norm_label": "resolvesummaryconnectionid()"
@@ -53467,7 +53467,7 @@
       "label": "generateLlmChatSummary()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1038",
+      "source_location": "L1078",
       "id": "hooks_use_chats_generatellmchatsummary",
       "community": 120,
       "norm_label": "generatellmchatsummary()"
@@ -53476,7 +53476,7 @@
       "label": "usePeekPrompt()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1112",
+      "source_location": "L1152",
       "id": "hooks_use_chats_usepeekprompt",
       "community": 120,
       "norm_label": "usepeekprompt()"
@@ -53485,7 +53485,7 @@
       "label": "useExportChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1142",
+      "source_location": "L1186",
       "id": "hooks_use_chats_useexportchat",
       "community": 46,
       "norm_label": "useexportchat()"
@@ -53494,7 +53494,7 @@
       "label": "loadChatsForExport()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1162",
+      "source_location": "L1206",
       "id": "hooks_use_chats_loadchatsforexport",
       "community": 120,
       "norm_label": "loadchatsforexport()"
@@ -53503,7 +53503,7 @@
       "label": "useBulkExportChats()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1180",
+      "source_location": "L1224",
       "id": "hooks_use_chats_usebulkexportchats",
       "community": 46,
       "norm_label": "usebulkexportchats()"
@@ -53512,7 +53512,7 @@
       "label": "useBranchChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1221",
+      "source_location": "L1265",
       "id": "hooks_use_chats_usebranchchat",
       "community": 120,
       "norm_label": "usebranchchat()"
@@ -53521,7 +53521,7 @@
       "label": "useGenerateSummary()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1242",
+      "source_location": "L1286",
       "id": "hooks_use_chats_usegeneratesummary",
       "community": 20,
       "norm_label": "usegeneratesummary()"
@@ -53530,7 +53530,7 @@
       "label": "useSwipes()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1253",
+      "source_location": "L1297",
       "id": "hooks_use_chats_useswipes",
       "community": 120,
       "norm_label": "useswipes()"
@@ -53539,7 +53539,7 @@
       "label": "useSetActiveSwipe()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1262",
+      "source_location": "L1306",
       "id": "hooks_use_chats_usesetactiveswipe",
       "community": 120,
       "norm_label": "usesetactiveswipe()"
@@ -53548,7 +53548,7 @@
       "label": "useDeleteSwipe()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1299",
+      "source_location": "L1343",
       "id": "hooks_use_chats_usedeleteswipe",
       "community": 120,
       "norm_label": "usedeleteswipe()"
@@ -53557,7 +53557,7 @@
       "label": "useConnectChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1314",
+      "source_location": "L1358",
       "id": "hooks_use_chats_useconnectchat",
       "community": 3,
       "norm_label": "useconnectchat()"
@@ -53566,7 +53566,7 @@
       "label": "useDisconnectChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1328",
+      "source_location": "L1372",
       "id": "hooks_use_chats_usedisconnectchat",
       "community": 3,
       "norm_label": "usedisconnectchat()"
@@ -59146,7 +59146,7 @@
       "label": "useGenerate()",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.ts",
-      "source_location": "L1117",
+      "source_location": "L1120",
       "id": "hooks_use_generate_usegenerate",
       "community": 209,
       "norm_label": "usegenerate()"
@@ -68371,7 +68371,7 @@
       "label": "patchChatObjectField()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L122",
+      "source_location": "L123",
       "id": "api_storage_api_patchchatobjectfield",
       "community": 20,
       "norm_label": "patchchatobjectfield()"
@@ -68380,7 +68380,7 @@
       "label": "storageApi",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L129",
+      "source_location": "L130",
       "id": "api_storage_api_storageapi",
       "community": 46,
       "norm_label": "storageapi"
@@ -76777,7 +76777,7 @@
       "label": "GenerationInfo",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L429",
+      "source_location": "L441",
       "id": "types_chat_generationinfo",
       "community": 46,
       "norm_label": "generationinfo"
@@ -76786,7 +76786,7 @@
       "label": "MessageSwipe",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L442",
+      "source_location": "L472",
       "id": "types_chat_messageswipe",
       "community": 46,
       "norm_label": "messageswipe"
@@ -76795,7 +76795,7 @@
       "label": "GenerateRequest",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L452",
+      "source_location": "L482",
       "id": "types_chat_generaterequest",
       "community": 46,
       "norm_label": "generaterequest"
@@ -76804,7 +76804,7 @@
       "label": "StreamEvent",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L462",
+      "source_location": "L492",
       "id": "types_chat_streamevent",
       "community": 46,
       "norm_label": "streamevent"
@@ -76813,7 +76813,7 @@
       "label": "OocInfluence",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L470",
+      "source_location": "L500",
       "id": "types_chat_oocinfluence",
       "community": 46,
       "norm_label": "oocinfluence"
@@ -76822,7 +76822,7 @@
       "label": "ConversationNote",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L481",
+      "source_location": "L511",
       "id": "types_chat_conversationnote",
       "community": 46,
       "norm_label": "conversationnote"
@@ -84382,7 +84382,7 @@
       "label": "PromptPreviewInput",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.ts",
-      "source_location": "L7",
+      "source_location": "L10",
       "id": "generation_prompt_preview_promptpreviewinput",
       "community": 129,
       "norm_label": "promptpreviewinput"
@@ -84391,7 +84391,7 @@
       "label": "PromptPreviewResult",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.ts",
-      "source_location": "L14",
+      "source_location": "L18",
       "id": "generation_prompt_preview_promptpreviewresult",
       "community": 129,
       "norm_label": "promptpreviewresult"
@@ -84400,7 +84400,7 @@
       "label": "promptPreviewMessageLoadOptions()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.ts",
-      "source_location": "L37",
+      "source_location": "L45",
       "id": "generation_prompt_preview_promptpreviewmessageloadoptions",
       "community": 129,
       "norm_label": "promptpreviewmessageloadoptions()"
@@ -84409,7 +84409,7 @@
       "label": "previewGenerationPrompt()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.ts",
-      "source_location": "L45",
+      "source_location": "L92",
       "id": "generation_prompt_preview_previewgenerationprompt",
       "community": 129,
       "norm_label": "previewgenerationprompt()"
@@ -84418,7 +84418,7 @@
       "label": "nullableNumber()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.ts",
-      "source_location": "L92",
+      "source_location": "L146",
       "id": "generation_prompt_preview_nullablenumber",
       "community": 129,
       "norm_label": "nullablenumber()"
@@ -86920,7 +86920,7 @@
       "label": "StartGenerationInput",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L66",
+      "source_location": "L72",
       "id": "generation_start_generation_startgenerationinput",
       "community": 181,
       "norm_label": "startgenerationinput"
@@ -86929,7 +86929,7 @@
       "label": "GenerationEngineDeps",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L100",
+      "source_location": "L106",
       "id": "generation_start_generation_generationenginedeps",
       "community": 15,
       "norm_label": "generationenginedeps"
@@ -86938,7 +86938,7 @@
       "label": "RetryAgentsInput",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L107",
+      "source_location": "L113",
       "id": "generation_start_generation_retryagentsinput",
       "community": 13,
       "norm_label": "retryagentsinput"
@@ -86947,7 +86947,7 @@
       "label": "PreparedUserInput",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L114",
+      "source_location": "L120",
       "id": "generation_start_generation_prepareduserinput",
       "community": 181,
       "norm_label": "prepareduserinput"
@@ -86956,7 +86956,7 @@
       "label": "abortGenerationError()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L127",
+      "source_location": "L133",
       "id": "generation_start_generation_abortgenerationerror",
       "community": 13,
       "norm_label": "abortgenerationerror()"
@@ -86965,7 +86965,7 @@
       "label": "throwIfAborted()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L131",
+      "source_location": "L137",
       "id": "generation_start_generation_throwifaborted",
       "community": 13,
       "norm_label": "throwifaborted()"
@@ -86974,7 +86974,7 @@
       "label": "inputUserMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L135",
+      "source_location": "L141",
       "id": "generation_start_generation_inputusermessage",
       "community": 13,
       "norm_label": "inputusermessage()"
@@ -86983,7 +86983,7 @@
       "label": "generationEmbeddingSource()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L139",
+      "source_location": "L145",
       "id": "generation_start_generation_generationembeddingsource",
       "community": 13,
       "norm_label": "generationembeddingsource()"
@@ -86992,7 +86992,7 @@
       "label": "inputAttachments()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L153",
+      "source_location": "L159",
       "id": "generation_start_generation_inputattachments",
       "community": 13,
       "norm_label": "inputattachments()"
@@ -87001,7 +87001,7 @@
       "label": "assertChatCanGenerate()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L157",
+      "source_location": "L163",
       "id": "generation_start_generation_assertchatcangenerate",
       "community": 13,
       "norm_label": "assertchatcangenerate()"
@@ -87010,7 +87010,7 @@
       "label": "imageAttachmentNotes()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L167",
+      "source_location": "L173",
       "id": "generation_start_generation_imageattachmentnotes",
       "community": 13,
       "norm_label": "imageattachmentnotes()"
@@ -87019,7 +87019,7 @@
       "label": "prepareUserInput()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L175",
+      "source_location": "L181",
       "id": "generation_start_generation_prepareuserinput",
       "community": 13,
       "norm_label": "prepareuserinput()"
@@ -87028,7 +87028,7 @@
       "label": "shouldSaveUserMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L193",
+      "source_location": "L199",
       "id": "generation_start_generation_shouldsaveusermessage",
       "community": 13,
       "norm_label": "shouldsaveusermessage()"
@@ -87037,7 +87037,7 @@
       "label": "saveUserMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L197",
+      "source_location": "L203",
       "id": "generation_start_generation_saveusermessage",
       "community": 13,
       "norm_label": "saveusermessage()"
@@ -87046,7 +87046,7 @@
       "label": "savedUserMessageForTimeline()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L224",
+      "source_location": "L230",
       "id": "generation_start_generation_savedusermessagefortimeline",
       "community": 7,
       "norm_label": "savedusermessagefortimeline()"
@@ -87055,7 +87055,7 @@
       "label": "discordWebhookUrl()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L233",
+      "source_location": "L239",
       "id": "generation_start_generation_discordwebhookurl",
       "community": 13,
       "norm_label": "discordwebhookurl()"
@@ -87064,7 +87064,7 @@
       "label": "limitedDiscordName()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L237",
+      "source_location": "L243",
       "id": "generation_start_generation_limiteddiscordname",
       "community": 13,
       "norm_label": "limiteddiscordname()"
@@ -87073,7 +87073,7 @@
       "label": "characterNameById()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L242",
+      "source_location": "L248",
       "id": "generation_start_generation_characternamebyid",
       "community": 13,
       "norm_label": "characternamebyid()"
@@ -87082,7 +87082,7 @@
       "label": "assistantDiscordName()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L254",
+      "source_location": "L260",
       "id": "generation_start_generation_assistantdiscordname",
       "community": 13,
       "norm_label": "assistantdiscordname()"
@@ -87091,7 +87091,7 @@
       "label": "mirrorDiscordMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L277",
+      "source_location": "L283",
       "id": "generation_start_generation_mirrordiscordmessage",
       "community": 13,
       "norm_label": "mirrordiscordmessage()"
@@ -87100,7 +87100,7 @@
       "label": "mirrorSavedUserMessageToDiscord()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L307",
+      "source_location": "L313",
       "id": "generation_start_generation_mirrorsavedusermessagetodiscord",
       "community": 13,
       "norm_label": "mirrorsavedusermessagetodiscord()"
@@ -87109,7 +87109,7 @@
       "label": "imageExtension()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L323",
+      "source_location": "L329",
       "id": "generation_start_generation_imageextension",
       "community": 13,
       "norm_label": "imageextension()"
@@ -87118,7 +87118,7 @@
       "label": "illustrationSize()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L330",
+      "source_location": "L336",
       "id": "generation_start_generation_illustrationsize",
       "community": 13,
       "norm_label": "illustrationsize()"
@@ -87127,7 +87127,7 @@
       "label": "illustratorPromptData()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L341",
+      "source_location": "L347",
       "id": "generation_start_generation_illustratorpromptdata",
       "community": 78,
       "norm_label": "illustratorpromptdata()"
@@ -87136,7 +87136,7 @@
       "label": "generateIllustrationAttachments()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L354",
+      "source_location": "L360",
       "id": "generation_start_generation_generateillustrationattachments",
       "community": 13,
       "norm_label": "generateillustrationattachments()"
@@ -87145,7 +87145,7 @@
       "label": "mirrorSavedAssistantMessageToDiscord()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L450",
+      "source_location": "L456",
       "id": "generation_start_generation_mirrorsavedassistantmessagetodiscord",
       "community": 13,
       "norm_label": "mirrorsavedassistantmessagetodiscord()"
@@ -87154,7 +87154,7 @@
       "label": "inputWithStoredGenerationReplay()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L473",
+      "source_location": "L479",
       "id": "generation_start_generation_inputwithstoredgenerationreplay",
       "community": 59,
       "norm_label": "inputwithstoredgenerationreplay()"
@@ -87163,7 +87163,7 @@
       "label": "requestMessages()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L496",
+      "source_location": "L503",
       "id": "generation_start_generation_requestmessages",
       "community": 13,
       "norm_label": "requestmessages()"
@@ -87172,7 +87172,7 @@
       "label": "generationMessageLoadOptions()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L506",
+      "source_location": "L513",
       "id": "generation_start_generation_generationmessageloadoptions",
       "community": 78,
       "norm_label": "generationmessageloadoptions()"
@@ -87181,7 +87181,7 @@
       "label": "withImageAttachments()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L517",
+      "source_location": "L524",
       "id": "generation_start_generation_withimageattachments",
       "community": 13,
       "norm_label": "withimageattachments()"
@@ -87190,7 +87190,7 @@
       "label": "directiveMessages()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L538",
+      "source_location": "L545",
       "id": "generation_start_generation_directivemessages",
       "community": 34,
       "norm_label": "directivemessages()"
@@ -87199,7 +87199,7 @@
       "label": "visibleTranscript()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L587",
+      "source_location": "L594",
       "id": "generation_start_generation_visibletranscript",
       "community": 18,
       "norm_label": "visibletranscript()"
@@ -87208,7 +87208,7 @@
       "label": "messagesBeforeRegenerationTarget()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L595",
+      "source_location": "L602",
       "id": "generation_start_generation_messagesbeforeregenerationtarget",
       "community": 13,
       "norm_label": "messagesbeforeregenerationtarget()"
@@ -87217,7 +87217,7 @@
       "label": "isPassiveGenerationRequest()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L602",
+      "source_location": "L609",
       "id": "generation_start_generation_ispassivegenerationrequest",
       "community": 13,
       "norm_label": "ispassivegenerationrequest()"
@@ -87226,7 +87226,7 @@
       "label": "latestVisibleMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L613",
+      "source_location": "L620",
       "id": "generation_start_generation_latestvisiblemessage",
       "community": 13,
       "norm_label": "latestvisiblemessage()"
@@ -87235,7 +87235,7 @@
       "label": "shouldContinueAssistantResponse()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L623",
+      "source_location": "L630",
       "id": "generation_start_generation_shouldcontinueassistantresponse",
       "community": 13,
       "norm_label": "shouldcontinueassistantresponse()"
@@ -87244,7 +87244,7 @@
       "label": "resultKey()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L632",
+      "source_location": "L639",
       "id": "generation_start_generation_resultkey",
       "community": 13,
       "norm_label": "resultkey()"
@@ -87253,7 +87253,7 @@
       "label": "uniqueAgentResults()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L636",
+      "source_location": "L643",
       "id": "generation_start_generation_uniqueagentresults",
       "community": 13,
       "norm_label": "uniqueagentresults()"
@@ -87262,7 +87262,7 @@
       "label": "agentNameLookup()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L644",
+      "source_location": "L651",
       "id": "generation_start_generation_agentnamelookup",
       "community": 13,
       "norm_label": "agentnamelookup()"
@@ -87271,7 +87271,7 @@
       "label": "persistAgentResults()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L657",
+      "source_location": "L664",
       "id": "generation_start_generation_persistagentresults",
       "community": 13,
       "norm_label": "persistagentresults()"
@@ -87280,7 +87280,7 @@
       "label": "persistSecretPlotAgentMemorySafely()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L687",
+      "source_location": "L694",
       "id": "generation_start_generation_persistsecretplotagentmemorysafely",
       "community": 13,
       "norm_label": "persistsecretplotagentmemorysafely()"
@@ -87289,7 +87289,7 @@
       "label": "persistTrackerSnapshotSafely()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L699",
+      "source_location": "L706",
       "id": "generation_start_generation_persisttrackersnapshotsafely",
       "community": 13,
       "norm_label": "persisttrackersnapshotsafely()"
@@ -87298,7 +87298,7 @@
       "label": "saveAssistantMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L715",
+      "source_location": "L722",
       "id": "generation_start_generation_saveassistantmessage",
       "community": 13,
       "norm_label": "saveassistantmessage()"
@@ -87307,7 +87307,7 @@
       "label": "saveRegeneratedMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L801",
+      "source_location": "L819",
       "id": "generation_start_generation_saveregeneratedmessage",
       "community": 13,
       "norm_label": "saveregeneratedmessage()"
@@ -87316,7 +87316,7 @@
       "label": "generationReplayExtraPatch()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L815",
+      "source_location": "L841",
       "id": "generation_start_generation_generationreplayextrapatch",
       "community": 13,
       "norm_label": "generationreplayextrapatch()"
@@ -87325,7 +87325,7 @@
       "label": "savedGenerationEventType()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L828",
+      "source_location": "L858",
       "id": "generation_start_generation_savedgenerationeventtype",
       "community": 13,
       "norm_label": "savedgenerationeventtype()"
@@ -87334,7 +87334,7 @@
       "label": "messageId()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L832",
+      "source_location": "L862",
       "id": "generation_start_generation_messageid",
       "community": 7,
       "norm_label": "messageid()"
@@ -87343,7 +87343,7 @@
       "label": "targetAssistantMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L836",
+      "source_location": "L866",
       "id": "generation_start_generation_targetassistantmessage",
       "community": 129,
       "norm_label": "targetassistantmessage()"
@@ -87352,7 +87352,7 @@
       "label": "messageIndex()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L844",
+      "source_location": "L874",
       "id": "generation_start_generation_messageindex",
       "community": 13,
       "norm_label": "messageindex()"
@@ -87361,7 +87361,7 @@
       "label": "messagesBeforeTarget()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L850",
+      "source_location": "L880",
       "id": "generation_start_generation_messagesbeforetarget",
       "community": 13,
       "norm_label": "messagesbeforetarget()"
@@ -87370,7 +87370,7 @@
       "label": "positiveInteger()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L855",
+      "source_location": "L885",
       "id": "generation_start_generation_positiveinteger",
       "community": 13,
       "norm_label": "positiveinteger()"
@@ -87379,7 +87379,7 @@
       "label": "nonNegativeInteger()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L860",
+      "source_location": "L890",
       "id": "generation_start_generation_nonnegativeinteger",
       "community": 13,
       "norm_label": "nonnegativeinteger()"
@@ -87388,7 +87388,7 @@
       "label": "lorebookKeeperReadBehind()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L865",
+      "source_location": "L895",
       "id": "generation_start_generation_lorebookkeeperreadbehind",
       "community": 13,
       "norm_label": "lorebookkeeperreadbehind()"
@@ -87397,7 +87397,7 @@
       "label": "agentType()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L869",
+      "source_location": "L899",
       "id": "generation_start_generation_agenttype",
       "community": 13,
       "norm_label": "agenttype()"
@@ -87406,7 +87406,7 @@
       "label": "agentSettings()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L873",
+      "source_location": "L903",
       "id": "generation_start_generation_agentsettings",
       "community": 13,
       "norm_label": "agentsettings()"
@@ -87415,7 +87415,7 @@
       "label": "lorebookKeeperRunInterval()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L877",
+      "source_location": "L907",
       "id": "generation_start_generation_lorebookkeeperruninterval",
       "community": 13,
       "norm_label": "lorebookkeeperruninterval()"
@@ -87424,7 +87424,7 @@
       "label": "chatActiveAgentIds()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L881",
+      "source_location": "L911",
       "id": "generation_start_generation_chatactiveagentids",
       "community": 13,
       "norm_label": "chatactiveagentids()"
@@ -87433,7 +87433,7 @@
       "label": "chatHasLorebookKeeperEnabled()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L885",
+      "source_location": "L915",
       "id": "generation_start_generation_chathaslorebookkeeperenabled",
       "community": 13,
       "norm_label": "chathaslorebookkeeperenabled()"
@@ -87442,7 +87442,7 @@
       "label": "lorebookKeeperAgent()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L895",
+      "source_location": "L925",
       "id": "generation_start_generation_lorebookkeeperagent",
       "community": 13,
       "norm_label": "lorebookkeeperagent()"
@@ -87451,7 +87451,7 @@
       "label": "successfulLorebookKeeperMessageIds()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L900",
+      "source_location": "L930",
       "id": "generation_start_generation_successfullorebookkeepermessageids",
       "community": 13,
       "norm_label": "successfullorebookkeepermessageids()"
@@ -87460,7 +87460,7 @@
       "label": "LorebookKeeperTarget",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L912",
+      "source_location": "L942",
       "id": "generation_start_generation_lorebookkeepertarget",
       "community": 149,
       "norm_label": "lorebookkeepertarget"
@@ -87469,7 +87469,7 @@
       "label": "lorebookKeeperBackfillTargets()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L916",
+      "source_location": "L946",
       "id": "generation_start_generation_lorebookkeeperbackfilltargets",
       "community": 13,
       "norm_label": "lorebookkeeperbackfilltargets()"
@@ -87478,7 +87478,7 @@
       "label": "isLorebookKeeperBackfill()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L938",
+      "source_location": "L968",
       "id": "generation_start_generation_islorebookkeeperbackfill",
       "community": 129,
       "norm_label": "islorebookkeeperbackfill()"
@@ -87487,7 +87487,7 @@
       "label": "retryBypassesCustomAgentActivation()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L946",
+      "source_location": "L976",
       "id": "generation_start_generation_retrybypassescustomagentactivation",
       "community": 13,
       "norm_label": "retrybypassescustomagentactivation()"
@@ -87496,7 +87496,7 @@
       "label": "commitVisibleTrackerSnapshotSafely()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L950",
+      "source_location": "L980",
       "id": "generation_start_generation_commitvisibletrackersnapshotsafely",
       "community": 13,
       "norm_label": "commitvisibletrackersnapshotsafely()"
@@ -87505,7 +87505,7 @@
       "label": "selectGenerationTrackerBaseline()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L962",
+      "source_location": "L992",
       "id": "generation_start_generation_selectgenerationtrackerbaseline",
       "community": 13,
       "norm_label": "selectgenerationtrackerbaseline()"
@@ -87514,7 +87514,7 @@
       "label": "runGenerationAgentsForTarget()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L988",
+      "source_location": "L1018",
       "id": "generation_start_generation_rungenerationagentsfortarget",
       "community": 13,
       "norm_label": "rungenerationagentsfortarget()"
@@ -87523,7 +87523,7 @@
       "label": "runLorebookKeeperBackfill()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1067",
+      "source_location": "L1097",
       "id": "generation_start_generation_runlorebookkeeperbackfill",
       "community": 13,
       "norm_label": "runlorebookkeeperbackfill()"
@@ -87532,7 +87532,7 @@
       "label": "retryGenerationAgents()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1108",
+      "source_location": "L1138",
       "id": "generation_start_generation_retrygenerationagents",
       "community": 129,
       "norm_label": "retrygenerationagents()"
@@ -87541,7 +87541,7 @@
       "label": "chatId",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1134",
+      "source_location": "L1164",
       "id": "generation_start_generation_chatid",
       "community": 13,
       "norm_label": "chatid"
@@ -87550,7 +87550,7 @@
       "label": "chat",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1137",
+      "source_location": "L1167",
       "id": "generation_start_generation_chat",
       "community": 13,
       "norm_label": "chat"
@@ -87559,7 +87559,7 @@
       "label": "savesUserMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1146",
+      "source_location": "L1176",
       "id": "generation_start_generation_savesusermessage",
       "community": 13,
       "norm_label": "savesusermessage"
@@ -87568,7 +87568,7 @@
       "label": "messageLoadOptions",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1147",
+      "source_location": "L1177",
       "id": "generation_start_generation_messageloadoptions",
       "community": 13,
       "norm_label": "messageloadoptions"
@@ -87577,7 +87577,7 @@
       "label": "savedTimelineMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1161",
+      "source_location": "L1191",
       "id": "generation_start_generation_savedtimelinemessage",
       "community": 13,
       "norm_label": "savedtimelinemessage"
@@ -87586,7 +87586,7 @@
       "label": "generationMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1168",
+      "source_location": "L1198",
       "id": "generation_start_generation_generationmessages",
       "community": 13,
       "norm_label": "generationmessages"
@@ -87595,7 +87595,7 @@
       "label": "directMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1177",
+      "source_location": "L1207",
       "id": "generation_start_generation_directmessages",
       "community": 13,
       "norm_label": "directmessages"
@@ -87604,7 +87604,7 @@
       "label": "agentEvents",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1178",
+      "source_location": "L1208",
       "id": "generation_start_generation_agentevents",
       "community": 13,
       "norm_label": "agentevents"
@@ -87613,7 +87613,7 @@
       "label": "continueAssistantResponse",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1179",
+      "source_location": "L1209",
       "id": "generation_start_generation_continueassistantresponse",
       "community": 13,
       "norm_label": "continueassistantresponse"
@@ -87622,7 +87622,7 @@
       "label": "toolRuntimeInput",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1249",
+      "source_location": "L1279",
       "id": "generation_start_generation_toolruntimeinput",
       "community": 13,
       "norm_label": "toolruntimeinput"
@@ -87631,7 +87631,7 @@
       "label": "baseMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1254",
+      "source_location": "L1284",
       "id": "generation_start_generation_basemessages",
       "community": 13,
       "norm_label": "basemessages"
@@ -87640,7 +87640,7 @@
       "label": "emittedAgentResults",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1275",
+      "source_location": "L1311",
       "id": "generation_start_generation_emittedagentresults",
       "community": 13,
       "norm_label": "emittedagentresults"
@@ -87649,7 +87649,7 @@
       "label": "allAgentResults",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1280",
+      "source_location": "L1316",
       "id": "generation_start_generation_allagentresults",
       "community": 13,
       "norm_label": "allagentresults"
@@ -87658,7 +87658,7 @@
       "label": "hasIllustrationRequest",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1281",
+      "source_location": "L1317",
       "id": "generation_start_generation_hasillustrationrequest",
       "community": 13,
       "norm_label": "hasillustrationrequest"
@@ -87667,7 +87667,7 @@
       "label": "toolRuntimeInputDirect",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1365",
+      "source_location": "L1403",
       "id": "generation_start_generation_toolruntimeinputdirect",
       "community": 13,
       "norm_label": "toolruntimeinputdirect"
@@ -87676,7 +87676,7 @@
       "label": "baseMessagesDirect",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1370",
+      "source_location": "L1408",
       "id": "generation_start_generation_basemessagesdirect",
       "community": 13,
       "norm_label": "basemessagesdirect"
@@ -87685,7 +87685,7 @@
       "label": "generationGuide()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1444",
+      "source_location": "L1490",
       "id": "generation_start_generation_generationguide",
       "community": 13,
       "norm_label": "generationguide()"
@@ -87694,7 +87694,7 @@
       "label": "runtimeLlmParameters()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1449",
+      "source_location": "L1495",
       "id": "generation_start_generation_runtimellmparameters",
       "community": 13,
       "norm_label": "runtimellmparameters()"
@@ -87703,7 +87703,7 @@
       "label": "usages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1505",
+      "source_location": "L1551",
       "id": "generation_start_generation_usages",
       "community": 13,
       "norm_label": "usages"
@@ -87712,7 +87712,7 @@
       "label": "conversation",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1506",
+      "source_location": "L1552",
       "id": "generation_start_generation_conversation",
       "community": 13,
       "norm_label": "conversation"
@@ -87721,7 +87721,7 @@
       "label": "pendingToolCalls",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1512",
+      "source_location": "L1559",
       "id": "generation_start_generation_pendingtoolcalls",
       "community": 13,
       "norm_label": "pendingtoolcalls"
@@ -87730,7 +87730,7 @@
       "label": "thinkingParser",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1514",
+      "source_location": "L1561",
       "id": "generation_start_generation_thinkingparser",
       "community": 13,
       "norm_label": "thinkingparser"
@@ -87739,7 +87739,7 @@
       "label": "normalized",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1545",
+      "source_location": "L1594",
       "id": "generation_start_generation_normalized",
       "community": 13,
       "norm_label": "normalized"
@@ -87748,7 +87748,7 @@
       "label": "mergeUsages()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1630",
+      "source_location": "L1679",
       "id": "generation_start_generation_mergeusages",
       "community": 13,
       "norm_label": "mergeusages()"
@@ -88837,7 +88837,7 @@
       "label": "drainGeneration()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L133",
+      "source_location": "L139",
       "id": "generation_start_generation_test_draingeneration",
       "community": 59,
       "norm_label": "draingeneration()"
@@ -88846,7 +88846,7 @@
       "label": "illustratorDrawData",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L139",
+      "source_location": "L145",
       "id": "generation_start_generation_test_illustratordrawdata",
       "community": 59,
       "norm_label": "illustratordrawdata"
@@ -88855,7 +88855,7 @@
       "label": "{ deps, createChatMessage }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L147",
+      "source_location": "L153",
       "id": "generation_start_generation_test_deps_createchatmessage",
       "community": 59,
       "norm_label": "{ deps, createchatmessage }"
@@ -88864,7 +88864,7 @@
       "label": "stream",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L153",
+      "source_location": "L159",
       "id": "generation_start_generation_test_stream",
       "community": 59,
       "norm_label": "stream"
@@ -88873,7 +88873,7 @@
       "label": "{ deps }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L160",
+      "source_location": "L166",
       "id": "generation_start_generation_test_deps",
       "community": 59,
       "norm_label": "{ deps }"
@@ -88882,7 +88882,7 @@
       "label": "controller",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L202",
+      "source_location": "L208",
       "id": "generation_start_generation_test_controller",
       "community": 59,
       "norm_label": "controller"
@@ -88891,7 +88891,7 @@
       "label": "events",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L209",
+      "source_location": "L215",
       "id": "generation_start_generation_test_events",
       "community": 59,
       "norm_label": "events"
@@ -88900,7 +88900,7 @@
       "label": "assistantCreate",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L253",
+      "source_location": "L259",
       "id": "generation_start_generation_test_assistantcreate",
       "community": 59,
       "norm_label": "assistantcreate"
@@ -88909,7 +88909,7 @@
       "label": "{ deps, listChatMessages, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L263",
+      "source_location": "L269",
       "id": "generation_start_generation_test_deps_listchatmessages_streamedrequests",
       "community": 59,
       "norm_label": "{ deps, listchatmessages, streamedrequests }"
@@ -88918,7 +88918,7 @@
       "label": "prompt",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L299",
+      "source_location": "L305",
       "id": "generation_start_generation_test_prompt",
       "community": 59,
       "norm_label": "prompt"
@@ -88927,7 +88927,7 @@
       "label": "{ deps, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L305",
+      "source_location": "L311",
       "id": "generation_start_generation_test_deps_streamedrequests",
       "community": 59,
       "norm_label": "{ deps, streamedrequests }"
@@ -88936,7 +88936,7 @@
       "label": "{ deps, createChatMessage, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L548",
+      "source_location": "L552",
       "id": "generation_start_generation_test_deps_createchatmessage_streamedrequests",
       "community": 59,
       "norm_label": "{ deps, createchatmessage, streamedrequests }"
@@ -88945,7 +88945,7 @@
       "label": "assistantSave",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L565",
+      "source_location": "L585",
       "id": "generation_start_generation_test_assistantsave",
       "community": 59,
       "norm_label": "assistantsave"
@@ -88954,7 +88954,7 @@
       "label": "userSave",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L619",
+      "source_location": "L679",
       "id": "generation_start_generation_test_usersave",
       "community": 59,
       "norm_label": "usersave"
@@ -88963,7 +88963,7 @@
       "label": "{ deps, createChatMessage, addChatMessageSwipe, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L646",
+      "source_location": "L706",
       "id": "generation_start_generation_test_deps_createchatmessage_addchatmessageswipe_patchchatmessageextra",
       "community": 59,
       "norm_label": "{ deps, createchatmessage, addchatmessageswipe, patchchatmessageextra }"
@@ -88972,7 +88972,7 @@
       "label": "{ deps, addChatMessageSwipe, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L702",
+      "source_location": "L765",
       "id": "generation_start_generation_test_deps_addchatmessageswipe_patchchatmessageextra",
       "community": 59,
       "norm_label": "{ deps, addchatmessageswipe, patchchatmessageextra }"
@@ -88981,7 +88981,7 @@
       "label": "{ deps, patchChatMessageExtra, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L759",
+      "source_location": "L825",
       "id": "generation_start_generation_test_deps_patchchatmessageextra_streamedrequests",
       "community": 59,
       "norm_label": "{ deps, patchchatmessageextra, streamedrequests }"
@@ -88990,7 +88990,7 @@
       "label": "{ deps, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L806",
+      "source_location": "L946",
       "id": "generation_start_generation_test_deps_patchchatmessageextra",
       "community": 59,
       "norm_label": "{ deps, patchchatmessageextra }"
@@ -88999,7 +88999,7 @@
       "label": "messages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L853",
+      "source_location": "L1000",
       "id": "generation_start_generation_test_messages",
       "community": 59,
       "norm_label": "messages"
@@ -89008,7 +89008,7 @@
       "label": "mainRequest",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L979",
+      "source_location": "L1126",
       "id": "generation_start_generation_test_mainrequest",
       "community": 59,
       "norm_label": "mainrequest"
@@ -89017,7 +89017,7 @@
       "label": "mainPrompt",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L980",
+      "source_location": "L1127",
       "id": "generation_start_generation_test_mainprompt",
       "community": 59,
       "norm_label": "mainprompt"
@@ -89026,7 +89026,7 @@
       "label": "plotData",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L986",
+      "source_location": "L1133",
       "id": "generation_start_generation_test_plotdata",
       "community": 59,
       "norm_label": "plotdata"
@@ -89035,7 +89035,7 @@
       "label": "createMock",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1025",
+      "source_location": "L1172",
       "id": "generation_start_generation_test_createmock",
       "community": 59,
       "norm_label": "createmock"
@@ -89044,7 +89044,7 @@
       "label": "memoryWrites",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1028",
+      "source_location": "L1175",
       "id": "generation_start_generation_test_memorywrites",
       "community": 59,
       "norm_label": "memorywrites"
@@ -89053,7 +89053,7 @@
       "label": "memoryByKey",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1031",
+      "source_location": "L1178",
       "id": "generation_start_generation_test_memorybykey",
       "community": 59,
       "norm_label": "memorybykey"
@@ -89062,7 +89062,7 @@
       "label": "agentEvents",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1065",
+      "source_location": "L1212",
       "id": "generation_start_generation_test_agentevents",
       "community": 59,
       "norm_label": "agentevents"
@@ -89071,7 +89071,7 @@
       "label": "mirrorMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1087",
+      "source_location": "L1234",
       "id": "generation_start_generation_test_mirrormessage",
       "community": 59,
       "norm_label": "mirrormessage"
@@ -89080,7 +89080,7 @@
       "label": "promptTexts",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1221",
+      "source_location": "L1368",
       "id": "generation_start_generation_test_prompttexts",
       "community": 59,
       "norm_label": "prompttexts"
@@ -89089,7 +89089,7 @@
       "label": "keywordGatedCustomAgent",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1234",
+      "source_location": "L1381",
       "id": "generation_start_generation_test_keywordgatedcustomagent",
       "community": 59,
       "norm_label": "keywordgatedcustomagent"
@@ -92657,6 +92657,429 @@
       "community": 147,
       "norm_label": "chats.rs",
       "id": "repo_src_tauri_src_commands_storage_commands_chats_rs"
+    },
+    {
+      "label": "extraForActiveSwipe()",
+      "file_type": "code",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L1002",
+      "id": "hooks_use_chats_extraforactiveswipe",
+      "community": 120,
+      "norm_label": "extraforactiveswipe()"
+    },
+    {
+      "label": "SWIPE_SCOPED_EXTRA_KEYS",
+      "file_type": "code",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L985",
+      "id": "hooks_use_chats_swipe_scoped_extra_keys",
+      "community": 120,
+      "norm_label": "swipe_scoped_extra_keys"
+    },
+    {
+      "label": "cachedPromptDisplayContent()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L27",
+      "id": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
+      "community": 129,
+      "norm_label": "cachedpromptdisplaycontent()"
+    },
+    {
+      "label": "CachedPromptMessage",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L5",
+      "id": "generation_prompt_debug_cache_cachedpromptmessage",
+      "community": 129,
+      "norm_label": "cachedpromptmessage"
+    },
+    {
+      "label": "cachedPromptMessages()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L48",
+      "id": "generation_prompt_debug_cache_cachedpromptmessages",
+      "community": 129,
+      "norm_label": "cachedpromptmessages()"
+    },
+    {
+      "label": "cachedRole()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L15",
+      "id": "generation_prompt_debug_cache_cachedrole",
+      "community": 129,
+      "norm_label": "cachedrole()"
+    },
+    {
+      "label": "prettyJson()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L19",
+      "id": "generation_prompt_debug_cache_prettyjson",
+      "community": 129,
+      "norm_label": "prettyjson()"
+    },
+    {
+      "label": "readActiveGenerationExtra()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L140",
+      "id": "generation_prompt_debug_cache_readactivegenerationextra",
+      "community": 129,
+      "norm_label": "readactivegenerationextra()"
+    },
+    {
+      "label": "readCachedGenerationPrompt()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L154",
+      "id": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "community": 129,
+      "norm_label": "readcachedgenerationprompt()"
+    },
+    {
+      "label": "readNullableNumber()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L69",
+      "id": "generation_prompt_debug_cache_readnullablenumber",
+      "community": 129,
+      "norm_label": "readnullablenumber()"
+    },
+    {
+      "label": "readUsageNumber()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L74",
+      "id": "generation_prompt_debug_cache_readusagenumber",
+      "community": 129,
+      "norm_label": "readusagenumber()"
+    },
+    {
+      "label": "savedGenerationInfo",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L82",
+      "id": "generation_prompt_debug_cache_savedgenerationinfo",
+      "community": 129,
+      "norm_label": "savedgenerationinfo"
+    },
+    {
+      "label": "cachedPromptPreview()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L53",
+      "id": "generation_prompt_preview_cachedpromptpreview",
+      "community": 129,
+      "norm_label": "cachedpromptpreview()"
+    },
+    {
+      "label": "livePrompt",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L180",
+      "id": "generation_prompt_preview_test_liveprompt",
+      "community": 129,
+      "norm_label": "liveprompt"
+    },
+    {
+      "label": "previewStorage()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L8",
+      "id": "generation_prompt_preview_test_previewstorage",
+      "community": 129,
+      "norm_label": "previewstorage()"
+    },
+    {
+      "label": "prompt()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L71",
+      "id": "generation_prompt_preview_test_prompt",
+      "community": 129,
+      "norm_label": "prompt()"
+    },
+    {
+      "label": "Row",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L6",
+      "id": "generation_prompt_preview_test_row",
+      "community": 129,
+      "norm_label": "row"
+    },
+    {
+      "label": "{ storage }",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L91",
+      "id": "generation_prompt_preview_test_storage",
+      "community": 129,
+      "norm_label": "{ storage }"
+    },
+    {
+      "label": "prompt-debug-cache.ts",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L1",
+      "id": "src_engine_generation_prompt_debug_cache_ts",
+      "community": 129,
+      "norm_label": "prompt-debug-cache.ts"
+    },
+    {
+      "label": "prompt-preview.test.ts",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L1",
+      "id": "src_engine_generation_prompt_preview_test_ts",
+      "community": 129,
+      "norm_label": "prompt-preview.test.ts"
+    },
+    {
+      "label": "generationParameters",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1287",
+      "id": "generation_start_generation_generationparameters",
+      "community": 13,
+      "norm_label": "generationparameters"
+    },
+    {
+      "label": "generationParametersDirect",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1411",
+      "id": "generation_start_generation_generationparametersdirect",
+      "community": 13,
+      "norm_label": "generationparametersdirect"
+    },
+    {
+      "label": "lastRequestMessages",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1553",
+      "id": "generation_start_generation_lastrequestmessages",
+      "community": 13,
+      "norm_label": "lastrequestmessages"
+    },
+    {
+      "label": "assistantCall",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L927",
+      "id": "generation_start_generation_test_assistantcall",
+      "community": 15,
+      "norm_label": "assistantcall"
+    },
+    {
+      "label": "expectedExtra",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L727",
+      "id": "generation_start_generation_test_expectedextra",
+      "community": 15,
+      "norm_label": "expectedextra"
+    },
+    {
+      "label": "streamedPrompt",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L586",
+      "id": "generation_start_generation_test_streamedprompt",
+      "community": 15,
+      "norm_label": "streamedprompt"
+    },
+    {
+      "label": "MessageSwipeExtra",
+      "file_type": "code",
+      "source_file": "src/engine/contracts/types/chat.ts",
+      "source_location": "L469",
+      "id": "types_chat_messageswipeextra",
+      "community": 3,
+      "norm_label": "messageswipeextra"
+    },
+    {
+      "label": "shared.rs",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1",
+      "id": "src_tauri_src_commands_storage_shared_rs",
+      "community": 30,
+      "norm_label": "shared.rs"
+    },
+    {
+      "label": "preserve_active_swipe_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L189",
+      "id": "storage_chats_preserve_active_swipe_extra",
+      "community": 30,
+      "norm_label": "preserve_active_swipe_extra()"
+    },
+    {
+      "label": "swipe_scoped_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L152",
+      "id": "storage_shared_swipe_scoped_extra",
+      "community": 30,
+      "norm_label": "swipe_scoped_extra()"
+    },
+    {
+      "label": "clear_swipe_scoped_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L144",
+      "id": "storage_shared_clear_swipe_scoped_extra",
+      "community": 373,
+      "norm_label": "clear_swipe_scoped_extra()"
+    },
+    {
+      "label": "materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L821",
+      "id": "storage_shared_materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes",
+      "community": 373,
+      "norm_label": "materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes()"
+    },
+    {
+      "label": "materialize_message_swipe_fields_uses_active_swipe_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L786",
+      "id": "storage_shared_materialize_message_swipe_fields_uses_active_swipe_extra",
+      "community": 373,
+      "norm_label": "materialize_message_swipe_fields_uses_active_swipe_extra()"
+    },
+    {
+      "label": "merge_active_swipe_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L163",
+      "id": "storage_shared_merge_active_swipe_extra",
+      "community": 373,
+      "norm_label": "merge_active_swipe_extra()"
+    },
+    {
+      "label": "delete_swipe_preserves_shifted_active_swipe()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1117",
+      "id": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
+      "community": 43,
+      "norm_label": "delete_swipe_preserves_shifted_active_swipe()"
+    },
+    {
+      "label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1055",
+      "id": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
+      "community": 43,
+      "norm_label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()"
+    },
+    {
+      "label": "object_extra()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L185",
+      "id": "storage_chats_object_extra",
+      "community": 43,
+      "norm_label": "object_extra()"
+    },
+    {
+      "label": "existing",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L117",
+      "id": "hooks_use_generate_test_existing",
+      "community": 47,
+      "norm_label": "existing"
+    },
+    {
+      "label": "newer",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L154",
+      "id": "hooks_use_generate_test_newer",
+      "community": 47,
+      "norm_label": "newer"
+    },
+    {
+      "label": "queryClient",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L116",
+      "id": "hooks_use_generate_test_queryclient",
+      "community": 47,
+      "norm_label": "queryclient"
+    },
+    {
+      "label": "queryClientWithChat()",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L81",
+      "id": "hooks_use_generate_test_queryclientwithchat",
+      "community": 47,
+      "norm_label": "queryclientwithchat()"
+    },
+    {
+      "label": "state",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L144",
+      "id": "hooks_use_generate_test_state",
+      "community": 47,
+      "norm_label": "state"
+    },
+    {
+      "label": "storageApiMock",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L8",
+      "id": "hooks_use_generate_test_storageapimock",
+      "community": 47,
+      "norm_label": "storageapimock"
+    },
+    {
+      "label": "StreamEvent",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L78",
+      "id": "hooks_use_generate_test_streamevent",
+      "community": 47,
+      "norm_label": "streamevent"
+    },
+    {
+      "label": "streamFactory",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L122",
+      "id": "hooks_use_generate_test_streamfactory",
+      "community": 47,
+      "norm_label": "streamfactory"
+    },
+    {
+      "label": "TestStreamFactory",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L79",
+      "id": "hooks_use_generate_test_teststreamfactory",
+      "community": 47,
+      "norm_label": "teststreamfactory"
+    },
+    {
+      "label": "use-generate.test.ts",
+      "file_type": "code",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L1",
+      "id": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "community": 47,
+      "norm_label": "use-generate.test.ts"
     }
   ],
   "links": [
@@ -328929,8 +329352,2105 @@
       "confidence_score": 1.0,
       "source": "repo_src_shared_api_readme_md",
       "target": "api_readme_api_wrappers"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
+      "target": "generation_prompt_debug_cache_prettyjson",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
+      "target": "shared_value_readers_readstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_prettyjson",
+      "target": "shared_value_readers_readstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L158",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "target": "generation_prompt_debug_cache_readactivegenerationextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L173",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "target": "text_chat_summary_fingerprint_chatsummaryfingerprintmatches"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L70",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_readnullablenumber",
+      "target": "generation_runtime_records_readnumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_readusagenumber",
+      "target": "generation_prompt_debug_cache_readnullablenumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L95",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_savedgenerationinfo",
+      "target": "generation_prompt_debug_cache_readnullablenumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L111",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_savedgenerationinfo",
+      "target": "generation_prompt_debug_cache_readusagenumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "generation_prompt_assembly_chatsummaryforgeneration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L66",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L79",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "generation_runtime_records_hiddenfromai",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "generation_runtime_records_isrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L62",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "shared_value_readers_readstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_cachedpromptpreview",
+      "target": "text_chat_summary_fingerprint_fingerprintchatsummary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L99",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_previewgenerationprompt",
+      "target": "generation_prompt_preview_cachedpromptpreview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "generation_prompt_preview_promptpreviewresult",
+      "target": "capabilities_llm_llmmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L491",
+      "weight": 1.0,
+      "source": "generation_start_generation_inputwithstoredgenerationreplay",
+      "target": "generation_prompt_debug_cache_readactivegenerationextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L741",
+      "weight": 1.0,
+      "source": "generation_start_generation_saveassistantmessage",
+      "target": "generation_prompt_debug_cache_savedgenerationinfo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L1003",
+      "weight": 1.0,
+      "source": "hooks_use_chats_extraforactiveswipe",
+      "target": "hooks_use_chats_parserecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L974",
+      "weight": 1.0,
+      "source": "hooks_use_chats_messagewithoptimisticactiveswipe",
+      "target": "hooks_use_chats_extraforactiveswipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L971",
+      "weight": 1.0,
+      "source": "hooks_use_chats_messagewithoptimisticactiveswipe",
+      "target": "hooks_use_chats_parserecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/features/runtime/generation/hooks/use-generate.ts",
+      "source_location": "L1009",
+      "weight": 1.0,
+      "source": "hooks_use_generate_rungenerationwithui",
+      "target": "hooks_use_generate_test_streamfactory"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/contracts/types/chat.ts",
+      "source_location": "L469",
+      "weight": 1.0,
+      "source": "src_engine_contracts_types_chat_ts",
+      "target": "types_chat_messageswipeextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "capabilities_llm_llmmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptmessages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_cachedrole",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_prettyjson",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L140",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_readactivegenerationextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L154",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L69",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_readnullablenumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L74",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_readusagenumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L82",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_savedgenerationinfo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_runtime_records_isrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_runtime_records_jsonrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_runtime_records_parserecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_runtime_records_readnumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "shared_value_readers_readstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "src_engine_capabilities_llm_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "src_engine_generation_runtime_records_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "src_engine_shared_text_chat_summary_fingerprint_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "text_chat_summary_fingerprint_chatsummaryfingerprintmatches",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "capabilities_storage_storagegateway",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_previewgenerationprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L298",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_test_liveprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_test_previewstorage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_test_prompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_test_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L299",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "generation_prompt_preview_test_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "src_engine_capabilities_storage_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "src_engine_generation_prompt_preview_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "src_engine_shared_text_chat_summary_fingerprint_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_test_ts",
+      "target": "text_chat_summary_fingerprint_fingerprintchatsummary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "capabilities_llm_llmmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_prompt_assembly_chatsummaryforgeneration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_prompt_debug_cache_readcachedgenerationprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_prompt_preview_cachedpromptpreview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_runtime_records_hiddenfromai",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_runtime_records_isrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "generation_runtime_records_jsonrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "src_engine_capabilities_llm_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "src_engine_generation_prompt_debug_cache_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "src_engine_shared_text_chat_summary_fingerprint_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-preview.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_preview_ts",
+      "target": "text_chat_summary_fingerprint_fingerprintchatsummary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_test_ts",
+      "target": "capabilities_llm_llmchunk",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L927",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_test_ts",
+      "target": "generation_start_generation_test_assistantcall",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L781",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_test_ts",
+      "target": "generation_start_generation_test_expectedextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L586",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_test_ts",
+      "target": "generation_start_generation_test_streamedprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptmessages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_prompt_debug_cache_readactivegenerationextra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_prompt_debug_cache_savedgenerationinfo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1287",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_start_generation_generationparameters",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1411",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_start_generation_generationparametersdirect",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L1553",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "generation_start_generation_lastrequestmessages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.ts",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_ts",
+      "target": "src_engine_generation_prompt_debug_cache_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L1002",
+      "weight": 1.0,
+      "source": "src_features_catalog_chats_hooks_use_chats_ts",
+      "target": "hooks_use_chats_extraforactiveswipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L985",
+      "weight": 1.0,
+      "source": "src_features_catalog_chats_hooks_use_chats_ts",
+      "target": "hooks_use_chats_swipe_scoped_extra_keys",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/shared/chat-ui/components/ChatMessage.tsx",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "src_features_modes_shared_chat_ui_components_chatmessage_tsx",
+      "target": "types_chat_messageswipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/shared/chat-ui/types.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_features_modes_shared_chat_ui_types_ts",
+      "target": "types_chat_messageswipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_generateargs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_rungenerationwithui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L117",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_existing",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L154",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_newer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L153",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_queryclient",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L81",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_queryclientwithchat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L165",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_storageapimock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_streamevent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L156",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_streamfactory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L79",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "hooks_use_generate_test_teststreamfactory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "src_features_runtime_generation_hooks_use_generate_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "src_shared_stores_agent_store_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "src_shared_stores_chat_store_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "src_shared_stores_ui_store_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "stores_agent_store_useagentstore",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "stores_chat_store_usechatstore",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_generation_hooks_use_generate_test_ts",
+      "target": "stores_ui_store_useuistore",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1117",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1055",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_object_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L189",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_preserve_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L718",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_character_update_patch_preserves_object_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L735",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_character_update_patch_rejects_invalid_data_shape",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_clear_swipe_scoped_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_collapse_excess_blank_lines",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1172",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1310",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1284",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_file_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1350",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_files",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1318",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1105",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file_rejects_declared_oversized_upload",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1123",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file_rejects_non_image_content_type",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1141",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_duplicate_record",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1157",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_find_by_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L909",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_game_state_snapshot_normalizes_persona_stats_as_nullable_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L950",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_game_state_snapshot_rejects_malformed_persona_stats_string",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L64",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_get_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1280",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_image_upload_invalid_type_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1276",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_image_upload_too_large_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_list_collection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L942",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_lorebook_defaults_include_vectorization_enabled",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_materialize_message_swipe_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L821",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L786",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_materialize_message_swipe_fields_uses_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L163",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_merge_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L847",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_collapses_excess_blank_lines",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L882",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_does_not_invent_missing_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L749",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_updates_active_swipe_content",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1472",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_metadata_map",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_non_negative_i64_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L246",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_character_data_for_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L425",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L481",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L453",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_object_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1240",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1011",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_ignores_non_object_records",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1004",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_leaves_missing_keys_alone",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L969",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_parses_text_encoded_json_arrays",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L962",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_preserves_existing_arrays",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L983",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L997",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_null_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L990",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_scalar_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L976",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1205",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1047",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_falsy_text_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1076",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1026",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_text_true_and_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1034",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_truthy_text_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1067",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1084",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_null_to_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1060",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_unknown_string_to_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1098",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_ignores_non_object_records",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1091",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_leaves_missing_keys_alone",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1018",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_preserves_existing_bools",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L229",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_message_text_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L436",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_nullable_json_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L464",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_nullable_json_object_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L329",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_typed_json_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L255",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_update_patch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1455",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_option_string_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_parsedpath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L261",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_patch_message_update",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1389",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_list_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1429",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_nested_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1402",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_record",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1412",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1179",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_required_string",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1461",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_string_array_from_json",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1186",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_string_array_from_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L189",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_swipe_index_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L152",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_swipe_scoped_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L275",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_sync_message_patch_content_to_active_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L707",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_temp_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L699",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_temproot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1363",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_upload_gallery_image",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1267",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_uploadedfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L512",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_with_entity_defaults",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1163",
+      "weight": 1.0,
+      "source": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
+      "target": "storage_chats_delete_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1118",
+      "weight": 1.0,
+      "source": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L234",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes",
+      "target": "storage_chats_object_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L252",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes",
+      "target": "storage_chats_preserve_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L268",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes",
+      "target": "storage_shared_merge_active_swipe_extra"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1078",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1102",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
+      "target": "storage_chats_set_active_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1056",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L190",
+      "weight": 1.0,
+      "source": "storage_chats_preserve_active_swipe_extra",
+      "target": "storage_shared_swipe_scoped_extra"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L289",
+      "weight": 1.0,
+      "source": "storage_chats_set_active_swipe",
+      "target": "storage_chats_object_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L303",
+      "weight": 1.0,
+      "source": "storage_chats_set_active_swipe",
+      "target": "storage_chats_preserve_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L338",
+      "weight": 1.0,
+      "source": "storage_chats_set_active_swipe",
+      "target": "storage_shared_clear_swipe_scoped_extra"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L333",
+      "weight": 1.0,
+      "source": "storage_chats_set_active_swipe",
+      "target": "storage_shared_merge_active_swipe_extra"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L122",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields",
+      "target": "storage_shared_clear_swipe_scoped_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L117",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields",
+      "target": "storage_shared_merge_active_swipe_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L837",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes",
+      "target": "storage_shared_materialize_message_swipe_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L811",
+      "weight": 1.0,
+      "source": "storage_shared_materialize_message_swipe_fields_uses_active_swipe_extra",
+      "target": "storage_shared_materialize_message_swipe_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L164",
+      "weight": 1.0,
+      "source": "storage_shared_merge_active_swipe_extra",
+      "target": "storage_shared_clear_swipe_scoped_extra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "source": "storage_shared_swipe_scoped_extra",
+      "target": "storage_shared_parsedpath_new",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L316",
+      "weight": 1.0,
+      "source": "storage_shared_sync_message_patch_content_to_active_swipe",
+      "target": "storage_shared_parsedpath_new",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L289",
+      "weight": 1.0,
+      "source": "storage_shared_sync_message_patch_content_to_active_swipe",
+      "target": "storage_shared_swipe_scoped_extra",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "e8ed673e0ed28a74c6508ee270683396389ad8fa"
+  "built_at_commit": "eda55acb744ad532ca9b0a98a45a2ef19785a712"
 }
