@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invokeTauri } from "./tauri-client";
 import { urlBinaryApi } from "./url-binary-api";
 
@@ -9,6 +9,10 @@ vi.mock("./tauri-client", () => ({
 const invokeMock = vi.mocked(invokeTauri);
 
 describe("urlBinaryApi", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
   it("loads URL binary data through the load_url_binary command", async () => {
     invokeMock.mockResolvedValueOnce({ base64: "aGVsbG8=", mimeType: "image/png" });
 
@@ -31,7 +35,7 @@ describe("urlBinaryApi", () => {
     expect(blob.type).toBe("audio/mpeg");
   });
 
-  it.each([null, "bytes", 42, false])("rejects malformed binary responses before reading fields", async (response) => {
+  it.each([null, "bytes", 42, false, []])("rejects malformed binary responses before reading fields", async (response) => {
     invokeMock.mockResolvedValueOnce(response);
 
     await expect(urlBinaryApi.load("https://example.com/file")).rejects.toThrow(
@@ -43,5 +47,13 @@ describe("urlBinaryApi", () => {
     invokeMock.mockResolvedValueOnce({ error: "Remote file is too large" });
 
     await expect(urlBinaryApi.load("https://example.com/file")).rejects.toThrow("Remote file is too large");
+  });
+
+  it("rejects invalid base64 data with a URL binary error", async () => {
+    invokeMock.mockResolvedValueOnce({ base64: "not base64!", mimeType: "image/png" });
+
+    await expect(urlBinaryApi.load("https://example.com/file")).rejects.toThrow(
+      "URL binary request returned invalid base64 data.",
+    );
   });
 });

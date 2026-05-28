@@ -8,7 +8,7 @@ interface UrlBinaryResponse {
 }
 
 function isUrlBinaryResponse(value: unknown): value is UrlBinaryResponse {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -23,7 +23,12 @@ function binaryFailureMessage(response: unknown): string {
 }
 
 function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
+  let binary: string;
+  try {
+    binary = atob(base64);
+  } catch {
+    throw new Error("URL binary request returned invalid base64 data.");
+  }
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
