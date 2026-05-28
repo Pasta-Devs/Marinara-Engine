@@ -1,0 +1,44 @@
+# Graphify should map project source, not local workflow state or generated output.
+.git/
+.graphifyignore
+scratch/
+graphify-out/
+
+# Dependency, build, cache, and local environment output.
+node_modules/
+dist/
+dist-ssr/
+target/
+src-tauri/target/
+src-tauri/.tauri/
+src-tauri/gen/schemas/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/app/src/main/assets/
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/**/.cxx/
+src-tauri/gen/android/**/.externalNativeBuild/
+src-tauri/gen/android/**/captures/
+src-tauri/gen/android/**/local.properties
+src-tauri/gen/android/**/key.properties
+src-tauri/gen/android/**/keystore.properties
+src-tauri/gen/android/**/*.jks
+src-tauri/gen/android/**/*.keystore
+
+logs/
+*.log
+*.local
+*.tsbuildinfo
+.env
+.marinara-legacy-profile-import.json
+packages/
+
+# Editor-local state.
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

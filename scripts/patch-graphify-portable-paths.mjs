@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,6 +19,19 @@ function replaceRequired(source, file, before, after) {
     throw new Error(`${file} does not contain the expected patch anchor.`);
   }
   return source.replace(before, after);
+}
+
+function readFilesUnder(dir) {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...readFilesUnder(path));
+    } else if (entry.isFile()) {
+      files.push(readFileSync(path, "utf8"));
+    }
+  }
+  return files;
 }
 
 const packageDir = runPython([
@@ -236,6 +249,10 @@ detectSource = replaceRequired(
 writeFileSync(detectFile, detectSource);
 
 let extractSource = readFileSync(extractFile, "utf8");
+extractSource = extractSource.replace(
+  /def _relative_to_root\(path: Path, root: Path\) -> Path:\n[\s\S]*?\n\n\ndef _file_stem\(path: Path\) -> str:\n/,
+  "def _file_stem(path: Path) -> str:\n",
+);
 extractSource = replaceRequired(
   extractSource,
   extractFile,
@@ -249,6 +266,19 @@ extractSource = replaceRequired(
         return path
 
 
+def _project_root_id(root: Path) -> str:
+    """Return a stable project id that does not depend on the checkout folder."""
+    package_json = root / "package.json"
+    if package_json.exists():
+        try:
+            name = json.loads(package_json.read_text(encoding="utf-8")).get("name")
+            if isinstance(name, str) and name.strip():
+                return _make_id(name)
+        except Exception:
+            pass
+    return _make_id(root.name)
+
+
 def _portable_extraction_result(result: dict, path: Path, root: Path) -> dict:
     """Remove machine-local absolute path fingerprints from one-file results.
 
@@ -256,11 +286,15 @@ def _portable_extraction_result(result: dict, path: Path, root: Path) -> dict:
     per-file AST cache is written before that pass. Normalize cached payloads at
     the boundary so cache files can be committed or shared safely.
     """
-    root_prefixes = {
+    absolute_root_prefixes = {
         _make_id(str(root)),
         _make_id(str(root.absolute())),
         _make_id(str(root.resolve())),
     }
+    local_project_prefixes = {
+        _make_id(root.name),
+    }
+    portable_project_prefix = _project_root_id(root)
     rel_path = _relative_to_root(path, root).as_posix()
     old_file_id = _make_id(str(path))
     new_file_id = _make_id(rel_path)
@@ -271,10 +305,16 @@ def _portable_extraction_result(result: dict, path: Path, root: Path) -> dict:
             return value
         if value in id_remap:
             return id_remap[value]
-        for root_prefix in root_prefixes:
+        for root_prefix in absolute_root_prefixes:
             prefix = f"{root_prefix}_"
             if root_prefix and value.startswith(prefix):
                 return value[len(prefix):]
+        for root_prefix in local_project_prefixes:
+            prefix = f"{root_prefix}_"
+            if root_prefix and value == root_prefix:
+                return portable_project_prefix
+            if root_prefix and value.startswith(prefix):
+                return f"{portable_project_prefix}_{value[len(prefix):]}"
         return value
 
     for item in (
@@ -320,6 +360,91 @@ extractSource = extractSource
 writeFileSync(extractFile, extractSource);
 
 let watchSource = readFileSync(watchFile, "utf8");
+watchSource = watchSource.replace(
+  /def _graph_item_json_key\(item: dict\) -> str:\n[\s\S]*?\n\n\ndef _canonical_graph_for_compare\(graph_data: dict\) -> dict:\n/,
+  "def _canonical_graph_for_compare(graph_data: dict) -> dict:\n",
+);
+watchSource = replaceRequired(
+  watchSource,
+  watchFile,
+  `def _canonical_graph_for_compare(graph_data: dict) -> dict:
+`,
+  `def _graph_item_json_key(item: dict) -> str:
+    return json.dumps(item, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _graph_edge_order_key(item: dict) -> tuple:
+    true_src = item.get("_src", item.get("source"))
+    true_tgt = item.get("_tgt", item.get("target"))
+    return (
+        true_src,
+        true_tgt,
+        item.get("relation"),
+        item.get("source_file"),
+        item.get("source_location"),
+        item.get("label"),
+        _graph_item_json_key(item),
+    )
+
+
+def _order_graph_like_existing(candidate: dict, existing: dict) -> dict:
+    """Keep graph.json reviewable by preserving existing node/link order.
+
+    Graphify's extraction order can vary by filesystem and cache state. When a
+    graph must be rewritten, keep previously-known items in their old positions
+    and append genuinely new items deterministically so small source changes do
+    not look like whole-graph churn in git diffs.
+    """
+    ordered = dict(candidate)
+    existing_node_order = {
+        item.get("id"): index
+        for index, item in enumerate(existing.get("nodes", []))
+        if isinstance(item, dict) and item.get("id") is not None
+    }
+    if isinstance(candidate.get("nodes"), list):
+        ordered["nodes"] = sorted(
+            candidate["nodes"],
+            key=lambda item: (
+                existing_node_order.get(item.get("id"), len(existing_node_order)),
+                _graph_item_json_key(item),
+            ),
+        )
+
+    for key in ("links", "edges"):
+        if not isinstance(candidate.get(key), list):
+            continue
+        existing_edge_order = {
+            _graph_edge_order_key(item): index
+            for index, item in enumerate(existing.get(key, []))
+            if isinstance(item, dict)
+        }
+        ordered[key] = sorted(
+            candidate[key],
+            key=lambda item: (
+                existing_edge_order.get(_graph_edge_order_key(item), len(existing_edge_order)),
+                _graph_edge_order_key(item),
+            ),
+        )
+
+    if isinstance(candidate.get("hyperedges"), list):
+        existing_hyperedge_order = {
+            _graph_item_json_key(item): index
+            for index, item in enumerate(existing.get("hyperedges", []))
+            if isinstance(item, dict)
+        }
+        ordered["hyperedges"] = sorted(
+            candidate["hyperedges"],
+            key=lambda item: (
+                existing_hyperedge_order.get(_graph_item_json_key(item), len(existing_hyperedge_order)),
+                _graph_item_json_key(item),
+            ),
+        )
+    return ordered
+
+
+def _canonical_graph_for_compare(graph_data: dict) -> dict:
+`,
+);
 watchSource = replaceRequired(
   watchSource,
   watchFile,
@@ -343,6 +468,17 @@ watchSource = watchSource.replace(
   '(out / ".graphify_root").write_text(str(watch_root), encoding="utf-8")',
   '(out / ".graphify_root").write_text(_root_marker(watch_path, watch_root), encoding="utf-8")',
 );
+watchSource = watchSource.replace(
+  `        candidate_graph_data = json.loads(graph_tmp.read_text(encoding="utf-8"))
+        same_graph = False
+`,
+  `        candidate_graph_data = json.loads(graph_tmp.read_text(encoding="utf-8"))
+        if existing_graph_data:
+            candidate_graph_data = _order_graph_like_existing(candidate_graph_data, existing_graph_data)
+            graph_tmp.write_text(_json_text(candidate_graph_data), encoding="utf-8")
+        same_graph = False
+`,
+);
 writeFileSync(watchFile, watchSource);
 
 runPython(["-m", "py_compile", cacheFile, detectFile, extractFile, watchFile]);
@@ -350,7 +486,7 @@ runPython(["-m", "py_compile", cacheFile, detectFile, extractFile, watchFile]);
 const tempRoot = mkdtempSync(join(tmpdir(), "graphify-path-test."));
 try {
   const srcDir = join(tempRoot, "src");
-  execFileSync("mkdir", ["-p", srcDir]);
+  mkdirSync(srcDir, { recursive: true });
   writeFileSync(
     join(srcDir, "http.py"),
     [
@@ -384,25 +520,13 @@ try {
     { env: { ...process.env, TEST_ROOT: tempRoot } },
   );
 
-  const rg = execFileSync(
-    "rg",
-    [
-      "-n",
-      "/Users/|/tmp|private/var|graphify-path-test|users_|tmp_graphify|private_tmp",
-      join(tempRoot, "graphify-out"),
-      "-S",
-    ],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-  );
-  if (rg.trim()) {
-    throw new Error(`Graphify path portability check failed:\n${rg}`);
+  const output = readFilesUnder(join(tempRoot, "graphify-out")).join("\n");
+  const leakPattern = /\/Users\/|\/tmp|private\/var|graphify-path-test|users_|tmp_graphify|private_tmp/;
+  if (leakPattern.test(output)) {
+    throw new Error("Graphify path portability check found machine-local path tokens.");
   }
 } catch (error) {
-  if (error.status === 1 && error.stdout === "") {
-    // ripgrep returns 1 when no matches are found.
-  } else {
-    throw error;
-  }
+  throw error;
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }
