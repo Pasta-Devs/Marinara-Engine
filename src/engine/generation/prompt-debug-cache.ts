@@ -80,9 +80,10 @@ export function savedGenerationInfo(args: {
   };
 }
 
-function activeSwipeExtra(message: JsonRecord): JsonRecord | null {
+export function readActiveGenerationExtra(message: JsonRecord): JsonRecord | null {
   const swipes = Array.isArray(message.swipes) ? message.swipes : [];
-  if (swipes.length === 0) return null;
+  const messageExtra = parseRecord(message.extra);
+  if (swipes.length <= 1) return messageExtra;
 
   const rawIndex = readNumber(message.activeSwipeIndex, 0);
   const activeIndex = Number.isFinite(rawIndex)
@@ -97,7 +98,8 @@ export function readCachedGenerationPrompt(
   message: JsonRecord,
   currentChatSummaryFingerprint: string | null,
 ): { messages: CachedPromptMessage[]; generationInfo: SavedGenerationInfo | null } | null {
-  const extra = activeSwipeExtra(message) ?? parseRecord(message.extra);
+  const extra = readActiveGenerationExtra(message);
+  if (!extra) return null;
   const rawPrompt = Array.isArray(extra.cachedPrompt) ? extra.cachedPrompt : [];
   const messages = rawPrompt
     .map((entry) => {

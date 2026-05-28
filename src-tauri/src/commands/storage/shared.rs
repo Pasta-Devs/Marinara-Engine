@@ -112,8 +112,66 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
         object.insert("content".to_string(), Value::String(content));
     }
     if let Some(extra) = active_extra {
-        object.insert("extra".to_string(), extra);
+        object.insert(
+            "extra".to_string(),
+            merge_active_swipe_extra(object.get("extra"), extra),
+        );
+    } else if swipe_count > 1 {
+        object.insert(
+            "extra".to_string(),
+            clear_swipe_scoped_extra(object.get("extra")),
+        );
     }
+}
+
+const SWIPE_SCOPED_EXTRA_KEYS: [&str; 13] = [
+    "displayText",
+    "isGenerated",
+    "tokenCount",
+    "generationInfo",
+    "thinking",
+    "spriteExpressions",
+    "cyoaChoices",
+    "contextInjections",
+    "chatSummaryFingerprint",
+    "cachedPrompt",
+    "generationReplay",
+    "attachments",
+    "reasoning",
+];
+
+pub(crate) fn clear_swipe_scoped_extra(base: Option<&Value>) -> Value {
+    let mut merged = base.and_then(Value::as_object).cloned().unwrap_or_default();
+    for key in SWIPE_SCOPED_EXTRA_KEYS {
+        merged.remove(key);
+    }
+    Value::Object(merged)
+}
+
+pub(crate) fn swipe_scoped_extra(value: Option<&Value>) -> Option<Value> {
+    let object = value.and_then(Value::as_object)?;
+    let mut scoped = Map::new();
+    for key in SWIPE_SCOPED_EXTRA_KEYS {
+        if let Some(value) = object.get(key) {
+            scoped.insert(key.to_string(), value.clone());
+        }
+    }
+    (!scoped.is_empty()).then_some(Value::Object(scoped))
+}
+
+pub(crate) fn merge_active_swipe_extra(base: Option<&Value>, active_extra: Value) -> Value {
+    let mut merged = clear_swipe_scoped_extra(base)
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    if let Some(active) = active_extra.as_object() {
+        for key in SWIPE_SCOPED_EXTRA_KEYS {
+            if let Some(value) = active.get(key) {
+                merged.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+    Value::Object(merged)
 }
 
 pub(crate) fn non_negative_i64_value(value: Option<&Value>) -> Option<i64> {
@@ -227,7 +285,7 @@ pub(crate) fn sync_message_patch_content_to_active_swipe(
     let extra = patch
         .get("extra")
         .filter(|value| value.is_object())
-        .cloned();
+        .and_then(|value| swipe_scoped_extra(Some(value)));
     if content.is_none() && extra.is_none() {
         return;
     }
@@ -728,7 +786,11 @@ mod tests {
         let mut message = json!({
             "content": "old visible",
             "activeSwipeIndex": 1,
-            "extra": { "generationInfo": { "model": "old-model" } },
+            "extra": {
+                "hiddenFromAI": true,
+                "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
+                "generationInfo": { "model": "old-model" }
+            },
             "swipes": [
                 {
                     "content": "first",
@@ -744,7 +806,33 @@ mod tests {
         materialize_message_swipe_fields(&mut message);
 
         assert_eq!(message["content"], json!("second"));
+        assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(message["extra"]["generationInfo"]["model"], json!("second-model"));
+        assert!(message["extra"]["cachedPrompt"].is_null());
+    }
+
+    #[test]
+    fn materialize_message_swipe_fields_clears_stale_extra_for_legacy_multi_swipes() {
+        let mut message = json!({
+            "content": "old visible",
+            "activeSwipeIndex": 1,
+            "extra": {
+                "hiddenFromAI": true,
+                "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
+                "generationInfo": { "model": "old-model" }
+            },
+            "swipes": [
+                { "content": "first" },
+                { "content": "second" }
+            ]
+        });
+
+        materialize_message_swipe_fields(&mut message);
+
+        assert_eq!(message["content"], json!("second"));
+        assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
+        assert!(message["extra"]["generationInfo"].is_null());
+        assert!(message["extra"]["cachedPrompt"].is_null());
     }
 
     #[test]

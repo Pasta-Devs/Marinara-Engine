@@ -976,8 +976,37 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     activeSwipeIndex,
     swipeCount: swipeCount || message.swipeCount,
     content: swipeContent ?? message.content,
-    ...(swipeExtra ? { extra: swipeExtra as unknown as Message["extra"] } : {}),
+    ...(swipeExtra ? { extra: extraForActiveSwipe(message.extra, swipeExtra) as unknown as Message["extra"] } : {}),
   };
+}
+
+const SWIPE_SCOPED_EXTRA_KEYS = new Set([
+  "displayText",
+  "isGenerated",
+  "tokenCount",
+  "generationInfo",
+  "thinking",
+  "spriteExpressions",
+  "cyoaChoices",
+  "contextInjections",
+  "chatSummaryFingerprint",
+  "cachedPrompt",
+  "generationReplay",
+  "attachments",
+  "reasoning",
+]);
+
+function extraForActiveSwipe(baseExtra: unknown, swipeExtra: Record<string, unknown>): Record<string, unknown> {
+  const next = parseRecord(baseExtra);
+  for (const key of SWIPE_SCOPED_EXTRA_KEYS) {
+    delete next[key];
+  }
+  for (const key of SWIPE_SCOPED_EXTRA_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(swipeExtra, key)) {
+      next[key] = swipeExtra[key];
+    }
+  }
+  return next;
 }
 
 function downloadTextFile(contents: string, filename: string, type: string) {

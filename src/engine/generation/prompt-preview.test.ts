@@ -212,6 +212,33 @@ describe("previewGenerationPrompt cached prompts", () => {
     expect(result.messages.map((message) => message.content).join("\n")).not.toContain("Previous generated swipe cache.");
   });
 
+  it("does not fall back to stale message-level cache for legacy multi-swipes without active extra", async () => {
+    const livePrompt = prompt("preset-1", "Live legacy-swipe fallback rules.");
+    const { storage } = previewStorage({
+      chat: { promptPresetId: "preset-1" },
+      messages: [
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "Legacy second swipe.",
+          activeSwipeIndex: 1,
+          extra: {
+            cachedPrompt: [{ role: "system", content: "Stale legacy message-level cache." }],
+            generationInfo: { model: "stale-legacy-model" },
+          },
+          swipes: [{ content: "Legacy first swipe." }, { content: "Legacy second swipe." }],
+        },
+      ],
+      ...livePrompt,
+    });
+
+    const result = await previewGenerationPrompt(storage, { chatId: "chat-1", messageId: "assistant-1" });
+
+    expect(result.messages.map((message) => message.content).join("\n")).toContain("Live legacy-swipe fallback rules.");
+    expect(result.messages.map((message) => message.content).join("\n")).not.toContain("Stale legacy message-level cache.");
+  });
+
   it("falls back to live assembly when the saved cache belongs to an older summary", async () => {
     const livePrompt = prompt("preset-1", "Live fallback rules.");
     const { storage } = previewStorage({

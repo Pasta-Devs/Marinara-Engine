@@ -41,7 +41,12 @@ import {
 } from "./generation-replay";
 import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-assembly";
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
-import { cachedPromptMessages, savedGenerationInfo, type CachedPromptMessage } from "./prompt-debug-cache";
+import {
+  cachedPromptMessages,
+  readActiveGenerationExtra,
+  savedGenerationInfo,
+  type CachedPromptMessage,
+} from "./prompt-debug-cache";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
 import {
   boolish,
@@ -483,7 +488,8 @@ async function inputWithStoredGenerationReplay(
   const target = await storage.get("messages", regenerateMessageId).catch(() => null);
   if (!isRecord(target) || readString(target.chatId).trim() !== chatId) return input;
 
-  const targetExtra = parseRecord(target.extra);
+  const targetExtra = readActiveGenerationExtra(target);
+  if (!targetExtra) return input;
   const replay = normalizeGenerationReplay(targetExtra.generationReplay);
   if (!replay) return input;
   const currentFingerprint = fingerprintChatSummary(chatSummaryForGeneration(chat));

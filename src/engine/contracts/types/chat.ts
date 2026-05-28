@@ -456,6 +456,8 @@ export interface GenerationInfo {
   finishReason: string | null;
 }
 
+export type MessageSwipeExtra = Partial<MessageExtra> & Record<string, unknown>;
+
 /** A swipe (alternate response) for a message. */
 export interface MessageSwipe {
   id: string;
@@ -463,7 +465,7 @@ export interface MessageSwipe {
   index: number;
   content: string;
   createdAt: string;
-  extra?: MessageExtra;
+  extra?: MessageSwipeExtra;
 }
 
 /** Payload sent to start a generation. */

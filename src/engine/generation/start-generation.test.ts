@@ -851,6 +851,35 @@ describe("startGeneration generation replay metadata", () => {
     }));
   });
 
+  it("skips stale message-level replay metadata for legacy multi-swipes without active extra", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "legacy second reply",
+          activeSwipeIndex: 1,
+          swipes: [{ content: "legacy first reply" }, { content: "legacy second reply" }],
+          extra: {
+            chatSummaryFingerprint: null,
+            generationReplay: {
+              generationGuide: "Stale legacy replay guidance.",
+              generationGuideSource: "guide",
+            },
+          },
+        },
+      ],
+    });
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Stale legacy replay guidance." })]),
+    );
+  });
+
   it("does not invent replay metadata for plain regenerates without stored replay", async () => {
     const { deps, patchChatMessageExtra, streamedRequests } = generationDepsForChat({
       initialMessages: [
