@@ -20,7 +20,7 @@ export type EditableGenerationParameters = Pick<
 
 export type EditableGenerationParameterOverrides = Partial<EditableGenerationParameters>;
 
-const REASONING_LEVELS = [null, "low", "medium", "high", "maximum"] as const;
+const REASONING_LEVELS = [null, "low", "medium", "high", "xhigh", "maximum"] as const;
 const VERBOSITY_LEVELS = [null, "low", "medium", "high"] as const;
 const OPENROUTER_SERVICE_TIERS = [null, "flex", "priority"] as const;
 const MAX_GENERATION_OUTPUT_TOKENS = 128000;
@@ -45,7 +45,7 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   topK: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
-  reasoningEffort: "maximum",
+  reasoningEffort: "xhigh",
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
@@ -59,7 +59,7 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   topK: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
-  reasoningEffort: "maximum",
+  reasoningEffort: "xhigh",
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
@@ -96,6 +96,7 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
     source.reasoningEffort === "low" ||
     source.reasoningEffort === "medium" ||
     source.reasoningEffort === "high" ||
+    source.reasoningEffort === "xhigh" ||
     source.reasoningEffort === "maximum"
   ) {
     next.reasoningEffort = source.reasoningEffort;
@@ -146,6 +147,12 @@ function mergeCustomParameterRecords(
     }
   }
   return merged;
+}
+
+function reasoningEffortLabel(level: (typeof REASONING_LEVELS)[number]): string {
+  if (!level) return "None";
+  if (level === "xhigh") return "X High";
+  return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
 export function getEditableGenerationParameters(
@@ -344,7 +351,7 @@ export function GenerationParametersFields({
                     : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
                 )}
               >
-                {level ? level.charAt(0).toUpperCase() + level.slice(1) : "None"}
+                {reasoningEffortLabel(level)}
               </button>
             ))}
           </div>
