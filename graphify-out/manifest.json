@@ -475,8 +475,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/chats.rs": {
-    "mtime": 1779986361.562366,
-    "ast_hash": "090f979c3ea3658fb5223485d4b04054",
+    "mtime": 1779986504.0483968,
+    "ast_hash": "65af509f503de160df951b004539c1f0",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/storage/shared.rs": {

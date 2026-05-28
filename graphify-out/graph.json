@@ -25522,7 +25522,7 @@
       "label": "memory_embedding_context_prefers_dedicated_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1172",
+      "source_location": "L1177",
       "id": "storage_chats_memory_embedding_context_prefers_dedicated_embedding_connection",
       "community": 43,
       "norm_label": "memory_embedding_context_prefers_dedicated_embedding_connection()"
@@ -25531,7 +25531,7 @@
       "label": "embed_memory_content_uses_lexical_fallback_without_context()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1219",
+      "source_location": "L1224",
       "id": "storage_chats_embed_memory_content_uses_lexical_fallback_without_context",
       "community": 43,
       "norm_label": "embed_memory_content_uses_lexical_fallback_without_context()"
@@ -25540,7 +25540,7 @@
       "label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1229",
+      "source_location": "L1234",
       "id": "storage_chats_delete_origin_chat_removes_scene_chats_and_character_scene_memories",
       "community": 43,
       "norm_label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()"
@@ -25549,7 +25549,7 @@
       "label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1344",
+      "source_location": "L1349",
       "id": "storage_chats_delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link",
       "community": 43,
       "norm_label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()"
@@ -92968,7 +92968,7 @@
       "label": "delete_swipe_preserves_shifted_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1117",
+      "source_location": "L1122",
       "id": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
       "community": 43,
       "norm_label": "delete_swipe_preserves_shifted_active_swipe()"
@@ -331452,5 +331452,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "eda55acb744ad532ca9b0a98a45a2ef19785a712"
+  "built_at_commit": "83cbd102b53b77376d75f6b00548921c409d0610"
 }
