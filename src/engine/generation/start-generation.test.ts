@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DiscordGateway } from "../capabilities/integrations";
-import type { LlmChunk, LlmGateway } from "../capabilities/llm";
+import type { LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { retryGenerationAgents, startGeneration, type GenerationEngineDeps } from "./start-generation";
@@ -28,22 +28,23 @@ function depsForChat(chat: Record<string, unknown>) {
   return { deps, get, createChatMessage };
 }
 
-function generationDepsForChat(options: {
-  savedUserMessage?: unknown;
-  messagesAfterSave?: Record<string, unknown>[];
-  chatPatch?: Record<string, unknown>;
-  chatMetadata?: Record<string, unknown>;
-  characters?: Record<string, unknown>[];
-  personas?: Record<string, unknown>[];
-  agents?: Record<string, unknown>[];
-  agentRuns?: Record<string, unknown>[];
-  initialMessages?: Record<string, unknown>[];
-  connectionPatch?: Record<string, unknown>;
-  prompts?: Record<string, unknown>[];
-  promptSections?: Record<string, unknown>[];
-  promptVariables?: Record<string, unknown>[];
-  streamChunks?: LlmChunk[];
-} = {}) {
+function generationDepsForChat(
+  options: {
+    savedUserMessage?: unknown;
+    messagesAfterSave?: Record<string, unknown>[];
+    chatPatch?: Record<string, unknown>;
+    chatMetadata?: Record<string, unknown>;
+    characters?: Record<string, unknown>[];
+    personas?: Record<string, unknown>[];
+    agents?: Record<string, unknown>[];
+    agentRuns?: Record<string, unknown>[];
+    initialMessages?: Record<string, unknown>[];
+    connectionPatch?: Record<string, unknown>;
+    prompts?: Record<string, unknown>[];
+    promptSections?: Record<string, unknown>[];
+    promptVariables?: Record<string, unknown>[];
+  } = {},
+) {
   const chat = {
     id: "chat-1",
     mode: "conversation",
@@ -63,16 +64,12 @@ function generationDepsForChat(options: {
   ];
   const messagesById = new Map(initialMessages.map((message) => [String(message.id), message]));
   const listChatMessages = vi.fn(async () =>
-    listChatMessages.mock.calls.length > 1 && options.messagesAfterSave
-      ? options.messagesAfterSave
-      : initialMessages,
+    listChatMessages.mock.calls.length > 1 && options.messagesAfterSave ? options.messagesAfterSave : initialMessages,
   );
   const streamedRequests: unknown[] = [];
   const stream: LlmGateway["stream"] = vi.fn(async function* (request) {
     streamedRequests.push(request);
-    for (const chunk of options.streamChunks ?? [{ type: "token" as const, text: "Done." }]) {
-      yield chunk;
-    }
+    yield { type: "token" as const, text: "Done." };
   });
   const createChatMessage = vi.fn(async (_chatId: string, value: Record<string, unknown>) => {
     if (value.role === "user") {
@@ -80,15 +77,12 @@ function generationDepsForChat(options: {
     }
     return { id: "assistant-2", chatId: "chat-1", ...value };
   });
-  const addChatMessageSwipe = vi.fn(
-    async (_chatId: string, messageId: string, content: string, extra?: Record<string, unknown>) => ({
-      ...messagesById.get(messageId),
-      content,
-      extra,
-      activeSwipeIndex: 1,
-      swipeCount: 2,
-    }),
-  );
+  const addChatMessageSwipe = vi.fn(async (_chatId: string, messageId: string, content: string) => ({
+    ...messagesById.get(messageId),
+    content,
+    activeSwipeIndex: 1,
+    swipeCount: 2,
+  }));
   const patchChatMessageExtra = vi.fn(async (messageId: string, patch: Record<string, unknown>) => ({
     ...messagesById.get(messageId),
     extra: {
@@ -115,7 +109,9 @@ function generationDepsForChat(options: {
         return (options.promptSections ?? []).filter((section) => section.presetId === listOptions?.filters?.presetId);
       }
       if (entity === "prompt-variables") {
-        return (options.promptVariables ?? []).filter((variable) => variable.presetId === listOptions?.filters?.presetId);
+        return (options.promptVariables ?? []).filter(
+          (variable) => variable.presetId === listOptions?.filters?.presetId,
+        );
       }
       return [];
     }),
@@ -245,17 +241,26 @@ describe("startGeneration chat message loading", () => {
     });
 
     const events: Array<{ type?: string; data?: unknown }> = [];
-    for await (const event of startGeneration(
-      deps,
-      { chatId: "chat-1", userMessage: "hello", impersonateBlockAgents: true },
-    )) {
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      userMessage: "hello",
+      impersonateBlockAgents: true,
+    })) {
       events.push(event);
     }
 
-    expect(events.filter((event) => event.type === "token").map((event) => event.data).join("")).toBe("Visible reply.");
-    expect(events.filter((event) => event.type === "thinking").map((event) => event.data).join("")).toBe(
-      "private reasoning",
-    );
+    expect(
+      events
+        .filter((event) => event.type === "token")
+        .map((event) => event.data)
+        .join(""),
+    ).toBe("Visible reply.");
+    expect(
+      events
+        .filter((event) => event.type === "thinking")
+        .map((event) => event.data)
+        .join(""),
+    ).toBe("private reasoning");
     const assistantCreate = createChatMessage.mock.calls.find(
       (call) => (call[1] as { role?: unknown }).role === "assistant",
     );
@@ -288,9 +293,7 @@ describe("startGeneration chat message loading", () => {
     const { deps, listChatMessages, streamedRequests } = generationDepsForChat({
       chatPatch: { mode: "roleplay" },
       chatMetadata: { contextMessageLimit: 1 },
-      initialMessages: [
-        { id: "old-1", chatId: "chat-1", role: "assistant", content: "Old context should stay out." },
-      ],
+      initialMessages: [{ id: "old-1", chatId: "chat-1", role: "assistant", content: "Old context should stay out." }],
     });
 
     await drainGeneration(
@@ -548,60 +551,6 @@ describe("startGeneration chat message loading", () => {
     });
   });
 
-  it("stores the sent prompt cache and generation info on generated assistant message extras", async () => {
-    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
-      chatPatch: { mode: "roleplay", promptPresetId: "preset-1" },
-      connectionPatch: {
-        provider: "openai",
-        defaultParameters: { temperature: 0.2, maxTokens: 512 },
-      },
-      prompts: [
-        {
-          id: "preset-1",
-          parameters: { temperature: 0.8, maxTokens: 900 },
-        },
-      ],
-      promptSections: [
-        {
-          id: "main",
-          presetId: "preset-1",
-          name: "Main",
-          role: "system",
-          content: "Preset rules.",
-          enabled: true,
-          sortOrder: 0,
-        },
-      ],
-    });
-
-    await drainGeneration(
-      startGeneration(deps, {
-        chatId: "chat-1",
-        userMessage: "advance",
-        impersonateBlockAgents: true,
-      }),
-    );
-
-    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
-    const streamedPrompt = (streamedRequests[0] as { messages: Array<{ role: string; content: string }> }).messages.map(
-      (message) => ({ role: message.role, content: message.content }),
-    );
-    expect(assistantSave?.[1]).not.toHaveProperty("generationInfo");
-    expect(assistantSave?.[1]).toMatchObject({
-      extra: {
-        cachedPrompt: streamedPrompt,
-        generationInfo: {
-          model: "test-model",
-          provider: "openai",
-          temperature: 0.8,
-          maxTokens: 900,
-          agentResults: 0,
-          notes: 0,
-        },
-      },
-    });
-  });
-
   it("uses the same merged parameter sources for assembly formatting and the LLM request", async () => {
     const { deps, streamedRequests } = generationDepsForChat({
       chatPatch: { mode: "roleplay" },
@@ -661,6 +610,49 @@ describe("startGeneration chat message loading", () => {
     expect(messages[0]?.content).toContain("[ASSISTANT]");
     expect(messages[0]?.content).toContain("What now?");
     expect(messages[0]?.content).toContain("advance");
+  });
+
+  it("stores the exact streamed prompt snapshot on generated assistant messages", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay", promptPresetId: "preset-1" },
+      prompts: [{ id: "preset-1", wrapFormat: "xml", parameters: { temperature: 0.33, maxTokens: 444 } }],
+      promptSections: [
+        {
+          id: "main",
+          presetId: "preset-1",
+          name: "Main Prompt",
+          role: "system",
+          content: "Preset rules.",
+          enabled: true,
+          sortOrder: 0,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "advance",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const request = streamedRequests[0] as {
+      messages: Array<{ role: string; content: string }>;
+      parameters: Record<string, unknown>;
+    };
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    const extra = (assistantSave?.[1] as { extra?: Record<string, unknown> } | undefined)?.extra ?? {};
+    const snapshot = extra.generationPromptSnapshot as {
+      messages: Array<{ role: string; content: string }>;
+      parameters: Record<string, unknown>;
+    };
+
+    expect(snapshot.messages).toEqual(JSON.parse(JSON.stringify(request.messages)));
+    expect(snapshot.parameters).toEqual(request.parameters);
+    expect(snapshot.messages.map((message) => message.content).join("\n")).toContain("Preset rules.");
+    expect(snapshot.messages.map((message) => message.content).join("\n")).not.toContain("Done.");
+    expect(extra.generationPromptSnapshotsBySwipe).toMatchObject({ "0": snapshot });
   });
 });
 
@@ -785,17 +777,24 @@ describe("startGeneration generation replay metadata", () => {
     await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "impersonate-1" }));
 
     expect(createChatMessage).not.toHaveBeenCalled();
-    const expectedExtra = expect.objectContaining({
-      generationReplay: {
-        impersonate: true,
-        userMessage: "a tiny answer",
-      },
-      chatSummaryFingerprint: null,
-      cachedPrompt: expect.arrayContaining([expect.objectContaining({ role: "user" })]),
-      generationInfo: expect.objectContaining({ model: "test-model" }),
-    });
-    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "impersonate-1", "Done.", expectedExtra);
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("impersonate-1", expectedExtra);
+    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "impersonate-1", "Done.");
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "impersonate-1",
+      expect.objectContaining({
+        generationReplay: {
+          impersonate: true,
+          userMessage: "a tiny answer",
+        },
+        chatSummaryFingerprint: null,
+        generationPromptSnapshot: expect.objectContaining({
+          messages: expect.any(Array),
+          parameters: expect.any(Object),
+        }),
+        generationPromptSnapshotsBySwipe: expect.objectContaining({
+          "1": expect.any(Object),
+        }),
+      }),
+    );
   });
 
   it("stores guided replay metadata on the generated assistant message", async () => {
@@ -839,53 +838,22 @@ describe("startGeneration generation replay metadata", () => {
       }),
     );
 
-    const expectedExtra = expect.objectContaining({
-      generationReplay: {
-        generationGuide: "Make this one colder.",
-        generationGuideSource: "guide",
-      },
-      chatSummaryFingerprint: null,
-      cachedPrompt: expect.arrayContaining([expect.objectContaining({ content: "Make this one colder." })]),
-      generationInfo: expect.objectContaining({ model: "test-model" }),
-    });
-    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.", expectedExtra);
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expectedExtra);
-  });
-
-  it("stores generated attachments on regenerated assistant swipes", async () => {
-    const { deps, addChatMessageSwipe, patchChatMessageExtra } = generationDepsForChat({
-      chatPatch: { characterIds: ["char-1"] },
-      chatMetadata: { imageGenConnectionId: "image-conn" },
-      characters: [{ id: "char-1", name: "Mira", data: { appearance: "silver hair, violet eyes" } }],
-      initialMessages: [
-        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
-        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "first reply", extra: {} },
-      ],
-      streamChunks: [{ type: "token", text: "Here.\n[selfie]" }],
-    });
-    deps.llm.complete = vi.fn(async () => "selfie portrait");
-    deps.integrations = {
-      image: { generate: vi.fn(async () => ({ base64: "abc", mimeType: "image/png" })) },
-    } as unknown as GenerationEngineDeps["integrations"];
-
-    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
-
-    const extra = addChatMessageSwipe.mock.calls[0]?.[3] as Record<string, unknown>;
-    expect(extra.attachments).toEqual([
-      expect.objectContaining({
-        type: "image",
-        url: "data:image/png;base64,abc",
-      }),
-    ]);
+    expect(addChatMessageSwipe).toHaveBeenCalledWith("chat-1", "assistant-1", "Done.");
     expect(patchChatMessageExtra).toHaveBeenCalledWith(
       "assistant-1",
       expect.objectContaining({
-        attachments: [
-          expect.objectContaining({
-            type: "image",
-            url: "data:image/png;base64,abc",
-          }),
-        ],
+        generationReplay: {
+          generationGuide: "Make this one colder.",
+          generationGuideSource: "guide",
+        },
+        chatSummaryFingerprint: null,
+        generationPromptSnapshot: expect.objectContaining({
+          messages: expect.any(Array),
+          parameters: expect.any(Object),
+        }),
+        generationPromptSnapshotsBySwipe: expect.objectContaining({
+          "1": expect.any(Object),
+        }),
       }),
     );
   });
@@ -914,9 +882,7 @@ describe("startGeneration generation replay metadata", () => {
 
     expect(listChatMessages).toHaveBeenCalledWith("chat-1", undefined);
     expect(streamedRequests[0]).toMatchObject({
-      messages: expect.arrayContaining([
-        expect.objectContaining({ role: "user", content: "Keep the reply clipped." }),
-      ]),
+      messages: expect.arrayContaining([expect.objectContaining({ role: "user", content: "Keep the reply clipped." })]),
     });
   });
 
@@ -946,39 +912,15 @@ describe("startGeneration generation replay metadata", () => {
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
-    expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expect.objectContaining({
-      chatSummaryFingerprint: fingerprintChatSummary("Current summary."),
-      cachedPrompt: expect.any(Array),
-      generationInfo: expect.objectContaining({ model: "test-model" }),
-    }));
-  });
-
-  it("skips stale message-level replay metadata for legacy multi-swipes without active extra", async () => {
-    const { deps, streamedRequests } = generationDepsForChat({
-      initialMessages: [
-        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
-        {
-          id: "assistant-1",
-          chatId: "chat-1",
-          role: "assistant",
-          content: "legacy second reply",
-          activeSwipeIndex: 1,
-          swipes: [{ content: "legacy first reply" }, { content: "legacy second reply" }],
-          extra: {
-            chatSummaryFingerprint: null,
-            generationReplay: {
-              generationGuide: "Stale legacy replay guidance.",
-              generationGuideSource: "guide",
-            },
-          },
-        },
-      ],
-    });
-
-    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
-
-    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ content: "Stale legacy replay guidance." })]),
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({
+        chatSummaryFingerprint: fingerprintChatSummary("Current summary."),
+        generationPromptSnapshot: expect.objectContaining({
+          messages: expect.any(Array),
+          parameters: expect.any(Object),
+        }),
+      }),
     );
   });
 
@@ -996,49 +938,15 @@ describe("startGeneration generation replay metadata", () => {
       "assistant-1",
       expect.objectContaining({
         chatSummaryFingerprint: null,
-        cachedPrompt: expect.any(Array),
-        generationInfo: expect.objectContaining({ model: "test-model" }),
+        generationPromptSnapshot: expect.objectContaining({
+          messages: expect.any(Array),
+          parameters: expect.any(Object),
+        }),
       }),
     );
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "Keep the reply clipped." })]),
     );
-  });
-
-  it("normalizes Gemini usage metadata aliases into saved generation info", async () => {
-    const { deps, createChatMessage } = generationDepsForChat({
-      streamChunks: [
-        { type: "token", text: "Done." },
-        {
-          type: "usage",
-          data: {
-            promptTokenCount: 11,
-            candidatesTokenCount: 5,
-            totalTokenCount: 16,
-            cachedContentTokenCount: 3,
-          },
-        },
-      ],
-    });
-
-    await drainGeneration(startGeneration(deps, { chatId: "chat-1", message: "hello" }));
-
-    const assistantCall = createChatMessage.mock.calls.find(
-      ([, body]) => (body as Record<string, unknown>).role === "assistant",
-    );
-    expect(assistantCall).toBeDefined();
-    const generationInfo = (assistantCall![1] as {
-      extra: {
-        generationInfo: {
-          tokensPrompt: number | null;
-          tokensCompletion: number | null;
-          tokensCachedPrompt: number | null;
-        };
-      };
-    }).extra.generationInfo;
-    expect(generationInfo.tokensPrompt).toBe(11);
-    expect(generationInfo.tokensCompletion).toBe(5);
-    expect(generationInfo.tokensCachedPrompt).toBe(3);
   });
 
   it("clears stale summary fingerprints on regenerates when the current summary is empty", async () => {
@@ -1061,8 +969,10 @@ describe("startGeneration generation replay metadata", () => {
       "assistant-1",
       expect.objectContaining({
         chatSummaryFingerprint: null,
-        cachedPrompt: expect.any(Array),
-        generationInfo: expect.objectContaining({ model: "test-model" }),
+        generationPromptSnapshot: expect.objectContaining({
+          messages: expect.any(Array),
+          parameters: expect.any(Object),
+        }),
       }),
     );
   });
@@ -1314,7 +1224,7 @@ describe("startGeneration agent runtime parity", () => {
       (call) => (call[1] as { role?: unknown }).role === "assistant",
     );
     expect(assistantCreate?.[1]).toMatchObject({
-      extra: { generationInfo: { agentResults: 1 } },
+      generationInfo: { agentResults: 1 },
     });
     expect(deps.storage.create).toHaveBeenCalledWith(
       "agent-runs",
@@ -1391,7 +1301,9 @@ describe("startGeneration group turn prompt toggle", () => {
       characters: [{ id: "char-1", data: { name: "Marina" } }],
     });
 
-    await drainGeneration(startGeneration(deps, { chatId: "chat-1", forCharacterId: "char-1", impersonateBlockAgents: true }));
+    await drainGeneration(
+      startGeneration(deps, { chatId: "chat-1", forCharacterId: "char-1", impersonateBlockAgents: true }),
+    );
 
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "[Generation instruction: respond as Marina.]" })]),
@@ -1405,7 +1317,9 @@ describe("startGeneration group turn prompt toggle", () => {
       characters: [{ id: "char-1", data: { name: "Marina" } }],
     });
 
-    await drainGeneration(startGeneration(deps, { chatId: "chat-1", forCharacterId: "char-1", impersonateBlockAgents: true }));
+    await drainGeneration(
+      startGeneration(deps, { chatId: "chat-1", forCharacterId: "char-1", impersonateBlockAgents: true }),
+    );
 
     expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ content: "[Generation instruction: respond as Marina.]" })]),
@@ -1460,10 +1374,9 @@ describe("retryGenerationAgents lorebook keeper backfill", () => {
 
     expect(results).toHaveLength(2);
     expect(streamedRequests).toHaveLength(2);
-    expect(streamedRequests.map((request) => (request as { messages: Array<{ content: string }> }).messages.at(-1)?.content)).toEqual([
-      expect.stringContaining("Assistant message 20"),
-      expect.stringContaining("Assistant message 30"),
-    ]);
+    expect(
+      streamedRequests.map((request) => (request as { messages: Array<{ content: string }> }).messages.at(-1)?.content),
+    ).toEqual([expect.stringContaining("Assistant message 20"), expect.stringContaining("Assistant message 30")]);
     const promptTexts = streamedRequests.map((request) =>
       (request as { messages: Array<{ content: string }> }).messages.map((message) => message.content).join("\n"),
     );

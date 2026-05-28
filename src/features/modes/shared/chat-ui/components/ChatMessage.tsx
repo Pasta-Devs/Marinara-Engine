@@ -56,15 +56,8 @@ import { useTranslate } from "../../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { useTTSConfig } from "../../../../../shared/hooks/use-tts";
-import {
-  isStreamingTTSActive,
-  stopStreamingTTS,
-  subscribeStreamingTTSActive,
-} from "../hooks/use-streaming-tts";
-import {
-  buildTTSVoiceRequests,
-  clientSidePlaybackRate,
-} from "../../../../../shared/lib/tts-dialogue";
+import { isStreamingTTSActive, stopStreamingTTS, subscribeStreamingTTSActive } from "../hooks/use-streaming-tts";
+import { buildTTSVoiceRequests, clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import {
   DIALOGUE_QUOTE_PATTERN_SOURCE,
   HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE,
@@ -72,7 +65,13 @@ import {
   type QuoteFormat,
 } from "../../../../../shared/lib/dialogue-quotes";
 import DOMPurify from "dompurify";
-import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, PeekPromptOptions, PersonaInfo } from "../types";
+import type {
+  CharacterMap,
+  ExpressionAvatarResolver,
+  MessageSelectionToggle,
+  PeekPromptOptions,
+  PersonaInfo,
+} from "../types";
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
@@ -302,7 +301,9 @@ function renderWithSpeakerTags(
     }
     const speakerName = match[1]?.trim() ?? "";
     const dialogue = match[2]!;
-    const speakerColor = speakerName ? (speakerColorMap?.get(speakerName) ?? defaultDialogueColor) : defaultDialogueColor;
+    const speakerColor = speakerName
+      ? (speakerColorMap?.get(speakerName) ?? defaultDialogueColor)
+      : defaultDialogueColor;
     // Render the dialogue content (without the tags) using the speaker's color
     nodes.push(<span key={`s${key++}`}>{renderLine(dialogue, speakerColor)}</span>);
     lastIndex = match.index + match[0].length;
@@ -921,14 +922,22 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Parse message extra for conversation start flag
   const extra = useMemo<Record<string, any>>(() => {
-    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
-      ? message.extra
-      : {};
+    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra) ? message.extra : {};
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
+  const promptSnapshotsBySwipe =
+    extra.generationPromptSnapshotsBySwipe &&
+    typeof extra.generationPromptSnapshotsBySwipe === "object" &&
+    !Array.isArray(extra.generationPromptSnapshotsBySwipe)
+      ? (extra.generationPromptSnapshotsBySwipe as Record<string, Message["extra"]["generationPromptSnapshot"]>)
+      : {};
+  const activePromptSnapshot =
+    promptSnapshotsBySwipe[String(message.activeSwipeIndex ?? 0)] ??
+    (extra.generationPromptSnapshot as Message["extra"]["generationPromptSnapshot"] | undefined) ??
+    null;
   const isHiddenExpanded =
     isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
   const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
@@ -1832,9 +1841,9 @@ export const ChatMessage = memo(function ChatMessage({
                   </div>
                   {roleplayBubbleContent && <div className="min-w-0 flex-1 px-3 py-3">{roleplayBubbleContent}</div>}
                 </div>
-              ) : (
-                roleplayBubbleContent ? <div className="px-4 py-3">{roleplayBubbleContent}</div> : null
-              )}
+              ) : roleplayBubbleContent ? (
+                <div className="px-4 py-3">{roleplayBubbleContent}</div>
+              ) : null}
             </div>
 
             {/* Image attachments (illustrations, selfies) */}
@@ -1940,7 +1949,13 @@ export const ChatMessage = memo(function ChatMessage({
               {isLastAssistantMessage && !isUser && (
                 <ActionBtn
                   icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null, messageId: message.id })}
+                  onClick={() =>
+                    onPeekPrompt?.({
+                      forCharacterId: message.characterId ?? null,
+                      messageId: message.id,
+                      promptSnapshot: activePromptSnapshot,
+                    })
+                  }
                   title="Peek prompt"
                   dark
                 />
@@ -2026,12 +2041,12 @@ export const ChatMessage = memo(function ChatMessage({
                       streamingTTSActive
                         ? "Stop streaming narration"
                         : !hasTTSContent
-                        ? "No dialogue to speak"
-                        : isLoadingThis
-                          ? "Loading…"
-                          : isSpeakingThis
-                            ? "Stop speaking"
-                            : "Speak"
+                          ? "No dialogue to speak"
+                          : isLoadingThis
+                            ? "Loading…"
+                            : isSpeakingThis
+                              ? "Stop speaking"
+                              : "Speak"
                     }
                     className={isSpeakingThis || streamingTTSActive ? "text-sky-400 hover:text-sky-300" : undefined}
                     disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}
@@ -2362,7 +2377,13 @@ export const ChatMessage = memo(function ChatMessage({
             {isLastAssistantMessage && !isUser && (
               <ActionBtn
                 icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onPeekPrompt?.({ forCharacterId: message.characterId ?? null, messageId: message.id })}
+                onClick={() =>
+                  onPeekPrompt?.({
+                    forCharacterId: message.characterId ?? null,
+                    messageId: message.id,
+                    promptSnapshot: activePromptSnapshot,
+                  })
+                }
                 title="Peek prompt"
               />
             )}
@@ -2440,12 +2461,12 @@ export const ChatMessage = memo(function ChatMessage({
                     streamingTTSActive
                       ? "Stop streaming narration"
                       : !hasTTSContent
-                      ? "No dialogue to speak"
-                      : isLoadingThis
-                        ? "Loading…"
-                        : isSpeakingThis
-                          ? "Stop speaking"
-                          : "Speak"
+                        ? "No dialogue to speak"
+                        : isLoadingThis
+                          ? "Loading…"
+                          : isSpeakingThis
+                            ? "Stop speaking"
+                            : "Speak"
                   }
                   className={isSpeakingThis || streamingTTSActive ? "text-sky-500" : undefined}
                   disabled={!streamingTTSActive && (!hasTTSContent || (ttsBusy && !isSpeakingThis))}

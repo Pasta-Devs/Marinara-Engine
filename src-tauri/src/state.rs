@@ -3,13 +3,18 @@ use marinara_core::{AppError, AppResult};
 use marinara_storage::FileStorage;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use tokio::sync::watch;
 
 use crate::seed_defaults::seed_bundled_defaults;
-use crate::storage_commands::shared::normalize_typed_json_fields;
+use crate::storage_commands::{
+    images::percent_encode_component,
+    media_uploads::{file_path_asset_url, safe_filename, unique_file_path},
+    shared::normalize_typed_json_fields,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -57,6 +62,7 @@ impl AppState {
         let backgrounds = AssetService::new(data_dir.join("backgrounds"))?;
         Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
         migrate_storage_json_fields(&storage)?;
+        migrate_local_media_references(&storage, &data_dir)?;
 
         Ok(Self {
             storage,
@@ -216,6 +222,363 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+enum StoredMediaValue {
+    AssetUrl,
+    ManagedPrefix(&'static str),
+    Filename,
+}
+
+#[derive(Clone, Copy)]
+struct MediaReferenceMigration {
+    collection: &'static str,
+    folder: &'static str,
+    primary_field: &'static str,
+    mirror_fields: &'static [&'static str],
+    file_path_field: &'static str,
+    filename_field: &'static str,
+    value: StoredMediaValue,
+}
+
+struct MigratedMediaReference {
+    stored_value: String,
+    absolute_path: String,
+    filename: String,
+}
+
+fn migrate_local_media_references(storage: &FileStorage, data_dir: &Path) -> AppResult<()> {
+    for migration in [
+        MediaReferenceMigration {
+            collection: "characters",
+            folder: "avatars/characters",
+            primary_field: "avatarPath",
+            mirror_fields: &["avatar", "avatarUrl"],
+            file_path_field: "avatarFilePath",
+            filename_field: "avatarFilename",
+            value: StoredMediaValue::AssetUrl,
+        },
+        MediaReferenceMigration {
+            collection: "character-versions",
+            folder: "avatars/characters",
+            primary_field: "avatarPath",
+            mirror_fields: &["avatar", "avatarUrl"],
+            file_path_field: "avatarFilePath",
+            filename_field: "avatarFilename",
+            value: StoredMediaValue::AssetUrl,
+        },
+        MediaReferenceMigration {
+            collection: "personas",
+            folder: "avatars/personas",
+            primary_field: "avatarPath",
+            mirror_fields: &["avatar", "avatarUrl"],
+            file_path_field: "avatarFilePath",
+            filename_field: "avatarFilename",
+            value: StoredMediaValue::AssetUrl,
+        },
+        MediaReferenceMigration {
+            collection: "character-groups",
+            folder: "avatars/character-groups",
+            primary_field: "avatarPath",
+            mirror_fields: &["avatar", "avatarUrl"],
+            file_path_field: "avatarFilePath",
+            filename_field: "avatarFilename",
+            value: StoredMediaValue::AssetUrl,
+        },
+        MediaReferenceMigration {
+            collection: "persona-groups",
+            folder: "avatars/persona-groups",
+            primary_field: "avatarPath",
+            mirror_fields: &["avatar", "avatarUrl"],
+            file_path_field: "avatarFilePath",
+            filename_field: "avatarFilename",
+            value: StoredMediaValue::AssetUrl,
+        },
+        MediaReferenceMigration {
+            collection: "lorebooks",
+            folder: "lorebooks/images",
+            primary_field: "imagePath",
+            mirror_fields: &["imageUrl"],
+            file_path_field: "imageFilePath",
+            filename_field: "imageFilename",
+            value: StoredMediaValue::ManagedPrefix("marinara-lorebook-image:"),
+        },
+    ] {
+        migrate_collection_media_references(storage, data_dir, migration)?;
+    }
+    migrate_chat_background_references(storage, data_dir)
+}
+
+fn migrate_collection_media_references(
+    storage: &FileStorage,
+    data_dir: &Path,
+    migration: MediaReferenceMigration,
+) -> AppResult<()> {
+    let mut rows = storage.list(migration.collection)?;
+    let mut changed = false;
+    for row in &mut rows {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let reference = std::iter::once(migration.primary_field)
+            .chain(migration.mirror_fields.iter().copied())
+            .filter_map(|field| object.get(field).and_then(Value::as_str))
+            .find_map(|value| local_path_from_media_reference(value))
+            .and_then(|path| {
+                migrate_media_file(
+                    data_dir,
+                    migration.folder,
+                    &path,
+                    &media_filename_hint(migration.collection, object, &path),
+                    migration.value,
+                )
+                .transpose()
+            })
+            .transpose()?;
+        let Some(reference) = reference else {
+            continue;
+        };
+        object.insert(
+            migration.primary_field.to_string(),
+            Value::String(reference.stored_value.clone()),
+        );
+        for field in migration.mirror_fields {
+            if object.contains_key(*field) {
+                object.insert(
+                    field.to_string(),
+                    Value::String(reference.stored_value.clone()),
+                );
+            }
+        }
+        object.insert(
+            migration.file_path_field.to_string(),
+            Value::String(reference.absolute_path),
+        );
+        object.insert(
+            migration.filename_field.to_string(),
+            Value::String(reference.filename),
+        );
+        changed = true;
+    }
+    if changed {
+        storage.replace_all(migration.collection, rows)?;
+    }
+    Ok(())
+}
+
+fn migrate_chat_background_references(storage: &FileStorage, data_dir: &Path) -> AppResult<()> {
+    let mut rows = storage.list("chats")?;
+    let mut changed = false;
+    for row in &mut rows {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let Some(path) = object
+            .get("metadata")
+            .and_then(Value::as_object)
+            .and_then(|metadata| metadata.get("background"))
+            .and_then(Value::as_str)
+            .and_then(local_path_from_media_reference)
+        else {
+            continue;
+        };
+        let filename_hint = media_filename_hint("chats", object, &path);
+        let Some(reference) = migrate_media_file(
+            data_dir,
+            "backgrounds",
+            &path,
+            &filename_hint,
+            StoredMediaValue::Filename,
+        )?
+        else {
+            continue;
+        };
+        let Some(metadata) = object.get_mut("metadata").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        metadata.insert(
+            "background".to_string(),
+            Value::String(reference.stored_value),
+        );
+        changed = true;
+    }
+    if changed {
+        storage.replace_all("chats", rows)?;
+    }
+    Ok(())
+}
+
+fn migrate_media_file(
+    data_dir: &Path,
+    folder: &str,
+    source: &Path,
+    filename_hint: &str,
+    value: StoredMediaValue,
+) -> AppResult<Option<MigratedMediaReference>> {
+    if !source.is_file() || !is_supported_media_file(source) {
+        return Ok(None);
+    }
+    let target_dir = data_dir.join(folder);
+    fs::create_dir_all(&target_dir)?;
+    let target = if is_path_inside_dir(source, &target_dir) {
+        source.to_path_buf()
+    } else {
+        let filename = managed_media_filename(filename_hint, source);
+        let target = unique_file_path(&target_dir.join(filename))?;
+        fs::copy(source, &target)?;
+        target
+    };
+    let filename = target
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .ok_or_else(|| AppError::invalid_input("Managed media path is missing a filename"))?;
+    let stored_value = match value {
+        StoredMediaValue::AssetUrl => file_path_asset_url(&target),
+        StoredMediaValue::ManagedPrefix(prefix) => {
+            format!("{prefix}{}", percent_encode_component(&filename))
+        }
+        StoredMediaValue::Filename => filename.clone(),
+    };
+    Ok(Some(MigratedMediaReference {
+        stored_value,
+        absolute_path: target.to_string_lossy().to_string(),
+        filename,
+    }))
+}
+
+fn local_path_from_media_reference(value: &str) -> Option<PathBuf> {
+    let trimmed = value.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("data:")
+        || trimmed.starts_with("blob:")
+        || trimmed.starts_with("tauri-api:")
+        || trimmed.starts_with("marinara-")
+        || trimmed.starts_with("http://")
+        || trimmed.starts_with("https://")
+    {
+        if !trimmed.starts_with("http://asset.localhost/") {
+            return None;
+        }
+    }
+
+    let path = if let Some(encoded) = trimmed.strip_prefix("asset://localhost/") {
+        percent_decode(encoded)
+    } else if let Some(encoded) = trimmed.strip_prefix("http://asset.localhost/") {
+        percent_decode(encoded)
+    } else if let Some(encoded) = trimmed.strip_prefix("file://") {
+        let decoded = percent_decode(encoded);
+        if cfg!(windows) {
+            decoded
+                .strip_prefix('/')
+                .filter(|path| path.as_bytes().get(1) == Some(&b':'))
+                .unwrap_or(&decoded)
+                .to_string()
+        } else {
+            decoded
+        }
+    } else if is_absolute_filesystem_path(trimmed) {
+        trimmed.to_string()
+    } else {
+        return None;
+    };
+
+    Some(PathBuf::from(path))
+}
+
+fn is_absolute_filesystem_path(value: &str) -> bool {
+    value.starts_with('/')
+        || value.starts_with("\\\\")
+        || (value.len() >= 3
+            && value.as_bytes()[1] == b':'
+            && matches!(value.as_bytes()[2], b'\\' | b'/')
+            && value.as_bytes()[0].is_ascii_alphabetic())
+}
+
+fn is_supported_media_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase()
+            .as_str(),
+        "png" | "jpg" | "jpeg" | "webp" | "gif" | "avif" | "svg"
+    )
+}
+
+fn managed_media_filename(filename_hint: &str, source: &Path) -> String {
+    let ext = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("png");
+    let mut filename = safe_filename(filename_hint);
+    if Path::new(&filename).extension().is_none() {
+        filename.push('.');
+        filename.push_str(ext);
+    }
+    filename
+}
+
+fn media_filename_hint(collection: &str, object: &Map<String, Value>, source: &Path) -> String {
+    object
+        .get("data")
+        .and_then(|data| data.get("name"))
+        .or_else(|| object.get("name"))
+        .or_else(|| object.get("id"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            source
+                .file_name()
+                .map(|value| value.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(|| collection.to_string())
+}
+
+fn is_path_inside_dir(path: &Path, dir: &Path) -> bool {
+    let Ok(path) = fs::canonicalize(path) else {
+        return false;
+    };
+    let Ok(dir) = fs::canonicalize(dir) else {
+        return false;
+    };
+    path.starts_with(dir)
+}
+
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'%' if index + 2 < bytes.len() => {
+                if let (Some(hi), Some(lo)) =
+                    (hex_value(bytes[index + 1]), hex_value(bytes[index + 2]))
+                {
+                    output.push((hi << 4) | lo);
+                    index += 3;
+                } else {
+                    output.push(bytes[index]);
+                    index += 1;
+                }
+            }
+            byte => {
+                output.push(byte);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&output).to_string()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
 fn repair_snapshot_persona_stats_for_startup(object: &mut Map<String, Value>) {
     let Some(value) = object.get("personaStats") else {
         return;
@@ -335,6 +698,89 @@ mod tests {
         for row in rows {
             assert!(row["personaStats"].is_null());
         }
+    }
+
+    #[test]
+    fn app_state_startup_copies_stale_local_avatar_references_into_managed_storage() {
+        let root = temp_root("local-avatar-repair");
+        let source_root = temp_root("local-avatar-source");
+        let source = source_root.0.join("Old Avatar.png");
+        std::fs::create_dir_all(&source_root.0).expect("source dir should exist");
+        std::fs::write(&source, b"image-bytes").expect("source image should be written");
+        let old_asset_url = file_path_asset_url(&source);
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": { "name": "Dottore" },
+                    "comment": "",
+                    "avatarPath": old_asset_url,
+                    "avatar": source.to_string_lossy()
+                }),
+            )
+            .expect("character should be inserted");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let character = state
+            .storage
+            .get("characters", "char-1")
+            .expect("character should load")
+            .expect("character should exist");
+        let avatar_path = character["avatarPath"]
+            .as_str()
+            .expect("avatar path should be a string");
+        let avatar_file_path = PathBuf::from(
+            character["avatarFilePath"]
+                .as_str()
+                .expect("avatar file path should be stored"),
+        );
+
+        assert_ne!(avatar_path, old_asset_url);
+        assert!(
+            avatar_path.starts_with("asset://localhost")
+                || avatar_path.starts_with("http://asset.localhost")
+        );
+        assert!(avatar_file_path.starts_with(root.0.join("avatars/characters")));
+        assert!(avatar_file_path.is_file());
+        assert_eq!(character["avatar"], character["avatarPath"]);
+    }
+
+    #[test]
+    fn app_state_startup_copies_stale_chat_background_references_into_managed_storage() {
+        let root = temp_root("local-background-repair");
+        let source_root = temp_root("local-background-source");
+        let source = source_root.0.join("Old Backdrop.webp");
+        std::fs::create_dir_all(&source_root.0).expect("source dir should exist");
+        std::fs::write(&source, b"image-bytes").expect("source image should be written");
+        let old_asset_url = file_path_asset_url(&source);
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "mode": "roleplay",
+                    "characterIds": [],
+                    "metadata": { "background": old_asset_url }
+                }),
+            )
+            .expect("chat should be inserted");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should load")
+            .expect("chat should exist");
+        let background = chat["metadata"]["background"]
+            .as_str()
+            .expect("background should be a string");
+
+        assert_ne!(background, old_asset_url);
+        assert_eq!(background, "chat-1.webp");
+        assert!(root.0.join("backgrounds/chat-1.webp").is_file());
     }
 
     #[test]

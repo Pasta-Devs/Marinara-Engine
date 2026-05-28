@@ -827,7 +827,7 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(names).toContain("legacy_calc");
   });
 
-  it("usage is aggregated and cached prompt preserves the first request across multi-turn tool-call loops", async () => {
+  it("usage is aggregated across multi-turn tool-call loops, not overwritten by the last turn", async () => {
     // Two-turn loop: turn 1 emits usage A + a tool call, turn 2 emits usage B
     // and resolves. Saved usage must reflect both turns' token counts.
     const { deps, createChatMessage } = makeStubDeps({
@@ -851,24 +851,9 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
 
     const assistantCall = createChatMessage.mock.calls.find(([, body]) => (body as Record<string, unknown>).role === "assistant");
     expect(assistantCall).toBeDefined();
-    const generationInfo = (assistantCall![1] as { extra: { generationInfo: { usage: Record<string, number> } } }).extra
-      .generationInfo;
+    const generationInfo = (assistantCall![1] as { generationInfo: { usage: Record<string, number> } }).generationInfo;
     expect(generationInfo.usage.promptTokens).toBe(250);
     expect(generationInfo.usage.completionTokens).toBe(50);
     expect(generationInfo.usage.totalTokens).toBe(300);
-
-    const cachedPrompt = (assistantCall![1] as {
-      extra: {
-        cachedPrompt: Array<{ role: string; content: string; tool_calls?: unknown }>;
-      };
-    }).extra.cachedPrompt;
-    expect(cachedPrompt).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "go" })]));
-    expect(cachedPrompt).toHaveLength(3);
-    expect(cachedPrompt).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ role: "assistant", content: "thinking...", tool_calls: expect.any(Array) }),
-        expect.objectContaining({ role: "tool", content: expect.stringContaining('"notation"') }),
-      ]),
-    );
   });
 });

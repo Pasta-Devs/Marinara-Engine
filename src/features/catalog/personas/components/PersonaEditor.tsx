@@ -157,9 +157,9 @@ export function PersonaEditor() {
   const imageConnections = useMemo(
     () =>
       Array.isArray(connectionsList)
-        ? (connectionsList as Array<{ id: string; name: string; model?: string | null; provider?: string | null }>).filter(
-            (connection) => connection.provider === "image_generation",
-          )
+        ? (
+            connectionsList as Array<{ id: string; name: string; model?: string | null; provider?: string | null }>
+          ).filter((connection) => connection.provider === "image_generation")
         : [],
     [connectionsList],
   );
@@ -371,7 +371,7 @@ export function PersonaEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
+      <div className="flex min-h-12 flex-shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-0 max-md:gap-2 max-md:px-3">
         <button
           type="button"
           onClick={handleClose}
@@ -682,8 +682,7 @@ function PersonaSpritesTab({
   const backgroundCleanupUnavailable = spriteCapabilities?.backgroundRemovalAvailable === false;
   const backgroundCleanupReason = spriteCapabilities?.reason ?? "Background cleanup is unavailable on this platform.";
   const cleanupEngineUnavailable = spriteCapabilities?.cleanupEngine?.installed === false;
-  const cleanupEngineReason =
-    spriteCapabilities?.cleanupEngine?.reason ?? "Sprite cleanup is not available.";
+  const cleanupEngineReason = spriteCapabilities?.cleanupEngine?.reason ?? "Sprite cleanup is not available.";
 
   const normalizeExpressionForCategory = (raw: string, forCategory: SpriteCategory = category) => {
     const cleaned = raw
@@ -874,9 +873,7 @@ function PersonaSpritesTab({
 
       if (result.processed > 0) {
         setLastCleanupRestorePointId(result.restorePointId ?? null);
-        toast.success(
-          `Cleaned ${result.processed} saved sprite${result.processed === 1 ? "" : "s"} .`,
-        );
+        toast.success(`Cleaned ${result.processed} saved sprite${result.processed === 1 ? "" : "s"} .`);
       }
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} sprite${result.failed.length === 1 ? "" : "s"} could not be cleaned.`);
@@ -897,7 +894,9 @@ function PersonaSpritesTab({
         restorePointId: lastCleanupRestorePointId,
       });
       if (result.restored > 0) {
-        toast.success(`Restored ${result.restored} sprite${result.restored === 1 ? "" : "s"} from the cleanup restore point.`);
+        toast.success(
+          `Restored ${result.restored} sprite${result.restored === 1 ? "" : "s"} from the cleanup restore point.`,
+        );
       }
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} sprite${result.failed.length === 1 ? "" : "s"} could not be restored.`);

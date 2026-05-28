@@ -1,11 +1,8 @@
 import type { ChatMLMessage, GenerationParameters } from "../contracts/types/prompt";
-import type { LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
-import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
-import { readCachedGenerationPrompt } from "./prompt-debug-cache";
-import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-assembly";
-import { hiddenFromAi, isRecord, parseRecord, readNumber, readString, type JsonRecord } from "./runtime-records";
+import { assembleGenerationPrompt } from "./prompt-assembly";
+import { parseRecord, readNumber, readString } from "./runtime-records";
 
 export interface PromptPreviewInput {
   chatId: string;
@@ -13,21 +10,14 @@ export interface PromptPreviewInput {
   presetId?: string | null;
   choices?: Record<string, string> | null;
   forCharacterId?: string | null;
-  messageId?: string | null;
   parameters?: Record<string, unknown> | null;
+  beforeMessageId?: string | null;
 }
 
-type PromptPreviewMessage = {
-  role: ChatMLMessage["role"] | LlmMessage["role"];
-  content: string;
-  displayName?: string;
-  images?: string[];
-};
-
 export interface PromptPreviewResult {
-  messages: PromptPreviewMessage[];
-  previewMessages?: PromptPreviewMessage[];
-  parameters: Partial<GenerationParameters> | Record<string, unknown> | null;
+  messages: ChatMLMessage[];
+  previewMessages: ChatMLMessage[];
+  parameters: Partial<GenerationParameters> | Record<string, unknown>;
   messageCount: number;
   generationInfo: {
     model?: string;
@@ -60,57 +50,18 @@ function promptPreviewMessageLoadOptions(
   return { limit: Math.max(40, Math.min(340, historyLimit + 20)) };
 }
 
-async function cachedPromptPreview(
-  storage: StorageGateway,
-  chat: JsonRecord,
-  storedMessages: JsonRecord[],
-  input: PromptPreviewInput,
-): Promise<PromptPreviewResult | null> {
-  if (input.connectionId || input.presetId || input.choices || input.parameters) return null;
-
-  const currentFingerprint = fingerprintChatSummary(chatSummaryForGeneration(chat));
-  const requestedMessageId = readString(input.messageId).trim();
-  if (requestedMessageId) {
-    const requested = await storage.get("messages", requestedMessageId).catch(() => null);
-    if (isRecord(requested) && readString(requested.chatId).trim() === input.chatId) {
-      const cached = readCachedGenerationPrompt(requested, currentFingerprint);
-      if (cached) {
-        return {
-          messages: cached.messages,
-          previewMessages: cached.messages,
-          parameters: null,
-          messageCount: cached.messages.length,
-          generationInfo: cached.generationInfo,
-        };
-      }
-    }
-    return null;
-  }
-
-  const latestVisible = [...storedMessages].reverse().find((message) => !hiddenFromAi(message));
-  if (!latestVisible || readString(latestVisible.role) !== "assistant") return null;
-
-  const cached = readCachedGenerationPrompt(latestVisible, currentFingerprint);
-  if (!cached) return null;
-  return {
-    messages: cached.messages,
-    previewMessages: cached.messages,
-    parameters: null,
-    messageCount: cached.messages.length,
-    generationInfo: cached.generationInfo,
-  };
-}
-
 export async function previewGenerationPrompt(
   storage: StorageGateway,
   input: PromptPreviewInput,
 ): Promise<PromptPreviewResult> {
   const chat = requireRecord(await storage.get("chats", input.chatId), "Chat");
-  const storedMessages = await loadChatMessages(storage, input.chatId, promptPreviewMessageLoadOptions(chat));
-  const cached = await cachedPromptPreview(storage, chat, storedMessages, input);
-  if (cached) return cached;
-
   const connection = await resolveGenerationConnection(storage, chat, input);
+  const storedMessages = await loadChatMessages(storage, input.chatId, promptPreviewMessageLoadOptions(chat));
+  const beforeMessageId = readString(input.beforeMessageId).trim();
+  const messageIndex = beforeMessageId
+    ? storedMessages.findIndex((message) => readString(message.id).trim() === beforeMessageId)
+    : -1;
+  const previewMessages = messageIndex >= 0 ? storedMessages.slice(0, messageIndex) : storedMessages;
   const request = {
     promptPresetId: input.presetId ?? (readString(chat.promptPresetId) || null),
     forCharacterId: input.forCharacterId ?? null,
@@ -132,7 +83,7 @@ export async function previewGenerationPrompt(
   };
   const assembly = await assembleGenerationPrompt(storage, {
     chat: previewChat,
-    storedMessages,
+    storedMessages: previewMessages,
     connection,
     request,
     latestUserInput: "",

@@ -519,137 +519,133 @@ function TrackerPanelAppearanceDrawer({
           !drawerOpen && "hidden",
         )}
       >
-          <ToggleSetting
-            label="Replace tracker HUD icons"
-            checked={trackerPanelHideHudWidgets}
-            onChange={setTrackerPanelHideHudWidgets}
-            help="Hides the old world/player tracker icon strip so the Tracker panel can dock to the edge. The Agents button stays visible."
-          />
-          <ToggleSetting
-            label="Use expression sprites for tracker portraits"
-            checked={trackerPanelUseExpressionSprites}
-            onChange={setTrackerPanelUseExpressionSprites}
-            help="When on, tracker portraits can switch to Expression Engine sprites if that agent is enabled for the chat and the character has matching sprite images."
-          />
-          <div className="mt-2 grid gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
-              Desktop size
-              <HelpTooltip text="Choose the designed desktop width for the Tracker panel. Compact favors quick scanning, Standard balances density, and Expanded gives character cards more room." />
-            </span>
-            <div className="grid grid-cols-3 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-0.5">
-              {TRACKER_PANEL_SIZE_PROFILE_OPTIONS.map((opt) => {
-                const selected = trackerPanelSizeProfile === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTrackerPanelSizeProfile(opt.id)}
-                    aria-pressed={selected}
-                    title={`${opt.label}: ${getTrackerPanelWidthForProfile(opt.id)}px. ${opt.desc}`}
-                    className={cn(
-                      "flex min-h-8 min-w-0 items-center justify-center rounded-md px-1.5 text-[0.6875rem] transition-all disabled:cursor-not-allowed",
-                      selected
-                        ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/45"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                    )}
-                  >
-                    <span className="inline-flex items-center gap-1 font-semibold">
-                      <span className={cn("inline-flex", selected && "text-[var(--primary)]")}>
-                        <TrackerSizeTierIcon sizeProfile={opt.id} />
-                      </span>
-                      {opt.label}
+        <ToggleSetting
+          label="Replace tracker HUD icons"
+          checked={trackerPanelHideHudWidgets}
+          onChange={setTrackerPanelHideHudWidgets}
+          help="Hides the old world/player tracker icon strip so the Tracker panel can dock to the edge. The Agents button stays visible."
+        />
+        <ToggleSetting
+          label="Use expression sprites for tracker portraits"
+          checked={trackerPanelUseExpressionSprites}
+          onChange={setTrackerPanelUseExpressionSprites}
+          help="When on, tracker portraits can switch to Expression Engine sprites if that agent is enabled for the chat and the character has matching sprite images."
+        />
+        <div className="mt-2 grid gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+            Desktop size
+            <HelpTooltip text="Choose the designed desktop width for the Tracker panel. Compact favors quick scanning, Standard balances density, and Expanded gives character cards more room." />
+          </span>
+          <div className="grid grid-cols-3 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-0.5">
+            {TRACKER_PANEL_SIZE_PROFILE_OPTIONS.map((opt) => {
+              const selected = trackerPanelSizeProfile === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTrackerPanelSizeProfile(opt.id)}
+                  aria-pressed={selected}
+                  title={`${opt.label}: ${getTrackerPanelWidthForProfile(opt.id)}px. ${opt.desc}`}
+                  className={cn(
+                    "flex min-h-8 min-w-0 items-center justify-center rounded-md px-1.5 text-[0.6875rem] transition-all disabled:cursor-not-allowed",
+                    selected
+                      ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/45"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1 font-semibold">
+                    <span className={cn("inline-flex", selected && "text-[var(--primary)]")}>
+                      <TrackerSizeTierIcon sizeProfile={opt.id} />
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div className="mt-2 grid gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
-              Thought display mode
-              <HelpTooltip text="Choose whether featured character thoughts open inside the tracker card or float beside the portrait. This no longer changes automatically when the panel width changes." />
-            </span>
-            <div className="grid grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-0.5">
-              {TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS.map((opt) => {
-                const selected = trackerPanelThoughtBubbleDisplay === opt.id;
-                const Icon = opt.id === "inline" ? Dock : MessageCircle;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTrackerPanelThoughtBubbleDisplay(opt.id)}
-                    aria-pressed={selected}
-                    title={opt.desc}
-                    className={cn(
-                      "flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[0.6875rem] transition-all disabled:cursor-not-allowed",
-                      selected
-                        ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/45"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                    )}
-                  >
-                    <span className="inline-flex items-center gap-1.5 font-semibold">
-                      <Icon size="0.75rem" className={selected ? "text-[var(--primary)]" : ""} />
-                      {opt.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+        </div>
+        <div className="mt-2 grid gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+            Thought display mode
+            <HelpTooltip text="Choose whether featured character thoughts open inside the tracker card or float beside the portrait. This no longer changes automatically when the panel width changes." />
+          </span>
+          <div className="grid grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-0.5">
+            {TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS.map((opt) => {
+              const selected = trackerPanelThoughtBubbleDisplay === opt.id;
+              const Icon = opt.id === "inline" ? Dock : MessageCircle;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTrackerPanelThoughtBubbleDisplay(opt.id)}
+                  aria-pressed={selected}
+                  title={opt.desc}
+                  className={cn(
+                    "flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[0.6875rem] transition-all disabled:cursor-not-allowed",
+                    selected
+                      ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/45"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1.5 font-semibold">
+                    <Icon size="0.75rem" className={selected ? "text-[var(--primary)]" : ""} />
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <ToggleSetting
-            label="Always show Docked thoughts"
-            checked={trackerPanelDockedThoughtsAlwaysVisible}
-            onChange={setTrackerPanelDockedThoughtsAlwaysVisible}
-            help="When Thought display mode is Docked, every featured character's thought stays visible inside the tracker card instead of waiting for the per-card thought button."
-          />
-          <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
-              Temperature unit
-              <HelpTooltip text="Changes Tracker Panel and Roleplay HUD temperature displays without rewriting the saved world-state temperature." />
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={trackerTemperatureUnit === "fahrenheit"}
-              aria-label={`Tracker temperature unit: ${
-                trackerTemperatureUnit === "celsius" ? "Celsius" : "Fahrenheit"
-              }`}
-              title={
-                trackerTemperatureUnit === "celsius"
-                  ? "Showing tracker temperatures as °C. Click for °F."
-                  : "Showing tracker temperatures as °F. Click for °C."
-              }
-              onClick={() => setTrackerTemperatureUnit(trackerTemperatureUnit === "celsius" ? "fahrenheit" : "celsius")}
-              className="relative grid h-7 w-[4.75rem] shrink-0 grid-cols-2 items-center rounded-full border border-[var(--border)] bg-[var(--secondary)]/55 p-0.5 text-[0.625rem] font-semibold transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
+        </div>
+        <ToggleSetting
+          label="Always show Docked thoughts"
+          checked={trackerPanelDockedThoughtsAlwaysVisible}
+          onChange={setTrackerPanelDockedThoughtsAlwaysVisible}
+          help="When Thought display mode is Docked, every featured character's thought stays visible inside the tracker card instead of waiting for the per-card thought button."
+        />
+        <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+            Temperature unit
+            <HelpTooltip text="Changes Tracker Panel and Roleplay HUD temperature displays without rewriting the saved world-state temperature." />
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={trackerTemperatureUnit === "fahrenheit"}
+            aria-label={`Tracker temperature unit: ${trackerTemperatureUnit === "celsius" ? "Celsius" : "Fahrenheit"}`}
+            title={
+              trackerTemperatureUnit === "celsius"
+                ? "Showing tracker temperatures as °C. Click for °F."
+                : "Showing tracker temperatures as °F. Click for °C."
+            }
+            onClick={() => setTrackerTemperatureUnit(trackerTemperatureUnit === "celsius" ? "fahrenheit" : "celsius")}
+            className="relative grid h-7 w-[4.75rem] shrink-0 grid-cols-2 items-center rounded-full border border-[var(--border)] bg-[var(--secondary)]/55 p-0.5 text-[0.625rem] font-semibold transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
+          >
+            <span
+              className={cn(
+                "absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-full bg-[var(--primary)]/16 ring-1 ring-[var(--primary)]/45 transition-transform",
+                trackerTemperatureUnit === "fahrenheit" && "translate-x-full",
+              )}
+            />
+            <span
+              className={cn(
+                "relative z-10 text-center transition-colors",
+                trackerTemperatureUnit === "celsius" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
+              )}
             >
-              <span
-                className={cn(
-                  "absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-full bg-[var(--primary)]/16 ring-1 ring-[var(--primary)]/45 transition-transform",
-                  trackerTemperatureUnit === "fahrenheit" && "translate-x-full",
-                )}
-              />
-              <span
-                className={cn(
-                  "relative z-10 text-center transition-colors",
-                  trackerTemperatureUnit === "celsius" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-                )}
-              >
-                °C
-              </span>
-              <span
-                className={cn(
-                  "relative z-10 text-center transition-colors",
-                  trackerTemperatureUnit === "fahrenheit"
-                    ? "text-[var(--foreground)]"
-                    : "text-[var(--muted-foreground)]",
-                )}
-              >
-                °F
-              </span>
-            </button>
-          </div>
-          <TrackerPanelCardOrderSetting />
-          <TrackerCardColorSettings />
+              °C
+            </span>
+            <span
+              className={cn(
+                "relative z-10 text-center transition-colors",
+                trackerTemperatureUnit === "fahrenheit" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
+              )}
+            >
+              °F
+            </span>
+          </button>
+        </div>
+        <TrackerPanelCardOrderSetting />
+        <TrackerCardColorSettings />
       </fieldset>
     </section>
   );
@@ -664,7 +660,7 @@ export function SettingsPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Tab bar */}
-      <div className="flex flex-shrink-0 flex-wrap border-b border-[var(--sidebar-border)]">
+      <div className="flex flex-shrink-0 flex-wrap border-b border-[var(--border)] bg-[var(--card)]/40">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -1247,10 +1243,9 @@ function GeneralSettings() {
         </div>
 
         <p className="mt-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-          On desktop, folder buttons open the local app asset folders. Use upload to copy files into Marinara's
-          managed data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, and WebM;
-          images support PNG, JPG, GIF, WebP, AVIF, and SVG for sprites. Music folders use state/genre/intensity, such
-          as exploration/fantasy/calm.
+          On desktop, folder buttons open the local app asset folders. Use upload to copy files into Marinara's managed
+          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, and WebM; images support PNG, JPG, GIF, WebP,
+          AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
         </p>
       </div>
     </div>
@@ -1313,9 +1308,7 @@ function AppearanceSettings() {
   const trackerPanelThoughtBubbleDisplay = useUIStore((s) => s.trackerPanelThoughtBubbleDisplay);
   const setTrackerPanelThoughtBubbleDisplay = useUIStore((s) => s.setTrackerPanelThoughtBubbleDisplay);
   const trackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.trackerPanelDockedThoughtsAlwaysVisible);
-  const setTrackerPanelDockedThoughtsAlwaysVisible = useUIStore(
-    (s) => s.setTrackerPanelDockedThoughtsAlwaysVisible,
-  );
+  const setTrackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.setTrackerPanelDockedThoughtsAlwaysVisible);
   const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const setTrackerTemperatureUnit = useUIStore((s) => s.setTrackerTemperatureUnit);
 
@@ -2140,7 +2133,9 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
     queryKey: ["backgrounds"],
     queryFn: async () => {
       const rows =
-        await backgroundsApi.list<Array<BackgroundLibraryItem & { name?: string; type?: string; isDirectory?: boolean }>>();
+        await backgroundsApi.list<
+          Array<BackgroundLibraryItem & { name?: string; type?: string; isDirectory?: boolean }>
+        >();
       return rows
         .filter((row) => row.type !== "folder" && row.isDirectory !== true)
         .map((row) => {
@@ -2172,8 +2167,7 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
   });
 
   const updateTags = useMutation({
-    mutationFn: ({ filename, tags }: { filename: string; tags: string[] }) =>
-      backgroundsApi.updateTags(filename, tags),
+    mutationFn: ({ filename, tags }: { filename: string; tags: string[] }) => backgroundsApi.updateTags(filename, tags),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["backgrounds"] });
       qc.invalidateQueries({ queryKey: ["background-tags"] });
@@ -3019,8 +3013,7 @@ function ImportSettings() {
   return (
     <div className="flex flex-col gap-3">
       <div className="text-xs text-[var(--muted-foreground)]">
-        Import data from Marinara exports, SillyTavern, or other tools. Full profile imports also restore custom
-        themes.
+        Import data from Marinara exports, SillyTavern, or other tools. Full profile imports also restore custom themes.
       </div>
 
       <ProfileImportSection />
@@ -3872,8 +3865,8 @@ function AdvancedSettings() {
           Danger Zone
         </div>
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-          Permanently clear selected categories of local data. Marinara resets live caches immediately after a successful
-          expunge so stale data does not linger on screen.
+          Permanently clear selected categories of local data. Marinara resets live caches immediately after a
+          successful expunge so stale data does not linger on screen.
         </p>
         <div className="grid gap-2">
           {EXPUNGE_SCOPE_OPTIONS.map((scope) => {

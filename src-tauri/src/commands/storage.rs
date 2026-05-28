@@ -51,7 +51,7 @@ pub(crate) mod lorebook_images;
 #[path = "storage/mari.rs"]
 pub(crate) mod mari;
 #[path = "storage/media_uploads.rs"]
-mod media_uploads;
+pub(crate) mod media_uploads;
 #[path = "storage/profile.rs"]
 pub(crate) mod profile;
 #[path = "storage/prompts.rs"]

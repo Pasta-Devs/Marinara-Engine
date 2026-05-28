@@ -53,11 +53,30 @@ import {
   parseEditableGenerationParameters,
   type EditableGenerationParameters,
 } from "../../../../shared/components/ui/GenerationParametersEditor";
-import { IMAGE_DEFAULTS_STORAGE_KEY, COMFYUI_SAMPLER_OPTIONS, COMFYUI_SCHEDULER_OPTIONS, NOVELAI_NOISE_SCHEDULE_OPTIONS, NOVELAI_SAMPLER_OPTIONS, SD_WEBUI_SAMPLER_OPTIONS, SD_WEBUI_SCHEDULER_OPTIONS, createDefaultImageGenerationProfile, imageSourceToDefaultsService, normalizeImageGenerationProfile, sanitizeImageGenerationProfile } from "../../../../engine/contracts/constants/image-generation-defaults";
-import { MODEL_LISTS, IMAGE_GENERATION_SOURCES, inferImageSource } from "../../../../engine/contracts/constants/model-lists";
+import {
+  IMAGE_DEFAULTS_STORAGE_KEY,
+  COMFYUI_SAMPLER_OPTIONS,
+  COMFYUI_SCHEDULER_OPTIONS,
+  NOVELAI_NOISE_SCHEDULE_OPTIONS,
+  NOVELAI_SAMPLER_OPTIONS,
+  SD_WEBUI_SAMPLER_OPTIONS,
+  SD_WEBUI_SCHEDULER_OPTIONS,
+  createDefaultImageGenerationProfile,
+  imageSourceToDefaultsService,
+  normalizeImageGenerationProfile,
+  sanitizeImageGenerationProfile,
+} from "../../../../engine/contracts/constants/image-generation-defaults";
+import {
+  MODEL_LISTS,
+  IMAGE_GENERATION_SOURCES,
+  inferImageSource,
+} from "../../../../engine/contracts/constants/model-lists";
 import { PROVIDERS, isTauriRuntimeProvider } from "../../../../engine/contracts/constants/providers";
 import type { APIProvider } from "../../../../engine/contracts/types/connection";
-import type { ImageDefaultsService, ImageGenerationDefaultsProfile } from "../../../../engine/contracts/types/image-generation-defaults";
+import type {
+  ImageDefaultsService,
+  ImageGenerationDefaultsProfile,
+} from "../../../../engine/contracts/types/image-generation-defaults";
 import { toast } from "sonner";
 
 /** Links where users can obtain API keys for each provider */
@@ -350,7 +369,14 @@ export function ConnectionEditor() {
     const knownIds = new Set(providerModels.map((m) => m.id));
     const uniqueRemote = remoteModels
       .filter((m) => !knownIds.has(m.id))
-      .map((m) => ({ id: m.id, name: m.name, context: 0, maxOutput: 0, isRemote: true as const, fallback: m.fallback }));
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        context: 0,
+        maxOutput: 0,
+        isRemote: true as const,
+        fallback: m.fallback,
+      }));
     const known = providerModels.map((m) => ({ ...m, isRemote: false as const }));
     return [...known, ...uniqueRemote];
   }, [providerModels, remoteModels]);
@@ -586,9 +612,7 @@ export function ConnectionEditor() {
           })),
         );
         setFetchError(
-          result.providerError
-            ? `Provider lookup failed: ${result.providerError}. Showing fallback models.`
-            : null,
+          result.providerError ? `Provider lookup failed: ${result.providerError}. Showing fallback models.` : null,
         );
         setShowModelDropdown(true);
         requestAnimationFrame(() => {
@@ -626,8 +650,7 @@ export function ConnectionEditor() {
       event.target.value = "";
       if (!file) return;
 
-      const isJsonFile =
-        file.type === "application/json" || file.name.trim().toLowerCase().endsWith(".json");
+      const isJsonFile = file.type === "application/json" || file.name.trim().toLowerCase().endsWith(".json");
       if (!isJsonFile) {
         toast.error("Choose a .json workflow file.");
         return;
@@ -680,7 +703,7 @@ export function ConnectionEditor() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3">
+      <div className="flex h-12 flex-shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4">
         <button
           onClick={handleClose}
           className="shrink-0 rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
@@ -926,8 +949,7 @@ export function ConnectionEditor() {
             <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
               <AlertCircle size="0.625rem" className="mt-px shrink-0" />
               <span>
-                Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
-                keys.
+                Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys.
               </span>
             </p>
             {localProvider === "custom" && (
@@ -1258,93 +1280,93 @@ export function ConnectionEditor() {
           {/* ── ComfyUI Workflow ── */}
           {localProvider === "image_generation" &&
             (selectedImageService === "comfyui" || selectedImageService === "runpod_comfyui") && (
-            <FieldGroup
-              label={selectedImageService === "runpod_comfyui" ? "ComfyUI Workflow" : "ComfyUI Workflow (Optional)"}
-              icon={<Zap size="0.875rem" className="text-sky-400" />}
-              help={
-                selectedImageService === "runpod_comfyui"
-                  ? "RunPod requires a ComfyUI workflow JSON in API format. Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%."
-                  : "Paste a custom ComfyUI workflow JSON (API format). Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%. Leave empty to use the built-in default txt2img workflow."
-              }
-            >
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <input
-                  ref={comfyWorkflowFileInputRef}
-                  type="file"
-                  accept=".json,application/json"
-                  className="hidden"
-                  onChange={handleImportComfyWorkflowFile}
-                />
-                <button
-                  type="button"
-                  onClick={() => comfyWorkflowFileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98]"
-                >
-                  <Upload size="0.8125rem" />
-                  Import JSON
-                </button>
-              </div>
-              <textarea
-                ref={comfyWorkflowTextareaRef}
-                value={localComfyuiWorkflow}
-                onChange={(e) => {
-                  setLocalComfyuiWorkflow(e.target.value);
-                  markDirty();
-                }}
-                placeholder='Paste workflow JSON here (exported from ComfyUI via "Save (API Format)")…'
-                className={cn(
-                  "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-mono outline-none ring-1 transition-shadow placeholder:text-[var(--muted-foreground)]/50 min-h-[120px] max-h-[300px] resize-y",
-                  comfyWorkflowValidation?.parseError
-                    ? "ring-red-400/60 focus:ring-red-400"
-                    : "ring-[var(--border)] focus:ring-sky-400/50",
-                )}
-              />
-              {comfyWorkflowValidation?.parseError && (
-                <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-red-400">
-                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                  {comfyWorkflowValidation.charPos !== null ? (
-                    <button
-                      onClick={handleJumpToJsonError}
-                      className="underline decoration-dotted cursor-pointer text-left hover:text-red-300"
-                    >
-                      {comfyWorkflowValidation.label}
-                    </button>
-                  ) : (
-                    comfyWorkflowValidation.label
+              <FieldGroup
+                label={selectedImageService === "runpod_comfyui" ? "ComfyUI Workflow" : "ComfyUI Workflow (Optional)"}
+                icon={<Zap size="0.875rem" className="text-sky-400" />}
+                help={
+                  selectedImageService === "runpod_comfyui"
+                    ? "RunPod requires a ComfyUI workflow JSON in API format. Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%."
+                    : "Paste a custom ComfyUI workflow JSON (API format). Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%. Leave empty to use the built-in default txt2img workflow."
+                }
+              >
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <input
+                    ref={comfyWorkflowFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={handleImportComfyWorkflowFile}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => comfyWorkflowFileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98]"
+                  >
+                    <Upload size="0.8125rem" />
+                    Import JSON
+                  </button>
+                </div>
+                <textarea
+                  ref={comfyWorkflowTextareaRef}
+                  value={localComfyuiWorkflow}
+                  onChange={(e) => {
+                    setLocalComfyuiWorkflow(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder='Paste workflow JSON here (exported from ComfyUI via "Save (API Format)")…'
+                  className={cn(
+                    "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-mono outline-none ring-1 transition-shadow placeholder:text-[var(--muted-foreground)]/50 min-h-[120px] max-h-[300px] resize-y",
+                    comfyWorkflowValidation?.parseError
+                      ? "ring-red-400/60 focus:ring-red-400"
+                      : "ring-[var(--border)] focus:ring-sky-400/50",
                   )}
-                </p>
-              )}
-              {comfyWorkflowValidation &&
-                !comfyWorkflowValidation.parseError &&
-                comfyWorkflowValidation.missing.length > 0 && (
-                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-amber-400">
+                />
+                {comfyWorkflowValidation?.parseError && (
+                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-red-400">
                     <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                    <span>
-                      {comfyWorkflowValidation.missing.some((m) => m.critical) && (
-                        <>
-                          <strong>%prompt%</strong> placeholder not found — prompts won&apos;t be injected.{" "}
-                        </>
-                      )}
-                      {comfyWorkflowValidation.missing.some((m) => !m.critical) && (
-                        <>
-                          Unused:{" "}
-                          {comfyWorkflowValidation.missing
-                            .filter((m) => !m.critical)
-                            .map((m) => m.label)
-                            .join(", ")}
-                          .
-                        </>
-                      )}
-                    </span>
+                    {comfyWorkflowValidation.charPos !== null ? (
+                      <button
+                        onClick={handleJumpToJsonError}
+                        className="underline decoration-dotted cursor-pointer text-left hover:text-red-300"
+                      >
+                        {comfyWorkflowValidation.label}
+                      </button>
+                    ) : (
+                      comfyWorkflowValidation.label
+                    )}
                   </p>
                 )}
-              <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
-                Export your workflow from ComfyUI using <strong>Save (API Format)</strong> in the menu. Placeholders
-                like <code>%prompt%</code>, <code>%steps%</code>, and <code>%sampler%</code> will be replaced at
-                generation time.
-              </p>
-            </FieldGroup>
-          )}
+                {comfyWorkflowValidation &&
+                  !comfyWorkflowValidation.parseError &&
+                  comfyWorkflowValidation.missing.length > 0 && (
+                    <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-amber-400">
+                      <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                      <span>
+                        {comfyWorkflowValidation.missing.some((m) => m.critical) && (
+                          <>
+                            <strong>%prompt%</strong> placeholder not found — prompts won&apos;t be injected.{" "}
+                          </>
+                        )}
+                        {comfyWorkflowValidation.missing.some((m) => !m.critical) && (
+                          <>
+                            Unused:{" "}
+                            {comfyWorkflowValidation.missing
+                              .filter((m) => !m.critical)
+                              .map((m) => m.label)
+                              .join(", ")}
+                            .
+                          </>
+                        )}
+                      </span>
+                    </p>
+                  )}
+                <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
+                  Export your workflow from ComfyUI using <strong>Save (API Format)</strong> in the menu. Placeholders
+                  like <code>%prompt%</code>, <code>%steps%</code>, and <code>%sampler%</code> will be replaced at
+                  generation time.
+                </p>
+              </FieldGroup>
+            )}
 
           {localProvider === "image_generation" && selectedImageDefaultsService && localImageDefaults && (
             <ImageGenerationDefaultsPanel
@@ -1811,7 +1833,6 @@ export function ConnectionEditor() {
                 )}
               </TestResultCard>
             )}
-
           </div>
         </div>
       </div>

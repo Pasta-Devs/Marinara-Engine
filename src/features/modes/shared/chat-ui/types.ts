@@ -36,6 +36,7 @@ export type PeekPromptData = {
 export type PeekPromptOptions = {
   forCharacterId?: string | null;
   messageId?: string | null;
+  promptSnapshot?: Message["extra"]["generationPromptSnapshot"] | null;
 };
 
 export type MessageWithSwipes = Message & {

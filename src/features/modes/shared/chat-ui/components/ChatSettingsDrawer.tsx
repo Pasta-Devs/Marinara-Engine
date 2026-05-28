@@ -69,7 +69,7 @@ import {
 import { ChoiceSelectionModal } from "../../../../catalog/presets/index";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import {
-  useCharacters,
+  useCharacterSummaries,
   usePersonaSummaries,
   useCharacterGroups,
   type SpriteInfo,
@@ -132,8 +132,21 @@ import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { DEFAULT_AGENT_PROMPTS } from "../../../../../engine/contracts/constants/agent-prompts";
 import { LIMITS } from "../../../../../engine/contracts/constants/defaults";
 import { DEFAULT_IMPERSONATE_PROMPT } from "../../../../../engine/contracts/constants/impersonate";
-import { BUILT_IN_AGENTS, BUILT_IN_TOOLS, DEFAULT_AGENT_CONTEXT_SIZE, DEFAULT_AGENT_TOOLS, DEFAULT_AGENT_MAX_TOKENS, MAX_AGENT_MAX_TOKENS, MIN_AGENT_MAX_TOKENS, getDefaultBuiltInAgentSettings } from "../../../../../engine/contracts/types/agent";
-import { estimateAgentLoadCost, AGENT_COST_HIGH_CALLS, AGENT_COST_HIGH_TOKENS } from "../../../../../engine/shared/scoring/agent-cost";
+import {
+  BUILT_IN_AGENTS,
+  BUILT_IN_TOOLS,
+  DEFAULT_AGENT_CONTEXT_SIZE,
+  DEFAULT_AGENT_TOOLS,
+  DEFAULT_AGENT_MAX_TOKENS,
+  MAX_AGENT_MAX_TOKENS,
+  MIN_AGENT_MAX_TOKENS,
+  getDefaultBuiltInAgentSettings,
+} from "../../../../../engine/contracts/types/agent";
+import {
+  estimateAgentLoadCost,
+  AGENT_COST_HIGH_CALLS,
+  AGENT_COST_HIGH_TOKENS,
+} from "../../../../../engine/shared/scoring/agent-cost";
 import { boolish as isEnabledFlag } from "../../../../../engine/generation/runtime-records";
 import type { CharacterGroup } from "../../../../../engine/contracts/types/character";
 import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
@@ -230,6 +243,79 @@ type AgentAddPreview = {
   runInterval: number | null;
 };
 
+type DrawerCharacter = {
+  id: string;
+  data?: unknown;
+  comment?: string | null;
+  avatarPath?: string | null;
+};
+
+function useDeferredDrawerContent(open: boolean, contentKey: string): boolean {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setReady(false);
+      return;
+    }
+
+    setReady(false);
+    const scheduler = typeof window !== "undefined" ? window : null;
+    if (!scheduler) {
+      setReady(true);
+      return;
+    }
+
+    type IdleWindow = Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const idleWindow = scheduler as IdleWindow;
+    let idleHandle: number | null = null;
+    const frameHandle = scheduler.requestAnimationFrame(() => {
+      if (idleWindow.requestIdleCallback) {
+        idleHandle = idleWindow.requestIdleCallback(() => setReady(true), { timeout: 450 });
+      } else {
+        idleHandle = scheduler.setTimeout(() => setReady(true), 80);
+      }
+    });
+
+    return () => {
+      scheduler.cancelAnimationFrame(frameHandle);
+      if (idleHandle != null) {
+        if (idleWindow.cancelIdleCallback) idleWindow.cancelIdleCallback(idleHandle);
+        else scheduler.clearTimeout(idleHandle);
+      }
+    };
+  }, [contentKey, open]);
+
+  return ready;
+}
+
+function ChatSettingsDrawerLoadingShell({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
+        <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
+          <h3 className="text-sm font-bold">Chat Settings</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
+          >
+            <X size="1rem" />
+          </button>
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-[var(--muted-foreground)]">
+          Preparing settings...
+        </div>
+      </div>
+    </>
+  );
+}
+
 function parseAgentSettings(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
@@ -264,20 +350,28 @@ function normalizeSpriteDisplayValue(value: unknown, fallback: number, min: numb
   return Math.max(min, Math.min(max, numeric));
 }
 
-
 function normalizeNonNegativeInteger(value: unknown, fallback: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(0, Math.min(max, Math.trunc(value)));
 }
 
 function getChatActiveAgentIds(chat: Chat): string[] {
-  const metadata = chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {};
+  const metadata =
+    chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {};
   const activeIds =
     metadata && typeof metadata === "object" ? (metadata as { activeAgentIds?: unknown }).activeAgentIds : [];
   return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
 }
 
-export function ChatSettingsDrawer({
+export function ChatSettingsDrawer(props: ChatSettingsDrawerProps) {
+  const contentReady = useDeferredDrawerContent(props.open, props.chat.id);
+
+  if (!props.open) return null;
+  if (!contentReady) return <ChatSettingsDrawerLoadingShell onClose={props.onClose} />;
+  return <ChatSettingsDrawerInner {...props} />;
+}
+
+function ChatSettingsDrawerInner({
   chat,
   open,
   onClose,
@@ -300,7 +394,7 @@ export function ChatSettingsDrawer({
   const setScheduleGenerationPreferences = useUIStore((s) => s.setScheduleGenerationPreferences);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
 
-  const { data: allCharacters } = useCharacters();
+  const { data: allCharacters } = useCharacterSummaries();
   const { data: characterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
   const { data: presets } = usePresetSummaries();
@@ -332,16 +426,10 @@ export function ChatSettingsDrawer({
   const { data: allChats } = useChatSummaries();
   const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
 
-  const chatCharIds: string[] = useMemo(
-    () => chat.characterIds ?? [],
-    [chat.characterIds],
-  );
+  const chatCharIds: string[] = useMemo(() => chat.characterIds ?? [], [chat.characterIds]);
 
   const metadata = useMemo<Record<string, any>>(
-    () =>
-      chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata)
-        ? chat.metadata
-        : {},
+    () => (chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {}),
     [chat.metadata],
   );
   const isSceneChat = metadata.sceneStatus === "active" || typeof metadata.sceneOriginChatId === "string";
@@ -414,7 +502,9 @@ export function ChatSettingsDrawer({
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
       Array.isArray(metadata.inactiveCharacterIds)
-        ? metadata.inactiveCharacterIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
+        ? metadata.inactiveCharacterIds.filter(
+            (id: unknown): id is string => typeof id === "string" && id.trim().length > 0,
+          )
         : [],
     [metadata.inactiveCharacterIds],
   );
@@ -582,22 +672,13 @@ export function ChatSettingsDrawer({
   }, [customToolCapabilities, customTools]);
 
   // ── Helpers ──
-  const characters = useMemo(
-    () =>
-      (allCharacters ?? []) as Array<{
-        id: string;
-        data: unknown;
-        comment?: string | null;
-        avatarPath: string | null;
-      }>,
-    [allCharacters],
-  );
+  const characters = useMemo<DrawerCharacter[]>(() => (allCharacters ?? []) as DrawerCharacter[], [allCharacters]);
 
   const chatCharacters = useMemo(
     () =>
       chatCharIds
         .map((characterId) => characters.find((character) => character.id === characterId))
-        .filter((character): character is { id: string; data: unknown; avatarPath: string | null } => !!character),
+        .filter((character): character is DrawerCharacter => !!character),
     [chatCharIds, characters],
   );
 
@@ -638,7 +719,7 @@ export function ChatSettingsDrawer({
   const charInfoMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof parseCharacterDisplayData>>();
     for (const c of characters) {
-      map.set(c.id, parseCharacterDisplayData(c));
+      map.set(c.id, parseCharacterDisplayData({ data: c.data, comment: c.comment }));
     }
     return map;
   }, [characters]);
@@ -652,24 +733,24 @@ export function ChatSettingsDrawer({
   }, [charInfoMap]);
 
   const getCharacterInfo = useCallback(
-    (c: { id?: string; data: unknown; comment?: string | null }) => {
+    (c: { id?: string; data?: unknown; comment?: string | null }) => {
       if (c.id && charInfoMap.has(c.id)) return charInfoMap.get(c.id)!;
-      return parseCharacterDisplayData(c);
+      return parseCharacterDisplayData({ data: c.data, comment: c.comment });
     },
     [charInfoMap],
   );
 
   const charName = useCallback(
-    (c: { id?: string; data: unknown; comment?: string | null }) => getCharacterInfo(c).name,
+    (c: { id?: string; data?: unknown; comment?: string | null }) => getCharacterInfo(c).name,
     [getCharacterInfo],
   );
 
   const charTitle = useCallback(
-    (c: { id?: string; data: unknown; comment?: string | null }) => getCharacterTitle(getCharacterInfo(c)),
+    (c: { id?: string; data?: unknown; comment?: string | null }) => getCharacterTitle(getCharacterInfo(c)),
     [getCharacterInfo],
   );
 
-  const charAvatarCrop = useCallback((c: { data: unknown }) => {
+  const charAvatarCrop = useCallback((c: { data?: unknown }) => {
     return (
       ((c.data as { extensions?: { avatarCrop?: AvatarCrop | null } } | null)?.extensions?.avatarCrop as
         | AvatarCrop
@@ -759,19 +840,22 @@ export function ChatSettingsDrawer({
       updateChat.mutate(
         { id: chat.id, characterIds: current },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
             syncGamePartyMetadata(current);
             // Skip auto-greeting for conversation mode
             if (isConversation) return;
-            const char = characters.find((c) => c.id === charId);
-            if (!char) return;
-            const parsed = char.data;
-            const firstMes = (parsed as { first_mes?: string }).first_mes;
-            const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
+            const charSummary = characters.find((c) => c.id === charId);
+            const fullCharacter = await storageApi.get<DrawerCharacter>("characters", charId).catch(() => null);
+            const parsed =
+              fullCharacter?.data && typeof fullCharacter.data === "object"
+                ? (fullCharacter.data as { first_mes?: string; alternate_greetings?: string[] })
+                : {};
+            const firstMes = parsed.first_mes;
+            const altGreetings = parsed.alternate_greetings ?? [];
             if (firstMes) {
               setFirstMesConfirm({
                 charId,
-                charName: charName(char),
+                charName: charSummary ? charName(charSummary) : "Character",
                 message: firstMes,
                 alternateGreetings: altGreetings,
               });
@@ -1146,12 +1230,15 @@ export function ChatSettingsDrawer({
       setIsRegeneratingSchedules(true);
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
-        const result = await runGenerateConversationSchedules({ storage: storageApi, llm: llmApi }, {
-          chatId: chat.id,
-          characterIds: chatCharIds,
-          forceRefresh,
-          scheduleGenerationPreferences,
-        });
+        const result = await runGenerateConversationSchedules(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: chat.id,
+            characterIds: chatCharIds,
+            forceRefresh,
+            scheduleGenerationPreferences,
+          },
+        );
         const generatedCount = Object.values(result.schedules).filter(Boolean).length;
         toast.success(`Generated ${generatedCount} conversation schedule${generatedCount === 1 ? "" : "s"}.`);
         qc.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });
@@ -2632,9 +2719,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {isConversation && (
-            <ConversationPromptSection chat={chat} metadata={metadata} updateMeta={updateMeta} />
-          )}
+          {isConversation && <ConversationPromptSection chat={chat} metadata={metadata} updateMeta={updateMeta} />}
 
           {isConversation && (
             <Section
@@ -5066,168 +5151,168 @@ export function ChatSettingsDrawer({
             count={activeToolIds.length}
             help="When enabled, the AI can call built-in tools like dice rolls, game state updates, and lorebook searches during conversation."
           >
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    updateMeta.mutate({ id: chat.id, enableTools: !metadata.enableTools });
-                  }}
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  updateMeta.mutate({ id: chat.id, enableTools: !metadata.enableTools });
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                  metadata.enableTools
+                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                )}
+              >
+                <div>
+                  <span className="text-xs font-medium">Enable Tool Use</span>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    Allow AI to call functions (dice rolls, game state, etc.)
+                  </p>
+                </div>
+                <div
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.enableTools
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
+                    metadata.enableTools ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
-                  <div>
-                    <span className="text-xs font-medium">Enable Tool Use</span>
-                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Allow AI to call functions (dice rolls, game state, etc.)
-                    </p>
-                  </div>
                   <div
                     className={cn(
-                      "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                      metadata.enableTools ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      metadata.enableTools && "translate-x-3.5",
                     )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        metadata.enableTools && "translate-x-3.5",
-                      )}
-                    />
-                  </div>
-                </button>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
-                  {metadata.enableTools
-                    ? "If enabled, this chat can use globally enabled tools (or any tools you add below)."
-                    : "If disabled, no functions will be available."}
-                </p>
+                  />
+                </div>
+              </button>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
+                {metadata.enableTools
+                  ? "If enabled, this chat can use globally enabled tools (or any tools you add below)."
+                  : "If disabled, no functions will be available."}
+              </p>
 
-                {/* Per-chat tool list */}
-                {metadata.enableTools && (
-                  <>
-                    {activeToolIds.length === 0 ? (
-                      <p className="text-[0.6875rem] text-[var(--muted-foreground)] px-1">
-                        All globally enabled tools are available to this chat. Add tools below to restrict this chat to
-                        a specific set.
-                      </p>
-                    ) : (
-                      <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
-                        {activeToolIds.map((toolId) => {
-                          const tool = availableTools.find((t) => t.id === toolId);
-                          if (!tool) return null;
-                          return (
-                            <div
-                              key={tool.id}
-                              className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+              {/* Per-chat tool list */}
+              {metadata.enableTools && (
+                <>
+                  {activeToolIds.length === 0 ? (
+                    <p className="text-[0.6875rem] text-[var(--muted-foreground)] px-1">
+                      All globally enabled tools are available to this chat. Add tools below to restrict this chat to a
+                      specific set.
+                    </p>
+                  ) : (
+                    <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                      {activeToolIds.map((toolId) => {
+                        const tool = availableTools.find((t) => t.id === toolId);
+                        if (!tool) return null;
+                        return (
+                          <div
+                            key={tool.id}
+                            className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                          >
+                            <Wrench size="0.875rem" className="text-[var(--primary)]" />
+                            <div className="flex-1 min-w-0">
+                              <span className="block truncate text-xs">{tool.name}</span>
+                            </div>
+                            <button
+                              onClick={() => toggleTool(tool.id)}
+                              className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                              title="Remove from chat"
                             >
-                              <Wrench size="0.875rem" className="text-[var(--primary)]" />
-                              <div className="flex-1 min-w-0">
-                                <span className="block truncate text-xs">{tool.name}</span>
-                              </div>
-                              <button
-                                onClick={() => toggleTool(tool.id)}
-                                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                title="Remove from chat"
-                              >
-                                <Trash2 size="0.6875rem" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                              <Trash2 size="0.6875rem" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                    {/* Add tool picker */}
-                    {!showToolPicker ? (
-                      <button
-                        onClick={() => {
-                          setShowToolPicker(true);
-                          setToolSearch("");
-                          setPendingToolIds([]);
-                        }}
-                        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-                      >
-                        <Plus size="0.75rem" /> Add Functions
-                      </button>
-                    ) : (
-                      <PickerDropdown
-                        search={toolSearch}
-                        onSearchChange={setToolSearch}
-                        onClose={() => setShowToolPicker(false)}
-                        placeholder="Search functions…"
-                        footer={
-                          pendingToolIds.length > 0 ? (
-                            <div className="border-t border-[var(--border)] px-3 py-2">
-                              <button
-                                onClick={() => {
-                                  const next = [...activeToolIds, ...pendingToolIds];
-                                  updateMeta.mutate({ id: chat.id, activeToolIds: next });
-                                  setPendingToolIds([]);
-                                  setShowToolPicker(false);
-                                }}
-                                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
-                              >
-                                <Plus size="0.75rem" /> Add {pendingToolIds.length} Function
-                                {pendingToolIds.length > 1 ? "s" : ""}
-                              </button>
-                            </div>
-                          ) : undefined
-                        }
-                      >
-                        {availableTools
-                          .filter((t) => !activeToolIds.includes(t.id))
-                          .filter((t) => t.name.toLowerCase().includes(toolSearch.toLowerCase()))
-                          .map((t) => {
-                            const selected = pendingToolIds.includes(t.id);
-                            return (
-                              <button
-                                key={t.id}
-                                onClick={() =>
-                                  setPendingToolIds((prev) =>
-                                    prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id],
-                                  )
-                                }
+                  {/* Add tool picker */}
+                  {!showToolPicker ? (
+                    <button
+                      onClick={() => {
+                        setShowToolPicker(true);
+                        setToolSearch("");
+                        setPendingToolIds([]);
+                      }}
+                      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+                    >
+                      <Plus size="0.75rem" /> Add Functions
+                    </button>
+                  ) : (
+                    <PickerDropdown
+                      search={toolSearch}
+                      onSearchChange={setToolSearch}
+                      onClose={() => setShowToolPicker(false)}
+                      placeholder="Search functions…"
+                      footer={
+                        pendingToolIds.length > 0 ? (
+                          <div className="border-t border-[var(--border)] px-3 py-2">
+                            <button
+                              onClick={() => {
+                                const next = [...activeToolIds, ...pendingToolIds];
+                                updateMeta.mutate({ id: chat.id, activeToolIds: next });
+                                setPendingToolIds([]);
+                                setShowToolPicker(false);
+                              }}
+                              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+                            >
+                              <Plus size="0.75rem" /> Add {pendingToolIds.length} Function
+                              {pendingToolIds.length > 1 ? "s" : ""}
+                            </button>
+                          </div>
+                        ) : undefined
+                      }
+                    >
+                      {availableTools
+                        .filter((t) => !activeToolIds.includes(t.id))
+                        .filter((t) => t.name.toLowerCase().includes(toolSearch.toLowerCase()))
+                        .map((t) => {
+                          const selected = pendingToolIds.includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() =>
+                                setPendingToolIds((prev) =>
+                                  prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id],
+                                )
+                              }
+                              className={cn(
+                                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                                selected && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+                              )}
+                            >
+                              <div
                                 className={cn(
-                                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                                  selected && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+                                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                                  selected
+                                    ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                                    : "border-[var(--border)]",
                                 )}
                               >
-                                <div
-                                  className={cn(
-                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                                    selected
-                                      ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                                      : "border-[var(--border)]",
-                                  )}
-                                >
-                                  {selected && <Check size="0.625rem" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <span className="block truncate text-xs">{t.name}</span>
-                                  <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                                    {t.description}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        {availableTools
-                          .filter((t) => !activeToolIds.includes(t.id))
-                          .filter((t) => t.name.toLowerCase().includes(toolSearch.toLowerCase())).length === 0 && (
-                          <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                            {availableTools.filter((t) => !activeToolIds.includes(t.id)).length === 0
-                              ? "All functions already added."
-                              : "No matches."}
-                          </p>
-                        )}
-                      </PickerDropdown>
-                    )}
-                  </>
-                )}
-              </div>
-            </Section>
+                                {selected && <Check size="0.625rem" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="block truncate text-xs">{t.name}</span>
+                                <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                                  {t.description}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      {availableTools
+                        .filter((t) => !activeToolIds.includes(t.id))
+                        .filter((t) => t.name.toLowerCase().includes(toolSearch.toLowerCase())).length === 0 && (
+                        <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                          {availableTools.filter((t) => !activeToolIds.includes(t.id)).length === 0
+                            ? "All functions already added."
+                            : "No matches."}
+                        </p>
+                      )}
+                    </PickerDropdown>
+                  )}
+                </>
+              )}
+            </div>
+          </Section>
 
           {/* Memory Recall — roleplay/game modes: show after Function Calling */}
           {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
@@ -5534,9 +5619,7 @@ export function ChatSettingsDrawer({
                 <div
                   className={cn(
                     "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                    metadata.excludePastReasoning !== false
-                      ? "bg-[var(--primary)]"
-                      : "bg-[var(--muted-foreground)]/50",
+                    metadata.excludePastReasoning !== false ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
@@ -6002,7 +6085,11 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
               className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
               title="Import memories"
             >
-              {importMemories.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Upload size="0.8125rem" />}
+              {importMemories.isPending ? (
+                <Loader2 size="0.8125rem" className="animate-spin" />
+              ) : (
+                <Upload size="0.8125rem" />
+              )}
             </button>
             <button
               type="button"
@@ -6456,7 +6543,11 @@ function Section({
   return (
     <div className="border-b border-[var(--border)]">
       <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-[var(--accent)]/50">
-        <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
           {icon && <span className="text-[var(--muted-foreground)]">{icon}</span>}
           <span className="flex-1 truncate text-xs font-semibold">{label}</span>
           {count != null && count > 0 && (

@@ -229,10 +229,11 @@ function setChatCacheRecord(
   qc.setQueryData<ChatCacheRecord | undefined>(chatKeys.detail(id), (current) =>
     current ? updater(current) : current,
   );
-  qc.setQueriesData<ChatCacheRecord[]>({ queryKey: chatKeys.list() }, (rows) => updateCachedChatRows(rows, id, updater));
-  qc.setQueriesData<ChatCacheRecord[]>(
-    { queryKey: [...chatKeys.all, "group"] },
-    (rows) => updateCachedChatRows(rows, id, updater),
+  qc.setQueriesData<ChatCacheRecord[]>({ queryKey: chatKeys.list() }, (rows) =>
+    updateCachedChatRows(rows, id, updater),
+  );
+  qc.setQueriesData<ChatCacheRecord[]>({ queryKey: [...chatKeys.all, "group"] }, (rows) =>
+    updateCachedChatRows(rows, id, updater),
   );
 
   const activeChat = useChatStore.getState().activeChat as ChatCacheRecord | null;
@@ -310,17 +311,22 @@ export function useRecentChatSummaries(limit = 3) {
 export function useChat(id: string | null) {
   return useQuery({
     queryKey: chatKeys.detail(id ?? ""),
-    queryFn: () => storageApi.get<Chat>("chats", id!, { fields: CHAT_SUMMARY_FIELDS }).then((chat) => {
-      if (!chat) throw new ApiError("Chat not found", 404);
-      return chat;
-    }),
+    queryFn: () =>
+      storageApi.get<Chat>("chats", id!, { fields: CHAT_SUMMARY_FIELDS }).then((chat) => {
+        if (!chat) throw new ApiError("Chat not found", 404);
+        return chat;
+      }),
     enabled: !!id,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 }
 
-export function useChatMessages(chatId: string | null, pageSize: number = DEFAULT_CHAT_MESSAGE_PAGE_SIZE, enabled = true) {
+export function useChatMessages(
+  chatId: string | null,
+  pageSize: number = DEFAULT_CHAT_MESSAGE_PAGE_SIZE,
+  enabled = true,
+) {
   return useInfiniteQuery({
     queryKey: chatKeys.messages(chatId ?? ""),
     queryFn: ({ pageParam, signal }) => {
@@ -403,7 +409,11 @@ export function useExportChatMemories(chatId: string | null) {
     mutationFn: async () => {
       if (!chatId) throw new Error("No chat selected.");
       const payload = await invokeTauri("chat_memories_export", { chatId });
-      downloadTextFile(JSON.stringify(payload, null, 2), "memory-recall.marinara.json", "application/json;charset=utf-8");
+      downloadTextFile(
+        JSON.stringify(payload, null, 2),
+        "memory-recall.marinara.json",
+        "application/json;charset=utf-8",
+      );
     },
   });
 }
@@ -628,12 +638,7 @@ export function useUpdateChat() {
           existing?.map((chat) => (chat.id === vars.id ? updatedChat : chat)),
         );
       }
-      if (
-        "characterIds" in vars ||
-        "personaId" in vars ||
-        "promptPresetId" in vars ||
-        "connectionId" in vars
-      ) {
+      if ("characterIds" in vars || "personaId" in vars || "promptPresetId" in vars || "connectionId" in vars) {
         qc.invalidateQueries({ queryKey: lorebookKeys.active(vars.id) });
       }
     },
@@ -911,7 +916,11 @@ export function useBulkSetMessagesHiddenFromAI(chatId: string | null) {
               if (!idSet.has(msg.id)) return msg;
               return {
                 ...msg,
-                extra: { ...parseRecord(msg.extra), hiddenFromAI: hidden, hiddenFromAi: hidden } as unknown as Message["extra"],
+                extra: {
+                  ...parseRecord(msg.extra),
+                  hiddenFromAI: hidden,
+                  hiddenFromAi: hidden,
+                } as unknown as Message["extra"],
               };
             }),
           ),
@@ -964,7 +973,10 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
   const activeSwipeIndex = Math.min(Math.max(normalizedRequestedIndex, 0), Math.max(swipeCount - 1, 0));
   const swipe = swipes[activeSwipeIndex];
   const swipeContent =
-    swipe && typeof swipe === "object" && !Array.isArray(swipe) && typeof (swipe as { content?: unknown }).content === "string"
+    swipe &&
+    typeof swipe === "object" &&
+    !Array.isArray(swipe) &&
+    typeof (swipe as { content?: unknown }).content === "string"
       ? (swipe as { content: string }).content
       : null;
   const swipeExtra =
@@ -1090,7 +1102,10 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
   ]);
   if (!chat) throw new Error("Chat was not found.");
   const storedContextSize = Number((chat.metadata as { summaryContextSize?: unknown } | null)?.summaryContextSize);
-  const limit = Math.max(5, Math.min(200, Math.trunc(contextSize ?? (Number.isFinite(storedContextSize) ? storedContextSize : 50))));
+  const limit = Math.max(
+    5,
+    Math.min(200, Math.trunc(contextSize ?? (Number.isFinite(storedContextSize) ? storedContextSize : 50))),
+  );
   const hasRange = Number.isInteger(rangeStartIndex) && Number.isInteger(rangeEndIndex);
   const rangeLow = hasRange ? Math.max(1, Math.min(rangeStartIndex!, rangeEndIndex!)) : null;
   const rangeHigh = hasRange ? Math.max(rangeStartIndex!, rangeEndIndex!) : null;
@@ -1102,7 +1117,9 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
       throw new Error("Summary ranges cannot include more than 200 messages.");
     }
   }
-  const sourceMessages = hasRange ? allMessages.slice(rangeLow! - 1, rangeHigh ?? undefined) : allMessages.slice(-limit);
+  const sourceMessages = hasRange
+    ? allMessages.slice(rangeLow! - 1, rangeHigh ?? undefined)
+    : allMessages.slice(-limit);
   const selected = sourceMessages.filter((message) => !messageHiddenFromAi(message) && !!message.content?.trim());
   if (selected.length === 0) throw new Error("No non-hidden messages available for the requested summary.");
 
@@ -1314,7 +1331,10 @@ export function useSetActiveSwipe(chatId: string | null) {
     },
     onError: (_err, { messageId, index }, context) => {
       if (chatId && context?.previous) {
-        const current = findCachedMessage(qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId)), messageId);
+        const current = findCachedMessage(
+          qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId)),
+          messageId,
+        );
         if (current && current.activeSwipeIndex !== index) return;
         qc.setQueryData(chatKeys.messages(chatId), context.previous);
       }

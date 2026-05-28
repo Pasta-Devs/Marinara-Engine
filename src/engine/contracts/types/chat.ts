@@ -413,15 +413,6 @@ export interface MessageExtra {
   contextInjections?: Array<{ agentType: string; agentName?: string; text: string }> | null;
   /** Fingerprint of the chat summary text used in the generation prompt. */
   chatSummaryFingerprint?: string | null;
-  /** Exact initial prompt messages sent for this generation, used by Peek Prompt. */
-  cachedPrompt?: Array<{
-    role: "system" | "user" | "assistant" | "tool";
-    content: string;
-    name?: string;
-    images?: string[];
-    tool_call_id?: string;
-    tool_calls?: unknown;
-  }> | null;
   /**
    * Hidden command-generation options needed to make swipes/regenerations replay
    * the same slash-command or guided-regenerate prompt behavior.
@@ -436,16 +427,40 @@ export interface MessageExtra {
     impersonateBlockAgents?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
+  /** Exact main-generation LLM request saved for Peek Prompt on the active response. */
+  generationPromptSnapshot?: GenerationPromptSnapshot | null;
+  /** Exact main-generation LLM requests keyed by swipe index for regenerated alternatives. */
+  generationPromptSnapshotsBySwipe?: Record<string, GenerationPromptSnapshot>;
 }
 
 /** Metadata about how a message was generated. */
 export interface GenerationInfo {
-  connectionId?: string | null;
+  model: string;
+  provider: string;
+  temperature: number | null;
+  tokensPrompt: number | null;
+  tokensCompletion: number | null;
+  tokensCachedPrompt?: number | null;
+  tokensCacheWritePrompt?: number | null;
+  durationMs: number | null;
+  finishReason: string | null;
+}
+
+export interface GenerationPromptSnapshotMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  name?: string;
+  images?: string[];
+  tool_call_id?: string;
+  tool_calls?: unknown;
+  [key: string]: unknown;
+}
+
+export interface GenerationPromptSnapshotInfo {
   model?: string;
   provider?: string;
   temperature?: number | null;
   maxTokens?: number | null;
-  maxContext?: number | null;
   topP?: number | null;
   topK?: number | null;
   frequencyPenalty?: number | null;
@@ -455,16 +470,20 @@ export interface GenerationInfo {
   verbosity?: string | null;
   serviceTier?: string | null;
   assistantPrefill?: string | null;
-  customParameters?: Record<string, unknown> | null;
-  agentResults?: number;
-  notes?: number;
-  usage?: unknown;
   tokensPrompt?: number | null;
   tokensCompletion?: number | null;
   tokensCachedPrompt?: number | null;
   tokensCacheWritePrompt?: number | null;
-  durationMs: number | null;
-  finishReason: string | null;
+  durationMs?: number | null;
+  finishReason?: string | null;
+}
+
+export interface GenerationPromptSnapshot {
+  messages: GenerationPromptSnapshotMessage[];
+  parameters: Record<string, unknown>;
+  tools?: unknown[] | null;
+  generationInfo?: GenerationPromptSnapshotInfo | null;
+  createdAt?: string;
 }
 
 export type MessageSwipeExtra = Partial<MessageExtra> & Record<string, unknown>;

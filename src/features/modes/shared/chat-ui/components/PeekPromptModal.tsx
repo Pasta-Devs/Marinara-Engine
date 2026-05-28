@@ -380,6 +380,10 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
   const displayMessages = data.previewMessages?.length ? data.previewMessages : data.messages;
   const sections = useMemo(() => buildDisplaySections(displayMessages), [displayMessages]);
   const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
+  const rawRequestText = useMemo(
+    () => data.messages.map((message) => `${message.role.toUpperCase()}\n${message.content}`).join("\n\n"),
+    [data.messages],
+  );
   const isLoading = data.loading === true;
 
   const gen = data.generationInfo;
@@ -505,6 +509,14 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[0.6875rem] text-amber-300/80">
               ⚠ {data.agentNote}
             </div>
+          )}
+          {!isLoading && !data.error && rawRequestText && (
+            <CollapsibleBlock
+              label="raw_request"
+              content={rawRequestText}
+              defaultOpen
+              roleColor="bg-slate-500/20 text-slate-300"
+            />
           )}
           {!isLoading &&
             !data.error &&

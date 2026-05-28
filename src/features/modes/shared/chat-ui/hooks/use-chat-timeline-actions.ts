@@ -20,7 +20,9 @@ import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import type { MessageSelectionToggle, MessageWithSwipes, PeekPromptData, PeekPromptOptions } from "../types";
 
-const TRACKER_AGENT_IDS = new Set(BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id));
+const TRACKER_AGENT_IDS = new Set(
+  BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
+);
 
 type RegenerateOptions = {
   skipTouchConfirm?: boolean;
@@ -38,6 +40,47 @@ function readMessageExtra(message: MessageWithSwipes): Record<string, any> {
   return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
     ? (message.extra as Record<string, any>)
     : {};
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function promptSnapshotToPeekPromptData(value: unknown): PeekPromptData | null {
+  const snapshot = readRecord(value);
+  const rawMessages = Array.isArray(snapshot.messages) ? snapshot.messages : [];
+  const messages = rawMessages
+    .map((message) => {
+      const record = readRecord(message);
+      const role = readString(record.role).trim();
+      const content = readString(record.content);
+      return role && content ? { role, content } : null;
+    })
+    .filter((message): message is { role: string; content: string } => !!message);
+  if (messages.length === 0) return null;
+  return {
+    messages,
+    parameters: snapshot.parameters ?? null,
+    generationInfo: readRecord(snapshot.generationInfo) as PeekPromptData["generationInfo"],
+  };
+}
+
+function promptSnapshotForMessage(message: MessageWithSwipes | undefined): PeekPromptData | null {
+  if (!message) return null;
+  const extra = readMessageExtra(message);
+  const bySwipe = readRecord(extra.generationPromptSnapshotsBySwipe);
+  const activeSwipeIndex =
+    typeof message.activeSwipeIndex === "number" && Number.isFinite(message.activeSwipeIndex)
+      ? Math.max(0, Math.trunc(message.activeSwipeIndex))
+      : 0;
+  return (
+    promptSnapshotToPeekPromptData(bySwipe[String(activeSwipeIndex)]) ??
+    promptSnapshotToPeekPromptData(extra.generationPromptSnapshot)
+  );
 }
 
 function useLatestRef<T>(value: T) {
@@ -492,11 +535,31 @@ export function useChatTimelineActions({
           if (pendingSwipeMutationsRef.current.get(messageId) === pendingSwipeMutation) break;
         }
         if (peekPromptActionSeq.current !== actionId) return;
+        const savedSnapshot =
+          promptSnapshotToPeekPromptData(options?.promptSnapshot) ??
+          promptSnapshotForMessage(messages?.find((message) => message.id === messageId));
+        if (savedSnapshot) {
+          setPeekPromptData(savedSnapshot);
+          return;
+        }
         peekPromptRef.current.mutate(
-          { chatId: activeChatId, forCharacterId: options?.forCharacterId ?? null, messageId },
+          {
+            chatId: activeChatId,
+            forCharacterId: options?.forCharacterId ?? null,
+            beforeMessageId: messageId,
+          },
           {
             onSuccess: (data) => {
-              if (peekPromptActionSeq.current === actionId) setPeekPromptData(data);
+              if (peekPromptActionSeq.current === actionId) {
+                const peekData = data as PeekPromptData;
+                setPeekPromptData({
+                  ...peekData,
+                  agentNote:
+                    messageId != null
+                      ? "No saved prompt snapshot was available for this response, so this was rebuilt from current chat data before the selected message."
+                      : peekData.agentNote,
+                });
+              }
             },
             onError: (error) => {
               if (peekPromptActionSeq.current !== actionId) return;
@@ -511,7 +574,7 @@ export function useChatTimelineActions({
         );
       })();
     },
-    [activeChatId, peekPromptRef],
+    [activeChatId, messages, peekPromptRef],
   );
 
   const closePeekPrompt = useCallback(() => {

@@ -832,9 +832,7 @@ async fn stream_openai_compatible(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(index) = buffer.find("\n\n") {
-            let block = buffer[..index].to_string();
-            buffer = buffer[index + 2..].to_string();
+        while let Some(block) = take_sse_block(&mut buffer) {
             process_openai_sse_block(&block, emit, &mut tool_calls)?;
         }
     }
@@ -845,6 +843,25 @@ async fn stream_openai_compatible(
         emit(json!({ "type": "tool_call", "data": tool_call }))?;
     }
     Ok(())
+}
+
+fn take_sse_block(buffer: &mut String) -> Option<String> {
+    let lf_boundary = buffer.find("\n\n").map(|index| (index, 2));
+    let crlf_boundary = buffer.find("\r\n\r\n").map(|index| (index, 4));
+    let (index, delimiter_len) = match (lf_boundary, crlf_boundary) {
+        (Some(left), Some(right)) => {
+            if left.0 <= right.0 {
+                left
+            } else {
+                right
+            }
+        }
+        (Some(boundary), None) | (None, Some(boundary)) => boundary,
+        (None, None) => return None,
+    };
+    let block = buffer[..index].to_string();
+    buffer.drain(..index + delimiter_len);
+    Some(block)
 }
 
 fn responses_input(messages: &[LlmMessage]) -> Value {
@@ -1026,9 +1043,7 @@ async fn stream_openai_responses(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(index) = buffer.find("\n\n") {
-            let block = buffer[..index].to_string();
-            buffer = buffer[index + 2..].to_string();
+        while let Some(block) = take_sse_block(&mut buffer) {
             process_openai_responses_sse_block(&block, emit)?;
         }
     }
@@ -2109,9 +2124,7 @@ async fn stream_google(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(index) = buffer.find("\n\n") {
-            let block = buffer[..index].to_string();
-            buffer = buffer[index + 2..].to_string();
+        while let Some(block) = take_sse_block(&mut buffer) {
             process_google_sse_block(&block, emit)?;
         }
     }
@@ -2504,6 +2517,17 @@ mod tests {
     }
 
     #[test]
+    fn google_linkapi_stream_endpoint_uses_api_host_and_sse() {
+        let mut request = request_for("google", "gemini-3.5-flash", json!({}));
+        request.connection.base_url = "https://home.linkapi.ai".to_string();
+
+        assert_eq!(
+            google_endpoint(&request, "streamGenerateContent", true),
+            "https://api.linkapi.ai/v1beta/models/gemini-3.5-flash:streamGenerateContent?key=&alt=sse"
+        );
+    }
+
+    #[test]
     fn provider_http_error_preserves_text_error_body() {
         let details = provider_error_details_from_text("error code: 1033");
         let error = provider_http_error(
@@ -2593,6 +2617,22 @@ mod tests {
             emitted[2],
             json!({ "type": "token", "text": "hello", "data": "hello" })
         );
+    }
+
+    #[test]
+    fn sse_block_splitter_handles_lf_and_crlf_boundaries() {
+        let mut buffer = "data: {\"a\":1}\r\n\r\ndata: {\"b\":2}\n\npartial".to_string();
+
+        assert_eq!(
+            take_sse_block(&mut buffer),
+            Some("data: {\"a\":1}".to_string())
+        );
+        assert_eq!(
+            take_sse_block(&mut buffer),
+            Some("data: {\"b\":2}".to_string())
+        );
+        assert_eq!(take_sse_block(&mut buffer), None);
+        assert_eq!(buffer, "partial");
     }
 
     #[test]
