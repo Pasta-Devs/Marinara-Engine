@@ -32650,7 +32650,7 @@
       "label": "previousChat",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L119",
+      "source_location": "L162",
       "id": "api_game_api_test_previouschat",
       "community": 29,
       "norm_label": "previouschat"
@@ -32686,7 +32686,7 @@
       "label": "StartGameResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L38",
+      "source_location": "L39",
       "id": "api_game_api_startgameresponse",
       "community": 3,
       "norm_label": "startgameresponse"
@@ -32695,7 +32695,7 @@
       "label": "StartSessionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L43",
+      "source_location": "L44",
       "id": "api_game_api_startsessionresponse",
       "community": 9,
       "norm_label": "startsessionresponse"
@@ -32704,7 +32704,7 @@
       "label": "SessionSummaryResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L49",
+      "source_location": "L50",
       "id": "api_game_api_sessionsummaryresponse",
       "community": 128,
       "norm_label": "sessionsummaryresponse"
@@ -32713,7 +32713,7 @@
       "label": "RegenerateSessionLorebookResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L53",
+      "source_location": "L54",
       "id": "api_game_api_regeneratesessionlorebookresponse",
       "community": 3,
       "norm_label": "regeneratesessionlorebookresponse"
@@ -32722,7 +32722,7 @@
       "label": "UpdateCampaignProgressionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L59",
+      "source_location": "L60",
       "id": "api_game_api_updatecampaignprogressionresponse",
       "community": 9,
       "norm_label": "updatecampaignprogressionresponse"
@@ -32731,7 +32731,7 @@
       "label": "PartyCardResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L69",
+      "source_location": "L70",
       "id": "api_game_api_partycardresponse",
       "community": 9,
       "norm_label": "partycardresponse"
@@ -32740,7 +32740,7 @@
       "label": "MapResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L78",
+      "source_location": "L79",
       "id": "api_game_api_mapresponse",
       "community": 78,
       "norm_label": "mapresponse"
@@ -32749,7 +32749,7 @@
       "label": "GameJournalResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L84",
+      "source_location": "L85",
       "id": "api_game_api_gamejournalresponse",
       "community": 3,
       "norm_label": "gamejournalresponse"
@@ -32758,7 +32758,7 @@
       "label": "GameImagePromptReviewItem",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L90",
+      "source_location": "L91",
       "id": "api_game_api_gameimagepromptreviewitem",
       "community": 3,
       "norm_label": "gameimagepromptreviewitem"
@@ -32767,7 +32767,7 @@
       "label": "GameAssetGenerationResult",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L99",
+      "source_location": "L100",
       "id": "api_game_api_gameassetgenerationresult",
       "community": 3,
       "norm_label": "gameassetgenerationresult"
@@ -32776,7 +32776,7 @@
       "label": "ImagePromptSettings",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L106",
+      "source_location": "L107",
       "id": "api_game_api_imagepromptsettings",
       "community": 3,
       "norm_label": "imagepromptsettings"
@@ -32785,7 +32785,7 @@
       "label": "GameAssetGenerationPayload",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L111",
+      "source_location": "L112",
       "id": "api_game_api_gameassetgenerationpayload",
       "community": 3,
       "norm_label": "gameassetgenerationpayload"
@@ -32794,7 +32794,7 @@
       "label": "ChatMessage",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L125",
+      "source_location": "L126",
       "id": "api_game_api_chatmessage",
       "community": 3,
       "norm_label": "chatmessage"
@@ -32803,7 +32803,7 @@
       "label": "PromptOverride",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L132",
+      "source_location": "L133",
       "id": "api_game_api_promptoverride",
       "community": 3,
       "norm_label": "promptoverride"
@@ -32812,7 +32812,7 @@
       "label": "GameJsonRepairKind",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L137",
+      "source_location": "L138",
       "id": "api_game_api_gamejsonrepairkind",
       "community": 3,
       "norm_label": "gamejsonrepairkind"
@@ -32821,7 +32821,7 @@
       "label": "GameJsonRepairContext",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L139",
+      "source_location": "L140",
       "id": "api_game_api_gamejsonrepaircontext",
       "community": 3,
       "norm_label": "gamejsonrepaircontext"
@@ -32830,7 +32830,7 @@
       "label": "EMPTY_JOURNAL",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L145",
+      "source_location": "L146",
       "id": "api_game_api_empty_journal",
       "community": 3,
       "norm_label": "empty_journal"
@@ -32839,7 +32839,7 @@
       "label": "newId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L147",
+      "source_location": "L148",
       "id": "api_game_api_newid",
       "community": 3,
       "norm_label": "newid()"
@@ -32848,7 +32848,7 @@
       "label": "nowIso()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L155",
+      "source_location": "L156",
       "id": "api_game_api_nowiso",
       "community": 3,
       "norm_label": "nowiso()"
@@ -32857,7 +32857,7 @@
       "label": "asRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L159",
+      "source_location": "L160",
       "id": "api_game_api_asrecord",
       "community": 3,
       "norm_label": "asrecord()"
@@ -32866,7 +32866,7 @@
       "label": "chatMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L171",
+      "source_location": "L172",
       "id": "api_game_api_chatmeta",
       "community": 3,
       "norm_label": "chatmeta()"
@@ -32875,7 +32875,7 @@
       "label": "discordWebhookUrl()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L175",
+      "source_location": "L176",
       "id": "api_game_api_discordwebhookurl",
       "community": 3,
       "norm_label": "discordwebhookurl()"
@@ -32884,7 +32884,7 @@
       "label": "mirrorGameMessageToDiscord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L179",
+      "source_location": "L180",
       "id": "api_game_api_mirrorgamemessagetodiscord",
       "community": 3,
       "norm_label": "mirrorgamemessagetodiscord()"
@@ -32893,7 +32893,7 @@
       "label": "getChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L192",
+      "source_location": "L193",
       "id": "api_game_api_getchat",
       "community": 3,
       "norm_label": "getchat()"
@@ -32902,7 +32902,7 @@
       "label": "patchChatMetadata()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L198",
+      "source_location": "L199",
       "id": "api_game_api_patchchatmetadata",
       "community": 3,
       "norm_label": "patchchatmetadata()"
@@ -32911,7 +32911,7 @@
       "label": "patchChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L203",
+      "source_location": "L204",
       "id": "api_game_api_patchchat",
       "community": 3,
       "norm_label": "patchchat()"
@@ -32920,7 +32920,7 @@
       "label": "listMessages()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L207",
+      "source_location": "L208",
       "id": "api_game_api_listmessages",
       "community": 3,
       "norm_label": "listmessages()"
@@ -32929,7 +32929,7 @@
       "label": "createChatRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L211",
+      "source_location": "L212",
       "id": "api_game_api_createchatrecord",
       "community": 3,
       "norm_label": "createchatrecord()"
@@ -32938,7 +32938,7 @@
       "label": "createChatMessage()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L215",
+      "source_location": "L216",
       "id": "api_game_api_createchatmessage",
       "community": 3,
       "norm_label": "createchatmessage()"
@@ -32947,7 +32947,7 @@
       "label": "parseJsonObject()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L219",
+      "source_location": "L220",
       "id": "api_game_api_parsejsonobject",
       "community": 3,
       "norm_label": "parsejsonobject()"
@@ -32956,7 +32956,7 @@
       "label": "fallbackGameBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L240",
+      "source_location": "L241",
       "id": "api_game_api_fallbackgameblueprint",
       "community": 3,
       "norm_label": "fallbackgameblueprint()"
@@ -32965,7 +32965,7 @@
       "label": "defaultGameMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L260",
+      "source_location": "L261",
       "id": "api_game_api_defaultgamemap",
       "community": 3,
       "norm_label": "defaultgamemap()"
@@ -32974,7 +32974,7 @@
       "label": "setupMapFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L283",
+      "source_location": "L284",
       "id": "api_game_api_setupmapfromresponse",
       "community": 3,
       "norm_label": "setupmapfromresponse()"
@@ -32983,7 +32983,7 @@
       "label": "setupNpcsFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L328",
+      "source_location": "L329",
       "id": "api_game_api_setupnpcsfromresponse",
       "community": 3,
       "norm_label": "setupnpcsfromresponse()"
@@ -32992,7 +32992,7 @@
       "label": "setupCharacterCards()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L347",
+      "source_location": "L348",
       "id": "api_game_api_setupcharactercards",
       "community": 3,
       "norm_label": "setupcharactercards()"
@@ -33001,7 +33001,7 @@
       "label": "setupBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L351",
+      "source_location": "L352",
       "id": "api_game_api_setupblueprint",
       "community": 3,
       "norm_label": "setupblueprint()"
@@ -33010,7 +33010,7 @@
       "label": "gameTimeFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L366",
+      "source_location": "L367",
       "id": "api_game_api_gametimefrommeta",
       "community": 3,
       "norm_label": "gametimefrommeta()"
@@ -33019,7 +33019,7 @@
       "label": "moraleFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L378",
+      "source_location": "L379",
       "id": "api_game_api_moralefrommeta",
       "community": 3,
       "norm_label": "moralefrommeta()"
@@ -33028,7 +33028,7 @@
       "label": "syncMoraleWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L384",
+      "source_location": "L385",
       "id": "api_game_api_syncmoralewidgets",
       "community": 3,
       "norm_label": "syncmoralewidgets()"
@@ -33037,7 +33037,7 @@
       "label": "moraleMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L402",
+      "source_location": "L403",
       "id": "api_game_api_moralemetadatapatch",
       "community": 3,
       "norm_label": "moralemetadatapatch()"
@@ -33046,7 +33046,7 @@
       "label": "journalFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L420",
+      "source_location": "L421",
       "id": "api_game_api_journalfrommeta",
       "community": 3,
       "norm_label": "journalfrommeta()"
@@ -33055,7 +33055,7 @@
       "label": "isGameSetupConfig()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L431",
+      "source_location": "L432",
       "id": "api_game_api_isgamesetupconfig",
       "community": 3,
       "norm_label": "isgamesetupconfig()"
@@ -33064,7 +33064,7 @@
       "label": "gameSetupChatPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L436",
+      "source_location": "L437",
       "id": "api_game_api_gamesetupchatpatch",
       "community": 3,
       "norm_label": "gamesetupchatpatch()"
@@ -33073,7 +33073,7 @@
       "label": "gameSetupMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L445",
+      "source_location": "L446",
       "id": "api_game_api_gamesetupmetadatapatch",
       "community": 3,
       "norm_label": "gamesetupmetadatapatch()"
@@ -33082,7 +33082,7 @@
       "label": "sessionSummary()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L465",
+      "source_location": "L466",
       "id": "api_game_api_sessionsummary",
       "community": 3,
       "norm_label": "sessionsummary()"
@@ -33091,7 +33091,7 @@
       "label": "normalizeSessionSummaryPayload()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L476",
+      "source_location": "L477",
       "id": "api_game_api_normalizesessionsummarypayload",
       "community": 3,
       "norm_label": "normalizesessionsummarypayload()"
@@ -33100,7 +33100,7 @@
       "label": "gameSessionSortValue()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L511",
+      "source_location": "L512",
       "id": "api_game_api_gamesessionsortvalue",
       "community": 3,
       "norm_label": "gamesessionsortvalue()"
@@ -33109,7 +33109,7 @@
       "label": "gameCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L517",
+      "source_location": "L518",
       "id": "api_game_api_gamecarryoverpatch",
       "community": 3,
       "norm_label": "gamecarryoverpatch()"
@@ -33118,7 +33118,7 @@
       "label": "gameStateCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L550",
+      "source_location": "L551",
       "id": "api_game_api_gamestatecarryoverpatch",
       "community": 3,
       "norm_label": "gamestatecarryoverpatch()"
@@ -33127,7 +33127,7 @@
       "label": "normalizeJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L564",
+      "source_location": "L565",
       "id": "api_game_api_normalizejournalentry",
       "community": 3,
       "norm_label": "normalizejournalentry()"
@@ -33136,7 +33136,7 @@
       "label": "applyJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L588",
+      "source_location": "L589",
       "id": "api_game_api_applyjournalentry",
       "community": 3,
       "norm_label": "applyjournalentry()"
@@ -33145,7 +33145,7 @@
       "label": "buildGameCard()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L621",
+      "source_location": "L622",
       "id": "api_game_api_buildgamecard",
       "community": 3,
       "norm_label": "buildgamecard()"
@@ -33154,7 +33154,7 @@
       "label": "playerAttributes()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L644",
+      "source_location": "L645",
       "id": "api_game_api_playerattributes",
       "community": 3,
       "norm_label": "playerattributes()"
@@ -33163,7 +33163,7 @@
       "label": "generatedAssetSlug()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L651",
+      "source_location": "L652",
       "id": "api_game_api_generatedassetslug",
       "community": 3,
       "norm_label": "generatedassetslug()"
@@ -33172,7 +33172,7 @@
       "label": "imageReviewId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L661",
+      "source_location": "L662",
       "id": "api_game_api_imagereviewid",
       "community": 3,
       "norm_label": "imagereviewid()"
@@ -33181,7 +33181,7 @@
       "label": "imageSize()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L671",
+      "source_location": "L672",
       "id": "api_game_api_imagesize",
       "community": 3,
       "norm_label": "imagesize()"
@@ -33190,7 +33190,7 @@
       "label": "joinedImageTags()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L685",
+      "source_location": "L686",
       "id": "api_game_api_joinedimagetags",
       "community": 3,
       "norm_label": "joinedimagetags()"
@@ -33199,7 +33199,7 @@
       "label": "sceneAssetPrompt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L699",
+      "source_location": "L700",
       "id": "api_game_api_sceneassetprompt",
       "community": 3,
       "norm_label": "sceneassetprompt()"
@@ -33208,7 +33208,7 @@
       "label": "assetTagFromPath()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L754",
+      "source_location": "L755",
       "id": "api_game_api_assettagfrompath",
       "community": 3,
       "norm_label": "assettagfrompath()"
@@ -33217,7 +33217,7 @@
       "label": "imageExt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L758",
+      "source_location": "L759",
       "id": "api_game_api_imageext",
       "community": 3,
       "norm_label": "imageext()"
@@ -33226,7 +33226,7 @@
       "label": "base64File()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L764",
+      "source_location": "L765",
       "id": "api_game_api_base64file",
       "community": 3,
       "norm_label": "base64file()"
@@ -33235,7 +33235,7 @@
       "label": "uploadGeneratedAsset()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L771",
+      "source_location": "L772",
       "id": "api_game_api_uploadgeneratedasset",
       "community": 3,
       "norm_label": "uploadgeneratedasset()"
@@ -33244,7 +33244,7 @@
       "label": "spotifyQuery()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L788",
+      "source_location": "L789",
       "id": "api_game_api_spotifyquery",
       "community": 3,
       "norm_label": "spotifyquery()"
@@ -33253,7 +33253,7 @@
       "label": "recentSpotifyTracks()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L794",
+      "source_location": "L795",
       "id": "api_game_api_recentspotifytracks",
       "community": 3,
       "norm_label": "recentspotifytracks()"
@@ -33262,7 +33262,7 @@
       "label": "llmJson()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L801",
+      "source_location": "L802",
       "id": "api_game_api_llmjson",
       "community": 3,
       "norm_label": "llmjson()"
@@ -33271,7 +33271,7 @@
       "label": "sessionTranscript()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L834",
+      "source_location": "L835",
       "id": "api_game_api_sessiontranscript",
       "community": 3,
       "norm_label": "sessiontranscript()"
@@ -33280,7 +33280,7 @@
       "label": "gameApi",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L842",
+      "source_location": "L843",
       "id": "api_game_api_gameapi",
       "community": 29,
       "norm_label": "gameapi"
@@ -33289,7 +33289,7 @@
       "label": "applyGameJsonRepair()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L1786",
+      "source_location": "L1787",
       "id": "api_game_api_applygamejsonrepair",
       "community": 3,
       "norm_label": "applygamejsonrepair()"
@@ -33298,7 +33298,7 @@
       "label": "getEmptyJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L1833",
+      "source_location": "L1834",
       "id": "api_game_api_getemptyjournal",
       "community": 3,
       "norm_label": "getemptyjournal()"
@@ -38158,7 +38158,7 @@
       "label": "useGameSetup()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L86",
+      "source_location": "L90",
       "id": "hooks_use_game_usegamesetup",
       "community": 2,
       "norm_label": "usegamesetup()"
@@ -38167,7 +38167,7 @@
       "label": "useStartGame()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L112",
+      "source_location": "L120",
       "id": "hooks_use_game_usestartgame",
       "community": 2,
       "norm_label": "usestartgame()"
@@ -38176,7 +38176,7 @@
       "label": "useStartSession()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L138",
+      "source_location": "L146",
       "id": "hooks_use_game_usestartsession",
       "community": 2,
       "norm_label": "usestartsession()"
@@ -38185,7 +38185,7 @@
       "label": "useConcludeSession()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L173",
+      "source_location": "L181",
       "id": "hooks_use_game_useconcludesession",
       "community": 2,
       "norm_label": "useconcludesession()"
@@ -38194,7 +38194,7 @@
       "label": "useRegenerateSessionConclusion()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L209",
+      "source_location": "L217",
       "id": "hooks_use_game_useregeneratesessionconclusion",
       "community": 2,
       "norm_label": "useregeneratesessionconclusion()"
@@ -38203,7 +38203,7 @@
       "label": "useRegenerateSessionLorebook()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L243",
+      "source_location": "L251",
       "id": "hooks_use_game_useregeneratesessionlorebook",
       "community": 2,
       "norm_label": "useregeneratesessionlorebook()"
@@ -38212,7 +38212,7 @@
       "label": "useUpdateCampaignProgression()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L281",
+      "source_location": "L289",
       "id": "hooks_use_game_useupdatecampaignprogression",
       "community": 2,
       "norm_label": "useupdatecampaignprogression()"
@@ -38221,7 +38221,7 @@
       "label": "useRecruitPartyMember()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L317",
+      "source_location": "L325",
       "id": "hooks_use_game_userecruitpartymember",
       "community": 2,
       "norm_label": "userecruitpartymember()"
@@ -38230,7 +38230,7 @@
       "label": "useRegeneratePartyCard()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L340",
+      "source_location": "L348",
       "id": "hooks_use_game_useregeneratepartycard",
       "community": 2,
       "norm_label": "useregeneratepartycard()"
@@ -38239,7 +38239,7 @@
       "label": "useRemovePartyMember()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L359",
+      "source_location": "L367",
       "id": "hooks_use_game_useremovepartymember",
       "community": 2,
       "norm_label": "useremovepartymember()"
@@ -38248,7 +38248,7 @@
       "label": "useRollDice()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L380",
+      "source_location": "L388",
       "id": "hooks_use_game_userolldice",
       "community": 2,
       "norm_label": "userolldice()"
@@ -38257,7 +38257,7 @@
       "label": "useSkillCheck()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L392",
+      "source_location": "L400",
       "id": "hooks_use_game_useskillcheck",
       "community": 2,
       "norm_label": "useskillcheck()"
@@ -38266,7 +38266,7 @@
       "label": "useTransitionGameState()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L415",
+      "source_location": "L423",
       "id": "hooks_use_game_usetransitiongamestate",
       "community": 2,
       "norm_label": "usetransitiongamestate()"
@@ -38275,7 +38275,7 @@
       "label": "useGenerateMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L429",
+      "source_location": "L437",
       "id": "hooks_use_game_usegeneratemap",
       "community": 2,
       "norm_label": "usegeneratemap()"
@@ -38284,7 +38284,7 @@
       "label": "useMoveOnMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L447",
+      "source_location": "L455",
       "id": "hooks_use_game_usemoveonmap",
       "community": 2,
       "norm_label": "usemoveonmap()"
@@ -38293,7 +38293,7 @@
       "label": "useUpdateGameWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L466",
+      "source_location": "L474",
       "id": "hooks_use_game_useupdategamewidgets",
       "community": 76,
       "norm_label": "useupdategamewidgets()"
@@ -38302,7 +38302,7 @@
       "label": "useGameSessions()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L492",
+      "source_location": "L500",
       "id": "hooks_use_game_usegamesessions",
       "community": 2,
       "norm_label": "usegamesessions()"
@@ -38311,7 +38311,7 @@
       "label": "isNumericHudWidgetType()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L503",
+      "source_location": "L511",
       "id": "hooks_use_game_isnumerichudwidgettype",
       "community": 2,
       "norm_label": "isnumerichudwidgettype()"
@@ -38320,7 +38320,7 @@
       "label": "finiteNumber()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L507",
+      "source_location": "L515",
       "id": "hooks_use_game_finitenumber",
       "community": 2,
       "norm_label": "finitenumber()"
@@ -38329,7 +38329,7 @@
       "label": "normalizeHudWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L512",
+      "source_location": "L520",
       "id": "hooks_use_game_normalizehudwidgets",
       "community": 2,
       "norm_label": "normalizehudwidgets()"
@@ -38338,7 +38338,7 @@
       "label": "useSyncGameState()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L550",
+      "source_location": "L558",
       "id": "hooks_use_game_usesyncgamestate",
       "community": 2,
       "norm_label": "usesyncgamestate()"
@@ -38347,7 +38347,7 @@
       "label": "useCombatRound()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L630",
+      "source_location": "L638",
       "id": "hooks_use_game_usecombatround",
       "community": 45,
       "norm_label": "usecombatround()"
@@ -38356,7 +38356,7 @@
       "label": "useCombatLoot()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L642",
+      "source_location": "L650",
       "id": "hooks_use_game_usecombatloot",
       "community": 2,
       "norm_label": "usecombatloot()"
@@ -38365,7 +38365,7 @@
       "label": "useLootGenerate()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L656",
+      "source_location": "L664",
       "id": "hooks_use_game_uselootgenerate",
       "community": 2,
       "norm_label": "uselootgenerate()"
@@ -38374,7 +38374,7 @@
       "label": "useAdvanceTime()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L663",
+      "source_location": "L671",
       "id": "hooks_use_game_useadvancetime",
       "community": 2,
       "norm_label": "useadvancetime()"
@@ -38383,7 +38383,7 @@
       "label": "useUpdateWeather()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L684",
+      "source_location": "L692",
       "id": "hooks_use_game_useupdateweather",
       "community": 2,
       "norm_label": "useupdateweather()"
@@ -38392,7 +38392,7 @@
       "label": "useRollEncounter()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L706",
+      "source_location": "L714",
       "id": "hooks_use_game_userollencounter",
       "community": 2,
       "norm_label": "userollencounter()"
@@ -38401,7 +38401,7 @@
       "label": "useUpdateReputation()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L713",
+      "source_location": "L721",
       "id": "hooks_use_game_useupdatereputation",
       "community": 2,
       "norm_label": "useupdatereputation()"
@@ -38410,7 +38410,7 @@
       "label": "useJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L727",
+      "source_location": "L735",
       "id": "hooks_use_game_usejournalentry",
       "community": 2,
       "norm_label": "usejournalentry()"
@@ -38419,7 +38419,7 @@
       "label": "useGameJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L738",
+      "source_location": "L746",
       "id": "hooks_use_game_usegamejournal",
       "community": 2,
       "norm_label": "usegamejournal()"
@@ -38428,7 +38428,7 @@
       "label": "useGameCheckpoints()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L749",
+      "source_location": "L757",
       "id": "hooks_use_game_usegamecheckpoints",
       "community": 29,
       "norm_label": "usegamecheckpoints()"
@@ -38437,7 +38437,7 @@
       "label": "useCreateCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L758",
+      "source_location": "L766",
       "id": "hooks_use_game_usecreatecheckpoint",
       "community": 29,
       "norm_label": "usecreatecheckpoint()"
@@ -38446,7 +38446,7 @@
       "label": "useLoadCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L765",
+      "source_location": "L773",
       "id": "hooks_use_game_useloadcheckpoint",
       "community": 29,
       "norm_label": "useloadcheckpoint()"
@@ -38455,7 +38455,7 @@
       "label": "useDeleteCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L772",
+      "source_location": "L780",
       "id": "hooks_use_game_usedeletecheckpoint",
       "community": 29,
       "norm_label": "usedeletecheckpoint()"
@@ -93134,6 +93134,15 @@
       "id": "ui_model_tracker_temperature_units",
       "community": 35,
       "norm_label": "tracker_temperature_units"
+    },
+    {
+      "label": "chat",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L115",
+      "id": "api_game_api_test_chat",
+      "community": 29,
+      "norm_label": "chat"
     }
   ],
   "links": [
@@ -166607,17 +166616,6 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/characters/hooks/use-characters.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "src_features_catalog_characters_hooks_use_characters_ts",
-      "target": "characters_query_keys_characterkeys",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
       "source_file": "src/features/catalog/lorebooks/hooks/use-lorebooks.ts",
       "source_location": "L11",
       "weight": 1.0,
@@ -166777,17 +166775,6 @@
       "weight": 1.0,
       "source": "src_features_shell_settings_hooks_use_tracker_card_color_manager_ts",
       "target": "characters_query_keys_characterkeys",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/characters/hooks/use-characters.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "src_features_catalog_characters_hooks_use_characters_ts",
-      "target": "characters_query_keys_spritekeys",
       "confidence_score": 1.0
     },
     {
@@ -172945,17 +172932,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/chat-presets/hooks/use-chat-presets.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "src_features_catalog_chat_presets_hooks_use_chat_presets_ts",
-      "target": "chat_presets_query_keys_chatpresetkeys",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -174011,17 +173987,6 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L12",
-      "weight": 1.0,
-      "source": "src_features_catalog_chats_hooks_use_chats_ts",
-      "target": "chats_query_keys_chatkeys",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
       "source_file": "src/features/catalog/lorebooks/lib/lorebook-keeper-updates.ts",
       "source_location": "L7",
       "weight": 1.0,
@@ -174580,28 +174545,6 @@
       "weight": 1.0,
       "source": "src_features_catalog_chats_hooks_use_chats_ts",
       "target": "lib_chat_transcript_export_formatchattext",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L28",
-      "weight": 1.0,
-      "source": "src_features_catalog_chats_hooks_use_chats_ts",
-      "target": "lib_chat_transcript_export_bulkchatexportformat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L28",
-      "weight": 1.0,
-      "source": "src_features_catalog_chats_hooks_use_chats_ts",
-      "target": "lib_chat_transcript_export_chattranscriptexportformat",
       "confidence_score": 1.0
     },
     {
@@ -177807,17 +177750,6 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/connections/hooks/use-connections.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "src_features_catalog_connections_hooks_use_connections_ts",
-      "target": "connections_query_keys_connectionkeys",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
       "source_file": "src/features/catalog/connections/hooks/use-connection-folders.ts",
       "source_location": "L7",
       "weight": 1.0,
@@ -179727,17 +179659,6 @@
       "source_location": "L8",
       "weight": 1.0,
       "source": "src_features_catalog_lorebooks_components_lorebookkeeperreviewmodal_tsx",
-      "target": "lorebooks_query_keys_lorebookkeys",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/lorebooks/hooks/use-lorebooks.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "src_features_catalog_lorebooks_hooks_use_lorebooks_ts",
       "target": "lorebooks_query_keys_lorebookkeys",
       "confidence_score": 1.0
     },
@@ -183281,17 +183202,6 @@
       "weight": 1.0,
       "source": "src_features_catalog_personas_hooks_use_personas_ts",
       "target": "src_features_catalog_personas_query_keys_ts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/features/catalog/personas/hooks/use-personas.ts",
-      "source_location": "L2",
-      "weight": 1.0,
-      "source": "src_features_catalog_personas_hooks_use_personas_ts",
-      "target": "personas_query_keys_personakeys",
       "confidence_score": 1.0
     },
     {
@@ -266787,17 +266697,6 @@
       "source_location": "L7",
       "weight": 1.0,
       "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_tracker_data_panel_sections",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L7",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
       "target": "ui_model_clampimagedimension",
       "confidence_score": 1.0
     },
@@ -266909,171 +266808,6 @@
       "weight": 1.0,
       "source": "src_shared_stores_ui_store_ts",
       "target": "ui_model_opendetailroutestate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_applanguage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_echochamberside",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_fontsize",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_gamedialoguedisplaymode",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_hudposition",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_imagepromptformat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_panel",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_roleplayavatarstyle",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_trackerpanelsizeprofile",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_trackerpanelside",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_trackertemperatureunit",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_trackerthoughtbubbledisplay",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_uistate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_userstatus",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/shared/stores/ui.store.ts",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "src_shared_stores_ui_store_ts",
-      "target": "ui_model_visualtheme",
       "confidence_score": 1.0
     },
     {
@@ -276027,17 +275761,6 @@
       "weight": 1.0,
       "source": "src_lib_get_consumes_remaining_rows_after_match",
       "target": "src_lib_filestorage_get",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/crates/storage/src/lib.rs",
-      "source_location": "L712",
-      "weight": 1.0,
-      "source": "src_lib_filestorage_append_collection_row",
-      "target": "src_lib_filestorage_create",
       "confidence_score": 1.0
     },
     {
@@ -293712,28 +293435,6 @@
       "weight": 1.0,
       "source": "src_state_appstate",
       "target": "src_state_appstate_cancel_llm_stream",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/state.rs",
-      "source_location": "L84",
-      "weight": 1.0,
-      "source": "src_state_appstate_default_data_roots",
-      "target": "src_state_appstate_new",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/state.rs",
-      "source_location": "L60",
-      "weight": 1.0,
-      "source": "src_state_appstate_from_data_dir_with_resource_dir",
-      "target": "src_state_appstate_new",
       "confidence_score": 1.0
     },
     {
@@ -325527,17 +325228,6 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/profile/assets.rs",
-      "source_location": "L720",
-      "weight": 1.0,
-      "source": "profile_assets_create_profile_import_temp_dir",
-      "target": "profile_assets_profileassettransaction_new",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/profile/assets.rs",
       "source_location": "L124",
       "weight": 1.0,
       "source": "profile_assets_profileassettransaction_new",
@@ -330095,8 +329785,348 @@
       "source": "game_assets_credits_game_assets_credits",
       "target": "game_assets_credits_adding_your_own_assets",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "field",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "api_game_api_setupresponse",
+      "target": "types_chat_chat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/profile/assets.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "profile_assets_profileassettransaction_new",
+      "target": "profile_assets_create_profile_import_temp_dir"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/characters/hooks/use-characters.ts",
+      "source_location": "L12",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_characters_hooks_use_characters_ts",
+      "target": "characters_query_keys_characterkeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/characters/hooks/use-characters.ts",
+      "source_location": "L12",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_characters_hooks_use_characters_ts",
+      "target": "characters_query_keys_spritekeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chat-presets/hooks/use-chat-presets.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_chat_presets_hooks_use_chat_presets_ts",
+      "target": "chat_presets_query_keys_chatpresetkeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L47",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_chats_hooks_use_chats_ts",
+      "target": "chats_query_keys_chatkeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_chats_hooks_use_chats_ts",
+      "target": "lib_chat_transcript_export_bulkchatexportformat"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_chats_hooks_use_chats_ts",
+      "target": "lib_chat_transcript_export_chattranscriptexportformat"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/connections/hooks/use-connections.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_connections_hooks_use_connections_ts",
+      "target": "connections_query_keys_connectionkeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/lorebooks/hooks/use-lorebooks.ts",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_lorebooks_hooks_use_lorebooks_ts",
+      "target": "lorebooks_query_keys_lorebookkeys"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/personas/hooks/use-personas.ts",
+      "source_location": "L6",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_features_catalog_personas_hooks_use_personas_ts",
+      "target": "personas_query_keys_personakeys"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L115",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "api_game_api_test_chat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/storage/src/lib.rs",
+      "source_location": "L132",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_lib_filestorage_create",
+      "target": "src_lib_filestorage_append_collection_row"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_applanguage"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_echochamberside"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_fontsize"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_gamedialoguedisplaymode"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_hudposition"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_imagepromptformat"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_panel"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_roleplayavatarstyle"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L61",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_tracker_data_panel_sections"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_trackerpanelside"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_trackerpanelsizeprofile"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_trackertemperatureunit"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_trackerthoughtbubbledisplay"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_uistate"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_userstatus"
+    },
+    {
+      "relation": "re_exports",
+      "context": "re-export",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/stores/ui.store.ts",
+      "source_location": "L76",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_shared_stores_ui_store_ts",
+      "target": "ui_model_visualtheme"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/state.rs",
+      "source_location": "L41",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_state_appstate_new",
+      "target": "src_state_appstate_default_data_roots"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/state.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_state_appstate_new",
+      "target": "src_state_appstate_from_data_dir_with_resource_dir"
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "d31c74be03859d325c0022c76880edcfa2954740"
+  "built_at_commit": "a0883d7f77775657f23a0b6d604ef9a477e9b1ff"
 }

@@ -33,6 +33,7 @@ export interface CreateGameResponse {
 export interface SetupResponse {
   setup: Record<string, unknown>;
   worldOverview: string | null;
+  sessionChat: Chat;
 }
 
 export interface StartGameResponse {
@@ -956,7 +957,7 @@ export const gameApi = {
         gameSetupChatPatch(setupConfig, data.connectionId ?? existingChat.connectionId ?? null),
       );
     }
-    await patchChatMetadata(data.chatId, {
+    const sessionChat = await patchChatMetadata(data.chatId, {
       ...(setupConfig ? gameSetupMetadataPatch(setupConfig) : { gameSetupPreferences: data.preferences ?? null }),
       gameSessionStatus: "ready",
       gameWorldOverview: worldOverview,
@@ -972,7 +973,7 @@ export const gameApi = {
       gameTime: createInitialTime(),
       gameJournal: createJournal(),
     });
-    return { setup, worldOverview };
+    return { setup, worldOverview, sessionChat };
   },
 
   async startGame(data: { chatId: string }): Promise<StartGameResponse> {

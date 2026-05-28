@@ -1,16 +1,16 @@
-# Graph Report - MarinaraEngine-Refactor  (2026-05-29)
+# Graph Report - Marinara-Engine-issue-1467  (2026-05-28)
 
 ## Corpus Check
-- 850 files · ~2,818,678 words
+- 850 files · ~2,819,532 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10348 nodes · 22399 edges · 467 communities (431 shown, 36 thin omitted)
+- 10349 nodes · 22401 edges · 467 communities (431 shown, 36 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 274 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d31c74be`
+- Built from commit: `a0883d7f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -589,7 +589,7 @@ Nodes (58): gameTrackerApi, GameTrackerSnapshot, GameTrackerSnapshotInput, rolep
 
 ### Community 29 - "Community 29"
 Cohesion: 0.04
-Nodes (52): gameApi, payloads, previousChat, storageApiMock, ActiveEffect, backgroundBlurStyle(), buildVisualStyle(), COLOR_GRADE_PRESETS (+44 more)
+Nodes (53): gameApi, chat, payloads, previousChat, storageApiMock, ActiveEffect, backgroundBlurStyle(), buildVisualStyle() (+45 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.08
@@ -2051,12 +2051,10 @@ Nodes (3): CardTile(), DetailView(), fmtNum()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `Community 18` to `Community 384`, `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 144`, `Community 145`, `Community 272`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 24`, `Community 153`, `Community 25`, `Community 284`, `Community 29`, `Community 30`, `Community 31`, `Community 286`, `Community 33`, `Community 34`, `Community 164`, `Community 37`, `Community 170`, `Community 43`, `Community 45`, `Community 50`, `Community 51`, `Community 179`, `Community 56`, `Community 57`, `Community 186`, `Community 59`, `Community 187`, `Community 190`, `Community 63`, `Community 192`, `Community 191`, `Community 64`, `Community 68`, `Community 197`, `Community 70`, `Community 198`, `Community 72`, `Community 73`, `Community 76`, `Community 77`, `Community 78`, `Community 206`, `Community 81`, `Community 89`, `Community 220`, `Community 222`, `Community 375`, `Community 96`, `Community 102`, `Community 106`, `Community 108`, `Community 109`, `Community 111`, `Community 112`, `Community 372`, `Community 373`, `Community 374`, `Community 119`, `Community 127`?**
-  _High betweenness centrality (0.066) - this node is a cross-community bridge._
+- **Why does `cn()` connect `Community 18` to `Community 384`, `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 144`, `Community 145`, `Community 272`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 24`, `Community 25`, `Community 153`, `Community 284`, `Community 29`, `Community 30`, `Community 286`, `Community 31`, `Community 33`, `Community 34`, `Community 164`, `Community 37`, `Community 170`, `Community 43`, `Community 45`, `Community 50`, `Community 51`, `Community 179`, `Community 56`, `Community 57`, `Community 186`, `Community 187`, `Community 59`, `Community 190`, `Community 63`, `Community 192`, `Community 191`, `Community 64`, `Community 68`, `Community 197`, `Community 70`, `Community 198`, `Community 72`, `Community 73`, `Community 76`, `Community 77`, `Community 206`, `Community 78`, `Community 81`, `Community 89`, `Community 220`, `Community 222`, `Community 375`, `Community 96`, `Community 102`, `Community 106`, `Community 108`, `Community 109`, `Community 111`, `Community 112`, `Community 372`, `Community 373`, `Community 374`, `Community 119`, `Community 127`?**
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
 - **Why does `useUIStore` connect `Community 1` to `Community 2`, `Community 4`, `Community 5`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 15`, `Community 19`, `Community 20`, `Community 21`, `Community 22`, `Community 24`, `Community 154`, `Community 29`, `Community 30`, `Community 31`, `Community 33`, `Community 34`, `Community 35`, `Community 37`, `Community 49`, `Community 51`, `Community 179`, `Community 57`, `Community 186`, `Community 187`, `Community 189`, `Community 191`, `Community 192`, `Community 64`, `Community 195`, `Community 68`, `Community 70`, `Community 72`, `Community 206`, `Community 89`, `Community 97`, `Community 229`, `Community 106`, `Community 108`, `Community 111`, `Community 112`?**
-  _High betweenness centrality (0.021) - this node is a cross-community bridge._
-- **Why does `useChatStore` connect `Community 1` to `Community 2`, `Community 4`, `Community 9`, `Community 12`, `Community 13`, `Community 143`, `Community 15`, `Community 19`, `Community 20`, `Community 22`, `Community 31`, `Community 33`, `Community 37`, `Community 57`, `Community 190`, `Community 63`, `Community 195`, `Community 206`, `Community 92`, `Community 228`, `Community 108`, `Community 111`, `Community 116`?**
-  _High betweenness centrality (0.009) - this node is a cross-community bridge._
+  _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
   _3245 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
@@ -2065,3 +2063,5 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.026915508157176412 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.020659807284011105 - nodes in this community are weakly interconnected._
+- **Should `Community 3` be split into smaller, more focused modules?**
+  _Cohesion score 0.02675059008654603 - nodes in this community are weakly interconnected._
