@@ -320,7 +320,7 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
   }
   if (
     source.reasoningEffort === null ||
-    ["low", "medium", "high", "maximum"].includes(String(source.reasoningEffort))
+    ["low", "medium", "high", "xhigh", "maximum"].includes(String(source.reasoningEffort))
   ) {
     out.reasoningEffort = source.reasoningEffort as StoredGenerationParameters["reasoningEffort"];
   }
@@ -518,7 +518,8 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     temperature: row.temperature as string | null,
     presentCharacters: Array.isArray(row.presentCharacters) ? row.presentCharacters : [],
     recentEvents: Array.isArray(row.recentEvents) ? row.recentEvents : [],
-    playerStats: row.playerStats && typeof row.playerStats === "object" ? (row.playerStats as GameState["playerStats"]) : null,
+    playerStats:
+      row.playerStats && typeof row.playerStats === "object" ? (row.playerStats as GameState["playerStats"]) : null,
     personaStats: Array.isArray(row.personaStats) ? (row.personaStats as GameState["personaStats"]) : null,
     createdAt: row.createdAt as string,
   };

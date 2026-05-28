@@ -107,9 +107,9 @@ pub async fn stream_events(
         || request.connection.provider == "google_vertex"
     {
         stream_google(request, &mut emit).await?;
-    } else if request.connection.provider != "anthropic"
-        && request.connection.provider != "claude_subscription"
-    {
+    } else if request.connection.provider == "anthropic" {
+        stream_anthropic(request, &mut emit).await?;
+    } else if request.connection.provider != "claude_subscription" {
         stream_openai_compatible(request, &mut emit).await?;
     } else {
         let result = complete_rich(request).await?;
@@ -466,7 +466,8 @@ fn anthropic_thinking_effort(parameters: &Value) -> Option<&'static str> {
     match effort.as_str() {
         "low" => Some("low"),
         "medium" => Some("medium"),
-        "high" | "maximum" | "xhigh" => Some("high"),
+        "high" => Some("high"),
+        "maximum" | "xhigh" => Some("xhigh"),
         _ => None,
     }
 }
@@ -541,6 +542,14 @@ fn request_messages(request: &LlmRequest) -> Vec<LlmMessage> {
         });
     }
     messages
+}
+
+fn should_show_thoughts(parameters: &Value) -> bool {
+    parameters
+        .get("showThoughts")
+        .or_else(|| parameters.get("show_thoughts"))
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
 }
 
 #[derive(Debug, Clone)]
@@ -1818,13 +1827,10 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
     parse_claude_subscription_output(&stdout, &request.connection.model)
 }
 
-async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
-    let base = base_url(&request.connection.provider, &request.connection.base_url);
-    let url = anthropic_endpoint(&base, "messages");
-    ensure_url_allowed(&url)?;
+fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
     let mut system = Vec::new();
     let mut anthropic_messages = Vec::new();
-    let messages = request_messages(&request);
+    let messages = request_messages(request);
     for message in messages {
         if message.role == "system" {
             system.push(message.content);
@@ -1860,8 +1866,11 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
     let mut body = json!({
         "model": request.connection.model,
         "messages": anthropic_messages,
-        "max_tokens": request_max_tokens(&request, 1024),
+        "max_tokens": request_max_tokens(request, 1024),
     });
+    if stream {
+        body["stream"] = json!(true);
+    }
     if !system.is_empty() {
         body["system"] = json!(system.join("\n\n"));
     }
@@ -1881,26 +1890,46 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
     }
     if let Some(effort) = thinking_effort {
         if adaptive_thinking {
-            body["thinking"] = json!({ "type": "adaptive" });
+            let mut thinking = json!({ "type": "adaptive" });
+            if should_show_thoughts(&request.parameters) {
+                thinking["display"] = json!("summarized");
+            }
+            body["thinking"] = thinking;
             body["output_config"] = json!({ "effort": effort });
         } else {
             let budget_tokens = anthropic_thinking_budget_tokens(effort);
             body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
-            body["max_tokens"] = json!(request_max_tokens(&request, 1024) + budget_tokens);
+            body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
         }
     }
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["stop_sequences"] = json!(stop);
     }
-    log_prompt_connection_request("anthropic.messages", &url, &request, &body);
-    let response = reqwest::Client::new()
+    body
+}
+
+async fn anthropic_request(
+    request: &LlmRequest,
+    body: &Value,
+    kind: &str,
+) -> AppResult<reqwest::Response> {
+    let base = base_url(&request.connection.provider, &request.connection.base_url);
+    let url = anthropic_endpoint(&base, "messages");
+    ensure_url_allowed(&url)?;
+    log_prompt_connection_request(kind, &url, request, body);
+    reqwest::Client::new()
         .post(url)
         .header("x-api-key", request.connection.api_key.trim())
         .header("anthropic-version", "2023-06-01")
-        .json(&body)
+        .json(body)
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))?;
+        .map_err(|error| AppError::new("llm_network_error", error.to_string()))
+}
+
+async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
+    let body = build_anthropic_body(&request, false);
+    let response = anthropic_request(&request, &body, "anthropic.messages").await?;
     parse_json_response(response, |json| {
         json.get("content")
             .and_then(Value::as_array)
@@ -1913,6 +1942,134 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
             .map(ToOwned::to_owned)
     })
     .await
+}
+
+async fn stream_anthropic(
+    request: LlmRequest,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    let body = build_anthropic_body(&request, true);
+    let response = anthropic_request(&request, &body, "anthropic.messages.stream").await?;
+    let status = response.status();
+    if !status.is_success() {
+        let error_body = read_error_response_details(response).await?;
+        return Err(provider_http_error(status, error_body));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(block) = take_sse_block(&mut buffer) {
+            process_anthropic_sse_block(&block, emit)?;
+        }
+    }
+    if !buffer.trim().is_empty() {
+        process_anthropic_sse_block(&buffer, emit)?;
+    }
+    Ok(())
+}
+
+fn emit_anthropic_usage(
+    value: &Value,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    if let Some(usage) = value
+        .get("usage")
+        .or_else(|| value.pointer("/message/usage"))
+        .or_else(|| value.pointer("/delta/usage"))
+    {
+        emit(json!({ "type": "usage", "data": usage }))?;
+    }
+    Ok(())
+}
+
+fn process_anthropic_sse_block(
+    block: &str,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    let event_name = block
+        .lines()
+        .find_map(|line| line.trim_start().strip_prefix("event:"))
+        .map(str::trim)
+        .unwrap_or("");
+    let payload = block
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("data:"))
+        .map(str::trim)
+        .collect::<Vec<_>>()
+        .join("\n");
+    if payload.is_empty() || payload == "[DONE]" {
+        return Ok(());
+    }
+    let value: Value = serde_json::from_str(&payload)
+        .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
+    let event_type = value
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or(event_name);
+    match event_type {
+        "message_start" | "message_delta" => {
+            emit_anthropic_usage(&value, emit)?;
+        }
+        "content_block_start" => {
+            if let Some(block) = value.get("content_block") {
+                match block.get("type").and_then(Value::as_str) {
+                    Some("text") => {
+                        if let Some(text) = block.get("text").and_then(Value::as_str) {
+                            if !text.is_empty() {
+                                emit(json!({ "type": "token", "text": text, "data": text }))?;
+                            }
+                        }
+                    }
+                    Some("thinking") => {
+                        if let Some(thinking) = block.get("thinking").and_then(Value::as_str) {
+                            if !thinking.is_empty() {
+                                emit(
+                                    json!({ "type": "thinking", "text": thinking, "data": thinking }),
+                                )?;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        "content_block_delta" => {
+            if let Some(delta) = value.get("delta") {
+                match delta.get("type").and_then(Value::as_str) {
+                    Some("text_delta") => {
+                        if let Some(text) = delta.get("text").and_then(Value::as_str) {
+                            if !text.is_empty() {
+                                emit(json!({ "type": "token", "text": text, "data": text }))?;
+                            }
+                        }
+                    }
+                    Some("thinking_delta") => {
+                        if let Some(thinking) = delta.get("thinking").and_then(Value::as_str) {
+                            if !thinking.is_empty() {
+                                emit(
+                                    json!({ "type": "thinking", "text": thinking, "data": thinking }),
+                                )?;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        "error" => {
+            let error = value.get("error").cloned().unwrap_or(value);
+            return Err(AppError::with_details(
+                "llm_provider_error",
+                "Anthropic stream error",
+                error,
+            ));
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn anthropic_endpoint(base: &str, path: &str) -> String {
@@ -2662,12 +2819,96 @@ mod tests {
 
     #[test]
     fn anthropic_adaptive_thinking_model_detection_matches_main_branch_rules() {
+        assert!(supports_anthropic_adaptive_thinking("claude-opus-4-8"));
         assert!(supports_anthropic_adaptive_thinking("claude-opus-4-7"));
         assert!(supports_anthropic_adaptive_thinking("claude-opus-5-6"));
         assert!(supports_anthropic_adaptive_thinking("claude-sonnet-4-5"));
         assert!(!supports_anthropic_adaptive_thinking(
             "claude-opus-4-20250514"
         ));
+    }
+
+    #[test]
+    fn anthropic_opus_48_body_uses_adaptive_xhigh_and_strips_sampling() {
+        let request = request_for(
+            "anthropic",
+            "claude-opus-4-8",
+            json!({
+                "maxTokens": 64000,
+                "reasoningEffort": "maximum",
+                "temperature": 0.8,
+                "topP": 0.9,
+                "topK": 40,
+                "showThoughts": true
+            }),
+        );
+        let body = build_anthropic_body(&request, false);
+
+        assert_eq!(body["model"], json!("claude-opus-4-8"));
+        assert_eq!(body["max_tokens"], json!(64000));
+        assert_eq!(
+            body["thinking"],
+            json!({ "type": "adaptive", "display": "summarized" })
+        );
+        assert_eq!(body["output_config"]["effort"], json!("xhigh"));
+        assert!(body.get("temperature").is_none());
+        assert!(body.get("top_p").is_none());
+        assert!(body.get("top_k").is_none());
+    }
+
+    #[test]
+    fn anthropic_opus_48_stream_body_sets_stream_true() {
+        let request = request_for(
+            "anthropic",
+            "claude-opus-4-8",
+            json!({
+                "reasoningEffort": "xhigh",
+                "showThoughts": false
+            }),
+        );
+        let body = build_anthropic_body(&request, true);
+
+        assert_eq!(body["stream"], json!(true));
+        assert_eq!(body["thinking"], json!({ "type": "adaptive" }));
+        assert_eq!(body["output_config"]["effort"], json!("xhigh"));
+    }
+
+    #[test]
+    fn anthropic_stream_sse_emits_usage_thinking_and_text_tokens() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        process_anthropic_sse_block(
+            r#"event: message_start
+data: {"type":"message_start","message":{"usage":{"input_tokens":3,"output_tokens":0}}}"#,
+            &mut emit,
+        )
+        .expect("message_start should parse");
+        process_anthropic_sse_block(
+            r#"event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"pondering"}}"#,
+            &mut emit,
+        )
+        .expect("thinking delta should parse");
+        process_anthropic_sse_block(
+            r#"event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"hello"}}"#,
+            &mut emit,
+        )
+        .expect("text delta should parse");
+
+        assert_eq!(emitted[0]["type"], json!("usage"));
+        assert_eq!(
+            emitted[1],
+            json!({ "type": "thinking", "text": "pondering", "data": "pondering" })
+        );
+        assert_eq!(
+            emitted[2],
+            json!({ "type": "token", "text": "hello", "data": "hello" })
+        );
     }
 
     #[test]

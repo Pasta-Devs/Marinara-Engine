@@ -676,11 +676,17 @@ fn provider_model_catalog(provider: &str) -> Vec<Value> {
             "chatgpt-4o-latest",
         ],
         "anthropic" => &[
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-sonnet-4-6",
+            "claude-opus-4-5",
             "claude-3-5-sonnet-latest",
             "claude-3-5-haiku-latest",
             "claude-3-opus-latest",
         ],
         "claude_subscription" => &[
+            "claude-opus-4-8",
             "claude-opus-4-7",
             "claude-opus-4-6",
             "claude-sonnet-4-6",

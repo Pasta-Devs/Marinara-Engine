@@ -171,7 +171,7 @@ export interface GenerationParameters {
   frequencyPenalty: number;
   presencePenalty: number;
   /** For reasoning models */
-  reasoningEffort: "low" | "medium" | "high" | "maximum" | null;
+  reasoningEffort: "low" | "medium" | "high" | "xhigh" | "maximum" | null;
   /** Output verbosity for models that support it (GPT-5+) */
   verbosity: "low" | "medium" | "high" | null;
   /** Optional OpenRouter service tier. */
