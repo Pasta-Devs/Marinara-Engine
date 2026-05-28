@@ -34,7 +34,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConversationLocalNotification } from "../../../../shared/lib/local-notifications";
 import { playNotificationPing } from "../../../../shared/lib/notification-sound";
 import { getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import { characterKeys } from "../../../catalog/characters/index";
+import { invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
 import { getConversationStatus } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "../../shared/chat-ui/types";
@@ -381,7 +381,7 @@ export function ConversationView({
       if (document.hidden) return;
       try {
         await getConversationStatus(storageApi, chatId);
-        qc.invalidateQueries({ queryKey: characterKeys.list() });
+        invalidateCharacterCollectionQueries(qc);
       } catch {
         /* non-critical */
       }
