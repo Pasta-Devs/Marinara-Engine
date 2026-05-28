@@ -45,6 +45,21 @@ describe("invokeTauri remote runtime routing", () => {
     expect(tauriInvoke).not.toHaveBeenCalled();
   });
 
+  it("keeps local-only haptic commands on embedded Tauri when remote runtime is configured", async () => {
+    useUIStore.setState({ remoteRuntimeUrl: "https://remote.example/runtime" });
+    tauriInvoke.mockResolvedValueOnce({ connected: false, serverUrl: null, scanning: false, devices: [] });
+
+    await expect(invokeTauri("haptic_status")).resolves.toEqual({
+      connected: false,
+      serverUrl: null,
+      scanning: false,
+      devices: [],
+    });
+
+    expect(tauriInvoke).toHaveBeenCalledWith("haptic_status", undefined);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("preserves Retry-After metadata from remote runtime 429 responses", async () => {
     useUIStore.setState({ remoteRuntimeUrl: "https://remote.example/runtime" });
     fetchMock.mockResolvedValueOnce(
