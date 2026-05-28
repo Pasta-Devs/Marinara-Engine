@@ -59,7 +59,10 @@ const CODE_SEARCH_MAX_FILE_BYTES: u64 = 512 * 1024;
 const CODE_READ_MAX_FILE_BYTES: u64 = 96 * 1024;
 const CODE_EDIT_MAX_FILE_BYTES: u64 = 512 * 1024;
 const CODE_EDIT_MAX_TEXT_BYTES: usize = 256 * 1024;
+const MARI_ATTACHMENT_MAX_COUNT: usize = 24;
 const MARI_ATTACHMENT_MAX_CHARS: usize = 24 * 1024;
+const MARI_ATTACHMENT_MAX_NAME_CHARS: usize = 160;
+const MARI_ATTACHMENT_MAX_TYPE_CHARS: usize = 120;
 const MARI_ATTACHMENT_TOTAL_MAX_CHARS: usize = 48 * 1024;
 const MARI_TEXT_ATTACHMENT_EXTENSIONS: &[&str] = &[
     "csv", "json", "jsonl", "log", "md", "markdown", "txt", "xml", "yaml", "yml",
@@ -635,15 +638,34 @@ fn build_task_prompt(input: &MariPromptRequest) -> String {
     }
     if !input.attachments.is_empty() {
         let mut remaining_attachment_chars = MARI_ATTACHMENT_TOTAL_MAX_CHARS;
-        let attachments = input
+        let mut attachment_blocks = input
             .attachments
             .iter()
-            .map(|attachment| attachment_context_block(attachment, &mut remaining_attachment_chars))
-            .collect::<Vec<_>>()
-            .join("\n\n---\n\n");
-        sections.push(format!(
-            "Attached files for the latest user turn:\n{attachments}"
-        ));
+            .take(MARI_ATTACHMENT_MAX_COUNT)
+            .filter_map(|attachment| {
+                attachment_context_block(attachment, &mut remaining_attachment_chars)
+            })
+            .collect::<Vec<_>>();
+        let omitted_count = input
+            .attachments
+            .len()
+            .saturating_sub(MARI_ATTACHMENT_MAX_COUNT);
+        if omitted_count > 0 {
+            let omitted_note = format!(
+                "[{omitted_count} additional attachment(s) omitted to keep Professor Mari within the attachment context budget.]"
+            );
+            if let Some(note) =
+                take_attachment_budget(&omitted_note, &mut remaining_attachment_chars)
+            {
+                attachment_blocks.push(note);
+            }
+        }
+        if !attachment_blocks.is_empty() {
+            let attachments = attachment_blocks.join("\n\n---\n\n");
+            sections.push(format!(
+                "Attached files for the latest user turn:\n{attachments}"
+            ));
+        }
     }
     sections.push(format!(
         "Latest user message:\n{}",
@@ -652,16 +674,29 @@ fn build_task_prompt(input: &MariPromptRequest) -> String {
     sections.join("\n\n")
 }
 
-fn attachment_context_block(attachment: &MariAttachment, remaining_chars: &mut usize) -> String {
+fn attachment_context_block(
+    attachment: &MariAttachment,
+    remaining_chars: &mut usize,
+) -> Option<String> {
     let name = attachment.name.trim();
     let name = if name.is_empty() { "attachment" } else { name };
+    let (name, name_truncated) = truncate_to_chars(name, MARI_ATTACHMENT_MAX_NAME_CHARS);
     let mime_type = attachment.r#type.trim();
     let mime_type = if mime_type.is_empty() {
         "application/octet-stream"
     } else {
         mime_type
     };
+    let (mime_type, mime_type_truncated) =
+        truncate_to_chars(mime_type, MARI_ATTACHMENT_MAX_TYPE_CHARS);
     let content = attachment.content.trim();
+    let metadata_notes = [
+        name_truncated.then_some("file name was truncated"),
+        mime_type_truncated.then_some("MIME type was truncated"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
     let content_block = match attachment_omission_reason(attachment, content) {
         Some(reason) => format!("[Attachment omitted: {reason}]"),
         None if content.is_empty() => {
@@ -673,7 +708,6 @@ fn attachment_context_block(attachment: &MariAttachment, remaining_chars: &mut u
         None => {
             let per_file_limit = MARI_ATTACHMENT_MAX_CHARS.min(*remaining_chars);
             let (snippet, truncated_for_limit) = truncate_to_chars(content, per_file_limit);
-            *remaining_chars = remaining_chars.saturating_sub(snippet.chars().count());
             let truncated_by_client =
                 attachment.size > 0 && attachment.size as usize > attachment.content.len();
             if truncated_for_limit || truncated_by_client {
@@ -685,10 +719,25 @@ fn attachment_context_block(attachment: &MariAttachment, remaining_chars: &mut u
             }
         }
     };
-    format!(
+    let mut block = format!(
         "File: {name}\nType: {mime_type}\nSize: {}\nContent:\n{content_block}",
         attachment.size
-    )
+    );
+    if !metadata_notes.is_empty() {
+        block.push_str("\n\n[Attachment metadata truncated: ");
+        block.push_str(&metadata_notes.join(", "));
+        block.push_str(".]");
+    }
+    take_attachment_budget(&block, remaining_chars)
+}
+
+fn take_attachment_budget(value: &str, remaining_chars: &mut usize) -> Option<String> {
+    if *remaining_chars == 0 {
+        return None;
+    }
+    let (snippet, _) = truncate_to_chars(value, *remaining_chars);
+    *remaining_chars = remaining_chars.saturating_sub(snippet.chars().count());
+    Some(snippet)
 }
 
 fn attachment_omission_reason(attachment: &MariAttachment, content: &str) -> Option<String> {
@@ -1302,11 +1351,13 @@ fn truncate_preview(value: &str) -> String {
 }
 
 fn is_context_safe_source_text(content: &str) -> bool {
+    let compact_content = content
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
     !content.as_bytes().contains(&0)
-        && !content
-            .lines()
-            .map(str::trim)
-            .any(looks_like_encoded_blob)
+        && !looks_like_encoded_blob(&compact_content)
+        && !content.lines().map(str::trim).any(looks_like_encoded_blob)
 }
 
 fn looks_like_encoded_blob(value: &str) -> bool {
@@ -1346,13 +1397,17 @@ mod tests {
     use super::*;
 
     fn prompt_with_attachment(attachment: MariAttachment) -> String {
+        prompt_with_attachments(vec![attachment])
+    }
+
+    fn prompt_with_attachments(attachments: Vec<MariAttachment>) -> String {
         build_task_prompt(&MariPromptRequest {
             user_message: "Please inspect this attachment.".to_string(),
             messages: Vec::new(),
             compacted_summary: None,
             connection_id: Some("connection".to_string()),
             persona: None,
-            attachments: vec![attachment],
+            attachments,
         })
     }
 
@@ -1388,6 +1443,25 @@ mod tests {
     }
 
     #[test]
+    fn professor_mari_prompt_bounds_attachment_metadata() {
+        let marker = "metadata-tail-that-should-not-enter-context";
+        let attachments = (0..(MARI_ATTACHMENT_MAX_COUNT + 8))
+            .map(|index| MariAttachment {
+                name: format!("{}-{marker}-{index}.txt", "name".repeat(100)),
+                r#type: format!("text/plain;{}", "charset=utf-8;".repeat(40)),
+                size: 0,
+                content: String::new(),
+            })
+            .collect::<Vec<_>>();
+
+        let prompt = prompt_with_attachments(attachments);
+
+        assert!(!prompt.contains(marker));
+        assert!(prompt.matches("File:").count() <= MARI_ATTACHMENT_MAX_COUNT);
+        assert!(prompt.contains("additional attachment(s) omitted"));
+    }
+
+    #[test]
     fn professor_mari_code_tools_skip_generated_graphify_output() {
         assert!(is_skipped_relative_path(Path::new(
             "graphify-out/graph.json"
@@ -1406,5 +1480,19 @@ mod tests {
             "{{\"image\":\"data:image/png;base64,{}\"}}",
             "A".repeat(4096)
         )));
+    }
+
+    #[test]
+    fn professor_mari_code_tools_reject_wrapped_encoded_source_payloads() {
+        let payload = "A"
+            .repeat(4096)
+            .as_bytes()
+            .chunks(76)
+            .map(|chunk| std::str::from_utf8(chunk).expect("ASCII test payload"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let source = format!("export const embeddedImage = `\n{payload}\n`;");
+
+        assert!(!is_context_safe_source_text(&source));
     }
 }

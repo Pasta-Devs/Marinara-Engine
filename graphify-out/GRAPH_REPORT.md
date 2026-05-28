@@ -1,16 +1,16 @@
 # Graph Report - Marinara-Engine-issue-1468-refactor  (2026-05-28)
 
 ## Corpus Check
-- 850 files · ~2,819,946 words
+- 850 files · ~2,820,167 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10374 nodes · 22530 edges · 450 communities (417 shown, 33 thin omitted)
+- 10379 nodes · 22612 edges · 450 communities (417 shown, 33 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 274 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `22f1ccc4`
+- Built from commit: `98e88e2f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -583,8 +583,8 @@ Cohesion: 0.07
 Nodes (25): importApi, asRecord(), chatMessageDefaults(), normalizeArrayField(), normalizeMessageWrite(), normalizeObjectField(), normalizeStorageReadResult(), normalizeStorageRecord() (+17 more)
 
 ### Community 32 - "Community 32"
-Cohesion: 0.07
-Nodes (55): message_swipes(), character_update_patch_preserves_object_data(), character_update_patch_rejects_invalid_data_shape(), collapse_excess_blank_lines(), decode_uploaded_image_file(), decode_uploaded_image_file_rejects_declared_oversized_upload(), decode_uploaded_image_file_rejects_non_image_content_type(), game_state_snapshot_normalizes_persona_stats_as_nullable_array() (+47 more)
+Cohesion: 0.10
+Nodes (57): message_swipes(), character_update_patch_preserves_object_data(), character_update_patch_rejects_invalid_data_shape(), collapse_excess_blank_lines(), decode_uploaded_image_file(), decode_uploaded_image_file_rejects_declared_oversized_upload(), decode_uploaded_image_file_rejects_non_image_content_type(), game_state_snapshot_normalizes_persona_stats_as_nullable_array() (+49 more)
 
 ### Community 33 - "Community 33"
 Cohesion: 0.04
@@ -1347,8 +1347,8 @@ Cohesion: 0.15
 Nodes (11): AgentsPanel, BotBrowserPanel, CharactersPanel, ConnectionsPanel, LorebooksPanel, PANEL_CONFIG, PANELS, PersonasPanel (+3 more)
 
 ### Community 230 - "Community 230"
-Cohesion: 0.23
-Nodes (9): coerceGameStateTextFields(), coerceGameStateTextValue(), coerceGameStateTextValueInner(), GAME_STATE_TEXT_FIELDS, GAME_STATE_TEXT_OBJECT_KEYS, GameStateTextField, flushPatchCallbacks, GameStateStore (+1 more)
+Cohesion: 0.15
+Nodes (12): coerceGameStateTextFields(), coerceGameStateTextValue(), coerceGameStateTextValueInner(), GAME_STATE_TEXT_FIELDS, GAME_STATE_TEXT_OBJECT_KEYS, GameStateTextField, professor_mari_prompt_bounds_attachment_metadata(), prompt_with_attachments() (+4 more)
 
 ### Community 231 - "Community 231"
 Cohesion: 0.37
@@ -1971,7 +1971,7 @@ Cohesion: 0.14
 Nodes (15): CombatEndScreen(), CombatLog(), EncounterConfig(), EncounterErrorBoundary, EncounterModal(), EncounterModalInner(), EnemyCard(), HPBar() (+7 more)
 
 ## Knowledge Gaps
-- **3198 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3193 more)
+- **3197 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3192 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1985,7 +1985,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `get_required()` connect `Community 41` to `Community 32`, `Community 71`, `Community 103`, `Community 7`, `Community 14`, `Community 47`, `Community 113`, `Community 17`, `Community 91`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
-  _3231 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3230 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004395604395604396 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

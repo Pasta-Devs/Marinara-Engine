@@ -23677,7 +23677,7 @@
       "label": "MariPromptRequest",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L70",
+      "source_location": "L73",
       "id": "storage_mari_maripromptrequest",
       "community": 36,
       "norm_label": "maripromptrequest"
@@ -23686,7 +23686,7 @@
       "label": "MariPromptMessage",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L85",
+      "source_location": "L88",
       "id": "storage_mari_maripromptmessage",
       "community": 36,
       "norm_label": "maripromptmessage"
@@ -23695,7 +23695,7 @@
       "label": "MariPersonaContext",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L92",
+      "source_location": "L95",
       "id": "storage_mari_maripersonacontext",
       "community": 36,
       "norm_label": "maripersonacontext"
@@ -23704,7 +23704,7 @@
       "label": "MariAttachment",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L103",
+      "source_location": "L106",
       "id": "storage_mari_mariattachment",
       "community": 36,
       "norm_label": "mariattachment"
@@ -23713,7 +23713,7 @@
       "label": "MarinaraLlmProvider",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L113",
+      "source_location": "L116",
       "id": "storage_mari_marinarallmprovider",
       "community": 265,
       "norm_label": "marinarallmprovider"
@@ -23722,7 +23722,7 @@
       "label": "MarinaraChatResponse",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L118",
+      "source_location": "L121",
       "id": "storage_mari_marinarachatresponse",
       "community": 265,
       "norm_label": "marinarachatresponse"
@@ -23731,7 +23731,7 @@
       "label": ".fmt()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L124",
+      "source_location": "L127",
       "id": "storage_mari_marinarachatresponse_fmt",
       "community": 265,
       "norm_label": ".fmt()"
@@ -23740,7 +23740,7 @@
       "label": ".text()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L130",
+      "source_location": "L133",
       "id": "storage_mari_marinarachatresponse_text",
       "community": 265,
       "norm_label": ".text()"
@@ -23749,7 +23749,7 @@
       "label": ".tool_calls()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L134",
+      "source_location": "L137",
       "id": "storage_mari_marinarachatresponse_tool_calls",
       "community": 265,
       "norm_label": ".tool_calls()"
@@ -23758,7 +23758,7 @@
       "label": ".chat_with_tools()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L141",
+      "source_location": "L144",
       "id": "storage_mari_marinarallmprovider_chat_with_tools",
       "community": 265,
       "norm_label": ".chat_with_tools()"
@@ -23767,7 +23767,7 @@
       "label": "mari_request_parameters()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L174",
+      "source_location": "L177",
       "id": "storage_mari_mari_request_parameters",
       "community": 36,
       "norm_label": "mari_request_parameters()"
@@ -23776,7 +23776,7 @@
       "label": ".complete()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L204",
+      "source_location": "L207",
       "id": "storage_mari_marinarallmprovider_complete",
       "community": 265,
       "norm_label": ".complete()"
@@ -23785,7 +23785,7 @@
       "label": ".embed()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L227",
+      "source_location": "L230",
       "id": "storage_mari_marinarallmprovider_embed",
       "community": 265,
       "norm_label": ".embed()"
@@ -23794,7 +23794,7 @@
       "label": ".list_models()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L236",
+      "source_location": "L239",
       "id": "storage_mari_marinarallmprovider_list_models",
       "community": 265,
       "norm_label": ".list_models()"
@@ -23803,7 +23803,7 @@
       "label": "ReadMarinaraLibraryArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L249",
+      "source_location": "L252",
       "id": "storage_mari_readmarinaralibraryargs",
       "community": 36,
       "norm_label": "readmarinaralibraryargs"
@@ -23812,7 +23812,7 @@
       "label": "ReadMarinaraLibraryTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L256",
+      "source_location": "L259",
       "id": "storage_mari_readmarinaralibrarytool",
       "community": 36,
       "norm_label": "readmarinaralibrarytool"
@@ -23821,7 +23821,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L262",
+      "source_location": "L265",
       "id": "storage_mari_readmarinaralibrarytool_execute",
       "community": 36,
       "norm_label": ".execute()"
@@ -23830,7 +23830,7 @@
       "label": "SearchMarinaraCodeArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L273",
+      "source_location": "L276",
       "id": "storage_mari_searchmarinaracodeargs",
       "community": 36,
       "norm_label": "searchmarinaracodeargs"
@@ -23839,7 +23839,7 @@
       "label": "SearchMarinaraCodeTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L289",
+      "source_location": "L292",
       "id": "storage_mari_searchmarinaracodetool",
       "community": 186,
       "norm_label": "searchmarinaracodetool"
@@ -23848,7 +23848,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L293",
+      "source_location": "L296",
       "id": "storage_mari_searchmarinaracodetool_execute",
       "community": 186,
       "norm_label": ".execute()"
@@ -23857,7 +23857,7 @@
       "label": "ReadMarinaraCodeFileArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L302",
+      "source_location": "L305",
       "id": "storage_mari_readmarinaracodefileargs",
       "community": 36,
       "norm_label": "readmarinaracodefileargs"
@@ -23866,7 +23866,7 @@
       "label": "ReadMarinaraCodeFileTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L312",
+      "source_location": "L315",
       "id": "storage_mari_readmarinaracodefiletool",
       "community": 186,
       "norm_label": "readmarinaracodefiletool"
@@ -23875,7 +23875,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L316",
+      "source_location": "L319",
       "id": "storage_mari_readmarinaracodefiletool_execute",
       "community": 186,
       "norm_label": ".execute()"
@@ -23884,7 +23884,7 @@
       "label": "EditMarinaraCodeFileArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L325",
+      "source_location": "L328",
       "id": "storage_mari_editmarinaracodefileargs",
       "community": 36,
       "norm_label": "editmarinaracodefileargs"
@@ -23893,7 +23893,7 @@
       "label": "EditMarinaraCodeFileTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L339",
+      "source_location": "L342",
       "id": "storage_mari_editmarinaracodefiletool",
       "community": 186,
       "norm_label": "editmarinaracodefiletool"
@@ -23902,7 +23902,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L343",
+      "source_location": "L346",
       "id": "storage_mari_editmarinaracodefiletool_execute",
       "community": 186,
       "norm_label": ".execute()"
@@ -23911,7 +23911,7 @@
       "label": "CreateMarinaraExtensionArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L352",
+      "source_location": "L355",
       "id": "storage_mari_createmarinaraextensionargs",
       "community": 36,
       "norm_label": "createmarinaraextensionargs"
@@ -23920,7 +23920,7 @@
       "label": "CreateMarinaraExtensionTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L374",
+      "source_location": "L377",
       "id": "storage_mari_createmarinaraextensiontool",
       "community": 186,
       "norm_label": "createmarinaraextensiontool"
@@ -23929,7 +23929,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L380",
+      "source_location": "L383",
       "id": "storage_mari_createmarinaraextensiontool_execute",
       "community": 186,
       "norm_label": ".execute()"
@@ -23938,7 +23938,7 @@
       "label": "CreateMarinaraCustomAgentArgs",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L389",
+      "source_location": "L392",
       "id": "storage_mari_createmarinaracustomagentargs",
       "community": 36,
       "norm_label": "createmarinaracustomagentargs"
@@ -23947,7 +23947,7 @@
       "label": "CreateMarinaraCustomAgentTool",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L424",
+      "source_location": "L427",
       "id": "storage_mari_createmarinaracustomagenttool",
       "community": 186,
       "norm_label": "createmarinaracustomagenttool"
@@ -23956,7 +23956,7 @@
       "label": ".execute()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L430",
+      "source_location": "L433",
       "id": "storage_mari_createmarinaracustomagenttool_execute",
       "community": 186,
       "norm_label": ".execute()"
@@ -23965,7 +23965,7 @@
       "label": "ProfessorMariAgent",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L451",
+      "source_location": "L454",
       "id": "storage_mari_professormariagent",
       "community": 36,
       "norm_label": "professormariagent"
@@ -23974,7 +23974,7 @@
       "label": "professor_mari_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L455",
+      "source_location": "L458",
       "id": "storage_mari_professor_mari_prompt",
       "community": 36,
       "norm_label": "professor_mari_prompt()"
@@ -23983,7 +23983,7 @@
       "label": "read_only_mari_action_contract()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L515",
+      "source_location": "L518",
       "id": "storage_mari_read_only_mari_action_contract",
       "community": 36,
       "norm_label": "read_only_mari_action_contract()"
@@ -23992,7 +23992,7 @@
       "label": "autoagents_message_to_marinara()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L523",
+      "source_location": "L526",
       "id": "storage_mari_autoagents_message_to_marinara",
       "community": 36,
       "norm_label": "autoagents_message_to_marinara()"
@@ -24001,7 +24001,7 @@
       "label": "marinara_tool_call_to_autoagents()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L551",
+      "source_location": "L554",
       "id": "storage_mari_marinara_tool_call_to_autoagents",
       "community": 36,
       "norm_label": "marinara_tool_call_to_autoagents()"
@@ -24010,7 +24010,7 @@
       "label": "build_system_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L580",
+      "source_location": "L583",
       "id": "storage_mari_build_system_prompt",
       "community": 36,
       "norm_label": "build_system_prompt()"
@@ -24019,7 +24019,7 @@
       "label": "build_task_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L614",
+      "source_location": "L617",
       "id": "storage_mari_build_task_prompt",
       "community": 36,
       "norm_label": "build_task_prompt()"
@@ -24028,7 +24028,7 @@
       "label": "looks_like_library_question()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L745",
+      "source_location": "L794",
       "id": "storage_mari_looks_like_library_question",
       "community": 36,
       "norm_label": "looks_like_library_question()"
@@ -24037,7 +24037,7 @@
       "label": "looks_like_codebase_question()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L764",
+      "source_location": "L813",
       "id": "storage_mari_looks_like_codebase_question",
       "community": 36,
       "norm_label": "looks_like_codebase_question()"
@@ -24046,7 +24046,7 @@
       "label": "ensure_connection_supports_native_tools()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L795",
+      "source_location": "L844",
       "id": "storage_mari_ensure_connection_supports_native_tools",
       "community": 36,
       "norm_label": "ensure_connection_supports_native_tools()"
@@ -24055,7 +24055,7 @@
       "label": "tool_call_error_message()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L806",
+      "source_location": "L855",
       "id": "storage_mari_tool_call_error_message",
       "community": 36,
       "norm_label": "tool_call_error_message()"
@@ -24064,7 +24064,7 @@
       "label": "creative_library_snapshot()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L813",
+      "source_location": "L862",
       "id": "storage_mari_creative_library_snapshot",
       "community": 36,
       "norm_label": "creative_library_snapshot()"
@@ -24073,7 +24073,7 @@
       "label": "mari_tool_error()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L822",
+      "source_location": "L871",
       "id": "storage_mari_mari_tool_error",
       "community": 186,
       "norm_label": "mari_tool_error()"
@@ -24082,7 +24082,7 @@
       "label": "default_true()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L826",
+      "source_location": "L875",
       "id": "storage_mari_default_true",
       "community": 36,
       "norm_label": "default_true()"
@@ -24091,7 +24091,7 @@
       "label": "default_agent_phase()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L830",
+      "source_location": "L879",
       "id": "storage_mari_default_agent_phase",
       "community": 36,
       "norm_label": "default_agent_phase()"
@@ -24100,7 +24100,7 @@
       "label": "marinara_repo_root()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L834",
+      "source_location": "L883",
       "id": "storage_mari_marinara_repo_root",
       "community": 186,
       "norm_label": "marinara_repo_root()"
@@ -24109,7 +24109,7 @@
       "label": "resolve_repo_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L853",
+      "source_location": "L902",
       "id": "storage_mari_resolve_repo_file",
       "community": 186,
       "norm_label": "resolve_repo_file()"
@@ -24118,7 +24118,7 @@
       "label": "search_marinara_code()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L872",
+      "source_location": "L921",
       "id": "storage_mari_search_marinara_code",
       "community": 186,
       "norm_label": "search_marinara_code()"
@@ -24127,7 +24127,7 @@
       "label": "read_marinara_code_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L926",
+      "source_location": "L975",
       "id": "storage_mari_read_marinara_code_file",
       "community": 186,
       "norm_label": "read_marinara_code_file()"
@@ -24136,7 +24136,7 @@
       "label": "edit_marinara_code_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L960",
+      "source_location": "L1009",
       "id": "storage_mari_edit_marinara_code_file",
       "community": 186,
       "norm_label": "edit_marinara_code_file()"
@@ -24145,7 +24145,7 @@
       "label": "create_marinara_extension()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1003",
+      "source_location": "L1052",
       "id": "storage_mari_create_marinara_extension",
       "community": 186,
       "norm_label": "create_marinara_extension()"
@@ -24154,7 +24154,7 @@
       "label": "create_marinara_custom_agent()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1032",
+      "source_location": "L1081",
       "id": "storage_mari_create_marinara_custom_agent",
       "community": 36,
       "norm_label": "create_marinara_custom_agent()"
@@ -24163,7 +24163,7 @@
       "label": "unique_agent_type()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1109",
+      "source_location": "L1158",
       "id": "storage_mari_unique_agent_type",
       "community": 36,
       "norm_label": "unique_agent_type()"
@@ -24172,7 +24172,7 @@
       "label": "slugify_agent_type()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1135",
+      "source_location": "L1184",
       "id": "storage_mari_slugify_agent_type",
       "community": 36,
       "norm_label": "slugify_agent_type()"
@@ -24181,7 +24181,7 @@
       "label": "sanitize_agent_type()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1139",
+      "source_location": "L1188",
       "id": "storage_mari_sanitize_agent_type",
       "community": 36,
       "norm_label": "sanitize_agent_type()"
@@ -24190,7 +24190,7 @@
       "label": "search_code_dir()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1164",
+      "source_location": "L1213",
       "id": "storage_mari_search_code_dir",
       "community": 186,
       "norm_label": "search_code_dir()"
@@ -24199,7 +24199,7 @@
       "label": "search_code_file()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1218",
+      "source_location": "L1267",
       "id": "storage_mari_search_code_file",
       "community": 186,
       "norm_label": "search_code_file()"
@@ -24208,7 +24208,7 @@
       "label": "is_code_text_path()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1264",
+      "source_location": "L1313",
       "id": "storage_mari_is_code_text_path",
       "community": 186,
       "norm_label": "is_code_text_path()"
@@ -24217,7 +24217,7 @@
       "label": "is_skipped_relative_path()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1279",
+      "source_location": "L1328",
       "id": "storage_mari_is_skipped_relative_path",
       "community": 186,
       "norm_label": "is_skipped_relative_path()"
@@ -24226,7 +24226,7 @@
       "label": "truncate_preview()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1293",
+      "source_location": "L1342",
       "id": "storage_mari_truncate_preview",
       "community": 36,
       "norm_label": "truncate_preview()"
@@ -93238,7 +93238,7 @@
       "label": "is_context_safe_source_text()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1304",
+      "source_location": "L1353",
       "id": "storage_mari_is_context_safe_source_text",
       "community": 186,
       "norm_label": "is_context_safe_source_text()"
@@ -93256,7 +93256,7 @@
       "label": "attachment_context_block()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L655",
+      "source_location": "L677",
       "id": "storage_mari_attachment_context_block",
       "community": 36,
       "norm_label": "attachment_context_block()"
@@ -93265,7 +93265,7 @@
       "label": "attachment_omission_reason()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L694",
+      "source_location": "L743",
       "id": "storage_mari_attachment_omission_reason",
       "community": 36,
       "norm_label": "attachment_omission_reason()"
@@ -93274,7 +93274,7 @@
       "label": "is_readable_mari_attachment()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L711",
+      "source_location": "L760",
       "id": "storage_mari_is_readable_mari_attachment",
       "community": 36,
       "norm_label": "is_readable_mari_attachment()"
@@ -93283,7 +93283,7 @@
       "label": "looks_like_encoded_blob()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1312",
+      "source_location": "L1363",
       "id": "storage_mari_looks_like_encoded_blob",
       "community": 36,
       "norm_label": "looks_like_encoded_blob()"
@@ -93292,7 +93292,7 @@
       "label": "path_extension()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L731",
+      "source_location": "L780",
       "id": "storage_mari_path_extension",
       "community": 36,
       "norm_label": "path_extension()"
@@ -93301,7 +93301,7 @@
       "label": "professor_mari_code_tools_reject_encoded_source_payloads()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1401",
+      "source_location": "L1475",
       "id": "storage_mari_professor_mari_code_tools_reject_encoded_source_payloads",
       "community": 36,
       "norm_label": "professor_mari_code_tools_reject_encoded_source_payloads()"
@@ -93310,7 +93310,7 @@
       "label": "professor_mari_code_tools_skip_generated_graphify_output()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1391",
+      "source_location": "L1465",
       "id": "storage_mari_professor_mari_code_tools_skip_generated_graphify_output",
       "community": 36,
       "norm_label": "professor_mari_code_tools_skip_generated_graphify_output()"
@@ -93319,7 +93319,7 @@
       "label": "professor_mari_prompt_omits_raw_image_attachment_data_urls()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1360",
+      "source_location": "L1415",
       "id": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
       "community": 36,
       "norm_label": "professor_mari_prompt_omits_raw_image_attachment_data_urls()"
@@ -93328,7 +93328,7 @@
       "label": "professor_mari_prompt_truncates_large_text_attachments()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1375",
+      "source_location": "L1430",
       "id": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
       "community": 36,
       "norm_label": "professor_mari_prompt_truncates_large_text_attachments()"
@@ -93337,7 +93337,7 @@
       "label": "prompt_with_attachment()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1348",
+      "source_location": "L1399",
       "id": "storage_mari_prompt_with_attachment",
       "community": 36,
       "norm_label": "prompt_with_attachment()"
@@ -93346,7 +93346,7 @@
       "label": "truncate_to_chars()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L738",
+      "source_location": "L787",
       "id": "storage_mari_truncate_to_chars",
       "community": 36,
       "norm_label": "truncate_to_chars()"
@@ -93368,6 +93368,51 @@
       "id": "components_professormarisurface_mari_image_attachment_extensions",
       "community": 38,
       "norm_label": "mari_image_attachment_extensions"
+    },
+    {
+      "label": "professor_mari_prompt_bounds_attachment_metadata()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1446",
+      "id": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
+      "community": 230,
+      "norm_label": "professor_mari_prompt_bounds_attachment_metadata()"
+    },
+    {
+      "label": "prompt_with_attachments()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1403",
+      "id": "storage_mari_prompt_with_attachments",
+      "community": 230,
+      "norm_label": "prompt_with_attachments()"
+    },
+    {
+      "label": "take_attachment_budget()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L734",
+      "id": "storage_mari_take_attachment_budget",
+      "community": 230,
+      "norm_label": "take_attachment_budget()"
+    },
+    {
+      "label": "shared.rs",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1",
+      "community": 32,
+      "norm_label": "shared.rs",
+      "id": "src_tauri_src_commands_storage_shared_rs"
+    },
+    {
+      "label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1486",
+      "id": "storage_mari_professor_mari_code_tools_reject_wrapped_encoded_source_payloads",
+      "community": 36,
+      "norm_label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()"
     }
   ],
   "links": [
@@ -331686,8 +331731,835 @@
       "source": "storage_mari_search_code_file",
       "target": "storage_mari_is_context_safe_source_text",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1486",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_code_tools_reject_wrapped_encoded_source_payloads",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1446",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1403",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_prompt_with_attachments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L734",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_mari_rs",
+      "target": "storage_mari_take_attachment_budget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L634",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_character_update_patch_preserves_object_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L651",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_character_update_patch_rejects_invalid_data_shape",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L132",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_collapse_excess_blank_lines",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1027",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1165",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1139",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_file_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1205",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_files",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1173",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L960",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file_rejects_declared_oversized_upload",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L978",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_decode_uploaded_image_file_rejects_non_image_content_type",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L996",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_duplicate_record",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1012",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_find_by_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_game_state_snapshot_normalizes_persona_stats_as_nullable_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L805",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_game_state_snapshot_rejects_malformed_persona_stats_string",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L64",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_get_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1135",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_image_upload_invalid_type_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1131",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_image_upload_too_large_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_list_collection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L797",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_lorebook_defaults_include_vectorization_enabled",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_materialize_message_swipe_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L702",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_collapses_excess_blank_lines",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L737",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_does_not_invent_missing_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L665",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_message_content_update_patch_updates_active_swipe_content",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1327",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_metadata_map",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L112",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_non_negative_i64_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L180",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_character_data_for_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L343",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L399",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L371",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_json_object_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1095",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L866",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_ignores_non_object_records",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L859",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_leaves_missing_keys_alone",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L824",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_parses_text_encoded_json_arrays",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L817",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_preserves_existing_arrays",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L838",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_non_array_json_string_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L852",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_null_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L845",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_scalar_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L831",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_array_fields_replaces_unparseable_string_with_empty",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1060",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L902",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_falsy_text_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L931",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_float_zero_and_non_zero",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L881",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_text_true_and_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L889",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_truthy_text_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L922",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_coerces_zero_and_non_zero_numbers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L939",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_null_to_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L915",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_defaults_unknown_string_to_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L953",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_ignores_non_object_records",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L946",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_leaves_missing_keys_alone",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L873",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_legacy_text_bool_fields_preserves_existing_bools",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L163",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_message_text_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L354",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_nullable_json_array_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L382",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_nullable_json_object_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L247",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_typed_json_fields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L189",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_normalize_update_patch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1310",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_option_string_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_parsedpath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L195",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_patch_message_update",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1244",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_list_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1284",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_nested_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1257",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_record",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1267",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_project_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1034",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_required_string",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1316",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_string_array_from_json",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1041",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_string_array_from_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_swipe_index_value",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L209",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_sync_message_patch_content_to_active_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L625",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_temp_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L617",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_temproot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1218",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_upload_gallery_image",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L1122",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_uploadedfile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/shared.rs",
+      "source_location": "L430",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_shared_rs",
+      "target": "storage_shared_with_entity_defaults",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L731",
+      "weight": 1.0,
+      "source": "storage_mari_attachment_context_block",
+      "target": "storage_mari_take_attachment_budget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L658",
+      "weight": 1.0,
+      "source": "storage_mari_build_task_prompt",
+      "target": "storage_mari_take_attachment_budget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1359",
+      "weight": 1.0,
+      "source": "storage_mari_is_context_safe_source_text",
+      "target": "storage_mari_looks_like_encoded_blob",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1457",
+      "weight": 1.0,
+      "source": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
+      "target": "storage_mari_prompt_with_attachments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1400",
+      "weight": 1.0,
+      "source": "storage_mari_prompt_with_attachment",
+      "target": "storage_mari_prompt_with_attachments",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L1404",
+      "weight": 1.0,
+      "source": "storage_mari_prompt_with_attachments",
+      "target": "storage_mari_build_task_prompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/mari.rs",
+      "source_location": "L738",
+      "weight": 1.0,
+      "source": "storage_mari_take_attachment_budget",
+      "target": "storage_mari_truncate_to_chars",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "22f1ccc445e1efa6c2f034d2d46bb8db6d74f3be"
+  "built_at_commit": "98e88e2fab1e49080eefe47b44ca321b217b048b"
 }
