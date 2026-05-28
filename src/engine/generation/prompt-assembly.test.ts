@@ -560,6 +560,39 @@ describe("assembleGenerationPrompt preset parameters", () => {
 });
 
 describe("assembleGenerationPrompt strict roles", () => {
+  it("keeps leading system history out of the merged prompt scaffold", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithSections([
+        section({ id: "main", name: "main", role: "system", content: "Main rules.", sortOrder: 0 }),
+        section({
+          id: "history",
+          name: "chat_history",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          sortOrder: 1,
+        }),
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [
+          { role: "system", content: "Imported provider system turn.", contextKind: "history" },
+          { role: "user", content: "Continue from here.", contextKind: "history" },
+        ],
+        connection: {},
+        request,
+        latestUserInput: "Continue from here.",
+      },
+    );
+
+    expect(assembly.messages[0]).toMatchObject({ role: "system", contextKind: "prompt" });
+    expect(assembly.messages[0]?.content).toContain("Main rules.");
+    expect(assembly.messages[0]?.content).not.toContain("Imported provider system turn.");
+    expect(assembly.messages.slice(1).map((message) => [message.role, message.contextKind, message.content])).toEqual([
+      ["system", "history", "Imported provider system turn."],
+      ["user", "history", "Continue from here."],
+    ]);
+  });
+
   it("forces preset chat history into strict user/assistant order when history begins with an assistant greeting", async () => {
     const assembly = await assembleGenerationPrompt(
       storageWithSections([

@@ -1345,6 +1345,9 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   let index = 0;
   const systemParts: string[] = [];
   while (index < messages.length && messages[index]!.role === "system") {
+    if (messages[index]!.contextKind === "history") {
+      break;
+    }
     systemParts.push(messages[index]!.content);
     index += 1;
   }
