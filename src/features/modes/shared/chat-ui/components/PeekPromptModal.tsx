@@ -37,7 +37,7 @@ interface GenerationInfo {
 
 interface PeekPromptModalProps {
   data: {
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<{ role: string; content: string; images?: string[] }>;
     parameters: unknown;
     generationInfo?: GenerationInfo | null;
     agentNote?: string;
@@ -120,7 +120,7 @@ function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[
  * with bare user/assistant messages in between. We detect boundaries at the
  * array level first, then handle each region appropriately.
  */
-function buildDisplaySections(messages: Array<{ role: string; content: string }>): DisplaySection[] {
+function buildDisplaySections(messages: Array<{ role: string; content: string; images?: string[] }>): DisplaySection[] {
   // ── Pass 1: find chat history boundaries across the messages array ──
   let chStartIdx = -1;
   let chEndIdx = -1;

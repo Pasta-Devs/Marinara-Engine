@@ -54,8 +54,10 @@ vi.mock("../../world-state/index", () => ({
 vi.mock("../../../catalog/chats/index", () => ({
   chatKeys: {
     all: ["chats"],
+    list: () => ["chats", "list"],
     detail: (id: string) => ["chats", "detail", id],
     messages: (chatId: string) => ["chats", "messages", chatId],
+    messageCount: (chatId: string) => ["chats", "messageCount", chatId],
   },
 }));
 

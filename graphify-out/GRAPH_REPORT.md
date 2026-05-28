@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 852 files · ~2,819,106 words
+- 852 files · ~2,819,456 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10342 nodes · 22538 edges · 442 communities (407 shown, 35 thin omitted)
+- 10345 nodes · 22544 edges · 442 communities (407 shown, 35 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 274 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `83cbd102`
+- Built from commit: `a5ef7c71`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -509,7 +509,7 @@ Nodes (96): bearer(), chat_completions_url(), closest_stability_aspect_ratio(), 
 
 ### Community 15 - "Community 15"
 Cohesion: 0.02
-Nodes (118): cancelArgs, cancelCall, controller, fetchMock, first, invokeMock, iterator, next (+110 more)
+Nodes (119): cancelArgs, cancelCall, controller, fetchMock, first, invokeMock, iterator, next (+111 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.06
@@ -957,7 +957,7 @@ Nodes (7): COMMANDS, findSceneCharacter(), MACRO_HELP_TEXT, matchSpriteExpressio
 
 ### Community 129 - "Community 129"
 Cohesion: 0.10
-Nodes (28): ActiveLorebookScanResult, scanActiveLorebookEntries(), llmParameters(), loadChatMessages(), requireRecord(), resolveGenerationConnection(), cachedPromptDisplayContent(), CachedPromptMessage (+20 more)
+Nodes (29): ActiveLorebookScanResult, scanActiveLorebookEntries(), llmParameters(), loadChatMessages(), requireRecord(), resolveGenerationConnection(), cachedPromptDisplayContent(), cachedPromptImages() (+21 more)
 
 ### Community 130 - "Community 130"
 Cohesion: 0.08
@@ -1928,7 +1928,7 @@ Cohesion: 0.46
 Nodes (6): estimatedMessageTokens(), estimatedTokens(), firstHistoryIndex(), fitMessagesToContextWindow(), historyCount(), truncateOldestHistory()
 
 ## Knowledge Gaps
-- **3209 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3204 more)
+- **3210 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3205 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **35 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1936,13 +1936,13 @@ Nodes (6): estimatedMessageTokens(), estimatedTokens(), firstHistoryIndex(), fit
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `Community 250` to `Community 1`, `Community 2`, `Community 3`, `Community 132`, `Community 133`, `Community 4`, `Community 5`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 141`, `Community 143`, `Community 19`, `Community 20`, `Community 24`, `Community 26`, `Community 154`, `Community 28`, `Community 29`, `Community 33`, `Community 163`, `Community 36`, `Community 37`, `Community 42`, `Community 46`, `Community 48`, `Community 51`, `Community 53`, `Community 56`, `Community 61`, `Community 64`, `Community 68`, `Community 197`, `Community 72`, `Community 73`, `Community 75`, `Community 205`, `Community 206`, `Community 79`, `Community 209`, `Community 82`, `Community 83`, `Community 218`, `Community 95`, `Community 224`, `Community 100`, `Community 102`, `Community 108`, `Community 368`, `Community 114`, `Community 243`, `Community 127`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+  _High betweenness centrality (0.061) - this node is a cross-community bridge._
 - **Why does `useUIStore` connect `Community 20` to `Community 128`, `Community 1`, `Community 2`, `Community 3`, `Community 132`, `Community 133`, `Community 4`, `Community 6`, `Community 9`, `Community 10`, `Community 11`, `Community 141`, `Community 15`, `Community 19`, `Community 24`, `Community 152`, `Community 26`, `Community 154`, `Community 29`, `Community 31`, `Community 33`, `Community 37`, `Community 166`, `Community 39`, `Community 46`, `Community 47`, `Community 178`, `Community 51`, `Community 53`, `Community 79`, `Community 209`, `Community 82`, `Community 84`, `Community 89`, `Community 218`, `Community 223`, `Community 100`, `Community 102`, `Community 112`, `Community 114`, `Community 120`, `Community 250`?**
-  _High betweenness centrality (0.021) - this node is a cross-community bridge._
-- **Why does `useChatStore` connect `Community 9` to `Community 128`, `Community 1`, `Community 2`, `Community 4`, `Community 6`, `Community 10`, `Community 11`, `Community 19`, `Community 20`, `Community 26`, `Community 154`, `Community 29`, `Community 166`, `Community 46`, `Community 47`, `Community 178`, `Community 70`, `Community 79`, `Community 209`, `Community 215`, `Community 89`, `Community 100`, `Community 104`, `Community 108`, `Community 112`, `Community 114`, `Community 120`, `Community 250`?**
-  _High betweenness centrality (0.009) - this node is a cross-community bridge._
+  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+- **Why does `GameAudioManager` connect `Community 63` to `Community 196`?**
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
-  _3242 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3243 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004395604395604396 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

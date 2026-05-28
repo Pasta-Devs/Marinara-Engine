@@ -791,6 +791,44 @@ describe("startGeneration generation replay metadata", () => {
     expect(patchChatMessageExtra).toHaveBeenCalledWith("assistant-1", expectedExtra);
   });
 
+  it("stores generated attachments on regenerated assistant swipes", async () => {
+    const { deps, addChatMessageSwipe, patchChatMessageExtra } = generationDepsForChat({
+      chatPatch: { characterIds: ["char-1"] },
+      chatMetadata: { imageGenConnectionId: "image-conn" },
+      characters: [{ id: "char-1", name: "Mira", data: { appearance: "silver hair, violet eyes" } }],
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", content: "first reply", extra: {} },
+      ],
+      streamChunks: [{ type: "token", text: "Here.\n[selfie]" }],
+    });
+    deps.llm.complete = vi.fn(async () => "selfie portrait");
+    deps.integrations = {
+      image: { generate: vi.fn(async () => ({ base64: "abc", mimeType: "image/png" })) },
+    } as unknown as GenerationEngineDeps["integrations"];
+
+    await drainGeneration(startGeneration(deps, { chatId: "chat-1", regenerateMessageId: "assistant-1" }));
+
+    const extra = addChatMessageSwipe.mock.calls[0]?.[3] as Record<string, unknown>;
+    expect(extra.attachments).toEqual([
+      expect.objectContaining({
+        type: "image",
+        url: "data:image/png;base64,abc",
+      }),
+    ]);
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({
+        attachments: [
+          expect.objectContaining({
+            type: "image",
+            url: "data:image/png;base64,abc",
+          }),
+        ],
+      }),
+    );
+  });
+
   it("applies stored assistant replay metadata for direct engine regenerates", async () => {
     const { deps, listChatMessages, streamedRequests } = generationDepsForChat({
       initialMessages: [

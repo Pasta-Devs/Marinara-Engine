@@ -418,6 +418,7 @@ export interface MessageExtra {
     role: "system" | "user" | "assistant" | "tool";
     content: string;
     name?: string;
+    images?: string[];
     tool_call_id?: string;
     tool_calls?: unknown;
   }> | null;

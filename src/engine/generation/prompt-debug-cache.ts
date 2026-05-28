@@ -1,11 +1,12 @@
 import type { LlmMessage } from "../capabilities/llm";
 import { chatSummaryFingerprintMatches } from "../shared/text/chat-summary-fingerprint";
-import { isRecord, parseRecord, readNumber, readString, type JsonRecord } from "./runtime-records";
+import { isRecord, parseRecord, readNumber, readString, stringArray, type JsonRecord } from "./runtime-records";
 
 export type CachedPromptMessage = {
   role: LlmMessage["role"];
   content: string;
   name?: string;
+  images?: string[];
   tool_call_id?: string;
   tool_calls?: unknown;
 };
@@ -29,6 +30,12 @@ function cachedPromptDisplayContent(entry: JsonRecord): string {
   const content = readString(entry.content);
   if (content) parts.push(content);
 
+  const images = cachedPromptImages(entry);
+  if (images.length > 0) {
+    const imageNotes = images.map((image, index) => `[Image ${index + 1}: ${imageDescription(image)}]`).join("\n");
+    parts.push(`<images>\n${imageNotes}\n</images>`);
+  }
+
   if (entry.tool_calls !== undefined) {
     parts.push(`<tool_calls>\n${prettyJson(entry.tool_calls)}\n</tool_calls>`);
   }
@@ -45,6 +52,15 @@ function cachedPromptDisplayContent(entry: JsonRecord): string {
   return parts.join("\n\n");
 }
 
+function cachedPromptImages(entry: JsonRecord): string[] {
+  return stringArray(entry.images).map((image) => image.trim()).filter(Boolean);
+}
+
+function imageDescription(image: string): string {
+  const mime = /^data:([^;,]+)/i.exec(image)?.[1];
+  return `${mime ? `${mime}, ` : ""}${image.length} chars`;
+}
+
 export function cachedPromptMessages(messages: LlmMessage[]): CachedPromptMessage[] {
   return messages
     .map((message) => {
@@ -52,6 +68,7 @@ export function cachedPromptMessages(messages: LlmMessage[]): CachedPromptMessag
       if (!role) return null;
       const cached: CachedPromptMessage = { role, content: readString(message.content) };
       if (message.name) cached.name = message.name;
+      if (message.images?.length) cached.images = [...message.images];
       if (message.tool_call_id) cached.tool_call_id = message.tool_call_id;
       if (message.tool_calls !== undefined) cached.tool_calls = message.tool_calls;
       return cached;
@@ -61,6 +78,7 @@ export function cachedPromptMessages(messages: LlmMessage[]): CachedPromptMessag
         message !== null &&
         (message.content.length > 0 ||
           message.name !== undefined ||
+          message.images !== undefined ||
           message.tool_call_id !== undefined ||
           message.tool_calls !== undefined),
     );
@@ -162,8 +180,9 @@ export function readCachedGenerationPrompt(
     .map((entry) => {
       if (!isRecord(entry)) return null;
       const role = cachedRole(entry.role);
+      const images = cachedPromptImages(entry);
       const content = cachedPromptDisplayContent(entry);
-      return role && content ? { role, content } : null;
+      return role && content ? { role, content, ...(images.length ? { images } : {}) } : null;
     })
     .filter((entry): entry is CachedPromptMessage => entry !== null);
 

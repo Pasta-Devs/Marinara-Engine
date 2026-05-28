@@ -112,6 +112,34 @@ describe("previewGenerationPrompt cached prompts", () => {
     expect(result.generationInfo).toMatchObject({ model: "cached-model", temperature: 0.4 });
   });
 
+  it("preserves image-conditioned cached prompt entries", async () => {
+    const image = "data:image/png;base64,abc123";
+    const { storage } = previewStorage({
+      messages: [
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "Visible reply.",
+          extra: {
+            cachedPrompt: [{ role: "user", content: "", images: [image] }],
+            chatSummaryFingerprint: fingerprintChatSummary(""),
+          },
+        },
+      ],
+    });
+
+    const result = await previewGenerationPrompt(storage, { chatId: "chat-1" });
+
+    expect(result.messages).toEqual([
+      {
+        role: "user",
+        content: expect.stringContaining("[Image 1: image/png"),
+        images: [image],
+      },
+    ]);
+  });
+
   it("can target an older assistant message cache when the UI supplies a message id", async () => {
     const { storage } = previewStorage({
       messages: [

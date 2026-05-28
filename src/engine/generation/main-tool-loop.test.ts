@@ -827,7 +827,7 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(names).toContain("legacy_calc");
   });
 
-  it("usage is aggregated across multi-turn tool-call loops, not overwritten by the last turn", async () => {
+  it("usage is aggregated and cached prompt preserves the first request across multi-turn tool-call loops", async () => {
     // Two-turn loop: turn 1 emits usage A + a tool call, turn 2 emits usage B
     // and resolves. Saved usage must reflect both turns' token counts.
     const { deps, createChatMessage } = makeStubDeps({
@@ -862,7 +862,9 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
         cachedPrompt: Array<{ role: string; content: string; tool_calls?: unknown }>;
       };
     }).extra.cachedPrompt;
-    expect(cachedPrompt).toEqual(
+    expect(cachedPrompt).toEqual(expect.arrayContaining([expect.objectContaining({ role: "user", content: "go" })]));
+    expect(cachedPrompt).toHaveLength(3);
+    expect(cachedPrompt).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ role: "assistant", content: "thinking...", tool_calls: expect.any(Array) }),
         expect.objectContaining({ role: "tool", content: expect.stringContaining('"notation"') }),

@@ -759,6 +759,7 @@ async function saveAssistantMessage(args: {
         chatSummaryFingerprint: args.chatSummaryFingerprint,
         cachedPrompt,
         generationInfo,
+        attachments: args.attachments,
       });
     }
 
@@ -788,6 +789,7 @@ async function saveAssistantMessage(args: {
       chatSummaryFingerprint: args.chatSummaryFingerprint,
       cachedPrompt,
       generationInfo,
+      attachments: args.attachments,
     });
   }
 
@@ -826,6 +828,7 @@ async function saveRegeneratedMessage(args: {
   chatSummaryFingerprint: string | null;
   cachedPrompt: CachedPromptMessage[] | null;
   generationInfo: Record<string, unknown>;
+  attachments?: JsonRecord[];
 }): Promise<unknown | null> {
   const extraPatch = generationReplayExtraPatch(
     args.generationReplay,
@@ -833,6 +836,7 @@ async function saveRegeneratedMessage(args: {
     args.thinking,
     args.cachedPrompt,
     args.generationInfo,
+    args.attachments,
   );
   await args.storage.addChatMessageSwipe(args.chatId, args.messageId, collapseExcessBlankLines(args.content), extraPatch);
   return args.storage.patchChatMessageExtra(args.messageId, extraPatch);
@@ -844,12 +848,14 @@ function generationReplayExtraPatch(
   thinking?: string | null,
   cachedPrompt?: CachedPromptMessage[] | null,
   generationInfo?: Record<string, unknown>,
+  attachments?: JsonRecord[],
 ): Record<string, unknown> {
   const extraPatch: Record<string, unknown> = {};
   if (generationReplay) extraPatch.generationReplay = generationReplay;
   extraPatch.chatSummaryFingerprint = chatSummaryFingerprint;
   if (cachedPrompt !== undefined) extraPatch.cachedPrompt = cachedPrompt;
   if (generationInfo) extraPatch.generationInfo = generationInfo;
+  if (attachments?.length) extraPatch.attachments = attachments;
   const trimmedThinking = collapseExcessBlankLines(readString(thinking).trim());
   if (trimmedThinking) extraPatch.thinking = trimmedThinking;
   return extraPatch;
@@ -1550,7 +1556,7 @@ async function* streamMainGenerationLoop(args: {
   let thinking = "";
   const usages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
-  let lastRequestMessages: LlmMessage[] = [];
+  let firstRequestMessages: LlmMessage[] | null = null;
   let iteration = 0;
 
   while (true) {
@@ -1573,7 +1579,10 @@ async function* streamMainGenerationLoop(args: {
     };
 
     const requestMessages = fitMessagesToContextWindow(conversation, parameters);
-    lastRequestMessages = requestMessages;
+    firstRequestMessages ??= requestMessages.map((message) => ({
+      ...message,
+      ...(message.images ? { images: [...message.images] } : {}),
+    }));
     for await (const chunk of deps.llm.stream(
       {
         connectionId: readString(connection.id) || input.connectionId,
@@ -1659,7 +1668,7 @@ async function* streamMainGenerationLoop(args: {
     }
   }
 
-  return { content, thinking, usage: mergeUsages(usages), cachedPrompt: cachedPromptMessages(lastRequestMessages) };
+  return { content, thinking, usage: mergeUsages(usages), cachedPrompt: cachedPromptMessages(firstRequestMessages ?? []) };
 }
 
 /**

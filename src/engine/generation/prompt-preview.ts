@@ -16,7 +16,7 @@ export interface PromptPreviewInput {
 }
 
 export interface PromptPreviewResult {
-  messages: Array<{ role: ChatMLMessage["role"] | LlmMessage["role"]; content: string }>;
+  messages: Array<{ role: ChatMLMessage["role"] | LlmMessage["role"]; content: string; images?: string[] }>;
   parameters: Partial<GenerationParameters> | Record<string, unknown> | null;
   messageCount: number;
   generationInfo: {

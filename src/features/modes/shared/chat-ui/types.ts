@@ -2,7 +2,7 @@ import type { Message, MessageSwipe } from "../../../../engine/contracts/types/c
 export type { CharacterMap, PersonaInfo } from "../../../runtime/visuals/types";
 
 export type PeekPromptData = {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; images?: string[] }>;
   parameters: unknown;
   generationInfo?: {
     model?: string;

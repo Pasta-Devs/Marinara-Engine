@@ -970,8 +970,11 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     Object.prototype.hasOwnProperty.call(swipe, "extra")
       ? parseRecord((swipe as { extra?: unknown }).extra)
       : null;
-  const nextExtra =
-    swipeExtra ?? (swipeCount > 1 ? extraForActiveSwipe(message.extra, {}) : null);
+  const nextExtra = swipeExtra
+    ? extraForActiveSwipe(message.extra, swipeExtra)
+    : swipeCount > 1
+      ? extraForActiveSwipe(message.extra, {})
+      : null;
 
   return {
     ...message,

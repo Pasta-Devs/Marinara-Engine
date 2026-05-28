@@ -53395,7 +53395,7 @@
       "label": "downloadTextFile()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1015",
+      "source_location": "L1018",
       "id": "hooks_use_chats_downloadtextfile",
       "community": 120,
       "norm_label": "downloadtextfile()"
@@ -53404,7 +53404,7 @@
       "label": "downloadBlobFile()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1020",
+      "source_location": "L1023",
       "id": "hooks_use_chats_downloadblobfile",
       "community": 120,
       "norm_label": "downloadblobfile()"
@@ -53413,7 +53413,7 @@
       "label": "parseRecord()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1029",
+      "source_location": "L1032",
       "id": "hooks_use_chats_parserecord",
       "community": 120,
       "norm_label": "parserecord()"
@@ -53422,7 +53422,7 @@
       "label": "messageHiddenFromAi()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1041",
+      "source_location": "L1044",
       "id": "hooks_use_chats_messagehiddenfromai",
       "community": 120,
       "norm_label": "messagehiddenfromai()"
@@ -53431,7 +53431,7 @@
       "label": "GenerateSummaryInput",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1046",
+      "source_location": "L1049",
       "id": "hooks_use_chats_generatesummaryinput",
       "community": 120,
       "norm_label": "generatesummaryinput"
@@ -53440,7 +53440,7 @@
       "label": "GenerateSummaryResult",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1053",
+      "source_location": "L1056",
       "id": "hooks_use_chats_generatesummaryresult",
       "community": 120,
       "norm_label": "generatesummaryresult"
@@ -53449,7 +53449,7 @@
       "label": "compactTranscript()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1058",
+      "source_location": "L1061",
       "id": "hooks_use_chats_compacttranscript",
       "community": 120,
       "norm_label": "compacttranscript()"
@@ -53458,7 +53458,7 @@
       "label": "resolveSummaryConnectionId()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1067",
+      "source_location": "L1070",
       "id": "hooks_use_chats_resolvesummaryconnectionid",
       "community": 120,
       "norm_label": "resolvesummaryconnectionid()"
@@ -53467,7 +53467,7 @@
       "label": "generateLlmChatSummary()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1078",
+      "source_location": "L1081",
       "id": "hooks_use_chats_generatellmchatsummary",
       "community": 120,
       "norm_label": "generatellmchatsummary()"
@@ -53476,7 +53476,7 @@
       "label": "usePeekPrompt()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1152",
+      "source_location": "L1155",
       "id": "hooks_use_chats_usepeekprompt",
       "community": 120,
       "norm_label": "usepeekprompt()"
@@ -53485,7 +53485,7 @@
       "label": "useExportChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1186",
+      "source_location": "L1189",
       "id": "hooks_use_chats_useexportchat",
       "community": 46,
       "norm_label": "useexportchat()"
@@ -53494,7 +53494,7 @@
       "label": "loadChatsForExport()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1206",
+      "source_location": "L1209",
       "id": "hooks_use_chats_loadchatsforexport",
       "community": 120,
       "norm_label": "loadchatsforexport()"
@@ -53503,7 +53503,7 @@
       "label": "useBulkExportChats()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1224",
+      "source_location": "L1227",
       "id": "hooks_use_chats_usebulkexportchats",
       "community": 46,
       "norm_label": "usebulkexportchats()"
@@ -53512,7 +53512,7 @@
       "label": "useBranchChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1265",
+      "source_location": "L1268",
       "id": "hooks_use_chats_usebranchchat",
       "community": 120,
       "norm_label": "usebranchchat()"
@@ -53521,7 +53521,7 @@
       "label": "useGenerateSummary()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1286",
+      "source_location": "L1289",
       "id": "hooks_use_chats_usegeneratesummary",
       "community": 20,
       "norm_label": "usegeneratesummary()"
@@ -53530,7 +53530,7 @@
       "label": "useSwipes()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1297",
+      "source_location": "L1300",
       "id": "hooks_use_chats_useswipes",
       "community": 120,
       "norm_label": "useswipes()"
@@ -53539,7 +53539,7 @@
       "label": "useSetActiveSwipe()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1306",
+      "source_location": "L1309",
       "id": "hooks_use_chats_usesetactiveswipe",
       "community": 120,
       "norm_label": "usesetactiveswipe()"
@@ -53548,7 +53548,7 @@
       "label": "useDeleteSwipe()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1343",
+      "source_location": "L1346",
       "id": "hooks_use_chats_usedeleteswipe",
       "community": 120,
       "norm_label": "usedeleteswipe()"
@@ -53557,7 +53557,7 @@
       "label": "useConnectChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1358",
+      "source_location": "L1361",
       "id": "hooks_use_chats_useconnectchat",
       "community": 3,
       "norm_label": "useconnectchat()"
@@ -53566,7 +53566,7 @@
       "label": "useDisconnectChat()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1372",
+      "source_location": "L1375",
       "id": "hooks_use_chats_usedisconnectchat",
       "community": 3,
       "norm_label": "usedisconnectchat()"
@@ -76777,7 +76777,7 @@
       "label": "GenerationInfo",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L441",
+      "source_location": "L442",
       "id": "types_chat_generationinfo",
       "community": 46,
       "norm_label": "generationinfo"
@@ -76786,7 +76786,7 @@
       "label": "MessageSwipe",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L472",
+      "source_location": "L473",
       "id": "types_chat_messageswipe",
       "community": 46,
       "norm_label": "messageswipe"
@@ -76795,7 +76795,7 @@
       "label": "GenerateRequest",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L482",
+      "source_location": "L483",
       "id": "types_chat_generaterequest",
       "community": 46,
       "norm_label": "generaterequest"
@@ -76804,7 +76804,7 @@
       "label": "StreamEvent",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L492",
+      "source_location": "L493",
       "id": "types_chat_streamevent",
       "community": 46,
       "norm_label": "streamevent"
@@ -76813,7 +76813,7 @@
       "label": "OocInfluence",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L500",
+      "source_location": "L501",
       "id": "types_chat_oocinfluence",
       "community": 46,
       "norm_label": "oocinfluence"
@@ -76822,7 +76822,7 @@
       "label": "ConversationNote",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L511",
+      "source_location": "L512",
       "id": "types_chat_conversationnote",
       "community": 46,
       "norm_label": "conversationnote"
@@ -87307,7 +87307,7 @@
       "label": "saveRegeneratedMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L819",
+      "source_location": "L821",
       "id": "generation_start_generation_saveregeneratedmessage",
       "community": 13,
       "norm_label": "saveregeneratedmessage()"
@@ -87316,7 +87316,7 @@
       "label": "generationReplayExtraPatch()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L841",
+      "source_location": "L845",
       "id": "generation_start_generation_generationreplayextrapatch",
       "community": 13,
       "norm_label": "generationreplayextrapatch()"
@@ -87325,7 +87325,7 @@
       "label": "savedGenerationEventType()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L858",
+      "source_location": "L864",
       "id": "generation_start_generation_savedgenerationeventtype",
       "community": 13,
       "norm_label": "savedgenerationeventtype()"
@@ -87334,7 +87334,7 @@
       "label": "messageId()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L862",
+      "source_location": "L868",
       "id": "generation_start_generation_messageid",
       "community": 7,
       "norm_label": "messageid()"
@@ -87343,7 +87343,7 @@
       "label": "targetAssistantMessage()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L866",
+      "source_location": "L872",
       "id": "generation_start_generation_targetassistantmessage",
       "community": 129,
       "norm_label": "targetassistantmessage()"
@@ -87352,7 +87352,7 @@
       "label": "messageIndex()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L874",
+      "source_location": "L880",
       "id": "generation_start_generation_messageindex",
       "community": 13,
       "norm_label": "messageindex()"
@@ -87361,7 +87361,7 @@
       "label": "messagesBeforeTarget()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L880",
+      "source_location": "L886",
       "id": "generation_start_generation_messagesbeforetarget",
       "community": 13,
       "norm_label": "messagesbeforetarget()"
@@ -87370,7 +87370,7 @@
       "label": "positiveInteger()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L885",
+      "source_location": "L891",
       "id": "generation_start_generation_positiveinteger",
       "community": 13,
       "norm_label": "positiveinteger()"
@@ -87379,7 +87379,7 @@
       "label": "nonNegativeInteger()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L890",
+      "source_location": "L896",
       "id": "generation_start_generation_nonnegativeinteger",
       "community": 13,
       "norm_label": "nonnegativeinteger()"
@@ -87388,7 +87388,7 @@
       "label": "lorebookKeeperReadBehind()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L895",
+      "source_location": "L901",
       "id": "generation_start_generation_lorebookkeeperreadbehind",
       "community": 13,
       "norm_label": "lorebookkeeperreadbehind()"
@@ -87397,7 +87397,7 @@
       "label": "agentType()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L899",
+      "source_location": "L905",
       "id": "generation_start_generation_agenttype",
       "community": 13,
       "norm_label": "agenttype()"
@@ -87406,7 +87406,7 @@
       "label": "agentSettings()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L903",
+      "source_location": "L909",
       "id": "generation_start_generation_agentsettings",
       "community": 13,
       "norm_label": "agentsettings()"
@@ -87415,7 +87415,7 @@
       "label": "lorebookKeeperRunInterval()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L907",
+      "source_location": "L913",
       "id": "generation_start_generation_lorebookkeeperruninterval",
       "community": 13,
       "norm_label": "lorebookkeeperruninterval()"
@@ -87424,7 +87424,7 @@
       "label": "chatActiveAgentIds()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L911",
+      "source_location": "L917",
       "id": "generation_start_generation_chatactiveagentids",
       "community": 13,
       "norm_label": "chatactiveagentids()"
@@ -87433,7 +87433,7 @@
       "label": "chatHasLorebookKeeperEnabled()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L915",
+      "source_location": "L921",
       "id": "generation_start_generation_chathaslorebookkeeperenabled",
       "community": 13,
       "norm_label": "chathaslorebookkeeperenabled()"
@@ -87442,7 +87442,7 @@
       "label": "lorebookKeeperAgent()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L925",
+      "source_location": "L931",
       "id": "generation_start_generation_lorebookkeeperagent",
       "community": 13,
       "norm_label": "lorebookkeeperagent()"
@@ -87451,7 +87451,7 @@
       "label": "successfulLorebookKeeperMessageIds()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L930",
+      "source_location": "L936",
       "id": "generation_start_generation_successfullorebookkeepermessageids",
       "community": 13,
       "norm_label": "successfullorebookkeepermessageids()"
@@ -87460,7 +87460,7 @@
       "label": "LorebookKeeperTarget",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L942",
+      "source_location": "L948",
       "id": "generation_start_generation_lorebookkeepertarget",
       "community": 149,
       "norm_label": "lorebookkeepertarget"
@@ -87469,7 +87469,7 @@
       "label": "lorebookKeeperBackfillTargets()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L946",
+      "source_location": "L952",
       "id": "generation_start_generation_lorebookkeeperbackfilltargets",
       "community": 13,
       "norm_label": "lorebookkeeperbackfilltargets()"
@@ -87478,7 +87478,7 @@
       "label": "isLorebookKeeperBackfill()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L968",
+      "source_location": "L974",
       "id": "generation_start_generation_islorebookkeeperbackfill",
       "community": 129,
       "norm_label": "islorebookkeeperbackfill()"
@@ -87487,7 +87487,7 @@
       "label": "retryBypassesCustomAgentActivation()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L976",
+      "source_location": "L982",
       "id": "generation_start_generation_retrybypassescustomagentactivation",
       "community": 13,
       "norm_label": "retrybypassescustomagentactivation()"
@@ -87496,7 +87496,7 @@
       "label": "commitVisibleTrackerSnapshotSafely()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L980",
+      "source_location": "L986",
       "id": "generation_start_generation_commitvisibletrackersnapshotsafely",
       "community": 13,
       "norm_label": "commitvisibletrackersnapshotsafely()"
@@ -87505,7 +87505,7 @@
       "label": "selectGenerationTrackerBaseline()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L992",
+      "source_location": "L998",
       "id": "generation_start_generation_selectgenerationtrackerbaseline",
       "community": 13,
       "norm_label": "selectgenerationtrackerbaseline()"
@@ -87514,7 +87514,7 @@
       "label": "runGenerationAgentsForTarget()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1018",
+      "source_location": "L1024",
       "id": "generation_start_generation_rungenerationagentsfortarget",
       "community": 13,
       "norm_label": "rungenerationagentsfortarget()"
@@ -87523,7 +87523,7 @@
       "label": "runLorebookKeeperBackfill()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1097",
+      "source_location": "L1103",
       "id": "generation_start_generation_runlorebookkeeperbackfill",
       "community": 13,
       "norm_label": "runlorebookkeeperbackfill()"
@@ -87532,7 +87532,7 @@
       "label": "retryGenerationAgents()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1138",
+      "source_location": "L1144",
       "id": "generation_start_generation_retrygenerationagents",
       "community": 129,
       "norm_label": "retrygenerationagents()"
@@ -87541,7 +87541,7 @@
       "label": "chatId",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1164",
+      "source_location": "L1170",
       "id": "generation_start_generation_chatid",
       "community": 13,
       "norm_label": "chatid"
@@ -87550,7 +87550,7 @@
       "label": "chat",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1167",
+      "source_location": "L1173",
       "id": "generation_start_generation_chat",
       "community": 13,
       "norm_label": "chat"
@@ -87559,7 +87559,7 @@
       "label": "savesUserMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1176",
+      "source_location": "L1182",
       "id": "generation_start_generation_savesusermessage",
       "community": 13,
       "norm_label": "savesusermessage"
@@ -87568,7 +87568,7 @@
       "label": "messageLoadOptions",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1177",
+      "source_location": "L1183",
       "id": "generation_start_generation_messageloadoptions",
       "community": 13,
       "norm_label": "messageloadoptions"
@@ -87577,7 +87577,7 @@
       "label": "savedTimelineMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1191",
+      "source_location": "L1197",
       "id": "generation_start_generation_savedtimelinemessage",
       "community": 13,
       "norm_label": "savedtimelinemessage"
@@ -87586,7 +87586,7 @@
       "label": "generationMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1198",
+      "source_location": "L1204",
       "id": "generation_start_generation_generationmessages",
       "community": 13,
       "norm_label": "generationmessages"
@@ -87595,7 +87595,7 @@
       "label": "directMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1207",
+      "source_location": "L1213",
       "id": "generation_start_generation_directmessages",
       "community": 13,
       "norm_label": "directmessages"
@@ -87604,7 +87604,7 @@
       "label": "agentEvents",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1208",
+      "source_location": "L1214",
       "id": "generation_start_generation_agentevents",
       "community": 13,
       "norm_label": "agentevents"
@@ -87613,7 +87613,7 @@
       "label": "continueAssistantResponse",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1209",
+      "source_location": "L1215",
       "id": "generation_start_generation_continueassistantresponse",
       "community": 13,
       "norm_label": "continueassistantresponse"
@@ -87622,7 +87622,7 @@
       "label": "toolRuntimeInput",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1279",
+      "source_location": "L1285",
       "id": "generation_start_generation_toolruntimeinput",
       "community": 13,
       "norm_label": "toolruntimeinput"
@@ -87631,7 +87631,7 @@
       "label": "baseMessages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1284",
+      "source_location": "L1290",
       "id": "generation_start_generation_basemessages",
       "community": 13,
       "norm_label": "basemessages"
@@ -87640,7 +87640,7 @@
       "label": "emittedAgentResults",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1311",
+      "source_location": "L1317",
       "id": "generation_start_generation_emittedagentresults",
       "community": 13,
       "norm_label": "emittedagentresults"
@@ -87649,7 +87649,7 @@
       "label": "allAgentResults",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1316",
+      "source_location": "L1322",
       "id": "generation_start_generation_allagentresults",
       "community": 13,
       "norm_label": "allagentresults"
@@ -87658,7 +87658,7 @@
       "label": "hasIllustrationRequest",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1317",
+      "source_location": "L1323",
       "id": "generation_start_generation_hasillustrationrequest",
       "community": 13,
       "norm_label": "hasillustrationrequest"
@@ -87667,7 +87667,7 @@
       "label": "toolRuntimeInputDirect",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1403",
+      "source_location": "L1409",
       "id": "generation_start_generation_toolruntimeinputdirect",
       "community": 13,
       "norm_label": "toolruntimeinputdirect"
@@ -87676,7 +87676,7 @@
       "label": "baseMessagesDirect",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1408",
+      "source_location": "L1414",
       "id": "generation_start_generation_basemessagesdirect",
       "community": 13,
       "norm_label": "basemessagesdirect"
@@ -87685,7 +87685,7 @@
       "label": "generationGuide()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1490",
+      "source_location": "L1496",
       "id": "generation_start_generation_generationguide",
       "community": 13,
       "norm_label": "generationguide()"
@@ -87694,7 +87694,7 @@
       "label": "runtimeLlmParameters()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1495",
+      "source_location": "L1501",
       "id": "generation_start_generation_runtimellmparameters",
       "community": 13,
       "norm_label": "runtimellmparameters()"
@@ -87703,7 +87703,7 @@
       "label": "usages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1551",
+      "source_location": "L1557",
       "id": "generation_start_generation_usages",
       "community": 13,
       "norm_label": "usages"
@@ -87712,7 +87712,7 @@
       "label": "conversation",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1552",
+      "source_location": "L1558",
       "id": "generation_start_generation_conversation",
       "community": 13,
       "norm_label": "conversation"
@@ -87721,7 +87721,7 @@
       "label": "pendingToolCalls",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1559",
+      "source_location": "L1565",
       "id": "generation_start_generation_pendingtoolcalls",
       "community": 13,
       "norm_label": "pendingtoolcalls"
@@ -87730,7 +87730,7 @@
       "label": "thinkingParser",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1561",
+      "source_location": "L1567",
       "id": "generation_start_generation_thinkingparser",
       "community": 13,
       "norm_label": "thinkingparser"
@@ -87739,7 +87739,7 @@
       "label": "normalized",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1594",
+      "source_location": "L1603",
       "id": "generation_start_generation_normalized",
       "community": 13,
       "norm_label": "normalized"
@@ -87748,7 +87748,7 @@
       "label": "mergeUsages()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1679",
+      "source_location": "L1688",
       "id": "generation_start_generation_mergeusages",
       "community": 13,
       "norm_label": "mergeusages()"
@@ -88981,7 +88981,7 @@
       "label": "{ deps, patchChatMessageExtra, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L825",
+      "source_location": "L863",
       "id": "generation_start_generation_test_deps_patchchatmessageextra_streamedrequests",
       "community": 59,
       "norm_label": "{ deps, patchchatmessageextra, streamedrequests }"
@@ -88990,7 +88990,7 @@
       "label": "{ deps, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L946",
+      "source_location": "L984",
       "id": "generation_start_generation_test_deps_patchchatmessageextra",
       "community": 59,
       "norm_label": "{ deps, patchchatmessageextra }"
@@ -88999,7 +88999,7 @@
       "label": "messages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1000",
+      "source_location": "L1038",
       "id": "generation_start_generation_test_messages",
       "community": 59,
       "norm_label": "messages"
@@ -89008,7 +89008,7 @@
       "label": "mainRequest",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1126",
+      "source_location": "L1164",
       "id": "generation_start_generation_test_mainrequest",
       "community": 59,
       "norm_label": "mainrequest"
@@ -89017,7 +89017,7 @@
       "label": "mainPrompt",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1127",
+      "source_location": "L1165",
       "id": "generation_start_generation_test_mainprompt",
       "community": 59,
       "norm_label": "mainprompt"
@@ -89026,7 +89026,7 @@
       "label": "plotData",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1133",
+      "source_location": "L1171",
       "id": "generation_start_generation_test_plotdata",
       "community": 59,
       "norm_label": "plotdata"
@@ -89035,7 +89035,7 @@
       "label": "createMock",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1172",
+      "source_location": "L1210",
       "id": "generation_start_generation_test_createmock",
       "community": 59,
       "norm_label": "createmock"
@@ -89044,7 +89044,7 @@
       "label": "memoryWrites",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1175",
+      "source_location": "L1213",
       "id": "generation_start_generation_test_memorywrites",
       "community": 59,
       "norm_label": "memorywrites"
@@ -89053,7 +89053,7 @@
       "label": "memoryByKey",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1178",
+      "source_location": "L1216",
       "id": "generation_start_generation_test_memorybykey",
       "community": 59,
       "norm_label": "memorybykey"
@@ -89062,7 +89062,7 @@
       "label": "agentEvents",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1212",
+      "source_location": "L1250",
       "id": "generation_start_generation_test_agentevents",
       "community": 59,
       "norm_label": "agentevents"
@@ -89071,7 +89071,7 @@
       "label": "mirrorMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1234",
+      "source_location": "L1272",
       "id": "generation_start_generation_test_mirrormessage",
       "community": 59,
       "norm_label": "mirrormessage"
@@ -89080,7 +89080,7 @@
       "label": "promptTexts",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1368",
+      "source_location": "L1406",
       "id": "generation_start_generation_test_prompttexts",
       "community": 59,
       "norm_label": "prompttexts"
@@ -89089,7 +89089,7 @@
       "label": "keywordGatedCustomAgent",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1381",
+      "source_location": "L1419",
       "id": "generation_start_generation_test_keywordgatedcustomagent",
       "community": 59,
       "norm_label": "keywordgatedcustomagent"
@@ -92662,7 +92662,7 @@
       "label": "extraForActiveSwipe()",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L1002",
+      "source_location": "L1005",
       "id": "hooks_use_chats_extraforactiveswipe",
       "community": 120,
       "norm_label": "extraforactiveswipe()"
@@ -92671,7 +92671,7 @@
       "label": "SWIPE_SCOPED_EXTRA_KEYS",
       "file_type": "code",
       "source_file": "src/features/catalog/chats/hooks/use-chats.ts",
-      "source_location": "L985",
+      "source_location": "L988",
       "id": "hooks_use_chats_swipe_scoped_extra_keys",
       "community": 120,
       "norm_label": "swipe_scoped_extra_keys"
@@ -92680,7 +92680,7 @@
       "label": "cachedPromptDisplayContent()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L27",
+      "source_location": "L28",
       "id": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
       "community": 129,
       "norm_label": "cachedpromptdisplaycontent()"
@@ -92698,7 +92698,7 @@
       "label": "cachedPromptMessages()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L48",
+      "source_location": "L64",
       "id": "generation_prompt_debug_cache_cachedpromptmessages",
       "community": 129,
       "norm_label": "cachedpromptmessages()"
@@ -92707,7 +92707,7 @@
       "label": "cachedRole()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L15",
+      "source_location": "L16",
       "id": "generation_prompt_debug_cache_cachedrole",
       "community": 129,
       "norm_label": "cachedrole()"
@@ -92716,7 +92716,7 @@
       "label": "prettyJson()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L19",
+      "source_location": "L20",
       "id": "generation_prompt_debug_cache_prettyjson",
       "community": 129,
       "norm_label": "prettyjson()"
@@ -92725,7 +92725,7 @@
       "label": "readActiveGenerationExtra()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L140",
+      "source_location": "L158",
       "id": "generation_prompt_debug_cache_readactivegenerationextra",
       "community": 129,
       "norm_label": "readactivegenerationextra()"
@@ -92734,7 +92734,7 @@
       "label": "readCachedGenerationPrompt()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L154",
+      "source_location": "L172",
       "id": "generation_prompt_debug_cache_readcachedgenerationprompt",
       "community": 129,
       "norm_label": "readcachedgenerationprompt()"
@@ -92743,7 +92743,7 @@
       "label": "readNullableNumber()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L69",
+      "source_location": "L87",
       "id": "generation_prompt_debug_cache_readnullablenumber",
       "community": 129,
       "norm_label": "readnullablenumber()"
@@ -92752,7 +92752,7 @@
       "label": "readUsageNumber()",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L74",
+      "source_location": "L92",
       "id": "generation_prompt_debug_cache_readusagenumber",
       "community": 129,
       "norm_label": "readusagenumber()"
@@ -92761,7 +92761,7 @@
       "label": "savedGenerationInfo",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-debug-cache.ts",
-      "source_location": "L82",
+      "source_location": "L100",
       "id": "generation_prompt_debug_cache_savedgenerationinfo",
       "community": 129,
       "norm_label": "savedgenerationinfo"
@@ -92779,7 +92779,7 @@
       "label": "livePrompt",
       "file_type": "code",
       "source_file": "src/engine/generation/prompt-preview.test.ts",
-      "source_location": "L180",
+      "source_location": "L208",
       "id": "generation_prompt_preview_test_liveprompt",
       "community": 129,
       "norm_label": "liveprompt"
@@ -92842,7 +92842,7 @@
       "label": "generationParameters",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1287",
+      "source_location": "L1293",
       "id": "generation_start_generation_generationparameters",
       "community": 13,
       "norm_label": "generationparameters"
@@ -92851,7 +92851,7 @@
       "label": "generationParametersDirect",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
-      "source_location": "L1411",
+      "source_location": "L1417",
       "id": "generation_start_generation_generationparametersdirect",
       "community": 13,
       "norm_label": "generationparametersdirect"
@@ -92861,15 +92861,15 @@
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.ts",
       "source_location": "L1553",
-      "id": "generation_start_generation_lastrequestmessages",
       "community": 13,
-      "norm_label": "lastrequestmessages"
+      "norm_label": "lastrequestmessages",
+      "id": "generation_start_generation_lastrequestmessages"
     },
     {
       "label": "assistantCall",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L927",
+      "source_location": "L965",
       "id": "generation_start_generation_test_assistantcall",
       "community": 15,
       "norm_label": "assistantcall"
@@ -92896,7 +92896,7 @@
       "label": "MessageSwipeExtra",
       "file_type": "code",
       "source_file": "src/engine/contracts/types/chat.ts",
-      "source_location": "L469",
+      "source_location": "L470",
       "id": "types_chat_messageswipeextra",
       "community": 3,
       "norm_label": "messageswipeextra"
@@ -92995,7 +92995,7 @@
       "label": "existing",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L117",
+      "source_location": "L119",
       "id": "hooks_use_generate_test_existing",
       "community": 47,
       "norm_label": "existing"
@@ -93004,7 +93004,7 @@
       "label": "newer",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L154",
+      "source_location": "L156",
       "id": "hooks_use_generate_test_newer",
       "community": 47,
       "norm_label": "newer"
@@ -93013,7 +93013,7 @@
       "label": "queryClient",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L116",
+      "source_location": "L118",
       "id": "hooks_use_generate_test_queryclient",
       "community": 47,
       "norm_label": "queryclient"
@@ -93022,7 +93022,7 @@
       "label": "queryClientWithChat()",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L81",
+      "source_location": "L83",
       "id": "hooks_use_generate_test_queryclientwithchat",
       "community": 47,
       "norm_label": "queryclientwithchat()"
@@ -93031,7 +93031,7 @@
       "label": "state",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L144",
+      "source_location": "L146",
       "id": "hooks_use_generate_test_state",
       "community": 47,
       "norm_label": "state"
@@ -93049,7 +93049,7 @@
       "label": "StreamEvent",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L78",
+      "source_location": "L80",
       "id": "hooks_use_generate_test_streamevent",
       "community": 47,
       "norm_label": "streamevent"
@@ -93058,7 +93058,7 @@
       "label": "streamFactory",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L122",
+      "source_location": "L124",
       "id": "hooks_use_generate_test_streamfactory",
       "community": 47,
       "norm_label": "streamfactory"
@@ -93067,7 +93067,7 @@
       "label": "TestStreamFactory",
       "file_type": "code",
       "source_file": "src/features/runtime/generation/hooks/use-generate.test.ts",
-      "source_location": "L79",
+      "source_location": "L81",
       "id": "hooks_use_generate_test_teststreamfactory",
       "community": 47,
       "norm_label": "teststreamfactory"
@@ -93080,6 +93080,33 @@
       "id": "src_features_runtime_generation_hooks_use_generate_test_ts",
       "community": 47,
       "norm_label": "use-generate.test.ts"
+    },
+    {
+      "label": "cachedPromptImages()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L55",
+      "id": "generation_prompt_debug_cache_cachedpromptimages",
+      "community": 129,
+      "norm_label": "cachedpromptimages()"
+    },
+    {
+      "label": "imageDescription()",
+      "file_type": "code",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L59",
+      "id": "generation_prompt_debug_cache_imagedescription",
+      "community": 129,
+      "norm_label": "imagedescription()"
+    },
+    {
+      "label": "extra",
+      "file_type": "code",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L812",
+      "id": "generation_start_generation_test_extra",
+      "community": 15,
+      "norm_label": "extra"
     }
   ],
   "links": [
@@ -331449,8 +331476,71 @@
       "source": "storage_shared_sync_message_patch_content_to_active_swipe",
       "target": "storage_shared_swipe_scoped_extra",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_cachedpromptdisplaycontent",
+      "target": "generation_prompt_debug_cache_cachedpromptimages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "generation_prompt_debug_cache_cachedpromptimages",
+      "target": "generation_runtime_records_stringarray",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L55",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_cachedpromptimages",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_prompt_debug_cache_imagedescription",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/prompt-debug-cache.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_engine_generation_prompt_debug_cache_ts",
+      "target": "generation_runtime_records_stringarray",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/generation/start-generation.test.ts",
+      "source_location": "L812",
+      "weight": 1.0,
+      "source": "src_engine_generation_start_generation_test_ts",
+      "target": "generation_start_generation_test_extra",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "83cbd102b53b77376d75f6b00548921c409d0610"
+  "built_at_commit": "a5ef7c7157381cea018bf5d5253be4c1e0c5cf80"
 }
