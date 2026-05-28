@@ -24,6 +24,10 @@ export interface PromptPreviewResult {
     provider?: string;
     temperature?: number | null;
     maxTokens?: number | null;
+    topP?: number | null;
+    topK?: number | null;
+    frequencyPenalty?: number | null;
+    presencePenalty?: number | null;
     showThoughts?: boolean | null;
     reasoningEffort?: string | null;
     verbosity?: string | null;
@@ -95,6 +99,10 @@ export async function previewGenerationPrompt(
       provider: readString(connection.provider) || undefined,
       temperature: nullableNumber(parameters.temperature),
       maxTokens: nullableNumber(parameters.maxTokens ?? parameters.max_tokens),
+      topP: nullableNumber(parameters.topP ?? parameters.top_p),
+      topK: nullableNumber(parameters.topK ?? parameters.top_k),
+      frequencyPenalty: nullableNumber(parameters.frequencyPenalty ?? parameters.frequency_penalty),
+      presencePenalty: nullableNumber(parameters.presencePenalty ?? parameters.presence_penalty),
       showThoughts: typeof parameters.showThoughts === "boolean" ? parameters.showThoughts : null,
       reasoningEffort: typeof parameters.reasoningEffort === "string" ? parameters.reasoningEffort : null,
       verbosity: typeof parameters.verbosity === "string" ? parameters.verbosity : null,

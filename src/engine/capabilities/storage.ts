@@ -60,7 +60,12 @@ export interface StorageGateway {
   updateChatMessage<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
   deleteChatMessage(messageId: string): Promise<{ deleted: boolean }>;
   patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
-  addChatMessageSwipe<T = unknown>(chatId: string, messageId: string, content: string): Promise<T>;
+  addChatMessageSwipe<T = unknown>(
+    chatId: string,
+    messageId: string,
+    content: string,
+    extra?: Record<string, unknown>,
+  ): Promise<T>;
   patchChatMetadata<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   patchChatSummaries<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   listChatMemories<T = unknown>(chatId: string): Promise<T[]>;

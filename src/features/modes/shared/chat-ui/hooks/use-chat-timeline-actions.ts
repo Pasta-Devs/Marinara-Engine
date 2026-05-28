@@ -524,44 +524,55 @@ export function useChatTimelineActions({
   const handlePeekPrompt = useCallback(
     (options?: PeekPromptOptions) => {
       const actionId = ++peekPromptActionSeq.current;
-      const savedSnapshot =
-        promptSnapshotToPeekPromptData(options?.promptSnapshot) ??
-        promptSnapshotForMessage(messages?.find((message) => message.id === options?.messageId));
-      if (savedSnapshot) {
-        setPeekPromptData(savedSnapshot);
-        return;
-      }
+      const messageId = options?.messageId ?? null;
       setPeekPromptData({ messages: [], parameters: null, generationInfo: null, loading: true });
-      peekPromptRef.current.mutate(
-        {
-          chatId: activeChatId,
-          forCharacterId: options?.forCharacterId ?? null,
-          beforeMessageId: options?.messageId ?? null,
-        },
-        {
-          onSuccess: (data) => {
-            if (peekPromptActionSeq.current === actionId) {
-              const peekData = data as PeekPromptData;
+
+      void (async () => {
+        while (messageId) {
+          const pendingSwipeMutation = pendingSwipeMutationsRef.current.get(messageId);
+          if (!pendingSwipeMutation) break;
+          await pendingSwipeMutation;
+          if (pendingSwipeMutationsRef.current.get(messageId) === pendingSwipeMutation) break;
+        }
+        if (peekPromptActionSeq.current !== actionId) return;
+        const savedSnapshot =
+          promptSnapshotToPeekPromptData(options?.promptSnapshot) ??
+          promptSnapshotForMessage(messages?.find((message) => message.id === messageId));
+        if (savedSnapshot) {
+          setPeekPromptData(savedSnapshot);
+          return;
+        }
+        peekPromptRef.current.mutate(
+          {
+            chatId: activeChatId,
+            forCharacterId: options?.forCharacterId ?? null,
+            beforeMessageId: messageId,
+          },
+          {
+            onSuccess: (data) => {
+              if (peekPromptActionSeq.current === actionId) {
+                const peekData = data as PeekPromptData;
+                setPeekPromptData({
+                  ...peekData,
+                  agentNote:
+                    messageId != null
+                      ? "No saved prompt snapshot was available for this response, so this was rebuilt from current chat data before the selected message."
+                      : peekData.agentNote,
+                });
+              }
+            },
+            onError: (error) => {
+              if (peekPromptActionSeq.current !== actionId) return;
               setPeekPromptData({
-                ...peekData,
-                agentNote:
-                  options?.messageId != null
-                    ? "No saved prompt snapshot was available for this response, so this was rebuilt from current chat data before the selected message."
-                    : peekData.agentNote,
+                messages: [],
+                parameters: null,
+                generationInfo: null,
+                error: error instanceof Error ? error.message : "Could not assemble prompt.",
               });
-            }
+            },
           },
-          onError: (error) => {
-            if (peekPromptActionSeq.current !== actionId) return;
-            setPeekPromptData({
-              messages: [],
-              parameters: null,
-              generationInfo: null,
-              error: error instanceof Error ? error.message : "Could not assemble prompt.",
-            });
-          },
-        },
-      );
+        );
+      })();
     },
     [activeChatId, messages, peekPromptRef],
   );

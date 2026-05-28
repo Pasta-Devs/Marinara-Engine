@@ -28,13 +28,19 @@ import {
   Cookie,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { cacheCharacterListRecordFromResult, characterKeys } from "../../../catalog/characters/index";
+import {
+  cacheCharacterListRecordFromResult,
+  invalidateCharacterCollectionQueries,
+} from "../../../catalog/characters/index";
 import { lorebookKeys } from "../../../catalog/lorebooks/index";
 import { parsePngCharacterCard } from "../../../../shared/lib/png-parser";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../../../shared/lib/utils";
-import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../../../shared/lib/character-import";
+import {
+  confirmEmbeddedLorebookImport,
+  readEmbeddedLorebookFromCharacterPayload,
+} from "../../../../shared/lib/character-import";
 import {
   botBrowserAssetUrl,
   botBrowserBlob,
@@ -608,7 +614,6 @@ const jannyProvider: ProviderConfig = {
     }
     return null;
   },
-
 };
 
 // ════════════════════════════════════════════════
@@ -1398,7 +1403,7 @@ export function BotBrowserView() {
         if (data.success) {
           toast.success(`Imported "${data.name ?? "character"}" successfully!`);
           const cached = cacheCharacterListRecordFromResult(qc, data);
-          if (!cached) qc.invalidateQueries({ queryKey: characterKeys.list() });
+          if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
         } else throw new Error(data.error ?? "Import failed");
       } else {
@@ -1445,7 +1450,7 @@ export function BotBrowserView() {
         if (data.success) {
           toast.success(`Imported "${data.name ?? card.name}" successfully!`);
           const cached = cacheCharacterListRecordFromResult(qc, data);
-          if (!cached) qc.invalidateQueries({ queryKey: characterKeys.list() });
+          if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
         } else throw new Error(data.error ?? "Import failed");
       }

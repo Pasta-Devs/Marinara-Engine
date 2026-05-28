@@ -28,7 +28,7 @@ import { cn } from "../../../../shared/lib/utils";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { importApi } from "../../../../shared/api/import-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
-import { characterKeys } from "../../../catalog/characters/index";
+import { characterKeys, invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
 import { chatKeys } from "../../../catalog/chats/index";
 import { lorebookKeys } from "../../../catalog/lorebooks/index";
 import { presetKeys } from "../../../catalog/presets/index";
@@ -358,7 +358,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
         setImportResult(data);
         setPhase("done");
         if (hasImported(data.imported, "characters")) {
-          qc.invalidateQueries({ queryKey: characterKeys.list() });
+          invalidateCharacterCollectionQueries(qc);
         }
         if (hasImported(data.imported, "chats") || hasImported(data.imported, "groupChats")) {
           qc.invalidateQueries({ queryKey: chatKeys.list() });

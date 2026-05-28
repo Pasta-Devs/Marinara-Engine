@@ -7,7 +7,7 @@ import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen } fr
 import { useQueryClient } from "@tanstack/react-query";
 import {
   cacheCharacterListRecordFromResult,
-  characterKeys,
+  invalidateCharacterCollectionQueries,
   useCharacters,
   useDeleteCharacter,
   useUpdateCharacter,
@@ -37,7 +37,13 @@ type ImportResultRow = {
 };
 
 type TagImportMode = "all" | "none" | "existing";
-type CharacterRow = Record<string, unknown> & { id?: string; name?: string; data?: unknown; comment?: string; avatarPath?: string };
+type CharacterRow = Record<string, unknown> & {
+  id?: string;
+  name?: string;
+  data?: unknown;
+  comment?: string;
+  avatarPath?: string;
+};
 
 const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; description: string }> = [
   { value: "all", label: "All tags", description: "Keep source tags." },
@@ -92,7 +98,8 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     if (!targetCharacterId) throw new Error("Choose a character to update.");
     const target = characters.find((character) => character.id === targetCharacterId);
     if (!target?.id) throw new Error("Target character not found.");
-    const importedRow = imported && typeof imported === "object" && !Array.isArray(imported) ? (imported as CharacterRow) : null;
+    const importedRow =
+      imported && typeof imported === "object" && !Array.isArray(imported) ? (imported as CharacterRow) : null;
     const importedData = characterData(importedRow);
     if (Object.keys(importedData).length === 0) throw new Error("Imported character record did not include card data.");
 
@@ -211,7 +218,8 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         }
       }
 
-      const hasImportableFiles = stCharacterFiles.length > 0 || marinaraPayloads.length > 0 || marinaraPackages.length > 0;
+      const hasImportableFiles =
+        stCharacterFiles.length > 0 || marinaraPayloads.length > 0 || marinaraPackages.length > 0;
       if (!hasImportableFiles) {
         setResults(nextResults);
         setStatus("done");
@@ -265,7 +273,10 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           if (result.lorebook?.lorebookId) importedLorebook = true;
           if (result.success) {
             if (importMode === "update") {
-              const updatedName = await updateImportedCharacterInPlace(result.character, result.name ?? result.filename);
+              const updatedName = await updateImportedCharacterInPlace(
+                result.character,
+                result.name ?? result.filename,
+              );
               nextResults.push({
                 filename: result.filename,
                 success: true,
@@ -384,7 +395,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       setStatus("done");
 
       if (importedCharacterMissingCacheRecord) {
-        qc.invalidateQueries({ queryKey: characterKeys.list() });
+        invalidateCharacterCollectionQueries(qc);
       }
       if (importedLorebook) {
         qc.invalidateQueries({ queryKey: lorebookKeys.all });

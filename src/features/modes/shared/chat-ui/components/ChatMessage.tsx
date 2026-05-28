@@ -33,7 +33,7 @@ import {
   Pause,
   Play,
 } from "lucide-react";
-import type { Message } from "../../../../../engine/contracts/types/chat";
+import type { Message, MessageSwipe } from "../../../../../engine/contracts/types/chat";
 import {
   memo,
   useState,
@@ -232,7 +232,7 @@ const EditTextarea = memo(function EditTextarea({
 
 /** Props for a single rendered chat message, including optional scene fork actions. */
 interface ChatMessageProps {
-  message: Message & { swipes?: Array<{ id: string; content: string }> };
+  message: Message & { swipes?: Array<{ id?: string; content: string; extra?: MessageSwipe["extra"] }> };
   isStreaming?: boolean;
   onDelete?: (messageId: string) => void;
   onRegenerate?: (messageId: string) => void;

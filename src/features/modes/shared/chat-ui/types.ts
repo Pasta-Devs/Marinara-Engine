@@ -1,15 +1,21 @@
-import type { Message } from "../../../../engine/contracts/types/chat";
+import type { Message, MessageSwipe } from "../../../../engine/contracts/types/chat";
 export type { CharacterMap, PersonaInfo } from "../../../runtime/visuals/types";
 
+type PeekPromptMessage = { role: string; content: string; displayName?: string; images?: string[] };
+
 export type PeekPromptData = {
-  messages: Array<{ role: string; content: string; displayName?: string }>;
-  previewMessages?: Array<{ role: string; content: string; displayName?: string }>;
+  messages: PeekPromptMessage[];
+  previewMessages?: PeekPromptMessage[];
   parameters: unknown;
   generationInfo?: {
     model?: string;
     provider?: string;
     temperature?: number | null;
     maxTokens?: number | null;
+    topP?: number | null;
+    topK?: number | null;
+    frequencyPenalty?: number | null;
+    presencePenalty?: number | null;
     showThoughts?: boolean | null;
     reasoningEffort?: string | null;
     verbosity?: string | null;
@@ -34,7 +40,7 @@ export type PeekPromptOptions = {
 };
 
 export type MessageWithSwipes = Message & {
-  swipes?: Array<{ id: string; content: string }>;
+  swipes?: Array<Pick<MessageSwipe, "content" | "extra"> & { id?: string }>;
 };
 
 export type ExpressionAvatarResolver = (message: MessageWithSwipes, characterId: string) => string | null;

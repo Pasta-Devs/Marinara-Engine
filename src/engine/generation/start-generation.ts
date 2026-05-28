@@ -777,6 +777,14 @@ function buildSavedGenerationPromptSnapshot(args: {
       provider: readString(args.connection.provider) || undefined,
       temperature: nullableNumber(args.promptSnapshot.parameters.temperature),
       maxTokens: nullableNumber(args.promptSnapshot.parameters.maxTokens ?? args.promptSnapshot.parameters.max_tokens),
+      topP: nullableNumber(args.promptSnapshot.parameters.topP ?? args.promptSnapshot.parameters.top_p),
+      topK: nullableNumber(args.promptSnapshot.parameters.topK ?? args.promptSnapshot.parameters.top_k),
+      frequencyPenalty: nullableNumber(
+        args.promptSnapshot.parameters.frequencyPenalty ?? args.promptSnapshot.parameters.frequency_penalty,
+      ),
+      presencePenalty: nullableNumber(
+        args.promptSnapshot.parameters.presencePenalty ?? args.promptSnapshot.parameters.presence_penalty,
+      ),
       showThoughts:
         typeof args.promptSnapshot.parameters.showThoughts === "boolean"
           ? args.promptSnapshot.parameters.showThoughts

@@ -72,13 +72,13 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     let Some(object) = message.as_object_mut() else {
         return;
     };
-    let Some((swipe_count, active_index, active_content)) = object
+    let Some((swipe_count, active_index, active_content, active_extra)) = object
         .get("swipes")
         .and_then(Value::as_array)
         .map(|swipes| {
             let swipe_count = swipes.len();
             if swipe_count == 0 {
-                return (0, 0, None);
+                return (0, 0, None, None);
             }
 
             let requested_index = object
@@ -87,12 +87,13 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
                 .map(|value| value as usize)
                 .unwrap_or(0);
             let active_index = requested_index.min(swipe_count.saturating_sub(1));
-            let active_content = swipes
-                .get(active_index)
+            let active_swipe = swipes.get(active_index);
+            let active_content = active_swipe
                 .and_then(|swipe| swipe.get("content"))
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
-            (swipe_count, active_index, active_content)
+            let active_extra = json_object_value(active_swipe.and_then(|swipe| swipe.get("extra")));
+            (swipe_count, active_index, active_content, active_extra)
         })
     else {
         return;
@@ -106,6 +107,81 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
     if let Some(content) = active_content {
         object.insert("content".to_string(), Value::String(content));
+    }
+    if let Some(extra) = active_extra {
+        object.insert(
+            "extra".to_string(),
+            merge_active_swipe_extra(object.get("extra"), extra),
+        );
+    }
+}
+
+const SWIPE_SCOPED_EXTRA_KEYS: [&str; 16] = [
+    "displayText",
+    "isGenerated",
+    "tokenCount",
+    "generationInfo",
+    "thinking",
+    "spriteExpressions",
+    "cyoaChoices",
+    "contextInjections",
+    "chatSummaryFingerprint",
+    "cachedPrompt",
+    "generationReplay",
+    "generationPromptSnapshot",
+    "generationPromptSnapshotsBySwipe",
+    "attachments",
+    "reasoning",
+    "reasoning_content",
+];
+
+pub(crate) fn clear_swipe_scoped_extra(base: Option<&Value>) -> Value {
+    let mut merged = json_object_value(base)
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    for key in SWIPE_SCOPED_EXTRA_KEYS {
+        merged.remove(key);
+    }
+    Value::Object(merged)
+}
+
+pub(crate) fn swipe_scoped_extra(value: Option<&Value>) -> Option<Value> {
+    let value = json_object_value(value)?;
+    let object = value.as_object()?;
+    let mut scoped = Map::new();
+    for key in SWIPE_SCOPED_EXTRA_KEYS {
+        if let Some(value) = object.get(key) {
+            scoped.insert(key.to_string(), value.clone());
+        }
+    }
+    (!scoped.is_empty()).then_some(Value::Object(scoped))
+}
+
+pub(crate) fn merge_active_swipe_extra(base: Option<&Value>, active_extra: Value) -> Value {
+    let mut merged = clear_swipe_scoped_extra(base)
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    if let Some(active_value) = json_object_value(Some(&active_extra)) {
+        let Some(active) = active_value.as_object() else {
+            return Value::Object(merged);
+        };
+        for key in SWIPE_SCOPED_EXTRA_KEYS {
+            if let Some(value) = active.get(key) {
+                merged.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+    Value::Object(merged)
+}
+
+pub(crate) fn json_object_value(value: Option<&Value>) -> Option<Value> {
+    match value? {
+        Value::Object(_) => value.cloned(),
+        Value::String(raw) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .filter(Value::is_object),
+        _ => None,
     }
 }
 
@@ -213,13 +289,17 @@ pub(crate) fn sync_message_patch_content_to_active_swipe(
     if patch.contains_key("swipes") {
         return;
     }
-    let Some(content) = patch
+    let content = patch
         .get("content")
         .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-    else {
+        .map(ToOwned::to_owned);
+    let extra = patch
+        .get("extra")
+        .filter(|value| value.is_object())
+        .and_then(|value| swipe_scoped_extra(Some(value)));
+    if content.is_none() && extra.is_none() {
         return;
-    };
+    }
     let active_index = patch
         .get("activeSwipeIndex")
         .or_else(|| message.get("activeSwipeIndex"))
@@ -235,10 +315,22 @@ pub(crate) fn sync_message_patch_content_to_active_swipe(
     let active_index = active_index.min(swipes.len().saturating_sub(1));
     match swipes.get_mut(active_index) {
         Some(Value::Object(swipe)) => {
-            swipe.insert("content".to_string(), Value::String(content));
+            if let Some(content) = content {
+                swipe.insert("content".to_string(), Value::String(content));
+            }
+            if let Some(extra) = extra {
+                swipe.insert("extra".to_string(), extra);
+            }
         }
         Some(swipe) => {
-            *swipe = json!({ "content": content });
+            let mut next = Map::new();
+            if let Some(content) = content {
+                next.insert("content".to_string(), Value::String(content));
+            }
+            if let Some(extra) = extra {
+                next.insert("extra".to_string(), extra);
+            }
+            *swipe = Value::Object(next);
         }
         None => {}
     }
@@ -698,6 +790,82 @@ mod tests {
         assert_eq!(updated["activeSwipeIndex"], json!(1));
         assert_eq!(updated["swipes"][0]["content"], json!("first swipe"));
         assert_eq!(updated["swipes"][1]["content"], json!("edited active"));
+    }
+
+    #[test]
+    fn materialize_message_swipe_fields_uses_active_swipe_extra() {
+        let mut message = json!({
+            "content": "old visible",
+            "activeSwipeIndex": 1,
+            "extra": {
+                "hiddenFromAI": true,
+                "reasoning_content": "old reasoning",
+                "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
+                "generationInfo": { "model": "old-model" }
+            },
+            "swipes": [
+                {
+                    "content": "first",
+                    "extra": { "generationInfo": { "model": "first-model" } }
+                },
+                {
+                    "content": "second",
+                    "extra": {
+                        "generationInfo": { "model": "second-model" },
+                        "reasoning_content": "second reasoning"
+                    }
+                }
+            ]
+        });
+
+        materialize_message_swipe_fields(&mut message);
+
+        assert_eq!(message["content"], json!("second"));
+        assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(
+            message["extra"]["generationInfo"]["model"],
+            json!("second-model")
+        );
+        assert_eq!(
+            message["extra"]["reasoning_content"],
+            json!("second reasoning")
+        );
+        assert!(message["extra"]["cachedPrompt"].is_null());
+    }
+
+    #[test]
+    fn materialize_message_swipe_fields_preserves_legacy_parent_extra_without_swipe_extra() {
+        let mut message = json!({
+            "content": "old visible",
+            "activeSwipeIndex": 1,
+            "extra": {
+                "hiddenFromAI": true,
+                "reasoning_content": "stale reasoning",
+                "cachedPrompt": [{ "role": "system", "content": "old prompt" }],
+                "generationInfo": { "model": "old-model" }
+            },
+            "swipes": [
+                { "content": "first" },
+                { "content": "second" }
+            ]
+        });
+
+        materialize_message_swipe_fields(&mut message);
+
+        assert_eq!(message["content"], json!("second"));
+        assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(
+            message["extra"]["generationInfo"]["model"],
+            json!("old-model")
+        );
+        assert_eq!(
+            message["extra"]["reasoning_content"],
+            json!("stale reasoning")
+        );
+        assert_eq!(
+            message["extra"]["cachedPrompt"][0]["content"],
+            json!("old prompt")
+        );
     }
 
     #[test]

@@ -383,6 +383,10 @@ export interface MessageExtra {
   isConversationStart?: boolean;
   /** Model's reasoning/thinking content (if available) */
   thinking?: string | null;
+  /** Provider-shaped reasoning content from OpenAI-compatible responses. */
+  reasoning?: string | null;
+  /** Provider-shaped reasoning content from OpenAI-compatible streaming deltas. */
+  reasoning_content?: string | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Per-swipe CYOA choices from the CYOA Choices agent */
@@ -457,6 +461,10 @@ export interface GenerationPromptSnapshotInfo {
   provider?: string;
   temperature?: number | null;
   maxTokens?: number | null;
+  topP?: number | null;
+  topK?: number | null;
+  frequencyPenalty?: number | null;
+  presencePenalty?: number | null;
   showThoughts?: boolean | null;
   reasoningEffort?: string | null;
   verbosity?: string | null;
@@ -478,6 +486,8 @@ export interface GenerationPromptSnapshot {
   createdAt?: string;
 }
 
+export type MessageSwipeExtra = Partial<MessageExtra> & Record<string, unknown>;
+
 /** A swipe (alternate response) for a message. */
 export interface MessageSwipe {
   id: string;
@@ -485,7 +495,7 @@ export interface MessageSwipe {
   index: number;
   content: string;
   createdAt: string;
-  extra: MessageExtra;
+  extra?: MessageSwipeExtra;
 }
 
 /** Payload sent to start a generation. */

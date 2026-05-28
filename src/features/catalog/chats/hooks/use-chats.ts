@@ -979,13 +979,56 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     typeof (swipe as { content?: unknown }).content === "string"
       ? (swipe as { content: string }).content
       : null;
+  const swipeExtra =
+    swipe &&
+    typeof swipe === "object" &&
+    !Array.isArray(swipe) &&
+    Object.prototype.hasOwnProperty.call(swipe, "extra")
+      ? parseRecord((swipe as { extra?: unknown }).extra)
+      : null;
+  const nextExtra = swipeExtra
+    ? extraForActiveSwipe(message.extra, swipeExtra)
+    : swipeCount > 1
+      ? extraForActiveSwipe(message.extra, {})
+      : null;
 
   return {
     ...message,
     activeSwipeIndex,
     swipeCount: swipeCount || message.swipeCount,
     content: swipeContent ?? message.content,
+    ...(nextExtra ? { extra: nextExtra as unknown as Message["extra"] } : {}),
   };
+}
+
+const SWIPE_SCOPED_EXTRA_KEYS = new Set([
+  "displayText",
+  "isGenerated",
+  "tokenCount",
+  "generationInfo",
+  "thinking",
+  "spriteExpressions",
+  "cyoaChoices",
+  "contextInjections",
+  "chatSummaryFingerprint",
+  "cachedPrompt",
+  "generationReplay",
+  "attachments",
+  "reasoning",
+  "reasoning_content",
+]);
+
+function extraForActiveSwipe(baseExtra: unknown, swipeExtra: Record<string, unknown>): Record<string, unknown> {
+  const next = parseRecord(baseExtra);
+  for (const key of SWIPE_SCOPED_EXTRA_KEYS) {
+    delete next[key];
+  }
+  for (const key of SWIPE_SCOPED_EXTRA_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(swipeExtra, key)) {
+      next[key] = swipeExtra[key];
+    }
+  }
+  return next;
 }
 
 function downloadTextFile(contents: string, filename: string, type: string) {
