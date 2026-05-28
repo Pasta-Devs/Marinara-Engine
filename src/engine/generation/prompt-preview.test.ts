@@ -163,6 +163,35 @@ describe("previewGenerationPrompt cached prompts", () => {
     expect(result.parameters).toMatchObject({ temperature: 0.6 });
   });
 
+  it("falls back to live assembly when the latest visible message is not an assistant reply", async () => {
+    const livePrompt = prompt("preset-1", "Current next-turn rules.");
+    const { storage } = previewStorage({
+      chat: { promptPresetId: "preset-1" },
+      messages: [
+        {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          content: "Earlier reply.",
+          extra: { cachedPrompt: [{ role: "system", content: "Earlier cached prompt." }] },
+        },
+        {
+          id: "user-2",
+          chatId: "chat-1",
+          role: "user",
+          content: "New user message.",
+          extra: {},
+        },
+      ],
+      ...livePrompt,
+    });
+
+    const result = await previewGenerationPrompt(storage, { chatId: "chat-1" });
+
+    expect(result.messages.map((message) => message.content).join("\n")).toContain("Current next-turn rules.");
+    expect(result.messages.map((message) => message.content).join("\n")).not.toContain("Earlier cached prompt.");
+  });
+
   it("does not reuse a chat message cache for preset editor previews", async () => {
     const livePrompt = prompt("preset-2", "Preset editor preview rules.");
     const { storage } = previewStorage({

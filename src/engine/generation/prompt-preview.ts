@@ -75,20 +75,17 @@ async function cachedPromptPreview(
     return null;
   }
 
-  for (let index = storedMessages.length - 1; index >= 0; index -= 1) {
-    const message = storedMessages[index]!;
-    if (hiddenFromAi(message) || readString(message.role) !== "assistant") continue;
-    const cached = readCachedGenerationPrompt(message, currentFingerprint);
-    if (!cached) return null;
-    return {
-      messages: cached.messages,
-      parameters: null,
-      messageCount: cached.messages.length,
-      generationInfo: cached.generationInfo,
-    };
-  }
+  const latestVisible = [...storedMessages].reverse().find((message) => !hiddenFromAi(message));
+  if (!latestVisible || readString(latestVisible.role) !== "assistant") return null;
 
-  return null;
+  const cached = readCachedGenerationPrompt(latestVisible, currentFingerprint);
+  if (!cached) return null;
+  return {
+    messages: cached.messages,
+    parameters: null,
+    messageCount: cached.messages.length,
+    generationInfo: cached.generationInfo,
+  };
 }
 
 export async function previewGenerationPrompt(
