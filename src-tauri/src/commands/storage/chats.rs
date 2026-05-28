@@ -1108,9 +1108,14 @@ mod tests {
         .expect("swipe should switch");
 
         assert_eq!(switched["content"], json!("first"));
-        assert_eq!(switched["extra"]["hiddenFromAI"], json!(true));
-        assert_eq!(switched["extra"]["generationInfo"]["model"], json!("first-model"));
-        assert_eq!(switched["extra"]["reasoning_content"], json!("first reasoning"));
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should succeed")
+            .expect("message should exist");
+        assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(persisted["extra"]["generationInfo"]["model"], json!("first-model"));
+        assert_eq!(persisted["extra"]["reasoning_content"], json!("first reasoning"));
     }
 
     #[test]
