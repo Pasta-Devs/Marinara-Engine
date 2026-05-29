@@ -36,6 +36,7 @@ import { createInputMacroResolverForChat, isPromptPreviewMacro } from "../../../
 import { parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { formatTextQuotes } from "../../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../../shared/lib/utils";
+import { blobToDataUrl } from "../../../../../shared/lib/url-blob";
 import { prepareImageAttachment } from "../../../../../shared/lib/chat-attachment-images";
 import { translateDraftText } from "../../../../../shared/lib/draft-translation";
 import { EmojiPicker } from "../../../../../shared/components/ui/EmojiPicker";
@@ -106,15 +107,6 @@ function isSupportedChatAttachment(file: File): boolean {
     return true;
   }
   return TEXT_ATTACHMENT_EXTENSIONS.has(getFileExtension(file.name));
-}
-
-function readFileAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 interface ChatInputProps {
@@ -387,7 +379,7 @@ export const ChatInput = memo(function ChatInput({
         }
 
         try {
-          const data = await readFileAsDataUrl(file);
+          const data = await blobToDataUrl(file, "Failed to read file");
           appendAttachmentForChat(originChatId, { type: inferAttachmentType(file), data, name: displayName });
         } catch {
           toast.error(`Failed to read ${displayName}`);
