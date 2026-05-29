@@ -55,12 +55,34 @@ export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount
   useEffect(() => {
     if (!chat?.id) return;
     const restoredUrl = chatBackgroundMetadataToUrl(chatMeta.background);
-    restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: true };
-    useUIStore.getState().setChatBackground(restoredUrl);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat?.id]);
+    const previousRestore = restoredChatBackgroundRef.current;
+    const currentBackground = useUIStore.getState().chatBackground;
+    const chatChanged = previousRestore.chatId !== chat.id;
+    const metadataCaughtUpToLocalChange = currentBackground === restoredUrl;
+    const backgroundStillAtLastRestore = currentBackground === previousRestore.url;
 
-  const bgPersistTimer = useRef<ReturnType<typeof setTimeout>>(null);
+    if (!chatChanged && !metadataCaughtUpToLocalChange && !backgroundStillAtLastRestore) return;
+
+    const needsUiRestore = currentBackground !== restoredUrl;
+    restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: needsUiRestore };
+    if (needsUiRestore) useUIStore.getState().setChatBackground(restoredUrl);
+  }, [chat?.id, chatMeta.background]);
+
+  const bgPersistTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const clearBackgroundPersistTimer = (chatId: string) => {
+    const timer = bgPersistTimers.current.get(chatId);
+    if (!timer) return;
+    clearTimeout(timer);
+    bgPersistTimers.current.delete(chatId);
+  };
+  const scheduleBackgroundPersist = (chatId: string, background: string | null) => {
+    clearBackgroundPersistTimer(chatId);
+    const timer = setTimeout(() => {
+      bgPersistTimers.current.delete(chatId);
+      updateMeta.mutate({ id: chatId, background });
+    }, 500);
+    bgPersistTimers.current.set(chatId, timer);
+  };
   useEffect(() => {
     if (!chat?.id) return;
     const chatId = chat.id;
@@ -78,26 +100,27 @@ export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount
     }
 
     if (!chatBackground) {
-      if (savedBackground === null) return;
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-      bgPersistTimer.current = setTimeout(() => {
-        updateMeta.mutate({ id: chatId, background: null });
-      }, 500);
+      if (savedBackground === null) {
+        clearBackgroundPersistTimer(chatId);
+        return;
+      }
+      scheduleBackgroundPersist(chatId, null);
       return;
     }
 
     const nextBackground = chatBackgroundUrlToMetadata(chatBackground);
-    if (nextBackground === savedBackground) return;
-    if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
-    bgPersistTimer.current = setTimeout(() => {
-      updateMeta.mutate({ id: chatId, background: nextBackground });
-    }, 500);
+    if (nextBackground === savedBackground) {
+      clearBackgroundPersistTimer(chatId);
+      return;
+    }
+    scheduleBackgroundPersist(chatId, nextBackground);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id]);
 
   useEffect(() => {
     return () => {
-      if (bgPersistTimer.current) clearTimeout(bgPersistTimer.current);
+      for (const timer of bgPersistTimers.current.values()) clearTimeout(timer);
+      bgPersistTimers.current.clear();
     };
   }, []);
 
