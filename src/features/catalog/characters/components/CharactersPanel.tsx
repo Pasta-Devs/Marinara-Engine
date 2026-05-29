@@ -1320,21 +1320,28 @@ export function CharactersPanel() {
               </button>
               <button
                 onClick={async () => {
-                  const msg = await createMessage.mutateAsync({
-                    role: "assistant",
-                    content: firstMesConfirm.message,
-                    characterId: firstMesConfirm.charId,
-                  });
-                  // Add alternate greetings as swipes on the first message
-                  if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
-                    for (const greeting of firstMesConfirm.alternateGreetings) {
-                      if (greeting.trim()) {
-                        await storageApi.addChatMessageSwipe(activeChat!.id, msg.id, greeting, { activate: false });
+                  try {
+                    const msg = await createMessage.mutateAsync({
+                      role: "assistant",
+                      content: firstMesConfirm.message,
+                      characterId: firstMesConfirm.charId,
+                    });
+                    // Add alternate greetings as swipes on the first message
+                    if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
+                      for (const greeting of firstMesConfirm.alternateGreetings) {
+                        if (greeting.trim()) {
+                          await storageApi.addChatMessageSwipe(activeChat!.id, msg.id, greeting, {
+                            activate: false,
+                          });
+                        }
                       }
+                      queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChat!.id) });
                     }
-                    queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChat!.id) });
+                  } catch {
+                    toast.error("Failed to add first message");
+                  } finally {
+                    setFirstMesConfirm(null);
                   }
-                  setFirstMesConfirm(null);
                 }}
                 className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90"
               >

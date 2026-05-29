@@ -2100,8 +2100,8 @@
     "semantic_hash": ""
   },
   "src/features/catalog/characters/components/CharactersPanel.tsx": {
-    "mtime": 1780023878.302687,
-    "ast_hash": "eabc8201f3a22381e87a8c2c63a6560a",
+    "mtime": 1780028614.2608776,
+    "ast_hash": "694e26fb39f46d293eba2075476a417d",
     "semantic_hash": ""
   },
   "src/features/catalog/characters/components/CharacterLibraryView.tsx": {
