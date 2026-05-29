@@ -44,7 +44,6 @@ import type {
   ChatMemoryChunk,
   ConversationNote,
   Message,
-  MessageSwipe,
   DaySummaryEntry,
   WeekSummaryEntry,
 } from "../../../../engine/contracts/types/chat";
@@ -240,19 +239,6 @@ function patchAffectsActiveLorebooks(patch: Record<string, unknown>): boolean {
     "gameLorebookKeeperEnabled",
     "gameLorebookKeeperLorebookId",
   ].some((key) => Object.prototype.hasOwnProperty.call(patch, key));
-}
-
-export function useChats() {
-  return useQuery({
-    queryKey: chatKeys.list(),
-    queryFn: () => storageApi.list<Chat>("chats"),
-    staleTime: 10_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    retry: (failureCount, error) => shouldRetryApiQuery(failureCount, error, { maxRetries: 10 }),
-    retryDelay: (attempt, error) => apiQueryRetryDelay(attempt, error, { baseDelayMs: 750, maxDelayMs: 5_000 }),
-  });
 }
 
 export function useChatSummaries() {
@@ -659,20 +645,6 @@ export function useUpdateChatMetadata() {
       }
       setChatCacheRecord(qc, id, (chat) => applyChatMetadataPatch(chat, metadata));
       if (patchAffectsActiveLorebooks(metadata)) qc.invalidateQueries({ queryKey: lorebookKeys.active(id) });
-    },
-  });
-}
-
-export function useMarkAutonomousUnread() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ chatId, characterId, count }: { chatId: string; characterId?: string | null; count?: number }) =>
-      chatCommandApi.markAutonomousUnread<Chat>(chatId, { characterId: characterId ?? null, count }),
-    onSuccess: (data, vars) => {
-      if (data) {
-        qc.setQueryData(chatKeys.detail(vars.chatId), data);
-      }
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }
@@ -1267,15 +1239,6 @@ export function useGenerateSummary() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: chatKeys.detail(vars.chatId) });
     },
-  });
-}
-
-/** Fetch swipes for a message */
-export function useSwipes(chatId: string | null, messageId: string | null) {
-  return useQuery({
-    queryKey: [...chatKeys.all, "swipes", messageId ?? ""],
-    queryFn: () => chatCommandApi.swipes<MessageSwipe[]>(chatId, messageId),
-    enabled: !!chatId && !!messageId,
   });
 }
 
