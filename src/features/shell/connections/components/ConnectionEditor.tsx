@@ -404,6 +404,18 @@ export function ConnectionEditor() {
   }, [localProvider]);
 
   const usesLocalChatGptAuth = localProvider === "openai_chatgpt";
+  const embeddingConnectionOptions = useMemo(
+    () =>
+      ((allConnections ?? []) as Record<string, unknown>[]).filter(
+        (c) => c.id !== connectionDetailId && c.provider !== "image_generation" && c.provider !== "openai_chatgpt",
+      ),
+    [allConnections, connectionDetailId],
+  );
+  const selectedEmbeddingConnectionId =
+    localEmbeddingConnectionId &&
+    (allConnections === undefined || embeddingConnectionOptions.some((c) => c.id === localEmbeddingConnectionId))
+      ? localEmbeddingConnectionId
+      : "";
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -431,7 +443,7 @@ export function ConnectionEditor() {
       defaultForAgents: localDefaultForAgents,
       embeddingModel: chatGptAuthProvider ? "" : localEmbeddingModel,
       embeddingBaseUrl: chatGptAuthProvider ? "" : localEmbeddingBaseUrl,
-      embeddingConnectionId: localEmbeddingConnectionId || null,
+      embeddingConnectionId: selectedEmbeddingConnectionId || null,
       promptPresetId: localProvider !== "image_generation" ? localPromptPresetId || null : null,
       openrouterProvider: localOpenrouterProvider || null,
       imageGenerationSource:
@@ -488,7 +500,7 @@ export function ConnectionEditor() {
     localDefaultForAgents,
     localEmbeddingModel,
     localEmbeddingBaseUrl,
-    localEmbeddingConnectionId,
+    selectedEmbeddingConnectionId,
     localPromptPresetId,
     localOpenrouterProvider,
     localImageGenerationSource,
@@ -1713,7 +1725,7 @@ export function ConnectionEditor() {
               help="OpenAI (ChatGPT) cannot create embeddings through Codex auth. Choose a separate embedding-capable connection if this chat should use semantic lorebook matching."
             >
               <select
-                value={localEmbeddingConnectionId}
+                value={selectedEmbeddingConnectionId}
                 onChange={(e) => {
                   setLocalEmbeddingConnectionId(e.target.value);
                   markDirty();
@@ -1721,19 +1733,12 @@ export function ConnectionEditor() {
                 className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               >
                 <option value="">No semantic embeddings</option>
-                {((allConnections ?? []) as Record<string, unknown>[])
-                  .filter(
-                    (c) =>
-                      c.id !== connectionDetailId &&
-                      c.provider !== "image_generation" &&
-                      c.provider !== "openai_chatgpt",
-                  )
-                  .map((c) => (
-                    <option key={c.id as string} value={c.id as string}>
-                      {c.name as string}
-                      {c.embeddingModel ? ` (${c.embeddingModel})` : ""}
-                    </option>
-                  ))}
+                {embeddingConnectionOptions.map((c) => (
+                  <option key={c.id as string} value={c.id as string}>
+                    {c.name as string}
+                    {c.embeddingModel ? ` (${c.embeddingModel})` : ""}
+                  </option>
+                ))}
               </select>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Embedding model and endpoint settings come from the selected connection. ChatGPT local auth remains only
@@ -1787,7 +1792,7 @@ export function ConnectionEditor() {
                   Embedding Connection
                 </label>
                 <select
-                  value={localEmbeddingConnectionId}
+                  value={selectedEmbeddingConnectionId}
                   onChange={(e) => {
                     setLocalEmbeddingConnectionId(e.target.value);
                     markDirty();
@@ -1795,19 +1800,12 @@ export function ConnectionEditor() {
                   className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 >
                   <option value="">Same as this connection</option>
-                  {((allConnections ?? []) as Record<string, unknown>[])
-                    .filter(
-                      (c) =>
-                        c.id !== connectionDetailId &&
-                        c.provider !== "image_generation" &&
-                        c.provider !== "openai_chatgpt",
-                    )
-                    .map((c) => (
-                      <option key={c.id as string} value={c.id as string}>
-                        {c.name as string}
-                        {c.embeddingModel ? ` (${c.embeddingModel})` : ""}
-                      </option>
-                    ))}
+                  {embeddingConnectionOptions.map((c) => (
+                    <option key={c.id as string} value={c.id as string}>
+                      {c.name as string}
+                      {c.embeddingModel ? ` (${c.embeddingModel})` : ""}
+                    </option>
+                  ))}
                 </select>
                 <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                   Use a different connection&apos;s API key and base URL for embeddings. The embedding model name above
