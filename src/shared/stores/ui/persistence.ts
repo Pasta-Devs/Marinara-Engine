@@ -17,7 +17,7 @@ import {
 import type { UIState } from "./model";
 
 export const UI_STORE_NAME = "marinara-engine-ui-tauri";
-export const UI_STORE_VERSION = 5;
+export const UI_STORE_VERSION = 6;
 
 const LEGACY_SIDEBAR_WIDTH_DEFAULT = 280;
 
