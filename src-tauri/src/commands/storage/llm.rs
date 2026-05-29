@@ -605,10 +605,12 @@ async fn send_connection_test_request(
     request: reqwest::RequestBuilder,
     label: &str,
 ) -> AppResult<Value> {
-    let response = request
-        .send()
-        .await
-        .map_err(|error| AppError::new("connection_network_error", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        AppError::new(
+            "connection_network_error",
+            provider_transport_error_message(error),
+        )
+    })?;
     let status = response.status();
     let text = response
         .text()
@@ -815,10 +817,12 @@ async fn fetch_provider_models(connection: &Value) -> AppResult<Vec<Value>> {
     } else if !api_key.is_empty() && provider != "google" {
         request = request.bearer_auth(api_key);
     }
-    let response = request
-        .send()
-        .await
-        .map_err(|error| AppError::new("models_network_error", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        AppError::new(
+            "models_network_error",
+            provider_transport_error_message(error),
+        )
+    })?;
     let status = response.status();
     let text = response
         .text()
@@ -849,7 +853,12 @@ async fn fetch_ollama_models(connection: &Value) -> AppResult<Vec<Value>> {
         .get(url)
         .send()
         .await
-        .map_err(|error| AppError::new("models_network_error", error.to_string()))?
+        .map_err(|error| {
+            AppError::new(
+                "models_network_error",
+                provider_transport_error_message(error),
+            )
+        })?
         .json::<Value>()
         .await
         .map_err(|error| AppError::new("models_json_error", error.to_string()))?;
@@ -986,10 +995,12 @@ where
     {
         request = request.bearer_auth(api_key.trim());
     }
-    let response = request
-        .send()
-        .await
-        .map_err(|error| AppError::new("models_network_error", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        AppError::new(
+            "models_network_error",
+            provider_transport_error_message(error),
+        )
+    })?;
     let status = response.status();
     let text = response
         .text()
@@ -1195,9 +1206,14 @@ fn ensure_model_url_allowed(url: &str) -> AppResult<()> {
         Ok(())
     } else {
         Err(AppError::invalid_input(format!(
-            "Outbound model URL is not allowed: {url}"
+            "Outbound model URL is not allowed: {}",
+            redact_sensitive_text(url)
         )))
     }
+}
+
+fn provider_transport_error_message(error: impl std::fmt::Display) -> String {
+    redact_sensitive_text(&error.to_string())
 }
 
 fn sanitize_provider_body(body: &str) -> String {
@@ -1305,6 +1321,17 @@ mod tests {
             })),
             "https://home.linkapi.ai"
         );
+    }
+
+    #[test]
+    fn model_url_rejection_redacts_query_secret() {
+        let error =
+            ensure_model_url_allowed("ftp://example.test/v1beta/models?key=AIzaSecretValue123")
+                .expect_err("disallowed model URL should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("AIzaSecretValue123"));
     }
 
     #[tokio::test]

@@ -311,9 +311,14 @@ fn ensure_url_allowed(url: &str) -> AppResult<()> {
         Ok(())
     } else {
         Err(AppError::invalid_input(format!(
-            "Outbound URL is not allowed: {url}"
+            "Outbound URL is not allowed: {}",
+            redact_sensitive_text(url)
         )))
     }
+}
+
+fn provider_transport_error_message(error: impl std::fmt::Display) -> String {
+    redact_sensitive_text(&error.to_string())
 }
 
 fn should_use_openai_responses(request: &LlmRequest) -> bool {
@@ -781,7 +786,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     let response = req
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))?;
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))?;
     parse_json_response_rich(response).await
 }
 
@@ -832,7 +837,7 @@ async fn stream_openai_compatible(
     let response = req
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))?;
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))?;
     let status = response.status();
     if !status.is_success() {
         let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
@@ -979,7 +984,7 @@ async fn openai_responses_request(
     };
     req.send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))
 }
 
 async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
@@ -2043,7 +2048,7 @@ async fn anthropic_request(
         .json(body)
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))
 }
 
 async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
@@ -2349,7 +2354,7 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
         .json(&body)
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))?;
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))?;
     parse_json_response(response, |json| {
         json.get("candidates")
             .and_then(Value::as_array)
@@ -2388,7 +2393,7 @@ async fn stream_google(
         .json(&body)
         .send()
         .await
-        .map_err(|error| AppError::new("llm_network_error", error.to_string()))?;
+        .map_err(|error| AppError::new("llm_network_error", provider_transport_error_message(error)))?;
     let status = response.status();
     if !status.is_success() {
         let error_body = read_error_response_details(response).await?;
@@ -2771,6 +2776,16 @@ mod tests {
         assert!(!message.contains(":\\"));
         assert!(!message.contains("/Users/"));
         assert!(!message.contains("/home/"));
+    }
+
+    #[test]
+    fn ensure_url_allowed_redacts_query_secret() {
+        let error = ensure_url_allowed("ftp://example.test/models?key=sk-test-secret")
+            .expect_err("disallowed URL should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
     }
 
     #[test]
