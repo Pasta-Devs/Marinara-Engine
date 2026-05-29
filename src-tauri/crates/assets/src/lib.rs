@@ -615,7 +615,10 @@ fn sort_asset_rows(rows: &mut [Value]) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ensure_upload_extension, AssetService};
+    use super::{
+        ensure_upload_extension, AssetService, AUDIO_EXTENSIONS, RASTER_IMAGE_EXTENSIONS,
+        SPRITE_IMAGE_EXTENSIONS,
+    };
     use std::fs;
     #[cfg(windows)]
     use std::io;
@@ -701,17 +704,20 @@ mod tests {
 
     #[test]
     fn accepts_client_advertised_game_asset_upload_extensions() {
-        for (category, filename) in [
-            ("music", "loop.webm"),
-            ("sfx", "hit.opus"),
-            ("ambient", "rain.flac"),
-            ("backgrounds", "scene.avif"),
-            ("sprites", "hero.svg"),
+        for (category, extensions) in [
+            ("music", AUDIO_EXTENSIONS),
+            ("sfx", AUDIO_EXTENSIONS),
+            ("ambient", AUDIO_EXTENSIONS),
+            ("backgrounds", RASTER_IMAGE_EXTENSIONS),
+            ("sprites", SPRITE_IMAGE_EXTENSIONS),
         ] {
-            assert!(
-                ensure_upload_extension(category, filename).is_ok(),
-                "{category} should accept {filename}"
-            );
+            for extension in extensions {
+                let filename = format!("asset.{extension}");
+                assert!(
+                    ensure_upload_extension(category, &filename).is_ok(),
+                    "{category} should accept {filename}"
+                );
+            }
         }
     }
 
