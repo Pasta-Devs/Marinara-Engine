@@ -5,7 +5,11 @@ import type { PresentCharacter } from "../../../../engine/contracts/types/game-s
 import type { Persona } from "../../../../engine/contracts/types/persona";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { parseCharacterDisplayData } from "../../../../shared/lib/character-display";
-import { addAliasLookups, addExactNameLookups } from "../../../../shared/lib/tracker-metadata";
+import {
+  addAliasLookups,
+  addExactNameLookups,
+  normalizeMaybeJsonStringArray,
+} from "../../../../shared/lib/tracker-metadata";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import type { TrackerPanelSizeProfile, TrackerPanelSide, TrackerTemperatureUnit, TrackerThoughtBubbleDisplay } from "../../../../shared/stores/ui.store";
@@ -23,7 +27,6 @@ import type { TrackerProfileColors } from "../components/tracker-profile-colors"
 import {
   getLatestSpriteExpressionsFromMessages,
   normalizeLookupText,
-  normalizeMaybeJsonStringArray,
   normalizeSpriteExpressionMap,
   parseMetadataRecord,
 } from "../components/tracker-metadata.helpers";

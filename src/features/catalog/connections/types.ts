@@ -24,7 +24,11 @@ export interface ConnectionRow {
 
 export interface ConnectionTestResult {
   success: boolean;
-  latencyMs?: number;
+  warning?: boolean;
+  message: string;
+  latencyMs: number;
+  modelName?: string | null;
+  code?: string;
   error?: string;
   details?: unknown;
 }

@@ -54,7 +54,7 @@ export async function requestLocalNotificationPermission(): Promise<LocalNotific
   return requestBrowserNotificationPermission();
 }
 
-export function isAppFocusedForNotifications(): boolean {
+function isAppFocusedForNotifications(): boolean {
   if (typeof document === "undefined") return true;
   return document.visibilityState === "visible" && document.hasFocus();
 }

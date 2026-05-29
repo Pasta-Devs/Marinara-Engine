@@ -93,7 +93,7 @@ export function parseCharacterMacroData(
   }
 }
 
-export function parsePersonaMacroData(raw: Record<string, unknown> | null | undefined): MacroPersonaData | null {
+function parsePersonaMacroData(raw: Record<string, unknown> | null | undefined): MacroPersonaData | null {
   if (!raw) return null;
 
   return {
@@ -107,7 +107,7 @@ export function parsePersonaMacroData(raw: Record<string, unknown> | null | unde
   };
 }
 
-export function selectChatCharacters(
+function selectChatCharacters(
   chat: { characterIds?: unknown } | null | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
 ): MacroCharacterData[] {
@@ -123,7 +123,7 @@ export function selectChatCharacters(
   return chatCharacterIds.map((id) => byId.get(id)).filter((value): value is MacroCharacterData => !!value);
 }
 
-export function selectActivePersona(
+function selectActivePersona(
   chat: { personaId?: string | null; mode?: string | null } | null | undefined,
   personas: Array<Record<string, unknown>> | undefined,
 ): MacroPersonaData | undefined {

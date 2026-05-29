@@ -1,12 +1,13 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Download, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { profileApi } from "../../../../shared/api/profile-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
+import { useUIStore } from "../../../../shared/stores/ui.store";
 
 type ProfileImportStats = {
   characters?: number;
@@ -31,6 +32,13 @@ type ProfileImportProgressState = {
   elapsedSeconds: number;
   imported?: ProfileImportStats;
   error?: string;
+};
+
+type ProfileImportResult = {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  imported?: ProfileImportStats;
 };
 
 function formatProfileImportDuration(seconds: number) {
@@ -84,11 +92,14 @@ function formatProfileImportSkippedStats(stats?: ProfileImportStats) {
 
 export function ProfileImportSection() {
   const qc = useQueryClient();
+  const remoteProfileInputRef = useRef<HTMLInputElement>(null);
+  const remoteRuntimeUrl = useUIStore((state) => state.remoteRuntimeUrl);
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "starting" ||
     profileImportProgress?.status === "running";
+  const isRemoteRuntime = remoteRuntimeUrl.trim().length > 0;
 
   useEffect(() => {
     if (!profileImportBusy) return;
@@ -102,8 +113,98 @@ export function ProfileImportSection() {
     return () => window.clearInterval(timer);
   }, [profileImportBusy]);
 
+  const finishProfileImport = (data: ProfileImportResult, startedAt: number) => {
+    if (data?.success === false) throw new Error(data.error ?? data.message ?? "Unknown error");
+    qc.invalidateQueries();
+    const imported = data?.imported;
+    const summary = formatProfileImportStats(imported);
+    const skippedSummary = formatProfileImportSkippedStats(imported);
+    setProfileImportProgress((current) => {
+      const totalItems = Math.max(1, current?.totalItems ?? 1);
+      return {
+        status: "success",
+        label: "Profile import complete",
+        completedItems: totalItems,
+        totalItems,
+        startedAt,
+        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        imported,
+      };
+    });
+    toast.success(
+      [summary ? `Imported: ${summary}` : "Profile imported.", skippedSummary ? `Skipped: ${skippedSummary}.` : ""]
+        .filter(Boolean)
+        .join(" "),
+    );
+  };
+
+  const runConfirmedProfileImport = async (startedAt: number, importProfile: () => Promise<ProfileImportResult>) => {
+    const confirmed = await showConfirmDialog({
+      title: "Import Profile",
+      message:
+        "Importing a profile replaces data from the selected file and may remove existing collections, depending on the export format. This cannot be undone. Continue?",
+      confirmLabel: "Import",
+      cancelLabel: "Cancel",
+      tone: "destructive",
+    });
+    if (!confirmed) {
+      setProfileImportProgress(null);
+      return;
+    }
+    setProfileImportProgress((current) =>
+      current
+        ? {
+            ...current,
+            status: "starting",
+            label: "Reading profile file",
+            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+          }
+        : current,
+    );
+    setProfileImportProgress((current) =>
+      current
+        ? {
+            ...current,
+            status: "running",
+            label: "Importing profile",
+            totalItems: Math.max(1, current.totalItems),
+            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+          }
+        : current,
+    );
+    finishProfileImport(await importProfile(), startedAt);
+  };
+
+  const showProfileImportError = (err: unknown, startedAt: number) => {
+    const expectedProfileFile = isRemoteRuntime ? "profile JSON file" : "profile JSON or ZIP file";
+    const message =
+      err instanceof SyntaxError
+        ? `Import failed. Make sure this is a valid ${expectedProfileFile}.`
+        : `Import failed: ${err instanceof Error ? err.message : "local import error"}`;
+    setProfileImportProgress({
+      status: "error",
+      label: "Profile import failed",
+      completedItems: 0,
+      totalItems: 1,
+      startedAt,
+      elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+      error: message.replace(/^Import failed:\s*/, ""),
+    });
+    toast.error(message);
+  };
+
   const handleProfileImport = async () => {
     if (profileImportBusy) return;
+    if (isRemoteRuntime) {
+      try {
+        remoteRuntimeTarget();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Invalid Remote Runtime URL");
+        return;
+      }
+      remoteProfileInputRef.current?.click();
+      return;
+    }
     const startedAt = Date.now();
     setProfileImportProgress({
       status: "reading",
@@ -114,9 +215,6 @@ export function ProfileImportSection() {
       elapsedSeconds: 0,
     });
     try {
-      if (remoteRuntimeTarget()) {
-        throw new Error("Profile import from a local file path is not available while Remote Runtime is configured.");
-      }
       const selected = await openDialog({
         multiple: false,
         filters: [{ name: "Marinara Profile", extensions: ["json", "zip"] }],
@@ -125,87 +223,44 @@ export function ProfileImportSection() {
         setProfileImportProgress(null);
         return;
       }
-      const confirmed = await showConfirmDialog({
-        title: "Import Profile",
-        message:
-          "Importing a profile replaces data from the selected file and may remove existing collections, depending on the export format. This cannot be undone. Continue?",
-        confirmLabel: "Import",
-        cancelLabel: "Cancel",
-        tone: "destructive",
-      });
-      if (!confirmed) {
-        setProfileImportProgress(null);
-        return;
-      }
-      setProfileImportProgress((current) =>
-        current
-          ? {
-              ...current,
-              status: "starting",
-              label: "Reading profile file",
-              elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            }
-          : current,
-      );
-      setProfileImportProgress((current) =>
-        current
-          ? {
-              ...current,
-              status: "running",
-              label: "Importing profile",
-              totalItems: Math.max(1, current.totalItems),
-              elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            }
-          : current,
-      );
-      const data = await profileApi.importProfileFile<{
-        success?: boolean;
-        error?: string;
-        message?: string;
-        imported?: ProfileImportStats;
-      }>(selected);
-      if (data?.success === false) throw new Error(data.error ?? data.message ?? "Unknown error");
-      qc.invalidateQueries();
-      const imported = data?.imported;
-      const summary = formatProfileImportStats(imported);
-      const skippedSummary = formatProfileImportSkippedStats(imported);
-      setProfileImportProgress((current) => {
-        const totalItems = Math.max(1, current?.totalItems ?? 1);
-        return {
-          status: "success",
-          label: "Profile import complete",
-          completedItems: totalItems,
-          totalItems,
-          startedAt,
-          elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-          imported,
-        };
-      });
-      toast.success(
-        [summary ? `Imported: ${summary}` : "Profile imported.", skippedSummary ? `Skipped: ${skippedSummary}.` : ""]
-          .filter(Boolean)
-          .join(" "),
-      );
+      await runConfirmedProfileImport(startedAt, () => profileApi.importProfileFile<ProfileImportResult>(selected));
     } catch (err) {
-      const message =
-        err instanceof SyntaxError
-          ? "Import failed. Make sure this is a valid profile JSON or ZIP file."
-          : `Import failed: ${err instanceof Error ? err.message : "local import error"}`;
-      setProfileImportProgress({
-        status: "error",
-        label: "Profile import failed",
-        completedItems: 0,
-        totalItems: 1,
-        startedAt,
-        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-        error: message.replace(/^Import failed:\s*/, ""),
+      showProfileImportError(err, startedAt);
+    }
+  };
+
+  const handleRemoteProfileFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0] ?? null;
+    event.currentTarget.value = "";
+    if (!file || profileImportBusy) return;
+    const startedAt = Date.now();
+    setProfileImportProgress({
+      status: "reading",
+      label: "Selecting profile file",
+      completedItems: 0,
+      totalItems: 1,
+      startedAt,
+      elapsedSeconds: 0,
+    });
+    try {
+      await runConfirmedProfileImport(startedAt, async () => {
+        const envelope = JSON.parse(await file.text()) as unknown;
+        return profileApi.importProfile<ProfileImportResult>(envelope);
       });
-      toast.error(message);
+    } catch (err) {
+      showProfileImportError(err, startedAt);
     }
   };
 
   return (
     <>
+      <input
+        ref={remoteProfileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => void handleRemoteProfileFileChange(event)}
+      />
       <button
         type="button"
         onClick={() => void handleProfileImport()}
@@ -216,7 +271,11 @@ export function ProfileImportSection() {
         )}
       >
         {profileImportBusy ? <Loader2 size="1rem" className="animate-spin" /> : <Download size="1rem" />}
-        {profileImportBusy ? "Importing Profile..." : "Import Profile (JSON/ZIP)"}
+        {profileImportBusy
+          ? "Importing Profile..."
+          : isRemoteRuntime
+            ? "Import Profile (JSON)"
+            : "Import Profile (JSON/ZIP)"}
       </button>
 
       {profileImportProgress && (

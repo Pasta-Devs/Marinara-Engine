@@ -104,7 +104,10 @@ export interface ModelCapabilities {
 /** Test result for a connection. */
 export interface ConnectionTestResult {
   success: boolean;
+  warning?: boolean;
   message: string;
   latencyMs: number;
   modelName: string | null;
+  code?: string;
+  details?: unknown;
 }

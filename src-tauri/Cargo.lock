@@ -3109,6 +3109,8 @@ name = "marinara-security"
 version = "0.1.0"
 dependencies = [
  "marinara-core",
+ "regex",
+ "serde_json",
  "url",
 ]
 

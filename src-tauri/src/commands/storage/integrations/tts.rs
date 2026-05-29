@@ -1,6 +1,7 @@
 use super::super::images::percent_encode_component;
 use super::super::shared::*;
 use super::super::*;
+use marinara_security::redact_sensitive_text;
 
 const TTS_SETTINGS_KEY: &str = "tts";
 const TTS_API_KEY_MASK: &str = "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}";
@@ -33,6 +34,13 @@ const POCKET_TTS_VOICES: &[&str] = &[
     "stuart_bell",
     "vera",
 ];
+
+fn provider_error_detail(text: &str, max_chars: usize) -> String {
+    redact_sensitive_text(text)
+        .chars()
+        .take(max_chars)
+        .collect()
+}
 
 const NANOGPT_ELEVENLABS_VOICES: &[&str] = &[
     "Adam",
@@ -242,13 +250,8 @@ async fn voices(state: &AppState) -> AppResult<Value> {
         }
         Ok(response) => {
             let status = response.status();
-            let detail = response
-                .text()
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(300)
-                .collect::<String>();
+            let raw_detail = response.text().await.unwrap_or_default();
+            let detail = provider_error_detail(&raw_detail, 300);
             Ok(fallback_voices_with_error(
                 source,
                 &AppError::with_details(
@@ -410,10 +413,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .await
         .map_err(|error| AppError::new("tts_response_error", error.to_string()))?;
     if !status.is_success() {
-        let detail = String::from_utf8_lossy(&bytes)
-            .chars()
-            .take(500)
-            .collect::<String>();
+        let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
             "tts_provider_error",
             format!("TTS provider returned HTTP {status}"),
@@ -421,10 +421,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         ));
     }
     if !is_allowed_audio_content_type(&content_type) {
-        let detail = String::from_utf8_lossy(&bytes)
-            .chars()
-            .take(500)
-            .collect::<String>();
+        let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
             "tts_provider_error",
             "TTS provider returned a non-audio response",
@@ -593,13 +590,8 @@ async fn elevenlabs_voices(config: &Value, base: &str) -> AppResult<Value> {
         .map_err(|error| AppError::new("tts_provider_unreachable", error.to_string()))?;
     if !response.status().is_success() {
         let status = response.status();
-        let detail = response
-            .text()
-            .await
-            .unwrap_or_default()
-            .chars()
-            .take(300)
-            .collect::<String>();
+        let raw_detail = response.text().await.unwrap_or_default();
+        let detail = provider_error_detail(&raw_detail, 300);
         return Err(AppError::with_details(
             "tts_provider_error",
             format!("TTS provider returned HTTP {status}"),
@@ -968,7 +960,8 @@ mod tests {
     #[tokio::test]
     async fn openai_voice_lookup_marks_fallback_when_provider_fails() {
         let state = test_state("openai-voices-provider-error");
-        let base_url = serve_voice_failure("401 Unauthorized", r#"{"error":"bad key"}"#).await;
+        let base_url =
+            serve_voice_failure("401 Unauthorized", r#"{"error":"bad key sk-test-secret"}"#).await;
         state
             .storage
             .upsert_with_id(
@@ -995,6 +988,7 @@ mod tests {
         assert!(result["providerError"]
             .as_str()
             .is_some_and(|message| message.contains("TTS provider returned HTTP")));
+        assert!(!result.to_string().contains("sk-test-secret"));
         assert_eq!(result["voices"], json!(OPENAI_FALLBACK_VOICES));
     }
 

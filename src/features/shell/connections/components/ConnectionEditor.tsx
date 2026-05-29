@@ -101,6 +101,7 @@ const MAX_PARALLEL_JOBS = 16;
 const OPENAI_CHATGPT_SETUP_STEPS = [
   { label: "Install Codex CLI", command: "npm i -g @openai/codex" },
   { label: "Sign in once", command: "codex login" },
+  { label: "Codex creates a local auth.json credential file that Marinara reads automatically." },
   { label: "API Key and Base URL are not required - leave them blank." },
 ] as const;
 
@@ -194,7 +195,12 @@ export function ConnectionEditor() {
   const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(false);
 
   // Test results
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    warning?: boolean;
+    message: string;
+    latencyMs: number;
+  } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
     response: string;
@@ -449,8 +455,8 @@ export function ConnectionEditor() {
     closeConnectionDetail();
   }, [dirty, closeConnectionDetail]);
 
-  const handleSave = useCallback(async () => {
-    if (!connectionDetailId) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!connectionDetailId) return false;
     setSaveError(null);
     const payload: Record<string, unknown> = {
       id: connectionDetailId,
@@ -505,8 +511,10 @@ export function ConnectionEditor() {
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save connection");
+      return false;
     }
   }, [
     connectionDetailId,
@@ -562,16 +570,12 @@ export function ConnectionEditor() {
   const handleTestConnection = useCallback(async () => {
     if (!connectionDetailId) return;
     // Save first if dirty, and wait for it to complete
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
-      onSuccess: (data) => setTestResult(data as { success: boolean; message: string; latencyMs: number }),
+      onSuccess: (data) => setTestResult(data),
       onError: (err) =>
         setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 }),
     });
@@ -579,12 +583,8 @@ export function ConnectionEditor() {
 
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setMsgResult(null);
     testMessage.mutate(connectionDetailId, {
@@ -602,12 +602,8 @@ export function ConnectionEditor() {
 
   const handleDiagnoseClaudeSubscription = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setClaudeDiagResult(null);
     diagnoseClaudeSubscription.mutate(connectionDetailId, {
@@ -628,12 +624,8 @@ export function ConnectionEditor() {
 
   const handleTestImage = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setImgTestResult(null);
     testImageGeneration.mutate(connectionDetailId, {
@@ -664,12 +656,8 @@ export function ConnectionEditor() {
     if (!connectionDetailId) return;
     setFetchError(null);
     // Save first if dirty so native provider calls use the latest baseUrl/apiKey/provider.
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     fetchModels.mutate(connectionDetailId, {
       onSuccess: (data) => {
@@ -843,8 +831,9 @@ export function ConnectionEditor() {
             </button>
             <button
               onClick={async () => {
-                await handleSave();
-                closeConnectionDetail();
+                if (await handleSave()) {
+                  closeConnectionDetail();
+                }
               }}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >
@@ -993,7 +982,7 @@ export function ConnectionEditor() {
               {isClaudeSubscriptionProvider
                 ? "Authentication is read from your local Claude Code session."
                 : usesLocalChatGptAuth
-                  ? "Authentication is read from your local codex login session."
+                  ? "Authentication is read from your local Codex auth.json credential file; this field stays locked."
                   : "Your key is encrypted at rest. Leave blank when editing to keep the existing key."}
             </p>
             {!usesLocalAuthProvider && API_KEY_LINKS[localProvider] && (
@@ -1047,7 +1036,8 @@ export function ConnectionEditor() {
               </p>
             ) : usesLocalChatGptAuth ? (
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth.
+                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth; this
+                endpoint field stays locked.
               </p>
             ) : providerDef?.defaultBaseUrl && !localBaseUrl ? (
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1946,7 +1936,9 @@ export function ConnectionEditor() {
                 ? "verifies your local Claude Code command is available."
                 : usesLocalChatGptAuth
                   ? "verifies your local Codex ChatGPT login."
-                  : "verifies your API key works."}
+                  : localProvider === "nanogpt"
+                    ? "checks NanoGPT's model list only. Use Send Test Message to verify generation auth and account balance."
+                    : "verifies your API key works."}
               {localProvider !== "image_generation" && (
                 <>
                   {" "}
@@ -1969,7 +1961,12 @@ export function ConnectionEditor() {
 
             {/* Connection test result */}
             {testResult && (
-              <TestResultCard label="Connection Test" success={testResult.success} latencyMs={testResult.latencyMs}>
+              <TestResultCard
+                label="Connection Test"
+                success={testResult.success}
+                warning={testResult.warning}
+                latencyMs={testResult.latencyMs}
+              >
                 {testResult.message}
               </TestResultCard>
             )}
@@ -2103,8 +2100,9 @@ function OpenAiChatGptAuthHelp() {
             })}
           </ol>
           <p className="mt-2">
-            Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are not
-            available on this provider; configure a separate connection for embedding work.
+            Marinara reads the local Codex <code className="rounded bg-[var(--secondary)] px-1">auth.json</code>{" "}
+            credential file and refreshes the ChatGPT session when possible. Embeddings are not available on this
+            provider; configure a separate connection for embedding work.
           </p>
         </div>
       </div>
@@ -2152,29 +2150,45 @@ function ClaudeSubscriptionAuthHelp() {
 function TestResultCard({
   label,
   success,
+  warning = false,
   latencyMs,
   children,
 }: {
   label: string;
   success: boolean;
+  warning?: boolean;
   latencyMs: number;
   children: React.ReactNode;
 }) {
+  const tone = warning ? "warning" : success ? "success" : "error";
+  const isSuccess = tone === "success";
+  const isWarning = tone === "warning";
+  const statusLabel = isWarning ? "Warning" : isSuccess ? "Success" : "Failed";
+
   return (
     <div
       className={cn(
         "rounded-lg border p-3",
-        success ? "border-emerald-400/20 bg-emerald-400/5" : "border-[var(--destructive)]/20 bg-[var(--destructive)]/5",
+        isWarning
+          ? "border-amber-400/25 bg-amber-400/5"
+          : isSuccess
+            ? "border-emerald-400/20 bg-emerald-400/5"
+            : "border-[var(--destructive)]/20 bg-[var(--destructive)]/5",
       )}
     >
       <div className="flex items-center gap-2 text-xs font-medium">
-        {success ? (
+        {isSuccess ? (
           <Check size="0.8125rem" className="text-emerald-400" />
         ) : (
-          <AlertCircle size="0.8125rem" className="text-[var(--destructive)]" />
+          <AlertCircle
+            size="0.8125rem"
+            className={isWarning ? "text-amber-300" : "text-[var(--destructive)]"}
+          />
         )}
-        <span className={success ? "text-emerald-400" : "text-[var(--destructive)]"}>
-          {label}: {success ? "Success" : "Failed"}
+        <span
+          className={isWarning ? "text-amber-300" : isSuccess ? "text-emerald-400" : "text-[var(--destructive)]"}
+        >
+          {label}: {statusLabel}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">{latencyMs}ms</span>
       </div>

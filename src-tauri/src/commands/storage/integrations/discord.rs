@@ -1,6 +1,6 @@
 use crate::storage_commands::shared::required_string;
 use marinara_core::{AppError, AppResult};
-use marinara_security::is_allowed_outbound_url;
+use marinara_security::{is_allowed_outbound_url, redact_sensitive_text};
 use serde_json::{json, Map, Value};
 use std::time::Duration;
 
@@ -41,7 +41,12 @@ pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
         .json(&Value::Object(payload))
         .send()
         .await
-        .map_err(|error| AppError::new("discord_webhook_request_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new(
+                "discord_webhook_request_error",
+                redact_sensitive_text(&error.to_string()),
+            )
+        })?;
 
     let status = response.status();
     if !status.is_success() {
@@ -49,7 +54,7 @@ pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
         return Err(AppError::with_details(
             "discord_webhook_failed",
             format!("Discord webhook returned HTTP {status}"),
-            json!({ "body": body.chars().take(500).collect::<String>() }),
+            json!({ "body": redact_sensitive_text(&body).chars().take(500).collect::<String>() }),
         ));
     }
 

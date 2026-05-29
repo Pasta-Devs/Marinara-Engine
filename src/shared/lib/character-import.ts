@@ -9,7 +9,7 @@ export interface EmbeddedLorebookImportPreview {
   error?: string;
 }
 
-export function countLorebookEntries(value: unknown): number {
+function countLorebookEntries(value: unknown): number {
   if (!value || typeof value !== "object") return 0;
   const entries = (value as Record<string, unknown>).entries;
   if (Array.isArray(entries)) return entries.length;

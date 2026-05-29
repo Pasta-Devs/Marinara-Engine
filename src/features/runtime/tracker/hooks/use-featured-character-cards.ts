@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUpdateChatMetadata } from "../../../catalog/chats/index";
+import { normalizeStringArray } from "../../../../shared/lib/tracker-metadata";
 import { TRACKER_FEATURED_CHARACTER_META_KEY } from "../components/tracker-data-sidebar.constants";
-import { normalizeStringArray } from "../components/tracker-metadata.helpers";
 
 function getFeaturedCharacterCardValues(cards: Set<string>) {
   return Array.from(cards);

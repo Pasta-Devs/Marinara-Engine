@@ -1376,8 +1376,11 @@ export function useGenerate() {
           const result = parseAgentResult(rawResult);
           if (!result || result.success) continue;
           const raw = isRecord(rawResult) ? rawResult : null;
+          const data = parseMaybeRecord(result.data);
           const agentName =
-            (raw ? readString(raw.agentName).trim() || readString(raw.name).trim() : "") || result.agentType;
+            (raw ? readString(raw.agentName).trim() || readString(raw.name).trim() : "") ||
+            readString(data.agentName).trim() ||
+            result.agentType;
           failedRetries.push(toAgentFailure({ agentType: result.agentType, agentName, error: result.error }));
         }
         for (const result of results) {
@@ -1385,7 +1388,9 @@ export function useGenerate() {
             applyAgentResultEffects(queryClient, chatId, result),
           );
         }
-        if (failedRetries.length > 0) toast.error(formatAgentFailuresToast(failedRetries));
+        if (failedRetries.length > 0) {
+          toast.error(formatAgentFailuresToast(failedRetries), { duration: 10_000 });
+        }
         runDeferredGenerationWork("agent retry refresh", async () => {
           await refreshGameStateFromStorage(chatId);
           await queryClient.invalidateQueries({ queryKey: ["agents"] });
