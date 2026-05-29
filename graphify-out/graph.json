@@ -7712,9 +7712,9 @@
       "file_type": "code",
       "source_file": "src-tauri/crates/assets/src/lib.rs",
       "source_location": "L1",
-      "id": "repo_src_tauri_crates_assets_src_lib_rs",
       "community": 64,
-      "norm_label": "lib.rs"
+      "norm_label": "lib.rs",
+      "id": "repo_src_tauri_crates_assets_src_lib_rs"
     },
     {
       "label": "AssetService",
@@ -8080,7 +8080,7 @@
       "label": "temp_root()",
       "file_type": "code",
       "source_file": "src-tauri/crates/assets/src/lib.rs",
-      "source_location": "L644",
+      "source_location": "L647",
       "id": "src_lib_temp_root",
       "community": 64,
       "norm_label": "temp_root()"
@@ -8089,7 +8089,7 @@
       "label": "writes_text_assets_inside_root()",
       "file_type": "code",
       "source_file": "src-tauri/crates/assets/src/lib.rs",
-      "source_location": "L656",
+      "source_location": "L659",
       "id": "src_lib_writes_text_assets_inside_root",
       "community": 64,
       "norm_label": "writes_text_assets_inside_root()"
@@ -8098,7 +8098,7 @@
       "label": "rejects_paths_that_escape_root_through_symlinked_directory()",
       "file_type": "code",
       "source_file": "src-tauri/crates/assets/src/lib.rs",
-      "source_location": "L673",
+      "source_location": "L676",
       "id": "src_lib_rejects_paths_that_escape_root_through_symlinked_directory",
       "community": 64,
       "norm_label": "rejects_paths_that_escape_root_through_symlinked_directory()"
@@ -24343,7 +24343,7 @@
       "label": "professor_mari_prompt_omits_raw_image_attachment_data_urls()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1442",
+      "source_location": "L1445",
       "id": "storage_mari_professor_mari_prompt_omits_raw_image_attachment_data_urls",
       "community": 69,
       "norm_label": "professor_mari_prompt_omits_raw_image_attachment_data_urls()"
@@ -24352,7 +24352,7 @@
       "label": "professor_mari_prompt_truncates_large_text_attachments()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1457",
+      "source_location": "L1460",
       "id": "storage_mari_professor_mari_prompt_truncates_large_text_attachments",
       "community": 69,
       "norm_label": "professor_mari_prompt_truncates_large_text_attachments()"
@@ -24361,7 +24361,7 @@
       "label": "professor_mari_prompt_bounds_attachment_metadata()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1473",
+      "source_location": "L1476",
       "id": "storage_mari_professor_mari_prompt_bounds_attachment_metadata",
       "community": 69,
       "norm_label": "professor_mari_prompt_bounds_attachment_metadata()"
@@ -24370,7 +24370,7 @@
       "label": "professor_mari_code_tools_skip_generated_graphify_output()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1492",
+      "source_location": "L1495",
       "id": "storage_mari_professor_mari_code_tools_skip_generated_graphify_output",
       "community": 69,
       "norm_label": "professor_mari_code_tools_skip_generated_graphify_output()"
@@ -24379,7 +24379,7 @@
       "label": "professor_mari_code_tools_reject_encoded_source_payloads()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1502",
+      "source_location": "L1505",
       "id": "storage_mari_professor_mari_code_tools_reject_encoded_source_payloads",
       "community": 69,
       "norm_label": "professor_mari_code_tools_reject_encoded_source_payloads()"
@@ -24388,7 +24388,7 @@
       "label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/mari.rs",
-      "source_location": "L1513",
+      "source_location": "L1516",
       "id": "storage_mari_professor_mari_code_tools_reject_wrapped_encoded_source_payloads",
       "community": 69,
       "norm_label": "professor_mari_code_tools_reject_wrapped_encoded_source_payloads()"
@@ -94297,22 +94297,13 @@
       "id": "components_chatsettingsdrawer_spriterangeslider"
     },
     {
-      "label": "chatMessageSwipeBody()",
+      "label": "lib.rs",
       "file_type": "code",
-      "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L127",
-      "id": "api_storage_api_chatmessageswipebody",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L1",
+      "id": "src_tauri_crates_assets_src_lib_rs",
       "community": 164,
-      "norm_label": "chatmessageswipebody()"
-    },
-    {
-      "label": "AddChatMessageSwipeOptions",
-      "file_type": "code",
-      "source_file": "src/engine/capabilities/storage.ts",
-      "source_location": "L48",
-      "id": "capabilities_storage_addchatmessageswipeoptions",
-      "community": 164,
-      "norm_label": "addchatmessageswipeoptions"
+      "norm_label": "lib.rs"
     },
     {
       "label": "message_swipes_can_append_inactive_swipe_with_activate_false()",
@@ -94322,6 +94313,24 @@
       "id": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
       "community": 34,
       "norm_label": "message_swipes_can_append_inactive_swipe_with_activate_false()"
+    },
+    {
+      "label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1328",
+      "id": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "community": 34,
+      "norm_label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()"
+    },
+    {
+      "label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1383",
+      "id": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "community": 34,
+      "norm_label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()"
     },
     {
       "label": "message_swipes_respects_legacy_silent_flag_for_inactive_swipes()",
@@ -94342,22 +94351,22 @@
       "norm_label": "should_activate_new_swipe()"
     },
     {
-      "label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()",
+      "label": "chatMessageSwipeBody()",
       "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1328",
-      "id": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
-      "community": 34,
-      "norm_label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()"
+      "source_file": "src/shared/api/storage-api.ts",
+      "source_location": "L127",
+      "id": "api_storage_api_chatmessageswipebody",
+      "community": 52,
+      "norm_label": "chatmessageswipebody()"
     },
     {
-      "label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()",
+      "label": "AddChatMessageSwipeOptions",
       "file_type": "code",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1383",
-      "id": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
-      "community": 34,
-      "norm_label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()"
+      "source_file": "src/engine/capabilities/storage.ts",
+      "source_location": "L48",
+      "id": "capabilities_storage_addchatmessageswipeoptions",
+      "community": 52,
+      "norm_label": "addchatmessageswipeoptions"
     }
   ],
   "links": [
@@ -334674,6 +334683,176 @@
       "target": "api_readme_api_wrappers"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_assetservice",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L542",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_copy_missing",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L459",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_ensure_text_asset_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L470",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_ensure_upload_extension",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L444",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_folder_description",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L533",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_image_dimensions_for",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L522",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_is_native_asset_folder",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L453",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_path_extension",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L676",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_rejects_paths_that_escape_root_through_symlinked_directory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L489",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_sanitize_filename",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L508",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_should_skip_asset_entry",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L591",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_sort_asset_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L629",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_symlink_dir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L526",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_system_time_iso",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L647",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_temp_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L567",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_unique_target_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/assets/src/lib.rs",
+      "source_location": "L659",
+      "weight": 1.0,
+      "source": "src_tauri_crates_assets_src_lib_rs",
+      "target": "src_lib_writes_text_assets_inside_root",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -334741,7 +334920,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1269",
+      "source_location": "L1276",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_chats_rs",
       "target": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
@@ -334751,7 +334930,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1321",
+      "source_location": "L1328",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1383",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1437",
       "weight": 1.0,
       "source": "src_tauri_src_commands_storage_chats_rs",
       "target": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
@@ -334772,7 +334971,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L257",
+      "source_location": "L261",
       "weight": 1.0,
       "source": "storage_chats_message_swipes",
       "target": "storage_chats_should_activate_new_swipe",
@@ -334783,7 +334982,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1290",
+      "source_location": "L1297",
       "weight": 1.0,
       "source": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
       "target": "storage_chats_message_swipes",
@@ -334794,7 +334993,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1270",
+      "source_location": "L1277",
       "weight": 1.0,
       "source": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
       "target": "storage_chats_test_state",
@@ -334805,39 +335004,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1338",
-      "weight": 1.0,
-      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
-      "target": "storage_chats_message_swipes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1322",
-      "weight": 1.0,
-      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
-      "target": "storage_chats_test_state",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1321",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_chats_rs",
-      "target": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1345",
+      "source_location": "L1352",
       "weight": 1.0,
       "source": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
       "target": "storage_chats_message_swipes",
@@ -334848,20 +335015,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1322",
+      "source_location": "L1329",
       "weight": 1.0,
       "source": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
       "target": "storage_chats_test_state",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1383",
-      "weight": 1.0,
-      "source": "src_tauri_src_commands_storage_chats_rs",
-      "target": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
       "confidence_score": 1.0
     },
     {
@@ -334885,8 +335042,30 @@
       "source": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
       "target": "storage_chats_test_state",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1454",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1438",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "2f083d052a5d4809124861422f939b5d2f53e84c"
+  "built_at_commit": "004bad7db29d8ffe7fea1dbc4be21cb7e6bd0c87"
 }

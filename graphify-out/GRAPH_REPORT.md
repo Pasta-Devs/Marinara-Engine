@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 856 files · ~2,839,255 words
+- 856 files · ~2,839,266 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10484 nodes · 22735 edges · 449 communities (415 shown, 34 thin omitted)
+- 10485 nodes · 22752 edges · 449 communities (415 shown, 34 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 280 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2f083d05`
+- Built from commit: `004bad7d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -662,8 +662,8 @@ Cohesion: 0.11
 Nodes (29): ColorsTab(), getTrackerProfilePalette(), getBoolean(), getClampedFinishValue(), getClampedPortraitFocusYValue(), getClampedPortraitZoomValue(), getString(), getTrackerCardFinish() (+21 more)
 
 ### Community 52 - "Community 52"
-Cohesion: 0.10
-Nodes (28): ExpressionPanel(), ExpressionPanelProps, ExpressionSprite(), FeaturedCharacterPortrait(), detectExpression(), SidebarSprite(), SpriteSidebar, SpriteSidebarProps (+20 more)
+Cohesion: 0.09
+Nodes (30): chatMessageSwipeBody(), AddChatMessageSwipeOptions, ExpressionPanel(), ExpressionPanelProps, ExpressionSprite(), FeaturedCharacterPortrait(), detectExpression(), SidebarSprite() (+22 more)
 
 ### Community 53 - "Community 53"
 Cohesion: 0.13
@@ -711,7 +711,7 @@ Nodes (46): imageGenerationApi, SpriteCleanupResult, ImageGenerationConnectionOp
 
 ### Community 64 - "Community 64"
 Cohesion: 0.11
-Nodes (14): AssetService, copy_missing(), ensure_text_asset_path(), folder_description(), image_dimensions_for(), is_native_asset_folder(), path_extension(), rejects_paths_that_escape_root_through_symlinked_directory() (+6 more)
+Nodes (15): AssetService, copy_missing(), ensure_text_asset_path(), folder_description(), image_dimensions_for(), is_native_asset_folder(), path_extension(), rejects_paths_that_escape_root_through_symlinked_directory() (+7 more)
 
 ### Community 65 - "Community 65"
 Cohesion: 0.09
@@ -1090,8 +1090,8 @@ Cohesion: 0.16
 Nodes (15): ApiError, getApiErrorRetryAfterMs(), getJsonRepairRequest(), isJsonRepairApiError(), isRecord(), parseRetryAfterMs(), apiQueryRetryDelay(), ApiQueryRetryDelayOptions (+7 more)
 
 ### Community 164 - "Community 164"
-Cohesion: 0.07
-Nodes (25): chatMessageSwipeBody(), AddChatMessageSwipeOptions, CompactSelect(), deriveStatus(), ENTRY_STATUS_ORDER, EntryStatus, ExpandedDrawer(), FILTER_MODE_LABEL (+17 more)
+Cohesion: 0.08
+Nodes (23): CompactSelect(), deriveStatus(), ENTRY_STATUS_ORDER, EntryStatus, ExpandedDrawer(), FILTER_MODE_LABEL, GENERATION_TRIGGER_OPTIONS, getNextStatus() (+15 more)
 
 ### Community 165 - "Community 165"
 Cohesion: 0.15

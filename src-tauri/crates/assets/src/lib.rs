@@ -627,13 +627,16 @@ mod tests {
 
     #[cfg(windows)]
     fn symlink_dir(source: &std::path::Path, target: &std::path::Path) -> bool {
+        const ERROR_PRIVILEGE_NOT_HELD: i32 = 1314;
+
         match std::os::windows::fs::symlink_dir(source, target) {
             Ok(()) => true,
             Err(error)
-                if matches!(
-                    error.kind(),
-                    io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
-                ) =>
+                if error.raw_os_error() == Some(ERROR_PRIVILEGE_NOT_HELD)
+                    || matches!(
+                        error.kind(),
+                        io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
+                    ) =>
             {
                 false
             }
