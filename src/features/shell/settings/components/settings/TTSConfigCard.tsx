@@ -31,7 +31,7 @@ import type {
   TTSVoiceMode,
 } from "../../../../../engine/contracts/types/tts";
 import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "../../../../../engine/contracts/types/tts";
-import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
+import { LabelWithHelp } from "../../../../../shared/components/ui/HelpTooltip";
 
 // ── Sub-components ───────────────────────────────
 
@@ -39,8 +39,11 @@ function FieldRow({ label, help, children }: { label: string; help?: string; chi
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1">
-        <span className="text-xs font-medium text-[var(--foreground)]">{label}</span>
-        {help && <HelpTooltip text={help} />}
+        {help ? (
+          <LabelWithHelp label={label} help={help} className="text-xs font-medium text-[var(--foreground)]" />
+        ) : (
+          <span className="text-xs font-medium text-[var(--foreground)]">{label}</span>
+        )}
       </div>
       {children}
     </div>
