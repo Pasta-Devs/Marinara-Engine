@@ -739,6 +739,101 @@ mod tests {
     }
 
     #[test]
+    fn apply_storage_search_matches_character_summary_fields() {
+        let mut rows = vec![
+            json!({
+                "id": "char-rina",
+                "comment": "ice mage",
+                "avatarPath": "data:image/png;base64,needle",
+                "data": {
+                    "name": "Rina",
+                    "creator": "Xel",
+                    "creator_notes": "Frost academy rival",
+                    "tags": ["Mage", "Winter"]
+                }
+            }),
+            json!({
+                "id": "char-mari",
+                "comment": "assistant",
+                "avatarPath": "data:image/png;base64,very-large-avatar",
+                "data": {
+                    "name": "Professor Mari",
+                    "creator": "Pasta",
+                    "creator_notes": "Codebase helper",
+                    "tags": ["Guide"]
+                }
+            }),
+        ];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "winter rina" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-rina");
+    }
+
+    #[test]
+    fn apply_storage_search_ignores_avatar_payload_text() {
+        let mut rows = vec![json!({
+            "id": "char-rina",
+            "avatarPath": "data:image/png;base64,hidden-needle",
+            "data": {
+                "name": "Rina",
+                "tags": []
+            }
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "hidden-needle" })));
+
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn apply_storage_search_matches_message_content_and_swipes() {
+        let mut rows = vec![
+            json!({
+                "id": "message-direct",
+                "content": "The party finds a silver key."
+            }),
+            json!({
+                "id": "message-swipe",
+                "content": "No match here.",
+                "swipes": [
+                    { "content": "Alternate route through the moonlit archive." }
+                ]
+            }),
+            json!({
+                "id": "message-miss",
+                "content": "Plain campfire chatter."
+            }),
+        ];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "moonlit" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "message-swipe");
+    }
+
+    #[test]
+    fn apply_storage_search_matches_string_encoded_character_data() {
+        let mut rows = vec![json!({
+            "id": "char-legacy",
+            "data": r#"{"name":"Legacy Rin","creator_notes":"Imported archive"}"#
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "archive" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-legacy");
+    }
+
+    #[test]
+    fn has_storage_search_ignores_empty_terms() {
+        assert!(!has_storage_search(Some(&json!({ "search": "   " }))));
+        assert!(!has_storage_search(Some(&json!({ "search": null }))));
+        assert!(has_storage_search(Some(&json!({ "search": "rina" }))));
+    }
+
+    #[test]
     fn character_update_patch_rejects_invalid_data_shape() {
         for invalid in [
             json!(true),
@@ -1429,6 +1524,100 @@ pub(crate) fn project_record(row: Value, options: Option<&Value>) -> Value {
         return row;
     }
     project_row(row, &fields, options)
+}
+
+pub(crate) fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
+    option_string_array(options, "fields").map(|fields| {
+        fields
+            .into_iter()
+            .map(|field| field.trim().to_string())
+            .filter(|field| !field.is_empty())
+            .collect()
+    })
+}
+
+pub(crate) fn projection_field_selections(
+    options: Option<&Value>,
+) -> &serde_json::Map<String, Value> {
+    if let Some(selections) = options
+        .and_then(|value| value.get("fieldSelections"))
+        .and_then(Value::as_object)
+    {
+        selections
+    } else {
+        empty_projection_field_selections()
+    }
+}
+
+fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value> {
+    static EMPTY: std::sync::OnceLock<serde_json::Map<String, Value>> = std::sync::OnceLock::new();
+    EMPTY.get_or_init(serde_json::Map::new)
+}
+
+pub(crate) fn apply_storage_search(rows: &mut Vec<Value>, options: Option<&Value>) {
+    let Some(query) = storage_search_query(options) else {
+        return;
+    };
+    let terms = query
+        .split_whitespace()
+        .map(|term| term.to_ascii_lowercase())
+        .filter(|term| !term.is_empty())
+        .collect::<Vec<_>>();
+    if terms.is_empty() {
+        return;
+    }
+    rows.retain(|row| terms.iter().all(|term| row_matches_search_term(row, term)));
+}
+
+pub(crate) fn has_storage_search(options: Option<&Value>) -> bool {
+    storage_search_query(options).is_some()
+}
+
+fn storage_search_query(options: Option<&Value>) -> Option<&str> {
+    options
+        .and_then(|value| value.get("search"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn row_matches_search_term(row: &Value, term: &str) -> bool {
+    let Some(object) = row.as_object() else {
+        return false;
+    };
+    value_matches_search_term(object.get("id"), term)
+        || value_matches_search_term(object.get("name"), term)
+        || value_matches_search_term(object.get("comment"), term)
+        || value_matches_search_term(object.get("content"), term)
+        || swipe_content_matches_search_term(object.get("swipes"), term)
+        || json_object_value(object.get("data")).is_some_and(|data| {
+            let Some(data) = data.as_object() else {
+                return false;
+            };
+            value_matches_search_term(data.get("name"), term)
+                || value_matches_search_term(data.get("creator"), term)
+                || value_matches_search_term(data.get("creator_notes"), term)
+                || value_matches_search_term(data.get("tags"), term)
+        })
+}
+
+fn value_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    match value {
+        Some(Value::String(value)) => value.to_ascii_lowercase().contains(term),
+        Some(Value::Array(values)) => values
+            .iter()
+            .any(|value| value_matches_search_term(Some(value), term)),
+        _ => false,
+    }
+}
+
+fn swipe_content_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(Value::Array(swipes)) = value else {
+        return false;
+    };
+    swipes
+        .iter()
+        .any(|swipe| value_matches_search_term(swipe.get("content"), term))
 }
 
 fn project_row(row: Value, fields: &[String], options: Option<&Value>) -> Value {

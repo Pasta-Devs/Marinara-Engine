@@ -43,6 +43,7 @@ export interface StorageListOptions {
   before?: string;
   fields?: string[];
   fieldSelections?: Record<string, string[]>;
+  search?: string;
 }
 
 export interface AddChatMessageSwipeOptions {

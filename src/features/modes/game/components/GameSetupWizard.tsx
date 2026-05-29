@@ -35,6 +35,7 @@ import { useConnections } from "../../../catalog/connections/index";
 import {
   characterAvatarUrl,
   useCharacterSummaries,
+  useCharacterSummariesByIds,
   usePersonas,
   type CharacterSummary,
 } from "../../../catalog/characters/index";
@@ -75,6 +76,19 @@ function parseAvatarCropValue(raw: unknown): AvatarCropValue | null {
     return null;
   }
   return parseAvatarCropJson(JSON.stringify(raw));
+}
+
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
 }
 
 function CharacterAvatar({
@@ -323,6 +337,8 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
   );
   const [gmSearch, setGmSearch] = useState("");
   const [partySearch, setPartySearch] = useState("");
+  const debouncedGmSearch = useDebouncedValue(gmSearch, 180);
+  const debouncedPartySearch = useDebouncedValue(partySearch, 180);
   const [personaId, setPersonaId] = useState<string | null>(null);
   const [gmConnectionId, setGmConnectionId] = useState<string | null>(null);
   const [customizeParameters, setCustomizeParameters] = useState(false);
@@ -358,11 +374,26 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
 
   const { data: connectionsList } = useConnections();
   const { data: personasList } = usePersonas();
+  const selectedCharacterIds = useMemo(
+    () => Array.from(new Set([gmCharacterId, ...partyCharacterIds].filter((id): id is string => !!id))),
+    [gmCharacterId, partyCharacterIds],
+  );
+  const { data: selectedRawCharacters } = useCharacterSummariesByIds(
+    selectedCharacterIds,
+    selectedCharacterIds.length > 0,
+  );
   const {
-    data: rawCharacters,
-    isLoading: isCharactersLoading,
-    isError: isCharactersError,
-  } = useCharacterSummaries(step === 1);
+    data: gmRawCharacters,
+    isLoading: isGmCharactersLoading,
+    isFetching: isGmCharactersFetching,
+    isError: isGmCharactersError,
+  } = useCharacterSummaries(step === 1, debouncedGmSearch);
+  const {
+    data: partyRawCharacters,
+    isLoading: isPartyCharactersLoading,
+    isFetching: isPartyCharactersFetching,
+    isError: isPartyCharactersError,
+  } = useCharacterSummaries(step === 1, debouncedPartySearch);
   const { data: lorebooksList } = useLorebooks();
   const spotifyPlaylistsQuery = useQuery({
     queryKey: ["spotify", "playlists", 50],
@@ -412,32 +443,38 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
       }>) ?? [],
     [personasList],
   );
-  const characters = useMemo<SetupCharacterInfo[]>(
-    () =>
-      ((rawCharacters ?? []) as CharacterSummary[])
-        .map((character) => {
-          const display = parseCharacterDisplayData({
-            data: character.data,
-            comment: character.comment,
-          });
-          const rawCrop = character.data?.extensions?.avatarCrop;
-          return {
-            id: character.id,
-            name: display.name,
-            comment: display.comment,
-            avatarUrl: characterAvatarUrl(character),
-            avatarCrop: parseAvatarCropValue(rawCrop),
-          };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [rawCharacters],
-  );
+  const characters = useMemo<SetupCharacterInfo[]>(() => {
+    const byId = new Map<string, CharacterSummary>();
+    for (const character of (selectedRawCharacters ?? []) as CharacterSummary[]) byId.set(character.id, character);
+    for (const character of (gmRawCharacters ?? []) as CharacterSummary[]) byId.set(character.id, character);
+    for (const character of (partyRawCharacters ?? []) as CharacterSummary[]) byId.set(character.id, character);
+    return Array.from(byId.values())
+      .map((character) => {
+        const display = parseCharacterDisplayData({
+          data: character.data,
+          comment: character.comment,
+        });
+        const rawCrop = character.data?.extensions?.avatarCrop;
+        return {
+          id: character.id,
+          name: display.name,
+          comment: display.comment,
+          avatarUrl: characterAvatarUrl(character),
+          avatarCrop: parseAvatarCropValue(rawCrop),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [gmRawCharacters, partyRawCharacters, selectedRawCharacters]);
 
-  const emptyCharacterMessage = isCharactersLoading
-    ? "Loading characters..."
-    : isCharactersError
-      ? "Characters could not be loaded."
-      : "No characters found.";
+  const isCharactersLoading = isGmCharactersLoading || isPartyCharactersLoading;
+  const isCharactersFetching = isGmCharactersFetching || isPartyCharactersFetching;
+  const isCharactersError = isGmCharactersError || isPartyCharactersError;
+  const emptyCharacterMessage =
+    isCharactersLoading || isCharactersFetching
+      ? "Loading characters..."
+      : isCharactersError
+        ? "Characters could not be loaded."
+        : "No characters found.";
 
   const lorebooks = useMemo(
     () => (lorebooksList as Array<{ id: string; name: string; enabled?: boolean }>) ?? [],

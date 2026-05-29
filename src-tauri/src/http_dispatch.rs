@@ -854,6 +854,9 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
     let filters = options
         .and_then(|value| value.get("filters"))
         .and_then(Value::as_object);
+    let projection_fields = shared::projection_fields(options);
+    let empty_filters = filters.is_none_or(|filters| filters.is_empty());
+    let has_search = shared::has_storage_search(options);
     let mut rows = match (entity, filters) {
         ("messages", Some(filters))
             if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
@@ -870,9 +873,23 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
                 state.storage.list_messages_for_chat(chat_id)?
             }
         }
+        (_, _)
+            if empty_filters
+                && !has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            state.storage.list_projected(
+                entity,
+                projection_fields.as_deref().unwrap_or(&[]),
+                shared::projection_field_selections(options),
+            )?
+        }
         (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
         _ => state.storage.list(entity)?,
     };
+    shared::apply_storage_search(&mut rows, options);
 
     let order_by = options
         .and_then(|value| value.get("orderBy"))

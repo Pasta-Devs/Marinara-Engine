@@ -1,7 +1,20 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpDown, Download, MessageCircle, Pencil, Plus, Search, Sparkles, Star, User } from "lucide-react";
-import { useCharacters } from "../hooks/use-characters";
+import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  ArrowLeft,
+  ArrowUpDown,
+  Download,
+  MessageCircle,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  Star,
+  User,
+} from "lucide-react";
+import { useCharacter, useCharacterSummaries, type CharacterSummary } from "../hooks/use-characters";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
+import { characterAvatarUrl } from "../lib/character-avatar-url";
 import { getCharacterTitle } from "../../../../shared/lib/character-display";
 import { cn } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -26,9 +39,11 @@ type CharacterRow = {
   id: string;
   data: Partial<CharacterData>;
   comment?: string | null;
-  avatarPath: string | null;
-  createdAt: string;
-  updatedAt: string;
+  avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type ParsedCharacterRow = CharacterRow & {
@@ -49,11 +64,8 @@ function getCharacterSummary(char: ParsedCharacterRow) {
   const creatorNotes = getText(char.parsed.creator_notes);
   if (creatorNotes) return creatorNotes;
 
-  const description = getText(char.parsed.description);
-  if (description) return description;
-
-  const personality = getText(char.parsed.personality);
-  if (personality) return personality;
+  const comment = getText(char.comment);
+  if (comment) return comment;
 
   return "No creator notes yet.";
 }
@@ -74,6 +86,40 @@ function truncateText(content: string, maxLength: number) {
   return `${content.slice(0, maxLength - 3).trimEnd()}...`;
 }
 
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
+}
+
+function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => setWidth(element.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
+}
+
+function gridColumnCount(width: number): number {
+  if (width >= 1440) return 4;
+  if (width >= 1024) return 3;
+  if (width >= 640) return 2;
+  return 1;
+}
+
 function getCharacterSections(char: ParsedCharacterRow) {
   return [
     { title: "Description", content: getText(char.parsed.description) },
@@ -86,9 +132,15 @@ function getCharacterSections(char: ParsedCharacterRow) {
 function CharacterLibraryDetailCard({
   character,
   onEdit,
+  fullRecordLoading = false,
+  fullRecordError = false,
+  onRetryFullRecord,
 }: {
   character: ParsedCharacterRow;
   onEdit: (id: string) => void;
+  fullRecordLoading?: boolean;
+  fullRecordError?: boolean;
+  onRetryFullRecord?: () => void;
 }) {
   const { startChatFromCharacter, isStartingChat } = useStartChatFromCharacter();
   const characterName = getText(character.parsed.name) || "Unnamed";
@@ -96,14 +148,18 @@ function CharacterLibraryDetailCard({
   const characterMeta = getCharacterMeta(character);
   const creatorNotes = getText(character.parsed.creator_notes);
   const sections = getCharacterSections(character);
+  const avatarUrl = characterAvatarUrl(character);
+  const startDisabled = isStartingChat || fullRecordLoading || fullRecordError;
 
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--background)]/70 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.95)] sm:rounded-[2rem]">
         <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15">
-          {character.avatarPath ? (
+          {avatarUrl ? (
             <CharacterAvatarImage
-              src={character.avatarPath}
+              src={avatarUrl}
+              avatarFilePath={character.avatarFilePath}
+              avatarFilename={character.avatarFilename}
               alt={characterName || "Selected character"}
               crop={character.parsed.extensions?.avatarCrop}
             />
@@ -155,11 +211,11 @@ function CharacterLibraryDetailCard({
                       : [],
                   })
                 }
-                disabled={isStartingChat}
+                disabled={startDisabled}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--primary-foreground)] shadow-lg shadow-pink-500/15 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <MessageCircle size="0.875rem" />
-                Start New Chat
+                {fullRecordLoading ? "Loading..." : "Start New Chat"}
               </button>
               <button
                 onClick={() => onEdit(character.id)}
@@ -169,6 +225,15 @@ function CharacterLibraryDetailCard({
                 Edit Character
               </button>
             </div>
+            {fullRecordError && (
+              <button
+                type="button"
+                onClick={onRetryFullRecord}
+                className="mt-3 text-xs font-medium text-[var(--destructive)] transition-colors hover:opacity-80"
+              >
+                Character details could not be loaded. Retry
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -198,20 +263,25 @@ export function CharacterLibraryView() {
   const closeCharacterLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openModal = useUIStore((s) => s.openModal);
-  const { data: characters, isLoading } = useCharacters();
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("name-asc");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const debouncedSearch = useDebouncedValue(search, 180);
+  const { data: characters, isLoading, isFetching, isError, refetch } = useCharacterSummaries(true, debouncedSearch);
+  const selectedCharacterQuery = useCharacter(selectedCharacterId);
+  const { data: selectedCharacterDetail } = selectedCharacterQuery;
+  const listScrollRef = useRef<HTMLElement | null>(null);
+  const listWidth = useElementWidth(listScrollRef);
 
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
-    return (characters as CharacterRow[]).map(parseCharacterRow);
+    return (characters as CharacterSummary[] as CharacterRow[]).map(parseCharacterRow);
   }, [characters]);
 
   const filteredCharacters = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
 
     return parsedCharacters.filter((char) => {
       const isFavorite = !!char.parsed.extensions?.fav;
@@ -222,15 +292,13 @@ export function CharacterLibraryView() {
         getText(char.parsed.name),
         getText(char.comment),
         getText(char.parsed.creator),
-        getText(char.parsed.description),
         getText(char.parsed.creator_notes),
-        getText(char.parsed.personality),
         ...((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]),
       ];
 
       return fields.some((value) => value.toLowerCase().includes(query));
     });
-  }, [favoritesOnly, parsedCharacters, search]);
+  }, [debouncedSearch, favoritesOnly, parsedCharacters]);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];
@@ -267,12 +335,32 @@ export function CharacterLibraryView() {
   }, [sortedCharacters]);
 
   const selectedCharacter = useMemo(
-    () => sortedCharacters.find((char) => char.id === selectedCharacterId) ?? null,
-    [selectedCharacterId, sortedCharacters],
+    () =>
+      selectedCharacterDetail
+        ? parseCharacterRow(selectedCharacterDetail as CharacterRow)
+        : (sortedCharacters.find((char) => char.id === selectedCharacterId) ?? null),
+    [selectedCharacterDetail, selectedCharacterId, sortedCharacters],
   );
+  const columnCount = gridColumnCount(listWidth);
+  const virtualRows = useMemo(() => {
+    const rows: ParsedCharacterRow[][] = [];
+    for (let index = 0; index < sortedCharacters.length; index += columnCount) {
+      rows.push(sortedCharacters.slice(index, index + columnCount));
+    }
+    return rows;
+  }, [columnCount, sortedCharacters]);
+  const rowVirtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => listScrollRef.current,
+    estimateSize: () => (columnCount === 1 ? 150 : 360),
+    overscan: 5,
+  });
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [rowVirtualizer, selectedCharacterDetail, selectedCharacterId]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)] lg:overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)]">
       <div className="sticky top-0 z-10 border-b border-[var(--border)]/40 bg-[var(--card)]/85 backdrop-blur-xl">
         <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -293,6 +381,7 @@ export function CharacterLibraryView() {
               <p className="text-xs text-[var(--muted-foreground)] md:text-sm">
                 {filteredCharacters.length} out of {parsedCharacters.length} card
                 {parsedCharacters.length === 1 ? "" : "s"}
+                {isFetching && !isLoading ? " · updating" : ""}
               </p>
             </div>
           </div>
@@ -331,7 +420,7 @@ export function CharacterLibraryView() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search names, tags, creator notes, or descriptions"
+              placeholder="Search names, tags, creators, or notes"
               className="w-full rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-8.5 pr-3 text-[0.8125rem] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-9 md:text-sm"
             />
           </div>
@@ -372,7 +461,7 @@ export function CharacterLibraryView() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-0 xl:grid-cols-[minmax(0,1.1fr)_28rem]">
-        <section className="min-h-0 overflow-visible px-4 py-4 md:px-6 lg:overflow-y-auto">
+        <section ref={listScrollRef} className="min-h-0 overflow-y-auto px-4 py-4 md:px-6">
           {isLoading && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((item) => (
@@ -381,7 +470,20 @@ export function CharacterLibraryView() {
             </div>
           )}
 
-          {!isLoading && sortedCharacters.length === 0 && (
+          {!isLoading && isError && (
+            <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-6 text-center">
+              <h2 className="text-lg font-semibold text-[var(--foreground)]">Characters could not be loaded</h2>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="rounded-2xl bg-[var(--secondary)] px-4 py-2 text-sm font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!isLoading && !isError && sortedCharacters.length === 0 && (
             <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--card)]/50 p-6 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">
                 <User size="1.5rem" />
@@ -395,97 +497,125 @@ export function CharacterLibraryView() {
             </div>
           )}
 
-          {!isLoading && sortedCharacters.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
-              {sortedCharacters.map((char) => {
-                const charName = getText(char.parsed.name) || "Unnamed";
-                const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
-                const cardSummary = truncateText(getCharacterSummary(char), 180);
-                const cardMeta = getCharacterMeta(char);
-                const isFavorite = !!char.parsed.extensions?.fav;
-                const tags = ((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]).filter(Boolean);
-                const isActive = selectedCharacterId === char.id;
+          {!isLoading && !isError && sortedCharacters.length > 0 && (
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                <div
+                  key={virtualRow.key}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  className="absolute left-0 top-0 w-full pb-3"
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
+                    {(virtualRows[virtualRow.index] ?? []).map((char) => {
+                      const charName = getText(char.parsed.name) || "Unnamed";
+                      const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
+                      const cardSummary = truncateText(getCharacterSummary(char), 180);
+                      const cardMeta = getCharacterMeta(char);
+                      const isFavorite = !!char.parsed.extensions?.fav;
+                      const tags = ((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]).filter(
+                        Boolean,
+                      );
+                      const isActive = selectedCharacterId === char.id;
+                      const avatarUrl = characterAvatarUrl(char);
 
-                return (
-                  <Fragment key={char.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCharacterId(char.id)}
-                      className={cn(
-                        "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--primary)]/35 hover:shadow-[0_24px_60px_-32px_rgba(244,114,182,0.45)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
-                        isActive
-                          ? "border-[var(--primary)]/45 ring-1 ring-[var(--primary)]/25"
-                          : "border-[var(--border)]/50",
-                      )}
-                    >
-                      <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15 sm:h-auto sm:w-full sm:aspect-[4/3]">
-                        {char.avatarPath ? (
-                          <CharacterAvatarImage
-                            src={char.avatarPath}
-                            alt={charName}
-                            crop={char.parsed.extensions?.avatarCrop}
-                            className="transition-transform duration-300 group-hover:scale-[1.03]"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-white/85">
-                            <User size="1.5rem" className="sm:h-8 sm:w-8" />
-                          </div>
-                        )}
+                      return (
+                        <Fragment key={char.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCharacterId(char.id)}
+                            className={cn(
+                              "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--primary)]/35 hover:shadow-[0_24px_60px_-32px_rgba(244,114,182,0.45)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
+                              isActive
+                                ? "border-[var(--primary)]/45 ring-1 ring-[var(--primary)]/25"
+                                : "border-[var(--border)]/50",
+                            )}
+                          >
+                            <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15 sm:h-auto sm:w-full sm:aspect-[4/3]">
+                              {avatarUrl ? (
+                                <CharacterAvatarImage
+                                  src={avatarUrl}
+                                  avatarFilePath={char.avatarFilePath}
+                                  avatarFilename={char.avatarFilename}
+                                  alt={charName}
+                                  crop={char.parsed.extensions?.avatarCrop}
+                                  className="transition-transform duration-300 group-hover:scale-[1.03]"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-white/85">
+                                  <User size="1.5rem" className="sm:h-8 sm:w-8" />
+                                </div>
+                              )}
 
-                        {isFavorite && (
-                          <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[0.5625rem] font-medium text-amber-200 backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]">
-                            <Star size="0.625rem" className="fill-current sm:h-[0.6875rem] sm:w-[0.6875rem]" /> Favorite
-                          </div>
-                        )}
-                      </div>
+                              {isFavorite && (
+                                <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[0.5625rem] font-medium text-amber-200 backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]">
+                                  <Star size="0.625rem" className="fill-current sm:h-[0.6875rem] sm:w-[0.6875rem]" />{" "}
+                                  Favorite
+                                </div>
+                              )}
+                            </div>
 
-                      <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-[var(--foreground)] sm:text-base">
-                            {charName}
-                          </div>
-                          {charTitle && (
-                            <div className="mt-0.5 truncate text-[0.625rem] italic text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.6875rem]">
-                              {charTitle}
+                            <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-[var(--foreground)] sm:text-base">
+                                  {charName}
+                                </div>
+                                {charTitle && (
+                                  <div className="mt-0.5 truncate text-[0.625rem] italic text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.6875rem]">
+                                    {charTitle}
+                                  </div>
+                                )}
+                                {cardMeta && (
+                                  <div className="mt-0.5 truncate text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.625rem] sm:tracking-[0.18em]">
+                                    {cardMeta}
+                                  </div>
+                                )}
+                              </div>
+
+                              <p className="line-clamp-3 text-[0.6875rem] leading-4 text-[var(--muted-foreground)] sm:line-clamp-4 sm:text-xs sm:leading-5">
+                                {cardSummary}
+                              </p>
+
+                              <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
+                                {tags.slice(0, 2).map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="rounded-full bg-[var(--primary)]/8 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]/85 sm:px-2 sm:py-1 sm:text-[0.625rem]"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {tags.length > 2 && (
+                                  <span className="rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
+                                    +{tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+
+                          {isActive && (
+                            <div className="col-span-full lg:hidden">
+                              <CharacterLibraryDetailCard
+                                character={selectedCharacter?.id === char.id ? selectedCharacter : char}
+                                onEdit={openCharacterDetail}
+                                fullRecordLoading={
+                                  selectedCharacterId === char.id &&
+                                  selectedCharacterQuery.isFetching &&
+                                  !selectedCharacterDetail
+                                }
+                                fullRecordError={selectedCharacterId === char.id && selectedCharacterQuery.isError}
+                                onRetryFullRecord={() => void selectedCharacterQuery.refetch()}
+                              />
                             </div>
                           )}
-                          {cardMeta && (
-                            <div className="mt-0.5 truncate text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.625rem] sm:tracking-[0.18em]">
-                              {cardMeta}
-                            </div>
-                          )}
-                        </div>
-
-                        <p className="line-clamp-3 text-[0.6875rem] leading-4 text-[var(--muted-foreground)] sm:line-clamp-4 sm:text-xs sm:leading-5">
-                          {cardSummary}
-                        </p>
-
-                        <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
-                          {tags.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-[var(--primary)]/8 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]/85 sm:px-2 sm:py-1 sm:text-[0.625rem]"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {tags.length > 2 && (
-                            <span className="rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
-                              +{tags.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-
-                    {isActive && (
-                      <div className="col-span-full lg:hidden">
-                        <CharacterLibraryDetailCard character={char} onEdit={openCharacterDetail} />
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -493,7 +623,13 @@ export function CharacterLibraryView() {
         <aside className="hidden min-h-0 overflow-visible border-t border-[var(--border)]/40 bg-[var(--card)]/65 backdrop-blur-xl lg:block lg:overflow-y-auto lg:border-l lg:border-t-0">
           <div className="space-y-4 p-4 md:p-6">
             {selectedCharacter ? (
-              <CharacterLibraryDetailCard character={selectedCharacter} onEdit={openCharacterDetail} />
+              <CharacterLibraryDetailCard
+                character={selectedCharacter}
+                onEdit={openCharacterDetail}
+                fullRecordLoading={selectedCharacterQuery.isFetching && !selectedCharacterDetail}
+                fullRecordError={selectedCharacterQuery.isError}
+                onRetryFullRecord={() => void selectedCharacterQuery.refetch()}
+              />
             ) : (
               <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--background)]/65 p-6 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">

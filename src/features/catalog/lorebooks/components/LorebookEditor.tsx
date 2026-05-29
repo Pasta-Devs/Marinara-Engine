@@ -116,6 +116,19 @@ function writeCollapsedFolderIds(lorebookId: string, ids: Set<string>) {
   }
 }
 
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
+}
+
 // ── Types ──
 type LinkedResourceItem = {
   id: string;
@@ -146,6 +159,7 @@ function LinkedResourcePicker({
   search,
   onSearchChange,
   isLoading = false,
+  isError = false,
   isOpen,
   onOpen,
   onClose,
@@ -163,6 +177,7 @@ function LinkedResourcePicker({
   search: string;
   onSearchChange: (value: string) => void;
   isLoading?: boolean;
+  isError?: boolean;
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -268,9 +283,11 @@ function LinkedResourcePicker({
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                 {isLoading
                   ? "Loading..."
-                  : items.length === selectedItems.length
-                    ? `All ${label.toLowerCase()} already added.`
-                    : "No matches."}
+                  : isError
+                    ? `${label} could not be loaded.`
+                    : items.length === selectedItems.length
+                      ? `All ${label.toLowerCase()} already added.`
+                      : "No matches."}
               </p>
             )}
           </div>
@@ -432,13 +449,21 @@ export function LorebookEditor() {
   const [formTags, setFormTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [characterLinkSearch, setCharacterLinkSearch] = useState("");
+  const debouncedCharacterLinkSearch = useDebouncedValue(characterLinkSearch, 180);
   const [personaLinkSearch, setPersonaLinkSearch] = useState("");
   const [characterLinkPickerOpen, setCharacterLinkPickerOpen] = useState(false);
   const [personaLinkPickerOpen, setPersonaLinkPickerOpen] = useState(false);
 
   const { data: linkedRawCharacters } = useCharacterSummariesByIds(formCharacterIds, formCharacterIds.length > 0);
   const shouldLoadAllCharacters = characterLinkPickerOpen || activeTab === "entries";
-  const { data: allRawCharacters, isLoading: allRawCharactersLoading } = useCharacterSummaries(shouldLoadAllCharacters);
+  const {
+    data: allRawCharacters,
+    isFetching: allRawCharactersFetching,
+    isError: allRawCharactersError,
+  } = useCharacterSummaries(
+    shouldLoadAllCharacters,
+    characterLinkPickerOpen ? debouncedCharacterLinkSearch : undefined,
+  );
   const rawCharacters = useMemo(() => {
     const byId = new Map<string, NonNullable<typeof linkedRawCharacters>[number]>();
     for (const character of linkedRawCharacters ?? []) byId.set(character.id, character);
@@ -1326,7 +1351,12 @@ export function LorebookEditor() {
                         selectedIds={formCharacterIds}
                         search={characterLinkSearch}
                         onSearchChange={setCharacterLinkSearch}
-                        isLoading={characterLinkPickerOpen && allRawCharactersLoading}
+                        isLoading={
+                          characterLinkPickerOpen &&
+                          (allRawCharactersFetching ||
+                            characterLinkSearch.trim() !== debouncedCharacterLinkSearch.trim())
+                        }
+                        isError={characterLinkPickerOpen && allRawCharactersError}
                         isOpen={characterLinkPickerOpen}
                         onOpen={() => {
                           setCharacterLinkPickerOpen(true);
