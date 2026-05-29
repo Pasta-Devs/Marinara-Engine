@@ -44,9 +44,22 @@ describe("ttsApi", () => {
   it("loads TTS config through the tts_config command", async () => {
     invokeMock.mockResolvedValueOnce(config);
 
-    await expect(ttsApi.config()).resolves.toBe(config);
+    await expect(ttsApi.config()).resolves.toEqual(config);
 
     expect(invokeMock).toHaveBeenCalledWith("tts_config");
+  });
+
+  it("normalizes native TTS config responses through the contract schema", async () => {
+    invokeMock.mockResolvedValueOnce({ enabled: true });
+
+    await expect(ttsApi.config()).resolves.toMatchObject({
+      enabled: true,
+      source: "openai",
+      narratorVoiceEnabled: false,
+      narratorVoice: "",
+      voiceAssignments: [],
+      dialogueScope: "all",
+    });
   });
 
   it("updates TTS config with the expected payload", async () => {
@@ -54,7 +67,13 @@ describe("ttsApi", () => {
 
     await expect(ttsApi.updateConfig(config)).resolves.toBeUndefined();
 
-    expect(invokeMock).toHaveBeenCalledWith("tts_update_config", { config });
+    expect(invokeMock).toHaveBeenCalledWith("tts_update_config", { config: expect.objectContaining(config) });
+  });
+
+  it("rejects invalid TTS config updates before invoking the native command", async () => {
+    await expect(ttsApi.updateConfig({ ...config, speed: 99 } as TTSConfig)).rejects.toThrow();
+
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("loads provider voices through the tts_voices command", async () => {

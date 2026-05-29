@@ -3,19 +3,18 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts"]);
+const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts"]);
 export type TTSSource = z.infer<typeof ttsSourceSchema>;
 
-export const ttsDialogueScopeSchema = z.enum(["all", "character"]);
-export type TTSDialogueScope = z.infer<typeof ttsDialogueScopeSchema>;
+const ttsDialogueScopeSchema = z.enum(["all", "character"]);
 
-export const ttsVoiceModeSchema = z.enum(["single", "per-character"]);
+const ttsVoiceModeSchema = z.enum(["single", "per-character"]);
 export type TTSVoiceMode = z.infer<typeof ttsVoiceModeSchema>;
 
-export const ttsAudioFormatSchema = z.enum(["mp3", "wav"]);
+const ttsAudioFormatSchema = z.enum(["mp3", "wav"]);
 export type TTSAudioFormat = z.infer<typeof ttsAudioFormatSchema>;
 
-export const ttsVoiceAssignmentSchema = z.object({
+const ttsVoiceAssignmentSchema = z.object({
   characterId: z.string().default(""),
   characterName: z.string().default(""),
   voice: z.string().default(""),
@@ -133,7 +132,6 @@ export const ttsConfigSchema = z.object({
 
 export type TTSConfig = z.infer<typeof ttsConfigSchema>;
 
-export const TTS_SETTINGS_KEY = "tts";
 export const TTS_API_KEY_MASK = "••••••";
 
 /** Returned when listing native TTS voices. */

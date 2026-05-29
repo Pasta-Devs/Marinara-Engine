@@ -1,4 +1,4 @@
-import type { TTSConfig, TTSVoicesResponse } from "../../engine/contracts/types/tts";
+import { ttsConfigSchema, type TTSConfig, type TTSVoicesResponse } from "../../engine/contracts/types/tts";
 import { invokeTauri } from "./tauri-client";
 
 export interface TtsSpeakInput {
@@ -53,8 +53,9 @@ function throwIfAborted(signal?: AbortSignal): void {
 }
 
 export const ttsApi = {
-  config: () => invokeTauri<TTSConfig>("tts_config"),
-  updateConfig: (config: TTSConfig) => invokeTauri<void>("tts_update_config", { config }),
+  config: async () => ttsConfigSchema.parse(await invokeTauri<unknown>("tts_config")),
+  updateConfig: async (config: TTSConfig) =>
+    invokeTauri<void>("tts_update_config", { config: ttsConfigSchema.parse(config) }),
   voices: () => invokeTauri<TTSVoicesResponse>("tts_voices"),
   speak: async (input: TtsSpeakInput, signal?: AbortSignal): Promise<Blob> => {
     throwIfAborted(signal);

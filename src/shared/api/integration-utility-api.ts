@@ -2,9 +2,8 @@ import { fileToUploadPayload } from "./file-payload";
 import { openExternalUrl } from "./external-link-api";
 import { remoteRuntimeTarget } from "./remote-runtime";
 import { invokeTauri } from "./tauri-client";
-export { ttsApi } from "./tts-api";
 
-export interface GifSearchResult {
+interface GifSearchResult {
   id: string;
   title: string;
   preview: string;
