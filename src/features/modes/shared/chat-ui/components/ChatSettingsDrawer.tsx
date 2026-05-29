@@ -6282,7 +6282,7 @@ function AdvancedParametersSection({
   };
 
   return (
-    <div className="relative border-b border-[var(--border)]">
+    <div className="border-b border-[var(--border)]">
       <ChatSettingsSectionHeader
         label="Advanced Parameters"
         icon={<Settings2 size="0.875rem" />}

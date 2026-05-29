@@ -34,8 +34,10 @@ describe("ChatSettingsSection", () => {
     });
 
     const section = container.firstElementChild as HTMLElement;
-    const header = section.firstElementChild as HTMLElement;
+    const headerWrapper = section.firstElementChild as HTMLElement;
+    const header = headerWrapper.firstElementChild as HTMLElement;
 
+    expect(headerWrapper.className).toContain("relative");
     expect(header.tagName).toBe("BUTTON");
 
     act(() => {
@@ -55,8 +57,10 @@ describe("ChatSettingsSection", () => {
     });
 
     const helpButton = container.querySelector('button[aria-label="Show help"]') as HTMLButtonElement;
-    const header = container.firstElementChild?.firstElementChild as HTMLElement;
+    const headerWrapper = container.firstElementChild?.firstElementChild as HTMLElement;
+    const header = headerWrapper.firstElementChild as HTMLElement;
 
+    expect(headerWrapper.contains(helpButton)).toBe(true);
     expect(header.contains(helpButton)).toBe(false);
 
     act(() => {

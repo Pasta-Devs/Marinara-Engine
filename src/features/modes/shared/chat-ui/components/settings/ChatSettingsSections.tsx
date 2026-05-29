@@ -19,7 +19,7 @@ export function ChatSettingsSectionHeader({
   onToggle: () => void;
 }) {
   return (
-    <>
+    <div className="relative">
       <button
         type="button"
         onClick={onToggle}
@@ -46,7 +46,7 @@ export function ChatSettingsSectionHeader({
           <HelpTooltip text={help} side="left" />
         </span>
       )}
-    </>
+    </div>
   );
 }
 
@@ -66,7 +66,7 @@ export function ChatSettingsSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative border-b border-[var(--border)]">
+    <div className="border-b border-[var(--border)]">
       <ChatSettingsSectionHeader
         label={label}
         icon={icon}
