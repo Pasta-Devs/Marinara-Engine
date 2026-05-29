@@ -20,6 +20,7 @@ import {
   toAgentFailure,
   type AgentFailure,
 } from "../../../../shared/lib/agent-failures";
+import { ContinuityIssueChecklist } from "../../../catalog/agents/activity";
 import { ContextInjectionPanel } from "./ContextInjectionPanel";
 
 const SecretPlotPanel = lazy(async () =>
@@ -197,7 +198,11 @@ export function RoleplayHUDActionsMenu({
                     </button>
                     <div className="pr-4">
                       <span className="font-semibold text-foreground/75">{bubble.agentName}</span>
-                      <p className="mt-0.5 whitespace-pre-wrap text-white/50 leading-relaxed">{bubble.content}</p>
+                      {bubble.agentId === "continuity" ? (
+                        <ContinuityIssueChecklist content={bubble.content} compact />
+                      ) : (
+                        <p className="mt-0.5 whitespace-pre-wrap text-white/50 leading-relaxed">{bubble.content}</p>
+                      )}
                     </div>
                   </div>
                 ))}
