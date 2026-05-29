@@ -1201,6 +1201,7 @@ export function BotBrowserView() {
     setPersistLogin("chartavern", val);
   }, []);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const searchRequestIdRef = useRef(0);
 
   // ── Check auth sessions on mount — sync persisted state with server ──
   useEffect(() => {
@@ -1308,6 +1309,8 @@ export function BotBrowserView() {
   }, [sourceId]);
 
   const doSearch = useCallback(async () => {
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
     setLoading(true);
     setError(null);
     try {
@@ -1325,13 +1328,17 @@ export function BotBrowserView() {
         extraToggles,
       });
 
+      if (searchRequestIdRef.current !== requestId) return;
       setResults(result.cards);
       setTotalCount(result.totalCount);
     } catch (err) {
+      if (searchRequestIdRef.current !== requestId) return;
       setError(err instanceof Error ? err.message : "Search failed");
       setResults([]);
     } finally {
-      setLoading(false);
+      if (searchRequestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [
     provider,

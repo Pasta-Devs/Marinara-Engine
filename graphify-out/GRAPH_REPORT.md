@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 856 files · ~2,839,266 words
+- 858 files · ~2,840,437 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10485 nodes · 22752 edges · 449 communities (415 shown, 34 thin omitted)
+- 10501 nodes · 22783 edges · 449 communities (415 shown, 34 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 280 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `004bad7d`
+- Built from commit: `5fb8c74a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -670,8 +670,8 @@ Cohesion: 0.13
 Nodes (41): parseJsonObject(), TrackerSnapshotMessageRebase, abandonRoleplayScene(), analyzeScene(), appendSceneMemory(), buildForkContinuityMessage(), buildSceneConversationContext(), characterData() (+33 more)
 
 ### Community 54 - "Community 54"
-Cohesion: 0.10
-Nodes (22): knowledgeSourcesApi, AgentEditor(), CUSTOM_AGENT_RESULT_TYPE_OPTIONS, CustomAgentResultType, getDisplayedSpotifyRedirectUri(), PHASE_META, ToolCard(), useCreateAgent() (+14 more)
+Cohesion: 0.09
+Nodes (24): knowledgeSourcesApi, AgentEditor(), CUSTOM_AGENT_RESULT_TYPE_OPTIONS, CustomAgentResultType, getDisplayedSpotifyRedirectUri(), PHASE_META, ToolCard(), useCreateAgent() (+16 more)
 
 ### Community 55 - "Community 55"
 Cohesion: 0.09
@@ -1114,8 +1114,8 @@ Cohesion: 0.17
 Nodes (9): invalid_profile_asset_payload_does_not_clear_existing_assets(), path_exists_no_follow(), profile_asset_restore_replaces_managed_asset_dirs(), profile_asset_restore_rolls_back_when_import_fails_later(), ProfileAssetTransaction, remove_path_if_exists(), restore_profile_json_assets_in_root(), RestoredProfileAssets (+1 more)
 
 ### Community 170 - "Community 170"
-Cohesion: 0.20
-Nodes (15): BinaryPayload, binaryStringToBlob(), botBrowserAssetUrl(), botBrowserBlob(), botBrowserGet(), botBrowserPost(), fetchBotBrowserAssetBlob(), ImportCharacterResult (+7 more)
+Cohesion: 0.13
+Nodes (18): BinaryPayload, binaryStringToBlob(), botBrowserAssetUrl(), botBrowserBlob(), botBrowserGet(), botBrowserPost(), fetchBotBrowserAssetBlob(), ImportCharacterResult (+10 more)
 
 ### Community 171 - "Community 171"
 Cohesion: 0.13
@@ -1318,8 +1318,8 @@ Cohesion: 0.20
 Nodes (9): codeowners, dependencies, documentation, domain, iot_class, issue_tracker, name, requirements (+1 more)
 
 ### Community 225 - "Community 225"
-Cohesion: 0.44
-Nodes (7): generic_marinara_import_directs_profile_exports_to_profile_import(), marinara_lorebook_import_remaps_nested_folders_and_entry_folders(), marinara_preset_import_remaps_nested_groups_and_section_groups(), parented_record_import_rolls_back_created_records_on_failure(), record_with_field(), test_state(), test_string()
+Cohesion: 0.24
+Nodes (9): firstSearch, refreshButton, generic_marinara_import_directs_profile_exports_to_profile_import(), marinara_lorebook_import_remaps_nested_folders_and_entry_folders(), marinara_preset_import_remaps_nested_groups_and_section_groups(), parented_record_import_rolls_back_created_records_on_failure(), record_with_field(), test_state() (+1 more)
 
 ### Community 226 - "Community 226"
 Cohesion: 0.27
@@ -1358,8 +1358,8 @@ Cohesion: 0.44
 Nodes (7): execute_custom_tool(), execute_webhook_tool(), insert_tool(), script_execution_type_returns_actionable_error(), string_bool(), test_state(), unknown_execution_type_still_rejected()
 
 ### Community 237 - "Community 237"
-Cohesion: 0.32
-Nodes (7): coerceGameStateTextFields(), coerceGameStateTextValue(), coerceGameStateTextValueInner(), GAME_STATE_TEXT_FIELDS, GAME_STATE_TEXT_OBJECT_KEYS, GameStateTextField, normalizeGameState()
+Cohesion: 0.18
+Nodes (9): coerceGameStateTextFields(), coerceGameStateTextValue(), coerceGameStateTextValueInner(), GAME_STATE_TEXT_FIELDS, GAME_STATE_TEXT_OBJECT_KEYS, GameStateTextField, patchMock, resetPatcherState() (+1 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.18
@@ -1962,7 +1962,7 @@ Cohesion: 0.32
 Nodes (7): child, findModernNode(), readNodeVersion(), repoRoot, runner, supportsVite(), viteBin
 
 ## Knowledge Gaps
-- **3230 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3225 more)
+- **3237 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3232 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1970,13 +1970,13 @@ Nodes (7): child, findModernNode(), readNodeVersion(), repoRoot, runner, support
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `Community 97` to `Community 128`, `Community 1`, `Community 2`, `Community 384`, `Community 129`, `Community 5`, `Community 257`, `Community 4`, `Community 265`, `Community 10`, `Community 11`, `Community 12`, `Community 137`, `Community 9`, `Community 145`, `Community 19`, `Community 23`, `Community 151`, `Community 409`, `Community 26`, `Community 30`, `Community 35`, `Community 164`, `Community 165`, `Community 39`, `Community 168`, `Community 167`, `Community 42`, `Community 43`, `Community 172`, `Community 45`, `Community 40`, `Community 47`, `Community 177`, `Community 50`, `Community 51`, `Community 52`, `Community 54`, `Community 57`, `Community 61`, `Community 191`, `Community 63`, `Community 65`, `Community 68`, `Community 197`, `Community 70`, `Community 71`, `Community 205`, `Community 208`, `Community 220`, `Community 96`, `Community 98`, `Community 100`, `Community 103`, `Community 104`, `Community 105`, `Community 108`, `Community 115`, `Community 371`, `Community 247`, `Community 249`, `Community 250`, `Community 124`, `Community 126`, `Community 383`?**
-  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
 - **Why does `useUIStore` connect `Community 247` to `Community 128`, `Community 1`, `Community 2`, `Community 129`, `Community 4`, `Community 5`, `Community 10`, `Community 11`, `Community 12`, `Community 145`, `Community 19`, `Community 20`, `Community 23`, `Community 151`, `Community 26`, `Community 29`, `Community 163`, `Community 39`, `Community 168`, `Community 40`, `Community 177`, `Community 50`, `Community 54`, `Community 183`, `Community 57`, `Community 186`, `Community 60`, `Community 191`, `Community 63`, `Community 71`, `Community 201`, `Community 205`, `Community 208`, `Community 81`, `Community 90`, `Community 220`, `Community 97`, `Community 98`, `Community 104`, `Community 105`, `Community 241`, `Community 114`, `Community 124`, `Community 383`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **Why does `storageApi` connect `Community 26` to `Community 128`, `Community 4`, `Community 5`, `Community 10`, `Community 11`, `Community 12`, `Community 19`, `Community 20`, `Community 30`, `Community 33`, `Community 35`, `Community 39`, `Community 40`, `Community 168`, `Community 172`, `Community 175`, `Community 180`, `Community 181`, `Community 191`, `Community 65`, `Community 198`, `Community 78`, `Community 208`, `Community 81`, `Community 220`, `Community 98`, `Community 101`, `Community 102`, `Community 104`, `Community 105`, `Community 241`, `Community 124`, `Community 383`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
-  _3263 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3270 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004395604395604396 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

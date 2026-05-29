@@ -50047,7 +50047,7 @@
       "label": "LoginModal()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2215",
+      "source_location": "L2222",
       "id": "components_botbrowserview_loginmodal",
       "community": 50,
       "norm_label": "loginmodal()"
@@ -50056,7 +50056,7 @@
       "label": "BotBrowserAssetImage()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2452",
+      "source_location": "L2459",
       "id": "components_botbrowserview_botbrowserassetimage",
       "community": 50,
       "norm_label": "botbrowserassetimage()"
@@ -50065,7 +50065,7 @@
       "label": "CardTile()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2494",
+      "source_location": "L2501",
       "id": "components_botbrowserview_cardtile",
       "community": 259,
       "norm_label": "cardtile()"
@@ -50074,7 +50074,7 @@
       "label": "DetailView()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2557",
+      "source_location": "L2564",
       "id": "components_botbrowserview_detailview",
       "community": 259,
       "norm_label": "detailview()"
@@ -50083,7 +50083,7 @@
       "label": "buildCharacterCardPng()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2824",
+      "source_location": "L2831",
       "id": "components_botbrowserview_buildcharactercardpng",
       "community": 170,
       "norm_label": "buildcharactercardpng()"
@@ -50092,7 +50092,7 @@
       "label": "crc32()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2931",
+      "source_location": "L2938",
       "id": "components_botbrowserview_crc32",
       "community": 170,
       "norm_label": "crc32()"
@@ -50101,7 +50101,7 @@
       "label": "DefSection()",
       "file_type": "code",
       "source_file": "src/features/shell/bot-browser/components/BotBrowserView.tsx",
-      "source_location": "L2951",
+      "source_location": "L2958",
       "id": "components_botbrowserview_defsection",
       "community": 50,
       "norm_label": "defsection()"
@@ -60613,7 +60613,7 @@
       "label": "queuePatch()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L217",
+      "source_location": "L224",
       "id": "hooks_use_world_state_patcher_queuepatch",
       "community": 102,
       "norm_label": "queuepatch()"
@@ -60622,7 +60622,7 @@
       "label": "flushGameStatePatch()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L250",
+      "source_location": "L257",
       "id": "hooks_use_world_state_patcher_flushgamestatepatch",
       "community": 102,
       "norm_label": "flushgamestatepatch()"
@@ -60631,7 +60631,7 @@
       "label": "discardPendingGameStatePatch()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L334",
+      "source_location": "L341",
       "id": "hooks_use_world_state_patcher_discardpendinggamestatepatch",
       "community": 102,
       "norm_label": "discardpendinggamestatepatch()"
@@ -60640,7 +60640,7 @@
       "label": "flushGameStatePatchOnUnload()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L368",
+      "source_location": "L375",
       "id": "hooks_use_world_state_patcher_flushgamestatepatchonunload",
       "community": 102,
       "norm_label": "flushgamestatepatchonunload()"
@@ -60649,7 +60649,7 @@
       "label": "retainBeforeUnloadFlush()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L394",
+      "source_location": "L401",
       "id": "hooks_use_world_state_patcher_retainbeforeunloadflush",
       "community": 102,
       "norm_label": "retainbeforeunloadflush()"
@@ -60658,7 +60658,7 @@
       "label": "patchGameStateField()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L415",
+      "source_location": "L422",
       "id": "hooks_use_world_state_patcher_patchgamestatefield",
       "community": 102,
       "norm_label": "patchgamestatefield()"
@@ -60667,7 +60667,7 @@
       "label": "patchPlayerStatsField()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L432",
+      "source_location": "L439",
       "id": "hooks_use_world_state_patcher_patchplayerstatsfield",
       "community": 102,
       "norm_label": "patchplayerstatsfield()"
@@ -60676,7 +60676,7 @@
       "label": "useGameStatePatcher()",
       "file_type": "code",
       "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.ts",
-      "source_location": "L438",
+      "source_location": "L445",
       "id": "hooks_use_world_state_patcher_usegamestatepatcher",
       "community": 151,
       "norm_label": "usegamestatepatcher()"
@@ -94367,6 +94367,150 @@
       "id": "capabilities_storage_addchatmessageswipeoptions",
       "community": 52,
       "norm_label": "addchatmessageswipeoptions"
+    },
+    {
+      "label": "gameState()",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L25",
+      "id": "hooks_use_world_state_patcher_test_gamestate",
+      "community": 237,
+      "norm_label": "gamestate()"
+    },
+    {
+      "label": "patchMock",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L23",
+      "id": "hooks_use_world_state_patcher_test_patchmock",
+      "community": 237,
+      "norm_label": "patchmock"
+    },
+    {
+      "label": "resetPatcherState()",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L45",
+      "id": "hooks_use_world_state_patcher_test_resetpatcherstate",
+      "community": 237,
+      "norm_label": "resetpatcherstate()"
+    },
+    {
+      "label": "use-world-state-patcher.test.ts",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L1",
+      "id": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "community": 237,
+      "norm_label": "use-world-state-patcher.test.ts"
+    },
+    {
+      "label": "botBrowserGetMock",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L41",
+      "id": "components_botbrowserview_test_botbrowsergetmock",
+      "community": 170,
+      "norm_label": "botbrowsergetmock"
+    },
+    {
+      "label": "chubSearchResult()",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L53",
+      "id": "components_botbrowserview_test_chubsearchresult",
+      "community": 170,
+      "norm_label": "chubsearchresult()"
+    },
+    {
+      "label": "flushSearchTimer()",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L77",
+      "id": "components_botbrowserview_test_flushsearchtimer",
+      "community": 170,
+      "norm_label": "flushsearchtimer()"
+    },
+    {
+      "label": "retryButton",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L139",
+      "id": "components_botbrowserview_test_retrybutton",
+      "community": 170,
+      "norm_label": "retrybutton"
+    },
+    {
+      "label": "searchCallCount()",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L73",
+      "id": "components_botbrowserview_test_searchcallcount",
+      "community": 170,
+      "norm_label": "searchcallcount()"
+    },
+    {
+      "label": "textPath",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L100",
+      "id": "components_botbrowserview_test_textpath",
+      "community": 170,
+      "norm_label": "textpath"
+    },
+    {
+      "label": "BotBrowserView.test.tsx",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L1",
+      "id": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "community": 170,
+      "norm_label": "botbrowserview.test.tsx"
+    },
+    {
+      "label": "deferred()",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L43",
+      "id": "components_botbrowserview_test_deferred",
+      "community": 225,
+      "norm_label": "deferred()"
+    },
+    {
+      "label": "firstSearch",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L156",
+      "id": "components_botbrowserview_test_firstsearch",
+      "community": 225,
+      "norm_label": "firstsearch"
+    },
+    {
+      "label": "refreshButton",
+      "file_type": "code",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L179",
+      "id": "components_botbrowserview_test_refreshbutton",
+      "community": 225,
+      "norm_label": "refreshbutton"
+    },
+    {
+      "label": "container",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L196",
+      "id": "hooks_use_world_state_patcher_test_container",
+      "community": 54,
+      "norm_label": "container"
+    },
+    {
+      "label": "Harness()",
+      "file_type": "code",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L214",
+      "id": "hooks_use_world_state_patcher_test_harness",
+      "community": 54,
+      "norm_label": "harness()"
     }
   ],
   "links": [
@@ -335064,8 +335208,335 @@
       "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
       "target": "storage_chats_test_state",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "hooks_use_world_state_patcher_test_resetpatcherstate",
+      "target": "hooks_use_world_state_patcher_discardpendinggamestatepatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "api_world_state_api_worldstateapi",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_discardpendinggamestatepatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_flushgamestatepatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_patchgamestatefield",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_test_gamestate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_test_patchmock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_test_resetpatcherstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "src_engine_contracts_types_game_state_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "src_features_runtime_world_state_api_world_state_api_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "src_features_runtime_world_state_hooks_use_world_state_patcher_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "src_features_runtime_world_state_stores_world_state_store_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "stores_world_state_store_usegamestatestore",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "types_game_state_gamestate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "api_bot_browser_api_botbrowserget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_botbrowserview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_botbrowsergetmock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_chubsearchresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L67",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_flushsearchtimer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L129",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_retrybutton",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L63",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_searchcallcount",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L90",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_textpath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "src_features_shell_bot_browser_api_bot_browser_api_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "src_features_shell_bot_browser_components_botbrowserview_tsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L215",
+      "weight": 1.0,
+      "source": "hooks_use_world_state_patcher_test_harness",
+      "target": "hooks_use_world_state_patcher_usegamestatepatcher"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L196",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_test_container",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L214",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_test_harness",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_runtime_world_state_hooks_use_world_state_patcher_test_ts",
+      "target": "hooks_use_world_state_patcher_usegamestatepatcher",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_deferred",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L156",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_firstsearch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/bot-browser/components/BotBrowserView.test.tsx",
+      "source_location": "L179",
+      "weight": 1.0,
+      "source": "src_features_shell_bot_browser_components_botbrowserview_test_tsx",
+      "target": "components_botbrowserview_test_refreshbutton",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "004bad7db29d8ffe7fea1dbc4be21cb7e6bd0c87"
+  "built_at_commit": "5fb8c74a0c2419c492f5c3e367e4433afce4009f"
 }

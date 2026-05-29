@@ -1685,8 +1685,8 @@
     "semantic_hash": ""
   },
   "src/features/shell/bot-browser/components/BotBrowserView.tsx": {
-    "mtime": 1779997003.588245,
-    "ast_hash": "10c54f659dd931af4b7e43474e4ac438",
+    "mtime": 1780030430.9810927,
+    "ast_hash": "23be5953868e4c0301ae870a023f2e69",
     "semantic_hash": ""
   },
   "src/features/shell/bot-browser/api/bot-browser-api.ts": {
@@ -2495,8 +2495,8 @@
     "semantic_hash": ""
   },
   "src/features/runtime/world-state/hooks/use-world-state-patcher.ts": {
-    "mtime": 1779835633.8596742,
-    "ast_hash": "a4b403cba5c2830f3bf439bcb53b1b2a",
+    "mtime": 1780030442.4052184,
+    "ast_hash": "0ce1082ee7e5b865e153e2e9834f833e",
     "semantic_hash": ""
   },
   "src/features/runtime/world-state/lib/tracker-state-display.ts": {
@@ -5827,6 +5827,16 @@
   "src/features/modes/shared/chat-ui/components/settings/ChatSettingsSections.tsx": {
     "mtime": 1780006516.2087274,
     "ast_hash": "4000a7a3fb055f60377c8a70d8c92a19",
+    "semantic_hash": ""
+  },
+  "src/features/runtime/world-state/hooks/use-world-state-patcher.test.ts": {
+    "mtime": 1780030556.0531025,
+    "ast_hash": "db75c67904d14d42ecd0f5b1cc946910",
+    "semantic_hash": ""
+  },
+  "src/features/shell/bot-browser/components/BotBrowserView.test.tsx": {
+    "mtime": 1780030508.6452873,
+    "ast_hash": "81c9d45138ccdb7f06e43454f7b39126",
     "semantic_hash": ""
   }
 }

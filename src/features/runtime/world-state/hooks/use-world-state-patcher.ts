@@ -206,6 +206,13 @@ function reconcileVisibleGameState(chatId: string, payload: GameStatePatch & Gam
   const store = useGameStateStore.getState();
   const current = store.current;
   if (current?.chatId !== chatId) return;
+  if (
+    payload.messageId &&
+    (current.messageId !== payload.messageId ||
+      (payload.swipeIndex !== undefined && current.swipeIndex !== payload.swipeIndex))
+  ) {
+    return;
+  }
 
   store.setGameState({
     ...current,
@@ -418,7 +425,7 @@ export function patchGameStateField<K extends GameStatePatchField>(
   value: GameStatePatchValue[K],
 ) {
   const store = useGameStateStore.getState();
-  if (store.isRefreshing) return;
+  if (store.refreshingChatId === chatId) return;
   const prev = getCurrentGameStateForChat(chatId);
   const target = getPatchTarget(prev);
   const nextState = {
