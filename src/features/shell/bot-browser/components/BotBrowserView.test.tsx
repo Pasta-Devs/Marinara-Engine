@@ -50,14 +50,15 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function chubSearchResult() {
+function chubSearchResult(name = "Retry Bot") {
+  const pathName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return {
     data: {
       nodes: [
         {
-          fullPath: "marinara/retry-bot",
-          name: "Retry Bot",
-          tagline: "Recovered result",
+          fullPath: `marinara/${pathName}`,
+          name,
+          tagline: `${name} result`,
           topics: ["test"],
           starCount: 12,
           nChats: 34,
@@ -72,6 +73,12 @@ function chubSearchResult() {
 
 function searchCallCount() {
   return botBrowserGetMock.mock.calls.filter(([path]) => String(path).startsWith("chub/search?")).length;
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 async function flushSearchTimer() {
@@ -201,5 +208,53 @@ describe("BotBrowserView provider error UI", () => {
     expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Retry")).toBe(
       false,
     );
+  });
+
+  it("does not paint older results during the debounce gap after search criteria changes", async () => {
+    const firstSearch = deferred<ReturnType<typeof chubSearchResult>>();
+    botBrowserGetMock.mockImplementation(async (path) => {
+      const textPath = String(path);
+      if (textPath.endsWith("/session") || textPath === "pygmalion/session" || textPath === "chartavern/session") {
+        return { active: false };
+      }
+      if (textPath.startsWith("chub/search?")) {
+        return searchCallCount() === 1 ? firstSearch.promise : chubSearchResult("New Query Bot");
+      }
+      return {};
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <BotBrowserView />
+        </QueryClientProvider>,
+      );
+    });
+
+    await flushSearchTimer();
+    expect(searchCallCount()).toBe(1);
+
+    const searchInput = container.querySelector<HTMLInputElement>('input[placeholder="Search characters..."]');
+    expect(searchInput).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(searchInput!, "new query");
+    });
+    expect(searchInput!.value).toBe("new query");
+
+    await act(async () => {
+      firstSearch.resolve(chubSearchResult("Old Query Bot"));
+      await firstSearch.promise;
+    });
+
+    expect(container.textContent).not.toContain("Old Query Bot");
+    expect(searchCallCount()).toBe(1);
+
+    await flushSearchTimer();
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("New Query Bot");
+    });
+    expect(container.textContent).not.toContain("Old Query Bot");
   });
 });

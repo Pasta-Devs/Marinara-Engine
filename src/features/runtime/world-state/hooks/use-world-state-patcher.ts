@@ -319,8 +319,8 @@ export async function flushGameStatePatch(chatId?: string) {
       if (durable?.revision === queuedSnapshot.revision) {
         durablePatches.delete(key);
         persistPendingPatches();
+        reconcileVisibleGameState(queuedSnapshot.chatId, payload);
       }
-      reconcileVisibleGameState(queuedSnapshot.chatId, payload);
     } catch (error) {
       if (!inFlightEntry.canceled) errors.push(error);
     }
@@ -370,6 +370,11 @@ export async function discardPendingGameStatePatch(chatId?: string) {
     .map((key) => inFlightPatches.get(key)?.promise)
     .filter((promise): promise is Promise<void> => Boolean(promise));
   await Promise.allSettled(inFlightSettles);
+
+  if (!chatId) {
+    restoredStoredPatches = false;
+    nextPatchRevision = 1;
+  }
 }
 
 function flushGameStatePatchOnUnload() {

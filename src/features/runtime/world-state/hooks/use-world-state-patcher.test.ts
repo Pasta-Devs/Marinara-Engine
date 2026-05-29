@@ -1,5 +1,5 @@
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState } from "../../../../engine/contracts/types/game-state";
 import { worldStateApi } from "../api/world-state-api";
@@ -42,11 +42,43 @@ function gameState(overrides: Partial<GameState> = {}): GameState {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 async function resetPatcherState() {
   await discardPendingGameStatePatch();
   useGameStateStore.getState().reset();
   window.localStorage.clear();
   patchMock.mockReset();
+}
+
+async function mountPatcherHarness(registrationId: string) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  function Harness() {
+    useGameStatePatcher("chat-1", registrationId);
+    return null;
+  }
+
+  await act(async () => {
+    root.render(createElement(Harness));
+  });
+
+  return () => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  };
 }
 
 beforeEach(async () => {
@@ -136,6 +168,58 @@ describe("world-state patcher", () => {
     });
   });
 
+  it("does not reconcile an older in-flight patch over a newer same-target optimistic edit", async () => {
+    const firstPatch = deferred<GameState>();
+    useGameStateStore.getState().setGameState(
+      gameState({
+        messageId: "assistant-2",
+        swipeIndex: 3,
+        location: "Town",
+      }),
+    );
+    patchMock
+      .mockImplementationOnce(() => firstPatch.promise)
+      .mockResolvedValueOnce(gameState({ messageId: "assistant-2", swipeIndex: 3, location: "Forest" }));
+
+    patchGameStateField("chat-1", "location", "Library");
+    const firstFlush = flushGameStatePatch("chat-1");
+
+    await vi.waitFor(() => {
+      expect(patchMock).toHaveBeenCalledTimes(1);
+    });
+
+    patchGameStateField("chat-1", "location", "Forest");
+    expect(useGameStateStore.getState().current).toMatchObject({
+      messageId: "assistant-2",
+      swipeIndex: 3,
+      location: "Forest",
+    });
+
+    firstPatch.resolve(gameState({ messageId: "assistant-2", swipeIndex: 3, location: "Library" }));
+    await firstFlush;
+
+    expect(useGameStateStore.getState().current).toMatchObject({
+      messageId: "assistant-2",
+      swipeIndex: 3,
+      location: "Forest",
+    });
+
+    await flushGameStatePatch("chat-1");
+
+    expect(patchMock).toHaveBeenCalledTimes(2);
+    expect(patchMock).toHaveBeenNthCalledWith(
+      2,
+      "chat-1",
+      {
+        location: "Forest",
+        manual: true,
+        messageId: "assistant-2",
+        swipeIndex: 3,
+      },
+      { signal: expect.any(AbortSignal) },
+    );
+  });
+
   it("keeps a failed patch queued and retries the same payload on the next flush", async () => {
     useGameStateStore.getState().setGameState(gameState({ messageId: "assistant-3", swipeIndex: 1 }));
     patchMock
@@ -192,9 +276,7 @@ describe("world-state patcher", () => {
   });
 
   it("restores and flushes a durable pending patch when the patcher hook mounts", async () => {
-    let root: Root | null = null;
-    const container = document.createElement("div");
-    document.body.appendChild(container);
+    let cleanup: (() => void) | null = null;
     patchMock.mockResolvedValueOnce(gameState({ messageId: "assistant-5", swipeIndex: 2, weather: "Fog" }));
     window.localStorage.setItem(
       PATCH_QUEUE_STORAGE_KEY,
@@ -211,16 +293,8 @@ describe("world-state patcher", () => {
       ]),
     );
 
-    function Harness() {
-      useGameStatePatcher("chat-1", "restore-test");
-      return null;
-    }
-
     try {
-      root = createRoot(container);
-      await act(async () => {
-        root!.render(createElement(Harness));
-      });
+      cleanup = await mountPatcherHarness("restore-test");
 
       await vi.waitFor(() => {
         expect(patchMock).toHaveBeenCalledWith(
@@ -235,13 +309,44 @@ describe("world-state patcher", () => {
         );
       });
       expect(window.localStorage.getItem(PATCH_QUEUE_STORAGE_KEY)).toBeNull();
+
+      cleanup();
+      cleanup = null;
+      await resetPatcherState();
+
+      patchMock.mockResolvedValueOnce(gameState({ messageId: "assistant-6", swipeIndex: 0, location: "Cave" }));
+      window.localStorage.setItem(
+        PATCH_QUEUE_STORAGE_KEY,
+        JSON.stringify([
+          [
+            "chat-1\u0000assistant-6\u00000",
+            {
+              chatId: "chat-1",
+              target: { messageId: "assistant-6", swipeIndex: 0 },
+              fields: { location: "Cave" },
+              revision: 1,
+            },
+          ],
+        ]),
+      );
+
+      cleanup = await mountPatcherHarness("restore-test-after-reset");
+
+      await vi.waitFor(() => {
+        expect(patchMock).toHaveBeenCalledWith(
+          "chat-1",
+          {
+            manual: true,
+            messageId: "assistant-6",
+            swipeIndex: 0,
+            location: "Cave",
+          },
+          { signal: expect.any(AbortSignal) },
+        );
+      });
+      expect(window.localStorage.getItem(PATCH_QUEUE_STORAGE_KEY)).toBeNull();
     } finally {
-      if (root) {
-        act(() => {
-          root!.unmount();
-        });
-      }
-      container.remove();
+      cleanup?.();
     }
   });
 });
