@@ -3,7 +3,12 @@ import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types
 import type { CharacterData } from "../contracts/types/character";
 import type { StorageGateway } from "../capabilities/storage";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
-import { applyTokenBudget, injectAtDepth, processActivatedEntries } from "../generation-core/lorebooks/prompt-injector";
+import {
+  applyTokenBudgetWithSkipped,
+  injectAtDepth,
+  processActivatedEntries,
+  type BudgetSkippedActivatedEntry,
+} from "../generation-core/lorebooks/prompt-injector";
 import {
   recursiveScan,
   scanForActivatedEntries,
@@ -84,6 +89,20 @@ export interface GenerationPersonaContext {
   };
 }
 
+export interface BudgetSkippedLorebookEntry {
+  id: string;
+  name: string;
+  lorebookId: string;
+  lorebookName: string;
+  matchedKeys: string[];
+  estimatedTokens: number;
+  lorebookBudget: number;
+  lorebookUsedTokens: number;
+  chatBudget: number;
+  chatUsedTokens: number;
+  blockedBy: "lorebook" | "chat" | "both";
+}
+
 export interface PromptAssemblyResult {
   messages: ChatMLMessage[];
   previewMessages: ChatMLMessage[];
@@ -102,6 +121,7 @@ export interface PromptAssemblyResult {
     order: number;
     constant: boolean;
   }>;
+  budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   chatSummary: string | null;
   chatSummaryFingerprint: string | null;
 }
@@ -1611,12 +1631,37 @@ function nonNegativeInteger(value: unknown, fallback = 0): number {
   return Math.max(0, Math.floor(readNumber(value, fallback)));
 }
 
+const MAX_LOREBOOK_RECURSION_DEPTH = 10;
+
+interface LoadedLorebookBudgetSkippedEntry {
+  activatedEntry: ActivatedEntry;
+  lorebookName: string;
+  lorebookBudget: number;
+  lorebookUsedTokens: number;
+  estimatedTokens: number;
+}
+
+interface ScannedLorebookEntries {
+  activatedEntries: ActivatedEntry[];
+  budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
+}
+
+interface LoadedActivatedLore {
+  activatedEntries: ActivatedEntry[];
+  budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
+  lorebookNamesById: Map<string, string>;
+}
+
 function resolveLorebookTokenBudget(chat: JsonRecord, request: JsonRecord): number {
   const meta = parseRecord(chat.metadata);
   return nonNegativeInteger(
     request.lorebookTokenBudget,
     readNumber(meta.lorebookTokenBudget, LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET),
   );
+}
+
+function resolveLorebookRecursionDepth(lorebook: JsonRecord): number {
+  return Math.min(MAX_LOREBOOK_RECURSION_DEPTH, Math.max(1, nonNegativeInteger(lorebook.maxRecursionDepth, 3)));
 }
 
 async function loadLorebookEntriesForActivation(
@@ -1652,11 +1697,24 @@ function scanLorebookEntries(
   entries: LorebookEntry[],
   lorebook: JsonRecord,
   options: ScanOptions,
-): ActivatedEntry[] {
+): ScannedLorebookEntries {
   const activated = boolish(lorebook.recursiveScanning, false)
-    ? recursiveScan(messages, entries, options, Math.max(1, Math.floor(readNumber(lorebook.maxRecursionDepth, 3))))
+    ? recursiveScan(messages, entries, options, resolveLorebookRecursionDepth(lorebook))
     : scanForActivatedEntries(messages, entries, options);
-  return applyTokenBudget(activated, nonNegativeInteger(lorebook.tokenBudget, 0));
+  const lorebookId = readString(lorebook.id);
+  const lorebookName = readString(lorebook.name, lorebookId || "Lorebook");
+  const lorebookBudget = nonNegativeInteger(lorebook.tokenBudget, 0);
+  const budgeted = applyTokenBudgetWithSkipped(activated, lorebookBudget);
+  return {
+    activatedEntries: budgeted.includedEntries,
+    budgetSkippedEntries: budgeted.skippedEntries.map((skipped) => ({
+      activatedEntry: skipped.activatedEntry,
+      lorebookName,
+      lorebookBudget,
+      lorebookUsedTokens: skipped.usedTokensBefore,
+      estimatedTokens: skipped.estimatedTokens,
+    })),
+  };
 }
 
 async function loadActivatedLore(
@@ -1665,7 +1723,7 @@ async function loadActivatedLore(
   characters: GenerationCharacterContext[],
   persona: GenerationPersonaContext | null,
   storedMessages: JsonRecord[],
-): Promise<ActivatedEntry[]> {
+): Promise<LoadedActivatedLore> {
   const lorebooks = (await storage.list<JsonRecord>("lorebooks")).filter((book) =>
     lorebookAppliesToContext(book, chat, characters, persona),
   );
@@ -1687,16 +1745,24 @@ async function loadActivatedLore(
     gameState,
     additionalMatchingSourceText: buildAdditionalMatchingSourceText(characters, persona),
   };
-  const activated = (
-    await Promise.all(
-      lorebooks.map(async (book) =>
-        scanLorebookEntries(messages, await loadLorebookEntriesForActivation(storage, book), book, options),
-      ),
-    )
-  )
-    .flat()
-    .sort((a, b) => a.injectionOrder - b.injectionOrder);
-  return activated;
+  const lorebookNamesById = new Map(
+    lorebooks.map((book) => {
+      const id = readString(book.id);
+      return [id, readString(book.name, id || "Lorebook")] as const;
+    }),
+  );
+  const scanned = await Promise.all(
+    lorebooks.map(async (book) =>
+      scanLorebookEntries(messages, await loadLorebookEntriesForActivation(storage, book), book, options),
+    ),
+  );
+  return {
+    activatedEntries: scanned
+      .flatMap((result) => result.activatedEntries)
+      .sort((a, b) => a.injectionOrder - b.injectionOrder),
+    budgetSkippedEntries: scanned.flatMap((result) => result.budgetSkippedEntries),
+    lorebookNamesById,
+  };
 }
 
 function loreForEvent(entry: ActivatedEntry) {
@@ -1709,6 +1775,47 @@ function loreForEvent(entry: ActivatedEntry) {
     matchedKeys: entry.matchedKeys,
     order: entry.entry.order,
     constant: entry.entry.constant,
+  };
+}
+
+function budgetSkippedLoreForEvent(
+  skipped: BudgetSkippedActivatedEntry,
+  lorebookNamesById: Map<string, string>,
+  chatBudget: number,
+): BudgetSkippedLorebookEntry {
+  const entry = skipped.activatedEntry.entry;
+  return {
+    id: entry.id,
+    name: entry.name,
+    lorebookId: entry.lorebookId,
+    lorebookName: lorebookNamesById.get(entry.lorebookId) ?? entry.lorebookId,
+    matchedKeys: skipped.activatedEntry.matchedKeys,
+    estimatedTokens: skipped.estimatedTokens,
+    lorebookBudget: 0,
+    lorebookUsedTokens: 0,
+    chatBudget,
+    chatUsedTokens: skipped.usedTokensBefore,
+    blockedBy: "chat",
+  };
+}
+
+function lorebookBudgetSkippedLoreForEvent(
+  skipped: LoadedLorebookBudgetSkippedEntry,
+  chatBudget: number,
+): BudgetSkippedLorebookEntry {
+  const entry = skipped.activatedEntry.entry;
+  return {
+    id: entry.id,
+    name: entry.name,
+    lorebookId: entry.lorebookId,
+    lorebookName: skipped.lorebookName,
+    matchedKeys: skipped.activatedEntry.matchedKeys,
+    estimatedTokens: skipped.estimatedTokens,
+    lorebookBudget: skipped.lorebookBudget,
+    lorebookUsedTokens: skipped.lorebookUsedTokens,
+    chatBudget,
+    chatUsedTokens: 0,
+    blockedBy: "lorebook",
   };
 }
 
@@ -1757,8 +1864,15 @@ export async function assembleGenerationPrompt(
 ): Promise<PromptAssemblyResult> {
   const characters = await loadCharacters(storage, input.chat);
   const persona = await loadPersona(storage, input.chat);
-  const activated = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
-  const processedLore = processActivatedEntries(activated, resolveLorebookTokenBudget(input.chat, input.request));
+  const loadedLore = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
+  const lorebookTokenBudget = resolveLorebookTokenBudget(input.chat, input.request);
+  const processedLore = processActivatedEntries(loadedLore.activatedEntries, lorebookTokenBudget);
+  const budgetSkippedLorebookEntries = [
+    ...loadedLore.budgetSkippedEntries.map((entry) => lorebookBudgetSkippedLoreForEvent(entry, lorebookTokenBudget)),
+    ...processedLore.skippedEntries.map((entry) =>
+      budgetSkippedLoreForEvent(entry, loadedLore.lorebookNamesById, lorebookTokenBudget),
+    ),
+  ];
   const summary = chatSummaryForGeneration(input.chat);
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
@@ -1939,6 +2053,7 @@ export async function assembleGenerationPrompt(
     characters,
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(loreForEvent),
+    budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,
   };

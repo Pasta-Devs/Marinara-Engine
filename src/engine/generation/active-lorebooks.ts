@@ -1,6 +1,6 @@
 import type { StorageGateway } from "../capabilities/storage";
 import { loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
-import { assembleGenerationPrompt } from "./prompt-assembly";
+import { assembleGenerationPrompt, type BudgetSkippedLorebookEntry } from "./prompt-assembly";
 
 export interface ActiveLorebookScanResult {
   entries: Array<{
@@ -12,7 +12,7 @@ export interface ActiveLorebookScanResult {
     order: number;
     constant: boolean;
   }>;
-  budgetSkippedEntries: [];
+  budgetSkippedEntries: BudgetSkippedLorebookEntry[];
   totalTokens: number;
   totalEntries: number;
 }
@@ -42,7 +42,7 @@ export async function scanActiveLorebookEntries(
   }));
   return {
     entries,
-    budgetSkippedEntries: [],
+    budgetSkippedEntries: assembly.budgetSkippedLorebookEntries,
     totalTokens: Math.ceil(entries.reduce((sum, entry) => sum + entry.content.length, 0) / 4),
     totalEntries: entries.length,
   };
