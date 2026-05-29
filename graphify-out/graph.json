@@ -49525,7 +49525,7 @@
       "label": "FieldGroup()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1929",
+      "source_location": "L1940",
       "id": "components_connectioneditor_fieldgroup",
       "community": 177,
       "norm_label": "fieldgroup()"
@@ -49534,7 +49534,7 @@
       "label": "TestResultCard()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1989",
+      "source_location": "L2000",
       "id": "components_connectioneditor_testresultcard",
       "community": 177,
       "norm_label": "testresultcard()"
@@ -49543,7 +49543,7 @@
       "label": "ImageGenerationDefaultsPanel()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2023",
+      "source_location": "L2034",
       "id": "components_connectioneditor_imagegenerationdefaultspanel",
       "community": 177,
       "norm_label": "imagegenerationdefaultspanel()"
@@ -49552,7 +49552,7 @@
       "label": "TextSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2332",
+      "source_location": "L2343",
       "id": "components_connectioneditor_textsetting",
       "community": 177,
       "norm_label": "textsetting()"
@@ -49561,7 +49561,7 @@
       "label": "ChoiceSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2357",
+      "source_location": "L2368",
       "id": "components_connectioneditor_choicesetting",
       "community": 177,
       "norm_label": "choicesetting()"
@@ -49570,7 +49570,7 @@
       "label": "NumberSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2390",
+      "source_location": "L2401",
       "id": "components_connectioneditor_numbersetting",
       "community": 177,
       "norm_label": "numbersetting()"
@@ -49579,7 +49579,7 @@
       "label": "formatContext()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2444",
+      "source_location": "L2455",
       "id": "components_connectioneditor_formatcontext",
       "community": 98,
       "norm_label": "formatcontext()"
@@ -49588,7 +49588,7 @@
       "label": "getStoredImageGenerationDefaults()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2450",
+      "source_location": "L2461",
       "id": "components_connectioneditor_getstoredimagegenerationdefaults",
       "community": 177,
       "norm_label": "getstoredimagegenerationdefaults()"
@@ -49597,7 +49597,7 @@
       "label": "buildImageDefaultParameters()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2459",
+      "source_location": "L2470",
       "id": "components_connectioneditor_buildimagedefaultparameters",
       "community": 177,
       "norm_label": "buildimagedefaultparameters()"
@@ -49606,7 +49606,7 @@
       "label": "parseDefaultParametersRoot()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2472",
+      "source_location": "L2483",
       "id": "components_connectioneditor_parsedefaultparametersroot",
       "community": 177,
       "norm_label": "parsedefaultparametersroot()"
@@ -94381,7 +94381,7 @@
       "label": "OpenAiChatGptAuthHelp()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1952",
+      "source_location": "L1963",
       "id": "components_connectioneditor_openaichatgptauthhelp",
       "community": 177,
       "norm_label": "openaichatgptauthhelp()"
@@ -335708,5 +335708,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "f5d2ca9bd0fdfa250efcb1b7afee0e242c8023d5"
+  "built_at_commit": "751b73659aa29aca7fb6a9b3b3a499eb61e5e833"
 }

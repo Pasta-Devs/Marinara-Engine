@@ -417,6 +417,17 @@ export function ConnectionEditor() {
       ? localEmbeddingConnectionId
       : "";
 
+  useEffect(() => {
+    if (
+      localEmbeddingConnectionId &&
+      allConnections !== undefined &&
+      !embeddingConnectionOptions.some((c) => c.id === localEmbeddingConnectionId)
+    ) {
+      setLocalEmbeddingConnectionId("");
+      setDirty(true);
+    }
+  }, [allConnections, embeddingConnectionOptions, localEmbeddingConnectionId]);
+
   const handleClose = useCallback(() => {
     if (dirty) {
       setShowUnsavedWarning(true);

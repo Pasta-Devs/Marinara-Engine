@@ -1665,8 +1665,8 @@
     "semantic_hash": ""
   },
   "src/features/shell/connections/components/ConnectionEditor.tsx": {
-    "mtime": 1780031521.692516,
-    "ast_hash": "aa11e090ef9a374bf02b61b44d8a5f05",
+    "mtime": 1780032955.7596526,
+    "ast_hash": "4bcf93651ecc95e04fffbf297d46d09a",
     "semantic_hash": ""
   },
   "src/features/shell/connections/components/CreateConnectionModal.tsx": {
