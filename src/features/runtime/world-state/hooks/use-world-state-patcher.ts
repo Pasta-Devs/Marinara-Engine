@@ -206,6 +206,13 @@ function reconcileVisibleGameState(chatId: string, payload: GameStatePatch & Gam
   const store = useGameStateStore.getState();
   const current = store.current;
   if (current?.chatId !== chatId) return;
+  if (
+    payload.messageId &&
+    (current.messageId !== payload.messageId ||
+      (payload.swipeIndex !== undefined && current.swipeIndex !== payload.swipeIndex))
+  ) {
+    return;
+  }
 
   store.setGameState({
     ...current,
@@ -312,8 +319,8 @@ export async function flushGameStatePatch(chatId?: string) {
       if (durable?.revision === queuedSnapshot.revision) {
         durablePatches.delete(key);
         persistPendingPatches();
+        reconcileVisibleGameState(queuedSnapshot.chatId, payload);
       }
-      reconcileVisibleGameState(queuedSnapshot.chatId, payload);
     } catch (error) {
       if (!inFlightEntry.canceled) errors.push(error);
     }
@@ -363,6 +370,11 @@ export async function discardPendingGameStatePatch(chatId?: string) {
     .map((key) => inFlightPatches.get(key)?.promise)
     .filter((promise): promise is Promise<void> => Boolean(promise));
   await Promise.allSettled(inFlightSettles);
+
+  if (!chatId) {
+    restoredStoredPatches = false;
+    nextPatchRevision = 1;
+  }
 }
 
 function flushGameStatePatchOnUnload() {
@@ -418,7 +430,7 @@ export function patchGameStateField<K extends GameStatePatchField>(
   value: GameStatePatchValue[K],
 ) {
   const store = useGameStateStore.getState();
-  if (store.isRefreshing) return;
+  if (store.refreshingChatId === chatId) return;
   const prev = getCurrentGameStateForChat(chatId);
   const target = getPatchTarget(prev);
   const nextState = {
