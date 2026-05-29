@@ -1,4 +1,5 @@
 use super::*;
+use marinara_security::redact_sensitive_text;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -473,7 +474,8 @@ async fn image_response_base64(
 }
 
 fn sanitize_error(text: &str) -> String {
-    text.replace(['\n', '\r', '\t'], " ")
+    redact_sensitive_text(text)
+        .replace(['\n', '\r', '\t'], " ")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -2614,6 +2616,18 @@ fn find_comfyui_image<'a>(history: &'a Value, prompt_id: &str) -> Option<&'a Val
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_provider_error_sanitizer_redacts_secrets() {
+        let sanitized = sanitize_error(
+            r#"{"error":"bad key sk-test-secret","payment":"https://pay.example.test/retrieve/session"}"#,
+        );
+
+        assert!(sanitized.contains("[REDACTED]"));
+        assert!(sanitized.contains("[REDACTED_URL]"));
+        assert!(!sanitized.contains("sk-test-secret"));
+        assert!(!sanitized.contains("retrieve/session"));
+    }
 
     #[test]
     fn comfy_reference_name_tokens_collect_default_and_indexed_slots() {

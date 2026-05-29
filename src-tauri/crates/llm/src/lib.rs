@@ -1,6 +1,6 @@
 use futures_util::StreamExt;
 use marinara_core::{AppError, AppResult};
-use marinara_security::is_allowed_outbound_url;
+use marinara_security::{is_allowed_outbound_url, redact_sensitive_json, redact_sensitive_text};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -495,14 +495,15 @@ fn provider_error_text(details: &Value) -> Option<String> {
         details.get("message").and_then(Value::as_str),
         details.pointer("/error").and_then(Value::as_str),
     ]
-    .into_iter()
-    .flatten()
-    .map(str::trim)
-    .find(|message| !message.is_empty())
-    .map(|message| message.chars().take(500).collect())
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|message| !message.is_empty())
+        .map(|message| redact_sensitive_text(message).chars().take(500).collect())
 }
 
 fn provider_http_error(status: reqwest::StatusCode, details: Value) -> AppError {
+    let details = redact_sensitive_json(details);
     let message = provider_error_text(&details)
         .map(|detail| format!("Provider returned HTTP {status}: {detail}"))
         .unwrap_or_else(|| format!("Provider returned HTTP {status}"));
@@ -515,7 +516,7 @@ fn sanitize_provider_error_text(text: &str) -> String {
     if lower.contains("<html") || lower.contains("<!doctype") {
         return "Provider returned HTML instead of JSON".to_string();
     }
-    trimmed.chars().take(500).collect()
+    redact_sensitive_text(trimmed).chars().take(500).collect()
 }
 
 fn provider_error_details_from_text(text: &str) -> Value {
@@ -524,6 +525,7 @@ fn provider_error_details_from_text(text: &str) -> Value {
         return json!({});
     }
     serde_json::from_str::<Value>(trimmed)
+        .map(redact_sensitive_json)
         .unwrap_or_else(|_| json!({ "message": sanitize_provider_error_text(trimmed) }))
 }
 
@@ -582,16 +584,16 @@ fn string_value(value: Option<&Value>) -> Option<String> {
         .map(str::to_string)
 }
 
+fn openai_chatgpt_auth_missing_message(error: &std::io::Error) -> String {
+    format!(
+        "No Codex ChatGPT login found in the local Codex auth.json credential file ({error}). Run `codex login` on this host."
+    )
+}
+
 async fn load_openai_chatgpt_auth() -> AppResult<ChatGptAuth> {
     let path = codex_auth_file_path();
     let raw = fs::read_to_string(&path).map_err(|error| {
-        AppError::new(
-            "openai_chatgpt_auth_missing",
-            format!(
-                "No Codex ChatGPT login found at {} ({error}). Run `codex login` on this host.",
-                path.display()
-            ),
-        )
+        AppError::new("openai_chatgpt_auth_missing", openai_chatgpt_auth_missing_message(&error))
     })?;
     let mut auth_json: Value = serde_json::from_str(&raw)
         .map_err(|error| AppError::new("openai_chatgpt_auth_error", error.to_string()))?;
@@ -1009,7 +1011,7 @@ async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCom
         return Err(AppError::with_details(
             "llm_response_error",
             "Responses API result did not contain assistant text or tool calls",
-            json,
+            redact_sensitive_json(json),
         ));
     }
     Ok(LlmCompletion {
@@ -1122,7 +1124,7 @@ fn process_openai_responses_sse_block(
             return Err(AppError::with_details(
                 "llm_provider_error",
                 format!("Responses API stream event {event_type}"),
-                value,
+                redact_sensitive_json(value),
             ));
         }
         _ => {}
@@ -1705,7 +1707,7 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
             return Err(AppError::with_details(
                 "claude_subscription_empty",
                 format!("Claude Code returned no content ({diagnostic})."),
-                value,
+                redact_sensitive_json(value),
             ));
         }
     }
@@ -1734,7 +1736,7 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
         return Err(AppError::with_details(
             "claude_subscription_empty",
             format!("Claude Code returned no content ({diagnostic})."),
-            value,
+            redact_sensitive_json(value),
         ));
     }
     Ok(trimmed.to_string())
@@ -1810,19 +1812,19 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
             if stderr.trim().is_empty() {
                 "Claude Code routing diagnosis failed.".to_string()
             } else {
-                stderr.trim().to_string()
+                redact_sensitive_text(stderr.trim())
             },
-            json!({
+            redact_sensitive_json(json!({
                 "status": output.status.code(),
                 "stdout": stdout.chars().take(1000).collect::<String>(),
-            }),
+            })),
         ));
     }
     let value = parse_claude_subscription_json_output(&stdout).ok_or_else(|| {
         AppError::with_details(
             "claude_subscription_response_error",
             "Claude Code did not return diagnostic JSON.",
-            json!({ "stdout": stdout.chars().take(1000).collect::<String>() }),
+            redact_sensitive_json(json!({ "stdout": stdout.chars().take(1000).collect::<String>() })),
         )
     })?;
     let model_usage = value
@@ -1933,12 +1935,12 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
             if stderr.trim().is_empty() {
                 "Claude Code request failed.".to_string()
             } else {
-                stderr.trim().to_string()
+                redact_sensitive_text(stderr.trim())
             },
-            json!({
+            redact_sensitive_json(json!({
                 "status": output.status.code(),
                 "stdout": stdout.chars().take(1000).collect::<String>(),
-            }),
+            })),
         ));
     }
     parse_claude_subscription_output(&stdout, &request.connection.model)
@@ -2181,7 +2183,7 @@ fn process_anthropic_sse_block(
             return Err(AppError::with_details(
                 "llm_provider_error",
                 "Anthropic stream error",
-                error,
+                redact_sensitive_json(error),
             ));
         }
         _ => {}
@@ -2427,7 +2429,7 @@ fn process_google_sse_block(
         return Err(AppError::with_details(
             "llm_provider_error",
             "Gemini API stream error",
-            error.clone(),
+            redact_sensitive_json(error.clone()),
         ));
     }
     if let Some(usage) = value.get("usageMetadata") {
@@ -2507,7 +2509,7 @@ where
         AppError::with_details(
             "llm_response_error",
             "Provider response did not contain assistant text",
-            json,
+            redact_sensitive_json(json),
         )
     })
 }
@@ -2572,7 +2574,7 @@ async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmC
             AppError::with_details(
                 "llm_response_error",
                 "Provider response did not contain a completion choice",
-                json.clone(),
+                redact_sensitive_json(json.clone()),
             )
         })?;
     let message = choice.get("message").unwrap_or(choice);
@@ -2605,13 +2607,13 @@ async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmC
             return Err(AppError::with_details(
                 "llm_response_error",
                 "Provider returned reasoning but no final assistant text. Increase Max Output Tokens or lower Reasoning Effort in this connection's generation controls.",
-                json,
+                redact_sensitive_json(json),
             ));
         }
         return Err(AppError::with_details(
             "llm_response_error",
             "Provider response did not contain assistant text or tool calls",
-            json,
+            redact_sensitive_json(json),
         ));
     }
     Ok(LlmCompletion {
@@ -2761,6 +2763,17 @@ mod tests {
     }
 
     #[test]
+    fn openai_chatgpt_missing_auth_message_hides_local_path() {
+        let error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
+        let message = openai_chatgpt_auth_missing_message(&error);
+
+        assert!(message.contains("local Codex auth.json credential file"));
+        assert!(!message.contains(":\\"));
+        assert!(!message.contains("/Users/"));
+        assert!(!message.contains("/home/"));
+    }
+
+    #[test]
     fn google_vertex_default_base_uses_aiplatform_endpoint() {
         assert_eq!(
             base_url("google_vertex", ""),
@@ -2819,6 +2832,22 @@ mod tests {
 
         assert_eq!(error.code, "llm_provider_error");
         assert!(error.message.contains("error code: 1033"));
+    }
+
+    #[test]
+    fn provider_http_error_redacts_sensitive_error_body() {
+        let details = provider_error_details_from_text(
+            r#"{"error":{"message":"Invalid API key sk-test-secret"},"api_key":"sk-test-secret","usage":{"input_tokens":12}}"#,
+        );
+        let error = provider_http_error(reqwest::StatusCode::UNAUTHORIZED, details);
+
+        assert_eq!(error.code, "llm_provider_error");
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
+        let details = error.details.expect("provider details should be attached");
+        assert_eq!(details["api_key"], "[REDACTED]");
+        assert_eq!(details["usage"]["input_tokens"], 12);
+        assert!(!details.to_string().contains("sk-test-secret"));
     }
 
     #[test]

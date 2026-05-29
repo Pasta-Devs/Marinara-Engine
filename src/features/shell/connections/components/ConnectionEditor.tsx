@@ -101,6 +101,7 @@ const MAX_PARALLEL_JOBS = 16;
 const OPENAI_CHATGPT_SETUP_STEPS = [
   { label: "Install Codex CLI", command: "npm i -g @openai/codex" },
   { label: "Sign in once", command: "codex login" },
+  { label: "Codex creates a local auth.json credential file that Marinara reads automatically." },
   { label: "API Key and Base URL are not required - leave them blank." },
 ] as const;
 
@@ -993,7 +994,7 @@ export function ConnectionEditor() {
               {isClaudeSubscriptionProvider
                 ? "Authentication is read from your local Claude Code session."
                 : usesLocalChatGptAuth
-                  ? "Authentication is read from your local codex login session."
+                  ? "Authentication is read from your local Codex auth.json credential file; this field stays locked."
                   : "Your key is encrypted at rest. Leave blank when editing to keep the existing key."}
             </p>
             {!usesLocalAuthProvider && API_KEY_LINKS[localProvider] && (
@@ -1047,7 +1048,8 @@ export function ConnectionEditor() {
               </p>
             ) : usesLocalChatGptAuth ? (
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth.
+                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth; this
+                endpoint field stays locked.
               </p>
             ) : providerDef?.defaultBaseUrl && !localBaseUrl ? (
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1946,7 +1948,9 @@ export function ConnectionEditor() {
                 ? "verifies your local Claude Code command is available."
                 : usesLocalChatGptAuth
                   ? "verifies your local Codex ChatGPT login."
-                  : "verifies your API key works."}
+                  : localProvider === "nanogpt"
+                    ? "checks NanoGPT's model list only. Use Send Test Message to verify generation auth and account balance."
+                    : "verifies your API key works."}
               {localProvider !== "image_generation" && (
                 <>
                   {" "}
@@ -2103,8 +2107,9 @@ function OpenAiChatGptAuthHelp() {
             })}
           </ol>
           <p className="mt-2">
-            Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are not
-            available on this provider; configure a separate connection for embedding work.
+            Marinara reads the local Codex <code className="rounded bg-[var(--secondary)] px-1">auth.json</code>{" "}
+            credential file and refreshes the ChatGPT session when possible. Embeddings are not available on this
+            provider; configure a separate connection for embedding work.
           </p>
         </div>
       </div>

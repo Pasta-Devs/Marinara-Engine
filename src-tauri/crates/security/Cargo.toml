@@ -9,4 +9,6 @@ path = "src/lib.rs"
 
 [dependencies]
 marinara-core = { path = "../core" }
+regex = "1"
+serde_json = "1"
 url = "2"
