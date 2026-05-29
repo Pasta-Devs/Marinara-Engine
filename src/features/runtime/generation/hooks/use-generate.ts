@@ -1375,10 +1375,15 @@ export function useGenerate() {
         const failedRetries = results
           .filter((result) => !result.success)
           .map((result) => {
+            const resultRecord = parseMaybeRecord(result);
             const data = parseMaybeRecord(result.data);
             return toAgentFailure({
               agentType: result.agentType,
-              agentName: readString(data.agentName).trim() || result.agentType,
+              agentName:
+                readString(resultRecord.agentName).trim() ||
+                readString(resultRecord.name).trim() ||
+                readString(data.agentName).trim() ||
+                result.agentType,
               error: result.error,
             });
           });
