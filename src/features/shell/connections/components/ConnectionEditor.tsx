@@ -195,7 +195,12 @@ export function ConnectionEditor() {
   const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(false);
 
   // Test results
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    warning?: boolean;
+    message: string;
+    latencyMs: number;
+  } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
     response: string;
@@ -572,7 +577,7 @@ export function ConnectionEditor() {
     }
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
-      onSuccess: (data) => setTestResult(data as { success: boolean; message: string; latencyMs: number }),
+      onSuccess: (data) => setTestResult(data),
       onError: (err) =>
         setTestResult({ success: false, message: err instanceof Error ? err.message : "Failed", latencyMs: 0 }),
     });
@@ -1973,7 +1978,12 @@ export function ConnectionEditor() {
 
             {/* Connection test result */}
             {testResult && (
-              <TestResultCard label="Connection Test" success={testResult.success} latencyMs={testResult.latencyMs}>
+              <TestResultCard
+                label="Connection Test"
+                success={testResult.success}
+                warning={testResult.warning}
+                latencyMs={testResult.latencyMs}
+              >
                 {testResult.message}
               </TestResultCard>
             )}
@@ -2157,29 +2167,45 @@ function ClaudeSubscriptionAuthHelp() {
 function TestResultCard({
   label,
   success,
+  warning = false,
   latencyMs,
   children,
 }: {
   label: string;
   success: boolean;
+  warning?: boolean;
   latencyMs: number;
   children: React.ReactNode;
 }) {
+  const tone = warning ? "warning" : success ? "success" : "error";
+  const isSuccess = tone === "success";
+  const isWarning = tone === "warning";
+  const statusLabel = isWarning ? "Warning" : isSuccess ? "Success" : "Failed";
+
   return (
     <div
       className={cn(
         "rounded-lg border p-3",
-        success ? "border-emerald-400/20 bg-emerald-400/5" : "border-[var(--destructive)]/20 bg-[var(--destructive)]/5",
+        isWarning
+          ? "border-amber-400/25 bg-amber-400/5"
+          : isSuccess
+            ? "border-emerald-400/20 bg-emerald-400/5"
+            : "border-[var(--destructive)]/20 bg-[var(--destructive)]/5",
       )}
     >
       <div className="flex items-center gap-2 text-xs font-medium">
-        {success ? (
+        {isSuccess ? (
           <Check size="0.8125rem" className="text-emerald-400" />
         ) : (
-          <AlertCircle size="0.8125rem" className="text-[var(--destructive)]" />
+          <AlertCircle
+            size="0.8125rem"
+            className={isWarning ? "text-amber-300" : "text-[var(--destructive)]"}
+          />
         )}
-        <span className={success ? "text-emerald-400" : "text-[var(--destructive)]"}>
-          {label}: {success ? "Success" : "Failed"}
+        <span
+          className={isWarning ? "text-amber-300" : isSuccess ? "text-emerald-400" : "text-[var(--destructive)]"}
+        >
+          {label}: {statusLabel}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">{latencyMs}ms</span>
       </div>

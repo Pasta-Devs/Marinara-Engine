@@ -379,9 +379,10 @@ pub(crate) async fn connection_auth_check(state: &AppState, id: &str) -> AppResu
         .and_then(Value::as_str)
         .map(str::to_string);
     match check_connection_without_generation(&connection).await {
-        Ok(message) => Ok(json!({
-            "success": true,
-            "message": message,
+        Ok(outcome) => Ok(json!({
+            "success": !outcome.warning,
+            "warning": outcome.warning,
+            "message": outcome.message,
             "latencyMs": started.elapsed().as_millis(),
             "modelName": model_name,
         })),
@@ -422,40 +423,72 @@ pub(crate) async fn connection_diagnose_claude_subscription(
     marinara_llm::diagnose_claude_subscription_model(model, fast_mode)
 }
 
-async fn check_connection_without_generation(connection: &Value) -> AppResult<String> {
+#[derive(Debug)]
+struct ConnectionCheckOutcome {
+    message: String,
+    warning: bool,
+}
+
+impl ConnectionCheckOutcome {
+    fn success(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            warning: false,
+        }
+    }
+
+    fn warning(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            warning: true,
+        }
+    }
+}
+
+async fn check_connection_without_generation(
+    connection: &Value,
+) -> AppResult<ConnectionCheckOutcome> {
     let provider = connection
         .get("provider")
         .and_then(Value::as_str)
         .unwrap_or("openai");
     match provider {
-        "openai_chatgpt" => marinara_llm::check_openai_chatgpt_auth().await,
-        "claude_subscription" => marinara_llm::check_claude_subscription_available(),
-        "openrouter" => check_openrouter_key(connection).await,
+        "openai_chatgpt" => marinara_llm::check_openai_chatgpt_auth()
+            .await
+            .map(ConnectionCheckOutcome::success),
+        "claude_subscription" => {
+            marinara_llm::check_claude_subscription_available().map(ConnectionCheckOutcome::success)
+        }
+        "openrouter" => check_openrouter_key(connection)
+            .await
+            .map(ConnectionCheckOutcome::success),
         "nanogpt" => check_nanogpt_connection(connection).await,
-        "image_generation" => check_image_generation_connection(connection).await,
+        "image_generation" => check_image_generation_connection(connection)
+            .await
+            .map(ConnectionCheckOutcome::success),
         _ => {
             let models = fetch_provider_models(connection).await?;
             if models.is_empty() {
-                Ok("Connection successful.".to_string())
+                Ok(ConnectionCheckOutcome::success("Connection successful."))
             } else {
-                Ok(format!(
+                Ok(ConnectionCheckOutcome::success(format!(
                     "Connection successful. {} model{} available.",
                     models.len(),
                     if models.len() == 1 { "" } else { "s" }
-                ))
+                )))
             }
         }
     }
 }
 
-async fn check_nanogpt_connection(connection: &Value) -> AppResult<String> {
+async fn check_nanogpt_connection(connection: &Value) -> AppResult<ConnectionCheckOutcome> {
     let _api_key = connection_api_key(connection)?;
     let models = fetch_provider_models(connection).await?;
     let count = models.len();
     let suffix = if count == 1 { "" } else { "s" };
-    Ok(format!(
+    Ok(ConnectionCheckOutcome::warning(format!(
         "NanoGPT model list is reachable ({count} model{suffix} available), but this does not verify generation auth/payment. Use Send Test Message to verify the saved key can generate."
-    ))
+    )))
 }
 
 async fn check_openrouter_key(connection: &Value) -> AppResult<String> {
@@ -1395,7 +1428,7 @@ mod tests {
     async fn nanogpt_connection_test_labels_model_lookup_as_generation_unverified() {
         let base_url = serve_model_failure("200 OK", r#"{"data":[{"id":"model-a"}]}"#).await;
 
-        let message = check_connection_without_generation(&json!({
+        let outcome = check_connection_without_generation(&json!({
             "provider": "nanogpt",
             "baseUrl": base_url,
             "apiKey": "sk-test-key",
@@ -1404,7 +1437,39 @@ mod tests {
         .await
         .expect("NanoGPT model lookup should remain usable");
 
-        assert!(message.contains("does not verify generation auth/payment"));
+        assert!(outcome.warning);
+        assert!(outcome
+            .message
+            .contains("does not verify generation auth/payment"));
+    }
+
+    #[tokio::test]
+    async fn nanogpt_connection_auth_check_returns_warning_state() {
+        let state = test_state("nanogpt-warning");
+        let base_url = serve_model_failure("200 OK", r#"{"data":[{"id":"model-a"}]}"#).await;
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "nanogpt-warning",
+                json!({
+                    "provider": "nanogpt",
+                    "baseUrl": base_url,
+                    "apiKey": "sk-test-key",
+                    "model": "model-a"
+                }),
+            )
+            .expect("connection should be stored");
+
+        let result = connection_auth_check(&state, "nanogpt-warning")
+            .await
+            .expect("NanoGPT connection check should return model-list result");
+
+        assert_eq!(result["success"], false);
+        assert_eq!(result["warning"], true);
+        assert!(result["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("does not verify generation auth/payment")));
     }
 
     #[tokio::test]
