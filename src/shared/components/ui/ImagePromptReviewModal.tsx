@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
 
-export type ImagePromptReviewKind = "background" | "illustration" | "portrait" | "sprite" | "avatar" | "selfie";
+type ImagePromptReviewKind = "background" | "illustration" | "portrait" | "sprite" | "avatar" | "selfie";
 
 export type ImagePromptReviewItem = {
   id: string;

@@ -180,7 +180,7 @@ export type RuntimeTarget = {
   authorization?: string;
 };
 
-export type RemoteRuntimeHealthPayload = {
+type RemoteRuntimeHealthPayload = {
   ok?: boolean;
   runtime?: string;
   writable?: boolean;

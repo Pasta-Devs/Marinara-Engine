@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // ── Translation config (set from chat metadata) ──
-export interface TranslationConfig {
+interface TranslationConfig {
   provider: "ai" | "deeplx" | "deepl" | "google";
   targetLanguage: string;
   connectionId?: string;
