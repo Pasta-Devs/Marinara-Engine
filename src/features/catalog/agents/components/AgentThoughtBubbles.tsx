@@ -23,6 +23,15 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
     .map((bubble, index) => ({ bubble, storeIndex: index }))
     .filter(({ bubble }) => !enabledAgentTypes || enabledAgentTypes.has(bubble.agentId));
   const showProcessing = isProcessing && (!enabledAgentTypes || enabledAgentTypes.size > 0);
+  const handleClearVisibleBubbles = () => {
+    if (!enabledAgentTypes) {
+      clearThoughtBubbles();
+      return;
+    }
+    for (const { storeIndex } of [...thoughtBubbles].reverse()) {
+      dismissThoughtBubble(storeIndex);
+    }
+  };
 
   if (thoughtBubbles.length === 0 && !showProcessing) return null;
 
@@ -60,7 +69,7 @@ export function AgentThoughtBubbles({ enabledAgentTypes }: { enabledAgentTypes?:
         </button>
         {thoughtBubbles.length > 0 && (
           <button
-            onClick={clearThoughtBubbles}
+            onClick={handleClearVisibleBubbles}
             className="rounded p-0.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             title="Dismiss all"
           >
