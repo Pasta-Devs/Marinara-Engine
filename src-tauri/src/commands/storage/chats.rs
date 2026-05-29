@@ -248,6 +248,10 @@ pub(crate) fn message_swipes(
     let object = message
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+    let current_content = object
+        .get("content")
+        .cloned()
+        .unwrap_or_else(|| Value::String(String::new()));
     let current_extra = object_extra(object.get("extra"));
     let current_active_index = object
         .get("activeSwipeIndex")
@@ -261,10 +265,13 @@ pub(crate) fn message_swipes(
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .ok_or_else(|| AppError::invalid_input("Message swipes is not an array"))?;
+        if swipes.is_empty() && !activate_new_swipe {
+            swipes.push(json!({ "content": current_content, "createdAt": now_iso() }));
+        }
         let previous_swipe_count = swipes.len();
         if !swipes.is_empty() {
             let preserve_index = current_active_index.min(swipes.len().saturating_sub(1));
-            preserve_active_swipe_extra(swipes, preserve_index, current_extra);
+            preserve_active_swipe_extra(swipes, preserve_index, current_extra.clone());
         }
         swipes.push(json!({ "content": content, "createdAt": now_iso(), "extra": new_extra }));
         let appended_index = swipes.len().saturating_sub(1);
@@ -1369,6 +1376,60 @@ mod tests {
         assert_eq!(
             updated["swipes"][2]["extra"]["generationInfo"]["model"],
             json!("third-model")
+        );
+    }
+
+    #[test]
+    fn message_swipes_inactive_append_seeds_missing_swipes_from_current_message() {
+        let state = test_state("swipe-inactive-missing-swipes");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "extra": {
+                        "hiddenFromAI": true,
+                        "generationInfo": { "model": "first-model" }
+                    }
+                }),
+            )
+            .expect("message should be created");
+
+        let updated = message_swipes(
+            &state,
+            "POST",
+            "chat-1",
+            "message-1",
+            json!({
+                "content": "second",
+                "activate": false,
+                "extra": { "generationInfo": { "model": "second-model" } }
+            }),
+        )
+        .expect("swipe should be added");
+
+        assert_eq!(updated["activeSwipeIndex"], json!(0));
+        assert_eq!(updated["swipeCount"], json!(2));
+        assert_eq!(updated["content"], json!("first"));
+        assert_eq!(updated["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(
+            updated["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(updated["swipes"][0]["content"], json!("first"));
+        assert_eq!(
+            updated["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(updated["swipes"][1]["content"], json!("second"));
+        assert_eq!(
+            updated["swipes"][1]["extra"]["generationInfo"]["model"],
+            json!("second-model")
         );
     }
 

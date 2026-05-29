@@ -25765,7 +25765,7 @@
       "label": "set_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L294",
+      "source_location": "L301",
       "id": "storage_chats_set_active_swipe",
       "community": 34,
       "norm_label": "set_active_swipe()"
@@ -25774,7 +25774,7 @@
       "label": "delete_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L365",
+      "source_location": "L372",
       "id": "storage_chats_delete_swipe",
       "community": 34,
       "norm_label": "delete_swipe()"
@@ -25783,7 +25783,7 @@
       "label": "bulk_delete_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L416",
+      "source_location": "L423",
       "id": "storage_chats_bulk_delete_messages",
       "community": 34,
       "norm_label": "bulk_delete_messages()"
@@ -25792,7 +25792,7 @@
       "label": "mark_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L440",
+      "source_location": "L447",
       "id": "storage_chats_mark_autonomous_unread",
       "community": 34,
       "norm_label": "mark_autonomous_unread()"
@@ -25801,7 +25801,7 @@
       "label": "clear_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L469",
+      "source_location": "L476",
       "id": "storage_chats_clear_autonomous_unread",
       "community": 34,
       "norm_label": "clear_autonomous_unread()"
@@ -25810,7 +25810,7 @@
       "label": "chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L477",
+      "source_location": "L484",
       "id": "storage_chats_chat_array_field",
       "community": 34,
       "norm_label": "chat_array_field()"
@@ -25819,7 +25819,7 @@
       "label": "set_chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L482",
+      "source_location": "L489",
       "id": "storage_chats_set_chat_array_field",
       "community": 34,
       "norm_label": "set_chat_array_field()"
@@ -25828,7 +25828,7 @@
       "label": "delete_chat_array_item()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L493",
+      "source_location": "L500",
       "id": "storage_chats_delete_chat_array_item",
       "community": 34,
       "norm_label": "delete_chat_array_item()"
@@ -25837,7 +25837,7 @@
       "label": "refresh_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L511",
+      "source_location": "L518",
       "id": "storage_chats_refresh_chat_memories",
       "community": 34,
       "norm_label": "refresh_chat_memories()"
@@ -25846,7 +25846,7 @@
       "label": "export_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L566",
+      "source_location": "L573",
       "id": "storage_chats_export_chat_memories",
       "community": 34,
       "norm_label": "export_chat_memories()"
@@ -25855,7 +25855,7 @@
       "label": "import_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L586",
+      "source_location": "L593",
       "id": "storage_chats_import_chat_memories",
       "community": 34,
       "norm_label": "import_chat_memories()"
@@ -25864,7 +25864,7 @@
       "label": "touch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L664",
+      "source_location": "L671",
       "id": "storage_chats_touch_chat",
       "community": 34,
       "norm_label": "touch_chat()"
@@ -25873,7 +25873,7 @@
       "label": "delete_chat_group()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L673",
+      "source_location": "L680",
       "id": "storage_chats_delete_chat_group",
       "community": 25,
       "norm_label": "delete_chat_group()"
@@ -25882,7 +25882,7 @@
       "label": "branch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L691",
+      "source_location": "L698",
       "id": "storage_chats_branch_chat",
       "community": 34,
       "norm_label": "branch_chat()"
@@ -25891,7 +25891,7 @@
       "label": "delete_chat_with_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L801",
+      "source_location": "L808",
       "id": "storage_chats_delete_chat_with_messages",
       "community": 34,
       "norm_label": "delete_chat_with_messages()"
@@ -25900,7 +25900,7 @@
       "label": "chat_game_state_is_bootstrap()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L829",
+      "source_location": "L836",
       "id": "storage_chats_chat_game_state_is_bootstrap",
       "community": 34,
       "norm_label": "chat_game_state_is_bootstrap()"
@@ -25909,7 +25909,7 @@
       "label": "scene_delete_scope()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L839",
+      "source_location": "L846",
       "id": "storage_chats_scene_delete_scope",
       "community": 34,
       "norm_label": "scene_delete_scope()"
@@ -25918,7 +25918,7 @@
       "label": "insert_owned_scene_chat_id()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L894",
+      "source_location": "L901",
       "id": "storage_chats_insert_owned_scene_chat_id",
       "community": 34,
       "norm_label": "insert_owned_scene_chat_id()"
@@ -25927,7 +25927,7 @@
       "label": "clear_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L922",
+      "source_location": "L929",
       "id": "storage_chats_clear_character_scene_memories",
       "community": 34,
       "norm_label": "clear_character_scene_memories()"
@@ -25936,7 +25936,7 @@
       "label": "clear_deleted_scene_references()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L964",
+      "source_location": "L971",
       "id": "storage_chats_clear_deleted_scene_references",
       "community": 34,
       "norm_label": "clear_deleted_scene_references()"
@@ -25945,7 +25945,7 @@
       "label": "object_or_parse()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1045",
+      "source_location": "L1052",
       "id": "storage_chats_object_or_parse",
       "community": 34,
       "norm_label": "object_or_parse()"
@@ -25954,7 +25954,7 @@
       "label": "test_state()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1062",
+      "source_location": "L1069",
       "id": "storage_chats_test_state",
       "community": 34,
       "norm_label": "test_state()"
@@ -25963,7 +25963,7 @@
       "label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1075",
+      "source_location": "L1082",
       "id": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
       "community": 34,
       "norm_label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()"
@@ -25972,7 +25972,7 @@
       "label": "message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1158",
+      "source_location": "L1165",
       "id": "storage_chats_message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot",
       "community": 34,
       "norm_label": "message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot()"
@@ -25981,7 +25981,7 @@
       "label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1223",
+      "source_location": "L1230",
       "id": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
       "community": 34,
       "norm_label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()"
@@ -25990,7 +25990,7 @@
       "label": "delete_swipe_preserves_shifted_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1412",
+      "source_location": "L1473",
       "id": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
       "community": 34,
       "norm_label": "delete_swipe_preserves_shifted_active_swipe()"
@@ -25999,7 +25999,7 @@
       "label": "memory_embedding_context_prefers_dedicated_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1470",
+      "source_location": "L1531",
       "id": "storage_chats_memory_embedding_context_prefers_dedicated_embedding_connection",
       "community": 34,
       "norm_label": "memory_embedding_context_prefers_dedicated_embedding_connection()"
@@ -26008,7 +26008,7 @@
       "label": "embed_memory_content_uses_lexical_fallback_without_context()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1517",
+      "source_location": "L1578",
       "id": "storage_chats_embed_memory_content_uses_lexical_fallback_without_context",
       "community": 34,
       "norm_label": "embed_memory_content_uses_lexical_fallback_without_context()"
@@ -26017,7 +26017,7 @@
       "label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1527",
+      "source_location": "L1588",
       "id": "storage_chats_delete_origin_chat_removes_scene_chats_and_character_scene_memories",
       "community": 34,
       "norm_label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()"
@@ -26026,7 +26026,7 @@
       "label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1642",
+      "source_location": "L1703",
       "id": "storage_chats_delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link",
       "community": 34,
       "norm_label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()"
@@ -94318,7 +94318,7 @@
       "label": "message_swipes_can_append_inactive_swipe_with_activate_false()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1269",
+      "source_location": "L1276",
       "id": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
       "community": 34,
       "norm_label": "message_swipes_can_append_inactive_swipe_with_activate_false()"
@@ -94327,7 +94327,7 @@
       "label": "message_swipes_respects_legacy_silent_flag_for_inactive_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1376",
+      "source_location": "L1437",
       "id": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
       "community": 34,
       "norm_label": "message_swipes_respects_legacy_silent_flag_for_inactive_swipes()"
@@ -94345,10 +94345,19 @@
       "label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1321",
+      "source_location": "L1328",
       "id": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
       "community": 34,
       "norm_label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()"
+    },
+    {
+      "label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1383",
+      "id": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "community": 34,
+      "norm_label": "message_swipes_inactive_append_seeds_missing_swipes_from_current_message()"
     }
   ],
   "links": [
@@ -334844,8 +334853,40 @@
       "source": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
       "target": "storage_chats_test_state",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1383",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1403",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1384",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_inactive_append_seeds_missing_swipes_from_current_message",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "390990ecd2c2da9e0944475f5f66b3866c7a72ec"
+  "built_at_commit": "2f083d052a5d4809124861422f939b5d2f53e84c"
 }

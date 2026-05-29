@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 856 files · ~2,839,144 words
+- 856 files · ~2,839,255 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10483 nodes · 22732 edges · 449 communities (415 shown, 34 thin omitted)
+- 10484 nodes · 22735 edges · 449 communities (415 shown, 34 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 280 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `390990ec`
+- Built from commit: `2f083d05`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -591,7 +591,7 @@ Nodes (47): agentApi, npcAvatarApi, base64ToBlob(), DownloadPayload, downloadPay
 
 ### Community 34 - "Community 34"
 Cohesion: 0.08
-Nodes (55): active_swipe_update_response(), branch_chat(), bulk_delete_messages(), chat_array_field(), chat_game_state_is_bootstrap(), clear_autonomous_unread(), clear_character_scene_memories(), clear_deleted_scene_references() (+47 more)
+Nodes (56): active_swipe_update_response(), branch_chat(), bulk_delete_messages(), chat_array_field(), chat_game_state_is_bootstrap(), clear_autonomous_unread(), clear_character_scene_memories(), clear_deleted_scene_references() (+48 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.08
@@ -1970,7 +1970,7 @@ Nodes (7): child, findModernNode(), readNodeVersion(), repoRoot, runner, support
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `Community 97` to `Community 128`, `Community 1`, `Community 2`, `Community 384`, `Community 129`, `Community 5`, `Community 257`, `Community 4`, `Community 265`, `Community 10`, `Community 11`, `Community 12`, `Community 137`, `Community 9`, `Community 145`, `Community 19`, `Community 23`, `Community 151`, `Community 409`, `Community 26`, `Community 30`, `Community 35`, `Community 164`, `Community 165`, `Community 39`, `Community 168`, `Community 167`, `Community 42`, `Community 43`, `Community 172`, `Community 45`, `Community 40`, `Community 47`, `Community 177`, `Community 50`, `Community 51`, `Community 52`, `Community 54`, `Community 57`, `Community 61`, `Community 191`, `Community 63`, `Community 65`, `Community 68`, `Community 197`, `Community 70`, `Community 71`, `Community 205`, `Community 208`, `Community 220`, `Community 96`, `Community 98`, `Community 100`, `Community 103`, `Community 104`, `Community 105`, `Community 108`, `Community 115`, `Community 371`, `Community 247`, `Community 249`, `Community 250`, `Community 124`, `Community 126`, `Community 383`?**
-  _High betweenness centrality (0.055) - this node is a cross-community bridge._
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
 - **Why does `useUIStore` connect `Community 247` to `Community 128`, `Community 1`, `Community 2`, `Community 129`, `Community 4`, `Community 5`, `Community 10`, `Community 11`, `Community 12`, `Community 145`, `Community 19`, `Community 20`, `Community 23`, `Community 151`, `Community 26`, `Community 29`, `Community 163`, `Community 39`, `Community 168`, `Community 40`, `Community 177`, `Community 50`, `Community 54`, `Community 183`, `Community 57`, `Community 186`, `Community 60`, `Community 191`, `Community 63`, `Community 71`, `Community 201`, `Community 205`, `Community 208`, `Community 81`, `Community 90`, `Community 220`, `Community 97`, `Community 98`, `Community 104`, `Community 105`, `Community 241`, `Community 114`, `Community 124`, `Community 383`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
 - **Why does `storageApi` connect `Community 26` to `Community 128`, `Community 4`, `Community 5`, `Community 10`, `Community 11`, `Community 12`, `Community 19`, `Community 20`, `Community 30`, `Community 33`, `Community 35`, `Community 39`, `Community 40`, `Community 168`, `Community 172`, `Community 175`, `Community 180`, `Community 181`, `Community 191`, `Community 65`, `Community 198`, `Community 78`, `Community 208`, `Community 81`, `Community 220`, `Community 98`, `Community 101`, `Community 102`, `Community 104`, `Community 105`, `Community 241`, `Community 124`, `Community 383`?**
