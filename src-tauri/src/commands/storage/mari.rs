@@ -1428,14 +1428,17 @@ mod tests {
     }
 
     fn prompt_with_attachments(attachments: Vec<MariAttachment>) -> String {
-        build_task_prompt(&MariPromptRequest {
-            user_message: "Please inspect this attachment.".to_string(),
-            messages: Vec::new(),
-            compacted_summary: None,
-            connection_id: Some("connection".to_string()),
-            persona: None,
-            attachments,
-        })
+        build_task_prompt(
+            &MariPromptRequest {
+                user_message: "Please inspect this attachment.".to_string(),
+                messages: Vec::new(),
+                compacted_summary: None,
+                connection_id: Some("connection".to_string()),
+                persona: None,
+                attachments,
+            },
+            None,
+        )
     }
 
     #[test]
