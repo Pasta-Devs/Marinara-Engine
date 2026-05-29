@@ -32,6 +32,7 @@ export function HapticConnectionPanel({
     () => savedIntifaceUrl ?? localStorage.getItem(HAPTIC_INTIFACE_URL_STORAGE_KEY) ?? "",
   );
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false);
+  const [hapticActionError, setHapticActionError] = useState<unknown>(null);
 
   useEffect(() => {
     setIntifaceUrl(savedIntifaceUrl ?? localStorage.getItem(HAPTIC_INTIFACE_URL_STORAGE_KEY) ?? "");
@@ -49,6 +50,14 @@ export function HapticConnectionPanel({
     }
     return trimmed;
   }, [intifaceUrl, onIntifaceUrlChange, savedIntifaceUrl]);
+
+  const clearHapticActionError = useCallback(() => {
+    setHapticActionError(null);
+  }, []);
+
+  const handleHapticActionError = useCallback((error: unknown) => {
+    setHapticActionError(() => error);
+  }, []);
 
   useEffect(() => {
     if (autoConnectAttempted || isLoading || !status || status.connected || connect.isPending) return;
@@ -72,6 +81,8 @@ export function HapticConnectionPanel({
   const activeServerUrl = status?.serverUrl ?? defaultServerUrl;
   const scanActionPending = startScan.isPending || stopScan.isPending;
   const stopActionPending = command.isPending || stopAll.isPending;
+  const hapticActionErrorMessage =
+    hapticActionError instanceof Error ? hapticActionError.message : "The haptic action failed.";
 
   return (
     <div className="space-y-1.5 px-1">
@@ -135,7 +146,10 @@ export function HapticConnectionPanel({
               {devices.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => stopAll.mutate()}
+                  onClick={() => {
+                    clearHapticActionError();
+                    stopAll.mutate(undefined, { onError: handleHapticActionError });
+                  }}
                   disabled={stopActionPending}
                   className="text-[0.625rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:underline disabled:opacity-50"
                 >
@@ -145,10 +159,11 @@ export function HapticConnectionPanel({
               <button
                 type="button"
                 onClick={() => {
+                  clearHapticActionError();
                   if (scanning) {
-                    stopScan.mutate();
+                    stopScan.mutate(undefined, { onError: handleHapticActionError });
                   } else {
-                    startScan.mutate();
+                    startScan.mutate(undefined, { onError: handleHapticActionError });
                   }
                 }}
                 disabled={scanActionPending}
@@ -158,6 +173,9 @@ export function HapticConnectionPanel({
               </button>
             </div>
           </div>
+          {hapticActionError !== null && (
+            <p className="px-1 text-[0.625rem] text-red-400">Haptic action failed - {hapticActionErrorMessage}</p>
+          )}
           {devices.map((device) => (
             <div
               key={device.index}
@@ -170,7 +188,13 @@ export function HapticConnectionPanel({
               </span>
               <button
                 type="button"
-                onClick={() => command.mutate({ deviceIndex: device.index, action: "stop" })}
+                onClick={() => {
+                  clearHapticActionError();
+                  command.mutate(
+                    { deviceIndex: device.index, action: "stop" },
+                    { onError: handleHapticActionError },
+                  );
+                }}
                 disabled={stopActionPending}
                 className="text-[0.5625rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:underline disabled:opacity-50"
               >

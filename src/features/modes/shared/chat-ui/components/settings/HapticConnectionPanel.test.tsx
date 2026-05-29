@@ -34,8 +34,10 @@ vi.mock("../../../../../runtime/haptics/index", () => ({
   useHapticStopScan: hapticHookMocks.useHapticStopScan,
 }));
 
-function pendingMutation(mutate: ReturnType<typeof vi.fn>) {
-  return { mutate, isPending: false, isError: false };
+type MutationOptions = { onError?: (error: unknown) => void };
+
+function pendingMutation(mutate: ReturnType<typeof vi.fn>, overrides: Record<string, unknown> = {}) {
+  return { mutate, isPending: false, isError: false, error: null, ...overrides };
 }
 
 describe("HapticConnectionPanel", () => {
@@ -100,7 +102,10 @@ describe("HapticConnectionPanel", () => {
 
     expect(hapticHookMocks.stopScanMutate).toHaveBeenCalledTimes(1);
     expect(hapticHookMocks.stopAllMutate).toHaveBeenCalledTimes(1);
-    expect(hapticHookMocks.commandMutate).toHaveBeenCalledWith({ deviceIndex: 2, action: "stop" });
+    expect(hapticHookMocks.commandMutate).toHaveBeenCalledWith(
+      { deviceIndex: 2, action: "stop" },
+      expect.objectContaining({ onError: expect.any(Function) }),
+    );
   });
 
   it("starts scanning when no scan is active", () => {
@@ -121,5 +126,16 @@ describe("HapticConnectionPanel", () => {
     expect(hapticHookMocks.startScanMutate).toHaveBeenCalledTimes(1);
     expect(hapticHookMocks.stopScanMutate).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("Stop all");
+  });
+
+  it("shows restored haptic action failures", () => {
+    hapticHookMocks.stopAllMutate.mockImplementation((_variables: unknown, options?: MutationOptions) => {
+      options?.onError?.(new Error("Intiface Central rejected stop all"));
+    });
+
+    renderPanel();
+    clickButton("Stop all");
+
+    expect(container.textContent).toContain("Haptic action failed - Intiface Central rejected stop all");
   });
 });
