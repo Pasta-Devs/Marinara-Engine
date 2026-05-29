@@ -16,7 +16,7 @@ import {
 import { useUpdateChat, useCreateMessage, chatKeys } from "../../chats/index";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { exportApi } from "../../../../shared/api/export-api";
-import { invokeTauri } from "../../../../shared/api/tauri-client";
+import { storageApi } from "../../../../shared/api/storage-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ContextMenu, type ContextMenuItem } from "../../../../shared/components/ui/ContextMenu";
@@ -1329,11 +1329,7 @@ export function CharactersPanel() {
                   if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
                     for (const greeting of firstMesConfirm.alternateGreetings) {
                       if (greeting.trim()) {
-                        await invokeTauri("chat_message_add_swipe", {
-                          chatId: activeChat!.id,
-                          messageId: msg.id,
-                          body: { content: greeting, silent: true },
-                        });
+                        await storageApi.addChatMessageSwipe(activeChat!.id, msg.id, greeting, { activate: false });
                       }
                     }
                     queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChat!.id) });

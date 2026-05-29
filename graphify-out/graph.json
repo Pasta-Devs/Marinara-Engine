@@ -25729,7 +25729,7 @@
       "label": "object_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L185",
+      "source_location": "L191",
       "id": "storage_chats_object_extra",
       "community": 34,
       "norm_label": "object_extra()"
@@ -25738,7 +25738,7 @@
       "label": "preserve_active_swipe_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L189",
+      "source_location": "L195",
       "id": "storage_chats_preserve_active_swipe_extra",
       "community": 34,
       "norm_label": "preserve_active_swipe_extra()"
@@ -25747,7 +25747,7 @@
       "label": "merge_chat_metadata()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L199",
+      "source_location": "L212",
       "id": "storage_chats_merge_chat_metadata",
       "community": 34,
       "norm_label": "merge_chat_metadata()"
@@ -25756,7 +25756,7 @@
       "label": "message_swipes()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L215",
+      "source_location": "L228",
       "id": "storage_chats_message_swipes",
       "community": 34,
       "norm_label": "message_swipes()"
@@ -25765,7 +25765,7 @@
       "label": "set_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L274",
+      "source_location": "L294",
       "id": "storage_chats_set_active_swipe",
       "community": 34,
       "norm_label": "set_active_swipe()"
@@ -25774,7 +25774,7 @@
       "label": "delete_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L345",
+      "source_location": "L365",
       "id": "storage_chats_delete_swipe",
       "community": 34,
       "norm_label": "delete_swipe()"
@@ -25783,7 +25783,7 @@
       "label": "bulk_delete_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L396",
+      "source_location": "L416",
       "id": "storage_chats_bulk_delete_messages",
       "community": 34,
       "norm_label": "bulk_delete_messages()"
@@ -25792,7 +25792,7 @@
       "label": "mark_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L420",
+      "source_location": "L440",
       "id": "storage_chats_mark_autonomous_unread",
       "community": 34,
       "norm_label": "mark_autonomous_unread()"
@@ -25801,7 +25801,7 @@
       "label": "clear_autonomous_unread()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L449",
+      "source_location": "L469",
       "id": "storage_chats_clear_autonomous_unread",
       "community": 34,
       "norm_label": "clear_autonomous_unread()"
@@ -25810,7 +25810,7 @@
       "label": "chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L457",
+      "source_location": "L477",
       "id": "storage_chats_chat_array_field",
       "community": 34,
       "norm_label": "chat_array_field()"
@@ -25819,7 +25819,7 @@
       "label": "set_chat_array_field()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L462",
+      "source_location": "L482",
       "id": "storage_chats_set_chat_array_field",
       "community": 34,
       "norm_label": "set_chat_array_field()"
@@ -25828,7 +25828,7 @@
       "label": "delete_chat_array_item()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L473",
+      "source_location": "L493",
       "id": "storage_chats_delete_chat_array_item",
       "community": 34,
       "norm_label": "delete_chat_array_item()"
@@ -25837,7 +25837,7 @@
       "label": "refresh_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L491",
+      "source_location": "L511",
       "id": "storage_chats_refresh_chat_memories",
       "community": 34,
       "norm_label": "refresh_chat_memories()"
@@ -25846,7 +25846,7 @@
       "label": "export_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L546",
+      "source_location": "L566",
       "id": "storage_chats_export_chat_memories",
       "community": 34,
       "norm_label": "export_chat_memories()"
@@ -25855,7 +25855,7 @@
       "label": "import_chat_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L566",
+      "source_location": "L586",
       "id": "storage_chats_import_chat_memories",
       "community": 34,
       "norm_label": "import_chat_memories()"
@@ -25864,7 +25864,7 @@
       "label": "touch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L644",
+      "source_location": "L664",
       "id": "storage_chats_touch_chat",
       "community": 34,
       "norm_label": "touch_chat()"
@@ -25873,7 +25873,7 @@
       "label": "delete_chat_group()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L653",
+      "source_location": "L673",
       "id": "storage_chats_delete_chat_group",
       "community": 25,
       "norm_label": "delete_chat_group()"
@@ -25882,7 +25882,7 @@
       "label": "branch_chat()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L671",
+      "source_location": "L691",
       "id": "storage_chats_branch_chat",
       "community": 34,
       "norm_label": "branch_chat()"
@@ -25891,7 +25891,7 @@
       "label": "delete_chat_with_messages()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L781",
+      "source_location": "L801",
       "id": "storage_chats_delete_chat_with_messages",
       "community": 34,
       "norm_label": "delete_chat_with_messages()"
@@ -25900,7 +25900,7 @@
       "label": "chat_game_state_is_bootstrap()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L809",
+      "source_location": "L829",
       "id": "storage_chats_chat_game_state_is_bootstrap",
       "community": 34,
       "norm_label": "chat_game_state_is_bootstrap()"
@@ -25909,7 +25909,7 @@
       "label": "scene_delete_scope()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L819",
+      "source_location": "L839",
       "id": "storage_chats_scene_delete_scope",
       "community": 34,
       "norm_label": "scene_delete_scope()"
@@ -25918,7 +25918,7 @@
       "label": "insert_owned_scene_chat_id()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L874",
+      "source_location": "L894",
       "id": "storage_chats_insert_owned_scene_chat_id",
       "community": 34,
       "norm_label": "insert_owned_scene_chat_id()"
@@ -25927,7 +25927,7 @@
       "label": "clear_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L902",
+      "source_location": "L922",
       "id": "storage_chats_clear_character_scene_memories",
       "community": 34,
       "norm_label": "clear_character_scene_memories()"
@@ -25936,7 +25936,7 @@
       "label": "clear_deleted_scene_references()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L944",
+      "source_location": "L964",
       "id": "storage_chats_clear_deleted_scene_references",
       "community": 34,
       "norm_label": "clear_deleted_scene_references()"
@@ -25945,7 +25945,7 @@
       "label": "object_or_parse()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1025",
+      "source_location": "L1045",
       "id": "storage_chats_object_or_parse",
       "community": 34,
       "norm_label": "object_or_parse()"
@@ -25954,7 +25954,7 @@
       "label": "test_state()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1042",
+      "source_location": "L1062",
       "id": "storage_chats_test_state",
       "community": 34,
       "norm_label": "test_state()"
@@ -25963,7 +25963,7 @@
       "label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1055",
+      "source_location": "L1075",
       "id": "storage_chats_message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra",
       "community": 34,
       "norm_label": "message_swipes_store_per_swipe_extra_and_preserve_previous_active_extra()"
@@ -25972,7 +25972,7 @@
       "label": "message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1138",
+      "source_location": "L1158",
       "id": "storage_chats_message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot",
       "community": 34,
       "norm_label": "message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot()"
@@ -25981,7 +25981,7 @@
       "label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1203",
+      "source_location": "L1223",
       "id": "storage_chats_message_swipes_parse_stringified_parent_extra_before_preserving_active_extra",
       "community": 34,
       "norm_label": "message_swipes_parse_stringified_parent_extra_before_preserving_active_extra()"
@@ -25990,7 +25990,7 @@
       "label": "delete_swipe_preserves_shifted_active_swipe()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1249",
+      "source_location": "L1412",
       "id": "storage_chats_delete_swipe_preserves_shifted_active_swipe",
       "community": 34,
       "norm_label": "delete_swipe_preserves_shifted_active_swipe()"
@@ -25999,7 +25999,7 @@
       "label": "memory_embedding_context_prefers_dedicated_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1307",
+      "source_location": "L1470",
       "id": "storage_chats_memory_embedding_context_prefers_dedicated_embedding_connection",
       "community": 34,
       "norm_label": "memory_embedding_context_prefers_dedicated_embedding_connection()"
@@ -26008,7 +26008,7 @@
       "label": "embed_memory_content_uses_lexical_fallback_without_context()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1354",
+      "source_location": "L1517",
       "id": "storage_chats_embed_memory_content_uses_lexical_fallback_without_context",
       "community": 34,
       "norm_label": "embed_memory_content_uses_lexical_fallback_without_context()"
@@ -26017,7 +26017,7 @@
       "label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1364",
+      "source_location": "L1527",
       "id": "storage_chats_delete_origin_chat_removes_scene_chats_and_character_scene_memories",
       "community": 34,
       "norm_label": "delete_origin_chat_removes_scene_chats_and_character_scene_memories()"
@@ -26026,7 +26026,7 @@
       "label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/chats.rs",
-      "source_location": "L1479",
+      "source_location": "L1642",
       "id": "storage_chats_delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link",
       "community": 34,
       "norm_label": "delete_scene_chat_prunes_origin_scene_state_without_breaking_unrelated_link()"
@@ -35710,7 +35710,7 @@
       "label": "WizardStep",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L54",
+      "source_location": "L53",
       "id": "components_chatsetupwizard_wizardstep",
       "community": 11,
       "norm_label": "wizardstep"
@@ -35719,7 +35719,7 @@
       "label": "ALL_STEPS",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L63",
+      "source_location": "L62",
       "id": "components_chatsetupwizard_all_steps",
       "community": 11,
       "norm_label": "all_steps"
@@ -35728,7 +35728,7 @@
       "label": "ChatSetupWizardProps",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L99",
+      "source_location": "L98",
       "id": "components_chatsetupwizard_chatsetupwizardprops",
       "community": 172,
       "norm_label": "chatsetupwizardprops"
@@ -35737,7 +35737,7 @@
       "label": "PersonaDisplayInfo",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L105",
+      "source_location": "L104",
       "id": "components_chatsetupwizard_personadisplayinfo",
       "community": 11,
       "norm_label": "personadisplayinfo"
@@ -35746,7 +35746,7 @@
       "label": "PersonaSetupOption",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L112",
+      "source_location": "L111",
       "id": "components_chatsetupwizard_personasetupoption",
       "community": 11,
       "norm_label": "personasetupoption"
@@ -35755,7 +35755,7 @@
       "label": "ConnectionSetupOption",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L117",
+      "source_location": "L116",
       "id": "components_chatsetupwizard_connectionsetupoption",
       "community": 11,
       "norm_label": "connectionsetupoption"
@@ -35764,7 +35764,7 @@
       "label": "CharacterSetupOption",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L124",
+      "source_location": "L123",
       "id": "components_chatsetupwizard_charactersetupoption",
       "community": 11,
       "norm_label": "charactersetupoption"
@@ -35773,7 +35773,7 @@
       "label": "getPersonaTitle()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L131",
+      "source_location": "L130",
       "id": "components_chatsetupwizard_getpersonatitle",
       "community": 11,
       "norm_label": "getpersonatitle()"
@@ -35782,7 +35782,7 @@
       "label": "formatPersonaLabel()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L136",
+      "source_location": "L135",
       "id": "components_chatsetupwizard_formatpersonalabel",
       "community": 11,
       "norm_label": "formatpersonalabel()"
@@ -35791,7 +35791,7 @@
       "label": "getCharacterAvatarCrop()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L141",
+      "source_location": "L140",
       "id": "components_chatsetupwizard_getcharacteravatarcrop",
       "community": 11,
       "norm_label": "getcharacteravatarcrop()"
@@ -35800,7 +35800,7 @@
       "label": "CharacterAvatarImage()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L144",
+      "source_location": "L143",
       "id": "components_chatsetupwizard_characteravatarimage",
       "community": 11,
       "norm_label": "characteravatarimage()"
@@ -35809,7 +35809,7 @@
       "label": "PersonaAvatar()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L168",
+      "source_location": "L167",
       "id": "components_chatsetupwizard_personaavatar",
       "community": 11,
       "norm_label": "personaavatar()"
@@ -35818,7 +35818,7 @@
       "label": "PersonaPicker()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L182",
+      "source_location": "L181",
       "id": "components_chatsetupwizard_personapicker",
       "community": 97,
       "norm_label": "personapicker()"
@@ -35827,7 +35827,7 @@
       "label": "SetupGenerationParametersPanel()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L249",
+      "source_location": "L248",
       "id": "components_chatsetupwizard_setupgenerationparameterspanel",
       "community": 97,
       "norm_label": "setupgenerationparameterspanel()"
@@ -35836,7 +35836,7 @@
       "label": "ChatSetupWizard()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L297",
+      "source_location": "L296",
       "id": "components_chatsetupwizard_chatsetupwizard",
       "community": 11,
       "norm_label": "chatsetupwizard()"
@@ -35845,7 +35845,7 @@
       "label": "ConversationQuickSetup()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L316",
+      "source_location": "L315",
       "id": "components_chatsetupwizard_conversationquicksetup",
       "community": 11,
       "norm_label": "conversationquicksetup()"
@@ -35854,7 +35854,7 @@
       "label": "RoleplaySetupWizard()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSetupWizard.tsx",
-      "source_location": "L841",
+      "source_location": "L840",
       "id": "components_chatsetupwizard_roleplaysetupwizard",
       "community": 11,
       "norm_label": "roleplaysetupwizard()"
@@ -36376,7 +36376,7 @@
       "label": "formatMemoryDate()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6009",
+      "source_location": "L6005",
       "id": "components_chatsettingsdrawer_formatmemorydate",
       "community": 4,
       "norm_label": "formatmemorydate()"
@@ -36385,7 +36385,7 @@
       "label": "estimateMemoryTokens()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6018",
+      "source_location": "L6014",
       "id": "components_chatsettingsdrawer_estimatememorytokens",
       "community": 4,
       "norm_label": "estimatememorytokens()"
@@ -36394,7 +36394,7 @@
       "label": "MemoryRecallMemoriesModal()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6026",
+      "source_location": "L6022",
       "id": "components_chatsettingsdrawer_memoryrecallmemoriesmodal",
       "community": 4,
       "norm_label": "memoryrecallmemoriesmodal()"
@@ -36403,7 +36403,7 @@
       "label": "EDITABLE_GENERATION_PARAMETER_KEY_SET",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6233",
+      "source_location": "L6229",
       "id": "components_chatsettingsdrawer_editable_generation_parameter_key_set",
       "community": 4,
       "norm_label": "editable_generation_parameter_key_set"
@@ -36412,7 +36412,7 @@
       "label": "nonEmptyString()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6235",
+      "source_location": "L6231",
       "id": "components_chatsettingsdrawer_nonemptystring",
       "community": 4,
       "norm_label": "nonemptystring()"
@@ -36421,7 +36421,7 @@
       "label": "generationParameterRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6239",
+      "source_location": "L6235",
       "id": "components_chatsettingsdrawer_generationparameterrecord",
       "community": 103,
       "norm_label": "generationparameterrecord()"
@@ -36430,7 +36430,7 @@
       "label": "retainNonEditableGenerationParameters()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6243",
+      "source_location": "L6239",
       "id": "components_chatsettingsdrawer_retainnoneditablegenerationparameters",
       "community": 103,
       "norm_label": "retainnoneditablegenerationparameters()"
@@ -36439,7 +36439,7 @@
       "label": "AdvancedParametersSection()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6248",
+      "source_location": "L6244",
       "id": "components_chatsettingsdrawer_advancedparameterssection",
       "community": 103,
       "norm_label": "advancedparameterssection()"
@@ -36448,7 +36448,7 @@
       "label": "ConversationPromptSection()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6364",
+      "source_location": "L6360",
       "id": "components_chatsettingsdrawer_conversationpromptsection",
       "community": 4,
       "norm_label": "conversationpromptsection()"
@@ -36457,7 +36457,7 @@
       "label": "ImpersonateSettingsContent()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6446",
+      "source_location": "L6442",
       "id": "components_chatsettingsdrawer_impersonatesettingscontent",
       "community": 4,
       "norm_label": "impersonatesettingscontent()"
@@ -36466,7 +36466,7 @@
       "label": "SpriteDisplayModeToggle()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6605",
+      "source_location": "L6601",
       "id": "components_chatsettingsdrawer_spritedisplaymodetoggle",
       "community": 4,
       "norm_label": "spritedisplaymodetoggle()"
@@ -36475,7 +36475,7 @@
       "label": "SpriteToggleButton()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6653",
+      "source_location": "L6649",
       "id": "components_chatsettingsdrawer_spritetogglebutton",
       "community": 4,
       "norm_label": "spritetogglebutton()"
@@ -36484,7 +36484,7 @@
       "label": "SCHEDULE_DAYS",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6683",
+      "source_location": "L6679",
       "id": "components_chatsettingsdrawer_schedule_days",
       "community": 4,
       "norm_label": "schedule_days"
@@ -36493,7 +36493,7 @@
       "label": "STATUS_OPTIONS",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6684",
+      "source_location": "L6680",
       "id": "components_chatsettingsdrawer_status_options",
       "community": 4,
       "norm_label": "status_options"
@@ -36502,7 +36502,7 @@
       "label": "STATUS_COLORS",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6685",
+      "source_location": "L6681",
       "id": "components_chatsettingsdrawer_status_colors",
       "community": 4,
       "norm_label": "status_colors"
@@ -36511,7 +36511,7 @@
       "label": "ScheduleBlock",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6692",
+      "source_location": "L6688",
       "id": "components_chatsettingsdrawer_scheduleblock",
       "community": 4,
       "norm_label": "scheduleblock"
@@ -36520,7 +36520,7 @@
       "label": "SelfiePromptControls()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6698",
+      "source_location": "L6694",
       "id": "components_chatsettingsdrawer_selfiepromptcontrols",
       "community": 4,
       "norm_label": "selfiepromptcontrols()"
@@ -36529,7 +36529,7 @@
       "label": "ScheduleEditor()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L6784",
+      "source_location": "L6780",
       "id": "components_chatsettingsdrawer_scheduleeditor",
       "community": 4,
       "norm_label": "scheduleeditor()"
@@ -36538,7 +36538,7 @@
       "label": "ConversationNotesSection()",
       "file_type": "code",
       "source_file": "src/features/modes/shared/chat-ui/components/ChatSettingsDrawer.tsx",
-      "source_location": "L7130",
+      "source_location": "L7126",
       "id": "components_chatsettingsdrawer_conversationnotessection",
       "community": 4,
       "norm_label": "conversationnotessection()"
@@ -69505,7 +69505,7 @@
       "label": "asRecord()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L7",
+      "source_location": "L11",
       "id": "api_storage_api_asrecord",
       "community": 26,
       "norm_label": "asrecord()"
@@ -69514,7 +69514,7 @@
       "label": "asArray()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L19",
+      "source_location": "L23",
       "id": "api_storage_api_asarray",
       "community": 26,
       "norm_label": "asarray()"
@@ -69523,7 +69523,7 @@
       "label": "parseStoredJson()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L23",
+      "source_location": "L27",
       "id": "api_storage_api_parsestoredjson",
       "community": 26,
       "norm_label": "parsestoredjson()"
@@ -69532,7 +69532,7 @@
       "label": "normalizeArrayField()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L32",
+      "source_location": "L36",
       "id": "api_storage_api_normalizearrayfield",
       "community": 26,
       "norm_label": "normalizearrayfield()"
@@ -69541,7 +69541,7 @@
       "label": "normalizeObjectField()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L41",
+      "source_location": "L45",
       "id": "api_storage_api_normalizeobjectfield",
       "community": 26,
       "norm_label": "normalizeobjectfield()"
@@ -69550,7 +69550,7 @@
       "label": "normalizeStorageRecord()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L50",
+      "source_location": "L54",
       "id": "api_storage_api_normalizestoragerecord",
       "community": 26,
       "norm_label": "normalizestoragerecord()"
@@ -69559,7 +69559,7 @@
       "label": "normalizeSwipeContent()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L80",
+      "source_location": "L84",
       "id": "api_storage_api_normalizeswipecontent",
       "community": 26,
       "norm_label": "normalizeswipecontent()"
@@ -69568,7 +69568,7 @@
       "label": "normalizeMessageWrite()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L89",
+      "source_location": "L93",
       "id": "api_storage_api_normalizemessagewrite",
       "community": 26,
       "norm_label": "normalizemessagewrite()"
@@ -69577,7 +69577,7 @@
       "label": "normalizeStorageWrite()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L100",
+      "source_location": "L104",
       "id": "api_storage_api_normalizestoragewrite",
       "community": 26,
       "norm_label": "normalizestoragewrite()"
@@ -69586,7 +69586,7 @@
       "label": "normalizeStorageReadResult()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L104",
+      "source_location": "L108",
       "id": "api_storage_api_normalizestoragereadresult",
       "community": 26,
       "norm_label": "normalizestoragereadresult()"
@@ -69595,7 +69595,7 @@
       "label": "chatMessageDefaults()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L109",
+      "source_location": "L113",
       "id": "api_storage_api_chatmessagedefaults",
       "community": 26,
       "norm_label": "chatmessagedefaults()"
@@ -69604,7 +69604,7 @@
       "label": "patchChatObjectField()",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L123",
+      "source_location": "L134",
       "id": "api_storage_api_patchchatobjectfield",
       "community": 26,
       "norm_label": "patchchatobjectfield()"
@@ -69613,7 +69613,7 @@
       "label": "storageApi",
       "file_type": "code",
       "source_file": "src/shared/api/storage-api.ts",
-      "source_location": "L130",
+      "source_location": "L141",
       "id": "api_storage_api_storageapi",
       "community": 26,
       "norm_label": "storageapi"
@@ -71197,7 +71197,7 @@
       "label": "StorageGateway",
       "file_type": "code",
       "source_file": "src/engine/capabilities/storage.ts",
-      "source_location": "L48",
+      "source_location": "L53",
       "id": "capabilities_storage_storagegateway",
       "community": 6,
       "norm_label": "storagegateway"
@@ -90457,7 +90457,7 @@
       "label": "drainGeneration()",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L138",
+      "source_location": "L146",
       "id": "generation_start_generation_test_draingeneration",
       "community": 6,
       "norm_label": "draingeneration()"
@@ -90466,7 +90466,7 @@
       "label": "illustratorDrawData",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L144",
+      "source_location": "L152",
       "id": "generation_start_generation_test_illustratordrawdata",
       "community": 6,
       "norm_label": "illustratordrawdata"
@@ -90475,7 +90475,7 @@
       "label": "{ deps, createChatMessage }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L152",
+      "source_location": "L160",
       "id": "generation_start_generation_test_deps_createchatmessage",
       "community": 6,
       "norm_label": "{ deps, createchatmessage }"
@@ -90484,7 +90484,7 @@
       "label": "stream",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L158",
+      "source_location": "L166",
       "id": "generation_start_generation_test_stream",
       "community": 6,
       "norm_label": "stream"
@@ -90493,7 +90493,7 @@
       "label": "{ deps }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L165",
+      "source_location": "L173",
       "id": "generation_start_generation_test_deps",
       "community": 6,
       "norm_label": "{ deps }"
@@ -90502,7 +90502,7 @@
       "label": "controller",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L207",
+      "source_location": "L215",
       "id": "generation_start_generation_test_controller",
       "community": 6,
       "norm_label": "controller"
@@ -90511,7 +90511,7 @@
       "label": "events",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L214",
+      "source_location": "L222",
       "id": "generation_start_generation_test_events",
       "community": 6,
       "norm_label": "events"
@@ -90520,7 +90520,7 @@
       "label": "assistantCreate",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L267",
+      "source_location": "L275",
       "id": "generation_start_generation_test_assistantcreate",
       "community": 6,
       "norm_label": "assistantcreate"
@@ -90529,7 +90529,7 @@
       "label": "{ deps, listChatMessages, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L277",
+      "source_location": "L285",
       "id": "generation_start_generation_test_deps_listchatmessages_streamedrequests",
       "community": 6,
       "norm_label": "{ deps, listchatmessages, streamedrequests }"
@@ -90538,7 +90538,7 @@
       "label": "prompt",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L311",
+      "source_location": "L319",
       "id": "generation_start_generation_test_prompt",
       "community": 6,
       "norm_label": "prompt"
@@ -90547,7 +90547,7 @@
       "label": "{ deps, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L317",
+      "source_location": "L325",
       "id": "generation_start_generation_test_deps_streamedrequests",
       "community": 6,
       "norm_label": "{ deps, streamedrequests }"
@@ -90556,7 +90556,7 @@
       "label": "{ deps, createChatMessage, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L619",
+      "source_location": "L627",
       "id": "generation_start_generation_test_deps_createchatmessage_streamedrequests",
       "community": 6,
       "norm_label": "{ deps, createchatmessage, streamedrequests }"
@@ -90565,7 +90565,7 @@
       "label": "request",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L643",
+      "source_location": "L651",
       "id": "generation_start_generation_test_request",
       "community": 6,
       "norm_label": "request"
@@ -90574,7 +90574,7 @@
       "label": "assistantSave",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L647",
+      "source_location": "L655",
       "id": "generation_start_generation_test_assistantsave",
       "community": 6,
       "norm_label": "assistantsave"
@@ -90583,7 +90583,7 @@
       "label": "snapshot",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L649",
+      "source_location": "L657",
       "id": "generation_start_generation_test_snapshot",
       "community": 6,
       "norm_label": "snapshot"
@@ -90592,7 +90592,7 @@
       "label": "userSave",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L737",
+      "source_location": "L745",
       "id": "generation_start_generation_test_usersave",
       "community": 6,
       "norm_label": "usersave"
@@ -90601,7 +90601,7 @@
       "label": "{ deps, createChatMessage, addChatMessageSwipe, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L764",
+      "source_location": "L772",
       "id": "generation_start_generation_test_deps_createchatmessage_addchatmessageswipe_patchchatmessageextra",
       "community": 6,
       "norm_label": "{ deps, createchatmessage, addchatmessageswipe, patchchatmessageextra }"
@@ -90610,7 +90610,7 @@
       "label": "{ deps, addChatMessageSwipe, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L844",
+      "source_location": "L855",
       "id": "generation_start_generation_test_deps_addchatmessageswipe_patchchatmessageextra",
       "community": 6,
       "norm_label": "{ deps, addchatmessageswipe, patchchatmessageextra }"
@@ -90619,7 +90619,7 @@
       "label": "{ deps, patchChatMessageExtra, streamedRequests }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L923",
+      "source_location": "L937",
       "id": "generation_start_generation_test_deps_patchchatmessageextra_streamedrequests",
       "community": 6,
       "norm_label": "{ deps, patchchatmessageextra, streamedrequests }"
@@ -90628,7 +90628,7 @@
       "label": "{ deps, patchChatMessageExtra }",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L986",
+      "source_location": "L1000",
       "id": "generation_start_generation_test_deps_patchchatmessageextra",
       "community": 6,
       "norm_label": "{ deps, patchchatmessageextra }"
@@ -90637,7 +90637,7 @@
       "label": "messages",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1042",
+      "source_location": "L1056",
       "id": "generation_start_generation_test_messages",
       "community": 6,
       "norm_label": "messages"
@@ -90646,7 +90646,7 @@
       "label": "mainRequest",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1168",
+      "source_location": "L1182",
       "id": "generation_start_generation_test_mainrequest",
       "community": 6,
       "norm_label": "mainrequest"
@@ -90655,7 +90655,7 @@
       "label": "mainPrompt",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1169",
+      "source_location": "L1183",
       "id": "generation_start_generation_test_mainprompt",
       "community": 6,
       "norm_label": "mainprompt"
@@ -90664,7 +90664,7 @@
       "label": "plotData",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1175",
+      "source_location": "L1189",
       "id": "generation_start_generation_test_plotdata",
       "community": 6,
       "norm_label": "plotdata"
@@ -90673,7 +90673,7 @@
       "label": "createMock",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1214",
+      "source_location": "L1228",
       "id": "generation_start_generation_test_createmock",
       "community": 6,
       "norm_label": "createmock"
@@ -90682,7 +90682,7 @@
       "label": "memoryWrites",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1217",
+      "source_location": "L1231",
       "id": "generation_start_generation_test_memorywrites",
       "community": 6,
       "norm_label": "memorywrites"
@@ -90691,7 +90691,7 @@
       "label": "memoryByKey",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1220",
+      "source_location": "L1234",
       "id": "generation_start_generation_test_memorybykey",
       "community": 6,
       "norm_label": "memorybykey"
@@ -90700,7 +90700,7 @@
       "label": "agentEvents",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1254",
+      "source_location": "L1268",
       "id": "generation_start_generation_test_agentevents",
       "community": 6,
       "norm_label": "agentevents"
@@ -90709,7 +90709,7 @@
       "label": "mirrorMessage",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1329",
+      "source_location": "L1343",
       "id": "generation_start_generation_test_mirrormessage",
       "community": 6,
       "norm_label": "mirrormessage"
@@ -90718,7 +90718,7 @@
       "label": "promptTexts",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1466",
+      "source_location": "L1480",
       "id": "generation_start_generation_test_prompttexts",
       "community": 6,
       "norm_label": "prompttexts"
@@ -90727,7 +90727,7 @@
       "label": "keywordGatedCustomAgent",
       "file_type": "code",
       "source_file": "src/engine/generation/start-generation.test.ts",
-      "source_location": "L1479",
+      "source_location": "L1493",
       "id": "generation_start_generation_test_keywordgatedcustomagent",
       "community": 6,
       "norm_label": "keywordgatedcustomagent"
@@ -94295,6 +94295,60 @@
       "community": 4,
       "norm_label": "spriterangeslider()",
       "id": "components_chatsettingsdrawer_spriterangeslider"
+    },
+    {
+      "label": "chatMessageSwipeBody()",
+      "file_type": "code",
+      "source_file": "src/shared/api/storage-api.ts",
+      "source_location": "L127",
+      "id": "api_storage_api_chatmessageswipebody",
+      "community": 164,
+      "norm_label": "chatmessageswipebody()"
+    },
+    {
+      "label": "AddChatMessageSwipeOptions",
+      "file_type": "code",
+      "source_file": "src/engine/capabilities/storage.ts",
+      "source_location": "L48",
+      "id": "capabilities_storage_addchatmessageswipeoptions",
+      "community": 164,
+      "norm_label": "addchatmessageswipeoptions"
+    },
+    {
+      "label": "message_swipes_can_append_inactive_swipe_with_activate_false()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1269",
+      "id": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
+      "community": 34,
+      "norm_label": "message_swipes_can_append_inactive_swipe_with_activate_false()"
+    },
+    {
+      "label": "message_swipes_respects_legacy_silent_flag_for_inactive_swipes()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1376",
+      "id": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "community": 34,
+      "norm_label": "message_swipes_respects_legacy_silent_flag_for_inactive_swipes()"
+    },
+    {
+      "label": "should_activate_new_swipe()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L205",
+      "id": "storage_chats_should_activate_new_swipe",
+      "community": 34,
+      "norm_label": "should_activate_new_swipe()"
+    },
+    {
+      "label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1321",
+      "id": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "community": 34,
+      "norm_label": "message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes()"
     }
   ],
   "links": [
@@ -334609,8 +334663,189 @@
       "confidence_score": 1.0,
       "source": "repo_src_shared_api_readme_md",
       "target": "api_readme_api_wrappers"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/api/storage-api.ts",
+      "source_location": "L128",
+      "weight": 1.0,
+      "source": "api_storage_api_chatmessageswipebody",
+      "target": "text_newlines_collapseexcessblanklines",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/engine/capabilities/storage.ts",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "src_engine_capabilities_storage_ts",
+      "target": "capabilities_storage_addchatmessageswipeoptions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/characters/components/CharactersPanel.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "src_features_catalog_characters_components_characterspanel_tsx",
+      "target": "api_storage_api_storageapi",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/catalog/characters/components/CharactersPanel.tsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "src_features_catalog_characters_components_characterspanel_tsx",
+      "target": "src_shared_api_storage_api_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/api/storage-api.ts",
+      "source_location": "L127",
+      "weight": 1.0,
+      "source": "src_shared_api_storage_api_ts",
+      "target": "api_storage_api_chatmessageswipebody",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/shared/api/storage-api.ts",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "src_shared_api_storage_api_ts",
+      "target": "capabilities_storage_addchatmessageswipeoptions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1269",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1321",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_should_activate_new_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L257",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes",
+      "target": "storage_chats_should_activate_new_swipe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1290",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1270",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_can_append_inactive_swipe_with_activate_false",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1338",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1322",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1321",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_chats_rs",
+      "target": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1345",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "target": "storage_chats_message_swipes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/chats.rs",
+      "source_location": "L1322",
+      "weight": 1.0,
+      "source": "storage_chats_message_swipes_inactive_append_clamps_stale_active_index_to_previous_swipes",
+      "target": "storage_chats_test_state",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "16826f1920230b74324be8e39c19bd9380ca0e9f"
+  "built_at_commit": "390990ecd2c2da9e0944475f5f66b3866c7a72ec"
 }

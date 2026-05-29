@@ -987,7 +987,7 @@ async function saveRegeneratedMessage(args: {
     args.chatId,
     args.messageId,
     collapseExcessBlankLines(args.content),
-    swipeExtra,
+    { extra: swipeExtra },
   );
   const updatedRecord = isRecord(updated) ? updated : {};
   const activeSwipeIndex = Math.max(0, Math.trunc(readNumber(updatedRecord.activeSwipeIndex, 0)));

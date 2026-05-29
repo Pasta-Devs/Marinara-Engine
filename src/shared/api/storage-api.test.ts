@@ -45,4 +45,23 @@ describe("storageApi typed JSON read normalization", () => {
       excludePastReasoning: true,
     });
   });
+
+  it("routes add-swipe content, extra, and activation options through the storage command", async () => {
+    invokeMock.mockResolvedValueOnce({ id: "message-1" });
+
+    await storageApi.addChatMessageSwipe("chat-1", "message-1", "first\n\n\nsecond", {
+      activate: false,
+      extra: { generationInfo: { model: "test-model" } },
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("chat_message_add_swipe", {
+      chatId: "chat-1",
+      messageId: "message-1",
+      body: {
+        content: "first\n\nsecond",
+        activate: false,
+        extra: { generationInfo: { model: "test-model" } },
+      },
+    });
+  });
 });

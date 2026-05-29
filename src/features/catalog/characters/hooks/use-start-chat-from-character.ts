@@ -65,7 +65,7 @@ export function useStartChatFromCharacter() {
                 if (msg?.id && alternateGreetings?.length) {
                   for (const greeting of alternateGreetings) {
                     if (greeting.trim()) {
-                      await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting);
+                      await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
                     }
                   }
                 }

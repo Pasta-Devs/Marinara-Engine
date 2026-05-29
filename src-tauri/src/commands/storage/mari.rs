@@ -1435,7 +1435,7 @@ mod tests {
             connection_id: Some("connection".to_string()),
             persona: None,
             attachments,
-        })
+        }, None)
     }
 
     #[test]

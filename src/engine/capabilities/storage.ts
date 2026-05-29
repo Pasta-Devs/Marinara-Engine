@@ -45,6 +45,11 @@ export interface StorageListOptions {
   fieldSelections?: Record<string, string[]>;
 }
 
+export interface AddChatMessageSwipeOptions {
+  extra?: Record<string, unknown>;
+  activate?: boolean;
+}
+
 export interface StorageGateway {
   list<T = unknown>(entity: StorageEntity | string, options?: StorageListOptions): Promise<T[]>;
   get<T = unknown>(
@@ -64,7 +69,7 @@ export interface StorageGateway {
     chatId: string,
     messageId: string,
     content: string,
-    extra?: Record<string, unknown>,
+    options?: AddChatMessageSwipeOptions,
   ): Promise<T>;
   patchChatMetadata<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   patchChatSummaries<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;

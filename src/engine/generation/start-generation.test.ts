@@ -78,12 +78,20 @@ function generationDepsForChat(
     return { id: "assistant-2", chatId: "chat-1", ...value };
   });
   const addChatMessageSwipe = vi.fn(
-    async (_chatId: string, messageId: string, content: string, extra?: Record<string, unknown>) => ({
-      ...messagesById.get(messageId),
-      content,
-      activeSwipeIndex: 1,
+    async (
+      _chatId: string,
+      messageId: string,
+      content: string,
+      options?: { extra?: Record<string, unknown>; activate?: boolean },
+    ) => ({
+      ...(messagesById.get(messageId) ?? {}),
+      content: options?.activate === false ? messagesById.get(messageId)?.content : content,
+      activeSwipeIndex:
+        options?.activate === false
+          ? Number((messagesById.get(messageId)?.activeSwipeIndex as number | undefined) ?? 0)
+          : 1,
       swipeCount: 2,
-      extra,
+      extra: options?.activate === false ? messagesById.get(messageId)?.extra : options?.extra,
     }),
   );
   const patchChatMessageExtra = vi.fn(async (messageId: string, patch: Record<string, unknown>) => ({
@@ -787,16 +795,19 @@ describe("startGeneration generation replay metadata", () => {
       "impersonate-1",
       "Done.",
       expect.objectContaining({
-        generationReplay: {
-          impersonate: true,
-          userMessage: "a tiny answer",
-        },
-        generationPromptSnapshot: expect.objectContaining({
-          messages: expect.any(Array),
-          parameters: expect.any(Object),
+        extra: expect.objectContaining({
+          generationReplay: {
+            impersonate: true,
+            userMessage: "a tiny answer",
+          },
+          generationPromptSnapshot: expect.objectContaining({
+            messages: expect.any(Array),
+            parameters: expect.any(Object),
+          }),
         }),
       }),
     );
+    expect(addChatMessageSwipe.mock.calls[0]?.[3]?.activate).toBeUndefined();
     expect(patchChatMessageExtra).toHaveBeenCalledWith(
       "impersonate-1",
       expect.objectContaining({
@@ -862,16 +873,19 @@ describe("startGeneration generation replay metadata", () => {
       "assistant-1",
       "Done.",
       expect.objectContaining({
-        generationReplay: {
-          generationGuide: "Make this one colder.",
-          generationGuideSource: "guide",
-        },
-        generationPromptSnapshot: expect.objectContaining({
-          messages: expect.any(Array),
-          parameters: expect.any(Object),
+        extra: expect.objectContaining({
+          generationReplay: {
+            generationGuide: "Make this one colder.",
+            generationGuideSource: "guide",
+          },
+          generationPromptSnapshot: expect.objectContaining({
+            messages: expect.any(Array),
+            parameters: expect.any(Object),
+          }),
         }),
       }),
     );
+    expect(addChatMessageSwipe.mock.calls[0]?.[3]?.activate).toBeUndefined();
     expect(patchChatMessageExtra).toHaveBeenCalledWith(
       "assistant-1",
       expect.objectContaining({

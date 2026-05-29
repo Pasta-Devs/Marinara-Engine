@@ -813,11 +813,7 @@ function ChatSettingsDrawerInner({
     if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
       for (const greeting of firstMesConfirm.alternateGreetings) {
         if (greeting.trim()) {
-          await invokeTauri("chat_message_add_swipe", {
-            chatId: chat.id,
-            messageId: msg.id,
-            body: { content: greeting, silent: true },
-          });
+          await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
         }
       }
       qc.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });

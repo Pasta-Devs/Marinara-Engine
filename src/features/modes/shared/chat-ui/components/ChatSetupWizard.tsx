@@ -33,7 +33,6 @@ import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { generateConversationSchedules } from "../../../../../engine/modes/chat/schedules/schedule.service";
 import { llmApi } from "../../../../../shared/api/llm-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
-import { invokeTauri } from "../../../../../shared/api/tauri-client";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
 import { ChoiceSelectionModal } from "../../../../catalog/presets/index";
@@ -1030,14 +1029,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       if (msg?.id && altGreetings.length > 0) {
                         for (const greeting of altGreetings) {
                           if (greeting.trim()) {
-                            await invokeTauri("chat_message_add_swipe", {
-                              chatId: chat.id,
-                              messageId: msg.id,
-                              body: {
-                                content: greeting,
-                                silent: true,
-                              },
-                            });
+                            await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
                           }
                         }
                         queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });

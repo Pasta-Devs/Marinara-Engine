@@ -1,4 +1,8 @@
-import type { StorageGateway, StorageListOptions } from "../../engine/capabilities/storage";
+import type {
+  AddChatMessageSwipeOptions,
+  StorageGateway,
+  StorageListOptions,
+} from "../../engine/capabilities/storage";
 import { collapseExcessBlankLines } from "../../engine/shared/text/newlines";
 import { ApiError } from "./api-errors";
 import { invokeTauri } from "./tauri-client";
@@ -120,6 +124,13 @@ function chatMessageDefaults(chatId: string, value: Record<string, unknown>): Re
   };
 }
 
+function chatMessageSwipeBody(content: string, options?: AddChatMessageSwipeOptions): Record<string, unknown> {
+  const body: Record<string, unknown> = { content: collapseExcessBlankLines(content) };
+  if (options?.extra) body.extra = options.extra;
+  if (typeof options?.activate === "boolean") body.activate = options.activate;
+  return body;
+}
+
 async function patchChatObjectField<T>(chatId: string, field: string, patch: Record<string, unknown>): Promise<T> {
   const chat = await storageApi.get<Record<string, unknown>>("chats", chatId, { fields: [field] });
   if (!chat) throw new ApiError(`Chat ${chatId} was not found`, 404);
@@ -182,11 +193,11 @@ export const storageApi: StorageGateway = {
       extra: { ...asRecord(message.extra), ...patch },
     });
   },
-  addChatMessageSwipe: (chatId, messageId, content, extra) =>
+  addChatMessageSwipe: (chatId, messageId, content, options) =>
     invokeTauri("chat_message_add_swipe", {
       chatId,
       messageId,
-      body: { content: collapseExcessBlankLines(content), extra: extra ?? {} },
+      body: chatMessageSwipeBody(content, options),
     }),
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
   patchChatSummaries: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
