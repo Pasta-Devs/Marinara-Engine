@@ -3,6 +3,53 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HelpTooltip } from "../../../../../../shared/components/ui/HelpTooltip";
 import { cn } from "../../../../../../shared/lib/utils";
 
+export function ChatSettingsSectionHeader({
+  label,
+  icon,
+  count,
+  help,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  icon?: ReactNode;
+  count?: number;
+  help?: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className={cn(
+          "flex min-h-11 w-full min-w-0 items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--accent)]/50",
+          help && "pr-12 max-md:pr-16",
+        )}
+      >
+        {icon && <span className="text-[var(--muted-foreground)]">{icon}</span>}
+        <span className="flex-1 truncate text-xs font-semibold">{label}</span>
+        {count != null && count > 0 && (
+          <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
+            {count}
+          </span>
+        )}
+        <ChevronDown
+          size="0.75rem"
+          className={cn("text-[var(--muted-foreground)] transition-transform", expanded && "rotate-180")}
+        />
+      </button>
+      {help && (
+        <span className="absolute right-4 top-3 z-10 max-md:top-0">
+          <HelpTooltip text={help} side="left" />
+        </span>
+      )}
+    </>
+  );
+}
+
 export function ChatSettingsSection({
   label,
   icon,
@@ -19,27 +66,15 @@ export function ChatSettingsSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-b border-[var(--border)]">
-      <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-[var(--accent)]/50">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-        >
-          {icon && <span className="text-[var(--muted-foreground)]">{icon}</span>}
-          <span className="flex-1 truncate text-xs font-semibold">{label}</span>
-          {count != null && count > 0 && (
-            <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
-              {count}
-            </span>
-          )}
-          <ChevronDown
-            size="0.75rem"
-            className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
-          />
-        </button>
-        {help && <HelpTooltip text={help} side="left" />}
-      </div>
+    <div className="relative border-b border-[var(--border)]">
+      <ChatSettingsSectionHeader
+        label={label}
+        icon={icon}
+        count={count}
+        help={help}
+        expanded={open}
+        onToggle={() => setOpen((o) => !o)}
+      />
       {open && <div className="px-6 py-3">{children}</div>}
     </div>
   );

@@ -72,6 +72,7 @@ import { ChoiceSelectionModal } from "../../../../catalog/presets/index";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import {
   AgentCategorySection,
+  ChatSettingsSectionHeader,
   ChatSettingsSection as Section,
   PickerDropdown,
   SpriteRangeSlider,
@@ -6281,30 +6282,14 @@ function AdvancedParametersSection({
   };
 
   return (
-    <div className="border-b border-[var(--border)]">
-      <div className="flex w-full items-center gap-2 px-4 py-3 transition-colors hover:bg-[var(--accent)]/50">
-        <button
-          type="button"
-          onClick={() => setExpanded((o) => !o)}
-          aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-        >
-          <span className="text-[var(--muted-foreground)]">
-            <Settings2 size="0.875rem" />
-          </span>
-          <span className="flex-1 text-xs font-semibold">Advanced Parameters</span>
-          <ChevronDown
-            size="0.75rem"
-            className={cn("text-[var(--muted-foreground)] transition-transform", expanded && "rotate-180")}
-          />
-        </button>
-        <span className="shrink-0">
-          <HelpTooltip
-            text="Override generation parameters for this chat. Only change these if you know what you're doing."
-            side="left"
-          />
-        </span>
-      </div>
+    <div className="relative border-b border-[var(--border)]">
+      <ChatSettingsSectionHeader
+        label="Advanced Parameters"
+        icon={<Settings2 size="0.875rem" />}
+        help="Override generation parameters for this chat. Only change these if you know what you're doing."
+        expanded={expanded}
+        onToggle={() => setExpanded((o) => !o)}
+      />
       {expanded && (
         <div className="px-4 pb-3 space-y-3">
           {inheritedGenerationParametersPending ? (
