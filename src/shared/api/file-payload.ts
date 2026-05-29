@@ -7,8 +7,13 @@ export interface UploadFilePayload {
   base64: string;
 }
 
+function formatUploadSize(bytes: number) {
+  const mib = bytes / (1024 * 1024);
+  return `${Number.isInteger(mib) ? mib.toString() : mib.toFixed(1)} MB`;
+}
+
 export const MAX_IMAGE_UPLOAD_BYTES = MAX_FILE_SIZES.BACKGROUND;
-export const IMAGE_UPLOAD_SIZE_ERROR = "Image uploads must be 20 MB or smaller";
+export const IMAGE_UPLOAD_SIZE_ERROR = `Image uploads must be ${formatUploadSize(MAX_IMAGE_UPLOAD_BYTES)} or smaller`;
 
 interface FilePayloadOptions {
   maxBytes?: number;
