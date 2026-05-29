@@ -1,11 +1,14 @@
 // ──────────────────────────────────────────────
 // Game: State Indicator Bar
 // ──────────────────────────────────────────────
-import { Compass, MessageCircle, Swords, Moon } from "lucide-react";
+import { Compass, MessageCircle, Moon, Swords, type LucideIcon } from "lucide-react";
 import type { GameActiveState } from "../../../../engine/contracts/types/game";
 import { cn } from "../../../../shared/lib/utils";
 
-const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: string; color: string; bg: string }> = {
+const GAME_STATE_CONFIG: Record<
+  GameActiveState,
+  { icon: LucideIcon; label: string; color: string; bg: string }
+> = {
   exploration: {
     icon: Compass,
     label: "Exploration",
@@ -32,12 +35,20 @@ const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: strin
   },
 };
 
+export function getGameStateConfig(state: unknown) {
+  if (typeof state !== "string") return null;
+  return Object.prototype.hasOwnProperty.call(GAME_STATE_CONFIG, state)
+    ? GAME_STATE_CONFIG[state as GameActiveState]
+    : null;
+}
+
 interface GameStateIndicatorProps {
   state: GameActiveState;
 }
 
 export function GameStateIndicator({ state }: GameStateIndicatorProps) {
-  const cfg = STATE_CONFIG[state];
+  const cfg = getGameStateConfig(state);
+  if (!cfg) return null;
   const Icon = cfg.icon;
 
   return (

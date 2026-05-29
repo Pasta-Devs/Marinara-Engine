@@ -1,59 +1,106 @@
-import { useChatStore } from "../../../../shared/stores/chat.store";
+import { useEffect } from "react";
+import type { Chat as EngineChat } from "../../../../engine/contracts/types/chat";
 import { useUIStore } from "../../../../shared/stores/ui.store";
-import { useChat, useChatMessages, useDeleteMessage } from "../../../catalog/chats/index";
-import type { Chat, Message } from "../../../../engine/contracts/types/chat";
+import {
+  ChatCommonOverlays,
+  useChatMetadataSync,
+  useChatOverlays,
+  useChatSurfaceData,
+  useChatTimelineActions,
+  useSpriteMetadataState,
+} from "../../shared/chat-ui/index";
 import { GameSurface } from "./GameSurface";
 
 interface GameConversationViewProps {
   activeChatId: string;
 }
 
-function fallbackChat(activeChatId: string, snapshot: Record<string, unknown> | null): Chat {
-  return {
-    id: activeChatId,
-    name: typeof snapshot?.name === "string" ? snapshot.name : "Game",
-    mode: "game",
-    characterIds: Array.isArray(snapshot?.characterIds) ? snapshot.characterIds : [],
-    groupId: null,
-    personaId: null,
-    promptPresetId: null,
-    connectionId: null,
-    folderId: null,
-    metadata:
-      snapshot?.metadata && typeof snapshot.metadata === "object" && !Array.isArray(snapshot.metadata)
-        ? (snapshot.metadata as Record<string, unknown>)
-        : {},
-    createdAt: new Date(0).toISOString(),
-    updatedAt: new Date(0).toISOString(),
-  } as Chat;
-}
-
 export function GameConversationView({ activeChatId }: GameConversationViewProps) {
-  const chatQuery = useChat(activeChatId);
-  const messagesQuery = useChatMessages(activeChatId);
-  const deleteMessage = useDeleteMessage(activeChatId);
-  const activeChat = useChatStore((s) => s.activeChat);
-  const isStreaming = useChatStore((s) => s.isStreaming && s.streamingChatId === activeChatId);
-  const chatBackground = useUIStore((s) => s.chatBackground);
-  const chat = (chatQuery.data as unknown as Chat | undefined) ?? fallbackChat(activeChatId, activeChat as Record<string, unknown> | null);
-  const chatMeta =
-    chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata)
-      ? (chat.metadata as Record<string, unknown>)
-      : {};
+  const messagesPerPage = useUIStore((state) => state.messagesPerPage);
+  const data = useChatSurfaceData({
+    activeChatId,
+    messagePageSize: messagesPerPage,
+    fallbackChatMode: "game",
+    personaFallback: "none",
+  });
+  const { chatBackground } = useChatMetadataSync({
+    chat: data.chat,
+    chatMeta: data.chatMeta,
+    messages: data.messages,
+    messagePageCount: data.pageCount,
+  });
+  const overlays = useChatOverlays(activeChatId);
+  const spriteState = useSpriteMetadataState({ chat: data.chat, chatMeta: data.chatMeta, messages: data.messages });
+  const timeline = useChatTimelineActions({
+    activeChatId,
+    messages: data.messages,
+    messageIdByOrderIndex: data.messageIdByOrderIndex,
+    refreshWorldStateOnTimelineChange: true,
+  });
+
+  useEffect(() => {
+    if (data.loadedMessageCount <= 0) return;
+    if (data.totalMessageCount <= data.loadedMessageCount) return;
+    void data.refetchMessages();
+  }, [data.loadedMessageCount, data.refetchMessages, data.totalMessageCount]);
+
+  if (!data.chat) return <div className="flex flex-1 overflow-hidden" />;
 
   return (
-    <GameSurface
-      activeChatId={activeChatId}
-      chat={chat}
-      chatMeta={chatMeta}
-      messages={(messagesQuery.data as unknown as Message[] | undefined) ?? []}
-      isStreaming={isStreaming}
-      isMessagesLoading={messagesQuery.isLoading}
-      characterMap={new Map()}
-      characters={[]}
-      chatBackground={chatBackground}
-      onOpenSettings={() => {}}
-      onDeleteMessage={(messageId) => deleteMessage.mutate(messageId)}
-    />
+    <>
+      <GameSurface
+        activeChatId={activeChatId}
+        chat={data.chat as unknown as EngineChat}
+        chatMeta={data.chatMeta}
+        messages={data.messages ?? []}
+        isStreaming={timeline.isStreaming}
+        isMessagesLoading={data.isLoading}
+        characterMap={data.characterMap}
+        characters={data.gameCharacters}
+        personaInfo={data.personaInfo}
+        chatBackground={chatBackground}
+        onOpenSettings={overlays.openSettings}
+        onDeleteMessage={timeline.handleDelete}
+        multiSelectMode={timeline.multiSelectMode}
+        selectedMessageIds={timeline.selectedMessageIds}
+      />
+
+      <ChatCommonOverlays
+        chat={data.chat}
+        activeChatId={activeChatId}
+        settingsOpen={overlays.settingsOpen}
+        filesOpen={overlays.filesOpen}
+        galleryOpen={overlays.galleryOpen}
+        wizardOpen={overlays.wizardOpen}
+        peekPromptData={timeline.peekPromptData}
+        deleteDialogMessageId={timeline.deleteDialogMessageId}
+        deleteDialogCanDeleteSwipe={timeline.deleteDialogCanDeleteSwipe}
+        deleteDialogActiveSwipeIndex={timeline.deleteDialogActiveSwipeIndex}
+        deleteDialogSwipeCount={timeline.deleteDialogSwipeCount}
+        multiSelectMode={timeline.multiSelectMode}
+        selectedMessageCount={timeline.selectedMessageIds.size}
+        sceneSettings={{
+          spriteArrangeMode: overlays.spriteArrangeMode,
+          onToggleSpriteArrange: overlays.toggleSpriteArrange,
+          onResetSpritePlacements: spriteState.handleResetSpritePlacements,
+          onSpriteSideChange: spriteState.handleSetSpritePosition,
+        }}
+        onCloseSettings={overlays.closeSettings}
+        onCloseFiles={overlays.closeFiles}
+        onCloseGallery={overlays.closeGallery}
+        onIllustrate={timeline.handleIllustrate}
+        onWizardFinish={overlays.finishWizard}
+        onClosePeekPrompt={timeline.closePeekPrompt}
+        onDeleteConfirm={timeline.handleDeleteConfirm}
+        onDeleteSwipe={timeline.handleDeleteSwipe}
+        onDeleteMore={timeline.handleDeleteMore}
+        onCloseDeleteDialog={timeline.closeDeleteDialog}
+        onBulkDelete={timeline.handleBulkDelete}
+        onCancelMultiSelect={timeline.handleCancelMultiSelect}
+        onUnselectAllMessages={timeline.handleUnselectAllMessages}
+        onSelectAllAboveSelection={timeline.handleSelectAllAboveSelection}
+        onSelectAllBelowSelection={timeline.handleSelectAllBelowSelection}
+      />
+    </>
   );
 }

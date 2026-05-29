@@ -6,28 +6,10 @@ import { motion } from "framer-motion";
 import type { GameMap, GameActiveState } from "../../../../engine/contracts/types/game";
 import { GameGridMap } from "./GameGridMap";
 import { GameNodeMap, type GameNodeEditPatch } from "./GameNodeMap";
-import {
-  ChevronDown,
-  ChevronUp,
-  Map as MapIcon,
-  Wand2,
-  X,
-  Compass,
-  MessageCircle,
-  Swords,
-  Moon,
-  Minus,
-  Plus,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Map as MapIcon, Wand2, X, Compass, Minus, Plus } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
-
-const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: string; color: string }> = {
-  exploration: { icon: Compass, label: "Exploration", color: "text-emerald-300" },
-  dialogue: { icon: MessageCircle, label: "Dialogue", color: "text-sky-300" },
-  combat: { icon: Swords, label: "Combat", color: "text-red-300" },
-  travel_rest: { icon: Moon, label: "Travel & Rest", color: "text-amber-300" },
-};
+import { GameStateIndicator, getGameStateConfig } from "./GameStateIndicator";
 
 const MAP_ZOOM_MIN = 0.75;
 const MAP_ZOOM_MAX = 1.8;
@@ -510,6 +492,7 @@ export function GameMapPanel({
         data-tour="game-map"
         className="flex w-52 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-3 text-[var(--muted-foreground)] shadow-lg backdrop-blur-sm"
       >
+        {gameState && <GameStateIndicator state={gameState} />}
         <span className="text-[0.625rem]">No map yet</span>
         {onGenerateMap && (
           <button
@@ -527,7 +510,7 @@ export function GameMapPanel({
 
   const mapName = map.name || "Map";
   const shouldMarquee = mapName.length > 18;
-  const stateCfg = gameState ? STATE_CONFIG[gameState] : null;
+  const stateCfg = getGameStateConfig(gameState);
   const StateIcon = stateCfg?.icon ?? null;
   const hasLeadingStatus = Boolean(StateIcon || timeOfDay || day);
 
@@ -703,7 +686,7 @@ export function MobileMapButton({
     setSelectedNode(typeof selectedPosition === "string" ? selectedPosition : null);
   }, [open, selectedPosition]);
 
-  const stateCfg = gameState ? STATE_CONFIG[gameState] : null;
+  const stateCfg = getGameStateConfig(gameState);
   const StateIcon = stateCfg?.icon ?? Compass;
 
   const handleNodeTap = useCallback((nodeId: string) => {
