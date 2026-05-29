@@ -40,7 +40,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
 
   const overlays = useChatOverlays(activeChatId);
   const spriteState = useSpriteMetadataState({ chat: data.chat, chatMeta: data.chatMeta, messages: data.messages });
-  const { enabledAgentTypes, agentThoughtBubbleTypes } = useMemo(() => {
+  const { agentsEnabled, enabledAgentTypes, agentThoughtBubbleTypes } = useMemo(() => {
     const activeAgentIds = Array.isArray(data.chatMeta.activeAgentIds)
       ? data.chatMeta.activeAgentIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
       : [];
@@ -48,6 +48,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     for (const id of activeAgentIds) set.add(id.trim());
     const agentsEnabled = Boolean(data.chatMeta.enableAgents) || activeAgentIds.length > 0;
     return {
+      agentsEnabled,
       enabledAgentTypes: agentsEnabled ? set : new Set<string>(),
       agentThoughtBubbleTypes: agentsEnabled && activeAgentIds.length === 0 ? undefined : set,
     };
@@ -57,7 +58,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     messages: data.messages,
     messageIdByOrderIndex: data.messageIdByOrderIndex,
     enabledAgentTypes,
-    refreshWorldStateOnTimelineChange: Boolean(data.chatMeta.enableAgents),
+    refreshWorldStateOnTimelineChange: agentsEnabled,
   });
   const shortcutsBlocked =
     overlays.settingsOpen ||
