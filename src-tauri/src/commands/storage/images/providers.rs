@@ -411,7 +411,7 @@ fn http_client(timeout_secs: u64) -> AppResult<reqwest::Client> {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()
-        .map_err(|error| AppError::new("image_client_error", error.to_string()))
+        .map_err(|error| AppError::new("image_client_error", image_transport_error_message(error)))
 }
 
 fn bearer(request: reqwest::RequestBuilder, api_key: &str) -> reqwest::RequestBuilder {
@@ -424,10 +424,9 @@ fn bearer(request: reqwest::RequestBuilder, api_key: &str) -> reqwest::RequestBu
 
 async fn response_json(response: reqwest::Response, provider: &str) -> AppResult<Value> {
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|error| AppError::new("image_response_error", error.to_string()))?;
+    let text = response.text().await.map_err(|error| {
+        AppError::new("image_response_error", image_transport_error_message(error))
+    })?;
     if !status.is_success() {
         return Err(AppError::new(
             "image_provider_error",
@@ -456,10 +455,9 @@ async fn image_response_base64(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("image/png")
         .to_string();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| AppError::new("image_response_error", error.to_string()))?;
+    let bytes = response.bytes().await.map_err(|error| {
+        AppError::new("image_response_error", image_transport_error_message(error))
+    })?;
     if !status.is_success() {
         let text = String::from_utf8_lossy(&bytes);
         return Err(AppError::new(
@@ -482,6 +480,10 @@ fn sanitize_error(text: &str) -> String {
         .chars()
         .take(300)
         .collect()
+}
+
+fn image_transport_error_message(error: impl std::fmt::Display) -> String {
+    sanitize_error(&error.to_string())
 }
 
 fn strip_data_url(value: &str) -> (&str, &str) {
@@ -595,7 +597,9 @@ async fn response_bytes(
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| AppError::new("image_response_error", error.to_string()))?
+        .map_err(|error| {
+            AppError::new("image_response_error", image_transport_error_message(error))
+        })?
         .to_vec();
     if !status.is_success() {
         let text = String::from_utf8_lossy(&bytes);
@@ -611,11 +615,9 @@ async fn response_bytes(
 }
 
 async fn fetch_image_url(client: &reqwest::Client, url: &str) -> AppResult<(String, String)> {
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    let response = client.get(url).send().await.map_err(|error| {
+        AppError::new("image_network_error", image_transport_error_message(error))
+    })?;
     image_response_base64(response, "image URL").await
 }
 
@@ -697,7 +699,9 @@ async fn generate_openai_compatible_image(
         )
         .send()
         .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?;
         let json = response_json(response, source).await?;
         return parse_image_json(&client, &json).await.ok_or_else(|| {
             AppError::new(
@@ -740,7 +744,7 @@ async fn generate_openai_compatible_image(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, source).await?;
     parse_image_json(&client, &json).await.ok_or_else(|| {
         AppError::new(
@@ -853,7 +857,7 @@ async fn generate_xai(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "xai").await?;
     parse_image_json(&client, &json)
         .await
@@ -986,7 +990,7 @@ async fn generate_nanogpt_image(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "nanogpt").await?;
     parse_image_json(&client, &json)
         .await
@@ -1032,7 +1036,7 @@ async fn generate_together_image(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "togetherai").await?;
     parse_image_json(&client, &json)
         .await
@@ -1082,7 +1086,7 @@ async fn generate_chat_image(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, &source).await?;
     parse_image_json(&client, &json).await.ok_or_else(|| {
         AppError::new(
@@ -1151,7 +1155,9 @@ async fn generate_google_image(
             .json(&payload)
             .send()
             .await
-            .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+            .map_err(|error| {
+                AppError::new("image_network_error", image_transport_error_message(error))
+            })?;
         let json = response_json(response, GOOGLE_IMAGE_PROVIDER).await?;
         return parse_google_predict_image(&json).ok_or_else(|| {
             AppError::new(
@@ -1190,7 +1196,9 @@ async fn generate_google_image(
         .json(&payload)
         .send()
         .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?;
     let json = response_json(response, GOOGLE_IMAGE_PROVIDER).await?;
     parse_google_generate_content_image(&json).ok_or_else(|| {
         // No inline image part — surface why (e.g. a SAFETY block or a text-only reply)
@@ -1555,7 +1563,9 @@ async fn upload_comfy_reference_image(base: &str, reference: &str) -> AppResult<
         .multipart(form)
         .send()
         .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?;
     let json = response_json(response, "comfyui").await?;
     json.get("name")
         .and_then(Value::as_str)
@@ -1636,7 +1646,7 @@ async fn generate_stability(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     image_response_base64(response, "stability").await
 }
 
@@ -1684,7 +1694,7 @@ async fn generate_stability_v1(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "stability").await?;
     let base64 = json
         .get("artifacts")
@@ -1864,7 +1874,9 @@ async fn generate_automatic1111(
         .json(&payload)
         .send()
         .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?;
     let json = response_json(response, "automatic1111").await?;
     let image = json
         .get("images")
@@ -1920,10 +1932,9 @@ async fn generate_horde(
         },
     );
     let submit = response_json(
-        request
-            .send()
-            .await
-            .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+        request.send().await.map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?,
         "horde",
     )
     .await?;
@@ -1952,7 +1963,9 @@ async fn generate_horde(
                 )
                 .send()
                 .await
-                .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+                .map_err(|error| {
+                    AppError::new("image_network_error", image_transport_error_message(error))
+                })?,
             "horde",
         )
         .await?;
@@ -2044,7 +2057,9 @@ async fn generate_comfyui(
             .json(&json!({ "prompt": prompt_json }))
             .send()
             .await
-            .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+            .map_err(|error| {
+                AppError::new("image_network_error", image_transport_error_message(error))
+            })?,
         "comfyui",
     )
     .await?;
@@ -2060,7 +2075,9 @@ async fn generate_comfyui(
                 .get(format!("{base}/history/{prompt_id}"))
                 .send()
                 .await
-                .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+                .map_err(|error| {
+                    AppError::new("image_network_error", image_transport_error_message(error))
+                })?,
             "comfyui",
         )
         .await?;
@@ -2282,7 +2299,9 @@ async fn generate_runpod_comfyui(
         )
         .send()
         .await
-        .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+        .map_err(|error| {
+            AppError::new("image_network_error", image_transport_error_message(error))
+        })?,
         "runpod",
     )
     .await?;
@@ -2301,7 +2320,9 @@ async fn generate_runpod_comfyui(
             )
             .send()
             .await
-            .map_err(|error| AppError::new("image_network_error", error.to_string()))?,
+            .map_err(|error| {
+                AppError::new("image_network_error", image_transport_error_message(error))
+            })?,
             "runpod",
         )
         .await?;
@@ -2467,7 +2488,7 @@ async fn generate_novelai(
     )
     .send()
     .await
-    .map_err(|error| AppError::new("image_network_error", error.to_string()))?;
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let (bytes, content_type) = response_bytes(response, "novelai").await?;
     parse_novelai_image_response(&client, bytes, &content_type).await
 }

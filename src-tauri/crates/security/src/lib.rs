@@ -319,6 +319,25 @@ mod tests {
     }
 
     #[test]
+    fn redact_sensitive_text_redacts_payment_and_retrieval_urls() {
+        let redacted = redact_sensitive_text(
+            "See https://billing.example.test/invoice/retrieve?token=secret for details.",
+        );
+
+        assert!(redacted.contains("[REDACTED_URL]"));
+        assert!(!redacted.contains("billing.example.test"));
+        assert!(!redacted.contains("secret"));
+    }
+
+    #[test]
+    fn redact_sensitive_text_redacts_standalone_bearer_tokens() {
+        let redacted = redact_sensitive_text("rejected credential Bearer abc123DEF456._-");
+
+        assert!(redacted.contains("Bearer [REDACTED]"));
+        assert!(!redacted.contains("abc123DEF456"));
+    }
+
+    #[test]
     fn redact_sensitive_json_redacts_secret_keys_without_hiding_usage_tokens() {
         let redacted = redact_sensitive_json(json!({
             "api_key": "sk-test-secret",

@@ -455,8 +455,8 @@ export function ConnectionEditor() {
     closeConnectionDetail();
   }, [dirty, closeConnectionDetail]);
 
-  const handleSave = useCallback(async () => {
-    if (!connectionDetailId) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!connectionDetailId) return false;
     setSaveError(null);
     const payload: Record<string, unknown> = {
       id: connectionDetailId,
@@ -511,8 +511,10 @@ export function ConnectionEditor() {
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save connection");
+      return false;
     }
   }, [
     connectionDetailId,
@@ -568,12 +570,8 @@ export function ConnectionEditor() {
   const handleTestConnection = useCallback(async () => {
     if (!connectionDetailId) return;
     // Save first if dirty, and wait for it to complete
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setTestResult(null);
     testConnection.mutate(connectionDetailId, {
@@ -585,12 +583,8 @@ export function ConnectionEditor() {
 
   const handleTestMessage = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setMsgResult(null);
     testMessage.mutate(connectionDetailId, {
@@ -608,12 +602,8 @@ export function ConnectionEditor() {
 
   const handleDiagnoseClaudeSubscription = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setClaudeDiagResult(null);
     diagnoseClaudeSubscription.mutate(connectionDetailId, {
@@ -634,12 +624,8 @@ export function ConnectionEditor() {
 
   const handleTestImage = useCallback(async () => {
     if (!connectionDetailId) return;
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     setImgTestResult(null);
     testImageGeneration.mutate(connectionDetailId, {
@@ -670,12 +656,8 @@ export function ConnectionEditor() {
     if (!connectionDetailId) return;
     setFetchError(null);
     // Save first if dirty so native provider calls use the latest baseUrl/apiKey/provider.
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
+    if (dirty && !(await handleSave())) {
+      return;
     }
     fetchModels.mutate(connectionDetailId, {
       onSuccess: (data) => {
@@ -849,8 +831,9 @@ export function ConnectionEditor() {
             </button>
             <button
               onClick={async () => {
-                await handleSave();
-                closeConnectionDetail();
+                if (await handleSave()) {
+                  closeConnectionDetail();
+                }
               }}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >

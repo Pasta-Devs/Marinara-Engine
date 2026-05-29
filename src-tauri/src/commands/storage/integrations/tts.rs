@@ -421,10 +421,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         ));
     }
     if !is_allowed_audio_content_type(&content_type) {
-        let detail = String::from_utf8_lossy(&bytes)
-            .chars()
-            .take(500)
-            .collect::<String>();
+        let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
             "tts_provider_error",
             "TTS provider returned a non-audio response",

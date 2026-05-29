@@ -41,7 +41,12 @@ pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
         .json(&Value::Object(payload))
         .send()
         .await
-        .map_err(|error| AppError::new("discord_webhook_request_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new(
+                "discord_webhook_request_error",
+                redact_sensitive_text(&error.to_string()),
+            )
+        })?;
 
     let status = response.status();
     if !status.is_success() {

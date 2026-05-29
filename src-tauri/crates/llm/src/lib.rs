@@ -848,7 +848,9 @@ async fn stream_openai_compatible(
     let mut buffer = String::new();
     let mut tool_calls = OpenAiToolCallAccumulator::default();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
+        let chunk = chunk.map_err(|error| {
+            AppError::new("llm_stream_error", provider_transport_error_message(error))
+        })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
             process_openai_sse_block(&block, emit, &mut tool_calls)?;
@@ -1059,7 +1061,9 @@ async fn stream_openai_responses(
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
+        let chunk = chunk.map_err(|error| {
+            AppError::new("llm_stream_error", provider_transport_error_message(error))
+        })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
             process_openai_responses_sse_block(&block, emit)?;
@@ -2083,7 +2087,9 @@ async fn stream_anthropic(
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
+        let chunk = chunk.map_err(|error| {
+            AppError::new("llm_stream_error", provider_transport_error_message(error))
+        })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
             process_anthropic_sse_block(&block, emit)?;
@@ -2403,7 +2409,9 @@ async fn stream_google(
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| AppError::new("llm_stream_error", error.to_string()))?;
+        let chunk = chunk.map_err(|error| {
+            AppError::new("llm_stream_error", provider_transport_error_message(error))
+        })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
             process_google_sse_block(&block, emit)?;
@@ -2477,7 +2485,9 @@ async fn read_error_response_details(response: reqwest::Response) -> AppResult<V
     let text = response
         .text()
         .await
-        .map_err(|error| AppError::new("llm_response_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("llm_response_error", provider_transport_error_message(error))
+        })?;
     Ok(provider_error_details_from_text(&text))
 }
 
@@ -2488,7 +2498,9 @@ async fn read_json_response(
     let text = response
         .text()
         .await
-        .map_err(|error| AppError::new("llm_response_error", error.to_string()))?;
+        .map_err(|error| {
+            AppError::new("llm_response_error", provider_transport_error_message(error))
+        })?;
     if !status.is_success() {
         return Ok((status, provider_error_details_from_text(&text)));
     }
