@@ -7,6 +7,7 @@ import { profileApi } from "../../../../shared/api/profile-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
+import { useUIStore } from "../../../../shared/stores/ui.store";
 
 type ProfileImportStats = {
   characters?: number;
@@ -92,12 +93,13 @@ function formatProfileImportSkippedStats(stats?: ProfileImportStats) {
 export function ProfileImportSection() {
   const qc = useQueryClient();
   const remoteProfileInputRef = useRef<HTMLInputElement>(null);
+  const remoteRuntimeUrl = useUIStore((state) => state.remoteRuntimeUrl);
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "starting" ||
     profileImportProgress?.status === "running";
-  const isRemoteRuntime = Boolean(remoteRuntimeTarget());
+  const isRemoteRuntime = remoteRuntimeUrl.trim().length > 0;
 
   useEffect(() => {
     if (!profileImportBusy) return;
@@ -174,9 +176,10 @@ export function ProfileImportSection() {
   };
 
   const showProfileImportError = (err: unknown, startedAt: number) => {
+    const expectedProfileFile = isRemoteRuntime ? "profile JSON file" : "profile JSON or ZIP file";
     const message =
       err instanceof SyntaxError
-        ? "Import failed. Make sure this is a valid profile JSON or ZIP file."
+        ? `Import failed. Make sure this is a valid ${expectedProfileFile}.`
         : `Import failed: ${err instanceof Error ? err.message : "local import error"}`;
     setProfileImportProgress({
       status: "error",
@@ -192,7 +195,13 @@ export function ProfileImportSection() {
 
   const handleProfileImport = async () => {
     if (profileImportBusy) return;
-    if (remoteRuntimeTarget()) {
+    if (isRemoteRuntime) {
+      try {
+        remoteRuntimeTarget();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Invalid Remote Runtime URL");
+        return;
+      }
       remoteProfileInputRef.current?.click();
       return;
     }
