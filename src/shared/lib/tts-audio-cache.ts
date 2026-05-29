@@ -117,7 +117,7 @@ async function putPersistentBlob(key: string, blob: Blob): Promise<void> {
   }
 }
 
-export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
+async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
   const memoryHit = memoryCache.get(key);
   if (memoryHit) {
     rememberInMemory(key, memoryHit);

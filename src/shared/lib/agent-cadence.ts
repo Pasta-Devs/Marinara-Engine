@@ -6,7 +6,7 @@ export type AgentRunIntervalMeta = {
   max: number;
 };
 
-export const EVERY_RUN_LABEL = "Every run";
+const EVERY_RUN_LABEL = "Every run";
 
 export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): AgentRunIntervalMeta | null {
   switch (agentType) {

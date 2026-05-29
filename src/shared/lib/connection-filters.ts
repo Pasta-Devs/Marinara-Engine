@@ -2,7 +2,7 @@ export type ConnectionProviderLike = {
   provider?: string | null;
 };
 
-export function isLanguageGenerationConnection(connection: ConnectionProviderLike): boolean {
+function isLanguageGenerationConnection(connection: ConnectionProviderLike): boolean {
   return connection.provider !== "image_generation";
 }
 
