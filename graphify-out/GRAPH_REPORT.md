@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 868 files · ~2,757,735 words
+- 868 files · ~2,757,771 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10698 nodes · 23564 edges · 455 communities (420 shown, 35 thin omitted)
+- 10698 nodes · 23565 edges · 455 communities (420 shown, 35 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 284 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `51beec3a`
+- Built from commit: `d0b745b7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

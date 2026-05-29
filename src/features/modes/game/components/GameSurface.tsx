@@ -1786,15 +1786,20 @@ export function GameSurface({
 
   // ── Fetch game state on mount (WeatherEffects needs weather/time from the DB) ──
   useEffect(() => {
+    const requestedChatId = activeChatId;
     const existing = useGameStateStore.getState().current;
-    if (existing?.chatId === activeChatId) return;
-    gameTrackerApi.visible(activeChatId)
+    if (existing?.chatId === requestedChatId) return;
+    let cancelled = false;
+    gameTrackerApi.visible(requestedChatId)
       .then((gs) => {
-        if (gs) {
+        if (!cancelled && gs?.chatId === requestedChatId && useChatStore.getState().activeChatId === requestedChatId) {
           useGameStateStore.getState().setGameState(gs);
         }
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [activeChatId]);
 
   // ── Patch game state snapshot with chatMeta weather/time when the snapshot is missing them ──
@@ -4876,7 +4881,7 @@ export function GameSurface({
         if (maps?.length) {
           useGameModeStore.getState().setMaps(maps, activeGameMapId);
         } else if (map) {
-          useGameModeStore.getState().setCurrentMap(map);
+          useGameModeStore.getState().setMaps([map], activeGameMapId ?? getGameMapId(map, 0));
         }
         setViewedMapId(null);
       }
@@ -6812,6 +6817,7 @@ export function GameSurface({
           if (useChatStore.getState().activeChatId === activeChatId) setViewedMapId(null);
         },
         onError: (error) => {
+          if (useChatStore.getState().activeChatId !== activeChatId) return;
           if (handleJsonRepairError(error)) return;
           toast.error(error instanceof Error ? error.message : "Failed to generate map.");
         },

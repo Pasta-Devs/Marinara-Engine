@@ -523,10 +523,11 @@ function normalizeGeneratedMap(raw: unknown, fallback: GameMap): GameMap | null 
   const record = asRecord(raw);
   const type = record.type === "grid" || record.type === "node" ? record.type : null;
   if (!type) return null;
+  const name = readOptionalString(record, "name") ?? fallback.name;
   const base = {
-    id: readOptionalString(record, "id") ?? undefined,
+    id: readOptionalString(record, "id") ?? generatedAssetSlug(name),
     type,
-    name: readOptionalString(record, "name") ?? fallback.name,
+    name,
     description: readOptionalString(record, "description") ?? fallback.description,
   };
   if (type === "grid") {
