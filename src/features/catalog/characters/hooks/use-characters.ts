@@ -83,6 +83,10 @@ function isPresent<T>(value: T | null | undefined): value is NonNullable<T> {
   return value != null;
 }
 
+function listCharacterSummaries(): Promise<CharacterSummary[]> {
+  return storageApi.list<CharacterSummary>("characters", CHARACTER_SUMMARY_OPTIONS);
+}
+
 export function upsertCharacterListRecord(current: unknown[] | undefined, record: unknown): unknown[] | undefined {
   if (!isCharacterListRecord(record)) return current;
   if (!Array.isArray(current)) return current;
@@ -193,7 +197,7 @@ export function useCharacters(enabled = true) {
 export function useCharacterSummaries(enabled = true) {
   return useQuery({
     queryKey: characterKeys.summaries(),
-    queryFn: () => storageApi.list<CharacterSummary>("characters", CHARACTER_SUMMARY_OPTIONS),
+    queryFn: listCharacterSummaries,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -231,20 +235,20 @@ export function useCharactersByIds(ids: string[], enabled = true) {
 
 export function useCharacterSummariesByIds(ids: string[], enabled = true) {
   const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
-  const queries = useQueries({
-    queries: uniqueIds.map((id) => ({
-      queryKey: characterKeys.summaryDetail(id),
-      queryFn: () => storageApi.get<CharacterSummary>("characters", id, CHARACTER_SUMMARY_OPTIONS),
-      enabled: enabled && !!id,
-      staleTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
-    })),
+  const shouldRead = enabled && uniqueIds.length > 0;
+  const query = useQuery({
+    queryKey: characterKeys.summaries(),
+    queryFn: listCharacterSummaries,
+    enabled: shouldRead,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
+  const byId = new Map((query.data ?? []).map((character) => [character.id, character]));
 
   return {
-    data: queries.map((query) => query.data).filter(isPresent),
-    isLoading: queries.some((query) => query.isLoading),
-    isFetching: queries.some((query) => query.isFetching),
+    data: shouldRead ? uniqueIds.map((id) => byId.get(id)).filter(isPresent) : [],
+    isLoading: shouldRead ? query.isLoading : false,
+    isFetching: shouldRead ? query.isFetching : false,
   };
 }
 
