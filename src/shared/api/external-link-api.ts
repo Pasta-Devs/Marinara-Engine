@@ -1,6 +1,7 @@
 type TauriOpenerApi = typeof import("@tauri-apps/plugin-opener");
 
 const EXTERNAL_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+const BROWSER_POPUP_PROTOCOLS = new Set(["http:", "https:"]);
 
 function hasEmbeddedTauriRuntime(): boolean {
   if (typeof window === "undefined") return false;
@@ -29,7 +30,21 @@ function openExternalUrlInBrowser(url: string): void {
   if (typeof window === "undefined") {
     throw new Error("External URLs can only be opened in a browser or Tauri runtime.");
   }
-  window.open(url, "_blank", "noopener,noreferrer");
+
+  const parsedUrl = new URL(url);
+  if (!BROWSER_POPUP_PROTOCOLS.has(parsedUrl.protocol)) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  // `noopener` can force a null return even when the popup succeeds, so open a
+  // detectable blank page and sever the opener before navigating.
+  const opened = window.open("about:blank", "_blank");
+  if (opened == null) {
+    throw new Error("The browser blocked the external URL popup.");
+  }
+  opened.opener = null;
+  opened.location.href = url;
 }
 
 async function getTauriOpenerApi(): Promise<TauriOpenerApi> {

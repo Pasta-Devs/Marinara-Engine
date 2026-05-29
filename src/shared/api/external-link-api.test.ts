@@ -17,12 +17,37 @@ describe("openExternalUrl", () => {
   });
 
   it("opens links with the browser fallback outside embedded Tauri", async () => {
-    const windowOpen = vi.fn(() => ({})) as unknown as typeof window.open;
+    const openedWindow = { opener: {}, location: { href: "" } } as unknown as Window;
+    const windowOpen = vi.fn(() => openedWindow) as unknown as typeof window.open;
     vi.stubGlobal("open", windowOpen);
 
     await openExternalUrl("https://example.com/docs");
 
-    expect(windowOpen).toHaveBeenCalledWith("https://example.com/docs", "_blank", "noopener,noreferrer");
+    expect(windowOpen).toHaveBeenCalledWith("about:blank", "_blank");
+    expect(openedWindow.opener).toBeNull();
+    expect(openedWindow.location.href).toBe("https://example.com/docs");
+    expect(openUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects blocked browser popups outside embedded Tauri", async () => {
+    const windowOpen = vi.fn(() => null) as unknown as typeof window.open;
+    vi.stubGlobal("open", windowOpen);
+
+    await expect(openExternalUrl("https://example.com/docs")).rejects.toThrow(
+      "The browser blocked the external URL popup.",
+    );
+
+    expect(windowOpen).toHaveBeenCalledWith("about:blank", "_blank");
+    expect(openUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("opens external-handler protocols without treating null as a blocked popup", async () => {
+    const windowOpen = vi.fn(() => null) as unknown as typeof window.open;
+    vi.stubGlobal("open", windowOpen);
+
+    await openExternalUrl("mailto:mari@example.com");
+
+    expect(windowOpen).toHaveBeenCalledWith("mailto:mari@example.com", "_blank", "noopener,noreferrer");
     expect(openUrlMock).not.toHaveBeenCalled();
   });
 
