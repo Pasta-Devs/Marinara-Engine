@@ -1,5 +1,5 @@
 // UI store types, constants, and pure helpers.
-import { TEMPERATURE_UNITS, normalizeTemperatureUnit, type TemperatureUnit } from "../../lib/temperature-units";
+import { normalizeTemperatureUnit, type TemperatureUnit } from "../../lib/temperature-units";
 import type { QuoteFormat } from "../../lib/dialogue-quotes";
 
 export type { QuoteFormat };
@@ -20,23 +20,22 @@ export type HudPosition = "top" | "left" | "right";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
 export type ImagePromptFormat = "descriptive" | "tags";
-export const TRACKER_TEMPERATURE_UNITS = TEMPERATURE_UNITS;
 export type TrackerTemperatureUnit = TemperatureUnit;
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
 export type TrackerPanelSizeProfile = (typeof TRACKER_PANEL_SIZE_PROFILES)[number];
 export type TrackerDataPanelSection = "world" | "persona" | "characters" | "quests" | "custom";
-export type TrackerPanelCollapsedSections = Partial<Record<TrackerDataPanelSection, boolean>>;
-export type TrackerPanelSectionOrder = TrackerDataPanelSection[];
+type TrackerPanelCollapsedSections = Partial<Record<TrackerDataPanelSection, boolean>>;
+type TrackerPanelSectionOrder = TrackerDataPanelSection[];
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type UserStatus = "active" | "idle" | "dnd";
 export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel";
 export type GameDialogueDisplayMode = "classic" | "stacked";
 export type SummaryPopoverSourceMode = "last" | "range";
-export interface FloatingWidgetPosition {
+interface FloatingWidgetPosition {
   x: number;
   y: number;
 }
-export interface SummaryPopoverSettings {
+interface SummaryPopoverSettings {
   sourceMode: SummaryPopoverSourceMode;
   contextSize: number | null;
   rangeStart: number | null;
@@ -47,7 +46,7 @@ export interface SummaryPopoverSettings {
 export const APP_LANGUAGE_OPTIONS = [{ id: "en", label: "English" }] as const;
 export type AppLanguage = (typeof APP_LANGUAGE_OPTIONS)[number]["id"];
 
-export interface GameSetupLearnedOptions {
+interface GameSetupLearnedOptions {
   genres: string[];
   tones: string[];
   settings: string[];
@@ -55,7 +54,7 @@ export interface GameSetupLearnedOptions {
   preferences: string[];
 }
 
-export interface GameSetupRememberedText {
+interface GameSetupRememberedText {
   playerGoals: string;
   preferences: string;
 }
@@ -66,17 +65,17 @@ export const SIDEBAR_WIDTH_MIN = 280;
 export const SIDEBAR_WIDTH_MAX = 520;
 export const RIGHT_PANEL_WIDTH_MIN = 280;
 export const RIGHT_PANEL_WIDTH_MAX = 520;
-export const TRACKER_PANEL_SIZE_PROFILE_WIDTHS: Record<TrackerPanelSizeProfile, number> = {
+const TRACKER_PANEL_SIZE_PROFILE_WIDTHS: Record<TrackerPanelSizeProfile, number> = {
   compact: 280,
   standard: 340,
   expanded: 420,
 };
-export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.standard;
-export const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
-export const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
+const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.standard;
+const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
+const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
 export const IMAGE_DIMENSION_MIN = 64;
 export const IMAGE_DIMENSION_MAX = 4096;
-export const GAME_SETUP_LEARNED_LIMIT = 60;
+const GAME_SETUP_LEARNED_LIMIT = 60;
 export const TRACKER_DATA_PANEL_SECTIONS: TrackerDataPanelSection[] = [
   "world",
   "persona",
@@ -115,7 +114,7 @@ export function clampImageDimension(value: number) {
   return Math.max(IMAGE_DIMENSION_MIN, Math.min(IMAGE_DIMENSION_MAX, rounded));
 }
 
-export function clampTrackerPanelWidth(value: unknown) {
+function clampTrackerPanelWidth(value: unknown) {
   const width = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : TRACKER_PANEL_WIDTH_DEFAULT;
   return Math.max(TRACKER_PANEL_WIDTH_MIN, Math.min(TRACKER_PANEL_WIDTH_MAX, width));
 }

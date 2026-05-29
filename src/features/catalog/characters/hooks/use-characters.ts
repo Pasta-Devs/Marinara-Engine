@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Character, Group & Persona hooks
 // ──────────────────────────────────────────────
+import { useMemo } from "react";
 import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { characterKeys, spriteKeys } from "../query-keys";
 import {
@@ -61,6 +62,7 @@ const CHARACTER_SUMMARY_OPTIONS = {
   fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
 };
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
+const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];
 
 const PERSONA_SUMMARY_OPTIONS = {
   fields: [
@@ -276,8 +278,15 @@ export function useCharactersByIds(ids: string[], enabled = true) {
 }
 
 export function useCharacterSummariesByIds(ids: string[], enabled = true) {
-  const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
-  const shouldRead = enabled && uniqueIds.length > 0;
+  const normalizedIdKey = ids
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .join("\0");
+  const uniqueIds = useMemo(
+    () => (normalizedIdKey ? Array.from(new Set(normalizedIdKey.split("\0").filter(Boolean))) : []),
+    [normalizedIdKey],
+  );
+  const shouldRead = enabled && normalizedIdKey.length > 0;
   const query = useQuery({
     queryKey: characterKeys.summaryByIds(uniqueIds),
     queryFn: () => listCharacterSummariesByIds(uniqueIds),
@@ -285,10 +294,14 @@ export function useCharacterSummariesByIds(ids: string[], enabled = true) {
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
-  const byId = new Map((query.data ?? []).map((character) => [character.id, character]));
+  const data = useMemo(() => {
+    if (!shouldRead) return EMPTY_CHARACTER_SUMMARIES;
+    const byId = new Map((query.data ?? []).map((character) => [character.id, character]));
+    return uniqueIds.map((id) => byId.get(id)).filter(isPresent);
+  }, [query.data, shouldRead, uniqueIds]);
 
   return {
-    data: shouldRead ? uniqueIds.map((id) => byId.get(id)).filter(isPresent) : [],
+    data,
     isLoading: shouldRead ? query.isLoading : false,
     isFetching: shouldRead ? query.isFetching : false,
   };

@@ -53,7 +53,7 @@ export interface SlashCommandContext {
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
 }
 
-export interface SlashCommandResult {
+interface SlashCommandResult {
   /** If true, don't send to the LLM / don't do normal send */
   handled: boolean;
   /** Optional feedback to show (ephemeral, not persisted) */
@@ -133,9 +133,11 @@ function buildMacroHelpText(): string {
 const MACRO_HELP_TEXT = buildMacroHelpText();
 
 function buildSlashHelpText(): string {
-  return ["Available Commands:", "", ...COMMANDS.map((command) => `${command.usage} - ${command.description}`)].join(
-    "\n",
-  );
+  return [
+    "Available Commands:",
+    "",
+    ...SLASH_COMMANDS.map((command) => `${command.usage} - ${command.description}`),
+  ].join("\n");
 }
 
 function parseImpersonatePromptArg(args: string): string {
@@ -302,7 +304,7 @@ function isMessageHidden(msg: { extra?: unknown }): boolean {
 
 // ── Command definitions ────────────────
 
-const COMMANDS: SlashCommand[] = [
+const SLASH_COMMANDS: SlashCommand[] = [
   {
     name: "roll",
     aliases: ["r", "dice"],
@@ -838,7 +840,7 @@ export function matchSlashCommand(input: string): { command: SlashCommand; args:
   const cmdName = (spaceIdx === -1 ? input.slice(1) : input.slice(1, spaceIdx)).toLowerCase();
   const args = spaceIdx === -1 ? "" : input.slice(spaceIdx + 1);
 
-  for (const cmd of COMMANDS) {
+  for (const cmd of SLASH_COMMANDS) {
     if (cmd.name === cmdName || cmd.aliases?.includes(cmdName)) {
       return { command: cmd, args };
     }
@@ -850,8 +852,6 @@ export function matchSlashCommand(input: string): { command: SlashCommand; args:
 export function getSlashCompletions(partial: string): SlashCommand[] {
   if (!partial.startsWith("/")) return [];
   const prefix = partial.slice(1).toLowerCase();
-  if (!prefix) return COMMANDS;
-  return COMMANDS.filter((c) => c.name.startsWith(prefix) || c.aliases?.some((a) => a.startsWith(prefix)));
+  if (!prefix) return SLASH_COMMANDS;
+  return SLASH_COMMANDS.filter((c) => c.name.startsWith(prefix) || c.aliases?.some((a) => a.startsWith(prefix)));
 }
-
-export { COMMANDS as SLASH_COMMANDS };

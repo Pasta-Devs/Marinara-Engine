@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { fileToUploadPayload, IMAGE_UPLOAD_SIZE_ERROR, MAX_IMAGE_UPLOAD_BYTES } from "./file-payload";
 
 function fakeFile(size: number, bytes = [0x89, 0x50, 0x4e, 0x47]) {
@@ -21,6 +22,14 @@ function fakeFile(size: number, bytes = [0x89, 0x50, 0x4e, 0x47]) {
 }
 
 describe("fileToUploadPayload", () => {
+  it("keeps the image upload limit and message tied to the shared upload constants", () => {
+    const expectedMib = MAX_FILE_SIZES.IMAGE_UPLOAD / (1024 * 1024);
+    const expectedSize = Number.isInteger(expectedMib) ? expectedMib.toString() : expectedMib.toFixed(1);
+
+    expect(MAX_IMAGE_UPLOAD_BYTES).toBe(MAX_FILE_SIZES.IMAGE_UPLOAD);
+    expect(IMAGE_UPLOAD_SIZE_ERROR).toBe(`Image uploads must be ${expectedSize} MB or smaller`);
+  });
+
   it("rejects oversized uploads before reading bytes", async () => {
     const upload = fakeFile(MAX_IMAGE_UPLOAD_BYTES + 1);
 

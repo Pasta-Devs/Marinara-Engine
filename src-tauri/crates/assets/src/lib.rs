@@ -10,8 +10,10 @@ const MANAGED_GAME_ASSET_CATEGORIES: &[&str] =
     &["music", "sfx", "ambient", "sprites", "backgrounds"];
 const MAX_TEXT_ASSET_BYTES: usize = 1_000_000;
 const MAX_MEDIA_ASSET_BYTES: usize = 75 * 1024 * 1024;
-const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif"];
-const AUDIO_EXTENSIONS: &[&str] = &["mp3", "ogg", "wav", "flac", "m4a", "aac", "opus"];
+const RASTER_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif"];
+const SPRITE_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"];
+const AUDIO_EXTENSIONS: &[&str] =
+    &["mp3", "ogg", "wav", "flac", "m4a", "aac", "opus", "webm"];
 const TEXT_EXTENSIONS: &[&str] = &[
     "txt", "md", "markdown", "json", "jsonl", "yaml", "yml", "csv", "log",
 ];
@@ -474,7 +476,8 @@ fn ensure_upload_extension(category: &str, filename: &str) -> AppResult<()> {
         .unwrap_or_default();
     let allowed = match category {
         "music" | "sfx" | "ambient" => AUDIO_EXTENSIONS,
-        "sprites" | "backgrounds" => IMAGE_EXTENSIONS,
+        "sprites" => SPRITE_IMAGE_EXTENSIONS,
+        "backgrounds" => RASTER_IMAGE_EXTENSIONS,
         _ => &[],
     };
     if allowed.contains(&extension.as_str()) {
@@ -531,7 +534,7 @@ fn system_time_iso(value: Option<SystemTime>) -> String {
 }
 
 fn image_dimensions_for(path: &Path) -> (Option<u32>, Option<u32>) {
-    if !IMAGE_EXTENSIONS.contains(&path_extension(path).as_str()) {
+    if !RASTER_IMAGE_EXTENSIONS.contains(&path_extension(path).as_str()) {
         return (None, None);
     }
     image::image_dimensions(path)
@@ -612,7 +615,10 @@ fn sort_asset_rows(rows: &mut [Value]) {
 
 #[cfg(test)]
 mod tests {
-    use super::AssetService;
+    use super::{
+        ensure_upload_extension, AssetService, AUDIO_EXTENSIONS, RASTER_IMAGE_EXTENSIONS,
+        SPRITE_IMAGE_EXTENSIONS,
+    };
     use std::fs;
     #[cfg(windows)]
     use std::io;
@@ -694,5 +700,33 @@ mod tests {
         assert!(!outside.join("new.txt").exists());
 
         let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn accepts_client_advertised_game_asset_upload_extensions() {
+        for (category, extensions) in [
+            ("music", AUDIO_EXTENSIONS),
+            ("sfx", AUDIO_EXTENSIONS),
+            ("ambient", AUDIO_EXTENSIONS),
+            ("backgrounds", RASTER_IMAGE_EXTENSIONS),
+            ("sprites", SPRITE_IMAGE_EXTENSIONS),
+        ] {
+            for extension in extensions {
+                let filename = format!("asset.{extension}");
+                assert!(
+                    ensure_upload_extension(category, &filename).is_ok(),
+                    "{category} should accept {filename}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_svg_background_uploads() {
+        let error = ensure_upload_extension("backgrounds", "wall.svg")
+            .expect_err("background SVG uploads should stay sprite-only");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Can't upload .svg files to backgrounds"));
     }
 }

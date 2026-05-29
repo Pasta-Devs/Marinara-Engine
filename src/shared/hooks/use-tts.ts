@@ -2,9 +2,8 @@
 // Hook: TTS Config & Voices
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ttsApi } from "../api/integration-utility-api";
+import { ttsApi } from "../api/tts-api";
 import type { TTSConfig, TTSSource } from "../../engine/contracts/types/tts";
-import { TTS_API_KEY_MASK } from "../../engine/contracts/types/tts";
 
 const KEYS = {
   config: ["tts", "config"] as const,
@@ -43,7 +42,3 @@ export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolea
     retry: 1,
   });
 }
-
-// ── Speak (fire-and-forget mutation used by tts-service) ─────────────────
-
-export { TTS_API_KEY_MASK };

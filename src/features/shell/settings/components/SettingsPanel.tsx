@@ -3,7 +3,10 @@
 // ──────────────────────────────────────────────
 import {
   APP_LANGUAGE_OPTIONS,
+  IMAGE_DIMENSION_MAX,
+  IMAGE_DIMENSION_MIN,
   TRACKER_DATA_PANEL_SECTIONS,
+  TRACKER_PANEL_SIZE_PROFILES,
   getTrackerPanelWidthForProfile,
   useUIStore,
   type GameDialogueDisplayMode,
@@ -16,6 +19,7 @@ import {
   type VisualTheme,
 } from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
+import { TEMPERATURE_UNITS } from "../../../../shared/lib/temperature-units";
 import { QUOTE_FORMATS } from "../../../../shared/lib/dialogue-quotes";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +40,7 @@ import {
 import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { AUDIO_MIME_MAP, IMAGE_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
 import type { Theme } from "../../../../engine/contracts/types/theme";
 import {
   findDuplicateTheme,
@@ -206,11 +211,35 @@ const QUOTE_FORMAT_OPTIONS: Array<{ id: QuoteFormat; label: string; sample: stri
   ...QUOTE_FORMAT_OPTION_COPY[id],
 }));
 
-const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{ id: TrackerPanelSizeProfile; label: string; desc: string }> = [
-  { id: "compact", label: "Compact", desc: `${getTrackerPanelWidthForProfile("compact")} px` },
-  { id: "standard", label: "Standard", desc: `${getTrackerPanelWidthForProfile("standard")} px` },
-  { id: "expanded", label: "Expanded", desc: `${getTrackerPanelWidthForProfile("expanded")} px` },
-];
+const TRACKER_PANEL_SIZE_PROFILE_COPY: Record<TrackerPanelSizeProfile, { label: string; desc: string }> = {
+  compact: { label: "Compact", desc: `${getTrackerPanelWidthForProfile("compact")} px` },
+  standard: { label: "Standard", desc: `${getTrackerPanelWidthForProfile("standard")} px` },
+  expanded: { label: "Expanded", desc: `${getTrackerPanelWidthForProfile("expanded")} px` },
+};
+
+const TRACKER_PANEL_SIZE_PROFILE_OPTIONS = TRACKER_PANEL_SIZE_PROFILES.map((id) => ({
+  id,
+  ...TRACKER_PANEL_SIZE_PROFILE_COPY[id],
+}));
+
+const TRACKER_TEMPERATURE_UNIT_OPTIONS: Array<{
+  id: TrackerTemperatureUnit;
+  label: string;
+  name: string;
+}> = TEMPERATURE_UNITS.map((id) => ({
+  id,
+  label: id === "celsius" ? "°C" : "°F",
+  name: id === "celsius" ? "Celsius" : "Fahrenheit",
+}));
+
+function getTrackerTemperatureUnitOption(unit: TrackerTemperatureUnit) {
+  return TRACKER_TEMPERATURE_UNIT_OPTIONS.find((option) => option.id === unit) ?? TRACKER_TEMPERATURE_UNIT_OPTIONS[0]!;
+}
+
+function getNextTrackerTemperatureUnit(unit: TrackerTemperatureUnit): TrackerTemperatureUnit {
+  const currentIndex = TRACKER_TEMPERATURE_UNIT_OPTIONS.findIndex((option) => option.id === unit);
+  return TRACKER_TEMPERATURE_UNIT_OPTIONS[(currentIndex + 1) % TRACKER_TEMPERATURE_UNIT_OPTIONS.length]?.id ?? "celsius";
+}
 
 const TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS: Array<{
   id: TrackerThoughtBubbleDisplay;
@@ -244,36 +273,50 @@ const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: strin
   },
 };
 
+const GAME_AUDIO_ASSET_EXTENSIONS = Object.keys(AUDIO_MIME_MAP);
+const GAME_AUDIO_ASSET_MIME_TYPES = Array.from(new Set(Object.values(AUDIO_MIME_MAP)));
+const GAME_AUDIO_ASSET_ACCEPT = [...GAME_AUDIO_ASSET_MIME_TYPES, ...GAME_AUDIO_ASSET_EXTENSIONS].join(",");
+const GAME_RASTER_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP).filter((extension) => extension !== ".svg");
+const GAME_SPRITE_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP);
+const GAME_RASTER_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_RASTER_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_RASTER_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+const GAME_SPRITE_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_SPRITE_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_SPRITE_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+
 const GAME_ASSET_CATEGORIES = [
   {
     id: "music",
     label: "Music",
     defaultFolder: "exploration/fantasy/calm",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "ambient",
     label: "Ambient",
     defaultFolder: "nature",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sfx",
     label: "Sound Effects",
     defaultFolder: "exploration",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sprites",
     label: "Sprites",
     defaultFolder: "generic-fantasy",
-    accept: "image/*,.svg",
+    accept: GAME_SPRITE_IMAGE_ASSET_ACCEPT,
   },
   {
     id: "backgrounds",
     label: "Backgrounds",
     defaultFolder: "custom",
-    accept: "image/*",
+    accept: GAME_RASTER_IMAGE_ASSET_ACCEPT,
   },
 ] as const;
 
@@ -300,21 +343,23 @@ function ImageDimensionRow({
           {label}
           <HelpTooltip text={help} />
         </div>
-        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">Pixels, clamped from 64 to 4096.</div>
+        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          Pixels, clamped from {IMAGE_DIMENSION_MIN} to {IMAGE_DIMENSION_MAX}.
+        </div>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
         <DraftNumberInput
           value={width}
-          min={64}
-          max={4096}
+          min={IMAGE_DIMENSION_MIN}
+          max={IMAGE_DIMENSION_MAX}
           onCommit={(nextWidth) => onCommit(nextWidth, height)}
           className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
         />
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">x</span>
         <DraftNumberInput
           value={height}
-          min={64}
-          max={4096}
+          min={IMAGE_DIMENSION_MIN}
+          max={IMAGE_DIMENSION_MAX}
           onCommit={(nextHeight) => onCommit(width, nextHeight)}
           className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
         />
@@ -454,6 +499,10 @@ function TrackerPanelAppearanceDrawer({
 }) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const drawerId = React.useId();
+  const currentTemperatureUnitOption = getTrackerTemperatureUnitOption(trackerTemperatureUnit);
+  const nextTemperatureUnit = getNextTrackerTemperatureUnit(trackerTemperatureUnit);
+  const nextTemperatureUnitOption = getTrackerTemperatureUnitOption(nextTemperatureUnit);
+  const isAlternateTemperatureUnit = trackerTemperatureUnit === TRACKER_TEMPERATURE_UNIT_OPTIONS[1]?.id;
 
   const toggleTrackerPanel = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -617,38 +666,31 @@ function TrackerPanelAppearanceDrawer({
           <button
             type="button"
             role="switch"
-            aria-checked={trackerTemperatureUnit === "fahrenheit"}
-            aria-label={`Tracker temperature unit: ${trackerTemperatureUnit === "celsius" ? "Celsius" : "Fahrenheit"}`}
-            title={
-              trackerTemperatureUnit === "celsius"
-                ? "Showing tracker temperatures as °C. Click for °F."
-                : "Showing tracker temperatures as °F. Click for °C."
-            }
-            onClick={() => setTrackerTemperatureUnit(trackerTemperatureUnit === "celsius" ? "fahrenheit" : "celsius")}
+            aria-checked={isAlternateTemperatureUnit}
+            aria-label={`Tracker temperature unit: ${currentTemperatureUnitOption.name}`}
+            title={`Showing tracker temperatures as ${currentTemperatureUnitOption.label}. Click for ${nextTemperatureUnitOption.label}.`}
+            onClick={() => setTrackerTemperatureUnit(nextTemperatureUnit)}
             className="relative grid h-7 w-[4.75rem] shrink-0 grid-cols-2 items-center rounded-full border border-[var(--border)] bg-[var(--secondary)]/55 p-0.5 text-[0.625rem] font-semibold transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
           >
             <span
               className={cn(
                 "absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-full bg-[var(--primary)]/16 ring-1 ring-[var(--primary)]/45 transition-transform",
-                trackerTemperatureUnit === "fahrenheit" && "translate-x-full",
+                isAlternateTemperatureUnit && "translate-x-full",
               )}
             />
-            <span
-              className={cn(
-                "relative z-10 text-center transition-colors",
-                trackerTemperatureUnit === "celsius" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
-              °C
-            </span>
-            <span
-              className={cn(
-                "relative z-10 text-center transition-colors",
-                trackerTemperatureUnit === "fahrenheit" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
-              °F
-            </span>
+            {TRACKER_TEMPERATURE_UNIT_OPTIONS.map((option) => (
+              <span
+                key={option.id}
+                className={cn(
+                  "relative z-10 text-center transition-colors",
+                  trackerTemperatureUnit === option.id
+                    ? "text-[var(--foreground)]"
+                    : "text-[var(--muted-foreground)]",
+                )}
+              >
+                {option.label}
+              </span>
+            ))}
           </button>
         </div>
         <TrackerPanelCardOrderSetting />
@@ -1251,8 +1293,8 @@ function GeneralSettings() {
 
         <p className="mt-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           On desktop, folder buttons open the local app asset folders. Use upload to copy files into Marinara's managed
-          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, and WebM; images support PNG, JPG, GIF, WebP,
-          AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
+          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, WebM, and Opus; images support PNG, JPG, GIF,
+          WebP, AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
         </p>
       </div>
     </div>

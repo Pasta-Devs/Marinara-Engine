@@ -61,7 +61,13 @@ function remoteManagedAssetUrl(
 ): string | null {
   const target = remoteRuntimeTarget();
   if (!target || !path?.trim()) return null;
-  const encodedPath = path.replace(/\\/g, "/").split("/").filter(Boolean).map(encodeURIComponent).join("/");
+  const encodedPath = path
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment && segment !== "." && segment !== "..")
+    .map(encodeURIComponent)
+    .join("/");
   return encodedPath ? `${target.baseUrl}/api/assets/${kind}/${encodedPath}` : null;
 }
 

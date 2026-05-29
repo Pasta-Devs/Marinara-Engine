@@ -6,7 +6,16 @@
 export const IMAGE_EXTS: ReadonlySet<string> = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"]);
 
 /** Audio file extensions supported by the game-asset pipeline. */
-export const AUDIO_EXTS: ReadonlySet<string> = new Set([".mp3", ".ogg", ".wav", ".flac", ".m4a", ".aac", ".webm"]);
+export const AUDIO_EXTS: ReadonlySet<string> = new Set([
+  ".mp3",
+  ".ogg",
+  ".wav",
+  ".flac",
+  ".m4a",
+  ".aac",
+  ".webm",
+  ".opus",
+]);
 
 /** Text/code file extensions editable in the in-engine file browser. */
 export const TEXT_EXTS: ReadonlySet<string> = new Set([
@@ -31,6 +40,7 @@ export const AUDIO_MIME_MAP: Readonly<Record<string, string>> = {
   ".m4a": "audio/mp4",
   ".aac": "audio/aac",
   ".webm": "audio/webm",
+  ".opus": "audio/ogg",
 };
 
 /** MIME types for image responses (used by the server's file serving route). */

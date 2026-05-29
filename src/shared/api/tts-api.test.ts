@@ -44,7 +44,50 @@ describe("ttsApi", () => {
   it("loads TTS config through the tts_config command", async () => {
     invokeMock.mockResolvedValueOnce(config);
 
-    await expect(ttsApi.config()).resolves.toBe(config);
+    await expect(ttsApi.config()).resolves.toEqual(config);
+
+    expect(invokeMock).toHaveBeenCalledWith("tts_config");
+  });
+
+  it("normalizes native TTS config responses through the contract schema", async () => {
+    invokeMock.mockResolvedValueOnce({ enabled: true });
+
+    await expect(ttsApi.config()).resolves.toMatchObject({
+      enabled: true,
+      source: "openai",
+      narratorVoiceEnabled: false,
+      narratorVoice: "",
+      voiceAssignments: [],
+      dialogueScope: "all",
+    });
+  });
+
+  it("keeps valid native TTS config fields when another saved field is malformed", async () => {
+    invokeMock.mockResolvedValueOnce({
+      enabled: true,
+      source: "elevenlabs",
+      baseUrl: "https://api.elevenlabs.io",
+      speed: 99,
+      audioFormat: "ogg",
+      voiceAssignments: [{ characterName: "Nia", voice: "Rachel" }],
+      npcDefaultMaleVoices: "Adam",
+    });
+
+    await expect(ttsApi.config()).resolves.toMatchObject({
+      enabled: true,
+      source: "elevenlabs",
+      baseUrl: "https://api.elevenlabs.io",
+      speed: 1,
+      audioFormat: "mp3",
+      voiceAssignments: [{ characterId: "", characterName: "Nia", voice: "Rachel" }],
+      npcDefaultMaleVoices: [],
+    });
+  });
+
+  it.each([null, "config", 42, false, []])("rejects malformed native TTS config responses", async (response) => {
+    invokeMock.mockResolvedValueOnce(response);
+
+    await expect(ttsApi.config()).rejects.toThrow();
 
     expect(invokeMock).toHaveBeenCalledWith("tts_config");
   });
@@ -54,7 +97,13 @@ describe("ttsApi", () => {
 
     await expect(ttsApi.updateConfig(config)).resolves.toBeUndefined();
 
-    expect(invokeMock).toHaveBeenCalledWith("tts_update_config", { config });
+    expect(invokeMock).toHaveBeenCalledWith("tts_update_config", { config: expect.objectContaining(config) });
+  });
+
+  it("rejects invalid TTS config updates before invoking the native command", async () => {
+    await expect(ttsApi.updateConfig({ ...config, speed: 99 } as TTSConfig)).rejects.toThrow();
+
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("loads provider voices through the tts_voices command", async () => {

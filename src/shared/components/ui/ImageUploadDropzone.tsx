@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { IMAGE_MIME_MAP } from "../../../engine/contracts/constants/game-assets";
 import { MAX_IMAGE_UPLOAD_BYTES } from "../../api/file-payload";
 import { cn } from "../../lib/utils";
 
@@ -20,7 +21,15 @@ interface ImageUploadDropzoneProps {
   maxFileSizeBytes?: number;
 }
 
-const IMAGE_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
+const UPLOAD_IMAGE_ENTRIES = Object.entries(IMAGE_MIME_MAP).filter(([extension]) => extension !== ".svg");
+const UPLOAD_IMAGE_EXTENSIONS = UPLOAD_IMAGE_ENTRIES.map(([extension]) => extension);
+const UPLOAD_IMAGE_MIME_TYPES = Array.from(new Set(UPLOAD_IMAGE_ENTRIES.map(([, mime]) => mime)));
+const UPLOAD_IMAGE_MIME_TYPE_SET = new Set(UPLOAD_IMAGE_MIME_TYPES);
+const IMAGE_EXTENSION_PATTERN = new RegExp(
+  `(${UPLOAD_IMAGE_EXTENSIONS.map((extension) => extension.replace(".", "\\.")).join("|")})$`,
+  "i",
+);
+const DEFAULT_IMAGE_ACCEPT = [...UPLOAD_IMAGE_MIME_TYPES, ...UPLOAD_IMAGE_EXTENSIONS].join(",");
 const DEFAULT_MAX_IMAGE_FILES = 50;
 const DEFAULT_MAX_IMAGE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 
@@ -29,9 +38,10 @@ function isFileDrag(event: DragEvent<HTMLElement>) {
 }
 
 function getSupportedImageFiles(files: FileList | null) {
-  return Array.from(files ?? []).filter(
-    (file) => file.type.startsWith("image/") || IMAGE_EXTENSION_PATTERN.test(file.name),
-  );
+  return Array.from(files ?? []).filter((file) => {
+    const mimeType = file.type.trim().toLowerCase();
+    return (mimeType !== "" && UPLOAD_IMAGE_MIME_TYPE_SET.has(mimeType)) || IMAGE_EXTENSION_PATTERN.test(file.name);
+  });
 }
 
 function formatBytes(bytes: number) {
@@ -47,7 +57,7 @@ export function ImageUploadDropzone({
   pendingLabel = "Uploading...",
   dragLabel = "Drop images to upload",
   className,
-  accept = "image/*",
+  accept = DEFAULT_IMAGE_ACCEPT,
   multiple = true,
   disabled = false,
   ariaLabel,

@@ -1,4 +1,4 @@
-import type { TTSConfig, TTSVoicesResponse } from "../../engine/contracts/types/tts";
+import { ttsConfigSchema, type TTSConfig, type TTSVoicesResponse } from "../../engine/contracts/types/tts";
 import { invokeTauri } from "./tauri-client";
 
 export interface TtsSpeakInput {
@@ -52,9 +52,34 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeTTSConfigResponse(value: unknown): TTSConfig {
+  if (!isRecord(value)) {
+    return ttsConfigSchema.parse(value);
+  }
+
+  const raw = value;
+  const config = ttsConfigSchema.parse({});
+  const fields = ttsConfigSchema.shape;
+
+  for (const key of Object.keys(fields) as Array<keyof TTSConfig>) {
+    if (!(key in raw)) continue;
+    const parsed = fields[key].safeParse(raw[key]);
+    if (parsed.success) {
+      (config as Record<keyof TTSConfig, unknown>)[key] = parsed.data;
+    }
+  }
+
+  return config;
+}
+
 export const ttsApi = {
-  config: () => invokeTauri<TTSConfig>("tts_config"),
-  updateConfig: (config: TTSConfig) => invokeTauri<void>("tts_update_config", { config }),
+  config: async () => normalizeTTSConfigResponse(await invokeTauri<unknown>("tts_config")),
+  updateConfig: async (config: TTSConfig) =>
+    invokeTauri<void>("tts_update_config", { config: ttsConfigSchema.parse(config) }),
   voices: () => invokeTauri<TTSVoicesResponse>("tts_voices"),
   speak: async (input: TtsSpeakInput, signal?: AbortSignal): Promise<Blob> => {
     throwIfAborted(signal);

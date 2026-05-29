@@ -10,13 +10,14 @@ import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
   normalizeSummaryPopoverSettings,
+  normalizeTrackerPanelCollapsedSections,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
 } from "./model";
 import type { UIState } from "./model";
 
 export const UI_STORE_NAME = "marinara-engine-ui-tauri";
-export const UI_STORE_VERSION = 5;
+export const UI_STORE_VERSION = 6;
 
 const LEGACY_SIDEBAR_WIDTH_DEFAULT = 280;
 
@@ -202,6 +203,9 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
     legacyWidth,
   );
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
+  persisted.trackerPanelCollapsedSections = normalizeTrackerPanelCollapsedSections(
+    persisted.trackerPanelCollapsedSections,
+  );
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
   persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);

@@ -26,7 +26,11 @@ import { ApiError } from "../../../../shared/api/api-errors";
 import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import { requestImagePromptReview } from "../../../../shared/components/ui/ImagePromptReviewHost";
 import { useAgentStore, type PendingCardUpdate } from "../../../../shared/stores/agent.store";
-import { formatAgentFailuresToast, toAgentFailure } from "../../../../shared/lib/agent-failures";
+import {
+  formatAgentFailuresToast,
+  toAgentFailure,
+  type AgentFailure,
+} from "../../../../shared/lib/agent-failures";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/index";
@@ -1367,26 +1371,23 @@ export function useGenerate() {
           { storage: storageApi, llm: llmApi, integrations: integrationGateway, visuals: visualAssetsApi },
           { chatId, agentTypes, options: { ...(options ?? {}), bypassActivation: options?.bypassActivation ?? true } },
         );
+        const failedRetries: AgentFailure[] = [];
+        for (const rawResult of results) {
+          const result = parseAgentResult(rawResult);
+          if (!result || result.success) continue;
+          const raw = isRecord(rawResult) ? rawResult : null;
+          const data = parseMaybeRecord(result.data);
+          const agentName =
+            (raw ? readString(raw.agentName).trim() || readString(raw.name).trim() : "") ||
+            readString(data.agentName).trim() ||
+            result.agentType;
+          failedRetries.push(toAgentFailure({ agentType: result.agentType, agentName, error: result.error }));
+        }
         for (const result of results) {
           runDeferredGenerationWork("agent retry result effects", () =>
             applyAgentResultEffects(queryClient, chatId, result),
           );
         }
-        const failedRetries = results
-          .filter((result) => !result.success)
-          .map((result) => {
-            const resultRecord = parseMaybeRecord(result);
-            const data = parseMaybeRecord(result.data);
-            return toAgentFailure({
-              agentType: result.agentType,
-              agentName:
-                readString(resultRecord.agentName).trim() ||
-                readString(resultRecord.name).trim() ||
-                readString(data.agentName).trim() ||
-                result.agentType,
-              error: result.error,
-            });
-          });
         if (failedRetries.length > 0) {
           toast.error(formatAgentFailuresToast(failedRetries), { duration: 10_000 });
         }

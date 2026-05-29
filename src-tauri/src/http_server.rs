@@ -1106,6 +1106,7 @@ mod tests {
         assert!(avatar_asset_filename("..").is_err());
         assert!(avatar_asset_filename(".").is_err());
         assert!(avatar_asset_filename("characters/avatar.png").is_err());
+        assert!(avatar_asset_filename("characters\\avatar.png").is_err());
         assert_eq!(
             avatar_asset_filename("avatar one.png").expect("valid avatar filename"),
             "avatar one.png"

@@ -34,6 +34,15 @@ describe("avatarFileUrlFromPath", () => {
     expect(convertFileSrcMock).not.toHaveBeenCalled();
   });
 
+  it("strips dot segments before building remote avatar asset routes", () => {
+    remoteRuntimeTargetMock.mockReturnValue({ baseUrl: "http://runtime.test" });
+
+    expect(avatarFileUrlFromPath(".\\..\\Avatar One.png", null)).toBe(
+      "http://runtime.test/api/assets/avatar/Avatar%20One.png",
+    );
+    expect(convertFileSrcMock).not.toHaveBeenCalled();
+  });
+
   it("derives a remote avatar filename from an absolute path without leaking the path", () => {
     remoteRuntimeTargetMock.mockReturnValue({ baseUrl: "http://runtime.test" });
 

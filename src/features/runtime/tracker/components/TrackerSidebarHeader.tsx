@@ -1,11 +1,14 @@
 import { PanelLeft, PanelRight, Plus, Trash2 } from "lucide-react";
 import { TrackerPanelIcon } from "../../../../shared/components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../../shared/components/ui/TrackerSizeTierIcon";
-import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../shared/stores/ui.store";
+import {
+  TRACKER_PANEL_SIZE_PROFILES,
+  type TrackerPanelSide,
+  type TrackerPanelSizeProfile,
+} from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
 import "./TrackerSidebarHeader.css";
 
-const TRACKER_PANEL_SIZE_SEQUENCE: TrackerPanelSizeProfile[] = ["compact", "standard", "expanded"];
 const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
   compact: "Compact",
   standard: "Standard",
@@ -33,8 +36,8 @@ export function TrackerSidebarHeader({
   onSetSizeProfile: (profile: TrackerPanelSizeProfile) => void;
   onClose: () => void;
 }) {
-  const sizeIndex = Math.max(0, TRACKER_PANEL_SIZE_SEQUENCE.indexOf(sizeProfile));
-  const nextSizeProfile = TRACKER_PANEL_SIZE_SEQUENCE[(sizeIndex + 1) % TRACKER_PANEL_SIZE_SEQUENCE.length]!;
+  const sizeIndex = Math.max(0, TRACKER_PANEL_SIZE_PROFILES.indexOf(sizeProfile));
+  const nextSizeProfile = TRACKER_PANEL_SIZE_PROFILES[(sizeIndex + 1) % TRACKER_PANEL_SIZE_PROFILES.length]!;
   const sizeLabel = TRACKER_PANEL_SIZE_LABELS[sizeProfile];
   const nextSizeLabel = TRACKER_PANEL_SIZE_LABELS[nextSizeProfile];
   const sizeTitle = `Tracker panel size: ${sizeLabel}. Click for ${nextSizeLabel}.`;
