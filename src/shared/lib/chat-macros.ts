@@ -239,7 +239,7 @@ export function resolveInputMacrosForChat(
   return createInputMacroResolverForChat(chat, characters, personas, lastInput)(template);
 }
 
-function createInputMacroResolverForChat(
+export function createInputMacroResolverForChat(
   chat: { characterIds?: unknown; personaId?: string | null; mode?: string | null } | null | undefined,
   characters: Array<{ id: string; data: unknown }> | undefined,
   personas: Array<Record<string, unknown>> | undefined,

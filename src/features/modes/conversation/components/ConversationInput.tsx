@@ -35,7 +35,7 @@ import {
   type SlashCommand,
   type SlashCommandContext,
 } from "../../../../shared/lib/slash-commands";
-import { isPromptPreviewMacro, resolveInputMacrosForChat } from "../../../../shared/lib/chat-macros";
+import { createInputMacroResolverForChat, isPromptPreviewMacro } from "../../../../shared/lib/chat-macros";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
@@ -556,8 +556,7 @@ export function ConversationInput({
       const activeChatData = useChatStore.getState().activeChat;
       const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
       const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-      const resolveInputMacros = (template: string) =>
-        resolveInputMacrosForChat(template, activeChatData, cachedCharacters, cachedPersonas, raw);
+      const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
       // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
       let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
       // Input translation for streaming path too
@@ -662,8 +661,7 @@ export function ConversationInput({
     const activeChat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-    const resolveInputMacros = (template: string) =>
-      resolveInputMacrosForChat(template, activeChat, cachedCharacters, cachedPersonas, raw);
+    const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
     let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
 
@@ -861,8 +859,7 @@ export function ConversationInput({
     const activeChatData = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-    const resolveInputMacros = (template: string) =>
-      resolveInputMacrosForChat(template, activeChatData, cachedCharacters, cachedPersonas, raw);
+    const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
     let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
 
     const chatMeta = parseChatMetadata(activeChatData?.metadata);

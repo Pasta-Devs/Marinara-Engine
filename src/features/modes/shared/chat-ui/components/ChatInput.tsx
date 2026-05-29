@@ -32,7 +32,7 @@ import {
   type SlashCommand,
   type SlashCommandContext,
 } from "../../../../../shared/lib/slash-commands";
-import { isPromptPreviewMacro, resolveInputMacrosForChat } from "../../../../../shared/lib/chat-macros";
+import { createInputMacroResolverForChat, isPromptPreviewMacro } from "../../../../../shared/lib/chat-macros";
 import { parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { formatTextQuotes } from "../../../../../shared/lib/dialogue-quotes";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../../shared/lib/utils";
@@ -567,8 +567,7 @@ export const ChatInput = memo(function ChatInput({
 
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-    const resolveInputMacros = (template: string) =>
-      resolveInputMacrosForChat(template, chat, cachedCharacters, cachedPersonas, normalized);
+    const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
 
     // Input translation: translate user's message before sending
@@ -746,8 +745,7 @@ export const ChatInput = memo(function ChatInput({
     const chat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-    const resolveInputMacros = (template: string) =>
-      resolveInputMacrosForChat(template, chat, cachedCharacters, cachedPersonas, normalized);
+    const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
 
     const chatMeta = parseChatMetadata(chat?.metadata);
