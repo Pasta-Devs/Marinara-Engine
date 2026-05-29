@@ -3368,8 +3368,14 @@ function AdvancedSettings() {
     setOpeningUpdate(true);
     try {
       const result = await updatesApi.apply(updateInfo);
-      await openExternalUrl(result.releaseUrl);
-      toast.info(result.message);
+      try {
+        await openExternalUrl(result.releaseUrl);
+        toast.info(result.message);
+      } catch (openErr) {
+        toast.error(openErr instanceof Error ? openErr.message : "Failed to open update", {
+          description: result.message,
+        });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to open update");
     } finally {
