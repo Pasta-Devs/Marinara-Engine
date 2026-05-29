@@ -205,12 +205,14 @@ pub fn unavailable_payload(message: impl Into<String>) -> Value {
 }
 
 fn base_url(provider: &str, configured: &str) -> String {
+    if provider == "openai_chatgpt" {
+        return OPENAI_CHATGPT_CODEX_BASE_URL.to_string();
+    }
     let configured = configured.trim().trim_end_matches('/');
     if !configured.is_empty() {
         return configured.to_string();
     }
     match provider {
-        "openai_chatgpt" => OPENAI_CHATGPT_CODEX_BASE_URL.to_string(),
         "anthropic" => "https://api.anthropic.com".to_string(),
         "google" => "https://generativelanguage.googleapis.com".to_string(),
         "google_vertex" => {
@@ -2633,6 +2635,14 @@ mod tests {
         assert_eq!(calls[0]["id"], "call_1");
         assert_eq!(calls[0]["function"]["name"], "roll_dice");
         assert_eq!(calls[0]["function"]["arguments"], r#"{"notation":"1d20"}"#);
+    }
+
+    #[test]
+    fn openai_chatgpt_base_url_ignores_configured_endpoint() {
+        assert_eq!(
+            base_url("openai_chatgpt", "https://api.example.com/v1"),
+            OPENAI_CHATGPT_CODEX_BASE_URL
+        );
     }
 
     #[test]

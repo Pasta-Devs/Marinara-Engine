@@ -106,10 +106,14 @@ pub(crate) fn resolve_embedding_connection_for_id(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        return Ok((
-            embedding_connection_id.to_string(),
-            get_required(state, "connections", embedding_connection_id)?,
-        ));
+        let embedding_connection = get_required(state, "connections", embedding_connection_id)?;
+        if is_openai_chatgpt_connection(&embedding_connection) {
+            return Err(openai_chatgpt_embedding_error());
+        }
+        return Ok((embedding_connection_id.to_string(), embedding_connection));
+    }
+    if is_openai_chatgpt_connection(&connection) {
+        return Err(openai_chatgpt_embedding_error());
     }
     Ok((connection_id.to_string(), connection))
 }
@@ -160,10 +164,18 @@ pub(crate) fn embedding_model(connection: &Value, explicit: Option<&str>) -> App
 }
 
 fn has_embedding_model(connection: &Value) -> bool {
+    !is_openai_chatgpt_connection(connection)
+        && connection
+            .get("embeddingModel")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn is_openai_chatgpt_connection(connection: &Value) -> bool {
     connection
-        .get("embeddingModel")
+        .get("provider")
         .and_then(Value::as_str)
-        .is_some_and(|value| !value.trim().is_empty())
+        .is_some_and(|provider| provider == "openai_chatgpt")
 }
 
 pub(crate) fn value_string_array(value: Option<&Value>) -> Vec<String> {
@@ -236,10 +248,17 @@ pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> A
         .and_then(Value::as_str)
         .unwrap_or("openai");
     match provider {
+        "openai_chatgpt" => Err(openai_chatgpt_embedding_error()),
         "google" | "google_vertex" => embed_google(connection, model, text).await,
         "ollama" => embed_ollama(connection, model, text).await,
         _ => embed_openai_compatible(connection, model, text).await,
     }
+}
+
+fn openai_chatgpt_embedding_error() -> AppError {
+    AppError::invalid_input(
+        "OpenAI (ChatGPT) does not support embeddings through Codex auth. Configure a separate embedding connection.",
+    )
 }
 
 async fn embed_openai_compatible(
@@ -675,6 +694,123 @@ mod tests {
 
         let (id, connection) =
             resolve_embedding_connection_for_id(&state, "chat-connection").unwrap();
+
+        assert_eq!(id, "embedding-connection");
+        assert_eq!(
+            embedding_model(&connection, None).unwrap(),
+            "text-embedding-3-small"
+        );
+    }
+
+    #[test]
+    fn resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection() {
+        let state = test_state("chatgpt-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chatgpt-connection",
+                    "name": "ChatGPT",
+                    "provider": "openai_chatgpt",
+                    "model": "gpt-5",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("chatgpt connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "chatgpt-connection")
+            .expect_err("chatgpt connection should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+    }
+
+    #[test]
+    fn resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection() {
+        let state = test_state("chatgpt-dedicated-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": "chatgpt-connection"
+                }),
+            )
+            .expect("chat connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chatgpt-connection",
+                    "name": "ChatGPT",
+                    "provider": "openai_chatgpt",
+                    "model": "gpt-5",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("chatgpt connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "chat-connection")
+            .expect_err("chatgpt dedicated connection should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+    }
+
+    #[tokio::test]
+    async fn embed_text_rejects_openai_chatgpt_before_provider_call() {
+        let connection = json!({
+            "provider": "openai_chatgpt",
+            "baseUrl": "https://api.example.com/v1",
+            "apiKey": "stale-key"
+        });
+
+        let error = embed_text(&connection, "text-embedding-3-small", "hello")
+            .await
+            .expect_err("chatgpt embedding should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+    }
+
+    #[test]
+    fn resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection() {
+        let state = test_state("chatgpt-dedicated-embedding-allowed");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chatgpt-connection",
+                    "name": "ChatGPT",
+                    "provider": "openai_chatgpt",
+                    "model": "gpt-5",
+                    "embeddingConnectionId": "embedding-connection"
+                }),
+            )
+            .expect("chatgpt connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "embedding-connection",
+                    "name": "Embeddings",
+                    "provider": "custom",
+                    "model": "chat-model",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("embedding connection should insert");
+
+        let (id, connection) =
+            resolve_embedding_connection_for_id(&state, "chatgpt-connection").unwrap();
 
         assert_eq!(id, "embedding-connection");
         assert_eq!(

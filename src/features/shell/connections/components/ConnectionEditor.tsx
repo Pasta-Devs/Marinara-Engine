@@ -96,6 +96,12 @@ const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
 
+const OPENAI_CHATGPT_SETUP_STEPS = [
+  { label: "Install Codex CLI", command: "npm i -g @openai/codex" },
+  { label: "Sign in once", command: "codex login" },
+  { label: "API Key and Base URL are not required - leave them blank." },
+] as const;
+
 type RemoteModel = {
   id: string;
   name: string;
@@ -397,6 +403,8 @@ export function ConnectionEditor() {
     setFetchError(null);
   }, [localProvider]);
 
+  const usesLocalChatGptAuth = localProvider === "openai_chatgpt";
+
   const handleClose = useCallback(() => {
     if (dirty) {
       setShowUnsavedWarning(true);
@@ -408,11 +416,12 @@ export function ConnectionEditor() {
   const handleSave = useCallback(async () => {
     if (!connectionDetailId) return;
     setSaveError(null);
+    const chatGptAuthProvider = localProvider === "openai_chatgpt";
     const payload: Record<string, unknown> = {
       id: connectionDetailId,
       name: localName,
       provider: localProvider,
-      baseUrl: localBaseUrl,
+      baseUrl: chatGptAuthProvider ? "" : localBaseUrl,
       model: localModel,
       maxContext: localMaxContext,
       maxParallelJobs: localMaxParallelJobs,
@@ -420,8 +429,8 @@ export function ConnectionEditor() {
       cachingAtDepth: localCachingAtDepth,
       claudeFastMode: localProvider === "claude_subscription" ? localClaudeFastMode : false,
       defaultForAgents: localDefaultForAgents,
-      embeddingModel: localEmbeddingModel,
-      embeddingBaseUrl: localEmbeddingBaseUrl,
+      embeddingModel: chatGptAuthProvider ? "" : localEmbeddingModel,
+      embeddingBaseUrl: chatGptAuthProvider ? "" : localEmbeddingBaseUrl,
       embeddingConnectionId: localEmbeddingConnectionId || null,
       promptPresetId: localProvider !== "image_generation" ? localPromptPresetId || null : null,
       openrouterProvider: localOpenrouterProvider || null,
@@ -433,8 +442,9 @@ export function ConnectionEditor() {
         localProvider === "image_generation" ? localImageGenerationSource || localImageService || null : null,
       maxTokensOverride: localMaxTokensOverride ?? null,
     };
-    // Only send API key if user typed a new one
-    if (localApiKey.trim()) {
+    if (chatGptAuthProvider) {
+      payload.apiKey = "";
+    } else if (localApiKey.trim()) {
       payload.apiKey = localApiKey;
     }
     try {
@@ -828,6 +838,11 @@ export function ConnectionEditor() {
                     setLocalProvider(key);
                     // Auto-fill base URL
                     setLocalBaseUrl(info.defaultBaseUrl);
+                    if (key === "openai_chatgpt") {
+                      setLocalApiKey("");
+                      setLocalEmbeddingModel("");
+                      setLocalEmbeddingBaseUrl("");
+                    }
                     // Clear model when switching providers, except xAI where
                     // we can seed the newest supported Grok model.
                     setLocalModel(key === "xai" ? (defaultModel?.id ?? "grok-4.3") : "");
@@ -848,6 +863,8 @@ export function ConnectionEditor() {
               ))}
             </div>
           </FieldGroup>
+
+          {usesLocalChatGptAuth && <OpenAiChatGptAuthHelp />}
 
           {/* ── OpenRouter Provider Preference ── */}
           {localProvider === "openrouter" && (
@@ -884,22 +901,33 @@ export function ConnectionEditor() {
           <FieldGroup
             label="API Key"
             icon={<Key size="0.875rem" className="text-sky-400" />}
-            help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
+            help={
+              usesLocalChatGptAuth
+                ? "OpenAI (ChatGPT) uses your local Codex login instead of a provider API key."
+                : "Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
+            }
           >
             <input
-              value={localApiKey}
+              value={usesLocalChatGptAuth ? "" : localApiKey}
               onChange={(e) => {
                 setLocalApiKey(e.target.value);
                 markDirty();
               }}
               type="password"
+              disabled={usesLocalChatGptAuth}
               className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70"
-              placeholder="••••••••  (leave empty to keep existing key)"
+              placeholder={
+                usesLocalChatGptAuth
+                  ? "Not used - read from local Codex ChatGPT login"
+                  : "••••••••  (leave empty to keep existing key)"
+              }
             />
             <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-              Your key is encrypted at rest. Leave blank when editing to keep the existing key.
+              {usesLocalChatGptAuth
+                ? "Authentication is read from your local codex login session."
+                : "Your key is encrypted at rest. Leave blank when editing to keep the existing key."}
             </p>
-            {API_KEY_LINKS[localProvider] && (
+            {!usesLocalChatGptAuth && API_KEY_LINKS[localProvider] && (
               <a
                 href={API_KEY_LINKS[localProvider]!.url}
                 target="_blank"
@@ -922,22 +950,35 @@ export function ConnectionEditor() {
           <FieldGroup
             label="Base URL"
             icon={<Globe size="0.875rem" className="text-sky-400" />}
-            help="The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
+            help={
+              usesLocalChatGptAuth
+                ? "OpenAI (ChatGPT) sends requests through Marinara's built-in ChatGPT Codex endpoint."
+                : "The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
+            }
           >
             <input
-              value={localBaseUrl}
+              value={usesLocalChatGptAuth ? "" : localBaseUrl}
               onChange={(e) => {
                 setLocalBaseUrl(e.target.value);
                 markDirty();
               }}
+              disabled={usesLocalChatGptAuth}
               className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70"
-              placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
+              placeholder={
+                usesLocalChatGptAuth
+                  ? "Not used - ChatGPT Codex endpoint is selected automatically"
+                  : providerDef?.defaultBaseUrl || "https://api.example.com/v1"
+              }
             />
-            {providerDef?.defaultBaseUrl && !localBaseUrl && (
+            {usesLocalChatGptAuth ? (
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth.
+              </p>
+            ) : providerDef?.defaultBaseUrl && !localBaseUrl ? (
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Default: {providerDef.defaultBaseUrl}
               </p>
-            )}
+            ) : null}
             {localProvider === "custom" && (
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Local model examples: Ollama →{" "}
@@ -946,12 +987,15 @@ export function ConnectionEditor() {
                 <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
               </p>
             )}
-            <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
-              <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-              <span>
-                Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys.
-              </span>
-            </p>
+            {!usesLocalChatGptAuth && (
+              <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
+                <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                <span>
+                  Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
+                  keys.
+                </span>
+              </p>
+            )}
             {localProvider === "custom" && (
               <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
                 <AlertCircle size="0.625rem" className="mt-px shrink-0" />
@@ -1662,7 +1706,41 @@ export function ConnectionEditor() {
           </FieldGroup>
 
           {/* ── Embedding Model (for lorebook vectorization) ── */}
-          {localProvider !== "image_generation" && (
+          {usesLocalChatGptAuth ? (
+            <FieldGroup
+              label="Embedding Connection"
+              icon={<Server size="0.875rem" className="text-violet-400" />}
+              help="OpenAI (ChatGPT) cannot create embeddings through Codex auth. Choose a separate embedding-capable connection if this chat should use semantic lorebook matching."
+            >
+              <select
+                value={localEmbeddingConnectionId}
+                onChange={(e) => {
+                  setLocalEmbeddingConnectionId(e.target.value);
+                  markDirty();
+                }}
+                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              >
+                <option value="">No semantic embeddings</option>
+                {((allConnections ?? []) as Record<string, unknown>[])
+                  .filter(
+                    (c) =>
+                      c.id !== connectionDetailId &&
+                      c.provider !== "image_generation" &&
+                      c.provider !== "openai_chatgpt",
+                  )
+                  .map((c) => (
+                    <option key={c.id as string} value={c.id as string}>
+                      {c.name as string}
+                      {c.embeddingModel ? ` (${c.embeddingModel})` : ""}
+                    </option>
+                  ))}
+              </select>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                Embedding model and endpoint settings come from the selected connection. ChatGPT local auth remains only
+                for chat generation.
+              </p>
+            </FieldGroup>
+          ) : localProvider !== "image_generation" ? (
             <FieldGroup
               label="Embedding Model"
               icon={<Server size="0.875rem" className="text-violet-400" />}
@@ -1718,7 +1796,12 @@ export function ConnectionEditor() {
                 >
                   <option value="">Same as this connection</option>
                   {((allConnections ?? []) as Record<string, unknown>[])
-                    .filter((c) => c.id !== connectionDetailId && c.provider !== "image_generation")
+                    .filter(
+                      (c) =>
+                        c.id !== connectionDetailId &&
+                        c.provider !== "image_generation" &&
+                        c.provider !== "openai_chatgpt",
+                    )
                     .map((c) => (
                       <option key={c.id as string} value={c.id as string}>
                         {c.name as string}
@@ -1732,7 +1815,7 @@ export function ConnectionEditor() {
                 </p>
               </div>
             </FieldGroup>
-          )}
+          ) : null}
 
           {/* ── Test Section ── */}
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
@@ -1782,7 +1865,8 @@ export function ConnectionEditor() {
             </div>
 
             <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              <strong>Test Connection</strong> verifies your API key works.
+              <strong>Test Connection</strong>{" "}
+              {usesLocalChatGptAuth ? "verifies your local Codex ChatGPT login." : "verifies your API key works."}
               {localProvider !== "image_generation" && (
                 <>
                   {" "}
@@ -1863,6 +1947,43 @@ function FieldGroup({
         {help && <HelpTooltip text={help} />}
       </div>
       {children}
+    </div>
+  );
+}
+
+function OpenAiChatGptAuthHelp() {
+  return (
+    <div className="rounded-xl border border-sky-400/25 bg-sky-400/5 p-3 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+      <div className="flex items-start gap-2">
+        <AlertCircle size="0.8125rem" className="mt-0.5 shrink-0 text-sky-300" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sky-200">
+            Routes chat through your local Codex ChatGPT login so it uses your ChatGPT account instead of an OpenAI API
+            key.
+          </p>
+          <p className="mt-1 text-sky-200/90">Prerequisites on the Marinara host:</p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-4">
+            {OPENAI_CHATGPT_SETUP_STEPS.map((step) => {
+              return (
+                <li key={step.label}>
+                  {"command" in step ? (
+                    <>
+                      {step.label}:{" "}
+                      <code className="rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.625rem]">{step.command}</code>
+                    </>
+                  ) : (
+                    step.label
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-2">
+            Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are not
+            available on this provider; configure a separate connection for embedding work.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

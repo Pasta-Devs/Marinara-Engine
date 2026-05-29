@@ -4732,7 +4732,7 @@
       "label": "temperature()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L229",
+      "source_location": "L231",
       "id": "src_lib_temperature",
       "community": 385,
       "norm_label": "temperature()"
@@ -4741,7 +4741,7 @@
       "label": "param_f64()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L233",
+      "source_location": "L235",
       "id": "src_lib_param_f64",
       "community": 178,
       "norm_label": "param_f64()"
@@ -4750,7 +4750,7 @@
       "label": "param_i64()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L238",
+      "source_location": "L240",
       "id": "src_lib_param_i64",
       "community": 178,
       "norm_label": "param_i64()"
@@ -4759,7 +4759,7 @@
       "label": "param_string()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L243",
+      "source_location": "L245",
       "id": "src_lib_param_string",
       "community": 178,
       "norm_label": "param_string()"
@@ -4768,7 +4768,7 @@
       "label": "stop_sequences()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L254",
+      "source_location": "L256",
       "id": "src_lib_stop_sequences",
       "community": 178,
       "norm_label": "stop_sequences()"
@@ -4777,7 +4777,7 @@
       "label": "data_url_image()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L277",
+      "source_location": "L279",
       "id": "src_lib_data_url_image",
       "community": 152,
       "norm_label": "data_url_image()"
@@ -4786,7 +4786,7 @@
       "label": "max_tokens()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L289",
+      "source_location": "L291",
       "id": "src_lib_max_tokens",
       "community": 48,
       "norm_label": "max_tokens()"
@@ -4795,7 +4795,7 @@
       "label": "request_max_tokens()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L297",
+      "source_location": "L299",
       "id": "src_lib_request_max_tokens",
       "community": 48,
       "norm_label": "request_max_tokens()"
@@ -4804,7 +4804,7 @@
       "label": "ensure_url_allowed()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L307",
+      "source_location": "L309",
       "id": "src_lib_ensure_url_allowed",
       "community": 385,
       "norm_label": "ensure_url_allowed()"
@@ -4813,7 +4813,7 @@
       "label": "should_use_openai_responses()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L317",
+      "source_location": "L319",
       "id": "src_lib_should_use_openai_responses",
       "community": 161,
       "norm_label": "should_use_openai_responses()"
@@ -4822,7 +4822,7 @@
       "label": "reasoning_effort()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L333",
+      "source_location": "L335",
       "id": "src_lib_reasoning_effort",
       "community": 178,
       "norm_label": "reasoning_effort()"
@@ -4831,7 +4831,7 @@
       "label": "model_contains()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L342",
+      "source_location": "L344",
       "id": "src_lib_model_contains",
       "community": 178,
       "norm_label": "model_contains()"
@@ -4840,7 +4840,7 @@
       "label": "is_openrouter_claude_reasoning_model()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L350",
+      "source_location": "L352",
       "id": "src_lib_is_openrouter_claude_reasoning_model",
       "community": 178,
       "norm_label": "is_openrouter_claude_reasoning_model()"
@@ -4849,7 +4849,7 @@
       "label": "claude_version_parts()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L362",
+      "source_location": "L364",
       "id": "src_lib_claude_version_parts",
       "community": 152,
       "norm_label": "claude_version_parts()"
@@ -4858,7 +4858,7 @@
       "label": "claude_version_at_least()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L382",
+      "source_location": "L384",
       "id": "src_lib_claude_version_at_least",
       "community": 152,
       "norm_label": "claude_version_at_least()"
@@ -4867,7 +4867,7 @@
       "label": "is_claude_opus_adaptive_only_model()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L389",
+      "source_location": "L391",
       "id": "src_lib_is_claude_opus_adaptive_only_model",
       "community": 152,
       "norm_label": "is_claude_opus_adaptive_only_model()"
@@ -4876,7 +4876,7 @@
       "label": "supports_anthropic_adaptive_thinking()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L393",
+      "source_location": "L395",
       "id": "src_lib_supports_anthropic_adaptive_thinking",
       "community": 152,
       "norm_label": "supports_anthropic_adaptive_thinking()"
@@ -4885,7 +4885,7 @@
       "label": "should_send_openai_sampling_parameters()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L397",
+      "source_location": "L399",
       "id": "src_lib_should_send_openai_sampling_parameters",
       "community": 178,
       "norm_label": "should_send_openai_sampling_parameters()"
@@ -4894,7 +4894,7 @@
       "label": "should_send_temperature()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L401",
+      "source_location": "L403",
       "id": "src_lib_should_send_temperature",
       "community": 178,
       "norm_label": "should_send_temperature()"
@@ -4903,7 +4903,7 @@
       "label": "is_sampling_parameter_key()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L405",
+      "source_location": "L407",
       "id": "src_lib_is_sampling_parameter_key",
       "community": 178,
       "norm_label": "is_sampling_parameter_key()"
@@ -4912,7 +4912,7 @@
       "label": "is_gemini_3_model()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L420",
+      "source_location": "L422",
       "id": "src_lib_is_gemini_3_model",
       "community": 178,
       "norm_label": "is_gemini_3_model()"
@@ -4921,7 +4921,7 @@
       "label": "is_gemini_25_model()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L427",
+      "source_location": "L429",
       "id": "src_lib_is_gemini_25_model",
       "community": 178,
       "norm_label": "is_gemini_25_model()"
@@ -4930,7 +4930,7 @@
       "label": "google_thinking_level()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L434",
+      "source_location": "L436",
       "id": "src_lib_google_thinking_level",
       "community": 178,
       "norm_label": "google_thinking_level()"
@@ -4939,7 +4939,7 @@
       "label": "google_thinking_config()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L444",
+      "source_location": "L446",
       "id": "src_lib_google_thinking_config",
       "community": 178,
       "norm_label": "google_thinking_config()"
@@ -4948,7 +4948,7 @@
       "label": "anthropic_thinking_effort()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L464",
+      "source_location": "L466",
       "id": "src_lib_anthropic_thinking_effort",
       "community": 178,
       "norm_label": "anthropic_thinking_effort()"
@@ -4957,7 +4957,7 @@
       "label": "anthropic_thinking_budget_tokens()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L475",
+      "source_location": "L477",
       "id": "src_lib_anthropic_thinking_budget_tokens",
       "community": 152,
       "norm_label": "anthropic_thinking_budget_tokens()"
@@ -4966,7 +4966,7 @@
       "label": "should_send_top_k()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L483",
+      "source_location": "L485",
       "id": "src_lib_should_send_top_k",
       "community": 178,
       "norm_label": "should_send_top_k()"
@@ -4975,7 +4975,7 @@
       "label": "provider_error_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L490",
+      "source_location": "L492",
       "id": "src_lib_provider_error_text",
       "community": 161,
       "norm_label": "provider_error_text()"
@@ -4984,7 +4984,7 @@
       "label": "provider_http_error()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L503",
+      "source_location": "L505",
       "id": "src_lib_provider_http_error",
       "community": 161,
       "norm_label": "provider_http_error()"
@@ -4993,7 +4993,7 @@
       "label": "sanitize_provider_error_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L510",
+      "source_location": "L512",
       "id": "src_lib_sanitize_provider_error_text",
       "community": 48,
       "norm_label": "sanitize_provider_error_text()"
@@ -5002,7 +5002,7 @@
       "label": "provider_error_details_from_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L519",
+      "source_location": "L521",
       "id": "src_lib_provider_error_details_from_text",
       "community": 161,
       "norm_label": "provider_error_details_from_text()"
@@ -5011,7 +5011,7 @@
       "label": "assistant_prefill()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L528",
+      "source_location": "L530",
       "id": "src_lib_assistant_prefill",
       "community": 152,
       "norm_label": "assistant_prefill()"
@@ -5020,7 +5020,7 @@
       "label": "request_messages()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L532",
+      "source_location": "L534",
       "id": "src_lib_request_messages",
       "community": 152,
       "norm_label": "request_messages()"
@@ -5029,7 +5029,7 @@
       "label": "should_show_thoughts()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L547",
+      "source_location": "L549",
       "id": "src_lib_should_show_thoughts",
       "community": 152,
       "norm_label": "should_show_thoughts()"
@@ -5038,7 +5038,7 @@
       "label": "ChatGptAuth",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L556",
+      "source_location": "L558",
       "id": "src_lib_chatgptauth",
       "community": 48,
       "norm_label": "chatgptauth"
@@ -5047,7 +5047,7 @@
       "label": "codex_auth_file_path()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L562",
+      "source_location": "L564",
       "id": "src_lib_codex_auth_file_path",
       "community": 48,
       "norm_label": "codex_auth_file_path()"
@@ -5056,7 +5056,7 @@
       "label": "string_value()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L575",
+      "source_location": "L577",
       "id": "src_lib_string_value",
       "community": 48,
       "norm_label": "string_value()"
@@ -5065,7 +5065,7 @@
       "label": "load_openai_chatgpt_auth()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L583",
+      "source_location": "L585",
       "id": "src_lib_load_openai_chatgpt_auth",
       "community": 48,
       "norm_label": "load_openai_chatgpt_auth()"
@@ -5074,7 +5074,7 @@
       "label": "check_openai_chatgpt_auth()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L652",
+      "source_location": "L654",
       "id": "src_lib_check_openai_chatgpt_auth",
       "community": 48,
       "norm_label": "check_openai_chatgpt_auth()"
@@ -5083,7 +5083,7 @@
       "label": "openai_chatgpt_auth_is_stale()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L664",
+      "source_location": "L666",
       "id": "src_lib_openai_chatgpt_auth_is_stale",
       "community": 48,
       "norm_label": "openai_chatgpt_auth_is_stale()"
@@ -5092,7 +5092,7 @@
       "label": "refresh_openai_chatgpt_auth()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L674",
+      "source_location": "L676",
       "id": "src_lib_refresh_openai_chatgpt_auth",
       "community": 385,
       "norm_label": "refresh_openai_chatgpt_auth()"
@@ -5101,7 +5101,7 @@
       "label": "chrono_like_now_iso()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L695",
+      "source_location": "L697",
       "id": "src_lib_chrono_like_now_iso",
       "community": 48,
       "norm_label": "chrono_like_now_iso()"
@@ -5110,7 +5110,7 @@
       "label": "apply_openai_auth_headers()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L699",
+      "source_location": "L701",
       "id": "src_lib_apply_openai_auth_headers",
       "community": 385,
       "norm_label": "apply_openai_auth_headers()"
@@ -5119,7 +5119,7 @@
       "label": "apply_chatgpt_auth_headers()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L715",
+      "source_location": "L717",
       "id": "src_lib_apply_chatgpt_auth_headers",
       "community": 385,
       "norm_label": "apply_chatgpt_auth_headers()"
@@ -5128,7 +5128,7 @@
       "label": "complete_openai_compatible_rich()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L733",
+      "source_location": "L735",
       "id": "src_lib_complete_openai_compatible_rich",
       "community": 385,
       "norm_label": "complete_openai_compatible_rich()"
@@ -5137,7 +5137,7 @@
       "label": "stream_openai_compatible()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L784",
+      "source_location": "L786",
       "id": "src_lib_stream_openai_compatible",
       "community": 161,
       "norm_label": "stream_openai_compatible()"
@@ -5146,7 +5146,7 @@
       "label": "take_sse_block()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L857",
+      "source_location": "L859",
       "id": "src_lib_take_sse_block",
       "community": 161,
       "norm_label": "take_sse_block()"
@@ -5155,7 +5155,7 @@
       "label": "responses_input()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L876",
+      "source_location": "L878",
       "id": "src_lib_responses_input",
       "community": 48,
       "norm_label": "responses_input()"
@@ -5164,7 +5164,7 @@
       "label": "build_openai_responses_body()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L905",
+      "source_location": "L907",
       "id": "src_lib_build_openai_responses_body",
       "community": 178,
       "norm_label": "build_openai_responses_body()"
@@ -5173,7 +5173,7 @@
       "label": "openai_responses_request()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L962",
+      "source_location": "L964",
       "id": "src_lib_openai_responses_request",
       "community": 385,
       "norm_label": "openai_responses_request()"
@@ -5182,7 +5182,7 @@
       "label": "complete_openai_responses_rich()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L981",
+      "source_location": "L983",
       "id": "src_lib_complete_openai_responses_rich",
       "community": 385,
       "norm_label": "complete_openai_responses_rich()"
@@ -5191,7 +5191,7 @@
       "label": "responses_tool_calls()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1019",
+      "source_location": "L1021",
       "id": "src_lib_responses_tool_calls",
       "community": 385,
       "norm_label": "responses_tool_calls()"
@@ -5200,7 +5200,7 @@
       "label": "stream_openai_responses()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1039",
+      "source_location": "L1041",
       "id": "src_lib_stream_openai_responses",
       "community": 161,
       "norm_label": "stream_openai_responses()"
@@ -5209,7 +5209,7 @@
       "label": "process_openai_responses_sse_block()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1065",
+      "source_location": "L1067",
       "id": "src_lib_process_openai_responses_sse_block",
       "community": 161,
       "norm_label": "process_openai_responses_sse_block()"
@@ -5218,7 +5218,7 @@
       "label": "OpenAiToolCallAccumulator",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1132",
+      "source_location": "L1134",
       "id": "src_lib_openaitoolcallaccumulator",
       "community": 161,
       "norm_label": "openaitoolcallaccumulator"
@@ -5227,7 +5227,7 @@
       "label": "OpenAiToolCallParts",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1137",
+      "source_location": "L1139",
       "id": "src_lib_openaitoolcallparts",
       "community": 48,
       "norm_label": "openaitoolcallparts"
@@ -5236,7 +5236,7 @@
       "label": ".ingest_delta()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1144",
+      "source_location": "L1146",
       "id": "src_lib_openaitoolcallaccumulator_ingest_delta",
       "community": 161,
       "norm_label": ".ingest_delta()"
@@ -5245,7 +5245,7 @@
       "label": ".into_tool_calls()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1177",
+      "source_location": "L1179",
       "id": "src_lib_openaitoolcallaccumulator_into_tool_calls",
       "community": 161,
       "norm_label": ".into_tool_calls()"
@@ -5254,7 +5254,7 @@
       "label": "process_openai_sse_block()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1204",
+      "source_location": "L1206",
       "id": "src_lib_process_openai_sse_block",
       "community": 161,
       "norm_label": "process_openai_sse_block()"
@@ -5263,7 +5263,7 @@
       "label": "openai_message()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1245",
+      "source_location": "L1247",
       "id": "src_lib_openai_message",
       "community": 48,
       "norm_label": "openai_message()"
@@ -5272,7 +5272,7 @@
       "label": "apply_openai_parameters()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1280",
+      "source_location": "L1282",
       "id": "src_lib_apply_openai_parameters",
       "community": 178,
       "norm_label": "apply_openai_parameters()"
@@ -5281,7 +5281,7 @@
       "label": "render_claude_subscription_transcript()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1371",
+      "source_location": "L1373",
       "id": "src_lib_render_claude_subscription_transcript",
       "community": 243,
       "norm_label": "render_claude_subscription_transcript()"
@@ -5290,7 +5290,7 @@
       "label": "ClaudeSubscriptionPrompt",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1399",
+      "source_location": "L1401",
       "id": "src_lib_claudesubscriptionprompt",
       "community": 48,
       "norm_label": "claudesubscriptionprompt"
@@ -5299,7 +5299,7 @@
       "label": "disabled_env_flag()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1406",
+      "source_location": "L1408",
       "id": "src_lib_disabled_env_flag",
       "community": 48,
       "norm_label": "disabled_env_flag()"
@@ -5308,7 +5308,7 @@
       "label": "claude_subscription_resume_enabled()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1413",
+      "source_location": "L1415",
       "id": "src_lib_claude_subscription_resume_enabled",
       "community": 48,
       "norm_label": "claude_subscription_resume_enabled()"
@@ -5317,7 +5317,7 @@
       "label": "marinara_runtime_metadata()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1420",
+      "source_location": "L1422",
       "id": "src_lib_marinara_runtime_metadata",
       "community": 243,
       "norm_label": "marinara_runtime_metadata()"
@@ -5326,7 +5326,7 @@
       "label": "claude_subscription_chat_id()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1424",
+      "source_location": "L1426",
       "id": "src_lib_claude_subscription_chat_id",
       "community": 243,
       "norm_label": "claude_subscription_chat_id()"
@@ -5335,7 +5335,7 @@
       "label": "claude_subscription_should_use_session()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1433",
+      "source_location": "L1435",
       "id": "src_lib_claude_subscription_should_use_session",
       "community": 243,
       "norm_label": "claude_subscription_should_use_session()"
@@ -5344,7 +5344,7 @@
       "label": "claude_subscription_session_id()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1450",
+      "source_location": "L1452",
       "id": "src_lib_claude_subscription_session_id",
       "community": 243,
       "norm_label": "claude_subscription_session_id()"
@@ -5353,7 +5353,7 @@
       "label": "claude_subscription_scratch_cwd()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1458",
+      "source_location": "L1460",
       "id": "src_lib_claude_subscription_scratch_cwd",
       "community": 385,
       "norm_label": "claude_subscription_scratch_cwd()"
@@ -5362,7 +5362,7 @@
       "label": "render_claude_subscription_current_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1464",
+      "source_location": "L1466",
       "id": "src_lib_render_claude_subscription_current_prompt",
       "community": 243,
       "norm_label": "render_claude_subscription_current_prompt()"
@@ -5371,7 +5371,7 @@
       "label": "claude_subscription_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1512",
+      "source_location": "L1514",
       "id": "src_lib_claude_subscription_prompt",
       "community": 243,
       "norm_label": "claude_subscription_prompt()"
@@ -5380,7 +5380,7 @@
       "label": "claude_subscription_command()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1535",
+      "source_location": "L1537",
       "id": "src_lib_claude_subscription_command",
       "community": 48,
       "norm_label": "claude_subscription_command()"
@@ -5389,7 +5389,7 @@
       "label": "check_claude_subscription_available()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1544",
+      "source_location": "L1546",
       "id": "src_lib_check_claude_subscription_available",
       "community": 48,
       "norm_label": "check_claude_subscription_available()"
@@ -5398,7 +5398,7 @@
       "label": "claude_subscription_text_from_json()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1585",
+      "source_location": "L1587",
       "id": "src_lib_claude_subscription_text_from_json",
       "community": 48,
       "norm_label": "claude_subscription_text_from_json()"
@@ -5407,7 +5407,7 @@
       "label": "claude_subscription_output_diagnostic()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1632",
+      "source_location": "L1634",
       "id": "src_lib_claude_subscription_output_diagnostic",
       "community": 48,
       "norm_label": "claude_subscription_output_diagnostic()"
@@ -5416,7 +5416,7 @@
       "label": "claude_subscription_json_declares_empty_result()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1657",
+      "source_location": "L1659",
       "id": "src_lib_claude_subscription_json_declares_empty_result",
       "community": 48,
       "norm_label": "claude_subscription_json_declares_empty_result()"
@@ -5425,7 +5425,7 @@
       "label": "log_claude_subscription_status()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1666",
+      "source_location": "L1668",
       "id": "src_lib_log_claude_subscription_status",
       "community": 48,
       "norm_label": "log_claude_subscription_status()"
@@ -5434,7 +5434,7 @@
       "label": "parse_claude_subscription_output()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1687",
+      "source_location": "L1689",
       "id": "src_lib_parse_claude_subscription_output",
       "community": 48,
       "norm_label": "parse_claude_subscription_output()"
@@ -5443,7 +5443,7 @@
       "label": "complete_claude_subscription()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1741",
+      "source_location": "L1743",
       "id": "src_lib_complete_claude_subscription",
       "community": 385,
       "norm_label": "complete_claude_subscription()"
@@ -5452,7 +5452,7 @@
       "label": "build_anthropic_body()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1830",
+      "source_location": "L1832",
       "id": "src_lib_build_anthropic_body",
       "community": 152,
       "norm_label": "build_anthropic_body()"
@@ -5461,7 +5461,7 @@
       "label": "anthropic_request()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1911",
+      "source_location": "L1913",
       "id": "src_lib_anthropic_request",
       "community": 385,
       "norm_label": "anthropic_request()"
@@ -5470,7 +5470,7 @@
       "label": "complete_anthropic()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1930",
+      "source_location": "L1932",
       "id": "src_lib_complete_anthropic",
       "community": 385,
       "norm_label": "complete_anthropic()"
@@ -5479,7 +5479,7 @@
       "label": "stream_anthropic()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1947",
+      "source_location": "L1949",
       "id": "src_lib_stream_anthropic",
       "community": 161,
       "norm_label": "stream_anthropic()"
@@ -5488,7 +5488,7 @@
       "label": "emit_anthropic_usage()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1974",
+      "source_location": "L1976",
       "id": "src_lib_emit_anthropic_usage",
       "community": 48,
       "norm_label": "emit_anthropic_usage()"
@@ -5497,7 +5497,7 @@
       "label": "process_anthropic_sse_block()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L1988",
+      "source_location": "L1990",
       "id": "src_lib_process_anthropic_sse_block",
       "community": 48,
       "norm_label": "process_anthropic_sse_block()"
@@ -5506,7 +5506,7 @@
       "label": "anthropic_endpoint()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2075",
+      "source_location": "L2077",
       "id": "src_lib_anthropic_endpoint",
       "community": 385,
       "norm_label": "anthropic_endpoint()"
@@ -5515,7 +5515,7 @@
       "label": "google_vertex_endpoint()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2084",
+      "source_location": "L2086",
       "id": "src_lib_google_vertex_endpoint",
       "community": 385,
       "norm_label": "google_vertex_endpoint()"
@@ -5524,7 +5524,7 @@
       "label": "normalize_google_base_url()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2092",
+      "source_location": "L2094",
       "id": "src_lib_normalize_google_base_url",
       "community": 385,
       "norm_label": "normalize_google_base_url()"
@@ -5533,7 +5533,7 @@
       "label": "google_api_base()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2108",
+      "source_location": "L2110",
       "id": "src_lib_google_api_base",
       "community": 385,
       "norm_label": "google_api_base()"
@@ -5542,7 +5542,7 @@
       "label": "google_endpoint()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2124",
+      "source_location": "L2126",
       "id": "src_lib_google_endpoint",
       "community": 385,
       "norm_label": "google_endpoint()"
@@ -5551,7 +5551,7 @@
       "label": "google_contents()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2144",
+      "source_location": "L2146",
       "id": "src_lib_google_contents",
       "community": 152,
       "norm_label": "google_contents()"
@@ -5560,7 +5560,7 @@
       "label": "google_system_instruction()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2173",
+      "source_location": "L2175",
       "id": "src_lib_google_system_instruction",
       "community": 152,
       "norm_label": "google_system_instruction()"
@@ -5569,7 +5569,7 @@
       "label": "google_generation_config()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2183",
+      "source_location": "L2185",
       "id": "src_lib_google_generation_config",
       "community": 178,
       "norm_label": "google_generation_config()"
@@ -5578,7 +5578,7 @@
       "label": "google_generate_body()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2212",
+      "source_location": "L2214",
       "id": "src_lib_google_generate_body",
       "community": 152,
       "norm_label": "google_generate_body()"
@@ -5587,7 +5587,7 @@
       "label": "complete_google()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2223",
+      "source_location": "L2225",
       "id": "src_lib_complete_google",
       "community": 385,
       "norm_label": "complete_google()"
@@ -5596,7 +5596,7 @@
       "label": "stream_google()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2259",
+      "source_location": "L2261",
       "id": "src_lib_stream_google",
       "community": 161,
       "norm_label": "stream_google()"
@@ -5605,7 +5605,7 @@
       "label": "process_google_sse_block()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2294",
+      "source_location": "L2296",
       "id": "src_lib_process_google_sse_block",
       "community": 161,
       "norm_label": "process_google_sse_block()"
@@ -5614,7 +5614,7 @@
       "label": "read_error_response_details()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2352",
+      "source_location": "L2354",
       "id": "src_lib_read_error_response_details",
       "community": 161,
       "norm_label": "read_error_response_details()"
@@ -5623,7 +5623,7 @@
       "label": "read_json_response()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2360",
+      "source_location": "L2362",
       "id": "src_lib_read_json_response",
       "community": 385,
       "norm_label": "read_json_response()"
@@ -5632,7 +5632,7 @@
       "label": "parse_json_response()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2381",
+      "source_location": "L2383",
       "id": "src_lib_parse_json_response",
       "community": 385,
       "norm_label": "parse_json_response()"
@@ -5641,7 +5641,7 @@
       "label": "content_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2398",
+      "source_location": "L2400",
       "id": "src_lib_content_text",
       "community": 48,
       "norm_label": "content_text()"
@@ -5650,7 +5650,7 @@
       "label": "assistant_message_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2418",
+      "source_location": "L2420",
       "id": "src_lib_assistant_message_text",
       "community": 48,
       "norm_label": "assistant_message_text()"
@@ -5659,7 +5659,7 @@
       "label": "response_reasoning_text()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2430",
+      "source_location": "L2432",
       "id": "src_lib_response_reasoning_text",
       "community": 48,
       "norm_label": "response_reasoning_text()"
@@ -5668,7 +5668,7 @@
       "label": "parse_json_response_rich()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2445",
+      "source_location": "L2447",
       "id": "src_lib_parse_json_response_rich",
       "community": 48,
       "norm_label": "parse_json_response_rich()"
@@ -5677,7 +5677,7 @@
       "label": "normalize_tool_call()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2506",
+      "source_location": "L2508",
       "id": "src_lib_normalize_tool_call",
       "community": 48,
       "norm_label": "normalize_tool_call()"
@@ -5686,7 +5686,7 @@
       "label": "test_connection()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2535",
+      "source_location": "L2537",
       "id": "src_lib_test_connection",
       "community": 243,
       "norm_label": "test_connection()"
@@ -5695,7 +5695,7 @@
       "label": "request_for()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2549",
+      "source_location": "L2551",
       "id": "src_lib_request_for",
       "community": 152,
       "norm_label": "request_for()"
@@ -5704,7 +5704,7 @@
       "label": "prompt_connection_diagnostics_follow_legacy_preset_and_explicit_flag()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2569",
+      "source_location": "L2571",
       "id": "src_lib_prompt_connection_diagnostics_follow_legacy_preset_and_explicit_flag",
       "community": 48,
       "norm_label": "prompt_connection_diagnostics_follow_legacy_preset_and_explicit_flag()"
@@ -5713,7 +5713,7 @@
       "label": "prompt_connection_endpoint_redaction_removes_query_secrets()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2596",
+      "source_location": "L2598",
       "id": "src_lib_prompt_connection_endpoint_redaction_removes_query_secrets",
       "community": 48,
       "norm_label": "prompt_connection_endpoint_redaction_removes_query_secrets()"
@@ -5722,7 +5722,7 @@
       "label": "openai_chat_stream_accumulates_tool_call_deltas()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2608",
+      "source_location": "L2610",
       "id": "src_lib_openai_chat_stream_accumulates_tool_call_deltas",
       "community": 161,
       "norm_label": "openai_chat_stream_accumulates_tool_call_deltas()"
@@ -5731,7 +5731,7 @@
       "label": "google_vertex_default_base_uses_aiplatform_endpoint()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2639",
+      "source_location": "L2649",
       "id": "src_lib_google_vertex_default_base_uses_aiplatform_endpoint",
       "community": 48,
       "norm_label": "google_vertex_default_base_uses_aiplatform_endpoint()"
@@ -5740,7 +5740,7 @@
       "label": "google_linkapi_console_hosts_normalize_to_api_host()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2655",
+      "source_location": "L2665",
       "id": "src_lib_google_linkapi_console_hosts_normalize_to_api_host",
       "community": 48,
       "norm_label": "google_linkapi_console_hosts_normalize_to_api_host()"
@@ -5749,7 +5749,7 @@
       "label": "google_stream_endpoint_uses_sse_stream_generate_content()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2667",
+      "source_location": "L2677",
       "id": "src_lib_google_stream_endpoint_uses_sse_stream_generate_content",
       "community": 152,
       "norm_label": "google_stream_endpoint_uses_sse_stream_generate_content()"
@@ -5758,7 +5758,7 @@
       "label": "google_linkapi_stream_endpoint_uses_api_host_and_sse()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2677",
+      "source_location": "L2687",
       "id": "src_lib_google_linkapi_stream_endpoint_uses_api_host_and_sse",
       "community": 152,
       "norm_label": "google_linkapi_stream_endpoint_uses_api_host_and_sse()"
@@ -5767,7 +5767,7 @@
       "label": "provider_http_error_preserves_text_error_body()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2688",
+      "source_location": "L2698",
       "id": "src_lib_provider_http_error_preserves_text_error_body",
       "community": 161,
       "norm_label": "provider_http_error_preserves_text_error_body()"
@@ -5776,7 +5776,7 @@
       "label": "google_top_k_zero_is_not_sent()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2700",
+      "source_location": "L2710",
       "id": "src_lib_google_top_k_zero_is_not_sent",
       "community": 152,
       "norm_label": "google_top_k_zero_is_not_sent()"
@@ -5785,7 +5785,7 @@
       "label": "gemini_3_thinking_config_sends_thinking_only_shape()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2714",
+      "source_location": "L2724",
       "id": "src_lib_gemini_3_thinking_config_sends_thinking_only_shape",
       "community": 178,
       "norm_label": "gemini_3_thinking_config_sends_thinking_only_shape()"
@@ -5794,7 +5794,7 @@
       "label": "gemini_35_flash_uses_gemini_3_rules()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2723",
+      "source_location": "L2733",
       "id": "src_lib_gemini_35_flash_uses_gemini_3_rules",
       "community": 48,
       "norm_label": "gemini_35_flash_uses_gemini_3_rules()"
@@ -5803,7 +5803,7 @@
       "label": "google_gemini_3_generation_config_keeps_max_tokens_and_strips_sampling()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2729",
+      "source_location": "L2739",
       "id": "src_lib_google_gemini_3_generation_config_keeps_max_tokens_and_strips_sampling",
       "community": 152,
       "norm_label": "google_gemini_3_generation_config_keeps_max_tokens_and_strips_sampling()"
@@ -5812,7 +5812,7 @@
       "label": "google_stream_sse_emits_thinking_tokens_and_usage()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2755",
+      "source_location": "L2765",
       "id": "src_lib_google_stream_sse_emits_thinking_tokens_and_usage",
       "community": 161,
       "norm_label": "google_stream_sse_emits_thinking_tokens_and_usage()"
@@ -5821,7 +5821,7 @@
       "label": "sse_block_splitter_handles_lf_and_crlf_boundaries()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2780",
+      "source_location": "L2790",
       "id": "src_lib_sse_block_splitter_handles_lf_and_crlf_boundaries",
       "community": 48,
       "norm_label": "sse_block_splitter_handles_lf_and_crlf_boundaries()"
@@ -5830,7 +5830,7 @@
       "label": "openrouter_claude_opus_adaptive_model_strips_sampling_parameters()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2796",
+      "source_location": "L2806",
       "id": "src_lib_openrouter_claude_opus_adaptive_model_strips_sampling_parameters",
       "community": 178,
       "norm_label": "openrouter_claude_opus_adaptive_model_strips_sampling_parameters()"
@@ -5839,7 +5839,7 @@
       "label": "anthropic_adaptive_thinking_model_detection_matches_main_branch_rules()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2821",
+      "source_location": "L2831",
       "id": "src_lib_anthropic_adaptive_thinking_model_detection_matches_main_branch_rules",
       "community": 48,
       "norm_label": "anthropic_adaptive_thinking_model_detection_matches_main_branch_rules()"
@@ -5848,7 +5848,7 @@
       "label": "anthropic_opus_48_body_uses_adaptive_xhigh_and_strips_sampling()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2832",
+      "source_location": "L2842",
       "id": "src_lib_anthropic_opus_48_body_uses_adaptive_xhigh_and_strips_sampling",
       "community": 152,
       "norm_label": "anthropic_opus_48_body_uses_adaptive_xhigh_and_strips_sampling()"
@@ -5857,7 +5857,7 @@
       "label": "anthropic_opus_48_stream_body_sets_stream_true()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2860",
+      "source_location": "L2870",
       "id": "src_lib_anthropic_opus_48_stream_body_sets_stream_true",
       "community": 152,
       "norm_label": "anthropic_opus_48_stream_body_sets_stream_true()"
@@ -5866,7 +5866,7 @@
       "label": "anthropic_opus_48_stream_body_requests_summarized_thinking_by_default()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2877",
+      "source_location": "L2887",
       "id": "src_lib_anthropic_opus_48_stream_body_requests_summarized_thinking_by_default",
       "community": 152,
       "norm_label": "anthropic_opus_48_stream_body_requests_summarized_thinking_by_default()"
@@ -5875,7 +5875,7 @@
       "label": "anthropic_stream_sse_emits_usage_thinking_and_text_tokens()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2894",
+      "source_location": "L2904",
       "id": "src_lib_anthropic_stream_sse_emits_usage_thinking_and_text_tokens",
       "community": 48,
       "norm_label": "anthropic_stream_sse_emits_usage_thinking_and_text_tokens()"
@@ -5884,7 +5884,7 @@
       "label": "claude_subscription_without_runtime_chat_uses_transcript_fold()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2932",
+      "source_location": "L2942",
       "id": "src_lib_claude_subscription_without_runtime_chat_uses_transcript_fold",
       "community": 243,
       "norm_label": "claude_subscription_without_runtime_chat_uses_transcript_fold()"
@@ -5893,7 +5893,7 @@
       "label": "claude_subscription_runtime_chat_uses_stable_session_prompt()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L2964",
+      "source_location": "L2974",
       "id": "src_lib_claude_subscription_runtime_chat_uses_stable_session_prompt",
       "community": 243,
       "norm_label": "claude_subscription_runtime_chat_uses_stable_session_prompt()"
@@ -5902,7 +5902,7 @@
       "label": "claude_subscription_regeneration_uses_transcript_fold()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L3009",
+      "source_location": "L3019",
       "id": "src_lib_claude_subscription_regeneration_uses_transcript_fold",
       "community": 243,
       "norm_label": "claude_subscription_regeneration_uses_transcript_fold()"
@@ -5911,7 +5911,7 @@
       "label": "claude_subscription_empty_json_result_is_an_error()",
       "file_type": "code",
       "source_file": "src-tauri/crates/llm/src/lib.rs",
-      "source_location": "L3035",
+      "source_location": "L3045",
       "id": "src_lib_claude_subscription_empty_json_result_is_an_error",
       "community": 48,
       "norm_label": "claude_subscription_empty_json_result_is_an_error()"
@@ -20834,9 +20834,9 @@
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
       "source_location": "L1",
-      "id": "repo_src_tauri_src_commands_storage_prompts_rs",
       "community": 83,
-      "norm_label": "prompts.rs"
+      "norm_label": "prompts.rs",
+      "id": "repo_src_tauri_src_commands_storage_prompts_rs"
     },
     {
       "label": "vectorize_lorebook()",
@@ -20860,7 +20860,7 @@
       "label": "resolve_default_embedding_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L117",
+      "source_location": "L121",
       "id": "storage_prompts_resolve_default_embedding_connection",
       "community": 83,
       "norm_label": "resolve_default_embedding_connection()"
@@ -20869,7 +20869,7 @@
       "label": "embedding_model()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L150",
+      "source_location": "L154",
       "id": "storage_prompts_embedding_model",
       "community": 83,
       "norm_label": "embedding_model()"
@@ -20878,7 +20878,7 @@
       "label": "has_embedding_model()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L162",
+      "source_location": "L166",
       "id": "storage_prompts_has_embedding_model",
       "community": 83,
       "norm_label": "has_embedding_model()"
@@ -20887,7 +20887,7 @@
       "label": "value_string_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L169",
+      "source_location": "L181",
       "id": "storage_prompts_value_string_array",
       "community": 83,
       "norm_label": "value_string_array()"
@@ -20896,7 +20896,7 @@
       "label": "lorebook_excludes_vectorization()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L187",
+      "source_location": "L199",
       "id": "storage_prompts_lorebook_excludes_vectorization",
       "community": 83,
       "norm_label": "lorebook_excludes_vectorization()"
@@ -20905,7 +20905,7 @@
       "label": "lorebook_entry_secondary_keys()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L194",
+      "source_location": "L206",
       "id": "storage_prompts_lorebook_entry_secondary_keys",
       "community": 83,
       "norm_label": "lorebook_entry_secondary_keys()"
@@ -20914,7 +20914,7 @@
       "label": "lorebook_entry_embedding_text()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L206",
+      "source_location": "L218",
       "id": "storage_prompts_lorebook_entry_embedding_text",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text()"
@@ -20923,7 +20923,7 @@
       "label": "is_excluded_from_vectorization()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L227",
+      "source_location": "L239",
       "id": "storage_prompts_is_excluded_from_vectorization",
       "community": 83,
       "norm_label": "is_excluded_from_vectorization()"
@@ -20932,7 +20932,7 @@
       "label": "embed_text()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L233",
+      "source_location": "L245",
       "id": "storage_prompts_embed_text",
       "community": 83,
       "norm_label": "embed_text()"
@@ -20941,7 +20941,7 @@
       "label": "embed_openai_compatible()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L245",
+      "source_location": "L264",
       "id": "storage_prompts_embed_openai_compatible",
       "community": 83,
       "norm_label": "embed_openai_compatible()"
@@ -20950,7 +20950,7 @@
       "label": "embed_google()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L277",
+      "source_location": "L296",
       "id": "storage_prompts_embed_google",
       "community": 83,
       "norm_label": "embed_google()"
@@ -20959,7 +20959,7 @@
       "label": "embed_ollama()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L299",
+      "source_location": "L318",
       "id": "storage_prompts_embed_ollama",
       "community": 83,
       "norm_label": "embed_ollama()"
@@ -20968,7 +20968,7 @@
       "label": "parse_embedding_response()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L315",
+      "source_location": "L334",
       "id": "storage_prompts_parse_embedding_response",
       "community": 83,
       "norm_label": "parse_embedding_response()"
@@ -20977,7 +20977,7 @@
       "label": "json_embedding_array()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L345",
+      "source_location": "L364",
       "id": "storage_prompts_json_embedding_array",
       "community": 83,
       "norm_label": "json_embedding_array()"
@@ -20986,7 +20986,7 @@
       "label": "embedding_base_url()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L355",
+      "source_location": "L374",
       "id": "storage_prompts_embedding_base_url",
       "community": 83,
       "norm_label": "embedding_base_url()"
@@ -20995,7 +20995,7 @@
       "label": "ensure_embedding_url_allowed()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L373",
+      "source_location": "L392",
       "id": "storage_prompts_ensure_embedding_url_allowed",
       "community": 83,
       "norm_label": "ensure_embedding_url_allowed()"
@@ -21004,7 +21004,7 @@
       "label": "test_state()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L389",
+      "source_location": "L408",
       "id": "storage_prompts_test_state",
       "community": 83,
       "norm_label": "test_state()"
@@ -21013,7 +21013,7 @@
       "label": "create_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L401",
+      "source_location": "L420",
       "id": "storage_prompts_create_connection",
       "community": 83,
       "norm_label": "create_connection()"
@@ -21022,7 +21022,7 @@
       "label": "create_lorebook()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L420",
+      "source_location": "L439",
       "id": "storage_prompts_create_lorebook",
       "community": 83,
       "norm_label": "create_lorebook()"
@@ -21031,7 +21031,7 @@
       "label": "create_entry()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L438",
+      "source_location": "L457",
       "id": "storage_prompts_create_entry",
       "community": 83,
       "norm_label": "create_entry()"
@@ -21040,7 +21040,7 @@
       "label": "embedding_base_url_prefers_embedding_specific_url()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L457",
+      "source_location": "L476",
       "id": "storage_prompts_embedding_base_url_prefers_embedding_specific_url",
       "community": 83,
       "norm_label": "embedding_base_url_prefers_embedding_specific_url()"
@@ -21049,7 +21049,7 @@
       "label": "lorebook_excludes_vectorization_only_for_boolean_true()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L470",
+      "source_location": "L489",
       "id": "storage_prompts_lorebook_excludes_vectorization_only_for_boolean_true",
       "community": 83,
       "norm_label": "lorebook_excludes_vectorization_only_for_boolean_true()"
@@ -21058,7 +21058,7 @@
       "label": "vectorize_lorebook_skips_lorebook_level_exclusion_without_provider_call()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L484",
+      "source_location": "L503",
       "id": "storage_prompts_vectorize_lorebook_skips_lorebook_level_exclusion_without_provider_call",
       "community": 83,
       "norm_label": "vectorize_lorebook_skips_lorebook_level_exclusion_without_provider_call()"
@@ -21067,7 +21067,7 @@
       "label": "lorebook_entry_embedding_text_includes_secondary_keys()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L561",
+      "source_location": "L580",
       "id": "storage_prompts_lorebook_entry_embedding_text_includes_secondary_keys",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text_includes_secondary_keys()"
@@ -21076,7 +21076,7 @@
       "label": "lorebook_entry_embedding_text_uses_legacy_secondary_key_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L577",
+      "source_location": "L596",
       "id": "storage_prompts_lorebook_entry_embedding_text_uses_legacy_secondary_key_aliases",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text_uses_legacy_secondary_key_aliases()"
@@ -21085,7 +21085,7 @@
       "label": "lorebook_entry_embedding_text_merges_secondary_key_aliases()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L600",
+      "source_location": "L619",
       "id": "storage_prompts_lorebook_entry_embedding_text_merges_secondary_key_aliases",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text_merges_secondary_key_aliases()"
@@ -21094,7 +21094,7 @@
       "label": "lorebook_entry_embedding_text_parses_secondary_key_string()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L617",
+      "source_location": "L636",
       "id": "storage_prompts_lorebook_entry_embedding_text_parses_secondary_key_string",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text_parses_secondary_key_string()"
@@ -21103,7 +21103,7 @@
       "label": "lorebook_entry_embedding_text_omits_empty_key_section()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L632",
+      "source_location": "L651",
       "id": "storage_prompts_lorebook_entry_embedding_text_omits_empty_key_section",
       "community": 83,
       "norm_label": "lorebook_entry_embedding_text_omits_empty_key_section()"
@@ -21112,7 +21112,7 @@
       "label": "resolve_embedding_connection_follows_dedicated_connection()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L647",
+      "source_location": "L666",
       "id": "storage_prompts_resolve_embedding_connection_follows_dedicated_connection",
       "community": 83,
       "norm_label": "resolve_embedding_connection_follows_dedicated_connection()"
@@ -21121,7 +21121,7 @@
       "label": "resolve_default_embedding_connection_prefers_default_embedding_model()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L687",
+      "source_location": "L823",
       "id": "storage_prompts_resolve_default_embedding_connection_prefers_default_embedding_model",
       "community": 83,
       "norm_label": "resolve_default_embedding_connection_prefers_default_embedding_model()"
@@ -21130,7 +21130,7 @@
       "label": "vectorize_lorebook_no_vector_reports_all_entries_skipped()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L726",
+      "source_location": "L862",
       "id": "storage_prompts_vectorize_lorebook_no_vector_reports_all_entries_skipped",
       "community": 83,
       "norm_label": "vectorize_lorebook_no_vector_reports_all_entries_skipped()"
@@ -21139,7 +21139,7 @@
       "label": "vectorize_lorebook_total_counts_only_vectorizable_entries()",
       "file_type": "code",
       "source_file": "src-tauri/src/commands/storage/prompts.rs",
-      "source_location": "L747",
+      "source_location": "L883",
       "id": "storage_prompts_vectorize_lorebook_total_counts_only_vectorizable_entries",
       "community": 83,
       "norm_label": "vectorize_lorebook_total_counts_only_vectorizable_entries()"
@@ -49480,7 +49480,7 @@
       "label": "RemoteModel",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L99",
+      "source_location": "L105",
       "id": "components_connectioneditor_remotemodel",
       "community": 177,
       "norm_label": "remotemodel"
@@ -49489,7 +49489,7 @@
       "label": "ModelLookupResponse",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L107",
+      "source_location": "L113",
       "id": "components_connectioneditor_modellookupresponse",
       "community": 177,
       "norm_label": "modellookupresponse"
@@ -49498,7 +49498,7 @@
       "label": "normalizeCachingAtDepth()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L114",
+      "source_location": "L120",
       "id": "components_connectioneditor_normalizecachingatdepth",
       "community": 177,
       "norm_label": "normalizecachingatdepth()"
@@ -49507,7 +49507,7 @@
       "label": "normalizeMaxParallelJobs()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L119",
+      "source_location": "L125",
       "id": "components_connectioneditor_normalizemaxparalleljobs",
       "community": 177,
       "norm_label": "normalizemaxparalleljobs()"
@@ -49516,7 +49516,7 @@
       "label": "ConnectionEditor()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L129",
+      "source_location": "L135",
       "id": "components_connectioneditor_connectioneditor",
       "community": 98,
       "norm_label": "connectioneditor()"
@@ -49525,7 +49525,7 @@
       "label": "FieldGroup()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1847",
+      "source_location": "L1931",
       "id": "components_connectioneditor_fieldgroup",
       "community": 177,
       "norm_label": "fieldgroup()"
@@ -49534,7 +49534,7 @@
       "label": "TestResultCard()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1870",
+      "source_location": "L1991",
       "id": "components_connectioneditor_testresultcard",
       "community": 177,
       "norm_label": "testresultcard()"
@@ -49543,7 +49543,7 @@
       "label": "ImageGenerationDefaultsPanel()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L1904",
+      "source_location": "L2025",
       "id": "components_connectioneditor_imagegenerationdefaultspanel",
       "community": 177,
       "norm_label": "imagegenerationdefaultspanel()"
@@ -49552,7 +49552,7 @@
       "label": "TextSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2213",
+      "source_location": "L2334",
       "id": "components_connectioneditor_textsetting",
       "community": 177,
       "norm_label": "textsetting()"
@@ -49561,7 +49561,7 @@
       "label": "ChoiceSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2238",
+      "source_location": "L2359",
       "id": "components_connectioneditor_choicesetting",
       "community": 177,
       "norm_label": "choicesetting()"
@@ -49570,7 +49570,7 @@
       "label": "NumberSetting()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2271",
+      "source_location": "L2392",
       "id": "components_connectioneditor_numbersetting",
       "community": 177,
       "norm_label": "numbersetting()"
@@ -49579,7 +49579,7 @@
       "label": "formatContext()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2325",
+      "source_location": "L2446",
       "id": "components_connectioneditor_formatcontext",
       "community": 98,
       "norm_label": "formatcontext()"
@@ -49588,7 +49588,7 @@
       "label": "getStoredImageGenerationDefaults()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2331",
+      "source_location": "L2452",
       "id": "components_connectioneditor_getstoredimagegenerationdefaults",
       "community": 177,
       "norm_label": "getstoredimagegenerationdefaults()"
@@ -49597,7 +49597,7 @@
       "label": "buildImageDefaultParameters()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2340",
+      "source_location": "L2461",
       "id": "components_connectioneditor_buildimagedefaultparameters",
       "community": 177,
       "norm_label": "buildimagedefaultparameters()"
@@ -49606,7 +49606,7 @@
       "label": "parseDefaultParametersRoot()",
       "file_type": "code",
       "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
-      "source_location": "L2353",
+      "source_location": "L2474",
       "id": "components_connectioneditor_parsedefaultparametersroot",
       "community": 177,
       "norm_label": "parsedefaultparametersroot()"
@@ -94367,6 +94367,96 @@
       "id": "capabilities_storage_addchatmessageswipeoptions",
       "community": 52,
       "norm_label": "addchatmessageswipeoptions"
+    },
+    {
+      "label": "OPENAI_CHATGPT_SETUP_STEPS",
+      "file_type": "code",
+      "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
+      "source_location": "L99",
+      "id": "components_connectioneditor_openai_chatgpt_setup_steps",
+      "community": 177,
+      "norm_label": "openai_chatgpt_setup_steps"
+    },
+    {
+      "label": "OpenAiChatGptAuthHelp()",
+      "file_type": "code",
+      "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
+      "source_location": "L1954",
+      "id": "components_connectioneditor_openaichatgptauthhelp",
+      "community": 177,
+      "norm_label": "openaichatgptauthhelp()"
+    },
+    {
+      "label": "openai_chatgpt_base_url_ignores_configured_endpoint()",
+      "file_type": "code",
+      "source_file": "src-tauri/crates/llm/src/lib.rs",
+      "source_location": "L2641",
+      "id": "src_lib_openai_chatgpt_base_url_ignores_configured_endpoint",
+      "community": 48,
+      "norm_label": "openai_chatgpt_base_url_ignores_configured_endpoint()"
+    },
+    {
+      "label": "prompts.rs",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L1",
+      "id": "src_tauri_src_commands_storage_prompts_rs",
+      "community": 83,
+      "norm_label": "prompts.rs"
+    },
+    {
+      "label": "embed_text_rejects_openai_chatgpt_before_provider_call()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L767",
+      "id": "storage_prompts_embed_text_rejects_openai_chatgpt_before_provider_call",
+      "community": 83,
+      "norm_label": "embed_text_rejects_openai_chatgpt_before_provider_call()"
+    },
+    {
+      "label": "is_openai_chatgpt_connection()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L174",
+      "id": "storage_prompts_is_openai_chatgpt_connection",
+      "community": 83,
+      "norm_label": "is_openai_chatgpt_connection()"
+    },
+    {
+      "label": "openai_chatgpt_embedding_error()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L258",
+      "id": "storage_prompts_openai_chatgpt_embedding_error",
+      "community": 83,
+      "norm_label": "openai_chatgpt_embedding_error()"
+    },
+    {
+      "label": "resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L730",
+      "id": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection",
+      "community": 83,
+      "norm_label": "resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection()"
+    },
+    {
+      "label": "resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L706",
+      "id": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection",
+      "community": 83,
+      "norm_label": "resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection()"
+    },
+    {
+      "label": "resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L783",
+      "id": "storage_prompts_resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection",
+      "community": 83,
+      "norm_label": "resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection()"
     }
   ],
   "links": [
@@ -335064,8 +335154,559 @@
       "source": "storage_chats_message_swipes_respects_legacy_silent_flag_for_inactive_swipes",
       "target": "storage_chats_test_state",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
+      "source_location": "L99",
+      "weight": 1.0,
+      "source": "src_features_shell_connections_components_connectioneditor_tsx",
+      "target": "components_connectioneditor_openai_chatgpt_setup_steps",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/shell/connections/components/ConnectionEditor.tsx",
+      "source_location": "L1909",
+      "weight": 1.0,
+      "source": "src_features_shell_connections_components_connectioneditor_tsx",
+      "target": "components_connectioneditor_openaichatgptauthhelp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/crates/llm/src/lib.rs",
+      "source_location": "L2641",
+      "weight": 1.0,
+      "source": "src_tauri_crates_llm_src_lib_rs",
+      "target": "src_lib_openai_chatgpt_base_url_ignores_configured_endpoint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L420",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_create_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L457",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_create_entry",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L439",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_create_lorebook",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L296",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embed_google",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L318",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embed_ollama",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L264",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embed_openai_compatible",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L245",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embed_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L767",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embed_text_rejects_openai_chatgpt_before_provider_call",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embedding_base_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L476",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embedding_base_url_prefers_embedding_specific_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_embedding_model",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L392",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_ensure_embedding_url_allowed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_has_embedding_model",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L239",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_is_excluded_from_vectorization",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L174",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_is_openai_chatgpt_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L364",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_json_embedding_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L218",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L580",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text_includes_secondary_keys",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L619",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text_merges_secondary_key_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L651",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text_omits_empty_key_section",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L636",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text_parses_secondary_key_string",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L596",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_embedding_text_uses_legacy_secondary_key_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L206",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_entry_secondary_keys",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L199",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_excludes_vectorization",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L489",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_lorebook_excludes_vectorization_only_for_boolean_true",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L258",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_openai_chatgpt_embedding_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L334",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_parse_embedding_response",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_default_embedding_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L783",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_default_embedding_connection_prefers_default_embedding_model",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L666",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_embedding_connection_follows_dedicated_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_embedding_connection_for_id",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L730",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L706",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L408",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L181",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_value_string_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_vectorize_lorebook",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L822",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_vectorize_lorebook_no_vector_reports_all_entries_skipped",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L503",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_vectorize_lorebook_skips_lorebook_level_exclusion_without_provider_call",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L843",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_vectorize_lorebook_total_counts_only_vectorizable_entries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L251",
+      "weight": 1.0,
+      "source": "storage_prompts_embed_text",
+      "target": "storage_prompts_openai_chatgpt_embedding_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L774",
+      "weight": 1.0,
+      "source": "storage_prompts_embed_text_rejects_openai_chatgpt_before_provider_call",
+      "target": "storage_prompts_embed_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "source": "storage_prompts_has_embedding_model",
+      "target": "storage_prompts_is_openai_chatgpt_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L110",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_for_id",
+      "target": "storage_prompts_is_openai_chatgpt_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L111",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_for_id",
+      "target": "storage_prompts_openai_chatgpt_embedding_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L759",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection",
+      "target": "storage_prompts_resolve_embedding_connection_for_id",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L731",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_as_dedicated_connection",
+      "target": "storage_prompts_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L722",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection",
+      "target": "storage_prompts_resolve_embedding_connection_for_id",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L707",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_rejects_openai_chatgpt_without_dedicated_connection",
+      "target": "storage_prompts_test_state",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L783",
+      "weight": 1.0,
+      "source": "src_tauri_src_commands_storage_prompts_rs",
+      "target": "storage_prompts_resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L813",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection",
+      "target": "storage_prompts_resolve_embedding_connection_for_id",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/commands/storage/prompts.rs",
+      "source_location": "L784",
+      "weight": 1.0,
+      "source": "storage_prompts_resolve_embedding_connection_allows_openai_chatgpt_with_dedicated_embedding_connection",
+      "target": "storage_prompts_test_state",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "004bad7db29d8ffe7fea1dbc4be21cb7e6bd0c87"
+  "built_at_commit": "377836b733b45f3f5633d0407119a95d24bf47ae"
 }

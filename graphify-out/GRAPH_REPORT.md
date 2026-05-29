@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 856 files · ~2,839,266 words
+- 856 files · ~2,840,033 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10485 nodes · 22752 edges · 449 communities (415 shown, 34 thin omitted)
+- 10495 nodes · 22806 edges · 449 communities (415 shown, 34 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 280 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `004bad7d`
+- Built from commit: `377836b7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -646,7 +646,7 @@ Cohesion: 0.11
 Nodes (35): CombinedWorldPanel, CombinedWorldWidget(), getWorldAmbienceStyle(), getWorldDashboardGridClass(), getWorldTileTextNeed(), WorldDashboardGridClassOptions, WorldDateTile(), WorldTimeTile() (+27 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.06
+Cohesion: 0.05
 Nodes (35): anthropic_stream_sse_emits_usage_thinking_and_text_tokens(), assistant_message_text(), ChatGptAuth, check_claude_subscription_available(), check_openai_chatgpt_auth(), chrono_like_now_iso(), claude_subscription_command(), claude_subscription_empty_json_result_is_an_error() (+27 more)
 
 ### Community 49 - "Community 49"
@@ -786,8 +786,8 @@ Cohesion: 0.09
 Nodes (20): spotify_access_token(), spotify_authorize(), spotify_devices(), spotify_direct(), spotify_disconnect(), spotify_dj_mari_playlist(), spotify_exchange(), spotify_play_track() (+12 more)
 
 ### Community 83 - "Community 83"
-Cohesion: 0.12
-Nodes (26): create_connection(), create_entry(), create_lorebook(), embed_google(), embed_ollama(), embed_openai_compatible(), embed_text(), embedding_base_url() (+18 more)
+Cohesion: 0.14
+Nodes (40): create_connection(), create_entry(), create_lorebook(), embed_google(), embed_ollama(), embed_openai_compatible(), embed_text(), embed_text_rejects_openai_chatgpt_before_provider_call() (+32 more)
 
 ### Community 84 - "Community 84"
 Cohesion: 0.08
@@ -1142,8 +1142,8 @@ Cohesion: 0.16
 Nodes (12): PreviewBackgroundPicker(), PreviewBackgroundPickerProps, PreviewBackground, previewBackgroundOptions, previewBackgroundStyles, SpriteCleanupCanvasStage(), SpriteCleanupCanvasStageProps, SpriteCleanupControls() (+4 more)
 
 ### Community 177 - "Community 177"
-Cohesion: 0.15
-Nodes (9): API_KEY_LINKS, buildImageDefaultParameters(), getStoredImageGenerationDefaults(), ImageGenerationDefaultsPanel(), ModelLookupResponse, parseDefaultParametersRoot(), RemoteModel, TestResultCard() (+1 more)
+Cohesion: 0.13
+Nodes (10): API_KEY_LINKS, buildImageDefaultParameters(), getStoredImageGenerationDefaults(), ImageGenerationDefaultsPanel(), ModelLookupResponse, OPENAI_CHATGPT_SETUP_STEPS, parseDefaultParametersRoot(), RemoteModel (+2 more)
 
 ### Community 178 - "Community 178"
 Cohesion: 0.14
@@ -1962,7 +1962,7 @@ Cohesion: 0.32
 Nodes (7): child, findModernNode(), readNodeVersion(), repoRoot, runner, supportsVite(), viteBin
 
 ## Knowledge Gaps
-- **3230 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3225 more)
+- **3231 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3226 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1976,7 +1976,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `storageApi` connect `Community 26` to `Community 128`, `Community 4`, `Community 5`, `Community 10`, `Community 11`, `Community 12`, `Community 19`, `Community 20`, `Community 30`, `Community 33`, `Community 35`, `Community 39`, `Community 40`, `Community 168`, `Community 172`, `Community 175`, `Community 180`, `Community 181`, `Community 191`, `Community 65`, `Community 198`, `Community 78`, `Community 208`, `Community 81`, `Community 220`, `Community 98`, `Community 101`, `Community 102`, `Community 104`, `Community 105`, `Community 241`, `Community 124`, `Community 383`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
-  _3263 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3264 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004395604395604396 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
