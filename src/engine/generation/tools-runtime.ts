@@ -33,10 +33,12 @@ import {
  */
 export interface ToolRuntimeInput {
   chat: JsonRecord;
+  storedMessages?: JsonRecord[];
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   chatSummary: string | null;
+  hideAutomatedSummarySourceMessages?: boolean;
 }
 
 export interface CustomToolRecord extends JsonRecord {
@@ -168,6 +170,33 @@ export function requireChatId(input: ToolRuntimeInput): string {
   const chatId = readString(input.chat.id).trim();
   if (!chatId) toolError("Tool requires a persisted chat id.");
   return chatId;
+}
+
+function automatedSummarySourceMessageIds(input: ToolRuntimeInput): string[] {
+  const seen = new Set<string>();
+  return (input.storedMessages ?? [])
+    .filter((message) => !hiddenFromAiRecord(message))
+    .slice(-60)
+    .map((message) => readString(message.id).trim())
+    .filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+}
+
+function hiddenFromAiRecord(message: JsonRecord): boolean {
+  const extra = parseRecord(message.extra);
+  return boolish(extra.hiddenFromAI ?? extra.hiddenFromAi, false);
+}
+
+async function hideSummarySourceMessages(storage: StorageGateway, messageIds: string[]): Promise<string[]> {
+  const hiddenIds: string[] = [];
+  for (const messageId of messageIds) {
+    await storage.patchChatMessageExtra(messageId, { hiddenFromAI: true, hiddenFromAi: true });
+    hiddenIds.push(messageId);
+  }
+  return hiddenIds;
 }
 
 export async function updateChatMetadata(
@@ -341,6 +370,7 @@ export async function executeBuiltInTool(
       if (!text) toolError("text is required.");
       const now = nowIso();
       const metadata = parseRecord(input.chat.metadata);
+      const sourceMessageIds = automatedSummarySourceMessageIds(input);
       const appended = appendChatSummaryEntryToMetadata(
         metadata,
         {
@@ -348,15 +378,20 @@ export async function executeBuiltInTool(
           origin: "automated",
           sourceMode: "agent",
           title: "Agent memory",
+          messageCount: sourceMessageIds.length || undefined,
+          messageIds: sourceMessageIds.length > 0 ? sourceMessageIds : undefined,
         },
         { now, createId: () => newId("summary") },
       );
       metadata.summaryEntries = appended.entries;
       metadata.summary = appended.summary;
       await storage.update("chats", chatId, { metadata });
+      const hiddenMessageIds = input.hideAutomatedSummarySourceMessages
+        ? await hideSummarySourceMessages(storage, sourceMessageIds)
+        : [];
       input.chat.metadata = metadata;
       input.chatSummary = appended.summary;
-      return { success: true, entry: appended.entry, summary: appended.summary };
+      return { success: true, entry: appended.entry, summary: appended.summary, hiddenMessageIds };
     }
     case "read_chat_variable": {
       const key = stringArg(args, "key");

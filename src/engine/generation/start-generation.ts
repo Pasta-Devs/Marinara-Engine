@@ -103,6 +103,7 @@ export interface StartGenerationInput extends JsonRecord {
   };
   debugMode?: boolean;
   debugSink?: AgentContext["debugSink"];
+  hideAutomatedSummarySourceMessages?: boolean;
   agentInjectionOverrides?: AgentInjectionOverride[];
 }
 
@@ -118,6 +119,7 @@ export interface RetryAgentsInput extends JsonRecord {
   chatId: string;
   connectionId?: string | null;
   agentTypes?: string[];
+  hideAutomatedSummarySourceMessages?: boolean;
   options?: Record<string, unknown>;
 }
 
@@ -1949,6 +1951,7 @@ async function runGenerationAgentsForTarget(args: {
       chatSummary: assembly.chatSummary,
       agentTypes,
       bypassCustomAgentActivation: retryBypassesCustomAgentActivation(input),
+      hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
       signal,
       regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
     },
@@ -2132,6 +2135,7 @@ export async function* startGeneration(
             chatSummary: assembly.chatSummary,
             debugMode: input.debugMode === true,
             debugSink: input.debugSink,
+            hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
             signal,
             regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
             agentInjectionOverrides,
@@ -2192,10 +2196,12 @@ export async function* startGeneration(
     });
     const toolRuntimeInput: ToolRuntimeInput = {
       chat: chatForGeneration,
+      storedMessages: generationMessages,
       activatedLorebookEntries: assembly.activatedLorebookEntries,
       characters: assembly.characters,
       persona: assembly.persona,
       chatSummary: assembly.chatSummary,
+      hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
     };
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input)].filter(
       (message): message is LlmMessage => !!message,
@@ -2359,10 +2365,12 @@ export async function* startGeneration(
   });
   const toolRuntimeInputDirect: ToolRuntimeInput = {
     chat: chatForGeneration,
+    storedMessages: generationMessages,
     activatedLorebookEntries: assembly.activatedLorebookEntries,
     characters: assembly.characters,
     persona: assembly.persona,
     chatSummary: assembly.chatSummary,
+    hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
   };
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,

@@ -138,6 +138,8 @@ export function useBackgroundAutonomousPolling() {
                     chatId: chat.id,
                     connectionId: null,
                     streaming: useUIStore.getState().enableStreaming,
+                    hideAutomatedSummarySourceMessages:
+                      useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,
                   },
                 )) {
                   if ((_event as { type: string }).type === "token") receivedTokens = true;

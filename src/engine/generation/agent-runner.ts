@@ -79,6 +79,7 @@ export interface GenerationAgentRuntimeInput {
   signal?: AbortSignal;
   agentTypes?: Set<string>;
   bypassCustomAgentActivation?: boolean;
+  hideAutomatedSummarySourceMessages?: boolean;
   regenerateMessageId?: string | null;
   agentInjectionOverrides?: AgentInjection[];
 }

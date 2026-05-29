@@ -1356,6 +1356,8 @@ export function useGenerate() {
                 includeAppearances: useUIStore.getState().imagePromptIncludeAppearances,
                 format: useUIStore.getState().imagePromptFormat,
               },
+              hideAutomatedSummarySourceMessages:
+                useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,
               debugMode: useUIStore.getState().debugMode,
               debugSink: enqueueAgentDebugEntry,
             },
@@ -1401,7 +1403,13 @@ export function useGenerate() {
         }
         const results = await retryGenerationAgents(
           { storage: storageApi, llm: llmApi, integrations: integrationGateway, visuals: visualAssetsApi },
-          { chatId, agentTypes, options: { ...(options ?? {}), bypassActivation: options?.bypassActivation ?? true } },
+          {
+            chatId,
+            agentTypes,
+            hideAutomatedSummarySourceMessages:
+              useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,
+            options: { ...(options ?? {}), bypassActivation: options?.bypassActivation ?? true },
+          },
         );
         const failedRetries: AgentFailure[] = [];
         for (const rawResult of results) {
