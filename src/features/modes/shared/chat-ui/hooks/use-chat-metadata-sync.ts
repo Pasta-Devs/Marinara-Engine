@@ -115,7 +115,7 @@ export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount
     }
     scheduleBackgroundPersist(chatId, nextBackground);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatBackground, chat?.id]);
+  }, [chatBackground, chat?.id, chatMeta.background]);
 
   useEffect(() => {
     return () => {

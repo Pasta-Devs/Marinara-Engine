@@ -134,6 +134,24 @@ describe("useChatMetadataSync", () => {
     expect(catalogMocks.mutate).not.toHaveBeenCalled();
   });
 
+  it("cancels a pending write when metadata catches up before the debounce fires", () => {
+    act(() => {
+      root.render(<Harness chatId="chat-with-caught-up-change" background="old-background.png" />);
+    });
+
+    act(() => {
+      useUIStore.getState().setChatBackground("https://media.local/new-background.png");
+    });
+    act(() => {
+      root.render(<Harness chatId="chat-with-caught-up-change" background="https://media.local/new-background.png" />);
+    });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(catalogMocks.mutate).not.toHaveBeenCalled();
+  });
+
   it("keeps pending background writes isolated per chat", () => {
     act(() => {
       root.render(<Harness chatId="first-chat" background="first-saved.png" />);
