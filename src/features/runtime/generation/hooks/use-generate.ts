@@ -26,7 +26,7 @@ import { ApiError } from "../../../../shared/api/api-errors";
 import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import { requestImagePromptReview } from "../../../../shared/components/ui/ImagePromptReviewHost";
 import { useAgentStore, type PendingCardUpdate } from "../../../../shared/stores/agent.store";
-import { toAgentFailure } from "../../../../shared/lib/agent-failures";
+import { formatAgentFailuresToast, toAgentFailure } from "../../../../shared/lib/agent-failures";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/index";
@@ -1371,6 +1371,19 @@ export function useGenerate() {
           runDeferredGenerationWork("agent retry result effects", () =>
             applyAgentResultEffects(queryClient, chatId, result),
           );
+        }
+        const failedRetries = results
+          .filter((result) => !result.success)
+          .map((result) => {
+            const data = parseMaybeRecord(result.data);
+            return toAgentFailure({
+              agentType: result.agentType,
+              agentName: readString(data.agentName).trim() || result.agentType,
+              error: result.error,
+            });
+          });
+        if (failedRetries.length > 0) {
+          toast.error(formatAgentFailuresToast(failedRetries), { duration: 10_000 });
         }
         runDeferredGenerationWork("agent retry refresh", async () => {
           await refreshGameStateFromStorage(chatId);
