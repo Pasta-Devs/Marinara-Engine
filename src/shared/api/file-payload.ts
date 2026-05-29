@@ -12,7 +12,7 @@ function formatUploadSize(bytes: number) {
   return `${Number.isInteger(mib) ? mib.toString() : mib.toFixed(1)} MB`;
 }
 
-export const MAX_IMAGE_UPLOAD_BYTES = MAX_FILE_SIZES.BACKGROUND;
+export const MAX_IMAGE_UPLOAD_BYTES = MAX_FILE_SIZES.IMAGE_UPLOAD;
 export const IMAGE_UPLOAD_SIZE_ERROR = `Image uploads must be ${formatUploadSize(MAX_IMAGE_UPLOAD_BYTES)} or smaller`;
 
 interface FilePayloadOptions {
