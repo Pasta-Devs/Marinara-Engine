@@ -1,8 +1,7 @@
-import type { AssetGateway } from "../../engine/capabilities/assets";
 import { fileToUploadPayload } from "./file-payload";
 import { invokeTauri } from "./tauri-client";
 
-export interface GameAssetFileInfo {
+interface GameAssetFileInfo {
   name: string;
   size: number;
   width?: number;
@@ -59,17 +58,6 @@ const gameAssetCommands = {
   copyBulk: (paths: string[], targetFolder: string) =>
     invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_copy_bulk", { paths, targetFolder }),
   deleteBulk: (paths: string[]) => invokeTauri<BulkOperationResult>("game_assets_delete_bulk", { paths }),
-};
-
-export const assetsApi: AssetGateway = {
-  list: gameAssetCommands.list,
-  readText: (path: string) =>
-    gameAssetCommands.readText<{ content?: unknown }>(path).then((value) => String(value.content ?? "")),
-  writeText: gameAssetCommands.writeText,
-  remove: gameAssetCommands.deleteFile,
-  copy: gameAssetCommands.copy,
-  move: gameAssetCommands.move,
-  openFolder: gameAssetCommands.openFolder,
 };
 
 export const gameAssetsApi = {
