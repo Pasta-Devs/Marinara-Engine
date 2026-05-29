@@ -1,3 +1,5 @@
+import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
+
 export interface UploadFilePayload {
   name: string;
   type: string;
@@ -5,7 +7,7 @@ export interface UploadFilePayload {
   base64: string;
 }
 
-export const MAX_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
+export const MAX_IMAGE_UPLOAD_BYTES = MAX_FILE_SIZES.BACKGROUND;
 export const IMAGE_UPLOAD_SIZE_ERROR = "Image uploads must be 20 MB or smaller";
 
 interface FilePayloadOptions {
