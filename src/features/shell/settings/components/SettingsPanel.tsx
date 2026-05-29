@@ -16,6 +16,7 @@ import {
   type VisualTheme,
 } from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
+import { QUOTE_FORMATS } from "../../../../shared/lib/dialogue-quotes";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
@@ -195,10 +196,15 @@ const GAME_DIALOGUE_DISPLAY_OPTIONS: Array<{ id: GameDialogueDisplayMode; label:
   },
 ];
 
-const QUOTE_FORMAT_OPTIONS: Array<{ id: QuoteFormat; label: string; sample: string }> = [
-  { id: "straight", label: "Straight", sample: '"Hello", it\'s me.' },
-  { id: "typographic", label: "Typographic", sample: "\u201cHello,\u201d it\u2019s me." },
-];
+const QUOTE_FORMAT_OPTION_COPY = {
+  straight: { label: "Straight", sample: '"Hello", it\'s me.' },
+  typographic: { label: "Typographic", sample: "\u201cHello,\u201d it\u2019s me." },
+} satisfies Record<QuoteFormat, { label: string; sample: string }>;
+
+const QUOTE_FORMAT_OPTIONS: Array<{ id: QuoteFormat; label: string; sample: string }> = QUOTE_FORMATS.map((id) => ({
+  id,
+  ...QUOTE_FORMAT_OPTION_COPY[id],
+}));
 
 const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{ id: TrackerPanelSizeProfile; label: string; desc: string }> = [
   { id: "compact", label: "Compact", desc: `${getTrackerPanelWidthForProfile("compact")} px` },
