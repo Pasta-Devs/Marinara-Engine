@@ -143,25 +143,26 @@ async fn stop_all() -> AppResult<Value> {
 async fn command(body: Value) -> AppResult<Value> {
     let now = now_millis();
     let mut runtime = runtime().lock().await;
-    if now.saturating_sub(runtime.last_command_at) < MIN_COMMAND_INTERVAL_MS {
-        return Err(AppError::new(
-            "rate_limited",
-            "Haptic commands are rate limited",
-        ));
-    }
-    runtime.last_command_at = now;
-    let client = runtime
+    if !runtime
         .client
         .as_ref()
-        .filter(|client| client.connected())
-        .ok_or_else(|| AppError::invalid_input("Not connected to Intiface Central"))?;
-    let targets = command_targets(client, &body)?;
+        .is_some_and(ButtplugClient::connected)
+    {
+        return Err(AppError::invalid_input("Not connected to Intiface Central"));
+    }
     let action = normalize_action(body.get("action")).ok_or_else(|| {
         AppError::invalid_input(format!(
             "Unknown haptic action: {}",
             body.get("action").and_then(Value::as_str).unwrap_or("")
         ))
     })?;
+    enforce_command_rate_limit(&mut runtime, now, action)?;
+    let client = runtime
+        .client
+        .as_ref()
+        .filter(|client| client.connected())
+        .ok_or_else(|| AppError::invalid_input("Not connected to Intiface Central"))?;
+    let targets = command_targets(client, &body)?;
     let intensity = clamp_unit(body.get("intensity"), 0.5);
     let duration = clamp_duration(body.get("duration"));
 
@@ -178,6 +179,24 @@ async fn command(body: Value) -> AppResult<Value> {
         });
     }
     Ok(json!({ "ok": true }))
+}
+
+fn enforce_command_rate_limit(
+    runtime: &mut HapticRuntime,
+    now: u128,
+    action: &'static str,
+) -> AppResult<()> {
+    if action == "stop" {
+        return Ok(());
+    }
+    if now.saturating_sub(runtime.last_command_at) < MIN_COMMAND_INTERVAL_MS {
+        return Err(AppError::new(
+            "rate_limited",
+            "Haptic commands are rate limited",
+        ));
+    }
+    runtime.last_command_at = now;
+    Ok(())
 }
 
 fn status_value(runtime: &HapticRuntime) -> Value {
@@ -346,5 +365,35 @@ fn output_command_for_action(
             Some(ClientDeviceOutputCommand::Vibrate(value))
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stop_commands_bypass_rate_limit() {
+        let mut runtime = HapticRuntime {
+            last_command_at: 1_000,
+            ..HapticRuntime::default()
+        };
+
+        assert!(enforce_command_rate_limit(&mut runtime, 1_050, "stop").is_ok());
+        assert_eq!(runtime.last_command_at, 1_000);
+    }
+
+    #[test]
+    fn non_stop_commands_keep_rate_limit() {
+        let mut runtime = HapticRuntime {
+            last_command_at: 1_000,
+            ..HapticRuntime::default()
+        };
+
+        assert!(enforce_command_rate_limit(&mut runtime, 1_050, "vibrate").is_err());
+        assert_eq!(runtime.last_command_at, 1_000);
+
+        assert!(enforce_command_rate_limit(&mut runtime, 1_250, "vibrate").is_ok());
+        assert_eq!(runtime.last_command_at, 1_250);
     }
 }
