@@ -19,6 +19,7 @@ import {
   type VisualTheme,
 } from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
+import { TEMPERATURE_UNITS } from "../../../../shared/lib/temperature-units";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
@@ -213,6 +214,25 @@ const TRACKER_PANEL_SIZE_PROFILE_OPTIONS = TRACKER_PANEL_SIZE_PROFILES.map((id) 
   id,
   ...TRACKER_PANEL_SIZE_PROFILE_COPY[id],
 }));
+
+const TRACKER_TEMPERATURE_UNIT_OPTIONS: Array<{
+  id: TrackerTemperatureUnit;
+  label: string;
+  name: string;
+}> = TEMPERATURE_UNITS.map((id) => ({
+  id,
+  label: id === "celsius" ? "°C" : "°F",
+  name: id === "celsius" ? "Celsius" : "Fahrenheit",
+}));
+
+function getTrackerTemperatureUnitOption(unit: TrackerTemperatureUnit) {
+  return TRACKER_TEMPERATURE_UNIT_OPTIONS.find((option) => option.id === unit) ?? TRACKER_TEMPERATURE_UNIT_OPTIONS[0]!;
+}
+
+function getNextTrackerTemperatureUnit(unit: TrackerTemperatureUnit): TrackerTemperatureUnit {
+  const currentIndex = TRACKER_TEMPERATURE_UNIT_OPTIONS.findIndex((option) => option.id === unit);
+  return TRACKER_TEMPERATURE_UNIT_OPTIONS[(currentIndex + 1) % TRACKER_TEMPERATURE_UNIT_OPTIONS.length]?.id ?? "celsius";
+}
 
 const TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS: Array<{
   id: TrackerThoughtBubbleDisplay;
@@ -458,6 +478,10 @@ function TrackerPanelAppearanceDrawer({
 }) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const drawerId = React.useId();
+  const currentTemperatureUnitOption = getTrackerTemperatureUnitOption(trackerTemperatureUnit);
+  const nextTemperatureUnit = getNextTrackerTemperatureUnit(trackerTemperatureUnit);
+  const nextTemperatureUnitOption = getTrackerTemperatureUnitOption(nextTemperatureUnit);
+  const isAlternateTemperatureUnit = trackerTemperatureUnit === TRACKER_TEMPERATURE_UNIT_OPTIONS[1]?.id;
 
   const toggleTrackerPanel = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -621,38 +645,31 @@ function TrackerPanelAppearanceDrawer({
           <button
             type="button"
             role="switch"
-            aria-checked={trackerTemperatureUnit === "fahrenheit"}
-            aria-label={`Tracker temperature unit: ${trackerTemperatureUnit === "celsius" ? "Celsius" : "Fahrenheit"}`}
-            title={
-              trackerTemperatureUnit === "celsius"
-                ? "Showing tracker temperatures as °C. Click for °F."
-                : "Showing tracker temperatures as °F. Click for °C."
-            }
-            onClick={() => setTrackerTemperatureUnit(trackerTemperatureUnit === "celsius" ? "fahrenheit" : "celsius")}
+            aria-checked={isAlternateTemperatureUnit}
+            aria-label={`Tracker temperature unit: ${currentTemperatureUnitOption.name}`}
+            title={`Showing tracker temperatures as ${currentTemperatureUnitOption.label}. Click for ${nextTemperatureUnitOption.label}.`}
+            onClick={() => setTrackerTemperatureUnit(nextTemperatureUnit)}
             className="relative grid h-7 w-[4.75rem] shrink-0 grid-cols-2 items-center rounded-full border border-[var(--border)] bg-[var(--secondary)]/55 p-0.5 text-[0.625rem] font-semibold transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
           >
             <span
               className={cn(
                 "absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-full bg-[var(--primary)]/16 ring-1 ring-[var(--primary)]/45 transition-transform",
-                trackerTemperatureUnit === "fahrenheit" && "translate-x-full",
+                isAlternateTemperatureUnit && "translate-x-full",
               )}
             />
-            <span
-              className={cn(
-                "relative z-10 text-center transition-colors",
-                trackerTemperatureUnit === "celsius" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
-              °C
-            </span>
-            <span
-              className={cn(
-                "relative z-10 text-center transition-colors",
-                trackerTemperatureUnit === "fahrenheit" ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
-              °F
-            </span>
+            {TRACKER_TEMPERATURE_UNIT_OPTIONS.map((option) => (
+              <span
+                key={option.id}
+                className={cn(
+                  "relative z-10 text-center transition-colors",
+                  trackerTemperatureUnit === option.id
+                    ? "text-[var(--foreground)]"
+                    : "text-[var(--muted-foreground)]",
+                )}
+              >
+                {option.label}
+              </span>
+            ))}
           </button>
         </div>
         <TrackerPanelCardOrderSetting />
