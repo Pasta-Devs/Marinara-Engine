@@ -52,12 +52,16 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 }
 
-function readRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeTTSConfigResponse(value: unknown): TTSConfig {
-  const raw = readRecord(value);
+  if (!isRecord(value)) {
+    return ttsConfigSchema.parse(value);
+  }
+
+  const raw = value;
   const config = ttsConfigSchema.parse({});
   const fields = ttsConfigSchema.shape;
 

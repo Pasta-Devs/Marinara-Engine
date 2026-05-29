@@ -84,6 +84,14 @@ describe("ttsApi", () => {
     });
   });
 
+  it.each([null, "config", 42, false, []])("rejects malformed native TTS config responses", async (response) => {
+    invokeMock.mockResolvedValueOnce(response);
+
+    await expect(ttsApi.config()).rejects.toThrow();
+
+    expect(invokeMock).toHaveBeenCalledWith("tts_config");
+  });
+
   it("updates TTS config with the expected payload", async () => {
     invokeMock.mockResolvedValueOnce(undefined);
 
