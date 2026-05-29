@@ -30,6 +30,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { ApiError } from "../../../../shared/api/api-errors";
+import { openExternalUrl } from "../../../../shared/api/external-link-api";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import {
   SPOTIFY_SCENE_TRACK_CHANGE_EVENT,
@@ -598,7 +599,11 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
         action: result.playlistUrl
           ? {
               label: "Open playlist",
-              onClick: () => window.open(result.playlistUrl!, "_blank", "noopener,noreferrer"),
+              onClick: () => {
+                void openExternalUrl(result.playlistUrl!).catch((error) => {
+                  toast.error(error instanceof Error ? error.message : "Failed to open playlist");
+                });
+              },
             }
           : undefined,
       });

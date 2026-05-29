@@ -1,4 +1,5 @@
 import { fileToUploadPayload } from "./file-payload";
+import { openExternalUrl } from "./external-link-api";
 import { remoteRuntimeTarget } from "./remote-runtime";
 import { invokeTauri } from "./tauri-client";
 export { ttsApi } from "./tts-api";
@@ -51,7 +52,7 @@ export const spotifyApi = {
     const shouldOpenClientSide = Boolean(remoteRuntimeTarget());
     const response = await invokeTauri<SpotifyAuthorizeResponse>("spotify_authorize", { input });
     if (shouldOpenClientSide && response.authUrl) {
-      window.open(response.authUrl, "_blank", "noopener,noreferrer");
+      await openExternalUrl(response.authUrl);
     }
     return response;
   },
