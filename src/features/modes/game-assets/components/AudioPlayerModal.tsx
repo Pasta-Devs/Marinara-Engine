@@ -2,7 +2,7 @@
 // File Browser — Audio player with format fallback
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { AUDIO_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
+import { AUDIO_MIME_MAP, GAME_ASSET_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
 import { resolveGameAssetFileUrl } from "../../../../shared/api/local-file-api";
 
 /**
@@ -24,7 +24,7 @@ export function AudioPlayerModal({
 }) {
   const lastDot = name.lastIndexOf(".");
   const ext = lastDot >= 0 ? name.slice(lastDot).toLowerCase() : "";
-  const mime = AUDIO_MIME_MAP[ext] || "audio/mpeg";
+  const mime = GAME_ASSET_MIME_MAP[ext] ?? AUDIO_MIME_MAP[ext] ?? "audio/mpeg";
   const [playError, setPlayError] = useState(false);
   const [src, setSrc] = useState("");
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { IMAGE_MIME_MAP } from "../../../engine/contracts/constants/game-assets";
 import { MAX_IMAGE_UPLOAD_BYTES } from "../../api/file-payload";
 import { cn } from "../../lib/utils";
 
@@ -20,7 +21,12 @@ interface ImageUploadDropzoneProps {
   maxFileSizeBytes?: number;
 }
 
-const IMAGE_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
+const UPLOAD_IMAGE_EXTENSIONS = Object.keys(IMAGE_MIME_MAP).filter((extension) => extension !== ".svg");
+const IMAGE_EXTENSION_PATTERN = new RegExp(
+  `(${UPLOAD_IMAGE_EXTENSIONS.map((extension) => extension.replace(".", "\\.")).join("|")})$`,
+  "i",
+);
+const DEFAULT_IMAGE_ACCEPT = ["image/*", ...UPLOAD_IMAGE_EXTENSIONS].join(",");
 const DEFAULT_MAX_IMAGE_FILES = 50;
 const DEFAULT_MAX_IMAGE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 
@@ -47,7 +53,7 @@ export function ImageUploadDropzone({
   pendingLabel = "Uploading...",
   dragLabel = "Drop images to upload",
   className,
-  accept = "image/*",
+  accept = DEFAULT_IMAGE_ACCEPT,
   multiple = true,
   disabled = false,
   ariaLabel,
