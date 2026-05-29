@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // TTS Service — Server-proxied audio playback
 // ──────────────────────────────────────────────
-import { ttsApi } from "../api/tts-api";
+import { ttsApi } from "../api/integration-utility-api";
 
 export type TTSState = "idle" | "loading" | "playing" | "paused" | "error";
 

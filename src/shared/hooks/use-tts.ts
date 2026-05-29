@@ -2,7 +2,7 @@
 // Hook: TTS Config & Voices
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ttsApi } from "../api/tts-api";
+import { ttsApi } from "../api/integration-utility-api";
 import type { TTSConfig, TTSSource } from "../../engine/contracts/types/tts";
 import { TTS_API_KEY_MASK } from "../../engine/contracts/types/tts";
 
