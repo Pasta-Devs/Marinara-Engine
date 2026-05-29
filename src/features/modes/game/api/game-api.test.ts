@@ -51,8 +51,9 @@ vi.mock("../../../../shared/api/integration-utility-api", () => ({
   spotifyApi: {},
 }));
 
-import { gameApi } from "./game-api";
+import { applyGameJsonRepair, gameApi } from "./game-api";
 import { llmApi } from "../../../../shared/api/llm-api";
+import { getJsonRepairRequest } from "../../../../shared/api/api-errors";
 
 function minimalSetupConfig(overrides: Partial<GameSetupConfig> = {}): GameSetupConfig {
   return {
@@ -297,6 +298,89 @@ describe("gameApi metadata mutation response contracts", () => {
     });
   });
 
+  it("surfaces invalid generated map JSON through the repair flow", async () => {
+    mockChat({
+      id: "chat-game",
+      name: "Game",
+      mode: "game",
+      characterIds: [],
+      metadata: {
+        gameSessionStatus: "active",
+      },
+    } as unknown as Chat);
+    vi.mocked(llmApi.complete).mockResolvedValueOnce("this is not json");
+
+    let thrown: unknown = null;
+    try {
+      await gameApi.generateMap({
+        chatId: "chat-game",
+        locationType: "Cave",
+        context: "Wet stone and bad echoes.",
+        connectionId: "connection-map",
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    const repair = getJsonRepairRequest(thrown);
+    expect(repair).toMatchObject({
+      kind: "game_map",
+      title: "Repair Game Map JSON",
+      rawJson: "this is not json",
+      applyEndpoint: "local://game/game_map",
+      applyBody: {
+        chatId: "chat-game",
+        locationType: "Cave",
+        context: "Wet stone and bad echoes.",
+        connectionId: "connection-map",
+      },
+    });
+  });
+
+  it("applies repaired map JSON back through map generation persistence", async () => {
+    mockChat({
+      id: "chat-game",
+      name: "Game",
+      mode: "game",
+      characterIds: [],
+      metadata: {
+        gameSessionStatus: "active",
+      },
+    } as unknown as Chat);
+
+    const result = await applyGameJsonRepair(
+      {
+        kind: "game_map",
+        title: "Repair Game Map JSON",
+        applyEndpoint: "local://game/game_map",
+        applyBody: {
+          chatId: "chat-game",
+          locationType: "Cave",
+          context: "Wet stone and bad echoes.",
+          connectionId: "connection-map",
+        },
+      },
+      JSON.stringify({
+        type: "node",
+        name: "Echo Cave",
+        description: "A repaired cave map.",
+        nodes: [{ id: "mouth", label: "Mouth", x: 50, y: 90, discovered: true }],
+        edges: [],
+        partyPosition: "mouth",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      map: {
+        id: "echo-cave",
+        type: "node",
+        name: "Echo Cave",
+        partyPosition: "mouth",
+      },
+      activeGameMapId: "echo-cave",
+    });
+  });
+
   it("normalizes generated grid maps to renderable bounds", async () => {
     mockChat({
       id: "chat-game",
@@ -360,7 +444,7 @@ describe("gameApi metadata mutation response contracts", () => {
           { id: "room", label: "Left Room", x: 25, y: 50, discovered: true },
           { id: "room", label: "Right Room", x: 75, y: 50, discovered: false },
         ],
-        edges: [{ from: "room", to: "room-2" }],
+        edges: [{ from: "room", to: "room" }],
         partyPosition: "missing",
       }),
     );

@@ -1,16 +1,16 @@
 # Graph Report - MarinaraEngine-Refactor  (2026-05-29)
 
 ## Corpus Check
-- 868 files · ~2,755,840 words
+- 868 files · ~2,757,735 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 10681 nodes · 23513 edges · 455 communities (421 shown, 34 thin omitted)
+- 10698 nodes · 23564 edges · 455 communities (420 shown, 35 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 284 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a313e83d`
+- Built from commit: `51beec3a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -426,6 +426,7 @@
 - [[_COMMUNITY_Community 426|Community 426]]
 - [[_COMMUNITY_Community 427|Community 427]]
 - [[_COMMUNITY_Community 428|Community 428]]
+- [[_COMMUNITY_Community 434|Community 434]]
 - [[_COMMUNITY_Community 435|Community 435]]
 - [[_COMMUNITY_Community 436|Community 436]]
 - [[_COMMUNITY_Community 437|Community 437]]
@@ -463,7 +464,7 @@
 - `activate_persona()` --calls--> `get_required()`  [INFERRED]
   src-tauri/src/commands/storage/characters.rs → src-tauri/src/commands/storage/shared.rs
 
-## Communities (455 total, 34 thin omitted)
+## Communities (455 total, 35 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.00
@@ -479,7 +480,7 @@ Nodes (92): ELEMENT_COLORS, ELEMENT_EMOJI, GameElementReaction(), GameElementRea
 
 ### Community 3 - "Community 3"
 Cohesion: 0.03
-Nodes (96): applyGameJsonRepair(), applyJournalEntry(), asRecord(), assetTagFromPath(), base64File(), ChatMessage, chatMeta(), defaultGameMap() (+88 more)
+Nodes (110): applyGameJsonRepair(), applyJournalEntry(), asRecord(), assetTagFromPath(), base64File(), ChatMessage, chatMeta(), clampInteger() (+102 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.03
@@ -590,8 +591,8 @@ Cohesion: 0.08
 Nodes (43): activeCharacterId(), appendMissingPositiveTags(), applyScheduleUpdate(), buildSelfiePrompt(), characterDataFromCreate(), characterDataPatch(), ConnectedCommandEvent, connectedNoteStorageChatId() (+35 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.10
-Nodes (17): gameApi, chat, payloads, previousChat, readChat, storageApiMock, warnSpy, GameSetupWizardProps (+9 more)
+Cohesion: 0.09
+Nodes (18): gameApi, chat, payloads, previousChat, readChat, repair, storageApiMock, warnSpy (+10 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.06
@@ -967,7 +968,7 @@ Nodes (7): ActiveEffect, backgroundBlurStyle(), buildVisualStyle(), COLOR_GRADE_
 
 ### Community 126 - "Community 126"
 Cohesion: 0.10
-Nodes (27): gameTrackerApi, GameTrackerSnapshot, GameTrackerSnapshotInput, roleplayTrackerApi, RoleplayTrackerSnapshot, RoleplayTrackerSnapshotInput, TrackerSnapshot, trackerSnapshotApi (+19 more)
+Nodes (29): gameTrackerApi, GameTrackerSnapshot, GameTrackerSnapshotInput, GameVisibleTrackerState, roleplayTrackerApi, RoleplayTrackerSnapshot, RoleplayTrackerSnapshotInput, RoleplayVisibleTrackerState (+21 more)
 
 ### Community 127 - "Community 127"
 Cohesion: 0.07
@@ -2024,17 +2025,17 @@ Nodes (4): merge_object_field(), now_iso(), ProjectedRowVisitor<'a>, record_id()
 ## Knowledge Gaps
 - **3241 isolated node(s):** `arrowParens`, `endOfLine`, `printWidth`, `semi`, `singleQuote` (+3236 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **35 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cn()` connect `Community 29` to `Community 1`, `Community 2`, `Community 133`, `Community 9`, `Community 137`, `Community 267`, `Community 13`, `Community 14`, `Community 15`, `Community 18`, `Community 20`, `Community 22`, `Community 151`, `Community 150`, `Community 153`, `Community 25`, `Community 24`, `Community 158`, `Community 160`, `Community 32`, `Community 34`, `Community 35`, `Community 36`, `Community 38`, `Community 169`, `Community 44`, `Community 47`, `Community 48`, `Community 49`, `Community 180`, `Community 53`, `Community 54`, `Community 58`, `Community 186`, `Community 63`, `Community 64`, `Community 65`, `Community 66`, `Community 193`, `Community 196`, `Community 197`, `Community 70`, `Community 75`, `Community 76`, `Community 77`, `Community 78`, `Community 461`, `Community 79`, `Community 210`, `Community 82`, `Community 83`, `Community 85`, `Community 213`, `Community 90`, `Community 93`, `Community 94`, `Community 95`, `Community 224`, `Community 223`, `Community 96`, `Community 101`, `Community 361`, `Community 106`, `Community 237`, `Community 378`, `Community 114`, `Community 117`, `Community 118`, `Community 122`?**
-  _High betweenness centrality (0.047) - this node is a cross-community bridge._
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
 - **Why does `useUIStore` connect `Community 9` to `Community 2`, `Community 137`, `Community 13`, `Community 14`, `Community 15`, `Community 18`, `Community 20`, `Community 22`, `Community 24`, `Community 153`, `Community 31`, `Community 32`, `Community 35`, `Community 36`, `Community 37`, `Community 39`, `Community 40`, `Community 169`, `Community 44`, `Community 48`, `Community 53`, `Community 54`, `Community 58`, `Community 186`, `Community 63`, `Community 64`, `Community 65`, `Community 66`, `Community 196`, `Community 197`, `Community 198`, `Community 76`, `Community 205`, `Community 78`, `Community 82`, `Community 213`, `Community 214`, `Community 95`, `Community 98`, `Community 101`, `Community 229`, `Community 106`, `Community 378`, `Community 240`, `Community 118`, `Community 120`, `Community 122`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Why does `storageApi` connect `Community 63` to `Community 2`, `Community 3`, `Community 13`, `Community 14`, `Community 15`, `Community 20`, `Community 153`, `Community 158`, `Community 35`, `Community 36`, `Community 164`, `Community 38`, `Community 39`, `Community 48`, `Community 53`, `Community 186`, `Community 60`, `Community 188`, `Community 64`, `Community 65`, `Community 66`, `Community 196`, `Community 197`, `Community 69`, `Community 70`, `Community 76`, `Community 82`, `Community 214`, `Community 101`, `Community 236`, `Community 109`, `Community 120`, `Community 378`, `Community 126`?**
-  _High betweenness centrality (0.011) - this node is a cross-community bridge._
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `arrowParens`, `endOfLine`, `printWidth` to the rest of the system?**
   _3274 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**

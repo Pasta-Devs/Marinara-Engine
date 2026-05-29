@@ -1130,8 +1130,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/game/components/GameMap.tsx": {
-    "mtime": 1780045450.5234544,
-    "ast_hash": "b4f4f3b316b99be9c5312ec91be941d1",
+    "mtime": 1780049231.014606,
+    "ast_hash": "dcdc4b0661a3a96b4cf428f86609e036",
     "semantic_hash": ""
   },
   "src/features/modes/game/components/GameDiceResult.tsx": {
@@ -1195,8 +1195,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/game/components/GameSurface.tsx": {
-    "mtime": 1780047106.6492388,
-    "ast_hash": "d6e88e99588af6cb10a8e3a1b760bc5b",
+    "mtime": 1780049231.0166047,
+    "ast_hash": "a99bb23aebff695bae36acbeca251bcc",
     "semantic_hash": ""
   },
   "src/features/modes/game/components/DirectionEngine.tsx": {
@@ -1215,8 +1215,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/game/hooks/use-game.ts": {
-    "mtime": 1780045450.528805,
-    "ast_hash": "979cc3c0e8dcbf89fcfea2025e960a3c",
+    "mtime": 1780049231.0171058,
+    "ast_hash": "e1f5a29cffad27fcd1bdc69f824de44e",
     "semantic_hash": ""
   },
   "src/features/modes/game/hooks/use-game-generation.ts": {
@@ -1280,18 +1280,18 @@
     "semantic_hash": ""
   },
   "src/features/modes/game/api/game-tracker-api.ts": {
-    "mtime": 1780045450.5096254,
-    "ast_hash": "a19cf5d89d069fcaad9f7df4adc0f9f6",
+    "mtime": 1780049003.5734494,
+    "ast_hash": "9d86ce0ae2f66d42e8d3cb21d6cf7682",
     "semantic_hash": ""
   },
   "src/features/modes/game/api/game-api.test.ts": {
-    "mtime": 1780047106.357043,
-    "ast_hash": "19b83e9e2a1b59246aa794fb87045834",
+    "mtime": 1780049231.0131059,
+    "ast_hash": "e7a31b0bcffddf4366fe946f7646e57f",
     "semantic_hash": ""
   },
   "src/features/modes/game/api/game-api.ts": {
-    "mtime": 1780047106.3390186,
-    "ast_hash": "49bd0a8f7e7320be2c055d285f26e7b6",
+    "mtime": 1780049231.014108,
+    "ast_hash": "fca497d71107d5332b25cd34622be936",
     "semantic_hash": ""
   },
   "src/features/modes/roleplay/index.ts": {
@@ -1350,8 +1350,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/roleplay/components/RoleplayHUD.tsx": {
-    "mtime": 1780045450.5315773,
-    "ast_hash": "14793304b208273b69408c5a7fadc344",
+    "mtime": 1780049003.576949,
+    "ast_hash": "ea2c658bd20ba0681527c4acabdabe19",
     "semantic_hash": ""
   },
   "src/features/modes/roleplay/components/ContextInjectionPanel.tsx": {
@@ -1455,8 +1455,8 @@
     "semantic_hash": ""
   },
   "src/features/modes/roleplay/api/roleplay-tracker-api.ts": {
-    "mtime": 1780045450.530255,
-    "ast_hash": "4d434ae66f803a788dae023e9e49dc14",
+    "mtime": 1780049003.575948,
+    "ast_hash": "d0976e2db8f7a5845d4704041f904388",
     "semantic_hash": ""
   },
   "src/features/modes/conversation/message-shell.ts": {
@@ -5660,8 +5660,8 @@
     "semantic_hash": ""
   },
   "graphify.scope.json": {
-    "mtime": 1780045449.8751462,
-    "ast_hash": "79e9a00efada99ec1da1958850e1bf85",
+    "mtime": 1780049003.57145,
+    "ast_hash": "f0983a4cec048da25af3b3683376ab6a",
     "semantic_hash": ""
   },
   "scripts/graphify-scope.mjs": {

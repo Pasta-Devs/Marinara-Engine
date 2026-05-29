@@ -441,10 +441,12 @@ export function useGenerateMap() {
     mutationFn: (data: { chatId: string; locationType: string; context: string; connectionId?: string }) =>
       gameApi.generateMap(data),
     onSuccess: (res, variables) => {
-      if (res.maps?.length) {
-        store.getState().setMaps(res.maps, res.activeGameMapId);
-      } else {
-        store.getState().setCurrentMap(res.map);
+      if (store.getState().activeSessionChatId === variables.chatId) {
+        if (res.maps?.length) {
+          store.getState().setMaps(res.maps, res.activeGameMapId);
+        } else {
+          store.getState().setCurrentMap(res.map);
+        }
       }
       publishSessionChat(qc, res.sessionChat);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });

@@ -4868,6 +4868,18 @@ export function GameSurface({
       if (request.kind === "session_conclusion") {
         setConfirmEndSessionOpen(false);
       }
+      if (request.kind === "game_map" && targetChatId === useGameModeStore.getState().activeSessionChatId) {
+        const maps = Array.isArray(response.maps) ? (response.maps as GameMap[]) : null;
+        const map = response.map && typeof response.map === "object" ? (response.map as GameMap) : null;
+        const activeGameMapId =
+          typeof response.activeGameMapId === "string" ? response.activeGameMapId : (map?.id ?? null);
+        if (maps?.length) {
+          useGameModeStore.getState().setMaps(maps, activeGameMapId);
+        } else if (map) {
+          useGameModeStore.getState().setCurrentMap(map);
+        }
+        setViewedMapId(null);
+      }
       setJsonRepairRequest(null);
     },
     [activeChatId, gameId, queryClient],
@@ -6796,8 +6808,11 @@ export function GameSurface({
         connectionId: connectionId ?? undefined,
       },
       {
-        onSuccess: () => setViewedMapId(null),
+        onSuccess: () => {
+          if (useChatStore.getState().activeChatId === activeChatId) setViewedMapId(null);
+        },
         onError: (error) => {
+          if (handleJsonRepairError(error)) return;
           toast.error(error instanceof Error ? error.message : "Failed to generate map.");
         },
       },
@@ -6812,6 +6827,7 @@ export function GameSurface({
     gameSnapshot?.weather,
     generateMap,
     generateMap.isPending,
+    handleJsonRepairError,
     isStreaming,
     latestNarrationText,
     sessionInteractive,

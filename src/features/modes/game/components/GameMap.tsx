@@ -514,7 +514,7 @@ export function GameMapPanel({
         {onGenerateMap && (
           <button
             onClick={onGenerateMap}
-            disabled={disabled}
+            disabled={disabled || generateMapDisabled}
             className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-2 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50"
           >
             <Wand2 size={10} />
@@ -834,7 +834,7 @@ export function MobileMapButton({
                         onGenerateMap();
                         setOpen(false);
                       }}
-                      disabled={disabled}
+                      disabled={disabled || generateMapDisabled}
                       className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Wand2 size={12} />

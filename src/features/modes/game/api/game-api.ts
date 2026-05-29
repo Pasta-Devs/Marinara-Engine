@@ -196,7 +196,7 @@ type PromptOverride = {
   prompt?: string;
 };
 
-type GameJsonRepairKind = "game_setup" | "session_conclusion" | "session_lorebook" | "campaign_progression";
+type GameJsonRepairKind = "game_setup" | "game_map" | "session_conclusion" | "session_lorebook" | "campaign_progression";
 
 type GameJsonRepairContext = {
   kind: GameJsonRepairKind;
@@ -394,6 +394,11 @@ function readOptionalString(record: Record<string, unknown>, key: string): strin
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+type GeneratedMapNodeNormalization = {
+  rawId: string | null;
+  node: NonNullable<GameMap["nodes"]>[number];
+};
+
 function readNumber(value: unknown, fallback: number): number {
   if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return fallback;
   const parsed = typeof value === "number" ? value : Number(value.trim());
@@ -444,27 +449,54 @@ function normalizeGeneratedMapNode(
   value: unknown,
   index: number,
   usedIds: Set<string>,
-): NonNullable<GameMap["nodes"]>[number] | null {
+): GeneratedMapNodeNormalization | null {
   const record = asRecord(value);
   const label = readOptionalString(record, "label") ?? readOptionalString(record, "name") ?? `Area ${index + 1}`;
-  const id = uniqueGeneratedNodeId(readOptionalString(record, "id") ?? generatedAssetSlug(label), usedIds);
+  const rawId = readOptionalString(record, "id") ?? generatedAssetSlug(label);
+  const id = uniqueGeneratedNodeId(rawId, usedIds);
   if (!id) return null;
   return {
-    id,
-    emoji: readOptionalString(record, "emoji") ?? "",
-    label,
-    x: clampPercent(record.x, 50),
-    y: clampPercent(record.y, 50),
-    discovered: record.discovered !== false,
-    ...(readOptionalString(record, "description") ? { description: readOptionalString(record, "description")! } : {}),
+    rawId,
+    node: {
+      id,
+      emoji: readOptionalString(record, "emoji") ?? "",
+      label,
+      x: clampPercent(record.x, 50),
+      y: clampPercent(record.y, 50),
+      discovered: record.discovered !== false,
+      ...(readOptionalString(record, "description") ? { description: readOptionalString(record, "description")! } : {}),
+    },
   };
 }
 
-function normalizeGeneratedMapEdge(value: unknown, knownNodeIds: Set<string>): NonNullable<GameMap["edges"]>[number] | null {
+function resolveGeneratedNodeReference(
+  rawId: string | null,
+  knownNodeIds: Set<string>,
+  normalizedIdsByRawId: Map<string, string[]>,
+): string | null {
+  if (!rawId) return null;
+  if (knownNodeIds.has(rawId)) return rawId;
+  return normalizedIdsByRawId.get(rawId)?.[0] ?? null;
+}
+
+function normalizeGeneratedMapEdge(
+  value: unknown,
+  knownNodeIds: Set<string>,
+  normalizedIdsByRawId: Map<string, string[]>,
+): NonNullable<GameMap["edges"]>[number] | null {
   const record = asRecord(value);
-  const from = readOptionalString(record, "from");
-  const to = readOptionalString(record, "to");
-  if (!from || !to || !knownNodeIds.has(from) || !knownNodeIds.has(to)) return null;
+  const rawFrom = readOptionalString(record, "from");
+  const rawTo = readOptionalString(record, "to");
+  const duplicateAliases = rawFrom && rawFrom === rawTo ? normalizedIdsByRawId.get(rawFrom) : null;
+  const from =
+    duplicateAliases && duplicateAliases.length > 1
+      ? duplicateAliases[0]!
+      : resolveGeneratedNodeReference(rawFrom, knownNodeIds, normalizedIdsByRawId);
+  const to =
+    duplicateAliases && duplicateAliases.length > 1
+      ? duplicateAliases[1]!
+      : resolveGeneratedNodeReference(rawTo, knownNodeIds, normalizedIdsByRawId);
+  if (!from || !to || from === to) return null;
   return {
     from,
     to,
@@ -527,18 +559,24 @@ function normalizeGeneratedMap(raw: unknown, fallback: GameMap): GameMap | null 
     };
   }
   const usedNodeIds = new Set<string>();
-  const nodes = Array.isArray(record.nodes)
+  const nodeEntries = Array.isArray(record.nodes)
     ? record.nodes
         .slice(0, 80)
         .map((node, index) => normalizeGeneratedMapNode(node, index, usedNodeIds))
-        .filter((node): node is NonNullable<GameMap["nodes"]>[number] => !!node)
+        .filter((entry): entry is GeneratedMapNodeNormalization => !!entry)
     : [];
+  const nodes = nodeEntries.map((entry) => entry.node);
   if (nodes.length === 0) return null;
   const knownNodeIds = new Set(nodes.map((node) => node.id));
+  const normalizedIdsByRawId = new Map<string, string[]>();
+  for (const entry of nodeEntries) {
+    if (!entry.rawId) continue;
+    normalizedIdsByRawId.set(entry.rawId, [...(normalizedIdsByRawId.get(entry.rawId) ?? []), entry.node.id]);
+  }
   const edges = Array.isArray(record.edges)
     ? record.edges
         .slice(0, 160)
-        .map((edge) => normalizeGeneratedMapEdge(edge, knownNodeIds))
+        .map((edge) => normalizeGeneratedMapEdge(edge, knownNodeIds, normalizedIdsByRawId))
         .filter((edge): edge is NonNullable<GameMap["edges"]>[number] => !!edge)
     : [];
   const partyPosition =
@@ -552,6 +590,40 @@ function normalizeGeneratedMap(raw: unknown, fallback: GameMap): GameMap | null 
     edges,
     partyPosition,
   };
+}
+
+function gameMapJsonRepairContext(data: {
+  chatId: string;
+  locationType: string;
+  context: string;
+  connectionId?: string | null;
+}): GameJsonRepairContext {
+  return {
+    kind: "game_map",
+    title: "Repair Game Map JSON",
+    applyBody: {
+      chatId: data.chatId,
+      locationType: data.locationType,
+      context: data.context,
+      connectionId: data.connectionId,
+    },
+  };
+}
+
+function mapJsonCouldNotApplyError(
+  generated: Record<string, unknown>,
+  data: { chatId: string; locationType: string; context: string; connectionId?: string | null },
+): ApiError {
+  const repair = gameMapJsonRepairContext(data);
+  return new ApiError("The model returned map JSON that needs review before it can be applied.", 422, {
+    jsonRepair: {
+      kind: repair.kind,
+      title: repair.title,
+      rawJson: JSON.stringify(generated, null, 2),
+      applyEndpoint: `local://game/${repair.kind}`,
+      applyBody: repair.applyBody,
+    },
+  });
 }
 
 function setupNpcsFromResponse(setup: Record<string, unknown>): GameNpc[] {
@@ -1645,19 +1717,29 @@ export const gameApi = {
     return { previousState, newState, sessionChat };
   },
 
-  async generateMap(data: { chatId: string; locationType: string; context: string; connectionId?: string | null }): Promise<MapResponse> {
+  async generateMap(data: {
+    chatId: string;
+    locationType: string;
+    context: string;
+    connectionId?: string | null;
+    generated?: Record<string, unknown>;
+  }): Promise<MapResponse> {
     const fallbackMap = defaultGameMap(data.locationType || "Area", data.context || "");
     let map = fallbackMap;
-    if (data.connectionId) {
-      const generated = await llmJson({
-        connectionId: data.connectionId,
-        fallback: fallbackMap as unknown as Record<string, unknown>,
-        system: "You generate compact RPG map JSON for Marinara Engine Game mode.",
-        user: buildMapGenerationPrompt(data.locationType || "Area", data.context || ""),
-      });
+    if (data.generated || data.connectionId) {
+      const generated =
+        data.generated ??
+        (await llmJson({
+          connectionId: data.connectionId,
+          fallback: fallbackMap as unknown as Record<string, unknown>,
+          system: "You generate compact RPG map JSON for Marinara Engine Game mode.",
+          user: buildMapGenerationPrompt(data.locationType || "Area", data.context || ""),
+          repair: gameMapJsonRepairContext(data),
+        }));
       const normalizedMap = normalizeGeneratedMap(generated, fallbackMap);
       if (!normalizedMap) {
-        throw new Error("The model returned a map JSON object that could not be applied.");
+        if (data.generated) throw new Error("The repaired map JSON object could not be applied.");
+        throw mapJsonCouldNotApplyError(generated, data);
       }
       map = normalizedMap;
     }
@@ -2235,6 +2317,14 @@ export async function applyGameJsonRepair(request: JsonRepairRequest, rawJson: s
         preferences: typeof body.preferences === "string" ? body.preferences : "",
         setupConfig: isGameSetupConfig(body.setupConfig) ? body.setupConfig : undefined,
         setup: repaired,
+      });
+    case "game_map":
+      return gameApi.generateMap({
+        chatId,
+        connectionId,
+        locationType: typeof body.locationType === "string" ? body.locationType : "Area",
+        context: typeof body.context === "string" ? body.context : "",
+        generated: repaired,
       });
     case "session_conclusion":
       return gameApi.concludeSession({

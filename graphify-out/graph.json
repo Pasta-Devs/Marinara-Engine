@@ -43774,7 +43774,7 @@
       "label": "useMoveOnMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L455",
+      "source_location": "L457",
       "id": "hooks_use_game_usemoveonmap",
       "community": 106,
       "norm_label": "usemoveonmap()"
@@ -43783,7 +43783,7 @@
       "label": "useUpdateGameWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L475",
+      "source_location": "L477",
       "id": "hooks_use_game_useupdategamewidgets",
       "community": 77,
       "norm_label": "useupdategamewidgets()"
@@ -43792,7 +43792,7 @@
       "label": "useGameSessions()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L494",
+      "source_location": "L496",
       "id": "hooks_use_game_usegamesessions",
       "community": 106,
       "norm_label": "usegamesessions()"
@@ -43801,7 +43801,7 @@
       "label": "isNumericHudWidgetType()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L505",
+      "source_location": "L507",
       "id": "hooks_use_game_isnumerichudwidgettype",
       "community": 106,
       "norm_label": "isnumerichudwidgettype()"
@@ -43810,7 +43810,7 @@
       "label": "finiteNumber()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L509",
+      "source_location": "L511",
       "id": "hooks_use_game_finitenumber",
       "community": 106,
       "norm_label": "finitenumber()"
@@ -43819,7 +43819,7 @@
       "label": "normalizeHudWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L514",
+      "source_location": "L516",
       "id": "hooks_use_game_normalizehudwidgets",
       "community": 106,
       "norm_label": "normalizehudwidgets()"
@@ -43828,7 +43828,7 @@
       "label": "useSyncGameState()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L552",
+      "source_location": "L554",
       "id": "hooks_use_game_usesyncgamestate",
       "community": 106,
       "norm_label": "usesyncgamestate()"
@@ -43837,7 +43837,7 @@
       "label": "useCombatRound()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L632",
+      "source_location": "L634",
       "id": "hooks_use_game_usecombatround",
       "community": 47,
       "norm_label": "usecombatround()"
@@ -43846,7 +43846,7 @@
       "label": "useCombatLoot()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L644",
+      "source_location": "L646",
       "id": "hooks_use_game_usecombatloot",
       "community": 106,
       "norm_label": "usecombatloot()"
@@ -43855,7 +43855,7 @@
       "label": "useLootGenerate()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L658",
+      "source_location": "L660",
       "id": "hooks_use_game_uselootgenerate",
       "community": 106,
       "norm_label": "uselootgenerate()"
@@ -43864,7 +43864,7 @@
       "label": "useAdvanceTime()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L665",
+      "source_location": "L667",
       "id": "hooks_use_game_useadvancetime",
       "community": 106,
       "norm_label": "useadvancetime()"
@@ -43873,7 +43873,7 @@
       "label": "useUpdateWeather()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L687",
+      "source_location": "L689",
       "id": "hooks_use_game_useupdateweather",
       "community": 106,
       "norm_label": "useupdateweather()"
@@ -43882,7 +43882,7 @@
       "label": "useRollEncounter()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L710",
+      "source_location": "L712",
       "id": "hooks_use_game_userollencounter",
       "community": 106,
       "norm_label": "userollencounter()"
@@ -43891,7 +43891,7 @@
       "label": "useUpdateReputation()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L717",
+      "source_location": "L719",
       "id": "hooks_use_game_useupdatereputation",
       "community": 106,
       "norm_label": "useupdatereputation()"
@@ -43900,7 +43900,7 @@
       "label": "useJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L732",
+      "source_location": "L734",
       "id": "hooks_use_game_usejournalentry",
       "community": 106,
       "norm_label": "usejournalentry()"
@@ -43909,7 +43909,7 @@
       "label": "useGameJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L744",
+      "source_location": "L746",
       "id": "hooks_use_game_usegamejournal",
       "community": 106,
       "norm_label": "usegamejournal()"
@@ -43918,7 +43918,7 @@
       "label": "useGameCheckpoints()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L755",
+      "source_location": "L757",
       "id": "hooks_use_game_usegamecheckpoints",
       "community": 106,
       "norm_label": "usegamecheckpoints()"
@@ -43927,7 +43927,7 @@
       "label": "useCreateCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L764",
+      "source_location": "L766",
       "id": "hooks_use_game_usecreatecheckpoint",
       "community": 106,
       "norm_label": "usecreatecheckpoint()"
@@ -43936,7 +43936,7 @@
       "label": "useLoadCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L771",
+      "source_location": "L773",
       "id": "hooks_use_game_useloadcheckpoint",
       "community": 106,
       "norm_label": "useloadcheckpoint()"
@@ -43945,7 +43945,7 @@
       "label": "useDeleteCheckpoint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/hooks/use-game.ts",
-      "source_location": "L778",
+      "source_location": "L780",
       "id": "hooks_use_game_usedeletecheckpoint",
       "community": 106,
       "norm_label": "usedeletecheckpoint()"
@@ -45133,7 +45133,7 @@
       "label": "GameTrackerSnapshot",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-tracker-api.ts",
-      "source_location": "L8",
+      "source_location": "L9",
       "id": "api_game_tracker_api_gametrackersnapshot",
       "community": 126,
       "norm_label": "gametrackersnapshot"
@@ -45142,7 +45142,7 @@
       "label": "GameTrackerSnapshotInput",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-tracker-api.ts",
-      "source_location": "L9",
+      "source_location": "L10",
       "id": "api_game_tracker_api_gametrackersnapshotinput",
       "community": 126,
       "norm_label": "gametrackersnapshotinput"
@@ -45151,7 +45151,7 @@
       "label": "gameTrackerApi",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-tracker-api.ts",
-      "source_location": "L11",
+      "source_location": "L13",
       "id": "api_game_tracker_api_gametrackerapi",
       "community": 126,
       "norm_label": "gametrackerapi"
@@ -45178,7 +45178,7 @@
       "label": "minimalSetupConfig()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L57",
+      "source_location": "L58",
       "id": "api_game_api_test_minimalsetupconfig",
       "community": 31,
       "norm_label": "minimalsetupconfig()"
@@ -45187,7 +45187,7 @@
       "label": "chatCreateCalls()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L71",
+      "source_location": "L72",
       "id": "api_game_api_test_chatcreatecalls",
       "community": 31,
       "norm_label": "chatcreatecalls()"
@@ -45196,7 +45196,7 @@
       "label": "payloads",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L93",
+      "source_location": "L94",
       "id": "api_game_api_test_payloads",
       "community": 31,
       "norm_label": "payloads"
@@ -45205,7 +45205,7 @@
       "label": "chat",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L116",
+      "source_location": "L117",
       "id": "api_game_api_test_chat",
       "community": 31,
       "norm_label": "chat"
@@ -45214,7 +45214,7 @@
       "label": "mockChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L158",
+      "source_location": "L160",
       "id": "api_game_api_test_mockchat",
       "community": 31,
       "norm_label": "mockchat()"
@@ -45223,7 +45223,7 @@
       "label": "readChat",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L184",
+      "source_location": "L186",
       "id": "api_game_api_test_readchat",
       "community": 31,
       "norm_label": "readchat"
@@ -45232,7 +45232,7 @@
       "label": "previousChat",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L243",
+      "source_location": "L481",
       "id": "api_game_api_test_previouschat",
       "community": 31,
       "norm_label": "previouschat"
@@ -45241,7 +45241,7 @@
       "label": "mockPartyChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L340",
+      "source_location": "L578",
       "id": "api_game_api_test_mockpartychat",
       "community": 31,
       "norm_label": "mockpartychat()"
@@ -45250,7 +45250,7 @@
       "label": "warnSpy",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.test.ts",
-      "source_location": "L458",
+      "source_location": "L696",
       "id": "api_game_api_test_warnspy",
       "community": 31,
       "norm_label": "warnspy"
@@ -45268,7 +45268,7 @@
       "label": "CreateGameResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L83",
+      "source_location": "L84",
       "id": "api_game_api_creategameresponse",
       "community": 38,
       "norm_label": "creategameresponse"
@@ -45277,7 +45277,7 @@
       "label": "SetupResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L88",
+      "source_location": "L89",
       "id": "api_game_api_setupresponse",
       "community": 38,
       "norm_label": "setupresponse"
@@ -45286,7 +45286,7 @@
       "label": "StartGameResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L94",
+      "source_location": "L95",
       "id": "api_game_api_startgameresponse",
       "community": 38,
       "norm_label": "startgameresponse"
@@ -45295,7 +45295,7 @@
       "label": "StartSessionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L100",
+      "source_location": "L101",
       "id": "api_game_api_startsessionresponse",
       "community": 38,
       "norm_label": "startsessionresponse"
@@ -45304,7 +45304,7 @@
       "label": "SessionSummaryResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L106",
+      "source_location": "L107",
       "id": "api_game_api_sessionsummaryresponse",
       "community": 135,
       "norm_label": "sessionsummaryresponse"
@@ -45313,7 +45313,7 @@
       "label": "RegenerateSessionLorebookResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L111",
+      "source_location": "L112",
       "id": "api_game_api_regeneratesessionlorebookresponse",
       "community": 38,
       "norm_label": "regeneratesessionlorebookresponse"
@@ -45322,7 +45322,7 @@
       "label": "UpdateCampaignProgressionResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L118",
+      "source_location": "L119",
       "id": "api_game_api_updatecampaignprogressionresponse",
       "community": 38,
       "norm_label": "updatecampaignprogressionresponse"
@@ -45331,7 +45331,7 @@
       "label": "PartyCardResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L128",
+      "source_location": "L129",
       "id": "api_game_api_partycardresponse",
       "community": 38,
       "norm_label": "partycardresponse"
@@ -45340,7 +45340,7 @@
       "label": "MapResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L137",
+      "source_location": "L138",
       "id": "api_game_api_mapresponse",
       "community": 79,
       "norm_label": "mapresponse"
@@ -45349,7 +45349,7 @@
       "label": "GameJournalResponse",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L144",
+      "source_location": "L145",
       "id": "api_game_api_gamejournalresponse",
       "community": 3,
       "norm_label": "gamejournalresponse"
@@ -45358,7 +45358,7 @@
       "label": "GameImagePromptReviewItem",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L150",
+      "source_location": "L151",
       "id": "api_game_api_gameimagepromptreviewitem",
       "community": 3,
       "norm_label": "gameimagepromptreviewitem"
@@ -45367,7 +45367,7 @@
       "label": "GameAssetGenerationResult",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L159",
+      "source_location": "L160",
       "id": "api_game_api_gameassetgenerationresult",
       "community": 38,
       "norm_label": "gameassetgenerationresult"
@@ -45376,7 +45376,7 @@
       "label": "ImagePromptSettings",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L167",
+      "source_location": "L168",
       "id": "api_game_api_imagepromptsettings",
       "community": 3,
       "norm_label": "imagepromptsettings"
@@ -45385,7 +45385,7 @@
       "label": "GameAssetGenerationPayload",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L172",
+      "source_location": "L173",
       "id": "api_game_api_gameassetgenerationpayload",
       "community": 3,
       "norm_label": "gameassetgenerationpayload"
@@ -45394,7 +45394,7 @@
       "label": "ChatMessage",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L186",
+      "source_location": "L187",
       "id": "api_game_api_chatmessage",
       "community": 3,
       "norm_label": "chatmessage"
@@ -45403,7 +45403,7 @@
       "label": "PromptOverride",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L193",
+      "source_location": "L194",
       "id": "api_game_api_promptoverride",
       "community": 3,
       "norm_label": "promptoverride"
@@ -45412,7 +45412,7 @@
       "label": "GameJsonRepairKind",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L198",
+      "source_location": "L199",
       "id": "api_game_api_gamejsonrepairkind",
       "community": 3,
       "norm_label": "gamejsonrepairkind"
@@ -45421,7 +45421,7 @@
       "label": "GameJsonRepairContext",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L200",
+      "source_location": "L201",
       "id": "api_game_api_gamejsonrepaircontext",
       "community": 3,
       "norm_label": "gamejsonrepaircontext"
@@ -45430,7 +45430,7 @@
       "label": "EMPTY_JOURNAL",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L206",
+      "source_location": "L207",
       "id": "api_game_api_empty_journal",
       "community": 3,
       "norm_label": "empty_journal"
@@ -45439,7 +45439,7 @@
       "label": "newId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L208",
+      "source_location": "L209",
       "id": "api_game_api_newid",
       "community": 3,
       "norm_label": "newid()"
@@ -45448,7 +45448,7 @@
       "label": "nowIso()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L216",
+      "source_location": "L217",
       "id": "api_game_api_nowiso",
       "community": 3,
       "norm_label": "nowiso()"
@@ -45457,7 +45457,7 @@
       "label": "asRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L220",
+      "source_location": "L221",
       "id": "api_game_api_asrecord",
       "community": 3,
       "norm_label": "asrecord()"
@@ -45466,7 +45466,7 @@
       "label": "chatMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L232",
+      "source_location": "L233",
       "id": "api_game_api_chatmeta",
       "community": 3,
       "norm_label": "chatmeta()"
@@ -45475,7 +45475,7 @@
       "label": "discordWebhookUrl()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L236",
+      "source_location": "L237",
       "id": "api_game_api_discordwebhookurl",
       "community": 3,
       "norm_label": "discordwebhookurl()"
@@ -45484,7 +45484,7 @@
       "label": "mirrorGameMessageToDiscord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L240",
+      "source_location": "L241",
       "id": "api_game_api_mirrorgamemessagetodiscord",
       "community": 3,
       "norm_label": "mirrorgamemessagetodiscord()"
@@ -45493,7 +45493,7 @@
       "label": "getChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L253",
+      "source_location": "L254",
       "id": "api_game_api_getchat",
       "community": 3,
       "norm_label": "getchat()"
@@ -45502,7 +45502,7 @@
       "label": "patchChatMetadata()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L259",
+      "source_location": "L260",
       "id": "api_game_api_patchchatmetadata",
       "community": 3,
       "norm_label": "patchchatmetadata()"
@@ -45511,7 +45511,7 @@
       "label": "patchChat()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L264",
+      "source_location": "L265",
       "id": "api_game_api_patchchat",
       "community": 3,
       "norm_label": "patchchat()"
@@ -45520,7 +45520,7 @@
       "label": "listMessages()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L268",
+      "source_location": "L269",
       "id": "api_game_api_listmessages",
       "community": 3,
       "norm_label": "listmessages()"
@@ -45529,7 +45529,7 @@
       "label": "createChatRecord()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L272",
+      "source_location": "L273",
       "id": "api_game_api_createchatrecord",
       "community": 3,
       "norm_label": "createchatrecord()"
@@ -45538,7 +45538,7 @@
       "label": "createChatMessage()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L276",
+      "source_location": "L277",
       "id": "api_game_api_createchatmessage",
       "community": 3,
       "norm_label": "createchatmessage()"
@@ -45547,7 +45547,7 @@
       "label": "parseJsonObject()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L280",
+      "source_location": "L281",
       "id": "api_game_api_parsejsonobject",
       "community": 3,
       "norm_label": "parsejsonobject()"
@@ -45556,7 +45556,7 @@
       "label": "fallbackGameBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L303",
+      "source_location": "L304",
       "id": "api_game_api_fallbackgameblueprint",
       "community": 3,
       "norm_label": "fallbackgameblueprint()"
@@ -45565,7 +45565,7 @@
       "label": "defaultGameMap()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L323",
+      "source_location": "L324",
       "id": "api_game_api_defaultgamemap",
       "community": 3,
       "norm_label": "defaultgamemap()"
@@ -45574,7 +45574,7 @@
       "label": "setupMapFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L346",
+      "source_location": "L347",
       "id": "api_game_api_setupmapfromresponse",
       "community": 3,
       "norm_label": "setupmapfromresponse()"
@@ -45583,7 +45583,7 @@
       "label": "setupNpcsFromResponse()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L391",
+      "source_location": "L629",
       "id": "api_game_api_setupnpcsfromresponse",
       "community": 3,
       "norm_label": "setupnpcsfromresponse()"
@@ -45592,7 +45592,7 @@
       "label": "setupCharacterCards()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L410",
+      "source_location": "L648",
       "id": "api_game_api_setupcharactercards",
       "community": 3,
       "norm_label": "setupcharactercards()"
@@ -45601,7 +45601,7 @@
       "label": "setupBlueprint()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L414",
+      "source_location": "L652",
       "id": "api_game_api_setupblueprint",
       "community": 3,
       "norm_label": "setupblueprint()"
@@ -45610,7 +45610,7 @@
       "label": "gameTimeFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L430",
+      "source_location": "L668",
       "id": "api_game_api_gametimefrommeta",
       "community": 3,
       "norm_label": "gametimefrommeta()"
@@ -45619,7 +45619,7 @@
       "label": "moraleFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L442",
+      "source_location": "L680",
       "id": "api_game_api_moralefrommeta",
       "community": 3,
       "norm_label": "moralefrommeta()"
@@ -45628,7 +45628,7 @@
       "label": "syncMoraleWidgets()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L448",
+      "source_location": "L686",
       "id": "api_game_api_syncmoralewidgets",
       "community": 3,
       "norm_label": "syncmoralewidgets()"
@@ -45637,7 +45637,7 @@
       "label": "moraleMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L466",
+      "source_location": "L704",
       "id": "api_game_api_moralemetadatapatch",
       "community": 3,
       "norm_label": "moralemetadatapatch()"
@@ -45646,7 +45646,7 @@
       "label": "journalFromMeta()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L484",
+      "source_location": "L722",
       "id": "api_game_api_journalfrommeta",
       "community": 3,
       "norm_label": "journalfrommeta()"
@@ -45655,7 +45655,7 @@
       "label": "isGameSetupConfig()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L495",
+      "source_location": "L733",
       "id": "api_game_api_isgamesetupconfig",
       "community": 3,
       "norm_label": "isgamesetupconfig()"
@@ -45664,7 +45664,7 @@
       "label": "gameSetupChatPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L502",
+      "source_location": "L740",
       "id": "api_game_api_gamesetupchatpatch",
       "community": 3,
       "norm_label": "gamesetupchatpatch()"
@@ -45673,7 +45673,7 @@
       "label": "gameSetupMetadataPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L513",
+      "source_location": "L751",
       "id": "api_game_api_gamesetupmetadatapatch",
       "community": 3,
       "norm_label": "gamesetupmetadatapatch()"
@@ -45682,7 +45682,7 @@
       "label": "sessionSummary()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L533",
+      "source_location": "L771",
       "id": "api_game_api_sessionsummary",
       "community": 3,
       "norm_label": "sessionsummary()"
@@ -45691,7 +45691,7 @@
       "label": "normalizeSessionSummaryPayload()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L544",
+      "source_location": "L782",
       "id": "api_game_api_normalizesessionsummarypayload",
       "community": 3,
       "norm_label": "normalizesessionsummarypayload()"
@@ -45700,7 +45700,7 @@
       "label": "normalizeSessionSummaryTextList()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L584",
+      "source_location": "L822",
       "id": "api_game_api_normalizesessionsummarytextlist",
       "community": 3,
       "norm_label": "normalizesessionsummarytextlist()"
@@ -45709,7 +45709,7 @@
       "label": "gameCardName()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L590",
+      "source_location": "L828",
       "id": "api_game_api_gamecardname",
       "community": 3,
       "norm_label": "gamecardname()"
@@ -45718,7 +45718,7 @@
       "label": "gameCardPromptText()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L630",
+      "source_location": "L868",
       "id": "api_game_api_gamecardprompttext",
       "community": 3,
       "norm_label": "gamecardprompttext()"
@@ -45727,7 +45727,7 @@
       "label": "gameSessionSortValue()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L646",
+      "source_location": "L884",
       "id": "api_game_api_gamesessionsortvalue",
       "community": 3,
       "norm_label": "gamesessionsortvalue()"
@@ -45736,7 +45736,7 @@
       "label": "gameCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L652",
+      "source_location": "L890",
       "id": "api_game_api_gamecarryoverpatch",
       "community": 3,
       "norm_label": "gamecarryoverpatch()"
@@ -45745,7 +45745,7 @@
       "label": "gameStateCarryoverPatch()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L685",
+      "source_location": "L923",
       "id": "api_game_api_gamestatecarryoverpatch",
       "community": 3,
       "norm_label": "gamestatecarryoverpatch()"
@@ -45754,7 +45754,7 @@
       "label": "normalizeJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L699",
+      "source_location": "L937",
       "id": "api_game_api_normalizejournalentry",
       "community": 3,
       "norm_label": "normalizejournalentry()"
@@ -45763,7 +45763,7 @@
       "label": "applyJournalEntry()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L726",
+      "source_location": "L964",
       "id": "api_game_api_applyjournalentry",
       "community": 3,
       "norm_label": "applyjournalentry()"
@@ -45772,7 +45772,7 @@
       "label": "buildGameCard()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L759",
+      "source_location": "L997",
       "id": "api_game_api_buildgamecard",
       "community": 3,
       "norm_label": "buildgamecard()"
@@ -45781,7 +45781,7 @@
       "label": "playerAttributes()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L782",
+      "source_location": "L1020",
       "id": "api_game_api_playerattributes",
       "community": 3,
       "norm_label": "playerattributes()"
@@ -45790,7 +45790,7 @@
       "label": "generatedAssetSlug()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L789",
+      "source_location": "L1027",
       "id": "api_game_api_generatedassetslug",
       "community": 3,
       "norm_label": "generatedassetslug()"
@@ -45799,7 +45799,7 @@
       "label": "imageReviewId()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L799",
+      "source_location": "L1037",
       "id": "api_game_api_imagereviewid",
       "community": 3,
       "norm_label": "imagereviewid()"
@@ -45808,7 +45808,7 @@
       "label": "imageSize()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L809",
+      "source_location": "L1047",
       "id": "api_game_api_imagesize",
       "community": 3,
       "norm_label": "imagesize()"
@@ -45817,7 +45817,7 @@
       "label": "joinedImageTags()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L828",
+      "source_location": "L1066",
       "id": "api_game_api_joinedimagetags",
       "community": 3,
       "norm_label": "joinedimagetags()"
@@ -45826,7 +45826,7 @@
       "label": "sceneAssetPrompt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L842",
+      "source_location": "L1080",
       "id": "api_game_api_sceneassetprompt",
       "community": 3,
       "norm_label": "sceneassetprompt()"
@@ -45835,7 +45835,7 @@
       "label": "assetTagFromPath()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L897",
+      "source_location": "L1135",
       "id": "api_game_api_assettagfrompath",
       "community": 3,
       "norm_label": "assettagfrompath()"
@@ -45844,7 +45844,7 @@
       "label": "imageExt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L901",
+      "source_location": "L1139",
       "id": "api_game_api_imageext",
       "community": 3,
       "norm_label": "imageext()"
@@ -45853,7 +45853,7 @@
       "label": "base64File()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L907",
+      "source_location": "L1145",
       "id": "api_game_api_base64file",
       "community": 3,
       "norm_label": "base64file()"
@@ -45862,7 +45862,7 @@
       "label": "uploadGeneratedAsset()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L914",
+      "source_location": "L1152",
       "id": "api_game_api_uploadgeneratedasset",
       "community": 3,
       "norm_label": "uploadgeneratedasset()"
@@ -45871,7 +45871,7 @@
       "label": "spotifyQuery()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L931",
+      "source_location": "L1169",
       "id": "api_game_api_spotifyquery",
       "community": 3,
       "norm_label": "spotifyquery()"
@@ -45880,7 +45880,7 @@
       "label": "recentSpotifyTracks()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L942",
+      "source_location": "L1180",
       "id": "api_game_api_recentspotifytracks",
       "community": 3,
       "norm_label": "recentspotifytracks()"
@@ -45889,7 +45889,7 @@
       "label": "llmJson()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L951",
+      "source_location": "L1189",
       "id": "api_game_api_llmjson",
       "community": 3,
       "norm_label": "llmjson()"
@@ -45898,7 +45898,7 @@
       "label": "sessionTranscript()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L984",
+      "source_location": "L1222",
       "id": "api_game_api_sessiontranscript",
       "community": 3,
       "norm_label": "sessiontranscript()"
@@ -45907,7 +45907,7 @@
       "label": "gameApi",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L992",
+      "source_location": "L1230",
       "id": "api_game_api_gameapi",
       "community": 31,
       "norm_label": "gameapi"
@@ -45916,7 +45916,7 @@
       "label": "applyGameJsonRepair()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L2035",
+      "source_location": "L2300",
       "id": "api_game_api_applygamejsonrepair",
       "community": 3,
       "norm_label": "applygamejsonrepair()"
@@ -45925,7 +45925,7 @@
       "label": "getEmptyJournal()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L2082",
+      "source_location": "L2355",
       "id": "api_game_api_getemptyjournal",
       "community": 3,
       "norm_label": "getemptyjournal()"
@@ -47617,7 +47617,7 @@
       "label": "RoleplayTrackerSnapshot",
       "file_type": "code",
       "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
-      "source_location": "L8",
+      "source_location": "L9",
       "id": "api_roleplay_tracker_api_roleplaytrackersnapshot",
       "community": 126,
       "norm_label": "roleplaytrackersnapshot"
@@ -47626,7 +47626,7 @@
       "label": "RoleplayTrackerSnapshotInput",
       "file_type": "code",
       "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
-      "source_location": "L9",
+      "source_location": "L10",
       "id": "api_roleplay_tracker_api_roleplaytrackersnapshotinput",
       "community": 126,
       "norm_label": "roleplaytrackersnapshotinput"
@@ -47635,7 +47635,7 @@
       "label": "roleplayTrackerApi",
       "file_type": "code",
       "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
-      "source_location": "L11",
+      "source_location": "L13",
       "id": "api_roleplay_tracker_api_roleplaytrackerapi",
       "community": 126,
       "norm_label": "roleplaytrackerapi"
@@ -96091,7 +96091,7 @@
       "label": "gameCardRpgStatsPrompt()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L601",
+      "source_location": "L839",
       "id": "api_game_api_gamecardrpgstatsprompt",
       "community": 3,
       "norm_label": "gamecardrpgstatsprompt()"
@@ -96100,7 +96100,7 @@
       "label": "gameCardTextList()",
       "file_type": "code",
       "source_file": "src/features/modes/game/api/game-api.ts",
-      "source_location": "L595",
+      "source_location": "L833",
       "id": "api_game_api_gamecardtextlist",
       "community": 3,
       "norm_label": "gamecardtextlist()"
@@ -96131,6 +96131,159 @@
       "id": "schemas_character_schema_updatecharacterdataschema",
       "community": 82,
       "norm_label": "updatecharacterdataschema"
+    },
+    {
+      "label": "GameVisibleTrackerState",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-tracker-api.ts",
+      "source_location": "L11",
+      "id": "api_game_tracker_api_gamevisibletrackerstate",
+      "community": 126,
+      "norm_label": "gamevisibletrackerstate"
+    },
+    {
+      "label": "RoleplayVisibleTrackerState",
+      "file_type": "code",
+      "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
+      "source_location": "L11",
+      "id": "api_roleplay_tracker_api_roleplayvisibletrackerstate",
+      "community": 126,
+      "norm_label": "roleplayvisibletrackerstate"
+    },
+    {
+      "label": "clampInteger()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L408",
+      "id": "api_game_api_clampinteger",
+      "community": 3,
+      "norm_label": "clampinteger()"
+    },
+    {
+      "label": "clampPercent()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L412",
+      "id": "api_game_api_clamppercent",
+      "community": 3,
+      "norm_label": "clamppercent()"
+    },
+    {
+      "label": "gameMapJsonRepairContext()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L595",
+      "id": "api_game_api_gamemapjsonrepaircontext",
+      "community": 3,
+      "norm_label": "gamemapjsonrepaircontext()"
+    },
+    {
+      "label": "GeneratedMapNodeNormalization",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L397",
+      "id": "api_game_api_generatedmapnodenormalization",
+      "community": 3,
+      "norm_label": "generatedmapnodenormalization"
+    },
+    {
+      "label": "mapJsonCouldNotApplyError()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L613",
+      "id": "api_game_api_mapjsoncouldnotapplyerror",
+      "community": 3,
+      "norm_label": "mapjsoncouldnotapplyerror()"
+    },
+    {
+      "label": "normalizeGeneratedGridCell()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L416",
+      "id": "api_game_api_normalizegeneratedgridcell",
+      "community": 3,
+      "norm_label": "normalizegeneratedgridcell()"
+    },
+    {
+      "label": "normalizeGeneratedMap()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L522",
+      "id": "api_game_api_normalizegeneratedmap",
+      "community": 3,
+      "norm_label": "normalizegeneratedmap()"
+    },
+    {
+      "label": "normalizeGeneratedMapEdge()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L482",
+      "id": "api_game_api_normalizegeneratedmapedge",
+      "community": 3,
+      "norm_label": "normalizegeneratedmapedge()"
+    },
+    {
+      "label": "normalizeGeneratedMapNode()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L448",
+      "id": "api_game_api_normalizegeneratedmapnode",
+      "community": 3,
+      "norm_label": "normalizegeneratedmapnode()"
+    },
+    {
+      "label": "normalizeGridPartyPosition()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L507",
+      "id": "api_game_api_normalizegridpartyposition",
+      "community": 3,
+      "norm_label": "normalizegridpartyposition()"
+    },
+    {
+      "label": "readNumber()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L402",
+      "id": "api_game_api_readnumber",
+      "community": 3,
+      "norm_label": "readnumber()"
+    },
+    {
+      "label": "readOptionalString()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L392",
+      "id": "api_game_api_readoptionalstring",
+      "community": 3,
+      "norm_label": "readoptionalstring()"
+    },
+    {
+      "label": "resolveGeneratedNodeReference()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L472",
+      "id": "api_game_api_resolvegeneratednodereference",
+      "community": 3,
+      "norm_label": "resolvegeneratednodereference()"
+    },
+    {
+      "label": "uniqueGeneratedNodeId()",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L437",
+      "id": "api_game_api_uniquegeneratednodeid",
+      "community": 3,
+      "norm_label": "uniquegeneratednodeid()"
+    },
+    {
+      "label": "repair",
+      "file_type": "code",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L325",
+      "id": "api_game_api_test_repair",
+      "community": 31,
+      "norm_label": "repair"
     }
   ],
   "links": [
@@ -344838,8 +344991,552 @@
       "source": "src_features_modes_game_api_game_api_ts",
       "target": "api_game_api_gamecardtextlist",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L409",
+      "weight": 1.0,
+      "source": "api_game_api_clampinteger",
+      "target": "api_game_api_readnumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L413",
+      "weight": 1.0,
+      "source": "api_game_api_clamppercent",
+      "target": "api_game_api_readnumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L617",
+      "weight": 1.0,
+      "source": "api_game_api_mapjsoncouldnotapplyerror",
+      "target": "api_game_api_gamemapjsonrepaircontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L422",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedgridcell",
+      "target": "api_game_api_asrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L423",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedgridcell",
+      "target": "api_game_api_clampinteger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L425",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedgridcell",
+      "target": "api_game_api_readoptionalstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L523",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmap",
+      "target": "api_game_api_asrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L533",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmap",
+      "target": "api_game_api_clampinteger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L549",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmap",
+      "target": "api_game_api_normalizegridpartyposition",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L527",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmap",
+      "target": "api_game_api_readoptionalstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L487",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapedge",
+      "target": "api_game_api_asrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L488",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapedge",
+      "target": "api_game_api_readoptionalstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L494",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapedge",
+      "target": "api_game_api_resolvegeneratednodereference",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L453",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapnode",
+      "target": "api_game_api_asrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L464",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapnode",
+      "target": "api_game_api_clamppercent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L455",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapnode",
+      "target": "api_game_api_generatedassetslug",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L454",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapnode",
+      "target": "api_game_api_readoptionalstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L456",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegeneratedmapnode",
+      "target": "api_game_api_uniquegeneratednodeid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L514",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegridpartyposition",
+      "target": "api_game_api_asrecord",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L516",
+      "weight": 1.0,
+      "source": "api_game_api_normalizegridpartyposition",
+      "target": "api_game_api_clampinteger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "api_api_errors_getjsonrepairrequest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "api_game_api_applygamejsonrepair",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L325",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "api_game_api_test_repair",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.test.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_test_ts",
+      "target": "src_shared_api_api_errors_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L408",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_clampinteger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L412",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_clamppercent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L595",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_gamemapjsonrepaircontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L397",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_generatedmapnodenormalization",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L613",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_mapjsoncouldnotapplyerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L416",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_normalizegeneratedgridcell",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L522",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_normalizegeneratedmap",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L482",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_normalizegeneratedmapedge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L448",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_normalizegeneratedmapnode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L507",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_normalizegridpartyposition",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L402",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_readnumber",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L392",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_readoptionalstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L472",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_resolvegeneratednodereference",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L437",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "api_game_api_uniquegeneratednodeid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "src_engine_modes_game_world_map_service_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-api.ts",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_api_ts",
+      "target": "world_map_service_buildmapgenerationprompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-tracker-api.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_tracker_api_ts",
+      "target": "api_game_tracker_api_gamevisibletrackerstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-tracker-api.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_tracker_api_ts",
+      "target": "api_world_state_api_worldstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/api/game-tracker-api.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_modes_game_api_game_tracker_api_ts",
+      "target": "src_features_runtime_world_state_index_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/components/GameSurface.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "src_features_modes_game_components_gamesurface_tsx",
+      "target": "api_game_tracker_api_gametrackerapi",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/game/components/GameSurface.tsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "src_features_modes_game_components_gamesurface_tsx",
+      "target": "src_features_modes_game_api_game_tracker_api_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_api_roleplay_tracker_api_ts",
+      "target": "api_roleplay_tracker_api_roleplayvisibletrackerstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_api_roleplay_tracker_api_ts",
+      "target": "api_world_state_api_worldstate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_api_roleplay_tracker_api_ts",
+      "target": "api_world_state_api_worldstatepatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/api/roleplay-tracker-api.ts",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_api_roleplay_tracker_api_ts",
+      "target": "src_features_runtime_world_state_index_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/components/RoleplayHUD.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_components_roleplayhud_tsx",
+      "target": "api_roleplay_tracker_api_roleplaytrackerapi",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/features/modes/roleplay/components/RoleplayHUD.tsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "src_features_modes_roleplay_components_roleplayhud_tsx",
+      "target": "src_features_modes_roleplay_api_roleplay_tracker_api_ts",
+      "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "a313e83d709ea83bbccaff1d67383e115f8fc545"
+  "built_at_commit": "51beec3a849375832193f2c69a8d024988dadd5c"
 }
