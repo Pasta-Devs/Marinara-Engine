@@ -7,10 +7,10 @@ import { toast } from "sonner";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { gameApi } from "../api/game-api";
+import { gameTrackerApi } from "../api/game-tracker-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
-import { worldStateApi } from "../../../runtime/world-state/index";
 import { useGameStatePatcher } from "../../../runtime/world-state/index";
 import type { GameStatePatchField, GameStatePatchValue } from "../../../runtime/world-state/types";
 import {
@@ -1788,8 +1788,7 @@ export function GameSurface({
   useEffect(() => {
     const existing = useGameStateStore.getState().current;
     if (existing?.chatId === activeChatId) return;
-    worldStateApi
-      .get(activeChatId)
+    gameTrackerApi.visible(activeChatId)
       .then((gs) => {
         if (gs) {
           useGameStateStore.getState().setGameState(gs);
@@ -6772,8 +6771,14 @@ export function GameSurface({
   }, []);
 
   const handleGenerateMap = useCallback(() => {
-    if (isStreaming || !sessionInteractive) return;
+    if (isStreaming || !sessionInteractive || generateMap.isPending) return;
     const locationType = gameSnapshot?.location?.trim() || "current location";
+    const setupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | null;
+    const connectionId =
+      (typeof chatMeta.gameSceneConnectionId === "string" && chatMeta.gameSceneConnectionId.trim()) ||
+      (typeof setupConfig?.sceneConnectionId === "string" && setupConfig.sceneConnectionId.trim()) ||
+      chat.connectionId ||
+      null;
     const context = [
       `Location: ${gameSnapshot?.location ?? "Unknown"}`,
       gameSnapshot?.time ? `Time: ${gameSnapshot.time}` : null,
@@ -6783,18 +6788,30 @@ export function GameSurface({
       .filter(Boolean)
       .join("\n");
 
-    generateMap.mutate({
-      chatId: activeChatId,
-      locationType,
-      context: context || locationType,
-    });
-    setViewedMapId(null);
+    generateMap.mutate(
+      {
+        chatId: activeChatId,
+        locationType,
+        context: context || locationType,
+        connectionId: connectionId ?? undefined,
+      },
+      {
+        onSuccess: () => setViewedMapId(null),
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : "Failed to generate map.");
+        },
+      },
+    );
   }, [
     activeChatId,
+    chat.connectionId,
+    chatMeta.gameSceneConnectionId,
+    chatMeta.gameSetupConfig,
     gameSnapshot?.location,
     gameSnapshot?.time,
     gameSnapshot?.weather,
     generateMap,
+    generateMap.isPending,
     isStreaming,
     latestNarrationText,
     sessionInteractive,
@@ -8269,7 +8286,7 @@ export function GameSurface({
                       onMove={handleMapMove}
                       selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
                       onGenerateMap={handleGenerateMap}
-                      generateMapDisabled={isStreaming || !sessionInteractive}
+                      generateMapDisabled={isStreaming || !sessionInteractive || generateMap.isPending}
                       disabled={isStreaming || !narrationDone || !sessionInteractive}
                       gameState={gameState}
                       timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
@@ -8289,7 +8306,7 @@ export function GameSurface({
                       onMove={handleMapMove}
                       selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
                       onGenerateMap={handleGenerateMap}
-                      generateMapDisabled={isStreaming || !sessionInteractive}
+                      generateMapDisabled={isStreaming || !sessionInteractive || generateMap.isPending}
                       disabled={isStreaming || !narrationDone || !sessionInteractive}
                       gameState={gameState}
                       timeOfDay={gameSnapshot?.time ?? metaTime ?? null}

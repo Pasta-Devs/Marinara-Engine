@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import { agentApi } from "../../../../shared/api/agent-api";
-import { worldStateApi } from "../../../runtime/world-state/index";
+import { roleplayTrackerApi } from "../api/roleplay-tracker-api";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
 import { useAgentConfigs } from "../../../catalog/agents/index";
@@ -193,7 +193,7 @@ export function RoleplayHUD({
       } as GameState);
     }
     void discardPendingGameStatePatch(chatId)
-      .then(() => worldStateApi.patch(chatId, { ...cleared, manual: true, clearOverrides: true }))
+      .then(() => roleplayTrackerApi.clearManualState(chatId, cleared))
       .catch((error) => {
         console.error("[RoleplayHUD] Failed to clear world state:", error);
       });
