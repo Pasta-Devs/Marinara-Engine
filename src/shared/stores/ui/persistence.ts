@@ -10,6 +10,7 @@ import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
   normalizeSummaryPopoverSettings,
+  normalizeTrackerPanelCollapsedSections,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
 } from "./model";
@@ -202,6 +203,9 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
     legacyWidth,
   );
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
+  persisted.trackerPanelCollapsedSections = normalizeTrackerPanelCollapsedSections(
+    persisted.trackerPanelCollapsedSections,
+  );
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
   persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);

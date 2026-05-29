@@ -3,7 +3,10 @@
 // ──────────────────────────────────────────────
 import {
   APP_LANGUAGE_OPTIONS,
+  IMAGE_DIMENSION_MAX,
+  IMAGE_DIMENSION_MIN,
   TRACKER_DATA_PANEL_SECTIONS,
+  TRACKER_PANEL_SIZE_PROFILES,
   getTrackerPanelWidthForProfile,
   useUIStore,
   type GameDialogueDisplayMode,
@@ -200,11 +203,16 @@ const QUOTE_FORMAT_OPTIONS: Array<{ id: QuoteFormat; label: string; sample: stri
   { id: "typographic", label: "Typographic", sample: "\u201cHello,\u201d it\u2019s me." },
 ];
 
-const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{ id: TrackerPanelSizeProfile; label: string; desc: string }> = [
-  { id: "compact", label: "Compact", desc: `${getTrackerPanelWidthForProfile("compact")} px` },
-  { id: "standard", label: "Standard", desc: `${getTrackerPanelWidthForProfile("standard")} px` },
-  { id: "expanded", label: "Expanded", desc: `${getTrackerPanelWidthForProfile("expanded")} px` },
-];
+const TRACKER_PANEL_SIZE_PROFILE_COPY: Record<TrackerPanelSizeProfile, { label: string; desc: string }> = {
+  compact: { label: "Compact", desc: `${getTrackerPanelWidthForProfile("compact")} px` },
+  standard: { label: "Standard", desc: `${getTrackerPanelWidthForProfile("standard")} px` },
+  expanded: { label: "Expanded", desc: `${getTrackerPanelWidthForProfile("expanded")} px` },
+};
+
+const TRACKER_PANEL_SIZE_PROFILE_OPTIONS = TRACKER_PANEL_SIZE_PROFILES.map((id) => ({
+  id,
+  ...TRACKER_PANEL_SIZE_PROFILE_COPY[id],
+}));
 
 const TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS: Array<{
   id: TrackerThoughtBubbleDisplay;
@@ -294,21 +302,23 @@ function ImageDimensionRow({
           {label}
           <HelpTooltip text={help} />
         </div>
-        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">Pixels, clamped from 64 to 4096.</div>
+        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          Pixels, clamped from {IMAGE_DIMENSION_MIN} to {IMAGE_DIMENSION_MAX}.
+        </div>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
         <DraftNumberInput
           value={width}
-          min={64}
-          max={4096}
+          min={IMAGE_DIMENSION_MIN}
+          max={IMAGE_DIMENSION_MAX}
           onCommit={(nextWidth) => onCommit(nextWidth, height)}
           className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
         />
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">x</span>
         <DraftNumberInput
           value={height}
-          min={64}
-          max={4096}
+          min={IMAGE_DIMENSION_MIN}
+          max={IMAGE_DIMENSION_MAX}
           onCommit={(nextHeight) => onCommit(width, nextHeight)}
           className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
         />
