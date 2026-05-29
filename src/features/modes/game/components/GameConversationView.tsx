@@ -41,8 +41,15 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
   useEffect(() => {
     if (data.loadedMessageCount <= 0) return;
     if (data.totalMessageCount <= data.loadedMessageCount) return;
-    void data.refetchMessages();
-  }, [data.loadedMessageCount, data.refetchMessages, data.totalMessageCount]);
+    if (!data.hasNextPage || data.isFetchingNextPage) return;
+    void data.fetchNextPage();
+  }, [
+    data.fetchNextPage,
+    data.hasNextPage,
+    data.isFetchingNextPage,
+    data.loadedMessageCount,
+    data.totalMessageCount,
+  ]);
 
   if (!data.chat) return <div className="flex flex-1 overflow-hidden" />;
 
