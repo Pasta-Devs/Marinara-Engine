@@ -52,8 +52,28 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 }
 
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function normalizeTTSConfigResponse(value: unknown): TTSConfig {
+  const raw = readRecord(value);
+  const config = ttsConfigSchema.parse({});
+  const fields = ttsConfigSchema.shape;
+
+  for (const key of Object.keys(fields) as Array<keyof TTSConfig>) {
+    if (!(key in raw)) continue;
+    const parsed = fields[key].safeParse(raw[key]);
+    if (parsed.success) {
+      (config as Record<keyof TTSConfig, unknown>)[key] = parsed.data;
+    }
+  }
+
+  return config;
+}
+
 export const ttsApi = {
-  config: async () => ttsConfigSchema.parse(await invokeTauri<unknown>("tts_config")),
+  config: async () => normalizeTTSConfigResponse(await invokeTauri<unknown>("tts_config")),
   updateConfig: async (config: TTSConfig) =>
     invokeTauri<void>("tts_update_config", { config: ttsConfigSchema.parse(config) }),
   voices: () => invokeTauri<TTSVoicesResponse>("tts_voices"),

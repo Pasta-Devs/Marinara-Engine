@@ -62,6 +62,28 @@ describe("ttsApi", () => {
     });
   });
 
+  it("keeps valid native TTS config fields when another saved field is malformed", async () => {
+    invokeMock.mockResolvedValueOnce({
+      enabled: true,
+      source: "elevenlabs",
+      baseUrl: "https://api.elevenlabs.io",
+      speed: 99,
+      audioFormat: "ogg",
+      voiceAssignments: [{ characterName: "Nia", voice: "Rachel" }],
+      npcDefaultMaleVoices: "Adam",
+    });
+
+    await expect(ttsApi.config()).resolves.toMatchObject({
+      enabled: true,
+      source: "elevenlabs",
+      baseUrl: "https://api.elevenlabs.io",
+      speed: 1,
+      audioFormat: "mp3",
+      voiceAssignments: [{ characterId: "", characterName: "Nia", voice: "Rachel" }],
+      npcDefaultMaleVoices: [],
+    });
+  });
+
   it("updates TTS config with the expected payload", async () => {
     invokeMock.mockResolvedValueOnce(undefined);
 
