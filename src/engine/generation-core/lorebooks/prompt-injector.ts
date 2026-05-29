@@ -148,6 +148,7 @@ export function processActivatedEntries(
   worldInfoBefore: string;
   worldInfoAfter: string;
   depthEntries: Array<{ content: string; role: LorebookRole; depth: number; order: number }>;
+  includedEntries: ActivatedEntry[];
   totalEntries: number;
   totalTokensEstimate: number;
 } {
@@ -167,6 +168,7 @@ export function processActivatedEntries(
     worldInfoBefore: before,
     worldInfoAfter: after,
     depthEntries,
+    includedEntries: budgeted,
     totalEntries: budgeted.length,
     totalTokensEstimate: Math.ceil(totalChars / 4),
   };

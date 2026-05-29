@@ -151,11 +151,15 @@ function storageWithSectionsAndCharacters(sections: Row[], characters: Row[]): S
 function storageWithLore(
   entries: Row[],
   lorebooks: Row[] = [{ id: "lorebook", enabled: true, isGlobal: true }],
+  folders: Row[] = [],
 ): StorageGateway {
   return {
     ...storageWithSections([]),
-    list: async <T>(entity: string) => {
+    list: async <T>(entity: string, options?: { filters?: Record<string, unknown> }) => {
       if (entity === "lorebooks") return lorebooks as T[];
+      if (entity === "lorebook-folders") {
+        return folders.filter((folder) => folder.lorebookId === options?.filters?.lorebookId) as T[];
+      }
       if (entity === "regex-scripts") return [] as T[];
       if (entity === "personas") return [] as T[];
       if (entity === "prompts") return [] as T[];
@@ -164,6 +168,10 @@ function storageWithLore(
     listLorebookEntries: async <T>(lorebookId: string) =>
       entries.filter((entry) => !entry.lorebookId || entry.lorebookId === lorebookId) as T[],
   };
+}
+
+function promptText(assembly: Awaited<ReturnType<typeof assembleGenerationPrompt>>): string {
+  return assembly.messages.map((message) => message.content).join("\n\n");
 }
 
 const request = {
@@ -1136,6 +1144,249 @@ describe("assembleGenerationPrompt game character sheets", () => {
     const joined = assembly.messages.map((message) => message.content).join("\n\n");
     expect(joined).toContain("RPG Attributes: Strength: 8, Dexterity: 16");
     expect(joined).toContain("RPG HP: 18/24");
+  });
+});
+
+describe("assembleGenerationPrompt lorebook activation settings", () => {
+  it("skips entries inside disabled lorebook folders", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore(
+        [
+          {
+            id: "entry-disabled-folder",
+            lorebookId: "lorebook",
+            folderId: "folder-disabled",
+            name: "Disabled folder entry",
+            content: "LQA_DISABLED_FOLDER_CONTENT_SHOULD_NOT_APPEAR",
+            enabled: true,
+            constant: true,
+          },
+        ],
+        [{ id: "lorebook", enabled: true, isGlobal: true }],
+        [{ id: "folder-disabled", lorebookId: "lorebook", enabled: false }],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(promptText(assembly)).not.toContain("LQA_DISABLED_FOLDER_CONTENT_SHOULD_NOT_APPEAR");
+  });
+
+  it("activates chat-scoped lorebooks without activeLorebookIds metadata", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore(
+        [
+          {
+            id: "entry-chat-scoped",
+            lorebookId: "chat-book",
+            name: "Chat scoped entry",
+            content: "LQA_CHAT_SCOPED_CONTENT_SHOULD_APPEAR",
+            enabled: true,
+            constant: true,
+          },
+        ],
+        [{ id: "chat-book", enabled: true, isGlobal: false, chatId: "chat" }],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay", metadata: {} },
+        storedMessages: [],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Chat scoped entry"]);
+    expect(promptText(assembly)).toContain("LQA_CHAT_SCOPED_CONTENT_SHOULD_APPEAR");
+  });
+
+  it("uses character and persona additional matching sources during activation", async () => {
+    const baseStorage = storageWithLore([
+      {
+        id: "entry-character-source",
+        lorebookId: "lorebook",
+        name: "Character source entry",
+        content: "LQA_ADDITIONAL_CHARACTER_SOURCE_CONTENT",
+        keys: ["LQA_CHAR_SOURCE_KEY"],
+        additionalMatchingSources: ["character_description"],
+        enabled: true,
+        order: 0,
+      },
+      {
+        id: "entry-persona-source",
+        lorebookId: "lorebook",
+        name: "Persona source entry",
+        content: "LQA_ADDITIONAL_PERSONA_SOURCE_CONTENT",
+        keys: ["LQA_PERSONA_SOURCE_KEY"],
+        additionalMatchingSources: ["persona_description"],
+        enabled: true,
+        order: 1,
+      },
+    ]);
+    const storage: StorageGateway = {
+      ...baseStorage,
+      get: async <T>(entity: string, id: string) => {
+        if (entity === "characters" && id === "char-a") {
+          return {
+            id: "char-a",
+            data: { name: "Aster", description: "Character detail with LQA_CHAR_SOURCE_KEY." },
+          } as T;
+        }
+        if (entity === "personas" && id === "persona-1") {
+          return {
+            id: "persona-1",
+            data: { name: "Mari", description: "Persona detail with LQA_PERSONA_SOURCE_KEY." },
+          } as T;
+        }
+        return baseStorage.get<T>(entity, id);
+      },
+    };
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat", mode: "roleplay", characterIds: ["char-a"], personaId: "persona-1" },
+      storedMessages: [{ role: "user", content: "No lorebook keys are in chat history.", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "No lorebook keys are in chat history.",
+    });
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual([
+      "Character source entry",
+      "Persona source entry",
+    ]);
+    expect(promptText(assembly)).toContain("LQA_ADDITIONAL_CHARACTER_SOURCE_CONTENT");
+    expect(promptText(assembly)).toContain("LQA_ADDITIONAL_PERSONA_SOURCE_CONTENT");
+  });
+
+  it("applies lorebook-level scan depth to entries without an override", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore(
+        [
+          {
+            id: "entry-scan-depth",
+            lorebookId: "lorebook",
+            name: "Scan depth entry",
+            content: "LQA_SCAN_DEPTH_CONTENT_SHOULD_NOT_APPEAR",
+            keys: ["LQA_OLD_KEY"],
+            enabled: true,
+          },
+        ],
+        [{ id: "lorebook", enabled: true, isGlobal: true, scanDepth: 1 }],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [
+          { role: "user", content: "Older message has LQA_OLD_KEY.", contextKind: "history" },
+          { role: "assistant", content: "Latest message has no trigger.", contextKind: "history" },
+        ],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(promptText(assembly)).not.toContain("LQA_SCAN_DEPTH_CONTENT_SHOULD_NOT_APPEAR");
+  });
+
+  it("recursively scans activated lorebook content when the lorebook enables recursion", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore(
+        [
+          {
+            id: "entry-recursive-parent",
+            lorebookId: "lorebook",
+            name: "Recursive parent",
+            content: "LQA_RECURSIVE_PARENT_CONTENT mentions LQA_CHILD_KEY.",
+            keys: ["LQA_PARENT_KEY"],
+            enabled: true,
+            order: 0,
+          },
+          {
+            id: "entry-recursive-child",
+            lorebookId: "lorebook",
+            name: "Recursive child",
+            content: "LQA_RECURSIVE_CHILD_CONTENT_SHOULD_APPEAR",
+            keys: ["LQA_CHILD_KEY"],
+            enabled: true,
+            order: 1,
+          },
+        ],
+        [{ id: "lorebook", enabled: true, isGlobal: true, recursiveScanning: true, maxRecursionDepth: 3 }],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [{ role: "user", content: "Trigger LQA_PARENT_KEY.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "Trigger LQA_PARENT_KEY.",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual([
+      "Recursive parent",
+      "Recursive child",
+    ]);
+    expect(promptText(assembly)).toContain("LQA_RECURSIVE_CHILD_CONTENT_SHOULD_APPEAR");
+  });
+
+  it("applies chat metadata lorebook token budget during prompt injection", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-chat-budget",
+          lorebookId: "lorebook",
+          name: "Chat budgeted entry",
+          content: "LQA_CHAT_BUDGET_CONTENT_SHOULD_NOT_APPEAR",
+          enabled: true,
+          constant: true,
+        },
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay", metadata: { lorebookTokenBudget: 1 } },
+        storedMessages: [],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(promptText(assembly)).not.toContain("LQA_CHAT_BUDGET_CONTENT_SHOULD_NOT_APPEAR");
+  });
+
+  it("applies per-lorebook token budgets before prompt injection", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore(
+        [
+          {
+            id: "entry-book-budget",
+            lorebookId: "lorebook",
+            name: "Book budgeted entry",
+            content: "LQA_LOREBOOK_BUDGET_CONTENT_SHOULD_NOT_APPEAR",
+            enabled: true,
+            constant: true,
+          },
+        ],
+        [{ id: "lorebook", enabled: true, isGlobal: true, tokenBudget: 1 }],
+      ),
+      {
+        chat: { id: "chat", mode: "roleplay", metadata: { lorebookTokenBudget: 0 } },
+        storedMessages: [],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(promptText(assembly)).not.toContain("LQA_LOREBOOK_BUDGET_CONTENT_SHOULD_NOT_APPEAR");
   });
 });
 
