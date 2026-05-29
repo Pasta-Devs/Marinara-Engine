@@ -3,10 +3,13 @@ import { Vibrate } from "lucide-react";
 import { cn } from "../../../../../../shared/lib/utils";
 import {
   HAPTIC_INTIFACE_URL_STORAGE_KEY,
+  useHapticCommand,
   useHapticConnect,
   useHapticDisconnect,
   useHapticStartScan,
   useHapticStatus,
+  useHapticStopAll,
+  useHapticStopScan,
 } from "../../../../../runtime/haptics/index";
 
 interface HapticConnectionPanelProps {
@@ -22,6 +25,9 @@ export function HapticConnectionPanel({
   const connect = useHapticConnect();
   const disconnect = useHapticDisconnect();
   const startScan = useHapticStartScan();
+  const stopScan = useHapticStopScan();
+  const command = useHapticCommand();
+  const stopAll = useHapticStopAll();
   const [intifaceUrl, setIntifaceUrl] = useState(
     () => savedIntifaceUrl ?? localStorage.getItem(HAPTIC_INTIFACE_URL_STORAGE_KEY) ?? "",
   );
@@ -64,6 +70,8 @@ export function HapticConnectionPanel({
   const scanning = status?.scanning ?? false;
   const defaultServerUrl = status?.defaultServerUrl ?? "ws://127.0.0.1:12345";
   const activeServerUrl = status?.serverUrl ?? defaultServerUrl;
+  const scanActionPending = startScan.isPending || stopScan.isPending;
+  const stopActionPending = command.isPending || stopAll.isPending;
 
   return (
     <div className="space-y-1.5 px-1">
@@ -123,24 +131,51 @@ export function HapticConnectionPanel({
             <span className="text-[0.625rem] text-[var(--muted-foreground)]">
               {devices.length === 0 ? "No devices found" : `${devices.length} device${devices.length !== 1 ? "s" : ""}`}
             </span>
-            <button
-              onClick={() => startScan.mutate()}
-              disabled={scanning || startScan.isPending}
-              className="text-[0.625rem] font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
-            >
-              {scanning ? "Scanning..." : "Scan for devices"}
-            </button>
+            <div className="flex items-center gap-2">
+              {devices.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => stopAll.mutate()}
+                  disabled={stopActionPending}
+                  className="text-[0.625rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:underline disabled:opacity-50"
+                >
+                  Stop all
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (scanning) {
+                    stopScan.mutate();
+                  } else {
+                    startScan.mutate();
+                  }
+                }}
+                disabled={scanActionPending}
+                className="text-[0.625rem] font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
+              >
+                {scanning ? "Stop scan" : "Scan for devices"}
+              </button>
+            </div>
           </div>
           {devices.map((device) => (
             <div
               key={device.index}
-              className="flex items-center gap-1.5 rounded-md bg-[var(--accent)]/50 px-2.5 py-1.5"
+              className="flex min-w-0 items-center gap-1.5 rounded-md bg-[var(--accent)]/50 px-2.5 py-1.5"
             >
               <Vibrate size="0.625rem" className="text-[var(--primary)]" />
-              <span className="text-[0.625rem] font-medium">{device.name}</span>
-              <span className="text-[0.5rem] text-[var(--muted-foreground)]">
+              <span className="min-w-0 flex-1 truncate text-[0.625rem] font-medium">{device.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[0.5rem] text-[var(--muted-foreground)]">
                 {device.capabilities.join(", ")}
               </span>
+              <button
+                type="button"
+                onClick={() => command.mutate({ deviceIndex: device.index, action: "stop" })}
+                disabled={stopActionPending}
+                className="text-[0.5625rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:underline disabled:opacity-50"
+              >
+                Stop
+              </button>
             </div>
           ))}
         </div>
