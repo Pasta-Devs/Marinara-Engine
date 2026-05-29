@@ -38,13 +38,19 @@ function openExternalUrlInBrowser(url: string): void {
   }
 
   // `noopener` can force a null return even when the popup succeeds, so open a
-  // detectable blank page and sever the opener before navigating.
+  // detectable blank page, sever the opener, then navigate with noreferrer.
   const opened = window.open("about:blank", "_blank");
   if (opened == null) {
     throw new Error("The browser blocked the external URL popup.");
   }
   opened.opener = null;
-  opened.location.href = url;
+
+  const link = opened.document.createElement("a");
+  link.href = url;
+  link.rel = "noreferrer";
+  link.target = "_self";
+  opened.document.body.append(link);
+  link.click();
 }
 
 async function getTauriOpenerApi(): Promise<TauriOpenerApi> {

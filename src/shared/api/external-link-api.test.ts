@@ -17,7 +17,15 @@ describe("openExternalUrl", () => {
   });
 
   it("opens links with the browser fallback outside embedded Tauri", async () => {
-    const openedWindow = { opener: {}, location: { href: "" } } as unknown as Window;
+    const openedLink = { href: "", rel: "", target: "", click: vi.fn() };
+    const appendLink = vi.fn();
+    const openedWindow = {
+      opener: {},
+      document: {
+        body: { append: appendLink },
+        createElement: vi.fn(() => openedLink),
+      },
+    } as unknown as Window;
     const windowOpen = vi.fn(() => openedWindow) as unknown as typeof window.open;
     vi.stubGlobal("open", windowOpen);
 
@@ -25,7 +33,12 @@ describe("openExternalUrl", () => {
 
     expect(windowOpen).toHaveBeenCalledWith("about:blank", "_blank");
     expect(openedWindow.opener).toBeNull();
-    expect(openedWindow.location.href).toBe("https://example.com/docs");
+    expect(openedWindow.document.createElement).toHaveBeenCalledWith("a");
+    expect(openedLink.href).toBe("https://example.com/docs");
+    expect(openedLink.rel).toBe("noreferrer");
+    expect(openedLink.target).toBe("_self");
+    expect(appendLink).toHaveBeenCalledWith(openedLink);
+    expect(openedLink.click).toHaveBeenCalled();
     expect(openUrlMock).not.toHaveBeenCalled();
   });
 
