@@ -827,6 +827,71 @@ mod tests {
     }
 
     #[test]
+    fn project_list_rows_applies_field_selections_to_string_encoded_data() {
+        let rows = vec![json!({
+            "id": "char-legacy",
+            "data": r#"{"name":"Legacy Rin","description":"large prompt","creator_notes":"Imported archive"}"#
+        })];
+
+        let projected = project_list_rows(
+            rows,
+            Some(&json!({
+                "fields": ["id", "data"],
+                "fieldSelections": { "data": ["name", "creator_notes"] }
+            })),
+        );
+
+        assert_eq!(
+            projected,
+            vec![json!({
+                "id": "char-legacy",
+                "data": {
+                    "name": "Legacy Rin",
+                    "creator_notes": "Imported archive"
+                }
+            })],
+        );
+    }
+
+    #[test]
+    fn project_list_rows_keeps_only_legacy_avatar_path_for_summary_projection() {
+        let rows = vec![
+            json!({
+                "id": "managed",
+                "avatarPath": "data:image/png;base64,large",
+                "avatarFilePath": "C:\\Marinara\\avatars\\managed.png",
+                "avatarFilename": "managed.png"
+            }),
+            json!({
+                "id": "legacy",
+                "avatarPath": "data:image/png;base64,legacy"
+            }),
+        ];
+
+        let projected = project_list_rows(
+            rows,
+            Some(&json!({
+                "fields": ["id", "avatarPath", "avatarFilePath", "avatarFilename"]
+            })),
+        );
+
+        assert_eq!(
+            projected,
+            vec![
+                json!({
+                    "id": "managed",
+                    "avatarFilePath": "C:\\Marinara\\avatars\\managed.png",
+                    "avatarFilename": "managed.png"
+                }),
+                json!({
+                    "id": "legacy",
+                    "avatarPath": "data:image/png;base64,legacy"
+                })
+            ],
+        );
+    }
+
+    #[test]
     fn has_storage_search_ignores_empty_terms() {
         assert!(!has_storage_search(Some(&json!({ "search": "   " }))));
         assert!(!has_storage_search(Some(&json!({ "search": null }))));
@@ -1625,7 +1690,17 @@ fn project_row(row: Value, fields: &[String], options: Option<&Value>) -> Value 
         return row;
     };
     let mut projected = Map::new();
+    let omit_redundant_avatar_path = fields
+        .iter()
+        .any(|field| field == "avatarFilePath" || field == "avatarFilename")
+        && [object.get("avatarFilePath"), object.get("avatarFilename")]
+            .into_iter()
+            .flatten()
+            .any(|value| value.as_str().is_some_and(|value| !value.trim().is_empty()));
     for field in fields {
+        if field == "avatarPath" && omit_redundant_avatar_path {
+            continue;
+        }
         let Some(value) = object.get(field) else {
             continue;
         };
@@ -1650,17 +1725,23 @@ fn project_nested_field(field: &str, value: Value, options: Option<&Value>) -> V
         return value;
     }
     match value {
-        Value::Object(object) => {
-            let mut projected = Map::new();
-            for nested_field in nested_fields {
-                if let Some(nested_value) = object.get(&nested_field) {
-                    projected.insert(nested_field, nested_value.clone());
-                }
-            }
-            Value::Object(projected)
-        }
+        Value::String(raw) => match serde_json::from_str::<Value>(&raw) {
+            Ok(Value::Object(object)) => project_object_nested_fields(&object, &nested_fields),
+            _ => Value::String(raw),
+        },
+        Value::Object(object) => project_object_nested_fields(&object, &nested_fields),
         other => other,
     }
+}
+
+fn project_object_nested_fields(object: &Map<String, Value>, nested_fields: &[String]) -> Value {
+    let mut projected = Map::new();
+    for nested_field in nested_fields {
+        if let Some(nested_value) = object.get(nested_field) {
+            projected.insert(nested_field.clone(), nested_value.clone());
+        }
+    }
+    Value::Object(projected)
 }
 
 fn option_string_array(options: Option<&Value>, key: &str) -> Option<Vec<String>> {

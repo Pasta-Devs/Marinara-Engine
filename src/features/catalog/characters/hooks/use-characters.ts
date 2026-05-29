@@ -12,6 +12,7 @@ import {
   updatePersonaGroupSchema,
 } from "../../../../engine/contracts/schemas/character.schema";
 import { characterApi } from "../../../../shared/api/character-api";
+import { ApiError } from "../../../../shared/api/api-errors";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { galleryApi, spriteApi } from "../../../../shared/api/image-generation-api";
@@ -56,7 +57,7 @@ export type PersonaSummary = {
 };
 
 const CHARACTER_SUMMARY_OPTIONS = {
-  fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
+  fields: ["id", "data", "comment", "avatarPath", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
   fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
 };
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
@@ -110,9 +111,15 @@ async function listCharacterSummariesByIds(ids: string[]): Promise<CharacterSumm
       while (nextIndex < ids.length) {
         const index = nextIndex;
         nextIndex += 1;
-        results[index] = await storageApi
-          .get<CharacterSummary>("characters", ids[index]!, CHARACTER_SUMMARY_OPTIONS)
-          .catch(() => null);
+        try {
+          results[index] = await storageApi.get<CharacterSummary>("characters", ids[index]!, CHARACTER_SUMMARY_OPTIONS);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404) {
+            results[index] = null;
+            continue;
+          }
+          throw error;
+        }
       }
     }),
   );

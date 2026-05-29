@@ -1,6 +1,6 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::{fonts, llm, lorebook_images, media_uploads, prompts};
+use crate::storage_commands::{fonts, llm, lorebook_images, prompts};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
@@ -221,11 +221,16 @@ fn avatar_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> 
 }
 
 fn avatar_asset_filename(path: &str) -> Result<String, AppError> {
-    let filename = media_uploads::safe_filename(path);
-    if filename == "." || filename == ".." {
+    let filename = path.trim();
+    if filename.is_empty()
+        || filename == "."
+        || filename == ".."
+        || filename.contains('/')
+        || filename.contains('\\')
+    {
         return Err(AppError::not_found("Avatar asset was not found"));
     }
-    Ok(filename)
+    Ok(filename.to_string())
 }
 
 fn content_type_for_path(path: &FsPath) -> &'static str {
@@ -1100,9 +1105,10 @@ mod tests {
     fn avatar_asset_filename_rejects_parent_directory_tokens() {
         assert!(avatar_asset_filename("..").is_err());
         assert!(avatar_asset_filename(".").is_err());
+        assert!(avatar_asset_filename("characters/avatar.png").is_err());
         assert_eq!(
             avatar_asset_filename("avatar one.png").expect("valid avatar filename"),
-            "avatar_one.png"
+            "avatar one.png"
         );
     }
 

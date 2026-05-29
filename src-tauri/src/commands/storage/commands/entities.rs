@@ -37,12 +37,16 @@ fn storage_list_inner(
                 .get("chatId")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            if let Some((limit, before)) = message_page_options(options.as_ref()) {
-                state
-                    .storage
-                    .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
-            } else if !has_search && message_id_projection_only(options.as_ref()) {
-                state.storage.list_message_ids_for_chat(chat_id)?
+            if !has_search {
+                if let Some((limit, before)) = message_page_options(options.as_ref()) {
+                    state
+                        .storage
+                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+                } else if message_id_projection_only(options.as_ref()) {
+                    state.storage.list_message_ids_for_chat(chat_id)?
+                } else {
+                    state.storage.list_messages_for_chat(chat_id)?
+                }
             } else {
                 state.storage.list_messages_for_chat(chat_id)?
             }

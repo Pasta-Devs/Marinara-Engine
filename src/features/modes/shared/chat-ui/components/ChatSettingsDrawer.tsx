@@ -292,6 +292,30 @@ function mergeDrawerCharacters(
   return Array.from(byId.values());
 }
 
+function characterSearchValues(character: { id?: string; data?: unknown; comment?: string | null }): string[] {
+  const info = parseCharacterDisplayData({ data: character.data, comment: character.comment });
+  const data = character.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return [
+    character.id,
+    info.name,
+    info.comment,
+    data.creator,
+    data.creator_notes,
+    data.character_version,
+    ...tags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function characterMatchesSearch(
+  character: { id?: string; data?: unknown; comment?: string | null },
+  search: string,
+): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return characterSearchValues(character).some((value) => value.toLowerCase().includes(query));
+}
+
 function useDeferredDrawerContent(open: boolean, contentKey: string): boolean {
   const [ready, setReady] = useState(false);
 
@@ -2355,11 +2379,7 @@ function ChatSettingsDrawerInner({
                 >
                   {characters
                     .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    })
+                    .filter((c) => characterMatchesSearch(c, charSearch))
                     .map((c) => {
                       const name = charName(c);
                       const title = charTitle(c);
@@ -2386,11 +2406,7 @@ function ChatSettingsDrawerInner({
                     })}
                   {characters
                     .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    }).length === 0 && (
+                    .filter((c) => characterMatchesSearch(c, charSearch)).length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                       {characterSearchFailed
                         ? "Characters could not be loaded."
@@ -2693,11 +2709,7 @@ function ChatSettingsDrawerInner({
                 >
                   {characters
                     .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    })
+                    .filter((c) => characterMatchesSearch(c, charSearch))
                     .map((c) => {
                       const name = charName(c);
                       const title = charTitle(c);
@@ -2739,11 +2751,7 @@ function ChatSettingsDrawerInner({
                     })}
                   {characters
                     .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    }).length === 0 && (
+                    .filter((c) => characterMatchesSearch(c, charSearch)).length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                       {characterSearchFailed
                         ? "Characters could not be loaded."

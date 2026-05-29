@@ -66,6 +66,7 @@ type SetupCharacterInfo = {
   comment?: string | null;
   avatarUrl?: string | null;
   avatarCrop?: AvatarCropValue | null;
+  searchText: string[];
 };
 
 function parseAvatarCropValue(raw: unknown): AvatarCropValue | null {
@@ -120,6 +121,29 @@ function CharacterAvatar({
       />
     </span>
   );
+}
+
+function characterSearchValues(
+  character: CharacterSummary,
+  display: { name: string; comment?: string | null },
+): string[] {
+  const data = character.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return [
+    character.id,
+    display.name,
+    display.comment,
+    data.creator,
+    data.creator_notes,
+    data.character_version,
+    ...tags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function setupCharacterMatchesSearch(character: SetupCharacterInfo, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return character.searchText.some((value) => value.toLowerCase().includes(query));
 }
 
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
@@ -461,16 +485,18 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
           comment: display.comment,
           avatarUrl: characterAvatarUrl(character),
           avatarCrop: parseAvatarCropValue(rawCrop),
+          searchText: characterSearchValues(character, display),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [gmRawCharacters, partyRawCharacters, selectedRawCharacters]);
 
   const isCharactersLoading = isGmCharactersLoading || isPartyCharactersLoading;
-  const isCharactersFetching = isGmCharactersFetching || isPartyCharactersFetching;
   const isCharactersError = isGmCharactersError || isPartyCharactersError;
-  const emptyCharacterMessage =
-    isCharactersLoading || isCharactersFetching
+  const gmCharacterSearchPending = isGmCharactersFetching || gmSearch.trim() !== debouncedGmSearch.trim();
+  const partyCharacterSearchPending = isPartyCharactersFetching || partySearch.trim() !== debouncedPartySearch.trim();
+  const emptyCharacterMessage = (pending: boolean) =>
+    isCharactersLoading || pending
       ? "Loading characters..."
       : isCharactersError
         ? "Characters could not be loaded."
@@ -560,9 +586,7 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
   const filteredGmCharacters = useMemo(
     () =>
       characters.filter((c) => {
-        const query = gmSearch.toLowerCase();
-        const title = getCharacterTitle(c)?.toLowerCase() ?? "";
-        return c.name.toLowerCase().includes(query) || title.includes(query);
+        return setupCharacterMatchesSearch(c, gmSearch);
       }),
     [characters, gmSearch],
   );
@@ -571,9 +595,7 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
     () =>
       characters.filter((c) => {
         if (c.id === gmCharacterId) return false;
-        const query = partySearch.toLowerCase();
-        const title = getCharacterTitle(c)?.toLowerCase() ?? "";
-        return c.name.toLowerCase().includes(query) || title.includes(query);
+        return setupCharacterMatchesSearch(c, partySearch);
       }),
     [characters, gmCharacterId, partySearch],
   );
@@ -1031,7 +1053,11 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
                     ))}
                     {filteredGmCharacters.length === 0 && (
                       <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                        {characters.length === 0 ? emptyCharacterMessage : "No matches."}
+                        {gmCharacterSearchPending
+                          ? "Loading characters..."
+                          : characters.length === 0
+                            ? emptyCharacterMessage(false)
+                            : "No matches."}
                       </p>
                     )}
                   </div>
@@ -1118,11 +1144,13 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
                   })}
                   {filteredPartyCharacters.length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {characters.length === 0
-                        ? isCharactersLoading || isCharactersError
-                          ? emptyCharacterMessage
-                          : "No characters found. Create characters first."
-                        : "No matches."}
+                      {partyCharacterSearchPending
+                        ? "Loading characters..."
+                        : characters.length === 0
+                          ? isCharactersLoading || isCharactersError
+                            ? emptyCharacterMessage(false)
+                            : "No characters found. Create characters first."
+                          : "No matches."}
                     </p>
                   )}
                 </div>

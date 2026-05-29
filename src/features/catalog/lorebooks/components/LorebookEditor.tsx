@@ -134,6 +134,7 @@ type LinkedResourceItem = {
   id: string;
   name: string;
   description?: string | null;
+  searchText?: string[];
   deleted?: boolean;
 };
 
@@ -196,7 +197,9 @@ function LinkedResourcePicker({
   const availableItems = items.filter(
     (item) =>
       !selectedIds.includes(item.id) &&
-      [item.name, item.description ?? ""].some((value) => value.toLowerCase().includes(search.toLowerCase())),
+      (item.searchText ?? [item.name, item.description ?? ""]).some((value) =>
+        value.toLowerCase().includes(search.toLowerCase()),
+      ),
   );
 
   return (
@@ -474,7 +477,17 @@ export function LorebookEditor() {
     return rawCharacters.map((c) => {
       const parsed = c.data ?? {};
       const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
-      return { id: c.id, name: typeof parsed?.name === "string" ? parsed.name : "Unknown", tags };
+      const name = typeof parsed?.name === "string" ? parsed.name : "Unknown";
+      const searchText = [
+        c.id,
+        name,
+        c.comment,
+        typeof parsed?.creator === "string" ? parsed.creator : null,
+        typeof parsed?.creator_notes === "string" ? parsed.creator_notes : null,
+        typeof parsed?.character_version === "string" ? parsed.character_version : null,
+        ...tags,
+      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+      return { id: c.id, name, tags, searchText };
     });
   }, [rawCharacters]);
   const characterTags = useMemo(

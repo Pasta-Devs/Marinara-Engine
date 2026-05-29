@@ -163,6 +163,30 @@ function mergeCharacterSetupOptions(
   return Array.from(byId.values());
 }
 
+function characterSearchValues(character: { id?: string; data: unknown; comment?: string | null }): string[] {
+  const info = parseCharacterDisplayData(character);
+  const data = character.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return [
+    character.id,
+    info.name,
+    info.comment,
+    data.creator,
+    data.creator_notes,
+    data.character_version,
+    ...tags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function characterMatchesSearch(
+  character: { id?: string; data: unknown; comment?: string | null },
+  search: string,
+): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return characterSearchValues(character).some((value) => value.toLowerCase().includes(query));
+}
+
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
   const title = persona.comment?.trim();
   return title ? title : null;
@@ -502,10 +526,7 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
 
   const available = characters.filter((c) => {
     if (chatCharIds.includes(c.id)) return false;
-    const info = getCharacterInfo(c);
-    const query = search.toLowerCase();
-    const title = getCharacterTitle(info)?.toLowerCase() ?? "";
-    return info.name.toLowerCase().includes(query) || title.includes(query);
+    return characterMatchesSearch(c, search);
   });
 
   const hasConnection = !!chat.connectionId;
@@ -1258,9 +1279,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   function renderCharacters() {
     const available = characters.filter((c) => {
       if (chatCharIds.includes(c.id)) return false;
-      const query = charSearch.toLowerCase();
-      const title = charTitle(c)?.toLowerCase() ?? "";
-      return charName(c).toLowerCase().includes(query) || title.includes(query);
+      return characterMatchesSearch(c, charSearch);
     });
 
     return (
@@ -1604,9 +1623,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       {characters
                         .filter((c) => {
                           if (chatCharIds.includes(c.id)) return false;
-                          const query = charSearch.toLowerCase();
-                          const title = charTitle(c)?.toLowerCase() ?? "";
-                          return charName(c).toLowerCase().includes(query) || title.includes(query);
+                          return characterMatchesSearch(c, charSearch);
                         })
                         .map((c) => {
                           const name = charName(c);
@@ -1643,9 +1660,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                         })}
                       {characters.filter((c) => {
                         if (chatCharIds.includes(c.id)) return false;
-                        const query = charSearch.toLowerCase();
-                        const title = charTitle(c)?.toLowerCase() ?? "";
-                        return charName(c).toLowerCase().includes(query) || title.includes(query);
+                        return characterMatchesSearch(c, charSearch);
                       }).length === 0 && (
                         <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
                           {searchedCharactersError

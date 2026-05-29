@@ -865,10 +865,14 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
                 .get("chatId")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            if let Some((limit, before)) = message_page_options(options) {
-                state
-                    .storage
-                    .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+            if !has_search {
+                if let Some((limit, before)) = message_page_options(options) {
+                    state
+                        .storage
+                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+                } else {
+                    state.storage.list_messages_for_chat(chat_id)?
+                }
             } else {
                 state.storage.list_messages_for_chat(chat_id)?
             }

@@ -167,6 +167,7 @@ export function CharactersPanel() {
   // When non-null, clicking a character adds/removes it from this group
   const [assigningToGroup, setAssigningToGroup] = useState<string | null>(null);
   const [firstMesConfirm, setFirstMesConfirm] = useState<{
+    chatId: string;
     charId: string;
     charName: string;
     message: string;
@@ -180,6 +181,8 @@ export function CharactersPanel() {
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingStartCharacterIdRef = useRef<string | null>(null);
+  const [pendingStartCharacterId, setPendingStartCharacterId] = useState<string | null>(null);
 
   const chatCharacterIds: string[] = activeChat ? (activeChat.characterIds ?? []) : [];
 
@@ -378,8 +381,14 @@ export function CharactersPanel() {
     }
   }, []);
 
+  const isFirstMessageTargetStillCurrent = useCallback((chatId: string, charId: string): boolean => {
+    const currentChat = useChatStore.getState().activeChat;
+    return currentChat?.id === chatId && (currentChat.characterIds ?? []).includes(charId);
+  }, []);
+
   const toggleCharacter = (charId: string) => {
     if (!activeChat) return;
+    const targetChatId = activeChat.id;
     const isActive = chatCharacterIds.includes(charId);
     const newIds = isActive ? chatCharacterIds.filter((id: string) => id !== charId) : [...chatCharacterIds, charId];
     if (newIds.length === 0) return;
@@ -391,11 +400,18 @@ export function CharactersPanel() {
           if (isConversation) return; // no greeting in conversation mode
           void loadFullCharacter(charId).then((char) => {
             if (!char) return;
+            if (!isFirstMessageTargetStillCurrent(targetChatId, charId)) return;
             const firstMes = char.parsed.first_mes as string | undefined;
             const altGreetings = (char.parsed.alternate_greetings ?? []) as string[];
             const name = (char.parsed.name as string | undefined) ?? "Unknown";
             if (firstMes) {
-              setFirstMesConfirm({ charId, charName: name, message: firstMes, alternateGreetings: altGreetings });
+              setFirstMesConfirm({
+                chatId: targetChatId,
+                charId,
+                charName: name,
+                message: firstMes,
+                alternateGreetings: altGreetings,
+              });
             }
           });
         },
@@ -405,6 +421,7 @@ export function CharactersPanel() {
 
   const addGroupToChat = (memberIds: string[]) => {
     if (!activeChat || memberIds.length === 0) return;
+    const targetChatId = activeChat.id;
     const merged = [...new Set([...chatCharacterIds, ...memberIds])];
     const newlyAdded = memberIds.filter((id) => !chatCharacterIds.includes(id));
     updateChat.mutate(
@@ -418,11 +435,18 @@ export function CharactersPanel() {
             for (const charId of newlyAdded) {
               const char = await loadFullCharacter(charId);
               if (!char) continue;
+              if (!isFirstMessageTargetStillCurrent(targetChatId, charId)) continue;
               const firstMes = char.parsed.first_mes as string | undefined;
               const altGreetings = (char.parsed.alternate_greetings ?? []) as string[];
               const name = (char.parsed.name as string | undefined) ?? "Unknown";
               if (firstMes) {
-                setFirstMesConfirm({ charId, charName: name, message: firstMes, alternateGreetings: altGreetings });
+                setFirstMesConfirm({
+                  chatId: targetChatId,
+                  charId,
+                  charName: name,
+                  message: firstMes,
+                  alternateGreetings: altGreetings,
+                });
                 break; // show one at a time
               }
             }
@@ -531,21 +555,29 @@ export function CharactersPanel() {
 
   const handleStartNewChat = useCallback(
     async (characterId: string, characterName: string, firstMessage?: string, alternateGreetings?: string[]) => {
-      let resolvedFirstMessage = firstMessage;
-      let resolvedAlternateGreetings = alternateGreetings;
-      if (resolvedFirstMessage === undefined && resolvedAlternateGreetings === undefined) {
-        const fullCharacter = await loadFullCharacter(characterId);
-        if (!fullCharacter) return;
-        resolvedFirstMessage = fullCharacter.parsed.first_mes as string | undefined;
-        resolvedAlternateGreetings = (fullCharacter.parsed.alternate_greetings ?? []) as string[];
+      if (pendingStartCharacterIdRef.current === characterId) return;
+      pendingStartCharacterIdRef.current = characterId;
+      setPendingStartCharacterId(characterId);
+      try {
+        let resolvedFirstMessage = firstMessage;
+        let resolvedAlternateGreetings = alternateGreetings;
+        if (resolvedFirstMessage === undefined && resolvedAlternateGreetings === undefined) {
+          const fullCharacter = await loadFullCharacter(characterId);
+          if (!fullCharacter) return;
+          resolvedFirstMessage = fullCharacter.parsed.first_mes as string | undefined;
+          resolvedAlternateGreetings = (fullCharacter.parsed.alternate_greetings ?? []) as string[];
+        }
+        startChatFromCharacter({
+          characterId,
+          characterName,
+          mode: "roleplay",
+          firstMessage: resolvedFirstMessage,
+          alternateGreetings: resolvedAlternateGreetings,
+        });
+      } finally {
+        pendingStartCharacterIdRef.current = null;
+        setPendingStartCharacterId(null);
       }
-      startChatFromCharacter({
-        characterId,
-        characterName,
-        mode: "roleplay",
-        firstMessage: resolvedFirstMessage,
-        alternateGreetings: resolvedAlternateGreetings,
-      });
     },
     [loadFullCharacter, startChatFromCharacter],
   );
@@ -1008,7 +1040,7 @@ export function CharactersPanel() {
                                 e.stopPropagation();
                                 void handleStartNewChat(memberId, member.name);
                               }}
-                              disabled={isStartingChat}
+                              disabled={isStartingChat || pendingStartCharacterId === memberId}
                               className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] group-hover/member:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 max-md:opacity-100"
                               title="Start New Chat"
                               aria-label={`Start New Chat with ${member.name}`}
@@ -1329,6 +1361,7 @@ export function CharactersPanel() {
             {
               label: "Quick Start Roleplay",
               icon: <Wand2 size="0.75rem" />,
+              disabled: pendingStartCharacterId === contextMenu.charId,
               onSelect: () => {
                 void handleStartNewChat(
                   contextMenu.charId,
@@ -1386,6 +1419,11 @@ export function CharactersPanel() {
               <button
                 onClick={async () => {
                   try {
+                    if (!isFirstMessageTargetStillCurrent(firstMesConfirm.chatId, firstMesConfirm.charId)) {
+                      toast.error("That character is no longer in the active chat.");
+                      setFirstMesConfirm(null);
+                      return;
+                    }
                     const msg = await createMessage.mutateAsync({
                       role: "assistant",
                       content: firstMesConfirm.message,
@@ -1395,12 +1433,12 @@ export function CharactersPanel() {
                     if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
                       for (const greeting of firstMesConfirm.alternateGreetings) {
                         if (greeting.trim()) {
-                          await storageApi.addChatMessageSwipe(activeChat!.id, msg.id, greeting, {
+                          await storageApi.addChatMessageSwipe(firstMesConfirm.chatId, msg.id, greeting, {
                             activate: false,
                           });
                         }
                       }
-                      queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChat!.id) });
+                      queryClient.invalidateQueries({ queryKey: chatKeys.messages(firstMesConfirm.chatId) });
                     }
                   } catch {
                     toast.error("Failed to add first message");
