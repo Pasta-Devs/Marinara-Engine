@@ -6,7 +6,12 @@ import {
   type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
-import { useActivePersona, useCharactersByIds, usePersona } from "../../../../catalog/characters/index";
+import {
+  characterAvatarUrl,
+  useActivePersona,
+  useCharactersByIds,
+  usePersona,
+} from "../../../../catalog/characters/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
@@ -30,6 +35,8 @@ type CharacterRow = {
   data: Record<string, any>;
   comment?: string | null;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
 
 type PersonaRow = {
@@ -94,11 +101,14 @@ function isLegacyGenerationFailureNotice(message: MessageWithSwipes): boolean {
 }
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
 }
 
 function collectGameCharacterIds(chatMeta: Record<string, any>): string[] {
-  const setup = chatMeta.gameSetupConfig && typeof chatMeta.gameSetupConfig === "object" ? chatMeta.gameSetupConfig : {};
+  const setup =
+    chatMeta.gameSetupConfig && typeof chatMeta.gameSetupConfig === "object" ? chatMeta.gameSetupConfig : {};
   const ids: Array<string | null | undefined> = [
     typeof setup.gmCharacterId === "string" ? setup.gmCharacterId : null,
     ...stringArray(setup.partyCharacterIds),
@@ -176,7 +186,7 @@ export function useChatSurfaceData({
   const chatMeta = useMemo(() => parseChatMetadata(chat?.metadata), [chat]);
   const connectedChatId =
     typeof (chat as unknown as { connectedChatId?: unknown } | null | undefined)?.connectedChatId === "string"
-      ? ((chat as unknown as { connectedChatId: string }).connectedChatId.trim() || null)
+      ? (chat as unknown as { connectedChatId: string }).connectedChatId.trim() || null
       : null;
   const activeSceneChatId =
     typeof chatMeta.activeSceneChatId === "string" && chatMeta.activeSceneChatId.trim()
@@ -191,7 +201,10 @@ export function useChatSurfaceData({
   const messages = useMemo<MessageWithSwipes[] | undefined>(
     () =>
       msgData
-        ? [...msgData.pages].reverse().flat().filter((message) => !isLegacyGenerationFailureNotice(message))
+        ? [...msgData.pages]
+            .reverse()
+            .flat()
+            .filter((message) => !isLegacyGenerationFailureNotice(message))
         : undefined,
     [msgData],
   );
@@ -241,7 +254,7 @@ export function useChatSurfaceData({
           example: parsed.mes_example ?? "",
           systemPrompt: parsed.system_prompt ?? parsed.systemPrompt ?? "",
           postHistoryInstructions: parsed.post_history_instructions ?? parsed.postHistoryInstructions ?? "",
-          avatarUrl: character.avatarPath ?? null,
+          avatarUrl: characterAvatarUrl(character),
           nameColor: parsed.extensions?.nameColor || undefined,
           dialogueColor: parsed.extensions?.dialogueColor || undefined,
           boxColor: parsed.extensions?.boxColor || undefined,
@@ -262,7 +275,7 @@ export function useChatSurfaceData({
   );
   const chatPersonaId =
     typeof (chat as unknown as { personaId?: unknown } | null | undefined)?.personaId === "string"
-      ? ((chat as unknown as { personaId: string }).personaId.trim() || null)
+      ? (chat as unknown as { personaId: string }).personaId.trim() || null
       : null;
   const { data: chatPersona } = usePersona(chatPersonaId, !!chatPersonaId);
   const { data: activePersona } = useActivePersona(personaFallback === "active-persona" && !chatPersonaId);
@@ -290,7 +303,7 @@ export function useChatSurfaceData({
                 id: character.id,
                 name: display.name,
                 comment: display.comment,
-                avatarUrl: character.avatarPath ?? undefined,
+                avatarUrl: characterAvatarUrl(character) ?? undefined,
                 avatarCrop: parsed.extensions?.avatarCrop || null,
                 nameColor: parsed.extensions?.nameColor || undefined,
                 dialogueColor: parsed.extensions?.dialogueColor || undefined,

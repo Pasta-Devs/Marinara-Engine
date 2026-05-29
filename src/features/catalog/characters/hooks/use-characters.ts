@@ -31,6 +31,8 @@ export type CharacterSummary = {
   };
   comment?: string | null;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
 
 export type PersonaSummary = {
@@ -49,7 +51,7 @@ export type PersonaSummary = {
 };
 
 const CHARACTER_SUMMARY_OPTIONS = {
-  fields: ["id", "data", "comment", "avatarPath"],
+  fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename"],
   fieldSelections: { data: ["name", "tags", "extensions"] },
 };
 
@@ -75,6 +77,10 @@ function isCharacterListRecord(value: unknown): value is CharacterListRecord & {
   return Boolean(
     value && typeof value === "object" && !Array.isArray(value) && typeof (value as { id?: unknown }).id === "string",
   );
+}
+
+function isPresent<T>(value: T | null | undefined): value is NonNullable<T> {
+  return value != null;
 }
 
 export function upsertCharacterListRecord(current: unknown[] | undefined, record: unknown): unknown[] | undefined {
@@ -217,7 +223,7 @@ export function useCharactersByIds(ids: string[], enabled = true) {
   });
 
   return {
-    data: queries.map((query) => query.data).filter(Boolean),
+    data: queries.map((query) => query.data).filter(isPresent),
     isLoading: queries.some((query) => query.isLoading),
     isFetching: queries.some((query) => query.isFetching),
   };
@@ -236,7 +242,7 @@ export function useCharacterSummariesByIds(ids: string[], enabled = true) {
   });
 
   return {
-    data: queries.map((query) => query.data).filter(Boolean),
+    data: queries.map((query) => query.data).filter(isPresent),
     isLoading: queries.some((query) => query.isLoading),
     isFetching: queries.some((query) => query.isFetching),
   };

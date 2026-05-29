@@ -1,4 +1,5 @@
 import type { AvatarCropValue } from "../../../../shared/lib/utils";
+import { avatarFileUrlFromPath } from "../../../../shared/api/local-file-api";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { getCharacterAvatarLoadingMode } from "../lib/character-avatar-loading";
 
@@ -15,20 +16,27 @@ function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
 
 export function CharacterAvatarImage({
   src,
+  avatarFilePath,
+  avatarFilename,
   alt,
   crop,
   className,
 }: {
-  src: string;
+  src?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   alt: string;
   crop?: unknown;
   className?: string;
 }) {
+  const resolvedSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath) ?? src;
+  if (!resolvedSrc) return null;
+
   return (
     <img
-      src={src}
+      src={resolvedSrc}
       alt={alt}
-      loading={getCharacterAvatarLoadingMode(src)}
+      loading={getCharacterAvatarLoadingMode(resolvedSrc)}
       draggable={false}
       className={cn("h-full w-full object-cover", className)}
       style={getAvatarCropStyle(resolveAvatarCrop(crop))}

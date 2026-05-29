@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import { MessageSquare, BookOpen } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
-import { useCharacterSummariesByIds } from "../../../catalog/characters/index";
+import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 
@@ -35,16 +35,19 @@ export function RecentChats() {
   const { data: recentCharacters } = useCharacterSummariesByIds(recentCharacterIds, recentCharacterIds.length > 0);
 
   const charLookup = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }
-    >();
+    const map = new Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>();
     if (!recentCharacters) return map;
-    for (const char of recentCharacters as Array<{ id: string; data: Record<string, any>; avatarPath: string | null }>) {
+    for (const char of recentCharacters as Array<{
+      id: string;
+      data: Record<string, any>;
+      avatarPath?: string | null;
+      avatarFilePath?: string | null;
+      avatarFilename?: string | null;
+    }>) {
       const parsed = char.data ?? {};
       map.set(char.id, {
         name: parsed.name ?? "Unknown",
-        avatarUrl: char.avatarPath ?? null,
+        avatarUrl: characterAvatarUrl(char),
         avatarCrop: parsed.extensions?.avatarCrop ?? null,
       });
     }
@@ -73,10 +76,7 @@ function RecentChatChip({
   onClick,
 }: {
   chat: ChatListItem;
-  charLookup: Map<
-    string,
-    { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }
-  >;
+  charLookup: Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>;
   onClick: () => void;
 }) {
   const mode = MODE_BADGE[chat.mode] ?? MODE_BADGE.conversation;

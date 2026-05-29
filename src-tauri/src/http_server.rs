@@ -1,6 +1,6 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::{fonts, llm, lorebook_images, prompts};
+use crate::storage_commands::{fonts, llm, lorebook_images, media_uploads, prompts};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
@@ -195,6 +195,7 @@ async fn managed_asset(
 
 fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBuf, AppError> {
     match kind {
+        "avatar" => avatar_asset_path(state, path),
         "background" => Ok(PathBuf::from(state.backgrounds.absolute_path_string(path)?)),
         "font" => fonts::font_file_path(state, path),
         "game" => Ok(PathBuf::from(state.game_assets.absolute_path_string(path)?)),
@@ -208,6 +209,23 @@ fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBu
         }
         _ => Err(AppError::not_found("Managed asset type was not found")),
     }
+}
+
+fn avatar_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
+    let filename = avatar_asset_filename(path)?;
+    Ok(state
+        .data_dir
+        .join("avatars")
+        .join("characters")
+        .join(filename))
+}
+
+fn avatar_asset_filename(path: &str) -> Result<String, AppError> {
+    let filename = media_uploads::safe_filename(path);
+    if filename == "." || filename == ".." {
+        return Err(AppError::not_found("Avatar asset was not found"));
+    }
+    Ok(filename)
 }
 
 fn content_type_for_path(path: &FsPath) -> &'static str {
@@ -1076,6 +1094,16 @@ mod tests {
         );
         assert!(sidecar_embedding_inputs(&json!({ "input": [] })).is_err());
         assert!(sidecar_embedding_inputs(&json!({ "input": [1] })).is_err());
+    }
+
+    #[test]
+    fn avatar_asset_filename_rejects_parent_directory_tokens() {
+        assert!(avatar_asset_filename("..").is_err());
+        assert!(avatar_asset_filename(".").is_err());
+        assert_eq!(
+            avatar_asset_filename("avatar one.png").expect("valid avatar filename"),
+            "avatar_one.png"
+        );
     }
 
     #[test]

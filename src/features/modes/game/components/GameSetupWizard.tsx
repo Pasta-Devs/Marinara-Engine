@@ -32,7 +32,12 @@ import {
   type EditableGenerationParameters,
 } from "../../../../shared/components/ui/GenerationParametersEditor";
 import { useConnections } from "../../../catalog/connections/index";
-import { useCharacterSummaries, usePersonas, type CharacterSummary } from "../../../catalog/characters/index";
+import {
+  characterAvatarUrl,
+  useCharacterSummaries,
+  usePersonas,
+  type CharacterSummary,
+} from "../../../catalog/characters/index";
 import { useLorebooks } from "../../../catalog/lorebooks/index";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -204,11 +209,7 @@ function LearnedOptionChips({
                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--primary)]/10 hover:text-[var(--primary)]",
             )}
           >
-            <button
-              type="button"
-              onClick={() => onSelect(option)}
-              className="px-2 py-0.5"
-            >
+            <button type="button" onClick={() => onSelect(option)} className="px-2 py-0.5">
               {option}
             </button>
             {onForget && (
@@ -424,7 +425,7 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
             id: character.id,
             name: display.name,
             comment: display.comment,
-            avatarUrl: character.avatarPath ?? null,
+            avatarUrl: characterAvatarUrl(character),
             avatarCrop: parseAvatarCropValue(rawCrop),
           };
         })
@@ -1273,8 +1274,8 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
                 ))}
               </select>
               <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
-                Handles backgrounds, music, weather, and cinematic effects after each GM turn. If skipped, the GM
-                model handles scene tags inline.
+                Handles backgrounds, music, weather, and cinematic effects after each GM turn. If skipped, the GM model
+                handles scene tags inline.
               </p>
             </div>
 

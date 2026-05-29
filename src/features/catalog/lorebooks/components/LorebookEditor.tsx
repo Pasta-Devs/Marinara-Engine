@@ -35,7 +35,7 @@ import {
   useBulkUnvectorizeLorebookEntries,
   lorebookKeys,
 } from "../hooks/use-lorebooks";
-import { useCharacterSummaries, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummaries, useCharacterSummariesByIds, usePersonaSummaries } from "../../characters/index";
 import { useConnections } from "../../connections/index";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -308,7 +308,6 @@ export function LorebookEditor() {
   const { data: rawLorebooks } = useLorebooks();
   const { data: rawEntries } = useLorebookEntries(lorebookId);
   const { data: rawFolders } = useLorebookFolders(lorebookId);
-  const { data: rawCharacters } = useCharacterSummaries();
   const { data: rawPersonas } = usePersonaSummaries();
   const updateLorebook = useUpdateLorebook();
   const deleteLorebook = useDeleteLorebook();
@@ -324,18 +323,6 @@ export function LorebookEditor() {
   const lorebooks = useMemo(() => (rawLorebooks ?? []) as Lorebook[], [rawLorebooks]);
   const entries = useMemo(() => (rawEntries ?? []) as LorebookEntry[], [rawEntries]);
   const folders = useMemo(() => (rawFolders ?? []) as LorebookFolder[], [rawFolders]);
-  const characters = useMemo(() => {
-    if (!rawCharacters) return [] as Array<{ id: string; name: string; tags: string[] }>;
-    return rawCharacters.map((c) => {
-      const parsed = c.data ?? {};
-      const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
-      return { id: c.id, name: typeof parsed?.name === "string" ? parsed.name : "Unknown", tags };
-    });
-  }, [rawCharacters]);
-  const characterTags = useMemo(
-    () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
-    [characters],
-  );
   const personas = useMemo(() => {
     if (!rawPersonas) return [] as Array<{ id: string; name: string; comment?: string | null }>;
     return rawPersonas.map((p) => ({
@@ -442,6 +429,26 @@ export function LorebookEditor() {
   const [personaLinkSearch, setPersonaLinkSearch] = useState("");
   const [characterLinkPickerOpen, setCharacterLinkPickerOpen] = useState(false);
   const [personaLinkPickerOpen, setPersonaLinkPickerOpen] = useState(false);
+
+  const { data: linkedRawCharacters } = useCharacterSummariesByIds(formCharacterIds, formCharacterIds.length > 0);
+  const { data: pickerRawCharacters } = useCharacterSummaries(characterLinkPickerOpen);
+  const rawCharacters = useMemo(() => {
+    const byId = new Map<string, NonNullable<typeof linkedRawCharacters>[number]>();
+    for (const character of linkedRawCharacters ?? []) byId.set(character.id, character);
+    for (const character of pickerRawCharacters ?? []) byId.set(character.id, character);
+    return Array.from(byId.values());
+  }, [linkedRawCharacters, pickerRawCharacters]);
+  const characters = useMemo(() => {
+    return rawCharacters.map((c) => {
+      const parsed = c.data ?? {};
+      const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
+      return { id: c.id, name: typeof parsed?.name === "string" ? parsed.name : "Unknown", tags };
+    });
+  }, [rawCharacters]);
+  const characterTags = useMemo(
+    () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
+    [characters],
+  );
 
   const characterNameById = useMemo(() => {
     const map = new Map<string, string>();

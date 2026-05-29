@@ -44,11 +44,12 @@ import {
   useReorderFolders,
   useMoveChat,
 } from "../../features/catalog/chats/index";
-import { useCharacterSummaries } from "../../features/catalog/characters/index";
+import { useCharacterSummariesByIds } from "../../features/catalog/characters/index";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { showConfirmDialog } from "../../shared/lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../shared/stores/ui.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../shared/lib/utils";
+import { avatarFileUrlFromPath } from "../../shared/api/local-file-api";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { CHAT_MODES } from "../../engine/contracts/constants/chat-modes";
 import type { ChatFolder } from "../../engine/contracts/types/chat";
@@ -132,7 +133,6 @@ export function ChatSidebar({
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
   const hydrateUnread = useChatStore((s) => s.hydrateUnread);
-  const { data: allCharacters } = useCharacterSummaries();
   const hasAnyDetailOpen = useUIStore((s) => s.hasAnyDetailOpen);
   const editorDirty = useUIStore((s) => s.editorDirty);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -146,6 +146,23 @@ export function ChatSidebar({
   const deleteFolderMut = useDeleteFolder();
   const reorderFoldersMut = useReorderFolders();
   const moveChatMut = useMoveChat();
+
+  const sidebarCharacterIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const chat of chats ?? []) {
+      for (const id of normalizeChatCharacterIds((chat as { characterIds?: unknown }).characterIds)) {
+        ids.add(id);
+      }
+      const metadata = parseChatMetadata(chat.metadata);
+      if (Array.isArray(metadata.autonomousUnreadCharacterIds)) {
+        for (const id of metadata.autonomousUnreadCharacterIds) {
+          if (typeof id === "string" && id.trim()) ids.add(id.trim());
+        }
+      }
+    }
+    return Array.from(ids);
+  }, [chats]);
+  const { data: allCharacters } = useCharacterSummariesByIds(sidebarCharacterIds, sidebarCharacterIds.length > 0);
 
   // Build character lookup: id → { name, avatarUrl, avatarCrop, conversationStatus }
   const charLookup = useMemo(() => {
@@ -162,13 +179,15 @@ export function ChatSidebar({
     for (const char of allCharacters) {
       const record = char.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
       const extensions =
-        record.extensions && typeof record.extensions === "object" ? (record.extensions as Record<string, unknown>) : {};
+        record.extensions && typeof record.extensions === "object"
+          ? (record.extensions as Record<string, unknown>)
+          : {};
       const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : "Unknown";
       const conversationStatus =
         typeof extensions.conversationStatus === "string" ? extensions.conversationStatus : undefined;
       map.set(char.id, {
         name,
-        avatarUrl: char.avatarPath ?? null,
+        avatarUrl: avatarFileUrlFromPath(char.avatarFilename, char.avatarFilePath) ?? char.avatarPath ?? null,
         avatarCrop: (extensions.avatarCrop as AvatarCropValue | undefined) ?? null,
         conversationStatus,
       });
@@ -557,11 +576,14 @@ export function ChatSidebar({
     exitMultiSelect();
   }, [selectedChatIds, deleteChat, activeChatId, setActiveChatId, exitMultiSelect]);
 
-  const handleBatchExport = useCallback(async (format: BulkChatExportFormat) => {
-    if (selectedChatIds.size === 0) return;
-    await bulkExportChats.mutateAsync({ chatIds: Array.from(selectedChatIds), format });
-    exitMultiSelect();
-  }, [selectedChatIds, bulkExportChats, exitMultiSelect]);
+  const handleBatchExport = useCallback(
+    async (format: BulkChatExportFormat) => {
+      if (selectedChatIds.size === 0) return;
+      await bulkExportChats.mutateAsync({ chatIds: Array.from(selectedChatIds), format });
+      exitMultiSelect();
+    },
+    [selectedChatIds, bulkExportChats, exitMultiSelect],
+  );
 
   const handleBatchMoveToFolder = useCallback(
     (folderId: string | null) => {
@@ -1362,7 +1384,10 @@ function FolderRow({
         >
           <ChevronRight
             size="0.75rem"
-            className={cn("text-[var(--muted-foreground)] transition-transform shrink-0", !folder.collapsed && "rotate-90")}
+            className={cn(
+              "text-[var(--muted-foreground)] transition-transform shrink-0",
+              !folder.collapsed && "rotate-90",
+            )}
           />
           <div
             className="h-2 w-2 rounded-full flex-shrink-0 cursor-pointer"

@@ -17,8 +17,10 @@ function isAbsoluteFilesystemPath(value: string): boolean {
 }
 
 function canConvertFileSrc(): boolean {
-  return typeof window !== "undefined" && !!(window as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } })
-    .__TAURI_INTERNALS__?.convertFileSrc;
+  return (
+    typeof window !== "undefined" &&
+    !!(window as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__?.convertFileSrc
+  );
 }
 
 function encodeLocalAssetPath(path: string): string {
@@ -54,18 +56,20 @@ function filePathToAssetUrl(path: string | null | undefined): string {
 }
 
 function remoteManagedAssetUrl(
-  kind: "background" | "font" | "game" | "lorebook",
+  kind: "avatar" | "background" | "font" | "game" | "lorebook",
   path: string | null | undefined,
 ): string | null {
   const target = remoteRuntimeTarget();
   if (!target || !path?.trim()) return null;
-  const encodedPath = path
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter(Boolean)
-    .map(encodeURIComponent)
-    .join("/");
+  const encodedPath = path.replace(/\\/g, "/").split("/").filter(Boolean).map(encodeURIComponent).join("/");
   return encodedPath ? `${target.baseUrl}/api/assets/${kind}/${encodedPath}` : null;
+}
+
+function filenameFromPath(path: string | null | undefined): string | null {
+  const value = path?.trim();
+  if (!value) return null;
+  const filename = value.replace(/\\/g, "/").split("/").filter(Boolean).pop()?.trim();
+  return filename && filename !== "." && filename !== ".." ? filename : null;
 }
 
 export function gameAssetFileUrlFromPath(path: string, absolutePath?: string | null): string {
@@ -84,6 +88,15 @@ export function fontFileUrlFromPath(filename: string, absolutePath?: string | nu
   const remoteUrl = remoteManagedAssetUrl("font", filename);
   if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : "";
+}
+
+export function avatarFileUrlFromPath(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+): string | null {
+  const remoteUrl = remoteManagedAssetUrl("avatar", filename?.trim() || filenameFromPath(absolutePath));
+  if (remoteUrl) return remoteUrl;
+  return absolutePath ? filePathToAssetUrl(absolutePath) : null;
 }
 
 export async function resolveGameAssetFileUrl(path: string): Promise<string> {

@@ -24,7 +24,7 @@ import {
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
 import { useConnections } from "../../../../catalog/connections/index";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../../../catalog/presets/index";
-import { useCharacterSummaries, usePersonaSummaries } from "../../../../catalog/characters/index";
+import { characterAvatarUrl, useCharacterSummaries, usePersonaSummaries } from "../../../../catalog/characters/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../../../catalog/chats/index";
 import { useChatPresets, useApplyChatPreset } from "../../../../catalog/chat-presets/index";
@@ -125,6 +125,8 @@ type CharacterSetupOption = {
   data: unknown;
   comment?: string | null;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
 
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
@@ -336,7 +338,11 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
   }, [chat.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const characters = useMemo(
-    () => (allCharacters ?? []) as CharacterSetupOption[],
+    () =>
+      ((allCharacters ?? []) as CharacterSetupOption[]).map((character) => ({
+        ...character,
+        avatarPath: characterAvatarUrl(character),
+      })),
     [allCharacters],
   );
   const personas = (allPersonas ?? []) as Array<{
@@ -481,11 +487,14 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
       setScheduleState("generating");
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
-        await generateConversationSchedules({ storage: storageApi, llm: llmApi }, {
-          chatId: chat.id,
-          characterIds: chatCharIds,
-          scheduleGenerationPreferences,
-        });
+        await generateConversationSchedules(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: chat.id,
+            characterIds: chatCharIds,
+            scheduleGenerationPreferences,
+          },
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Schedule generation failed.";
         toast.error(message);
@@ -882,7 +891,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     comment?: string | null;
   }>;
   const characters = useMemo(
-    () => (allCharacters ?? []) as CharacterSetupOption[],
+    () =>
+      ((allCharacters ?? []) as CharacterSetupOption[]).map((character) => ({
+        ...character,
+        avatarPath: characterAvatarUrl(character),
+      })),
     [allCharacters],
   );
   const connectionOptions = useMemo(
@@ -1017,7 +1030,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             void storageApi
               .get<{ data?: unknown }>("characters", charId)
               .then((char) => {
-                const parsed = char?.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
+                const parsed =
+                  char?.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
                 const firstMes = typeof parsed.first_mes === "string" ? parsed.first_mes : "";
                 const altGreetings = Array.isArray(parsed.alternate_greetings)
                   ? parsed.alternate_greetings.filter((greeting): greeting is string => typeof greeting === "string")

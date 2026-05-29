@@ -28,7 +28,7 @@ import {
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../hooks/use-lorebooks";
-import { useCharacterSummaries, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummariesByIds, usePersonaSummaries } from "../../characters/index";
 import type { Lorebook, LorebookCategory } from "../../../../engine/contracts/types/lorebook";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
@@ -89,7 +89,21 @@ export function LorebooksPanel() {
   const { data: lorebooks, isLoading } = useLorebooks(
     activeCategory === "active" || activeCategory === "all" ? undefined : activeCategory,
   );
-  const { data: rawCharacters } = useCharacterSummaries();
+  const lorebookCharacterIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const lorebook of (lorebooks ?? []) as Lorebook[]) {
+      if (Array.isArray(lorebook.characterIds)) {
+        for (const id of lorebook.characterIds) {
+          if (typeof id === "string" && id.trim()) ids.add(id.trim());
+        }
+      }
+      if (typeof lorebook.characterId === "string" && lorebook.characterId.trim()) {
+        ids.add(lorebook.characterId.trim());
+      }
+    }
+    return Array.from(ids);
+  }, [lorebooks]);
+  const { data: rawCharacters } = useCharacterSummariesByIds(lorebookCharacterIds, lorebookCharacterIds.length > 0);
   const { data: rawPersonas } = usePersonaSummaries();
   const deleteLorebook = useDeleteLorebook();
   const updateLorebook = useUpdateLorebook();
@@ -677,7 +691,7 @@ export function LorebooksPanel() {
                       ) {
                         deleteLorebook.mutate(lb.id);
                       }
-                      }}
+                    }}
                     onImagePick={() => handlePickLorebookImage(lb.id)}
                     selectionMode={selectionMode}
                     isSelected={selectedLorebookIds.has(lb.id)}

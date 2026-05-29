@@ -78,6 +78,7 @@ import {
   SpriteRangeSlider,
 } from "./settings/ChatSettingsSections";
 import {
+  characterAvatarUrl,
   useCharacterSummaries,
   usePersonaSummaries,
   useCharacterGroups,
@@ -257,6 +258,8 @@ type DrawerCharacter = {
   data?: unknown;
   comment?: string | null;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
 
 function useDeferredDrawerContent(open: boolean, contentKey: string): boolean {
@@ -708,7 +711,14 @@ function ChatSettingsDrawerInner({
   }, [customToolCapabilities, customTools]);
 
   // ── Helpers ──
-  const characters = useMemo<DrawerCharacter[]>(() => (allCharacters ?? []) as DrawerCharacter[], [allCharacters]);
+  const characters = useMemo<DrawerCharacter[]>(
+    () =>
+      ((allCharacters ?? []) as DrawerCharacter[]).map((character) => ({
+        ...character,
+        avatarPath: characterAvatarUrl(character),
+      })),
+    [allCharacters],
+  );
 
   const chatCharacters = useMemo(
     () =>
