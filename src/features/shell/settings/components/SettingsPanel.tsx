@@ -36,6 +36,7 @@ import {
 import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { AUDIO_MIME_MAP, IMAGE_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
 import type { Theme } from "../../../../engine/contracts/types/theme";
 import {
   findDuplicateTheme,
@@ -244,36 +245,50 @@ const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: strin
   },
 };
 
+const GAME_AUDIO_ASSET_EXTENSIONS = Object.keys(AUDIO_MIME_MAP);
+const GAME_AUDIO_ASSET_MIME_TYPES = Array.from(new Set(Object.values(AUDIO_MIME_MAP)));
+const GAME_AUDIO_ASSET_ACCEPT = [...GAME_AUDIO_ASSET_MIME_TYPES, ...GAME_AUDIO_ASSET_EXTENSIONS].join(",");
+const GAME_RASTER_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP).filter((extension) => extension !== ".svg");
+const GAME_SPRITE_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP);
+const GAME_RASTER_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_RASTER_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_RASTER_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+const GAME_SPRITE_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_SPRITE_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_SPRITE_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+
 const GAME_ASSET_CATEGORIES = [
   {
     id: "music",
     label: "Music",
     defaultFolder: "exploration/fantasy/calm",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "ambient",
     label: "Ambient",
     defaultFolder: "nature",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sfx",
     label: "Sound Effects",
     defaultFolder: "exploration",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sprites",
     label: "Sprites",
     defaultFolder: "generic-fantasy",
-    accept: "image/*,.svg",
+    accept: GAME_SPRITE_IMAGE_ASSET_ACCEPT,
   },
   {
     id: "backgrounds",
     label: "Backgrounds",
     defaultFolder: "custom",
-    accept: "image/*",
+    accept: GAME_RASTER_IMAGE_ASSET_ACCEPT,
   },
 ] as const;
 
@@ -1251,8 +1266,8 @@ function GeneralSettings() {
 
         <p className="mt-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           On desktop, folder buttons open the local app asset folders. Use upload to copy files into Marinara's managed
-          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, and WebM; images support PNG, JPG, GIF, WebP,
-          AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
+          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, WebM, and Opus; images support PNG, JPG, GIF,
+          WebP, AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
         </p>
       </div>
     </div>

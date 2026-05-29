@@ -21,12 +21,15 @@ interface ImageUploadDropzoneProps {
   maxFileSizeBytes?: number;
 }
 
-const UPLOAD_IMAGE_EXTENSIONS = Object.keys(IMAGE_MIME_MAP).filter((extension) => extension !== ".svg");
+const UPLOAD_IMAGE_ENTRIES = Object.entries(IMAGE_MIME_MAP).filter(([extension]) => extension !== ".svg");
+const UPLOAD_IMAGE_EXTENSIONS = UPLOAD_IMAGE_ENTRIES.map(([extension]) => extension);
+const UPLOAD_IMAGE_MIME_TYPES = Array.from(new Set(UPLOAD_IMAGE_ENTRIES.map(([, mime]) => mime)));
+const UPLOAD_IMAGE_MIME_TYPE_SET = new Set(UPLOAD_IMAGE_MIME_TYPES);
 const IMAGE_EXTENSION_PATTERN = new RegExp(
   `(${UPLOAD_IMAGE_EXTENSIONS.map((extension) => extension.replace(".", "\\.")).join("|")})$`,
   "i",
 );
-const DEFAULT_IMAGE_ACCEPT = ["image/*", ...UPLOAD_IMAGE_EXTENSIONS].join(",");
+const DEFAULT_IMAGE_ACCEPT = [...UPLOAD_IMAGE_MIME_TYPES, ...UPLOAD_IMAGE_EXTENSIONS].join(",");
 const DEFAULT_MAX_IMAGE_FILES = 50;
 const DEFAULT_MAX_IMAGE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 
@@ -35,9 +38,10 @@ function isFileDrag(event: DragEvent<HTMLElement>) {
 }
 
 function getSupportedImageFiles(files: FileList | null) {
-  return Array.from(files ?? []).filter(
-    (file) => file.type.startsWith("image/") || IMAGE_EXTENSION_PATTERN.test(file.name),
-  );
+  return Array.from(files ?? []).filter((file) => {
+    const mimeType = file.type.trim().toLowerCase();
+    return (mimeType !== "" && UPLOAD_IMAGE_MIME_TYPE_SET.has(mimeType)) || IMAGE_EXTENSION_PATTERN.test(file.name);
+  });
 }
 
 function formatBytes(bytes: number) {
