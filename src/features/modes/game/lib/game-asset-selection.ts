@@ -12,7 +12,7 @@ type AssetEntryWithPath = {
   path: string;
 };
 
-export function normalizeGameAssetFolderPath(path: string | null | undefined): string {
+function normalizeGameAssetFolderPath(path: string | null | undefined): string {
   return (path ?? "")
     .trim()
     .replace(/\\/g, "/")
@@ -20,7 +20,7 @@ export function normalizeGameAssetFolderPath(path: string | null | undefined): s
     .replace(/\/+/g, "/");
 }
 
-export function isGameAssetPathInFolder(path: string, folder: string): boolean {
+function isGameAssetPathInFolder(path: string, folder: string): boolean {
   const normalizedPath = normalizeGameAssetFolderPath(path);
   const normalizedFolder = normalizeGameAssetFolderPath(folder);
   if (!normalizedFolder) return true;
@@ -48,7 +48,7 @@ export function serializeGameAssetSelection(excludedFolders: Iterable<string>): 
   return folders.length > 0 ? { excludedFolders: folders } : null;
 }
 
-export function isGameAssetIncluded(path: string, excludedFolders: readonly string[]): boolean {
+function isGameAssetIncluded(path: string, excludedFolders: readonly string[]): boolean {
   return !excludedFolders.some((folder) => folder && isGameAssetPathInFolder(path, folder));
 }
 

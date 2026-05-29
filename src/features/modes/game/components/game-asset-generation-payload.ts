@@ -31,7 +31,7 @@ export function normalizeSceneAssetNameForGeneration(value: string): string {
   return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 }
 
-export function getMissingBackgroundTag(
+function getMissingBackgroundTag(
   backgroundTag: string | undefined | null,
   manifest: AssetManifestMap,
 ): string | null {
