@@ -28,7 +28,8 @@ import { cn } from "../../../../shared/lib/utils";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { importApi } from "../../../../shared/api/import-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
-import { characterKeys, invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
+import { invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
+import { personaKeys } from "../../../catalog/personas/index";
 import { chatKeys } from "../../../catalog/chats/index";
 import { lorebookKeys } from "../../../catalog/lorebooks/index";
 import { presetKeys } from "../../../catalog/presets/index";
@@ -370,7 +371,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
           qc.invalidateQueries({ queryKey: presetKeys.all });
         }
         if (hasImported(data.imported, "personas")) {
-          qc.invalidateQueries({ queryKey: characterKeys.personas });
+          qc.invalidateQueries({ queryKey: personaKeys.list });
         }
         if (hasImported(data.imported, "backgrounds")) {
           qc.invalidateQueries({ queryKey: ["backgrounds"] });

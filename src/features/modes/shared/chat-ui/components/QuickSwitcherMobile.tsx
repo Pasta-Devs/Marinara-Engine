@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Check } from "lucide-react";
 import { useConnections, useUpdateConnection } from "../../../../catalog/connections/index";
-import { usePersonaGroups, usePersonaSummaries } from "../../../../catalog/characters/index";
+import { usePersonaGroups, usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";

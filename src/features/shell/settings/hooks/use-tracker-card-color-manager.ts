@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TrackerCardColorConfig } from "../../../../engine/contracts/types/persona";
-import {
-  useCharacterSummaries,
-  usePersonas,
-  useUpdateCharacter,
-  useUpdatePersona,
-} from "../../../catalog/characters/index";
+import { useCharacterSummaries, useUpdateCharacter } from "../../../catalog/characters/index";
+import { usePersonas, useUpdatePersona } from "../../../catalog/personas/index";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useChat } from "../../../catalog/chats/index";
 import { useTrackerStateController } from "../../../runtime/world-state/index";

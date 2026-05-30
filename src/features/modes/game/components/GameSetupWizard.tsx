@@ -36,9 +36,9 @@ import {
   characterAvatarUrl,
   useCharacterSummaries,
   useCharacterSummariesByIds,
-  usePersonas,
   type CharacterSummary,
 } from "../../../catalog/characters/index";
+import { usePersonas } from "../../../catalog/personas/index";
 import { useLorebooks } from "../../../catalog/lorebooks/index";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";

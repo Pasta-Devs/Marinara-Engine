@@ -24,6 +24,7 @@ import { useGenerate } from "../../../../runtime/generation/index";
 import { useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../../../catalog/chats/index";
 import { characterKeys } from "../../../../catalog/characters/index";
+import { personaKeys } from "../../../../catalog/personas/index";
 import type { Message } from "../../../../../engine/contracts/types/chat";
 import { buildGuidedGenerationInstructionMessage } from "../../../../../engine/shared/text/generation-guide";
 import {
@@ -566,7 +567,7 @@ export const ChatInput = memo(function ChatInput({
     }
 
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
 
@@ -744,7 +745,7 @@ export const ChatInput = memo(function ChatInput({
     const normalized = formatTextQuotes(raw.trim(), quoteFormat);
     const chat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
 

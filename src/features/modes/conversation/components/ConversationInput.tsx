@@ -34,7 +34,8 @@ import {
   useChat,
   chatKeys,
 } from "../../../catalog/chats/index";
-import { characterKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/characters/index";
+import { characterKeys } from "../../../catalog/characters/index";
+import { personaKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/personas/index";
 import {
   matchSlashCommand,
   getSlashCompletions,
@@ -561,7 +562,7 @@ export function ConversationInput({
     if (isStreaming) {
       const activeChatData = useChatStore.getState().activeChat;
       const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-      const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+      const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
       const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
       // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
       let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
@@ -666,7 +667,7 @@ export function ConversationInput({
 
     const activeChat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
     let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
@@ -864,7 +865,7 @@ export function ConversationInput({
 
     const activeChatData = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
     let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
 

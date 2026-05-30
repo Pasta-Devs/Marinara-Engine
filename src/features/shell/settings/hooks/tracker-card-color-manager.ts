@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
 import type { Persona, TrackerCardColorConfig } from "../../../../engine/contracts/types/persona";
 import { characterKeys } from "../../../catalog/characters/index";
+import { personaKeys } from "../../../catalog/personas/index";
 import { parseCharacterDisplayData } from "../../../../shared/lib/character-display";
 import {
   cleanTrackerCardColorConfig,
@@ -149,7 +150,7 @@ export function updateCachedTrackerCardColorTargetConfig(
   previewBaseSerializedConfig?: string,
 ) {
   if (target.kind === "persona") {
-    queryClient.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
+    queryClient.setQueryData<unknown[] | undefined>(personaKeys.list, (old) => {
       if (!Array.isArray(old)) return old;
 
       return old.map((persona) => {

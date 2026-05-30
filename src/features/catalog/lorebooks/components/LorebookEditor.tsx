@@ -35,7 +35,8 @@ import {
   useBulkUnvectorizeLorebookEntries,
   lorebookKeys,
 } from "../hooks/use-lorebooks";
-import { useCharacterSummaries, useCharacterSummariesByIds, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummaries, useCharacterSummariesByIds } from "../../characters/index";
+import { usePersonaSummaries } from "../../personas/index";
 import { useConnections } from "../../connections/index";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { useUIStore } from "../../../../shared/stores/ui.store";

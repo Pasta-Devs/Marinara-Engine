@@ -19,7 +19,8 @@ import type {
   TrackerThoughtBubbleDisplay,
 } from "../../../../shared/stores/ui.store";
 import { chatKeys, preserveRecentMessageContentEdit, useChat } from "../../../catalog/chats/index";
-import { characterAvatarUrl, useCharacterSummaries, usePersonas } from "../../../catalog/characters/index";
+import { characterAvatarUrl, useCharacterSummaries } from "../../../catalog/characters/index";
+import { usePersonas } from "../../../catalog/personas/index";
 import { useTrackerStateController } from "../../world-state/index";
 import { TRACKER_SECTION_AGENT_TYPES, type TrackerPanelSection } from "../../world-state/index";
 import type { TrackerStateController } from "../../world-state/types";

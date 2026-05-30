@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { usePersona, useUpdatePersona, useUploadPersonaAvatar, useDeletePersona } from "../../characters/index";
+import { usePersona, useUpdatePersona, useUploadPersonaAvatar, useDeletePersona } from "../hooks/use-personas";
 import { useConnections } from "../../connections/index";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import {

@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import type { Persona } from "../../../../engine/contracts/types/persona";
 import { characterKeys } from "../../../catalog/characters/index";
+import { personaKeys } from "../../../catalog/personas/index";
 import {
   resolveTrackerCardColorTargets,
   updateCachedTrackerCardColorTargetConfig,
@@ -52,7 +53,7 @@ describe("tracker card color manager", () => {
   it("patches persona tracker card color cache previews and clears the preview base on save", () => {
     const queryClient = new QueryClient();
     const target = makeTarget("persona", "persona-1");
-    queryClient.setQueryData(characterKeys.personas, [
+    queryClient.setQueryData(personaKeys.list, [
       {
         id: "persona-1",
         trackerCardColors: "old",
@@ -63,17 +64,17 @@ describe("tracker card color manager", () => {
 
     updateCachedTrackerCardColorTargetConfig(queryClient, target, "preview", "saved");
 
-    expect(queryClient.getQueryData<Record<string, unknown>[]>(characterKeys.personas)?.[0]).toMatchObject({
+    expect(queryClient.getQueryData<Record<string, unknown>[]>(personaKeys.list)?.[0]).toMatchObject({
       trackerCardColors: "preview",
       [TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD]: "saved",
     });
-    expect(queryClient.getQueryData<Record<string, unknown>[]>(characterKeys.personas)?.[1]?.trackerCardColors).toBe(
+    expect(queryClient.getQueryData<Record<string, unknown>[]>(personaKeys.list)?.[1]?.trackerCardColors).toBe(
       "untouched",
     );
 
     updateCachedTrackerCardColorTargetConfig(queryClient, target, "saved");
 
-    const savedPersona = queryClient.getQueryData<Record<string, unknown>[]>(characterKeys.personas)?.[0];
+    const savedPersona = queryClient.getQueryData<Record<string, unknown>[]>(personaKeys.list)?.[0];
     expect(savedPersona?.trackerCardColors).toBe("saved");
     expect(savedPersona).not.toHaveProperty(TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD);
   });

@@ -4,12 +4,8 @@ import { HeartPulse, Package, Sparkles } from "lucide-react";
 import type { CharacterStat, InventoryItem } from "../../../../engine/contracts/types/game-state";
 import type { Persona } from "../../../../engine/contracts/types/persona";
 import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../shared/stores/ui.store";
-import {
-  characterKeys,
-  useCharacterSprites,
-  useUpdatePersona,
-  type SpriteInfo,
-} from "../../../catalog/characters/index";
+import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { personaKeys, useUpdatePersona } from "../../../catalog/personas/index";
 import {
   getTrackerCardPortraitView,
   parseTrackerCardColorConfig,
@@ -167,7 +163,7 @@ export function PersonaInventoryPanel({
       ? personaPortraitFocusOverride
       : personaSavedPortraitFocus;
   const flushPersonaPortraitPendingSave = (pendingSave: PersonaPortraitPendingSave) => {
-    const cachedPersonas = queryClient.getQueryData<unknown[] | undefined>(characterKeys.personas);
+    const cachedPersonas = queryClient.getQueryData<unknown[] | undefined>(personaKeys.list);
     const cachedPersona = Array.isArray(cachedPersonas)
       ? cachedPersonas.find((candidate) => isRecord(candidate) && candidate.id === pendingSave.id)
       : null;

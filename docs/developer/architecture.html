@@ -287,14 +287,14 @@ flowchart TB
             <tr>
               <td><code>catalog/characters</code></td>
               <td>Character library hooks, groups, sprites, start-chat helpers, and character shell surfaces.</td>
-              <td>Current public callers also use this package for persona data hooks and persona groups.</td>
+              <td>Persona data hooks and persona groups live behind <code>catalog/personas</code>.</td>
             </tr>
             <tr>
               <td><code>catalog/personas</code></td>
-              <td>Persona panel/editor/modals and persona query-key file.</td>
+              <td>Persona panel/editor/modals, persona data hooks, persona groups, and persona query keys.</td>
               <td>
-                This package currently has no <code>index.ts</code>; most shared persona hook consumers import from
-                <code>catalog/characters/index.ts</code>.
+                Public persona data callers import from <code>catalog/personas/index.ts</code>. App-shell lazy UI
+                entrypoints keep using <code>catalog/personas/shell.ts</code>.
               </td>
             </tr>
             <tr>

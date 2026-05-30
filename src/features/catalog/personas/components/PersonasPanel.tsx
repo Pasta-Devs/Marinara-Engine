@@ -13,8 +13,8 @@ import {
   useDeletePersonaGroup,
   useUpdatePersona,
   useDuplicatePersona,
+  usePersonaSummaries,
 } from "../hooks/use-personas";
-import { usePersonaSummaries } from "../../characters/index";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
   Plus,

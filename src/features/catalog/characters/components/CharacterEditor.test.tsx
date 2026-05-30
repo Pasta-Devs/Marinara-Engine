@@ -11,7 +11,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // ── Mocks ──
-// The editor pulls every character data-hook from this barrel. We only need
+// The editor pulls every character data-hook from this module. We only need
 // useCharacter to feed it a deliberately malformed card (no `extensions` key);
 // the rest are stubbed to inert no-ops so the component mounts without touching
 // the Tauri storage layer.
@@ -30,8 +30,6 @@ vi.mock("../hooks/use-characters", () => {
     useUploadAvatar: noopMutation,
     useDeleteCharacter: noopMutation,
     useDuplicateCharacter: noopMutation,
-    useCreatePersona: noopMutation,
-    useUploadPersonaAvatar: noopMutation,
     useCharacterSprites: emptyQuery,
     useCharacterGalleryImages: emptyQuery,
     useUploadCharacterGalleryImage: noopMutation,
@@ -49,6 +47,18 @@ vi.mock("../hooks/use-characters", () => {
       list: (id: string) => ["sprites", id],
       capabilities: () => ["sprites", "capabilities"],
     },
+  };
+});
+
+vi.mock("../../personas/index", () => {
+  const noopMutation = () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+    isPending: false,
+  });
+  return {
+    useCreatePersona: noopMutation,
+    useUploadPersonaAvatar: noopMutation,
   };
 });
 

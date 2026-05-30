@@ -28,7 +28,8 @@ import {
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../hooks/use-lorebooks";
-import { useCharacterSummariesByIds, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummariesByIds } from "../../characters/index";
+import { usePersonaSummaries } from "../../personas/index";
 import type { Lorebook, LorebookCategory } from "../../../../engine/contracts/types/lorebook";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";

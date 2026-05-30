@@ -81,10 +81,10 @@ import {
   characterAvatarUrl,
   useCharacterSummaries,
   useCharacterSummariesByIds,
-  usePersonaSummaries,
   useCharacterGroups,
   type SpriteInfo,
 } from "../../../../catalog/characters/index";
+import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { usePresetFull, usePresetSummaries } from "../../../../catalog/presets/index";
 import { useConnections, useSaveConnectionDefaults } from "../../../../catalog/connections/index";

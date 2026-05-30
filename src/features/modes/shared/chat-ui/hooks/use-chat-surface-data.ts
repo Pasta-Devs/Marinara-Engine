@@ -8,10 +8,9 @@ import {
 } from "../../../../catalog/chats/index";
 import {
   characterAvatarUrl,
-  useActivePersona,
   useCharactersByIds,
-  usePersona,
 } from "../../../../catalog/characters/index";
+import { useActivePersona, usePersona } from "../../../../catalog/personas/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";

@@ -13,8 +13,6 @@ import {
   useUploadAvatar,
   useDeleteCharacter,
   useDuplicateCharacter,
-  useCreatePersona,
-  useUploadPersonaAvatar,
   useCharacterSprites,
   useCharacterGalleryImages,
   useUploadCharacterGalleryImage,
@@ -32,6 +30,7 @@ import {
   type CharacterGalleryImage,
   type SpriteInfo,
 } from "../hooks/use-characters";
+import { useCreatePersona, useUploadPersonaAvatar } from "../../personas/index";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { lorebookKeys, useLorebook } from "../../lorebooks/index";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";

@@ -11,7 +11,7 @@ import {
 import { llmApi } from "../../../../shared/api/llm-api";
 import { mariApi, type ProfessorMariPreferences } from "../../../../shared/api/mari-api";
 import { useConnections } from "../../../catalog/connections/index";
-import { usePersonaSummaries } from "../../../catalog/characters/index";
+import { usePersonaSummaries } from "../../../catalog/personas/index";
 import { ConversationMessage } from "../../../modes/conversation/message-shell";
 import type { CharacterMap, PersonaInfo } from "../../../modes/shared/chat-ui/types";
 import type { Message } from "../../../../engine/contracts/types/chat";

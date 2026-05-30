@@ -28,8 +28,8 @@ import {
   characterAvatarUrl,
   useCharacterSummaries,
   useCharacterSummariesByIds,
-  usePersonaSummaries,
 } from "../../../../catalog/characters/index";
+import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../../../catalog/chats/index";
 import { useChatPresets, useApplyChatPreset } from "../../../../catalog/chat-presets/index";
