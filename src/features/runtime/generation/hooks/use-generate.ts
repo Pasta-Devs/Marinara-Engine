@@ -346,6 +346,37 @@ function characterNameFromRow(row: Record<string, unknown> | undefined, fallback
   return readString(data.name).trim() || readString(row?.name).trim() || fallback;
 }
 
+function addCharacterRowsById(target: Map<string, Record<string, unknown>>, rows: unknown): void {
+  if (!Array.isArray(rows)) return;
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const id = readString(row.id).trim();
+    if (id && !target.has(id)) target.set(id, row);
+  }
+}
+
+async function characterNameRowsById(queryClient: QueryClient, characterIds: string[]) {
+  const rowsById = new Map<string, Record<string, unknown>>();
+  addCharacterRowsById(rowsById, queryClient.getQueryData(characterKeys.list()));
+  addCharacterRowsById(rowsById, queryClient.getQueryData(characterKeys.summaries()));
+
+  const missingIds = characterIds.filter((id) => !rowsById.has(id));
+  if (missingIds.length === 0) return rowsById;
+
+  const fetchedRows = await Promise.all(
+    missingIds.map((id) =>
+      storageApi
+        .get<Record<string, unknown>>("characters", id, {
+          fields: ["id", "data"],
+          fieldSelections: { data: ["name"] },
+        })
+        .catch(() => null),
+    ),
+  );
+  addCharacterRowsById(rowsById, fetchedRows);
+  return rowsById;
+}
+
 async function buildPendingCardUpdates(
   queryClient: ReturnType<typeof useQueryClient>,
   chatId: string,
@@ -370,16 +401,6 @@ async function buildPendingCardUpdates(
   if (chatCharacterIds.length === 0) return [];
   const chatCharacterIdSet = new Set(chatCharacterIds);
 
-  let characters = queryClient.getQueryData<Record<string, unknown>[]>(characterKeys.list());
-  if (!characters) {
-    try {
-      characters = (await storageApi.list("characters")) as Record<string, unknown>[];
-      queryClient.setQueryData(characterKeys.list(), characters);
-    } catch {
-      characters = [];
-    }
-  }
-
   const groupedUpdates = new Map<string, CharacterCardFieldUpdate[]>();
   for (const update of updates) {
     if (!chatCharacterIdSet.has(update.characterId)) continue;
@@ -387,11 +408,12 @@ async function buildPendingCardUpdates(
   }
   if (groupedUpdates.size === 0) return [];
 
+  const charactersById = await characterNameRowsById(queryClient, chatCharacterIds);
   const timestamp = Date.now();
   return chatCharacterIds.flatMap((characterId, index) => {
     const grouped = groupedUpdates.get(characterId);
     if (!grouped?.length) return [];
-    const row = characters.find((character) => readString(character.id) === characterId);
+    const row = charactersById.get(characterId);
     return [
       {
         id: `card-update-${characterId}-${timestamp}-${index}`,

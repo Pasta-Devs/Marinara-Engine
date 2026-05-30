@@ -165,7 +165,7 @@ export function updateCachedTrackerCardColorTargetConfig(
     return;
   }
 
-  queryClient.setQueryData<unknown[] | undefined>(characterKeys.list(), (old) => {
+  const patchCharacterCache = (old: unknown[] | undefined) => {
     if (!Array.isArray(old)) return old;
 
     return old.map((character) => {
@@ -175,7 +175,10 @@ export function updateCachedTrackerCardColorTargetConfig(
         data: patchCharacterDataTrackerCardColors(character.data, serializedConfig, previewBaseSerializedConfig),
       };
     });
-  });
+  };
+
+  queryClient.setQueryData<unknown[] | undefined>(characterKeys.list(), patchCharacterCache);
+  queryClient.setQueryData<unknown[] | undefined>(characterKeys.summaries(), patchCharacterCache);
 }
 
 export function resolvePresentCharacterId(

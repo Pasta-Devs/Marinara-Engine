@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   cacheCharacterListRecordFromResult,
   invalidateCharacterCollectionQueries,
-  useCharacters,
+  useCharacterSummaries,
   useDeleteCharacter,
   useUpdateCharacter,
 } from "../hooks/use-characters";
@@ -77,7 +77,7 @@ function characterDisplayName(row: CharacterRow | null | undefined): string {
 
 export function ImportCharacterModal({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { data: rawCharacters } = useCharacters(open);
+  const { data: rawCharacters } = useCharacterSummaries(open);
   const updateCharacter = useUpdateCharacter();
   const deleteCharacter = useDeleteCharacter();
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
@@ -96,7 +96,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
   const updateImportedCharacterInPlace = async (imported: unknown, importedName: string) => {
     if (!targetCharacterId) throw new Error("Choose a character to update.");
-    const target = characters.find((character) => character.id === targetCharacterId);
+    const target = await storageApi.get<CharacterRow>("characters", targetCharacterId, {
+      fields: ["id", "data", "comment", "avatarPath"],
+    });
     if (!target?.id) throw new Error("Target character not found.");
     const importedRow =
       imported && typeof imported === "object" && !Array.isArray(imported) ? (imported as CharacterRow) : null;

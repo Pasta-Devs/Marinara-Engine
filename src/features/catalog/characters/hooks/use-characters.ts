@@ -56,7 +56,7 @@ export type PersonaSummary = {
 };
 
 const CHARACTER_SUMMARY_OPTIONS = {
-  fields: ["id", "data", "comment", "avatarPath", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
+  fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
   fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
 };
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;

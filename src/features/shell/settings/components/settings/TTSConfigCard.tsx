@@ -19,7 +19,7 @@ import {
 import { cn } from "../../../../../shared/lib/utils";
 import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSVoices } from "../../../../../shared/hooks/use-tts";
-import { useCharacters } from "../../../../catalog/characters/index";
+import { useCharacterSummaries } from "../../../../catalog/characters/index";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
@@ -293,7 +293,7 @@ function NpcDefaultVoicePool({
 export function TTSConfigCard() {
   const { data: savedConfig, isLoading } = useTTSConfig();
   const updateConfig = useUpdateTTSConfig();
-  const { data: characters } = useCharacters();
+  const { data: characters } = useCharacterSummaries();
 
   // Local draft state
   const [enabled, setEnabled] = useState(false);

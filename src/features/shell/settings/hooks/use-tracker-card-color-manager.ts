@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TrackerCardColorConfig } from "../../../../engine/contracts/types/persona";
 import {
-  characterKeys,
-  useCharacters,
+  useCharacterSummaries,
   usePersonas,
   useUpdateCharacter,
   useUpdatePersona,
 } from "../../../catalog/characters/index";
+import { storageApi } from "../../../../shared/api/storage-api";
 import { useChat } from "../../../catalog/chats/index";
 import { useTrackerStateController } from "../../../runtime/world-state/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
@@ -20,7 +20,6 @@ import {
 import {
   getCharacterExtensions,
   getTargetSavedConfig,
-  isRecord,
   mergeTrackerCardPortraitFields,
   parseCharacterData,
   resolveTrackerCardColorTargets,
@@ -43,7 +42,7 @@ export function useTrackerCardColorManager() {
     shouldLoadTargets,
   );
   const { data: personasData } = usePersonas(shouldLoadTargets);
-  const { data: charactersData } = useCharacters(shouldLoadTargets);
+  const { data: charactersData } = useCharacterSummaries(shouldLoadTargets);
   const updatePersona = useUpdatePersona();
   const updateCharacter = useUpdateCharacter();
   const [selectedTargetKey, setSelectedTargetKey] = useState("");
@@ -176,14 +175,12 @@ export function useTrackerCardColorManager() {
         return;
       }
 
-      if (!target.characterData) return;
-
-      const latestCharacterData =
-        queryClient
-          .getQueryData<unknown[] | undefined>(characterKeys.list())
-          ?.map((character) => (isRecord(character) && character.id === target.id ? character : null))
-          .find((character): character is Record<string, unknown> => !!character)?.data ?? target.characterData;
-      const characterData = parseCharacterData(latestCharacterData) ?? target.characterData;
+      const latestCharacter = await storageApi.get<Record<string, unknown>>("characters", target.id, {
+        fields: ["id", "data"],
+      });
+      if (!latestCharacter) throw new Error("Character target was not found.");
+      const characterData = parseCharacterData(latestCharacter.data);
+      if (!characterData) throw new Error("Character target data could not be read.");
       const nextExtensions: Record<string, unknown> = {
         ...getCharacterExtensions(characterData),
         trackerCardColors: serializedConfig,
@@ -198,7 +195,7 @@ export function useTrackerCardColorManager() {
         },
       });
     },
-    [queryClient, updateCharacter, updatePersona],
+    [updateCharacter, updatePersona],
   );
 
   const handleChange = useCallback(

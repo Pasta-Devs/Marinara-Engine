@@ -53,6 +53,22 @@ fn storage_list_inner(
         }
         (_, _)
             if empty_filters
+                && has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let search_projection_fields = shared::search_projection_fields(options.as_ref());
+            let search_projection_field_selections =
+                shared::search_projection_field_selections(options.as_ref());
+            state.storage.list_projected(
+                &entity,
+                &search_projection_fields,
+                &search_projection_field_selections,
+            )?
+        }
+        (_, _)
+            if empty_filters
                 && !has_search
                 && projection_fields
                     .as_ref()
@@ -484,6 +500,94 @@ mod tests {
         assert_eq!(
             ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
             vec!["folder-keep".to_string()]
+        );
+    }
+
+    #[test]
+    fn storage_list_searches_projected_character_fields_without_returning_avatar_payloads() {
+        let state = test_state("character-search-projection");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-match",
+                    "comment": "summary",
+                    "avatarPath": "data:image/png;base64,large-avatar",
+                    "avatarFilePath": "C:\\Marinara\\avatars\\characters\\match.png",
+                    "avatarFilename": "match.png",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Frost archive keeper",
+                        "personality": "Dry humor",
+                        "tags": ["Mage"],
+                        "extensions": { "fav": true }
+                    }
+                }),
+            )
+            .expect("matching character should be created");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-avatar-only",
+                    "avatarPath": "data:image/png;base64,frost-hidden-in-avatar",
+                    "data": {
+                        "name": "Mira",
+                        "description": "No matching text",
+                        "tags": []
+                    }
+                }),
+            )
+            .expect("non-matching character should be created");
+
+        let result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data", "comment", "avatarFilePath", "avatarFilename"],
+                "fieldSelections": { "data": ["name", "tags", "extensions"] },
+                "search": "frost archive"
+            })),
+        )
+        .expect("search list should succeed");
+        let rows = result.as_array().expect("storage_list returns an array");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-match");
+        assert_eq!(
+            rows[0],
+            json!({
+                "id": "char-match",
+                "data": {
+                    "name": "Rina",
+                    "tags": ["Mage"],
+                    "extensions": { "fav": true }
+                },
+                "comment": "summary",
+                "avatarFilePath": "C:\\Marinara\\avatars\\characters\\match.png",
+                "avatarFilename": "match.png"
+            })
+        );
+
+        let avatar_payload_result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data", "comment", "avatarFilePath", "avatarFilename"],
+                "fieldSelections": { "data": ["name", "tags", "extensions"] },
+                "search": "frost-hidden-in-avatar"
+            })),
+        )
+        .expect("avatar payload search should succeed");
+
+        assert!(
+            avatar_payload_result
+                .as_array()
+                .expect("storage_list returns an array")
+                .is_empty(),
+            "search should not match embedded avatar payload text"
         );
     }
 }

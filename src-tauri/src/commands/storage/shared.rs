@@ -1731,6 +1731,71 @@ fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value
     EMPTY.get_or_init(serde_json::Map::new)
 }
 
+pub(crate) fn search_projection_fields(options: Option<&Value>) -> Vec<String> {
+    let mut fields = projection_fields(options).unwrap_or_default();
+    for field in [
+        "id",
+        "name",
+        "comment",
+        "content",
+        "swipes",
+        "data",
+        "sortOrder",
+        "order",
+        "createdAt",
+        "updatedAt",
+    ] {
+        if !fields.iter().any(|existing| existing == field) {
+            fields.push(field.to_string());
+        }
+    }
+    if let Some(order_by) = options
+        .and_then(|value| value.get("orderBy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !fields.iter().any(|existing| existing == order_by) {
+            fields.push(order_by.to_string());
+        }
+    }
+    fields
+}
+
+pub(crate) fn search_projection_field_selections(
+    options: Option<&Value>,
+) -> serde_json::Map<String, Value> {
+    let mut selections = projection_field_selections(options).clone();
+    let mut data_fields = selections
+        .get("data")
+        .and_then(string_array_from_json)
+        .unwrap_or_default();
+    for field in [
+        "name",
+        "creator",
+        "creator_notes",
+        "tags",
+        "description",
+        "personality",
+        "scenario",
+        "first_mes",
+        "mes_example",
+        "system_prompt",
+        "post_history_instructions",
+        "alternate_greetings",
+        "extensions",
+    ] {
+        if !data_fields.iter().any(|existing| existing == field) {
+            data_fields.push(field.to_string());
+        }
+    }
+    selections.insert(
+        "data".to_string(),
+        Value::Array(data_fields.into_iter().map(Value::String).collect()),
+    );
+    selections
+}
+
 pub(crate) fn apply_storage_search(rows: &mut Vec<Value>, options: Option<&Value>) {
     let Some(query) = storage_search_query(options) else {
         return;

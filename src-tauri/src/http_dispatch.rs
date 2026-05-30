@@ -879,6 +879,22 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
         }
         (_, _)
             if empty_filters
+                && has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let search_projection_fields = shared::search_projection_fields(options);
+            let search_projection_field_selections =
+                shared::search_projection_field_selections(options);
+            state.storage.list_projected(
+                entity,
+                &search_projection_fields,
+                &search_projection_field_selections,
+            )?
+        }
+        (_, _)
+            if empty_filters
                 && !has_search
                 && projection_fields
                     .as_ref()
