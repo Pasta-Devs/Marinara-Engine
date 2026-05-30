@@ -129,21 +129,35 @@ export const createPromptPresetSchema = z.object({
   author: z.string().default(""),
 });
 
-export const updatePromptPresetSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().optional(),
-  sectionOrder: z.array(z.string()).optional(),
-  groupOrder: z.array(z.string()).optional(),
-  variableOrder: z.array(z.string()).optional(),
-  variableGroups: z.array(promptVariableGroupSchema).optional(),
-  variableValues: z.record(z.string()).optional(),
-  parameters: generationParametersSchema.partial().optional(),
-  wrapFormat: wrapFormatSchema.optional(),
-  isDefault: z.boolean().optional(),
-  default: z.boolean().optional(),
-  author: z.string().optional(),
-  defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
-});
+export const updatePromptPresetSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().optional(),
+    sectionOrder: z.array(z.string()).optional(),
+    groupOrder: z.array(z.string()).optional(),
+    variableOrder: z.array(z.string()).optional(),
+    variableGroups: z.array(promptVariableGroupSchema).optional(),
+    variableValues: z.record(z.string()).optional(),
+    parameters: generationParametersSchema.partial().optional(),
+    wrapFormat: wrapFormatSchema.optional(),
+    isDefault: z.boolean().optional(),
+    default: z.boolean().optional(),
+    author: z.string().optional(),
+    defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isDefault !== undefined && value.default !== undefined && value.isDefault !== value.default) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["default"],
+        message: "default must match isDefault when both flags are provided.",
+      });
+    }
+  })
+  .transform(({ default: legacyDefault, ...value }) => ({
+    ...value,
+    ...(value.isDefault === undefined && legacyDefault !== undefined ? { isDefault: legacyDefault } : {}),
+  }));
 
 // ── Sections ──
 

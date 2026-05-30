@@ -13,4 +13,10 @@ describe("connection schemas", () => {
 
     expect(parsed).toEqual({ folderId: null });
   });
+
+  it("rejects invalid connection folder ids", () => {
+    expect(() => updateConnectionSchema.parse({ folderId: 123 })).toThrow();
+    expect(() => updateConnectionSchema.parse({ folderId: {} })).toThrow();
+    expect(() => updateConnectionSchema.parse({ folderId: true })).toThrow();
+  });
 });

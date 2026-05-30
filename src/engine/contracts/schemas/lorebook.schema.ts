@@ -47,6 +47,7 @@ export const createLorebookFolderSchema = z.object({
   enabled: z.boolean().default(true),
   parentFolderId: z.string().nullable().default(null),
   order: z.number().int().default(0),
+  /** Legacy storage/display fallback. Writers should keep this aligned with order until persisted rows migrate. */
   sortOrder: z.number().int().optional(),
 });
 
@@ -55,6 +56,7 @@ export const updateLorebookFolderSchema = z.object({
   enabled: z.boolean().optional(),
   parentFolderId: z.string().nullable().optional(),
   order: z.number().int().optional(),
+  /** Legacy storage/display fallback. Writers should keep this aligned with order until persisted rows migrate. */
   sortOrder: z.number().int().optional(),
 });
 
@@ -159,6 +161,7 @@ export const createLorebookEntrySchema = z.object({
   position: z.number().int().min(0).max(2).default(0),
   depth: z.number().int().min(0).default(4),
   order: z.number().int().default(100),
+  /** Legacy storage/display fallback. Writers should keep this aligned with order until persisted rows migrate. */
   sortOrder: z.number().int().optional(),
   role: z.enum(["system", "user", "assistant"]).default("system"),
   sticky: z.number().nullable().default(null),
@@ -206,6 +209,7 @@ export const updateLorebookEntrySchema = z.object({
   position: z.number().int().min(0).max(2).optional(),
   depth: z.number().int().min(0).optional(),
   order: z.number().int().optional(),
+  /** Legacy storage/display fallback. Writers should keep this aligned with order until persisted rows migrate. */
   sortOrder: z.number().int().optional(),
   role: z.enum(["system", "user", "assistant"]).optional(),
   sticky: z.number().nullable().optional(),

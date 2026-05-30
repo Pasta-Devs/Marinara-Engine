@@ -7,4 +7,12 @@ describe("theme schemas", () => {
 
     expect(parsed).toEqual({ isActive: true, active: true });
   });
+
+  it("rejects non-boolean active flags", () => {
+    for (const value of ["true", 1, null, [], {}]) {
+      expect(updateThemeSchema.safeParse({ isActive: value }).success).toBe(false);
+      expect(updateThemeSchema.safeParse({ active: value }).success).toBe(false);
+    }
+    expect(() => updateThemeSchema.parse({ isActive: "true" })).toThrow();
+  });
 });

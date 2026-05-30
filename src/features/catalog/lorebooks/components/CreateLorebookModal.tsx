@@ -19,7 +19,7 @@ export function CreateLorebookModal({ open, onClose }: Props) {
 
   const createLorebook = useMutation({
     mutationFn: (data: { name: string; description: string }) =>
-      storageApi.create("lorebooks", createLorebookSchema.parse(data)),
+      storageApi.create("lorebooks", { ...createLorebookSchema.parse(data), entries: [] }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lorebooks"] });
       onClose();

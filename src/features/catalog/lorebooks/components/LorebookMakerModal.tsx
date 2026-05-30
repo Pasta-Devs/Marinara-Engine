@@ -220,9 +220,8 @@ export function LorebookMakerModal({ open, onClose }: Props) {
           order: e.order ?? 100,
         }));
 
-        await Promise.all(
-          entriesToCreate.map((entry) => storageApi.create("lorebook-entries", createLorebookEntrySchema.parse(entry))),
-        );
+        const validatedEntries = entriesToCreate.map((entry) => createLorebookEntrySchema.parse(entry));
+        await Promise.all(validatedEntries.map((entry) => storageApi.create("lorebook-entries", entry)));
         // Invalidate so entries appear immediately
         qc.invalidateQueries({ queryKey: lorebookKeys.entries(lbId) });
       }

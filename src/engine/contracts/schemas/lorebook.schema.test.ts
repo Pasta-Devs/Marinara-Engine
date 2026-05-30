@@ -33,7 +33,7 @@ describe("lorebook schemas", () => {
     expect(parsed).toEqual({ sortOrder: 4, order: 4, embedding: null });
   });
 
-  it("accepts copied entry storage metadata without timestamps or ids", () => {
+  it("strips system-managed fields from copied entries", () => {
     const parsed = createLorebookEntrySchema.parse({
       id: "entry-original",
       lorebookId: "lorebook-copy",
@@ -65,6 +65,23 @@ describe("lorebook schemas", () => {
     const parsed = createLorebookFolderSchema.parse({ lorebookId: "lorebook-1", name: "Locations" });
 
     expect(parsed.lorebookId).toBe("lorebook-1");
+  });
+
+  it("rejects invalid lorebook category and generatedBy values", () => {
+    expect(() => createLorebookSchema.parse({ name: "Invalid", category: "invalid-category" })).toThrow();
+    expect(() => createLorebookSchema.parse({ name: "Invalid", generatedBy: "unknown-maker" })).toThrow();
+  });
+
+  it("rejects malformed lorebook entry metadata", () => {
+    expect(() => updateLorebookEntrySchema.parse({ embedding: "not-an-array" })).toThrow();
+    expect(() => updateLorebookEntrySchema.parse({ embedding: [1, "2"] })).toThrow();
+    expect(() => updateLorebookEntrySchema.parse({ sortOrder: 1.5 })).toThrow();
+    expect(() => createLorebookEntrySchema.parse({ lorebookId: "book", name: "" })).toThrow();
+  });
+
+  it("rejects folder creates without a valid lorebook id", () => {
+    expect(() => createLorebookFolderSchema.parse({ name: "Missing Parent" })).toThrow();
+    expect(() => createLorebookFolderSchema.parse({ lorebookId: 123, name: "Bad Parent" })).toThrow();
   });
 
   it("accepts game-session lorebook metadata", () => {

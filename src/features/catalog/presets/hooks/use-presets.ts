@@ -205,10 +205,12 @@ export function useDefaultPreset() {
     queryFn: async () => {
       const presets = await storageApi.list<PromptPreset>("prompts");
       return (
-        presets.find(
-          (preset) =>
-            boolish((preset as PromptPreset & { default?: unknown }).isDefault, false) ||
-            boolish((preset as PromptPreset & { default?: unknown }).default, false),
+        presets.find((preset) =>
+          boolish(
+            (preset as PromptPreset & { default?: unknown }).isDefault ??
+              (preset as PromptPreset & { default?: unknown }).default,
+            false,
+          ),
         ) ?? null
       );
     },
