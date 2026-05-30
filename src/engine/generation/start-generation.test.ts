@@ -2458,6 +2458,120 @@ describe("startGeneration group turn prompt toggle", () => {
     const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
     expect(assistantSave?.[1]).toMatchObject({ characterId: "char-b" });
   });
+
+  it("targets an @mentioned conversation character and saves the reply under that character", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatPatch: {
+        mode: "conversation",
+        promptPresetId: "preset",
+        characterIds: ["char-a", "char-b"],
+      },
+      chatMetadata: { groupResponseOrder: "sequential" },
+      characters: [
+        { id: "char-a", data: { name: "Aster", description: "ASTER CARD" } },
+        { id: "char-b", data: { name: "Briar", description: "BRIAR CARD" } },
+      ],
+      prompts: [{ id: "preset", wrapFormat: "xml" }],
+      promptSections: [
+        {
+          id: "character",
+          presetId: "preset",
+          name: "Characters",
+          role: "system",
+          markerConfig: { type: "character" },
+          enabled: true,
+          sortOrder: 0,
+        },
+        {
+          id: "history",
+          presetId: "preset",
+          name: "History",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          enabled: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "@Briar, what do you think?",
+        mentionedCharacterNames: ["Briar"],
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const promptText = (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+      .map((message) => message.content)
+      .join("\n");
+    expect(promptText).toContain("ASTER CARD");
+    expect(promptText).toContain("BRIAR CARD");
+    expect(promptText).toContain("Respond only as Briar");
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    expect(assistantSave?.[1]).toMatchObject({ characterId: "char-b" });
+  });
+
+  it("continues conversation group replies sequentially after the previous speaker", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatPatch: {
+        mode: "conversation",
+        promptPresetId: "preset",
+        characterIds: ["char-a", "char-b"],
+      },
+      chatMetadata: { groupResponseOrder: "sequential" },
+      characters: [
+        { id: "char-a", data: { name: "Aster", description: "ASTER CARD" } },
+        { id: "char-b", data: { name: "Briar", description: "BRIAR CARD" } },
+      ],
+      prompts: [{ id: "preset", wrapFormat: "xml" }],
+      promptSections: [
+        {
+          id: "character",
+          presetId: "preset",
+          name: "Characters",
+          role: "system",
+          markerConfig: { type: "character" },
+          enabled: true,
+          sortOrder: 0,
+        },
+        {
+          id: "history",
+          presetId: "preset",
+          name: "History",
+          role: "user",
+          markerConfig: { type: "chat_history" },
+          enabled: true,
+          sortOrder: 1,
+        },
+      ],
+      initialMessages: [
+        {
+          id: "assistant-a",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-a",
+          content: "Aster answered last.",
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "Carry on.",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const promptText = (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+      .map((message) => message.content)
+      .join("\n");
+    expect(promptText).toContain("Respond only as Briar");
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    expect(assistantSave?.[1]).toMatchObject({ characterId: "char-b" });
+  });
 });
 
 describe("retryGenerationAgents lorebook keeper backfill", () => {

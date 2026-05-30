@@ -137,6 +137,7 @@ export function useBackgroundAutonomousPolling() {
                   {
                     chatId: chat.id,
                     connectionId: null,
+                    forCharacterId: characterId,
                     streaming: useUIStore.getState().enableStreaming,
                     hideAutomatedSummarySourceMessages:
                       useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,

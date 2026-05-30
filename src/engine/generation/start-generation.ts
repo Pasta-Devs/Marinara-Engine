@@ -926,6 +926,17 @@ function roleplayIndividualGroupCharacterIds(chat: JsonRecord): string[] {
   return readString(parseRecord(chat.metadata).groupChatMode, "merged") === "individual" ? ids : [];
 }
 
+function conversationGroupCharacterIds(chat: JsonRecord): string[] {
+  if (readString(chat.mode || chat.chatMode) !== "conversation") return [];
+  const ids = activeCharacterIds(chat);
+  return ids.length > 1 ? ids : [];
+}
+
+function targetedGroupCharacterIds(chat: JsonRecord): string[] {
+  const roleplayIds = roleplayIndividualGroupCharacterIds(chat);
+  return roleplayIds.length > 0 ? roleplayIds : conversationGroupCharacterIds(chat);
+}
+
 function lastVisibleAssistantCharacterId(messages: JsonRecord[], activeIds: string[]): string | null {
   const active = new Set(activeIds);
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -938,7 +949,7 @@ function lastVisibleAssistantCharacterId(messages: JsonRecord[], activeIds: stri
   return null;
 }
 
-function sequentialRoleplayGroupTarget(messages: JsonRecord[], activeIds: string[]): string | null {
+function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): string | null {
   if (activeIds.length === 0) return null;
   const lastCharacterId = lastVisibleAssistantCharacterId(messages, activeIds);
   if (!lastCharacterId) return activeIds[0] ?? null;
@@ -946,7 +957,7 @@ function sequentialRoleplayGroupTarget(messages: JsonRecord[], activeIds: string
   return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
 }
 
-function explicitRoleplayGroupTarget(
+function explicitGroupTarget(
   input: StartGenerationInput,
   storedMessages: JsonRecord[],
   activeIds: string[],
@@ -962,7 +973,7 @@ function explicitRoleplayGroupTarget(
   return active.has(targetCharacterId) ? targetCharacterId : null;
 }
 
-function continuationRoleplayGroupTarget(args: {
+function continuationGroupTarget(args: {
   input: StartGenerationInput;
   latestUserInput: string;
   storedMessages: JsonRecord[];
@@ -1081,11 +1092,13 @@ async function smartRoleplayGroupTarget(args: {
     mentionedNames: args.mentionedNames,
   });
   if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
-  if (candidates.length === 0) return sequentialRoleplayGroupTarget(args.storedMessages, args.activeIds);
+  if (candidates.length === 0) return sequentialGroupTarget(args.storedMessages, args.activeIds);
 
   const personaId = readString(args.chat.personaId).trim();
   const persona = personaId ? await args.deps.storage.get<JsonRecord>("personas", personaId).catch(() => null) : null;
   const personaData = isRecord(persona) ? characterDataRecord(persona) : {};
+  const chatMode = readString(args.chat.mode || args.chat.chatMode, "conversation");
+  const chatKind = chatMode === "conversation" ? "conversation group chat" : "individual-mode roleplay group chat";
   const candidateLines = candidates
     .map((candidate) =>
       JSON.stringify({
@@ -1108,8 +1121,7 @@ async function smartRoleplayGroupTarget(args: {
         messages: [
           {
             role: "system",
-            content:
-              'You are a hidden response orchestrator for an individual-mode roleplay group chat. Choose which character should respond next based on the latest message, direct address, narrative momentum, and talkativeness. Usually choose exactly one character. Return only JSON: {"characterIds":["character-id"],"reason":"short"}.',
+            content: `You are a hidden response orchestrator for a ${chatKind}. Choose which character should respond next based on the latest message, direct address, conversation momentum, and talkativeness. Usually choose exactly one character. Return only JSON: {"characterIds":["character-id"],"reason":"short"}.`,
           },
           {
             role: "user",
@@ -1128,12 +1140,11 @@ async function smartRoleplayGroupTarget(args: {
     if (isRecord(error) && readString(error.name) === "AbortError") throw error;
   }
   return (
-    parseSmartGroupSelectionIds(raw, args.activeIds)[0] ??
-    sequentialRoleplayGroupTarget(args.storedMessages, args.activeIds)
+    parseSmartGroupSelectionIds(raw, args.activeIds)[0] ?? sequentialGroupTarget(args.storedMessages, args.activeIds)
   );
 }
 
-async function resolveRoleplayGroupTargetForGeneration(args: {
+async function resolveGroupTargetForGeneration(args: {
   deps: GenerationEngineDeps;
   input: StartGenerationInput;
   chat: JsonRecord;
@@ -1144,11 +1155,20 @@ async function resolveRoleplayGroupTargetForGeneration(args: {
   signal?: AbortSignal;
 }): Promise<string | null> {
   if (args.input.impersonate === true) return null;
-  const activeIds = roleplayIndividualGroupCharacterIds(args.chat);
+  const activeIds = targetedGroupCharacterIds(args.chat);
   if (activeIds.length === 0) return null;
-  const explicit = explicitRoleplayGroupTarget(args.input, args.storedMessages, activeIds);
+  const explicit = explicitGroupTarget(args.input, args.storedMessages, activeIds);
   if (explicit) return explicit;
-  const continuation = continuationRoleplayGroupTarget({
+
+  const candidates = await loadSmartResponderCandidates(args.deps.storage, activeIds);
+  const mentionedIds = mentionedSmartResponderIds({
+    candidates,
+    latestUserInput: args.latestUserInput,
+    mentionedNames: args.mentionedNames,
+  });
+  if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
+
+  const continuation = continuationGroupTarget({
     input: args.input,
     latestUserInput: args.latestUserInput,
     storedMessages: args.storedMessages,
@@ -1161,7 +1181,7 @@ async function resolveRoleplayGroupTargetForGeneration(args: {
   if (order === "smart") {
     return smartRoleplayGroupTarget({ ...args, activeIds });
   }
-  return sequentialRoleplayGroupTarget(args.storedMessages, activeIds);
+  return sequentialGroupTarget(args.storedMessages, activeIds);
 }
 
 function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
@@ -2146,7 +2166,7 @@ export async function* startGeneration(
   );
   const chatForGeneration = generationTrackerBaseline ? { ...chat, gameState: generationTrackerBaseline } : chat;
   const latestUserInput = preparedUserInput.content || inputUserMessage(input);
-  const resolvedRoleplayGroupTarget = await resolveRoleplayGroupTargetForGeneration({
+  const resolvedGroupTarget = await resolveGroupTargetForGeneration({
     deps,
     input,
     chat: chatForGeneration,
@@ -2157,8 +2177,8 @@ export async function* startGeneration(
     signal,
   });
   throwIfAborted(signal);
-  if (resolvedRoleplayGroupTarget && readString(input.forCharacterId).trim() !== resolvedRoleplayGroupTarget) {
-    input = { ...input, forCharacterId: resolvedRoleplayGroupTarget };
+  if (resolvedGroupTarget && readString(input.forCharacterId).trim() !== resolvedGroupTarget) {
+    input = { ...input, forCharacterId: resolvedGroupTarget };
   }
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];

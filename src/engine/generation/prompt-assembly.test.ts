@@ -1071,6 +1071,58 @@ describe("assembleGenerationPrompt strict roles", () => {
     ]);
   });
 
+  it("keeps all conversation cards visible while scoping history to the responding character", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithSectionsAndCharacters(
+        [
+          section({
+            id: "character",
+            name: "Characters",
+            role: "system",
+            markerConfig: { type: "character" },
+            sortOrder: 0,
+          }),
+          section({
+            id: "history",
+            name: "chat_history",
+            role: "user",
+            markerConfig: { type: "chat_history" },
+            sortOrder: 1,
+          }),
+        ],
+        [
+          { id: "char-a", name: "Aster", description: "ASTER CARD" },
+          { id: "char-b", name: "Briar", description: "BRIAR CARD" },
+        ],
+      ),
+      {
+        chat: {
+          id: "chat",
+          mode: "conversation",
+          characterIds: ["char-a", "char-b"],
+        },
+        storedMessages: [
+          { role: "assistant", characterId: "char-a", content: "Aster opened.", contextKind: "history" },
+          { role: "assistant", characterId: "char-b", content: "Briar replied.", contextKind: "history" },
+          { role: "user", content: "User follows up.", contextKind: "history" },
+        ],
+        connection: {},
+        request: { ...request, forCharacterId: "char-b" },
+        latestUserInput: "User follows up.",
+      },
+    );
+
+    const prompt = promptText(assembly);
+    expect(prompt).toContain("ASTER CARD");
+    expect(prompt).toContain("BRIAR CARD");
+    expect(prompt).toContain("Respond only as Briar");
+    expect(assembly.messages.filter((message) => message.contextKind === "history")).toMatchObject([
+      { role: "user", content: "Aster opened." },
+      { role: "assistant", content: "Briar replied." },
+      { role: "user", content: "User follows up." },
+    ]);
+  });
+
   it("excludes stored reasoning from history by default", async () => {
     const assembly = await assembleGenerationPrompt(storageWithSections([]), {
       chat: { id: "chat", mode: "roleplay", metadata: {} },

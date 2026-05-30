@@ -1537,6 +1537,17 @@ function scopedIndividualGroupTarget(
   return characters.some((character) => character.id === requestedCharacterId) ? requestedCharacterId : null;
 }
 
+function scopedConversationGroupTarget(
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+): string | null {
+  const chatMode = readString(input.chat.mode || input.chat.chatMode);
+  if (chatMode !== "conversation" || characters.length <= 1 || input.request.impersonate === true) return null;
+  const requestedCharacterId = readString(input.request.forCharacterId).trim();
+  if (!requestedCharacterId) return null;
+  return characters.some((character) => character.id === requestedCharacterId) ? requestedCharacterId : null;
+}
+
 function promptCharactersForGeneration(
   input: PromptAssemblyInput,
   characters: GenerationCharacterContext[],
@@ -1558,6 +1569,23 @@ function individualGroupTurnPromptMessage(
   return {
     role: "system",
     content: `Respond only as ${name}`,
+    contextKind: "prompt",
+    displayName: "Turn",
+  };
+}
+
+function conversationGroupTurnPromptMessage(
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+): ChatMLMessage | null {
+  const targetId = scopedConversationGroupTarget(input, characters);
+  if (!targetId) return null;
+  if (parseRecord(input.chat.metadata).groupTurnPromptEnabled === false) return null;
+  const character = characters.find((candidate) => candidate.id === targetId);
+  const name = character?.name.trim() || "the requested character";
+  return {
+    role: "system",
+    content: `Respond only as ${name}. Use the other attached character cards and recent messages as context, but do not speak as another character in this turn.`,
     contextKind: "prompt",
     displayName: "Turn",
   };
@@ -2266,7 +2294,8 @@ export async function assembleGenerationPrompt(
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
     resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
   });
-  const turnPrompt = individualGroupTurnPromptMessage(input, characters);
+  const turnPrompt =
+    individualGroupTurnPromptMessage(input, characters) ?? conversationGroupTurnPromptMessage(input, characters);
   if (turnPrompt) {
     messages.push(turnPrompt);
   }
@@ -2279,6 +2308,10 @@ export async function assembleGenerationPrompt(
   const individualGroupTarget = scopedIndividualGroupTarget(input, characters);
   if (individualGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, individualGroupTarget);
+  }
+  const conversationGroupTarget = scopedConversationGroupTarget(input, characters);
+  if (conversationGroupTarget) {
+    messages = scopeIndividualGroupHistoryRoles(messages, conversationGroupTarget);
   }
   const previewMessages = previewMessagesForPrompt(messages);
   const shouldEnforceStrictRoles =
