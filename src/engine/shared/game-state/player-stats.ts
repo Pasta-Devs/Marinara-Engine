@@ -60,9 +60,24 @@ export function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+/** A keyed-map entry only earns the map key as its name when it actually looks
+ *  like a quest. Prevents an arbitrary non-quest record from being promoted to
+ *  a phantom quest named after its key (matches the legacy behavior). */
+function looksLikeQuestRecord(record: Record<string, unknown>): boolean {
+  return (
+    record.questEntryId !== undefined ||
+    record.objectives !== undefined ||
+    record.currentStage !== undefined ||
+    record.completed !== undefined
+  );
+}
+
 export function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null {
   const record = parseRecord(value);
-  const name = readString(record.name).trim() || readString(record.questName).trim() || readString(fallbackName).trim();
+  let name = readString(record.name).trim() || readString(record.questName).trim();
+  if (!name && looksLikeQuestRecord(record)) {
+    name = readString(fallbackName).trim();
+  }
   if (!name) return null;
   const questEntryId = readString(record.questEntryId).trim() || name;
   // Route objectives through collectQuestObjectives so non-array wrappers

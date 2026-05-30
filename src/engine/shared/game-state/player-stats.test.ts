@@ -113,6 +113,16 @@ describe("normalizeActiveQuestCollection", () => {
     });
     expect(quests.map((quest) => quest.name)).toEqual(["Real Quest"]);
   });
+
+  it("does not promote a non-quest keyed record to a phantom quest named after its key", () => {
+    const quests = normalizeActiveQuestCollection({
+      "find-the-key": { name: "Find the Key", objectives: ["search"] },
+      "ui-flags": { collapsed: true, sortOrder: 2 },
+    });
+    // The real quest is kept; the unrelated config-shaped record is dropped, not
+    // turned into a quest named "ui-flags".
+    expect(quests.map((quest) => quest.name)).toEqual(["Find the Key"]);
+  });
 });
 
 describe("applyQuestUpdatesToPlayerStats", () => {
