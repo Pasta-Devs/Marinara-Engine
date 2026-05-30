@@ -23,13 +23,13 @@ for (const record of result.stdout.split("\0")) {
     continue;
   }
 
-  const match = record.match(/^i\/(\S+)\s+w\/(\S+)\s+attr\/[^\t]*\t([\s\S]+)$/);
+  const match = record.match(/^i\/(\S+)\s+w\/(\S+)\s+attr\/([^\t]*)\t([\s\S]+)$/);
   if (!match) {
     continue;
   }
 
   checked += 1;
-  const [, indexEnding, worktreeEnding, filePath] = match;
+  const [, indexEnding, worktreeEnding, attributes, filePath] = match;
 
   if (indexEnding === "crlf" || indexEnding === "mixed") {
     indexFailures.push(`${filePath} has ${indexEnding} line endings in the Git index.`);
@@ -37,6 +37,8 @@ for (const record of result.stdout.split("\0")) {
 
   if (worktreeEnding === "mixed") {
     worktreeFailures.push(`${filePath} has mixed line endings in the working tree.`);
+  } else if (attributes.includes("eol=lf") && worktreeEnding === "crlf") {
+    worktreeFailures.push(`${filePath} has CRLF line endings in an LF-normalized working tree.`);
   }
 }
 
@@ -48,7 +50,7 @@ if (failures.length > 0) {
   }
   console.error("");
   console.error("Run `git add --renormalize .` after changing .gitattributes.");
-  console.error("For mixed working-tree files, re-save or format them with LF endings.");
+  console.error("For working-tree failures, re-save or format the listed files with LF endings.");
   process.exit(1);
 }
 
