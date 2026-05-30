@@ -3,7 +3,9 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const lorebookCategorySchema = z.enum(["world", "character", "npc", "spellbook", "uncategorized"]);
+export const lorebookCategorySchema = z.enum(["world", "character", "npc", "spellbook", "game", "uncategorized"]);
+
+export const lorebookGeneratedBySchema = z.enum(["user", "agent", "import", "lorebook-maker", "game-session"]);
 
 export const selectiveLogicSchema = z.enum(["and", "or", "not"]);
 
@@ -69,7 +71,7 @@ export const createLorebookSchema = z.object({
   enabled: z.boolean().default(true),
   excludeFromVectorization: z.boolean().default(false),
   tags: z.array(z.string()).default([]),
-  generatedBy: z.enum(["user", "agent", "import", "lorebook-maker"]).nullable().default(null),
+  generatedBy: lorebookGeneratedBySchema.nullable().default(null),
   sourceAgentId: z.string().nullable().default(null),
 });
 
@@ -92,7 +94,7 @@ export const updateLorebookSchema = z
     enabled: z.boolean().optional(),
     excludeFromVectorization: z.boolean().optional(),
     tags: z.array(z.string()).optional(),
-    generatedBy: z.enum(["user", "agent", "import", "lorebook-maker"]).nullable().optional(),
+    generatedBy: lorebookGeneratedBySchema.nullable().optional(),
     sourceAgentId: z.string().nullable().optional(),
   })
   .superRefine((value, ctx) => {
@@ -172,6 +174,7 @@ export const createLorebookEntrySchema = z.object({
 });
 
 export const updateLorebookEntrySchema = z.object({
+  lorebookId: z.string().optional(),
   name: z.string().min(1).max(200).optional(),
   content: z.string().optional(),
   description: z.string().optional(),

@@ -13,8 +13,10 @@ export const updateThemeSchema = z
   .object({
     name: z.string().min(1).max(200).optional(),
     css: z.string().optional(),
+    isActive: z.boolean().optional(),
+    active: z.boolean().optional(),
   })
-  .refine((value) => value.name !== undefined || value.css !== undefined, {
+  .refine((value) => Object.keys(value).length > 0, {
     message: "Must update at least one field",
   });
 

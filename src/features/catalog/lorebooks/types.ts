@@ -1,4 +1,4 @@
-export type LorebookCategory = "world" | "character" | "npc" | "spellbook" | "uncategorized";
+export type LorebookCategory = "world" | "character" | "npc" | "spellbook" | "game" | "uncategorized";
 
 export interface Lorebook {
   id: string;

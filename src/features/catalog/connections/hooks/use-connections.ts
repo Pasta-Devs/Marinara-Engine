@@ -6,6 +6,7 @@ import { connectionKeys } from "../query-keys";
 import {
   createConnectionSchema,
   type CreateConnectionInput,
+  updateConnectionSchema,
 } from "../../../../engine/contracts/schemas/connection.schema";
 import { connectionCommandApi } from "../../../../shared/api/connection-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -58,7 +59,7 @@ export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
-      storageApi.update("connections", id, data),
+      storageApi.update("connections", id, updateConnectionSchema.parse(data)),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) });

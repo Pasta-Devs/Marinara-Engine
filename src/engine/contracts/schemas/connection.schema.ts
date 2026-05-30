@@ -45,4 +45,16 @@ export const createConnectionSchema = z.object({
   maxParallelJobs: z.number().int().min(1).max(16).default(1),
 });
 
+export const updateConnectionSchema = createConnectionSchema
+  .extend({
+    folderId: z.string().nullable().optional(),
+    sortOrder: z.number().int().optional(),
+    enabled: z.boolean().optional(),
+    defaultParameters: z.record(z.unknown()).nullable().optional(),
+    capabilities: z.record(z.unknown()).nullable().optional(),
+    providerMetadata: z.record(z.unknown()).nullable().optional(),
+  })
+  .partial();
+
 export type CreateConnectionInput = z.infer<typeof createConnectionSchema>;
+export type UpdateConnectionInput = z.infer<typeof updateConnectionSchema>;

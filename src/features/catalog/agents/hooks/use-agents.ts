@@ -2,7 +2,10 @@
 // Hooks: Agent Configs (React Query)
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createAgentConfigSchema } from "../../../../engine/contracts/schemas/agent.schema";
+import {
+  createAgentConfigSchema,
+  updateAgentConfigSchema,
+} from "../../../../engine/contracts/schemas/agent.schema";
 import { BUILT_IN_AGENTS } from "../../../../engine/contracts/types/agent";
 import { agentApi } from "../../../../shared/api/agent-api";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -44,6 +47,15 @@ export interface AgentRunRow {
 
 const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 
+function normalizeAgentUpdatePayload(data: Record<string, unknown>): Record<string, unknown> {
+  const nested = data.data;
+  const patch =
+    Object.keys(data).length === 1 && nested && typeof nested === "object" && !Array.isArray(nested)
+      ? (nested as Record<string, unknown>)
+      : data;
+  return updateAgentConfigSchema.parse(patch);
+}
+
 export function useAgentConfigs(enabled = true) {
   return useQuery({
     queryKey: agentKeys.all,
@@ -68,7 +80,8 @@ export function useCustomAgentRuns(chatId: string | null, enabled = true) {
 export function useUpdateAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => storageApi.update("agents", id, data),
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      storageApi.update("agents", id, normalizeAgentUpdatePayload(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
@@ -79,7 +92,7 @@ export function useUpdateAgentByType() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ agentType, ...data }: { agentType: string } & Record<string, unknown>) =>
-      agentApi.patchByType(agentType, data),
+      agentApi.patchByType(agentType, updateAgentConfigSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },

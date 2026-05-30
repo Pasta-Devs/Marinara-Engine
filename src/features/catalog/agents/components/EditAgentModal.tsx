@@ -4,6 +4,10 @@
 import { useState, useEffect } from "react";
 import { Modal } from "../../../../shared/components/ui/Modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  createAgentConfigSchema,
+  updateAgentConfigSchema,
+} from "../../../../engine/contracts/schemas/agent.schema";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useConnections } from "../../connections/index";
 import { Loader2, Sparkles, Save } from "lucide-react";
@@ -63,7 +67,8 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
 
   // Update existing config
   const updateAgent = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => storageApi.update("agents", id, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      storageApi.update("agents", id, updateAgentConfigSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       onClose();
@@ -72,7 +77,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
 
   // Create config if agent has never been persisted
   const createAgent = useMutation({
-    mutationFn: (data: Record<string, unknown>) => storageApi.create("agents", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create("agents", createAgentConfigSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       onClose();

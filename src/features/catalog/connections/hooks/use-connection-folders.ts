@@ -2,6 +2,7 @@
 // React Query: Connection Folder hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateConnectionSchema } from "../../../../engine/contracts/schemas/connection.schema";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { ConnectionFolder } from "../../../../engine/contracts/types/connection";
 import { connectionKeys } from "./use-connections";
@@ -72,7 +73,7 @@ export function useMoveConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { connectionId: string; folderId: string | null }) =>
-      storageApi.update("connections", data.connectionId, { folderId: data.folderId }),
+      storageApi.update("connections", data.connectionId, updateConnectionSchema.parse({ folderId: data.folderId })),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }

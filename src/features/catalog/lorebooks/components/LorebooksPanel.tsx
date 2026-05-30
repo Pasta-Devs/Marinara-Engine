@@ -24,6 +24,7 @@ import {
   Trash2,
   Zap,
   Camera,
+  Gamepad2,
 } from "lucide-react";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
@@ -45,6 +46,7 @@ const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string
   { id: "character", label: "Character", icon: Users },
   { id: "npc", label: "NPC", icon: UserRound },
   { id: "spellbook", label: "Spellbook", icon: Wand2 },
+  { id: "game", label: "Game", icon: Gamepad2 },
   { id: "uncategorized", label: "Other", icon: BookOpen },
 ];
 
@@ -53,6 +55,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   character: "from-violet-400 to-purple-500",
   npc: "from-rose-400 to-pink-500",
   spellbook: "from-blue-400 to-indigo-500",
+  game: "from-cyan-400 to-sky-500",
   uncategorized: "from-amber-400 to-orange-500",
   all: "from-amber-400 to-orange-500",
 };
@@ -625,7 +628,10 @@ export function LorebooksPanel() {
           {activeCategory === "all" && grouped
             ? // Grouped view
               Array.from(grouped.entries()).map(([category, books]) => {
-                const catMeta = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[5];
+                const catMeta =
+                  CATEGORIES.find((c) => c.id === category) ??
+                  CATEGORIES.find((c) => c.id === "uncategorized") ??
+                  CATEGORIES[0];
                 const CatIcon = catMeta.icon;
                 return (
                   <div key={category} className="mb-2">

@@ -134,10 +134,13 @@ export const updatePromptPresetSchema = z.object({
   description: z.string().optional(),
   sectionOrder: z.array(z.string()).optional(),
   groupOrder: z.array(z.string()).optional(),
+  variableOrder: z.array(z.string()).optional(),
   variableGroups: z.array(promptVariableGroupSchema).optional(),
   variableValues: z.record(z.string()).optional(),
   parameters: generationParametersSchema.partial().optional(),
   wrapFormat: wrapFormatSchema.optional(),
+  isDefault: z.boolean().optional(),
+  default: z.boolean().optional(),
   author: z.string().optional(),
   defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
 });

@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 
 /** Top-level lorebook categories. */
-export type LorebookCategory = "world" | "character" | "npc" | "spellbook" | "uncategorized";
+export type LorebookCategory = "world" | "character" | "npc" | "spellbook" | "game" | "uncategorized";
 
 /** Selective logic operators. */
 export type SelectiveLogic = "and" | "or" | "not";
@@ -59,7 +59,7 @@ export interface Lorebook {
   /** Tags for organizing/filtering lorebooks */
   tags: string[];
   /** Agent/generation origin tracking */
-  generatedBy: "user" | "agent" | "import" | null;
+  generatedBy: "user" | "agent" | "import" | "lorebook-maker" | "game-session" | null;
   sourceAgentId: string | null;
   createdAt: string;
   updatedAt: string;

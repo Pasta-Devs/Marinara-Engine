@@ -28,6 +28,10 @@ import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import {
+  createLorebookEntrySchema,
+  createLorebookSchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
 import {
@@ -1629,32 +1633,37 @@ export const gameApi = {
         },
       }));
     const entries = Array.isArray(parsed.entries) && parsed.entries.length ? parsed.entries : fallbackEntries;
-    const lorebook = await storageApi.create<{ id: string }>("lorebooks", {
-      name: `Game Session ${data.sessionNumber} Lore`,
-      description: "Generated from local game session state.",
-      category: "game",
-      chatId: data.chatId,
-      enabled: true,
-      generatedBy: "game-session",
-    });
+    const lorebook = await storageApi.create<{ id: string }>(
+      "lorebooks",
+      createLorebookSchema.parse({
+        name: `Game Session ${data.sessionNumber} Lore`,
+        description: "Generated from local game session state.",
+        category: "game",
+        chatId: data.chatId,
+        enabled: true,
+        generatedBy: "game-session",
+      }),
+    );
     let entryCount = 0;
     for (const [index, rawEntry] of entries.entries()) {
       const entry = asRecord(rawEntry);
-      await storageApi.create("lorebook-entries", {
-        lorebookId: lorebook.id,
-        name: typeof entry.name === "string" ? entry.name : "Session Lore",
-        content: typeof entry.content === "string" ? entry.content : "",
-        keys: Array.isArray(entry.keys) ? entry.keys : [`session ${data.sessionNumber}`],
-        secondaryKeys: [],
-        enabled: true,
-        constant: false,
-        selective: false,
-        order: index,
-        sortOrder: index,
-        position: 0,
-        role: "system",
-        excludeFromVectorization: false,
-      });
+      await storageApi.create(
+        "lorebook-entries",
+        createLorebookEntrySchema.parse({
+          lorebookId: lorebook.id,
+          name: typeof entry.name === "string" ? entry.name : "Session Lore",
+          content: typeof entry.content === "string" ? entry.content : "",
+          keys: Array.isArray(entry.keys) ? entry.keys : [`session ${data.sessionNumber}`],
+          secondaryKeys: [],
+          enabled: true,
+          constant: false,
+          selective: false,
+          order: index,
+          position: 0,
+          role: "system",
+          excludeFromVectorization: false,
+        }),
+      );
       entryCount += 1;
     }
     const sessionChat = await patchChatMetadata(data.chatId, {

@@ -3,7 +3,13 @@
 // ──────────────────────────────────────────────
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { storageApi } from "../../../../shared/api/storage-api";
-import type { CreateThemeInput, UpdateThemeInput } from "../../../../engine/contracts/schemas/theme.schema";
+import {
+  createThemeSchema,
+  setActiveThemeSchema,
+  updateThemeSchema,
+  type CreateThemeInput,
+  type UpdateThemeInput,
+} from "../../../../engine/contracts/schemas/theme.schema";
 import type { Theme } from "../../../../engine/contracts/types/theme";
 
 const themeKeys = {
@@ -28,7 +34,7 @@ export function useThemes() {
 export function useCreateTheme() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateThemeInput) => storageApi.create<Theme>("themes", data as Record<string, unknown>),
+    mutationFn: (data: CreateThemeInput) => storageApi.create<Theme>("themes", createThemeSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: themeKeys.all });
     },
@@ -39,7 +45,7 @@ export function useUpdateTheme() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & UpdateThemeInput) =>
-      storageApi.update<Theme>("themes", id, data as Record<string, unknown>),
+      storageApi.update<Theme>("themes", id, updateThemeSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: themeKeys.all });
     },
@@ -60,19 +66,22 @@ export function useSetActiveTheme() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string | null): Promise<Theme | null> => {
+      const payload = setActiveThemeSchema.parse({ id });
       const themes = await storageApi.list<Theme>("themes");
       let selected: Theme | null = null;
       await Promise.all(
         themes.flatMap((theme) => {
-          const isActive = !!id && theme.id === id;
+          const isActive = !!payload.id && theme.id === payload.id;
           const currentlyActive = !!(theme.isActive || theme.active);
           if (currentlyActive === isActive) {
             if (isActive) selected = theme;
             return [];
           }
-          return storageApi.update<Theme>("themes", theme.id, { isActive, active: isActive }).then((updated) => {
-            if (isActive) selected = updated;
-          });
+          return storageApi
+            .update<Theme>("themes", theme.id, updateThemeSchema.parse({ isActive, active: isActive }))
+            .then((updated) => {
+              if (isActive) selected = updated;
+            });
         }),
       );
       return selected;
