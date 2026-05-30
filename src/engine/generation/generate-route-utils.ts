@@ -1,6 +1,5 @@
 import { PROVIDERS } from "../contracts/constants/providers";
 import { generationParametersSchema } from "../contracts/schemas/prompt.schema";
-import type { GameState } from "../contracts/types/game-state";
 import type { GenerationParameters } from "../contracts/types/prompt";
 import { wrapContent } from "../generation-core/prompt/format-engine.js";
 import { parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
@@ -502,25 +501,4 @@ export function preserveTrackerCharacterUiFields(
       character.portraitZoom = previousPortraitZoom;
     }
   }
-}
-
-/** Parse game state JSON fields from a DB row. */
-export function parseGameStateRow(row: Record<string, unknown>): GameState {
-  return {
-    id: row.id as string,
-    chatId: row.chatId as string,
-    messageId: row.messageId as string,
-    swipeIndex: row.swipeIndex as number,
-    date: row.date as string | null,
-    time: row.time as string | null,
-    location: row.location as string | null,
-    weather: row.weather as string | null,
-    temperature: row.temperature as string | null,
-    presentCharacters: Array.isArray(row.presentCharacters) ? row.presentCharacters : [],
-    recentEvents: Array.isArray(row.recentEvents) ? row.recentEvents : [],
-    playerStats:
-      row.playerStats && typeof row.playerStats === "object" ? (row.playerStats as GameState["playerStats"]) : null,
-    personaStats: Array.isArray(row.personaStats) ? (row.personaStats as GameState["personaStats"]) : null,
-    createdAt: row.createdAt as string,
-  };
 }

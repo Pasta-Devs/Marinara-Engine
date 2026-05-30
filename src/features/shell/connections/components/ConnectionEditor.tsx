@@ -425,7 +425,7 @@ export function ConnectionEditor() {
   const usesLocalAuthProvider = usesLocalChatGptAuth || isClaudeSubscriptionProvider;
   const embeddingConnectionOptions = useMemo(
     () =>
-      ((allConnections ?? []) as Record<string, unknown>[]).filter(
+      (allConnections ?? []).filter(
         (c) => c.id !== connectionDetailId && c.provider !== "image_generation" && c.provider !== "openai_chatgpt",
       ),
     [allConnections, connectionDetailId],

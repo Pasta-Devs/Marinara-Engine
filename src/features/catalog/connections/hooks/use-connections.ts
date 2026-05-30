@@ -8,10 +8,10 @@ import {
   type CreateConnectionInput,
   updateConnectionSchema,
 } from "../../../../engine/contracts/schemas/connection.schema";
+import type { APIProvider, ConnectionTestResult } from "../../../../engine/contracts/types/connection";
 import { connectionCommandApi } from "../../../../shared/api/connection-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
-import type { ConnectionRow, ConnectionTestResult } from "../types";
 
 export { connectionKeys } from "../query-keys";
 
@@ -26,12 +26,27 @@ export type ClaudeSubscriptionDiagnosis = {
   latencyMs: number;
 };
 
+type ConnectionListItem = {
+  [key: string]: unknown;
+  id: string;
+  name: string;
+  provider: APIProvider | string;
+  model?: string | null;
+  baseUrl?: string | null;
+  useForRandom?: boolean | string | null;
+  defaultForAgents?: boolean | string | null;
+  embeddingModel?: string | null;
+  folderId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 type CreateConnectionVariables = Partial<CreateConnectionInput> & Pick<CreateConnectionInput, "name" | "provider">;
 
 export function useConnections(enabled = true) {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => storageApi.list<ConnectionRow>("connections"),
+    queryFn: () => storageApi.list<ConnectionListItem>("connections"),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -70,7 +85,7 @@ export function useUpdateConnection() {
 export function useDuplicateConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => storageCommandsApi.duplicate<ConnectionRow>("connections", id),
+    mutationFn: (id: string) => storageCommandsApi.duplicate<ConnectionListItem>("connections", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }

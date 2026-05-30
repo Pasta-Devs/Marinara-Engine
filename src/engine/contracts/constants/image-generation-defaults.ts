@@ -169,22 +169,6 @@ export function sanitizeImageGenerationProfile(
   return normalizeImageGenerationProfile(profile, service).profile;
 }
 
-export function mergePromptPrefix(prefix: string, prompt: string): string {
-  const trimmedPrefix = prefix.trim();
-  const trimmedPrompt = prompt.trim();
-  if (!trimmedPrefix) return trimmedPrompt;
-  if (!trimmedPrompt) return trimmedPrefix;
-  return `${trimmedPrefix}, ${trimmedPrompt}`;
-}
-
-export function mergeNegativePrompt(prefix: string, prompt?: string): string {
-  const trimmedPrefix = prefix.trim();
-  const trimmedPrompt = (prompt ?? "").trim();
-  if (!trimmedPrefix) return trimmedPrompt;
-  if (!trimmedPrompt) return trimmedPrefix;
-  return `${trimmedPrefix}, ${trimmedPrompt}`;
-}
-
 function normalizeAutomatic1111Defaults(rawDefaults: unknown): Automatic1111Defaults {
   const raw = isRecord(rawDefaults) ? rawDefaults : {};
   return {

@@ -847,14 +847,6 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize);
 }
 
-export function buildKnowledgeRetrievalAgentMessagesForTest(
-  config: AgentExecConfig,
-  template: string,
-  context: AgentContext,
-): ChatMessage[] {
-  return buildKnowledgeRetrievalAgentMessages(config, template, context);
-}
-
 function buildKnowledgeRetrievalAgentMessages(
   config: AgentExecConfig,
   template: string,
