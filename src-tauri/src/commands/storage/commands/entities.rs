@@ -269,10 +269,11 @@ pub(crate) fn delete_entity(
     }
     if entity == "chats" {
         let existed = state.storage.get("chats", id)?.is_some();
+        let mut deleted_chat_ids = Vec::new();
         if existed {
-            chats::delete_chat_with_messages(state, id)?;
+            deleted_chat_ids = chats::delete_chat_with_messages(state, id)?;
         }
-        return Ok(json!({ "deleted": existed }));
+        return Ok(json!({ "deleted": existed, "deletedChatIds": deleted_chat_ids }));
     }
     if is_protected_record(entity, id) {
         return Err(AppError::invalid_input(
@@ -445,6 +446,47 @@ mod tests {
             .into_iter()
             .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
             .collect()
+    }
+
+    #[test]
+    fn deleting_chat_reports_cascade_deleted_chat_ids() {
+        let state = test_state("chat-delete-ids");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "origin-chat",
+                    "name": "Origin",
+                    "metadata": { "activeSceneChatId": "scene-chat" }
+                }),
+            )
+            .expect("origin chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-chat",
+                    "name": "Scene",
+                    "metadata": { "sceneOriginChatId": "origin-chat" }
+                }),
+            )
+            .expect("scene chat should be created");
+
+        let result = delete_entity(&state, "chats", "origin-chat", false)
+            .expect("chat delete should succeed");
+        let deleted_chat_ids: Vec<&str> = result["deletedChatIds"]
+            .as_array()
+            .expect("deleted chat ids should be returned")
+            .iter()
+            .map(|id| id.as_str().expect("deleted chat id should be a string"))
+            .collect();
+
+        assert_eq!(result.get("deleted").and_then(Value::as_bool), Some(true));
+        assert_eq!(deleted_chat_ids, vec!["origin-chat", "scene-chat"]);
+        assert!(state.storage.get("chats", "origin-chat").unwrap().is_none());
+        assert!(state.storage.get("chats", "scene-chat").unwrap().is_none());
     }
 
     #[test]

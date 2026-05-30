@@ -712,16 +712,22 @@ pub(crate) fn delete_chat_group(state: &AppState, group_id: &str) -> AppResult<V
         _ => Vec::new(),
     };
     let mut deleted = 0;
+    let mut deleted_chat_ids = Vec::new();
     for chat in chats {
         if let Some(id) = chat.get("id").and_then(Value::as_str) {
             if is_protected_record("chats", id) {
                 continue;
             }
-            delete_chat_with_messages(state, id)?;
-            deleted += 1;
+            let chat_delete_ids = delete_chat_with_messages(state, id)?;
+            if chat_delete_ids.iter().any(|deleted_id| deleted_id == id) {
+                deleted += 1;
+            }
+            deleted_chat_ids.extend(chat_delete_ids);
         }
     }
-    Ok(json!({ "deleted": deleted }))
+    deleted_chat_ids.sort_unstable();
+    deleted_chat_ids.dedup();
+    Ok(json!({ "deleted": deleted, "deletedChatIds": deleted_chat_ids }))
 }
 
 pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppResult<Value> {
@@ -853,14 +859,14 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
     Ok(new_chat)
 }
 
-pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppResult<()> {
+pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppResult<Vec<String>> {
     if is_protected_record("chats", chat_id) {
         return Err(AppError::invalid_input(
             "Protected records cannot be deleted",
         ));
     }
     let Some(root_chat) = state.storage.get("chats", chat_id)? else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let owned_scene_chat_ids = scene_delete_scope(state, chat_id, &root_chat)?;
     clear_character_scene_memories(state, &owned_scene_chat_ids)?;
@@ -875,10 +881,10 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
     state.storage.delete_messages_for_chats(&delete_id_set)?;
 
-    for delete_id in delete_ids {
+    for delete_id in &delete_ids {
         state.storage.delete("chats", &delete_id)?;
     }
-    Ok(())
+    Ok(delete_ids)
 }
 
 fn chat_game_state_is_bootstrap(chat: &Value) -> bool {
@@ -1124,6 +1130,80 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp chat delete dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn delete_chat_group_reports_exact_deleted_chat_ids_including_scene_children() {
+        let state = test_state("group-delete-ids");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "origin-chat",
+                    "name": "Origin",
+                    "groupId": "group-1",
+                    "metadata": { "activeSceneChatId": "scene-chat" }
+                }),
+            )
+            .expect("origin chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-chat",
+                    "name": "Scene",
+                    "metadata": { "sceneOriginChatId": "origin-chat" }
+                }),
+            )
+            .expect("scene chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "sibling-chat",
+                    "name": "Sibling",
+                    "groupId": "group-1",
+                    "metadata": {}
+                }),
+            )
+            .expect("sibling chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "other-chat",
+                    "name": "Other",
+                    "groupId": "group-other",
+                    "metadata": {}
+                }),
+            )
+            .expect("other chat should be created");
+
+        let result = delete_chat_group(&state, "group-1").expect("group delete should succeed");
+        let deleted_chat_ids: Vec<&str> = result["deletedChatIds"]
+            .as_array()
+            .expect("deleted chat ids should be returned")
+            .iter()
+            .map(|id| id.as_str().expect("deleted chat id should be a string"))
+            .collect();
+
+        assert_eq!(result.get("deleted").and_then(Value::as_i64), Some(2));
+        assert_eq!(
+            deleted_chat_ids,
+            vec!["origin-chat", "scene-chat", "sibling-chat"]
+        );
+        assert!(state.storage.get("chats", "origin-chat").unwrap().is_none());
+        assert!(state.storage.get("chats", "scene-chat").unwrap().is_none());
+        assert!(state
+            .storage
+            .get("chats", "sibling-chat")
+            .unwrap()
+            .is_none());
+        assert!(state.storage.get("chats", "other-chat").unwrap().is_some());
     }
 
     #[test]

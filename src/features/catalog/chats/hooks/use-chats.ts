@@ -21,6 +21,7 @@ import {
   summariesPatchSchema,
 } from "../../../../engine/contracts/schemas/chat.schema";
 import { boolish } from "../../../../engine/generation/runtime-records";
+import { clearChatActivity } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { backfillConversationSummaries } from "../../../../engine/modes/chat/core/summaries/auto-summary.service";
 import { appendChatSummaryEntryToMetadata } from "../../../../engine/shared/text/chat-summary-entries";
 import { chatCommandApi } from "../../../../shared/api/chat-command-api";
@@ -476,12 +477,21 @@ export function useChatGroup(groupId: string | null) {
 
 type DeleteChatInput = string | { id: string; groupId?: string | null };
 
+interface DeleteChatResult {
+  deleted: boolean;
+  deletedChatIds?: string[];
+}
+
 function getDeleteChatId(input: DeleteChatInput) {
   return typeof input === "string" ? input : input.id;
 }
 
 function getDeleteChatGroupId(input: DeleteChatInput) {
   return typeof input === "string" ? null : (input.groupId ?? null);
+}
+
+function uniqueIds(ids: Array<string | null | undefined>) {
+  return Array.from(new Set(ids.filter((id): id is string => typeof id === "string" && id.length > 0)));
 }
 
 export function useCreateChat() {
@@ -506,7 +516,8 @@ export function useCreateChat() {
 export function useDeleteChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: DeleteChatInput) => storageApi.delete("chats", getDeleteChatId(input)),
+    mutationFn: async (input: DeleteChatInput): Promise<DeleteChatResult> =>
+      (await storageApi.delete("chats", getDeleteChatId(input))) as DeleteChatResult,
     onMutate: async (input) => {
       const id = getDeleteChatId(input);
       const providedGroupId = getDeleteChatGroupId(input);
@@ -533,6 +544,11 @@ export function useDeleteChat() {
       }
 
       return { previous, previousSummaries, previousGroup, groupId };
+    },
+    onSuccess: (data, input) => {
+      for (const chatId of uniqueIds([getDeleteChatId(input), ...(data.deletedChatIds ?? [])])) {
+        clearChatActivity(chatId);
+      }
     },
     onError: (_err, _id, context) => {
       if (context?.previous) {
@@ -574,6 +590,11 @@ export function useDeleteChatGroup() {
       qc.setQueryData<Chat[]>(chatKeys.group(groupId), []);
 
       return { previous, groupId };
+    },
+    onSuccess: (data) => {
+      for (const chatId of uniqueIds(data.deletedChatIds)) {
+        clearChatActivity(chatId);
+      }
     },
     onError: (_err, _groupId, context) => {
       if (context?.previous) qc.setQueryData(chatKeys.list(), context.previous);
