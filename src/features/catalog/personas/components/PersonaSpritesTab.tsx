@@ -11,8 +11,8 @@ import {
   type SpriteInfo,
   useCleanupSavedSprites,
   useDeleteSprite,
+  usePersonaSprites,
   useRestoreSpriteCleanupPoint,
-  useSprites,
   useSpriteCapabilities,
   useUploadSprite,
   useUploadSprites,
@@ -44,7 +44,7 @@ export function PersonaSpritesTab({
   defaultAvatarUrl?: string | null;
   imageConnections: Array<{ id: string; name: string; model?: string | null; provider?: string | null }>;
 }) {
-  const { data: sprites, isLoading } = useSprites(personaId);
+  const { data: sprites, isLoading } = usePersonaSprites(personaId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const uploadSprites = useUploadSprites();
@@ -114,7 +114,12 @@ export function PersonaSpritesTab({
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        await uploadSprite.mutateAsync({ spriteOwnerId: personaId, expression, image: reader.result as string });
+        await uploadSprite.mutateAsync({
+          spriteOwnerId: personaId,
+          ownerType: "persona",
+          expression,
+          image: reader.result as string,
+        });
         setNewExpression("");
         pendingExpressionRef.current = "";
       } catch (error) {
@@ -166,7 +171,11 @@ export function PersonaSpritesTab({
         setFolderProgress({ done: index + 1, total: imageFiles.length });
       }
       if (uploads.length > 0) {
-        const result = await uploadSprites.mutateAsync({ spriteOwnerId: personaId, sprites: uploads });
+        const result = await uploadSprites.mutateAsync({
+          spriteOwnerId: personaId,
+          ownerType: "persona",
+          sprites: uploads,
+        });
         if (result.failed.length > 0 || skipped > 0) {
           toast.warning(
             `${result.failed.length + skipped} sprite${result.failed.length + skipped === 1 ? "" : "s"} could not be imported.`,
@@ -189,7 +198,11 @@ export function PersonaSpritesTab({
     if (!deleteSpriteRequest) return;
     setDeletingSprites("single");
     try {
-      await deleteSprite.mutateAsync({ spriteOwnerId: personaId, expression: deleteSpriteRequest.expression });
+      await deleteSprite.mutateAsync({
+        spriteOwnerId: personaId,
+        ownerType: "persona",
+        expression: deleteSpriteRequest.expression,
+      });
       setDeleteSpriteRequest(null);
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to delete sprite."));
@@ -206,7 +219,11 @@ export function PersonaSpritesTab({
     try {
       for (const sprite of visibleSprites) {
         try {
-          await deleteSprite.mutateAsync({ spriteOwnerId: personaId, expression: sprite.expression });
+          await deleteSprite.mutateAsync({
+            spriteOwnerId: personaId,
+            ownerType: "persona",
+            expression: sprite.expression,
+          });
           deletedCount += 1;
         } catch {
           failedCount += 1;
@@ -296,6 +313,7 @@ export function PersonaSpritesTab({
     try {
       const result = await cleanupSavedSprites.mutateAsync({
         spriteOwnerId: personaId,
+        ownerType: "persona",
         expressions: visibleSprites.map((sprite) => sprite.expression),
         cleanupStrength: savedCleanupStrength,
         engine: "auto",
@@ -321,6 +339,7 @@ export function PersonaSpritesTab({
     try {
       const result = await restoreSpriteCleanupPoint.mutateAsync({
         spriteOwnerId: personaId,
+        ownerType: "persona",
         restorePointId: lastCleanupRestorePointId,
       });
       if (result.restored > 0) {
@@ -348,6 +367,7 @@ export function PersonaSpritesTab({
       try {
         await uploadSprite.mutateAsync({
           spriteOwnerId: personaId,
+          ownerType: "persona",
           expression: framingSprite.expression,
           image: croppedDataUrl,
         });
@@ -370,6 +390,7 @@ export function PersonaSpritesTab({
       try {
         await uploadSprite.mutateAsync({
           spriteOwnerId: personaId,
+          ownerType: "persona",
           expression: wandCleanupSprite.expression,
           image: cleanedDataUrl,
         });
@@ -509,6 +530,7 @@ export function PersonaSpritesTab({
         open={spriteGenOpen}
         onClose={() => setSpriteGenOpen(false)}
         entityId={personaId}
+        entityKind="persona"
         initialSpriteType={category === "full-body" ? "full-body" : "expressions"}
         existingExpressionNames={portraitExpressionNames}
         defaultAppearance={defaultAppearance}
@@ -516,7 +538,7 @@ export function PersonaSpritesTab({
         imageConnections={imageConnections}
         spriteCapabilities={spriteCapabilities}
         onSpritesGenerated={() => {
-          queryClient.invalidateQueries({ queryKey: spriteKeys.list(personaId) });
+          queryClient.invalidateQueries({ queryKey: spriteKeys.list(personaId, "persona") });
         }}
       />
     </div>

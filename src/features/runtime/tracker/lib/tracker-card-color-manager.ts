@@ -227,9 +227,9 @@ export function resolveTrackerCardColorTargets({
   const chatPersonaId =
     typeof activeChat?.personaId === "string" && activeChat.personaId.trim() ? activeChat.personaId : null;
   const activePersona =
-    (chatPersonaId ? personas.find((persona) => persona.id === chatPersonaId) : null) ??
-    personas.find((persona) => persona.isActive) ??
-    null;
+    (chatPersonaId
+      ? (personas.find((persona) => persona.id === chatPersonaId) ?? null)
+      : (personas.find((persona) => persona.isActive) ?? null));
 
   if (activePersona) {
     const config = parseTrackerCardColorConfig(activePersona.trackerCardColors);

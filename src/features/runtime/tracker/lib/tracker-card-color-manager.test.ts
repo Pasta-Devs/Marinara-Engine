@@ -169,4 +169,15 @@ describe("tracker card color manager", () => {
 
     expect(targets).toEqual([]);
   });
+
+  it("does not fall back to the global active persona when the chat persona is missing", () => {
+    const targets = resolveTrackerCardColorTargets({
+      activeChat: { personaId: "missing-persona", characterIds: [] },
+      charactersData: [],
+      currentPresentCharacters: [],
+      personasData: [makePersona("persona-active", "Active", true, '{"mode":"custom","nameColor":"#123456"}')],
+    });
+
+    expect(targets).toEqual([]);
+  });
 });

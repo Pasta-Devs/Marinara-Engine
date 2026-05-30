@@ -34,6 +34,29 @@ struct SpriteCleanupOutput {
     engine: String,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum SpriteOwnerKind {
+    Character,
+    Persona,
+}
+
+impl SpriteOwnerKind {
+    fn from_request(value: Option<&str>) -> AppResult<Self> {
+        match value.unwrap_or("character").trim() {
+            "" | "character" => Ok(Self::Character),
+            "persona" => Ok(Self::Persona),
+            _ => Err(AppError::invalid_input("Invalid sprite owner type")),
+        }
+    }
+
+    fn owner_label(self) -> &'static str {
+        match self {
+            Self::Character => "character ID",
+            Self::Persona => "persona ID",
+        }
+    }
+}
+
 #[derive(Clone)]
 struct BackgroundRemoverCommand {
     command: PathBuf,
@@ -261,30 +284,25 @@ pub(crate) fn cleanup_generated_sprites(state: &AppState, body: Value) -> AppRes
     }))
 }
 
-pub(crate) fn list_sprites(state: &AppState, character_id: &str) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
-    let dir = sprites_dir(state, character_id);
+pub(crate) fn list_sprites(
+    state: &AppState,
+    character_id: &str,
+    owner_type: Option<&str>,
+) -> AppResult<Value> {
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     fs::create_dir_all(&dir)?;
-    let mut items = Vec::new();
-    for entry in fs::read_dir(&dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if !path.is_file() || !is_sprite_file(&path) {
-            continue;
-        }
-        items.push(sprite_info_from_path(&path)?);
-    }
-    items.sort_by(|a, b| {
-        a.get("expression")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .cmp(b.get("expression").and_then(Value::as_str).unwrap_or(""))
-    });
-    Ok(Value::Array(items))
+    list_sprites_for_dir(&dir)
 }
 
-pub(crate) fn upload_sprite(state: &AppState, character_id: &str, body: Value) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
+pub(crate) fn upload_sprite(
+    state: &AppState,
+    character_id: &str,
+    body: Value,
+    owner_type: Option<&str>,
+) -> AppResult<Value> {
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     let expression = body
         .get("expression")
         .and_then(Value::as_str)
@@ -296,7 +314,6 @@ pub(crate) fn upload_sprite(state: &AppState, character_id: &str, body: Value) -
         .and_then(Value::as_str)
         .ok_or_else(|| AppError::invalid_input("No image data provided"))?;
     let (bytes, ext) = decode_image_value(image)?;
-    let dir = sprites_dir(state, character_id);
     fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{expression}.{ext}"));
     fs::write(&path, bytes)?;
@@ -307,14 +324,15 @@ pub(crate) fn upload_sprites(
     state: &AppState,
     character_id: &str,
     body: Value,
+    owner_type: Option<&str>,
 ) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     let uploads = body
         .get("sprites")
         .and_then(Value::as_array)
         .filter(|items| !items.is_empty())
         .ok_or_else(|| AppError::invalid_input("At least one sprite is required"))?;
-    let dir = sprites_dir(state, character_id);
     fs::create_dir_all(&dir)?;
     let mut imported = 0usize;
     let mut failed = Vec::new();
@@ -360,7 +378,7 @@ pub(crate) fn upload_sprites(
     Ok(json!({
         "imported": imported,
         "failed": failed,
-        "sprites": list_sprites(state, character_id)?
+        "sprites": list_sprites_for_dir(&dir)?
     }))
 }
 
@@ -368,9 +386,10 @@ pub(crate) fn clean_saved_sprites(
     state: &AppState,
     character_id: &str,
     body: Value,
+    owner_type: Option<&str>,
 ) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
-    let dir = sprites_dir(state, character_id);
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     if !dir.exists() {
         return Err(AppError::not_found("No sprites found"));
     }
@@ -453,7 +472,7 @@ pub(crate) fn clean_saved_sprites(
         "externalCleanupProcessed": background_remover_processed,
         "backgroundRemoverProcessed": background_remover_processed,
         "builtinProcessed": builtin_processed,
-        "sprites": list_sprites(state, character_id)?
+        "sprites": list_sprites_for_dir(&dir)?
     }))
 }
 
@@ -461,14 +480,15 @@ pub(crate) fn restore_sprite_cleanup_point(
     state: &AppState,
     character_id: &str,
     body: Value,
+    owner_type: Option<&str>,
 ) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
     let restore_point_id = body
         .get("restorePointId")
         .and_then(Value::as_str)
         .filter(|id| id.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
         .ok_or_else(|| AppError::invalid_input("Invalid cleanup restore point ID"))?;
-    let dir = sprites_dir(state, character_id);
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     let restore_point_dir = dir.join(".cleanup-restore-points").join(restore_point_id);
     let manifest_path = restore_point_dir.join("manifest.json");
     if !manifest_path.exists() {
@@ -525,18 +545,17 @@ pub(crate) fn restore_sprite_cleanup_point(
     if restored > 0 && failed.is_empty() {
         let _ = fs::remove_dir_all(&restore_point_dir);
     }
-    Ok(
-        json!({ "restored": restored, "failed": failed, "sprites": list_sprites(state, character_id)? }),
-    )
+    Ok(json!({ "restored": restored, "failed": failed, "sprites": list_sprites_for_dir(&dir)? }))
 }
 
 pub(crate) fn delete_sprite(
     state: &AppState,
     character_id: &str,
     expression: &str,
+    owner_type: Option<&str>,
 ) -> AppResult<Value> {
-    validate_safe_segment(character_id, "character ID")?;
-    let dir = sprites_dir(state, character_id);
+    let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
+    let dir = sprites_dir(state, owner_kind, character_id)?;
     let normalized = normalize_sprite_expression(expression);
     let mut deleted = false;
     if dir.exists() {
@@ -547,7 +566,7 @@ pub(crate) fn delete_sprite(
             }
         }
     }
-    if !deleted {
+    if !deleted && owner_kind == SpriteOwnerKind::Character {
         for sprite in match list_collection(state, "sprites", Some(("characterId", character_id)))?
         {
             Value::Array(rows) => rows,
@@ -1512,8 +1531,73 @@ fn sprite_info_from_path(path: &Path) -> AppResult<Value> {
     }))
 }
 
-fn sprites_dir(state: &AppState, character_id: &str) -> PathBuf {
-    state.data_dir.join("sprites").join(character_id)
+fn list_sprites_for_dir(dir: &Path) -> AppResult<Value> {
+    let mut items = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() || !is_sprite_file(&path) {
+            continue;
+        }
+        items.push(sprite_info_from_path(&path)?);
+    }
+    items.sort_by(|a, b| {
+        a.get("expression")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .cmp(b.get("expression").and_then(Value::as_str).unwrap_or(""))
+    });
+    Ok(Value::Array(items))
+}
+
+fn sprites_dir(
+    state: &AppState,
+    owner_kind: SpriteOwnerKind,
+    owner_id: &str,
+) -> AppResult<PathBuf> {
+    validate_safe_segment(owner_id, owner_kind.owner_label())?;
+    match owner_kind {
+        SpriteOwnerKind::Character => Ok(state.data_dir.join("sprites").join(owner_id)),
+        SpriteOwnerKind::Persona => {
+            migrate_legacy_persona_sprites_if_unambiguous(state, owner_id)?;
+            Ok(persona_sprites_dir(state, owner_id))
+        }
+    }
+}
+
+fn persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
+    state
+        .data_dir
+        .join("sprites")
+        .join("personas")
+        .join(persona_id)
+}
+
+fn legacy_persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
+    state.data_dir.join("sprites").join(persona_id)
+}
+
+fn migrate_legacy_persona_sprites_if_unambiguous(
+    state: &AppState,
+    persona_id: &str,
+) -> AppResult<()> {
+    let legacy_dir = legacy_persona_sprites_dir(state, persona_id);
+    let persona_namespace_dir = state.data_dir.join("sprites").join("personas");
+    if legacy_dir == persona_namespace_dir
+        || !legacy_dir.exists()
+        || state.storage.get("characters", persona_id)?.is_some()
+    {
+        return Ok(());
+    }
+
+    let next_dir = persona_sprites_dir(state, persona_id);
+    if !next_dir.exists() {
+        if let Some(parent) = next_dir.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::rename(&legacy_dir, &next_dir)?;
+    }
+    Ok(())
 }
 
 fn sprite_file_paths(dir: &Path) -> AppResult<Vec<PathBuf>> {
@@ -2027,6 +2111,7 @@ mod sprite_upload_tests {
                     { "expression": "bad-image", "image": "not base64!" }
                 ]
             }),
+            None,
         )
         .expect("bulk upload should keep partial failures in the result");
 
@@ -2059,10 +2144,110 @@ mod sprite_upload_tests {
             &state,
             "../character-1",
             json!({ "sprites": [{ "expression": "happy", "image": "data:image/png;base64,aGVsbG8=" }] }),
+            None,
         )
         .expect_err("unsafe character IDs should be rejected");
 
         assert_eq!(error.code, "invalid_input");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persona_sprite_owner_is_namespaced_from_character_with_same_id() {
+        let (state, root) = test_state("owner-namespace");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "shared-id",
+                    "data": { "name": "Shared Character" }
+                }),
+            )
+            .expect("character should be created");
+
+        upload_sprite(
+            &state,
+            "shared-id",
+            json!({ "expression": "neutral", "image": "data:image/png;base64,Y2hhcmFjdGVy" }),
+            None,
+        )
+        .expect("character sprite upload should succeed");
+        upload_sprite(
+            &state,
+            "shared-id",
+            json!({ "expression": "neutral", "image": "data:image/png;base64,cGVyc29uYQ==" }),
+            Some("persona"),
+        )
+        .expect("persona sprite upload should succeed");
+
+        let character_path = state
+            .data_dir
+            .join("sprites")
+            .join("shared-id")
+            .join("neutral.png");
+        let persona_path = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("shared-id")
+            .join("neutral.png");
+        assert!(character_path.exists());
+        assert!(persona_path.exists());
+
+        delete_sprite(&state, "shared-id", "neutral", Some("persona"))
+            .expect("persona sprite delete should succeed");
+
+        assert!(character_path.exists());
+        assert!(!persona_path.exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persona_sprite_owner_migrates_legacy_dir_when_no_character_conflicts() {
+        let (state, root) = test_state("legacy-persona");
+        let legacy_dir = state.data_dir.join("sprites").join("persona-legacy");
+        fs::create_dir_all(&legacy_dir).expect("legacy dir should be created");
+        fs::write(legacy_dir.join("happy.png"), b"legacy")
+            .expect("legacy sprite should be written");
+
+        let sprites = list_sprites(&state, "persona-legacy", Some("persona"))
+            .expect("legacy persona sprites should list");
+
+        assert_eq!(
+            sprites
+                .as_array()
+                .and_then(|items| items.first())
+                .and_then(|item| item.get("expression"))
+                .and_then(Value::as_str),
+            Some("happy"),
+        );
+        assert!(!legacy_dir.exists());
+        assert!(state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-legacy")
+            .join("happy.png")
+            .exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persona_sprite_owner_does_not_migrate_namespace_root() {
+        let (state, root) = test_state("namespace-root");
+        let namespace_dir = state.data_dir.join("sprites").join("personas");
+        fs::create_dir_all(&namespace_dir).expect("namespace dir should be created");
+
+        let sprites = list_sprites(&state, "personas", Some("persona"))
+            .expect("persona namespace ID should list safely");
+
+        assert!(sprites.as_array().is_some_and(Vec::is_empty));
+        assert!(namespace_dir.exists());
+        assert!(namespace_dir.join("personas").exists());
 
         let _ = fs::remove_dir_all(root);
     }

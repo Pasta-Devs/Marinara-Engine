@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { spriteApi } from "../../../../shared/api/image-generation-api";
+import { spriteApi, type SpriteOwnerType } from "../../../../shared/api/image-generation-api";
 import type { SpriteCapabilities, SpriteCleanupEngine } from "../../../../shared/types/sprite-capabilities";
 import { spriteKeys } from "../query-keys";
 
@@ -44,6 +44,12 @@ export interface SpriteCleanupRestoreResult {
 interface SpriteOwnerVariables {
   spriteOwnerId?: string;
   characterId?: string;
+  ownerType?: SpriteOwnerType;
+}
+
+interface SpriteOwner {
+  id: string;
+  type: SpriteOwnerType;
 }
 
 function normalizeSpriteOwnerId(value: string | undefined): string | null {
@@ -51,11 +57,14 @@ function normalizeSpriteOwnerId(value: string | undefined): string | null {
   return normalized || null;
 }
 
-function getSpriteOwnerId(variables: SpriteOwnerVariables): string {
+function getSpriteOwner(variables: SpriteOwnerVariables): SpriteOwner {
   const spriteOwnerId =
     normalizeSpriteOwnerId(variables.spriteOwnerId) ?? normalizeSpriteOwnerId(variables.characterId);
   if (!spriteOwnerId) throw new Error("Sprite owner id is required.");
-  return spriteOwnerId;
+  return {
+    id: spriteOwnerId,
+    type: variables.ownerType ?? "character",
+  };
 }
 
 export function useSpriteCapabilities() {
@@ -66,27 +75,38 @@ export function useSpriteCapabilities() {
   });
 }
 
-export function useSprites(spriteOwnerId: string | null) {
+export function useSprites(spriteOwnerId: string | null, ownerType: SpriteOwnerType = "character") {
   const normalizedSpriteOwnerId = normalizeSpriteOwnerId(spriteOwnerId ?? undefined);
   return useQuery({
-    queryKey: spriteKeys.list(normalizedSpriteOwnerId ?? ""),
-    queryFn: () => spriteApi.list<SpriteInfo[]>(normalizedSpriteOwnerId!),
+    queryKey: spriteKeys.list(normalizedSpriteOwnerId ?? "", ownerType),
+    queryFn: () => spriteApi.list<SpriteInfo[]>(normalizedSpriteOwnerId!, { ownerType }),
     enabled: !!normalizedSpriteOwnerId,
   });
 }
 
 export const useCharacterSprites = useSprites;
 
+export function usePersonaSprites(spriteOwnerId: string | null) {
+  return useSprites(spriteOwnerId, "persona");
+}
+
 export function useUploadSprite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (variables: SpriteOwnerVariables & { expression: string; image: string }) =>
-      spriteApi.upload<SpriteInfo>(getSpriteOwnerId(variables), {
-        expression: variables.expression,
-        image: variables.image,
-      }),
+    mutationFn: (variables: SpriteOwnerVariables & { expression: string; image: string }) => {
+      const owner = getSpriteOwner(variables);
+      return spriteApi.upload<SpriteInfo>(
+        owner.id,
+        {
+          expression: variables.expression,
+          image: variables.image,
+        },
+        { ownerType: owner.type },
+      );
+    },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(getSpriteOwnerId(variables)) });
+      const owner = getSpriteOwner(variables);
+      qc.invalidateQueries({ queryKey: spriteKeys.list(owner.id, owner.type) });
     },
   });
 }
@@ -94,10 +114,17 @@ export function useUploadSprite() {
 export function useUploadSprites() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (variables: SpriteOwnerVariables & { sprites: SpriteUploadItem[] }) =>
-      spriteApi.bulkUpload<SpriteBulkUploadResult>(getSpriteOwnerId(variables), { sprites: variables.sprites }),
+    mutationFn: (variables: SpriteOwnerVariables & { sprites: SpriteUploadItem[] }) => {
+      const owner = getSpriteOwner(variables);
+      return spriteApi.bulkUpload<SpriteBulkUploadResult>(
+        owner.id,
+        { sprites: variables.sprites },
+        { ownerType: owner.type },
+      );
+    },
     onSuccess: (data, variables) => {
-      qc.setQueryData(spriteKeys.list(getSpriteOwnerId(variables)), data.sprites);
+      const owner = getSpriteOwner(variables);
+      qc.setQueryData(spriteKeys.list(owner.id, owner.type), data.sprites);
     },
   });
 }
@@ -105,10 +132,13 @@ export function useUploadSprites() {
 export function useDeleteSprite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (variables: SpriteOwnerVariables & { expression: string }) =>
-      spriteApi.delete(getSpriteOwnerId(variables), variables.expression),
+    mutationFn: (variables: SpriteOwnerVariables & { expression: string }) => {
+      const owner = getSpriteOwner(variables);
+      return spriteApi.delete(owner.id, variables.expression, { ownerType: owner.type });
+    },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(getSpriteOwnerId(variables)) });
+      const owner = getSpriteOwner(variables);
+      qc.invalidateQueries({ queryKey: spriteKeys.list(owner.id, owner.type) });
     },
   });
 }
@@ -122,14 +152,21 @@ export function useCleanupSavedSprites() {
         cleanupStrength?: number;
         engine?: SpriteCleanupEngine;
       },
-    ) =>
-      spriteApi.cleanupSaved<SpriteCleanupResult>(getSpriteOwnerId(variables), {
-        expressions: variables.expressions,
-        cleanupStrength: variables.cleanupStrength ?? 35,
-        engine: variables.engine ?? "auto",
-      }),
+    ) => {
+      const owner = getSpriteOwner(variables);
+      return spriteApi.cleanupSaved<SpriteCleanupResult>(
+        owner.id,
+        {
+          expressions: variables.expressions,
+          cleanupStrength: variables.cleanupStrength ?? 35,
+          engine: variables.engine ?? "auto",
+        },
+        { ownerType: owner.type },
+      );
+    },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(getSpriteOwnerId(variables)) });
+      const owner = getSpriteOwner(variables);
+      qc.invalidateQueries({ queryKey: spriteKeys.list(owner.id, owner.type) });
     },
   });
 }
@@ -137,12 +174,19 @@ export function useCleanupSavedSprites() {
 export function useRestoreSpriteCleanupPoint() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (variables: SpriteOwnerVariables & { restorePointId: string }) =>
-      spriteApi.cleanupRestore<SpriteCleanupRestoreResult>(getSpriteOwnerId(variables), {
-        restorePointId: variables.restorePointId,
-      }),
+    mutationFn: (variables: SpriteOwnerVariables & { restorePointId: string }) => {
+      const owner = getSpriteOwner(variables);
+      return spriteApi.cleanupRestore<SpriteCleanupRestoreResult>(
+        owner.id,
+        {
+          restorePointId: variables.restorePointId,
+        },
+        { ownerType: owner.type },
+      );
+    },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(getSpriteOwnerId(variables)) });
+      const owner = getSpriteOwner(variables);
+      qc.invalidateQueries({ queryKey: spriteKeys.list(owner.id, owner.type) });
     },
   });
 }

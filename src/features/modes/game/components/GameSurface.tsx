@@ -2590,8 +2590,8 @@ export function GameSurface({
   });
 
   const personaSpriteQuery = useQuery({
-    queryKey: spriteKeys.list(personaSpriteId ?? ""),
-    queryFn: () => spriteApi.list<SpriteInfo[]>(personaSpriteId ?? ""),
+    queryKey: spriteKeys.list(personaSpriteId ?? "", "persona"),
+    queryFn: () => spriteApi.list<SpriteInfo[]>(personaSpriteId ?? "", { ownerType: "persona" }),
     enabled: !!personaSpriteId,
     staleTime: 5 * 60 * 1000,
   });

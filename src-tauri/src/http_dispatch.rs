@@ -645,31 +645,40 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "sprite_cleanup" => {
             sprites::cleanup_generated_sprites(state, optional_value(&args, "body"))
         }
-        "sprite_list" => sprites::list_sprites(state, required_string(&args, "characterId")?),
+        "sprite_list" => sprites::list_sprites(
+            state,
+            required_string(&args, "characterId")?,
+            optional_string(&args, "ownerType").as_deref(),
+        ),
         "sprite_upload" => sprites::upload_sprite(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_upload_bulk" => sprites::upload_sprites(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_delete" => sprites::delete_sprite(
             state,
             required_string(&args, "characterId")?,
             required_string(&args, "expression")?,
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_cleanup_saved" => sprites::clean_saved_sprites(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_cleanup_restore" => sprites::restore_sprite_cleanup_point(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "persona_activate" => characters::activate_persona(state, required_string(&args, "id")?),
         "character_avatar_upload" => avatars::update_character_avatar(

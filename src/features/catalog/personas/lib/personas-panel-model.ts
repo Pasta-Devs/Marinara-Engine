@@ -54,7 +54,7 @@ export function parsePersonaGroups(personaGroupsRaw: PersonaGroupRow[] | undefin
   if (!personaGroupsRaw) return [];
   return personaGroupsRaw.map((group) => ({
     ...group,
-    memberIds: Array.isArray(group.personaIds) ? group.personaIds : [],
+    memberIds: Array.isArray(group.personaIds) ? [...group.personaIds] : [],
   }));
 }
 

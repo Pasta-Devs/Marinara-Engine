@@ -7,7 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { spriteApi } from "../../../../shared/api/image-generation-api";
 import { spriteKeys } from "../query-keys";
-import { useDeleteSprite, useSprites, useUploadSprite, useUploadSprites } from "./use-sprites";
+import {
+  useCleanupSavedSprites,
+  useDeleteSprite,
+  usePersonaSprites,
+  useRestoreSpriteCleanupPoint,
+  useSprites,
+  useUploadSprite,
+  useUploadSprites,
+} from "./use-sprites";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,6 +35,8 @@ const listMock = vi.mocked(spriteApi.list);
 const uploadMock = vi.mocked(spriteApi.upload);
 const bulkUploadMock = vi.mocked(spriteApi.bulkUpload);
 const deleteMock = vi.mocked(spriteApi.delete);
+const cleanupSavedMock = vi.mocked(spriteApi.cleanupSaved);
+const cleanupRestoreMock = vi.mocked(spriteApi.cleanupRestore);
 
 describe("shared sprite hooks", () => {
   let container: HTMLDivElement;
@@ -55,6 +65,8 @@ describe("shared sprite hooks", () => {
     uploadMock.mockReset();
     bulkUploadMock.mockReset();
     deleteMock.mockReset();
+    cleanupSavedMock.mockReset();
+    cleanupRestoreMock.mockReset();
   });
 
   async function renderHook<TValue>(useHook: () => TValue): Promise<TValue> {
@@ -81,18 +93,32 @@ describe("shared sprite hooks", () => {
     return value;
   }
 
-  it("reads sprites through owner-neutral ids", async () => {
+  it("reads character sprites by default", async () => {
     listMock.mockResolvedValue([{ expression: "neutral", filename: "neutral.png", url: "asset://neutral.png" }]);
 
-    await renderHook(() => useSprites("persona-1"));
+    await renderHook(() => useSprites("character-1"));
     await act(async () => {
       await queryClient.ensureQueryData({
-        queryKey: spriteKeys.list("persona-1"),
-        queryFn: () => spriteApi.list("persona-1"),
+        queryKey: spriteKeys.list("character-1"),
+        queryFn: () => spriteApi.list("character-1", { ownerType: "character" }),
       });
     });
 
-    expect(listMock).toHaveBeenCalledWith("persona-1");
+    expect(listMock).toHaveBeenCalledWith("character-1", { ownerType: "character" });
+  });
+
+  it("reads persona sprites with a persona owner namespace", async () => {
+    listMock.mockResolvedValue([{ expression: "neutral", filename: "neutral.png", url: "asset://neutral.png" }]);
+
+    await renderHook(() => usePersonaSprites("persona-1"));
+    await act(async () => {
+      await queryClient.ensureQueryData({
+        queryKey: spriteKeys.list("persona-1", "persona"),
+        queryFn: () => spriteApi.list("persona-1", { ownerType: "persona" }),
+      });
+    });
+
+    expect(listMock).toHaveBeenCalledWith("persona-1", { ownerType: "persona" });
   });
 
   it("does not query blank owner ids", async () => {
@@ -103,23 +129,28 @@ describe("shared sprite hooks", () => {
 
   it("invalidates spriteOwnerId caches after single-sprite uploads", async () => {
     const uploadSprite = await renderHook(useUploadSprite);
-    queryClient.setQueryData(spriteKeys.list("persona-1"), []);
-    expect(queryClient.getQueryState(spriteKeys.list("persona-1"))?.isInvalidated).toBe(false);
+    queryClient.setQueryData(spriteKeys.list("persona-1", "persona"), []);
+    expect(queryClient.getQueryState(spriteKeys.list("persona-1", "persona"))?.isInvalidated).toBe(false);
     uploadMock.mockResolvedValue({ expression: "happy", filename: "happy.png", url: "asset://happy.png" });
 
     await act(async () => {
       await uploadSprite.mutateAsync({
         spriteOwnerId: "persona-1",
+        ownerType: "persona",
         expression: "happy",
         image: "data:image/png;base64,happy",
       });
     });
 
-    expect(uploadMock).toHaveBeenCalledWith("persona-1", {
-      expression: "happy",
-      image: "data:image/png;base64,happy",
-    });
-    expect(queryClient.getQueryState(spriteKeys.list("persona-1"))?.isInvalidated).toBe(true);
+    expect(uploadMock).toHaveBeenCalledWith(
+      "persona-1",
+      {
+        expression: "happy",
+        image: "data:image/png;base64,happy",
+      },
+      { ownerType: "persona" },
+    );
+    expect(queryClient.getQueryState(spriteKeys.list("persona-1", "persona"))?.isInvalidated).toBe(true);
   });
 
   it("falls back from blank spriteOwnerId to legacy characterId", async () => {
@@ -135,15 +166,19 @@ describe("shared sprite hooks", () => {
       });
     });
 
-    expect(uploadMock).toHaveBeenCalledWith("character-1", {
-      expression: "happy",
-      image: "data:image/png;base64,happy",
-    });
+    expect(uploadMock).toHaveBeenCalledWith(
+      "character-1",
+      {
+        expression: "happy",
+        image: "data:image/png;base64,happy",
+      },
+      { ownerType: "character" },
+    );
   });
 
   it("rejects mutations without a usable owner id and leaves caches untouched", async () => {
     const uploadSprite = await renderHook(useUploadSprite);
-    queryClient.setQueryData(spriteKeys.list("persona-1"), []);
+    queryClient.setQueryData(spriteKeys.list("persona-1", "persona"), []);
 
     await act(async () => {
       await expect(
@@ -156,7 +191,7 @@ describe("shared sprite hooks", () => {
     });
 
     expect(uploadMock).not.toHaveBeenCalled();
-    expect(queryClient.getQueryState(spriteKeys.list("persona-1"))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(spriteKeys.list("persona-1", "persona"))?.isInvalidated).toBe(false);
   });
 
   it("preserves legacy characterId mutation compatibility", async () => {
@@ -177,9 +212,13 @@ describe("shared sprite hooks", () => {
       });
     });
 
-    expect(bulkUploadMock).toHaveBeenCalledWith("character-1", {
-      sprites: [{ expression: "neutral", image: "data:image/png;base64,neutral" }],
-    });
+    expect(bulkUploadMock).toHaveBeenCalledWith(
+      "character-1",
+      {
+        sprites: [{ expression: "neutral", image: "data:image/png;base64,neutral" }],
+      },
+      { ownerType: "character" },
+    );
     expect(queryClient.getQueryData(spriteKeys.list("character-1"))).toEqual([
       { expression: "neutral", filename: "neutral.png", url: "asset://neutral.png" },
     ]);
@@ -188,7 +227,63 @@ describe("shared sprite hooks", () => {
       await deleteSprite.mutateAsync({ characterId: "character-1", expression: "neutral" });
     });
 
-    expect(deleteMock).toHaveBeenCalledWith("character-1", "neutral");
+    expect(deleteMock).toHaveBeenCalledWith("character-1", "neutral", { ownerType: "character" });
     expect(queryClient.getQueryState(spriteKeys.list("character-1"))?.isInvalidated).toBe(true);
+  });
+
+  it("cleans saved sprites through owner-neutral ids and invalidates that owner cache", async () => {
+    const cleanupSavedSprites = await renderHook(useCleanupSavedSprites);
+    queryClient.setQueryData(spriteKeys.list("persona-1", "persona"), []);
+    cleanupSavedMock.mockResolvedValue({
+      processed: 1,
+      failed: [],
+      sprites: [{ expression: "happy", filename: "happy.png", url: "asset://happy.png" }],
+    });
+
+    await act(async () => {
+      await cleanupSavedSprites.mutateAsync({
+        spriteOwnerId: "persona-1",
+        ownerType: "persona",
+        expressions: ["happy"],
+      });
+    });
+
+    expect(cleanupSavedMock).toHaveBeenCalledWith(
+      "persona-1",
+      {
+        expressions: ["happy"],
+        cleanupStrength: 35,
+        engine: "auto",
+      },
+      { ownerType: "persona" },
+    );
+    expect(queryClient.getQueryState(spriteKeys.list("persona-1", "persona"))?.isInvalidated).toBe(true);
+  });
+
+  it("restores sprite cleanup points through owner-neutral ids and invalidates that owner cache", async () => {
+    const restoreSpriteCleanupPoint = await renderHook(useRestoreSpriteCleanupPoint);
+    queryClient.setQueryData(spriteKeys.list("persona-1", "persona"), []);
+    cleanupRestoreMock.mockResolvedValue({
+      restored: 1,
+      failed: [],
+      sprites: [{ expression: "happy", filename: "happy.png", url: "asset://happy.png" }],
+    });
+
+    await act(async () => {
+      await restoreSpriteCleanupPoint.mutateAsync({
+        spriteOwnerId: "persona-1",
+        ownerType: "persona",
+        restorePointId: "restore-1",
+      });
+    });
+
+    expect(cleanupRestoreMock).toHaveBeenCalledWith(
+      "persona-1",
+      {
+        restorePointId: "restore-1",
+      },
+      { ownerType: "persona" },
+    );
+    expect(queryClient.getQueryState(spriteKeys.list("persona-1", "persona"))?.isInvalidated).toBe(true);
   });
 });

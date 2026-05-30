@@ -36,53 +36,62 @@ pub fn sprite_cleanup(state: State<'_, AppState>, body: Value) -> Result<Value, 
 }
 
 #[tauri::command]
-pub fn sprite_list(state: State<'_, AppState>, character_id: String) -> Result<Value, AppError> {
-    sprites::list_sprites(&state, &character_id)
+pub fn sprite_list(
+    state: State<'_, AppState>,
+    character_id: String,
+    owner_type: Option<String>,
+) -> Result<Value, AppError> {
+    sprites::list_sprites(&state, &character_id, owner_type.as_deref())
 }
 
 #[tauri::command]
 pub fn sprite_upload(
     state: State<'_, AppState>,
     character_id: String,
+    owner_type: Option<String>,
     body: Value,
 ) -> Result<Value, AppError> {
-    sprites::upload_sprite(&state, &character_id, body)
+    sprites::upload_sprite(&state, &character_id, body, owner_type.as_deref())
 }
 
 #[tauri::command]
 pub fn sprite_upload_bulk(
     state: State<'_, AppState>,
     character_id: String,
+    owner_type: Option<String>,
     body: Value,
 ) -> Result<Value, AppError> {
-    sprites::upload_sprites(&state, &character_id, body)
+    sprites::upload_sprites(&state, &character_id, body, owner_type.as_deref())
 }
 
 #[tauri::command]
 pub fn sprite_delete(
     state: State<'_, AppState>,
     character_id: String,
+    owner_type: Option<String>,
     expression: String,
 ) -> Result<Value, AppError> {
-    sprites::delete_sprite(&state, &character_id, &expression)
+    sprites::delete_sprite(&state, &character_id, &expression, owner_type.as_deref())
 }
 
 #[tauri::command]
 pub fn sprite_cleanup_saved(
     state: State<'_, AppState>,
     character_id: String,
+    owner_type: Option<String>,
     body: Value,
 ) -> Result<Value, AppError> {
-    sprites::clean_saved_sprites(&state, &character_id, body)
+    sprites::clean_saved_sprites(&state, &character_id, body, owner_type.as_deref())
 }
 
 #[tauri::command]
 pub fn sprite_cleanup_restore(
     state: State<'_, AppState>,
     character_id: String,
+    owner_type: Option<String>,
     body: Value,
 ) -> Result<Value, AppError> {
-    sprites::restore_sprite_cleanup_point(&state, &character_id, body)
+    sprites::restore_sprite_cleanup_point(&state, &character_id, body, owner_type.as_deref())
 }
 
 #[tauri::command]

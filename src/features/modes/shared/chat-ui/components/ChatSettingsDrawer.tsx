@@ -83,7 +83,7 @@ import {
   useCharacterSummariesByIds,
   useCharacterGroups,
 } from "../../../../catalog/characters/index";
-import type { SpriteInfo } from "../../../../catalog/sprites/index";
+import { spriteKeys, type SpriteInfo } from "../../../../catalog/sprites/index";
 import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { usePresetFull, usePresetSummaries } from "../../../../catalog/presets/index";
@@ -830,8 +830,8 @@ function ChatSettingsDrawerInner({
 
   const chatSpriteQueries = useQueries({
     queries: chatSpriteSubjects.map((subject) => ({
-      queryKey: ["sprites", subject.id],
-      queryFn: () => spriteApi.list<SpriteInfo[]>(subject.id),
+      queryKey: spriteKeys.list(subject.id, subject.kind),
+      queryFn: () => spriteApi.list<SpriteInfo[]>(subject.id, { ownerType: subject.kind }),
       enabled: !!subject.id,
       staleTime: 5 * 60_000,
     })),
