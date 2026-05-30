@@ -3,6 +3,7 @@ import { personaKeys } from "../query-keys";
 import { personaApi } from "../../../../shared/api/persona-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
+import { personaAvatarUrl, type PersonaAvatarSource } from "../lib/persona-avatar-url";
 
 export { personaKeys } from "../query-keys";
 
@@ -13,8 +14,11 @@ export type PersonaSummary = {
   description?: string;
   tags?: string[];
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: unknown;
   isActive?: string | boolean;
+  active?: string | boolean;
   createdAt?: string;
   nameColor?: string;
   dialogueColor?: string;
@@ -29,6 +33,8 @@ const PERSONA_SUMMARY_OPTIONS = {
     "description",
     "tags",
     "avatarPath",
+    "avatarFilePath",
+    "avatarFilename",
     "avatarCrop",
     "isActive",
     "active",
@@ -39,10 +45,41 @@ const PERSONA_SUMMARY_OPTIONS = {
   ],
 };
 
+function personaIsActive(persona: PersonaSummary): boolean {
+  return (
+    persona.isActive === true || persona.isActive === "true" || persona.active === true || persona.active === "true"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizePersonaAvatarFields<T>(persona: T): T {
+  if (!isRecord(persona)) return persona;
+  const avatarPath = personaAvatarUrl(persona as PersonaAvatarSource);
+  if (avatarPath === ((persona.avatarPath as string | null | undefined) ?? null)) return persona;
+  return { ...persona, avatarPath } as T;
+}
+
+async function listPersonas(): Promise<unknown[]> {
+  const personas = await storageApi.list<unknown>("personas");
+  return personas.map(normalizePersonaAvatarFields);
+}
+
+async function getPersona(id: string): Promise<unknown> {
+  return normalizePersonaAvatarFields(await storageApi.get<unknown>("personas", id));
+}
+
+async function listPersonaSummaries(): Promise<PersonaSummary[]> {
+  const personas = await storageApi.list<PersonaSummary>("personas", PERSONA_SUMMARY_OPTIONS);
+  return personas.map(normalizePersonaAvatarFields);
+}
+
 export function usePersonas(enabled = true) {
   return useQuery({
     queryKey: personaKeys.list,
-    queryFn: () => storageApi.list<unknown>("personas"),
+    queryFn: listPersonas,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -52,7 +89,7 @@ export function usePersonas(enabled = true) {
 export function usePersonaSummaries(enabled = true) {
   return useQuery({
     queryKey: personaKeys.summaries,
-    queryFn: () => storageApi.list<PersonaSummary>("personas", PERSONA_SUMMARY_OPTIONS),
+    queryFn: listPersonaSummaries,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -62,7 +99,7 @@ export function usePersonaSummaries(enabled = true) {
 export function usePersona(id: string | null, enabled = true) {
   return useQuery({
     queryKey: personaKeys.detail(id ?? ""),
-    queryFn: () => storageApi.get("personas", id!),
+    queryFn: () => getPersona(id!),
     enabled: enabled && !!id,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -72,21 +109,7 @@ export function usePersona(id: string | null, enabled = true) {
 export function useActivePersona(enabled = true) {
   return useQuery({
     queryKey: personaKeys.active,
-    queryFn: async () => {
-      const personas = await storageApi.list<PersonaSummary & { active?: string | boolean }>(
-        "personas",
-        PERSONA_SUMMARY_OPTIONS,
-      );
-      return (
-        personas.find(
-          (persona) =>
-            persona.isActive === true ||
-            persona.isActive === "true" ||
-            persona.active === true ||
-            persona.active === "true",
-        ) ?? null
-      );
-    },
+    queryFn: async () => (await listPersonaSummaries()).find(personaIsActive) ?? null,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -147,17 +170,18 @@ export function useUpdatePersona() {
       personaStats?: unknown;
     }) => storageApi.update("personas", id, data),
     onSuccess: (updatedPersona, variables) => {
-      qc.setQueryData(personaKeys.detail(variables.id), updatedPersona);
+      const normalizedPersona = normalizePersonaAvatarFields(updatedPersona);
+      qc.setQueryData(personaKeys.detail(variables.id), normalizedPersona);
       qc.setQueryData<unknown[] | undefined>(personaKeys.list, (old) => {
         if (!Array.isArray(old)) return old;
-        const updatedId = (updatedPersona as { id?: string } | null)?.id ?? variables.id;
+        const updatedId = (normalizedPersona as { id?: string } | null)?.id ?? variables.id;
         if (!updatedId) return old;
 
         return old.map((persona) => {
           const row = persona as Record<string, unknown> & { id?: string };
           if (row?.id !== updatedId) return persona;
-          if (!updatedPersona || typeof updatedPersona !== "object") return persona;
-          return { ...row, ...(updatedPersona as Record<string, unknown>) };
+          if (!normalizedPersona || typeof normalizedPersona !== "object") return persona;
+          return { ...row, ...(normalizedPersona as Record<string, unknown>) };
         });
       });
 
