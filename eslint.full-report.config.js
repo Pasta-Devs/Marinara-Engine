@@ -22,14 +22,6 @@ export default [
   },
   ...stagedTypeScriptRecommendedConfigs,
   {
-    name: "marinara/staged-react-hooks-report",
-    files: tsSourceFiles,
-    rules: {
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
-    },
-  },
-  {
     name: "marinara/staged-typescript-pragmatic-relaxations",
     files: tsSourceFiles,
     rules: {
