@@ -362,4 +362,23 @@ describe("runGenerationWithUi", () => {
     });
     expect(message?.extra).not.toHaveProperty("generationPromptSnapshotsBySwipe");
   });
+
+  it("updates generation phase for tool call and tool result stream events without appending them as text", async () => {
+    const queryClient = queryClientWithChat();
+    const observedPhases: Array<string | null> = [];
+
+    const streamFactory = vi.fn<TestStreamFactory>(async function* () {
+      yield { type: "tool_call", data: { id: "call-1", name: "roll_dice", arguments: "{}" } };
+      observedPhases.push(useChatStore.getState().generationPhase);
+      yield { type: "tool_result", data: { toolCallId: "call-1", name: "roll_dice", result: "4", success: true } };
+      observedPhases.push(useChatStore.getState().generationPhase);
+      yield { type: "token", data: "Rolled a 4." };
+      yield { type: "done" };
+    });
+
+    await expect(runGenerationWithUi(queryClient, { chatId: "chat-1" }, streamFactory)).resolves.toBe(true);
+
+    expect(observedPhases).toEqual(["Running tool: roll_dice...", "Tool finished: roll_dice."]);
+    expect(useChatStore.getState().streamBuffer).toBe("Rolled a 4.");
+  });
 });

@@ -6,6 +6,7 @@ import { startGeneration, type GenerationEngineDeps } from "./start-generation";
 import {
   buildMainToolDefinitions,
   executeBuiltInTool,
+  customToolExecutor,
   executeMainToolCall,
   searchLorebookTool,
   normalizeToolCall,
@@ -992,6 +993,28 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(built).not.toBeNull();
     const names = built!.toolDefs.map((tool) => tool.name);
     expect(names).toContain("legacy_calc");
+  });
+
+  it("executes script custom tools locally without requiring the custom-tools integration capability", async () => {
+    const execute = vi.fn();
+    const result = await customToolExecutor(
+      { customTools: { execute } } as Partial<IntegrationGateway> as IntegrationGateway,
+      toolCallChunk("legacy_calc", { a: 2, b: 3 }).data as Parameters<typeof customToolExecutor>[1],
+      {
+        id: "ct-legacy",
+        name: "legacy_calc",
+        description: "old script tool",
+        parametersSchema: { type: "object", properties: {} },
+        executionType: "script",
+        webhookUrl: null,
+        staticResult: null,
+        scriptBody: "return arguments.a + arguments.b;",
+        enabled: true,
+      },
+    );
+
+    expect(result).toBe("5");
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it("usage is aggregated across multi-turn tool-call loops, not overwritten by the last turn", async () => {

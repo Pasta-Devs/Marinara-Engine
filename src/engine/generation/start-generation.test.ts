@@ -2301,6 +2301,31 @@ describe("startGeneration Discord mirror", () => {
 });
 
 describe("startGeneration group turn prompt toggle", () => {
+  it("auto-targets the next active character for sequential individual roleplay groups", async () => {
+    const { deps, createChatMessage, streamedRequests } = generationDepsForChat({
+      chatPatch: { mode: "roleplay", characterIds: ["char-1", "char-2"] },
+      chatMetadata: { groupChatMode: "individual", groupResponseOrder: "sequential" },
+      characters: [
+        { id: "char-1", data: { name: "Marina" } },
+        { id: "char-2", data: { name: "Celia" } },
+      ],
+      initialMessages: [
+        { id: "user-1", chatId: "chat-1", role: "user", content: "hello" },
+        { id: "assistant-1", chatId: "chat-1", role: "assistant", characterId: "char-1", content: "Hi." },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, { chatId: "chat-1", userMessage: "your turn", impersonateBlockAgents: true }),
+    );
+
+    const assistantSave = createChatMessage.mock.calls.find(([, value]) => value.role === "assistant");
+    expect(assistantSave?.[1]).toMatchObject({ characterId: "char-2" });
+    expect((streamedRequests[0] as { messages: Array<{ content: string }> }).messages).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("Respond only as Celia") })]),
+    );
+  });
+
   it("keeps target character instructions enabled by default for individual roleplay groups", async () => {
     const { deps, streamedRequests } = generationDepsForChat({
       chatPatch: { mode: "roleplay", characterIds: ["char-1", "char-2"] },

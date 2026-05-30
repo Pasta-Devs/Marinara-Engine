@@ -106,6 +106,10 @@ function readPositiveNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function toolEventName(data: unknown): string {
+  return readString(parseMaybeRecord(data).name).trim();
+}
+
 function resolveUserTimeZone(): string {
   // Engine has its own live-host fallback in resolvePromptTimeZone, so this is
   // explicit-intent plumbing rather than a load-bearing source of truth.
@@ -1217,6 +1221,22 @@ export async function runGenerationWithUi(
         case "agent_result":
           queueAgentResultEffect(event.data);
           break;
+        case "tool_call": {
+          const name = toolEventName(event.data);
+          useChatStore.getState().setGenerationPhase(name ? `Running tool: ${name}...` : "Running tool...");
+          break;
+        }
+        case "tool_result": {
+          const data = parseMaybeRecord(event.data);
+          const name = toolEventName(data);
+          const success = data.success !== false;
+          useChatStore
+            .getState()
+            .setGenerationPhase(
+              name ? `Tool ${success ? "finished" : "failed"}: ${name}.` : `Tool ${success ? "finished" : "failed"}.`,
+            );
+          break;
+        }
         case "agent_injection_review": {
           const data = parseMaybeRecord(event.data);
           const reviewChatId = readString(data.chatId).trim();

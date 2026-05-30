@@ -1184,6 +1184,26 @@ async function resolveGroupTargetForGeneration(args: {
   return sequentialGroupTarget(args.storedMessages, activeIds);
 }
 
+function sequentialGroupTargetCharacterId(
+  chat: JsonRecord,
+  input: StartGenerationInput,
+  messages: JsonRecord[],
+): string | null {
+  if (input.impersonate === true) return null;
+  if (readString(input.forCharacterId).trim()) return null;
+  const metadata = parseRecord(chat.metadata);
+  if (readString(chat.mode || chat.chatMode).trim() !== "roleplay") return null;
+  if (readString(metadata.groupChatMode, "merged") !== "individual") return null;
+  if (readString(metadata.groupResponseOrder, "smart") !== "sequential") return null;
+  const activeIds = activeCharacterIds(chat);
+  if (activeIds.length <= 1) return null;
+
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (regenerateMessageId) return explicitGroupTarget(input, messages, activeIds);
+
+  return sequentialGroupTarget(messages, activeIds);
+}
+
 function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
   return (
     input.impersonate !== true &&
@@ -2157,6 +2177,10 @@ export async function* startGeneration(
     storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   }
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
+  const sequentialGroupTargetId = sequentialGroupTargetCharacterId(chat, input, storedMessages);
+  if (sequentialGroupTargetId) {
+    input = { ...input, forCharacterId: sequentialGroupTargetId };
+  }
   const generationTrackerBaseline = await selectGenerationTrackerBaseline(
     deps.storage,
     chatId,

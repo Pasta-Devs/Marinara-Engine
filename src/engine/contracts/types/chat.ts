@@ -6,6 +6,8 @@ import type { GenerationGuideSource } from "../../shared/text/generation-guide.j
 
 /** The primary chat modes the engine supports. */
 export type ChatMode = "conversation" | "roleplay" | "game";
+/** Legacy persisted/imported mode name. New inputs should migrate this to "roleplay". */
+export type LegacyChatMode = "visual_novel";
 export type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
 /** How a multi-character (group) chat is handled. */
