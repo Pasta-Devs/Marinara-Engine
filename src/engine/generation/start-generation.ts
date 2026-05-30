@@ -120,6 +120,7 @@ export interface RetryAgentsInput extends JsonRecord {
   connectionId?: string | null;
   agentTypes?: string[];
   hideAutomatedSummarySourceMessages?: boolean;
+  imagePromptSettings?: StartGenerationInput["imagePromptSettings"];
   options?: Record<string, unknown>;
 }
 
@@ -1904,7 +1905,7 @@ async function runGenerationAgentsForTarget(args: {
   target: JsonRecord | null;
   agentTypes: Set<string>;
   signal?: AbortSignal;
-}): Promise<AgentResult[]> {
+}): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const { deps, input, chat, connection, storedMessages, target, agentTypes, signal } = args;
   const chatId = readString(input.chatId).trim();
   const targetTrackerTarget = trackerSnapshotTargetFromMessage(target);
@@ -1972,7 +1973,26 @@ async function runGenerationAgentsForTarget(args: {
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
-  return finalResults;
+
+  const events: GenerationEvent[] = [];
+  const hasIllustrationRequest = finalResults.some((result) => illustratorPromptData(result) !== null);
+  if (target && hasIllustrationRequest) {
+    const illustration = await generateIllustrationAttachments({
+      deps,
+      chat: chatForAgents,
+      results: finalResults,
+      imagePromptSettings: input.imagePromptSettings,
+      signal,
+    });
+    events.push(...illustration.events);
+    await appendSavedMessageAttachments({
+      storage: deps.storage,
+      saved: target,
+      attachments: illustration.attachments,
+    });
+  }
+
+  return { results: finalResults, events };
 }
 
 async function runLorebookKeeperBackfill(
@@ -2000,16 +2020,18 @@ async function runLorebookKeeperBackfill(
 
   for (const target of targets) {
     allResults.push(
-      ...(await runGenerationAgentsForTarget({
-        deps,
-        input,
-        chat: args.chat,
-        connection: args.connection,
-        storedMessages,
-        target: target.message,
-        agentTypes,
-        signal: args.signal,
-      })),
+      ...(
+        await runGenerationAgentsForTarget({
+          deps,
+          input,
+          chat: args.chat,
+          connection: args.connection,
+          storedMessages,
+          target: target.message,
+          agentTypes,
+          signal: args.signal,
+        })
+      ).results,
     );
   }
 
@@ -2020,7 +2042,7 @@ export async function retryGenerationAgents(
   deps: GenerationEngineDeps,
   input: RetryAgentsInput,
   signal?: AbortSignal,
-): Promise<AgentResult[]> {
+): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const chatId = readString(input.chatId).trim();
   if (!chatId) throw new Error("chatId is required");
   const agentTypes = Array.isArray(input.agentTypes)
@@ -2031,7 +2053,7 @@ export async function retryGenerationAgents(
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   if (isLorebookKeeperBackfill(input)) {
-    return runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal });
+    return { results: await runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal }), events: [] };
   }
   const target = targetAssistantMessage(storedMessages, input.options);
   return runGenerationAgentsForTarget({ deps, input, chat, connection, storedMessages, target, agentTypes, signal });

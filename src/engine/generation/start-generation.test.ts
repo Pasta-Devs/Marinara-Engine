@@ -2255,7 +2255,7 @@ describe("retryGenerationAgents lorebook keeper backfill", () => {
       initialMessages: messages,
     });
 
-    const results = await retryGenerationAgents(deps, {
+    const { results } = await retryGenerationAgents(deps, {
       chatId: "chat-1",
       agentTypes: ["lorebook-keeper"],
       options: { lorebookKeeperBackfill: true },
@@ -2306,7 +2306,7 @@ describe("retryGenerationAgents custom agent activation", () => {
       ],
     });
 
-    const results = await retryGenerationAgents(deps, {
+    const { results } = await retryGenerationAgents(deps, {
       chatId: "chat-1",
       agentTypes: ["custom-scene-scout"],
     });
@@ -2326,7 +2326,7 @@ describe("retryGenerationAgents custom agent activation", () => {
       ],
     });
 
-    const results = await retryGenerationAgents(deps, {
+    const { results } = await retryGenerationAgents(deps, {
       chatId: "chat-1",
       agentTypes: ["custom-scene-scout"],
       options: { bypassActivation: true },
@@ -2339,5 +2339,134 @@ describe("retryGenerationAgents custom agent activation", () => {
       success: true,
     });
     expect(streamedRequests).toHaveLength(1);
+  });
+});
+
+describe("retryGenerationAgents illustrator", () => {
+  const illustratorAgent = (settings: Record<string, unknown>) => ({
+    id: "illustrator-agent",
+    type: "illustrator",
+    name: "Illustrator",
+    enabled: true,
+    phase: "post_processing",
+    connectionId: null,
+    model: "agent-model",
+    promptTemplate: "Return JSON.",
+    settings: { runInterval: 1, ...settings },
+  });
+
+  const illustratorResponse = JSON.stringify({
+    shouldGenerate: true,
+    reason: "Manual illustrate marker",
+    prompt: "A11_MANUAL_ILLUSTRATE_PROMPT_MARKER",
+  });
+
+  it("generates an illustration and emits an illustration event when an image connection is configured", async () => {
+    const imageRequests: Record<string, unknown>[] = [];
+    const imageGenerate: IntegrationGateway["image"]["generate"] = async <T = unknown>(
+      input: Record<string, unknown>,
+    ): Promise<T> => {
+      imageRequests.push(input);
+      return {
+        base64: "generated-image",
+        mimeType: "image/png",
+        provider: "test-image-provider",
+        model: "test-image-model",
+      } as T;
+    };
+    const { deps, patchChatMessageExtra } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      chatMetadata: { enableAgents: true },
+      agents: [illustratorAgent({ imageConnectionId: "image-conn" })],
+      streamResponses: [illustratorResponse],
+      integrations: { image: { generate: imageGenerate } },
+    });
+
+    const { results, events } = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["illustrator"],
+      options: { bypassActivation: true, forMessageId: "assistant-1" },
+    });
+
+    expect(imageRequests).toHaveLength(1);
+    expect(results.some((result) => result.agentType === "illustrator" && result.type === "image_prompt")).toBe(true);
+    expect(deps.storage.create).toHaveBeenCalledWith(
+      "gallery",
+      expect.objectContaining({ chatId: "chat-1", kind: "illustration" }),
+    );
+    expect(patchChatMessageExtra).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({
+        attachments: [expect.objectContaining({ type: "image", galleryId: "gallery-1" })],
+      }),
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "illustration", data: expect.objectContaining({ galleryId: "gallery-1" }) }),
+      ]),
+    );
+  });
+
+  it("emits an illustration_error and creates no gallery image when no image connection is configured", async () => {
+    const imageGenerate = vi.fn();
+    const { deps, patchChatMessageExtra } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      chatMetadata: { enableAgents: true },
+      agents: [illustratorAgent({})],
+      streamResponses: [illustratorResponse],
+      integrations: { image: { generate: imageGenerate as unknown as IntegrationGateway["image"]["generate"] } },
+    });
+
+    const { events } = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["illustrator"],
+      options: { bypassActivation: true, forMessageId: "assistant-1" },
+    });
+
+    expect(imageGenerate).not.toHaveBeenCalled();
+    expect(deps.storage.create).not.toHaveBeenCalledWith("gallery", expect.anything());
+    expect(patchChatMessageExtra).not.toHaveBeenCalledWith(
+      "assistant-1",
+      expect.objectContaining({ attachments: expect.anything() }),
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "illustration_error",
+          data: expect.objectContaining({
+            error: "No image generation connection configured for the Illustrator agent.",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("returns the agent result with no illustration events for a non-illustrator retry", async () => {
+    const { deps } = generationDepsForChat({
+      chatMetadata: { enableAgents: true },
+      agents: [
+        {
+          id: "scene-scout",
+          type: "custom-scene-scout",
+          name: "Scene Scout",
+          enabled: true,
+          phase: "pre_generation",
+          connectionId: null,
+          model: "agent-model",
+          promptTemplate: "Watch the scene.",
+          settings: { resultType: "context_injection" },
+        },
+      ],
+      streamResponses: ["Scene note."],
+    });
+
+    const { results, events } = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["custom-scene-scout"],
+      options: { bypassActivation: true, forMessageId: "assistant-1" },
+    });
+
+    expect(results.some((result) => result.agentType === "custom-scene-scout")).toBe(true);
+    expect(events).toEqual([]);
   });
 });
