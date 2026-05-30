@@ -2014,21 +2014,32 @@ export const ChatMessage = memo(function ChatMessage({
                 className={translatedText ? "text-blue-400/80 hover:text-blue-300" : undefined}
                 dark
               />
-              <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" dark />
-              <ActionBtn
-                icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onRegenerate?.(message.id)}
-                title={regenerateButtonTitle}
-                className={regenerateGuidedClass}
-                dark
-              />
-              <ActionBtn
-                icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
-                title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
-                className={isConversationStart ? "text-amber-400/80 hover:text-amber-300" : undefined}
-                dark
-              />
+              {onEdit && (
+                <ActionBtn
+                  icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={startEditing}
+                  title="Edit"
+                  dark
+                />
+              )}
+              {onRegenerate && (
+                <ActionBtn
+                  icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={() => onRegenerate(message.id)}
+                  title={regenerateButtonTitle}
+                  className={regenerateGuidedClass}
+                  dark
+                />
+              )}
+              {onToggleConversationStart && (
+                <ActionBtn
+                  icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={() => onToggleConversationStart(message.id, isConversationStart)}
+                  title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
+                  className={isConversationStart ? "text-amber-400/80 hover:text-amber-300" : undefined}
+                  dark
+                />
+              )}
               {onToggleHiddenFromAI && (
                 <ActionBtn
                   icon={
@@ -2091,13 +2102,15 @@ export const ChatMessage = memo(function ChatMessage({
                   dark
                 />
               )}
-              <ActionBtn
-                icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onDelete?.(message.id)}
-                title="Delete"
-                className="hover:text-red-400"
-                dark
-              />
+              {onDelete && (
+                <ActionBtn
+                  icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={() => onDelete(message.id)}
+                  title="Delete"
+                  className="hover:text-red-400"
+                  dark
+                />
+              )}
               {ttsEnabled && (
                 <>
                   {isSpeakingThis && !isLoadingThis && (
@@ -2459,19 +2472,25 @@ export const ChatMessage = memo(function ChatMessage({
               title={translatedText ? "Hide translation" : "Translate"}
               className={translatedText ? "text-blue-500" : undefined}
             />
-            <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" />
-            <ActionBtn
-              icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
-              onClick={() => onRegenerate?.(message.id)}
-              title={regenerateButtonTitle}
-              className={regenerateGuidedClass}
-            />
-            <ActionBtn
-              icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
-              onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
-              title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
-              className={isConversationStart ? "text-amber-500" : undefined}
-            />
+            {onEdit && (
+              <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" />
+            )}
+            {onRegenerate && (
+              <ActionBtn
+                icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={() => onRegenerate(message.id)}
+                title={regenerateButtonTitle}
+                className={regenerateGuidedClass}
+              />
+            )}
+            {onToggleConversationStart && (
+              <ActionBtn
+                icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={() => onToggleConversationStart(message.id, isConversationStart)}
+                title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
+                className={isConversationStart ? "text-amber-500" : undefined}
+              />
+            )}
             {isLastAssistantMessage && !isUser && (
               <ActionBtn
                 icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
@@ -2514,12 +2533,14 @@ export const ChatMessage = memo(function ChatMessage({
                 disabled={isCloneSceneFromHereDisabled}
               />
             )}
-            <ActionBtn
-              icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
-              onClick={() => onDelete?.(message.id)}
-              title="Delete"
-              className="hover:text-[var(--destructive)]"
-            />
+            {onDelete && (
+              <ActionBtn
+                icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+                onClick={() => onDelete(message.id)}
+                title="Delete"
+                className="hover:text-[var(--destructive)]"
+              />
+            )}
             {ttsEnabled && (
               <>
                 {isSpeakingThis && !isLoadingThis && (
