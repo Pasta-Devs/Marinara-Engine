@@ -42,5 +42,14 @@ describe("parseDirectMessageCommands", () => {
         message: "Meet me outside.",
       },
     ]);
+    expect(result.invalidCommands).toBe(0);
+  });
+
+  it("counts malformed direct-message commands that were stripped from output", () => {
+    const result = parseDirectMessageCommands('[dm: character="Mira"]');
+
+    expect(result.cleanContent).toBe("");
+    expect(result.commands).toEqual([]);
+    expect(result.invalidCommands).toBe(1);
   });
 });

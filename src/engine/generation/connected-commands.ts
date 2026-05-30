@@ -102,14 +102,37 @@ function roleplayDirectMessageCommandsEnabled(chat: JsonRecord): boolean {
 function parseConnectedCommands(chat: JsonRecord, content: string): {
   cleanContent: string;
   commands: CharacterCommand[];
+  parseEvents: ConnectedCommandEvent[];
+  strippedHiddenContent: boolean;
 } {
-  if (!roleplayDirectMessageCommandsEnabled(chat)) return parseCharacterCommands(content);
+  if (!roleplayDirectMessageCommandsEnabled(chat)) {
+    const parsed = parseCharacterCommands(content);
+    return {
+      ...parsed,
+      parseEvents: [],
+      strippedHiddenContent: parsed.cleanContent !== content,
+    };
+  }
 
   const directMessages = parseDirectMessageCommands(content);
   const parsed = parseCharacterCommands(directMessages.cleanContent);
+  const parseEvents: ConnectedCommandEvent[] =
+    directMessages.invalidCommands > 0
+      ? [
+          {
+            type: "command_error",
+            data: {
+              command: "dm",
+              error: "Direct-message command must include both character and message.",
+            },
+          },
+        ]
+      : [];
   return {
     cleanContent: parsed.cleanContent,
     commands: [...parsed.commands, ...directMessages.commands],
+    parseEvents,
+    strippedHiddenContent: directMessages.cleanContent !== content || parsed.cleanContent !== directMessages.cleanContent,
   };
 }
 
@@ -874,7 +897,7 @@ export async function persistConnectedCommandTags(
   const pendingNoteWrites: Array<{ chatId: string; note: JsonRecord }> = [];
   const parsed = parseConnectedCommands(chat, content);
   const executedCommands: string[] = [];
-  const events: ConnectedCommandEvent[] = [];
+  const events: ConnectedCommandEvent[] = [...parsed.parseEvents];
   const assistantAttachments: JsonRecord[] = [];
   let suppressAssistantMessage = false;
 
@@ -911,12 +934,16 @@ export async function persistConnectedCommandTags(
     await persistNoteWrites(storage, chat, pendingNoteWrites);
   }
 
+  const hasVisibleSourceOutput = parsed.cleanContent.trim().length > 0 || assistantAttachments.length > 0;
+  const suppressEmptyHiddenCommandSource =
+    !hasVisibleSourceOutput && parsed.strippedHiddenContent && content.trim().length > 0;
+
   return {
     displayContent: parsed.cleanContent,
     createdNotes,
     executedCommands,
     events,
     assistantAttachments,
-    suppressAssistantMessage,
+    suppressAssistantMessage: suppressAssistantMessage || suppressEmptyHiddenCommandSource,
   };
 }

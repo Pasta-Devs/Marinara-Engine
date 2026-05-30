@@ -277,6 +277,58 @@ describe("persistConnectedCommandTags roleplay direct messages", () => {
     expect(storage.createChatMessage).not.toHaveBeenCalled();
   });
 
+  it("suppresses the source assistant message when a failed direct-message command has no visible text", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["roleplay-1", roleplay]]), { characters: [] });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      '[dm: character="Missing", message="This should not force a blank source turn."]',
+    );
+
+    expect(result.displayContent).toBe("");
+    expect(result.executedCommands).toEqual([]);
+    expect(result.suppressAssistantMessage).toBe(true);
+    expect(result.events).toContainEqual({
+      type: "command_error",
+      data: {
+        command: "dm",
+        error: 'No character named "Missing" was found for the direct-message command.',
+      },
+    });
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("reports malformed direct-message commands and suppresses an empty source turn", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["roleplay-1", roleplay]]), { characters: [mira] });
+
+    const result = await persistConnectedCommandTags(storage, roleplay, '[dm: character="Mira"]');
+
+    expect(result.displayContent).toBe("");
+    expect(result.executedCommands).toEqual([]);
+    expect(result.suppressAssistantMessage).toBe(true);
+    expect(result.events).toContainEqual({
+      type: "command_error",
+      data: {
+        command: "dm",
+        error: "Direct-message command must include both character and message.",
+      },
+    });
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
+  });
+
   it("emits command_error when a new direct-message conversation cannot be resolved", async () => {
     const roleplay = {
       id: "roleplay-1",

@@ -799,8 +799,10 @@ export function parseCharacterCommands(content: string): {
 export function parseDirectMessageCommands(content: string): {
   cleanContent: string;
   commands: DirectMessageCommand[];
+  invalidCommands: number;
 } {
   const commands: DirectMessageCommand[] = [];
+  let invalidCommands = 0;
 
   for (const match of content.matchAll(DIRECT_MESSAGE_RE)) {
     const params = match[1]!;
@@ -809,6 +811,8 @@ export function parseDirectMessageCommands(content: string): {
     const cleanMessage = message ? stripConversationPromptTimestamps(message.trim()) : "";
     if (character && cleanMessage) {
       commands.push({ type: "dm", character, message: cleanMessage });
+    } else {
+      invalidCommands += 1;
     }
   }
 
@@ -817,7 +821,7 @@ export function parseDirectMessageCommands(content: string): {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { cleanContent, commands };
+  return { cleanContent, commands, invalidCommands };
 }
 
 /**
