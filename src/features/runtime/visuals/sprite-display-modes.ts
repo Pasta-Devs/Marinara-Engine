@@ -1,4 +1,4 @@
-export const SPRITE_DISPLAY_MODES = ["expressions", "full-body"] as const;
+const SPRITE_DISPLAY_MODES = ["expressions", "full-body"] as const;
 
 export type SpriteDisplayMode = (typeof SPRITE_DISPLAY_MODES)[number];
 

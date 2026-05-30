@@ -49,7 +49,7 @@ interface CharacterExpressionState {
 }
 
 /** Simple keyword-based expression detection from message text. */
-export function detectExpression(text: string): string {
+function detectExpression(text: string): string {
   const lower = text.toLowerCase();
   const patterns: [string, RegExp][] = [
     ["angry", /\b(anger|angry|furious|rage|yells?|shouts?|snarls?|growls?|seeth)/i],
