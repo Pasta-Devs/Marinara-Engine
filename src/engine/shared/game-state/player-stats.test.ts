@@ -96,6 +96,32 @@ describe("normalizeActiveQuestCollection", () => {
       { text: "Step two", completed: true },
     ]);
   });
+
+  it("recovers a quest's non-array objectives wrapper during collection normalization", () => {
+    const [quest] = normalizeActiveQuestCollection([
+      { name: "Wrapped", objectives: { tasks: [{ text: "a" }, { text: "b" }] } },
+    ]);
+    expect(quest?.objectives).toEqual([
+      { text: "a", completed: false },
+      { text: "b", completed: false },
+    ]);
+  });
+
+  it("aggregates quests across all nested wrapper keys, not just the first", () => {
+    const quests = normalizeActiveQuestCollection({
+      quests: [{ name: "From quests" }],
+      groups: [{ quests: [{ name: "From groups" }] }],
+    });
+    expect(quests.map((quest) => quest.name)).toEqual(["From quests", "From groups"]);
+  });
+
+  it("does not let a present-but-empty wrapper key swallow sibling keyed quests", () => {
+    const quests = normalizeActiveQuestCollection({
+      quests: [],
+      "real-quest-id": { name: "Real Quest" },
+    });
+    expect(quests.map((quest) => quest.name)).toEqual(["Real Quest"]);
+  });
 });
 
 describe("applyQuestUpdatesToPlayerStats", () => {

@@ -53,9 +53,10 @@ export function parseQuest(value: unknown, fallbackName?: string): QuestProgress
   const name = readString(record.name).trim() || readString(record.questName).trim() || readString(fallbackName).trim();
   if (!name) return null;
   const questEntryId = readString(record.questEntryId).trim() || name;
-  const objectives = Array.isArray(record.objectives)
-    ? record.objectives.map(parseQuestObjective).filter((objective): objective is { text: string; completed: boolean } => !!objective)
-    : [];
+  // Route objectives through collectQuestObjectives so non-array wrappers
+  // (e.g. `{ tasks: [...] }`) and object-shaped objectives are recovered, the
+  // same way the quest-update path does, rather than dropped.
+  const objectives = record.objectives === undefined ? [] : collectQuestObjectives(record.objectives);
   return {
     questEntryId,
     name,
@@ -79,16 +80,26 @@ export function normalizeActiveQuestCollection(value: unknown, depth = 0): Quest
   }
   if (!isRecord(value)) return [];
 
-  for (const key of NESTED_QUEST_KEYS) {
-    if (value[key] !== undefined) {
-      return normalizeActiveQuestCollection(value[key], depth + 1);
-    }
-  }
+  // Aggregate quests across ALL nested wrapper keys, not just the first present
+  // one, so a container carrying several (e.g. both `quests` and `groups`) does
+  // not silently drop siblings, and a present-but-empty wrapper does not swallow
+  // keyed quests alongside it. Only treat the wrapper branch as taken when it
+  // actually yields quests; otherwise fall through to single-quest / keyed-entry
+  // parsing below.
+  const nested = NESTED_QUEST_KEYS.flatMap((key) =>
+    value[key] === undefined ? [] : normalizeActiveQuestCollection(value[key], depth + 1),
+  );
+  if (nested.length > 0) return nested;
 
   const single = parseQuest(value);
   if (single) return [single];
 
+  const nestedKeys = NESTED_QUEST_KEYS as readonly string[];
   return Object.entries(value).flatMap(([key, entry]) => {
+    // Wrapper keys were already handled by the aggregate above; skip them here
+    // so a present-but-empty wrapper (e.g. `quests: []`) is not misread as a
+    // keyed quest entry named after the wrapper key.
+    if (nestedKeys.includes(key)) return [];
     const quest = parseQuest(entry, key);
     return quest ? [quest] : normalizeActiveQuestCollection(entry, depth + 1);
   });
