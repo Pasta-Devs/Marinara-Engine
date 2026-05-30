@@ -191,7 +191,12 @@ export function GameJournal({
       .getJournal(chatId)
       .then((res) => {
         setJournal(res.journal as Journal);
-        if (res.playerNotes) setPlayerNotes(res.playerNotes);
+        if (res.playerNotes) {
+          setPlayerNotes(res.playerNotes);
+          // Keep the retry-save ref a faithful mirror of the persisted notes
+          // from first load, not just whatever the user last typed.
+          latestNotesRef.current = res.playerNotes;
+        }
       })
       .catch((err) => {
         setLoadError(err instanceof Error ? err.message : "Failed to load journal");
@@ -227,6 +232,10 @@ export function GameJournal({
       setPlayerNotes(text);
       latestNotesRef.current = text;
       setNotesSaved(false);
+      // Clear a stale failure as soon as the user edits, so the pill returns to
+      // "Saving..." for the fresh, not-yet-attempted content instead of lingering
+      // on the red "Save failed" for the full debounce window.
+      setSaveError(null);
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => saveNotes(text), 800);
     },

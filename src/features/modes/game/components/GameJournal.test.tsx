@@ -139,9 +139,7 @@ describe("GameJournal load/save failure UI (issue #1536)", () => {
       });
 
       // Switch to the Notes tab.
-      const notesTab = Array.from(container.querySelectorAll("button")).find((b) =>
-        b.textContent?.includes("Notes"),
-      );
+      const notesTab = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("Notes"));
       await act(async () => {
         notesTab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
@@ -151,10 +149,7 @@ describe("GameJournal load/save failure UI (issue #1536)", () => {
       expect(textarea).toBeTruthy();
       // Use the native value setter so React's controlled-input value tracker
       // registers the change and fires onChange.
-      const nativeValueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value",
-      )!.set!;
+      const nativeValueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
       await act(async () => {
         nativeValueSetter.call(textarea, "a new clue");
         textarea!.dispatchEvent(new Event("input", { bubbles: true }));
@@ -168,6 +163,19 @@ describe("GameJournal load/save failure UI (issue #1536)", () => {
       expect(container.textContent).toContain("Save failed");
       expect(container.textContent).not.toContain("Saving...");
       expect(retryButton()).toBeTruthy();
+
+      // Retry: the next save succeeds, so the failure clears back to "Saved".
+      updateNotesMock.mockResolvedValueOnce({
+        sessionChat: { id: "chat-1" },
+      } as never);
+      await act(async () => {
+        retryButton()!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(updateNotesMock).toHaveBeenCalledTimes(2);
+      expect(container.textContent).not.toContain("Save failed");
+      expect(container.textContent).toContain("Saved");
     } finally {
       vi.useRealTimers();
     }
