@@ -37,15 +37,25 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
 
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
-        <section className="max-w-xl space-y-5 rounded-lg border border-border bg-card p-6 shadow-xl">
+        <section
+          aria-labelledby="app-error-title"
+          aria-live="assertive"
+          className="max-w-xl space-y-5 rounded-lg border border-border bg-card p-6 shadow-xl"
+          role="alert"
+        >
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-wide text-destructive">Marinara stopped rendering</p>
-            <h1 className="text-2xl font-semibold">The app hit an unrecoverable UI error.</h1>
+            <h1 id="app-error-title" className="text-2xl font-semibold">
+              The app hit an unrecoverable UI error.
+            </h1>
             <p className="text-sm leading-6 text-muted-foreground">
               Reload the app to recover. If this keeps happening, include the error below in the bug report.
             </p>
           </div>
-          <pre className="max-h-48 overflow-auto rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
+          <pre
+            aria-label="Error details"
+            className="max-h-48 overflow-auto rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground"
+          >
             {errorMessage(this.state.error)}
           </pre>
           <button
