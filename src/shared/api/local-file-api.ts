@@ -12,7 +12,12 @@ type RemoteManagedAsset = {
   target: RuntimeTarget;
 };
 
-const remoteAssetObjectUrls = new Map<string, string>();
+type RemoteAssetObjectUrlEntry = {
+  promise: Promise<string>;
+  objectUrl?: string;
+};
+
+const remoteAssetObjectUrls = new Map<string, RemoteAssetObjectUrlEntry>();
 
 function hasScheme(value: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(value);
@@ -63,10 +68,7 @@ function filePathToAssetUrl(path: string | null | undefined): string {
 
 type RemoteManagedAssetKind = "avatar" | "background" | "font" | "game" | "lorebook";
 
-function remoteManagedAsset(
-  kind: RemoteManagedAssetKind,
-  path: string | null | undefined,
-): RemoteManagedAsset | null {
+function remoteManagedAsset(kind: RemoteManagedAssetKind, path: string | null | undefined): RemoteManagedAsset | null {
   const target = remoteRuntimeTarget();
   if (!target || !path?.trim()) return null;
   const encodedPath = path
@@ -79,10 +81,7 @@ function remoteManagedAsset(
   return encodedPath ? { url: `${target.baseUrl}/api/assets/${kind}/${encodedPath}`, target } : null;
 }
 
-function remoteManagedAssetUrl(
-  kind: RemoteManagedAssetKind,
-  path: string | null | undefined,
-): string | null {
+function remoteManagedAssetUrl(kind: RemoteManagedAssetKind, path: string | null | undefined): string | null {
   const asset = remoteManagedAsset(kind, path);
   if (!asset || asset.target.authorization) return null;
   return asset.url;
@@ -99,20 +98,79 @@ async function remoteManagedAssetResolvableUrl(
 }
 
 async function fetchRemoteManagedAssetBlobUrl(asset: RemoteManagedAsset): Promise<string> {
-  const cacheKey = `${asset.target.baseUrl}\0${asset.target.authorization ?? ""}\0${asset.url}`;
+  const cacheKey = remoteManagedAssetCacheKey(asset);
   const cached = remoteAssetObjectUrls.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached.promise;
 
-  const response = await fetch(asset.url, {
-    method: "GET",
-    headers: remoteHeaders(asset.target),
+  const entry: RemoteAssetObjectUrlEntry = { promise: Promise.resolve("") };
+  entry.promise = (async () => {
+    const response = await fetch(asset.url, {
+      method: "GET",
+      headers: remoteHeaders(asset.target),
+    });
+    if (!response.ok) {
+      throw new Error(`Remote managed asset returned ${response.status}`);
+    }
+    const objectUrl = URL.createObjectURL(await response.blob());
+    entry.objectUrl = objectUrl;
+    return objectUrl;
+  })();
+
+  remoteAssetObjectUrls.set(cacheKey, entry);
+  entry.promise.catch(() => {
+    if (remoteAssetObjectUrls.get(cacheKey) === entry) {
+      remoteAssetObjectUrls.delete(cacheKey);
+    }
   });
-  if (!response.ok) {
-    throw new Error(`Remote managed asset returned ${response.status}`);
+  return entry.promise;
+}
+
+function remoteManagedAssetCacheKey(asset: RemoteManagedAsset): string {
+  return `${asset.target.baseUrl}\0${asset.target.authorization ?? ""}\0${asset.url}`;
+}
+
+function revokeRemoteAssetObjectUrl(entry: RemoteAssetObjectUrlEntry): void {
+  if (entry.objectUrl && typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(entry.objectUrl);
   }
-  const objectUrl = URL.createObjectURL(await response.blob());
-  remoteAssetObjectUrls.set(cacheKey, objectUrl);
-  return objectUrl;
+}
+
+function deleteRemoteAssetObjectUrl(cacheKey: string): void {
+  const entry = remoteAssetObjectUrls.get(cacheKey);
+  if (!entry) return;
+  remoteAssetObjectUrls.delete(cacheKey);
+  if (entry.objectUrl) {
+    revokeRemoteAssetObjectUrl(entry);
+    return;
+  }
+  entry.promise
+    .then((objectUrl) => {
+      if (typeof URL.revokeObjectURL === "function") {
+        URL.revokeObjectURL(objectUrl);
+      }
+    })
+    .catch(() => {});
+}
+
+export function invalidateRemoteManagedAssetObjectUrls(kind?: RemoteManagedAssetKind, path?: string | null): void {
+  if (kind && path) {
+    const asset = remoteManagedAsset(kind, path);
+    if (asset) deleteRemoteAssetObjectUrl(remoteManagedAssetCacheKey(asset));
+    return;
+  }
+  if (kind) {
+    const routeMarker = `/api/assets/${kind}/`;
+    for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
+      if (cacheKey.includes(routeMarker)) {
+        deleteRemoteAssetObjectUrl(cacheKey);
+      }
+    }
+    return;
+  }
+
+  for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
+    deleteRemoteAssetObjectUrl(cacheKey);
+  }
 }
 
 function filenameFromPath(path: string | null | undefined): string | null {

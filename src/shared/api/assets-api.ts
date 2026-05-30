@@ -1,6 +1,7 @@
 import { fileToUploadPayload, GAME_ASSET_SIZE_ERROR } from "./file-payload";
 import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { invokeTauri } from "./tauri-client";
+import { invalidateRemoteManagedAssetObjectUrls } from "./local-file-api";
 
 interface GameAssetFileInfo {
   name: string;
@@ -26,16 +27,24 @@ async function uploadGameAsset({
   category: string;
   subcategory?: string;
 }) {
-  return invokeTauri("game_assets_upload", {
-    body: {
-      category,
-      subcategory: subcategory ?? "",
-      file: await fileToUploadPayload(file, {
-        maxBytes: MAX_FILE_SIZES.GAME_ASSET,
-        tooLargeMessage: GAME_ASSET_SIZE_ERROR,
-      }),
-    },
-  });
+  return invalidateGameAssetObjectUrlsAfter(
+    invokeTauri("game_assets_upload", {
+      body: {
+        category,
+        subcategory: subcategory ?? "",
+        file: await fileToUploadPayload(file, {
+          maxBytes: MAX_FILE_SIZES.GAME_ASSET,
+          tooLargeMessage: GAME_ASSET_SIZE_ERROR,
+        }),
+      },
+    }),
+  );
+}
+
+async function invalidateGameAssetObjectUrlsAfter<T>(operation: Promise<T>): Promise<T> {
+  const result = await operation;
+  invalidateRemoteManagedAssetObjectUrls("game");
+  return result;
 }
 
 const gameAssetCommands = {
@@ -44,24 +53,33 @@ const gameAssetCommands = {
   list: (path?: string) => invokeTauri<unknown[]>("game_assets_list", { path: path ?? null }),
   createFolder: (path: string) => invokeTauri("game_assets_create_folder", { path }),
   deleteFolder: (path: string, recursive?: boolean) =>
-    invokeTauri("game_assets_delete_folder", { path, recursive: recursive ?? false }),
-  rename: (path: string, newName: string) => invokeTauri("game_assets_rename", { path, newName }),
-  move: (path: string, targetFolder: string) => invokeTauri("game_assets_move", { path, targetFolder }),
+    invalidateGameAssetObjectUrlsAfter(
+      invokeTauri("game_assets_delete_folder", { path, recursive: recursive ?? false }),
+    ),
+  rename: (path: string, newName: string) =>
+    invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_rename", { path, newName })),
+  move: (path: string, targetFolder: string) =>
+    invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_move", { path, targetFolder })),
   copy: (path: string, targetFolder: string) => invokeTauri("game_assets_copy", { path, targetFolder }),
-  deleteFile: (path: string) => invokeTauri<void>("game_assets_delete_file", { path }),
+  deleteFile: (path: string) =>
+    invalidateGameAssetObjectUrlsAfter(invokeTauri<void>("game_assets_delete_file", { path })),
   openFolder: (subfolder?: string) => invokeTauri<void>("game_assets_open_folder", { subfolder: subfolder ?? null }),
-  rescan: () => invokeTauri("game_assets_rescan"),
+  rescan: () => invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_rescan")),
   upload: uploadGameAsset,
   updateFolderDescription: (path: string, description: string) =>
     invokeTauri("game_assets_folder_description", { path, description }),
   readText: <T = { content: string }>(path: string) => invokeTauri<T>("game_assets_read_text", { path }),
-  writeText: (path: string, content: string) => invokeTauri<void>("game_assets_write_text", { path, content }),
+  writeText: (path: string, content: string) =>
+    invalidateGameAssetObjectUrlsAfter(invokeTauri<void>("game_assets_write_text", { path, content })),
   fileInfo: (path: string) => invokeTauri<GameAssetFileInfo>("game_assets_file_info", { path }),
   moveBulk: (paths: string[], targetFolder: string) =>
-    invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_move_bulk", { paths, targetFolder }),
+    invalidateGameAssetObjectUrlsAfter(
+      invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_move_bulk", { paths, targetFolder }),
+    ),
   copyBulk: (paths: string[], targetFolder: string) =>
     invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_copy_bulk", { paths, targetFolder }),
-  deleteBulk: (paths: string[]) => invokeTauri<BulkOperationResult>("game_assets_delete_bulk", { paths }),
+  deleteBulk: (paths: string[]) =>
+    invalidateGameAssetObjectUrlsAfter(invokeTauri<BulkOperationResult>("game_assets_delete_bulk", { paths })),
 };
 
 export const gameAssetsApi = {

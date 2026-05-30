@@ -6,7 +6,7 @@
 // for smooth transitions.
 // ──────────────────────────────────────────────
 
-import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api";
+import { resolveGameAssetFileUrl } from "../../../../shared/api/local-file-api";
 import { loadUrlArrayBuffer } from "../../../../shared/lib/url-blob";
 
 const CROSSFADE_MS = 2000;
@@ -80,7 +80,7 @@ function setAmbientAudioSession(): void {
 }
 
 /** Singleton audio manager for game mode. */
-class GameAudioManager {
+export class GameAudioManager {
   private musicElement: LoopingAudioLayer | null = null;
   private nextMusicElement: LoopingAudioLayer | null = null;
   private ambientElement: LoopingAudioLayer | null = null;
@@ -171,19 +171,19 @@ class GameAudioManager {
   }
 
   /** Resolve an asset tag to a URL. */
-  private resolveUrl(tag: string): string {
+  private resolveUrl(tag: string): Promise<string> {
     // Tag format: "category:subcategory:name" → path: "category/subcategory/name.*"
     // The manifest stores the full relative path with extension
     const path = assetTagToPath(tag);
-    return gameAssetFileUrlFromPath(path);
+    return resolveGameAssetFileUrl(path);
   }
 
   /** Try to find the full path from manifest, falling back to tag-based URL. */
-  resolveAssetUrl(tag: string, manifest?: AssetMap | null): string {
+  resolveAssetUrl(tag: string, manifest?: AssetMap | null): Promise<string> {
     const normalizedTag = normalizeAssetTag(tag);
     const manifestEntry = manifest?.[tag] ?? manifest?.[normalizedTag];
     if (manifestEntry) {
-      return gameAssetFileUrlFromPath(manifestEntry.path, manifestEntry.absolutePath);
+      return resolveGameAssetFileUrl(manifestEntry.path);
     }
     return this.resolveUrl(tag);
   }
@@ -653,83 +653,96 @@ class GameAudioManager {
       return;
     }
 
-    const url = this.resolveAssetUrl(tag, manifest);
-    const newAudio = this.createLoopingAudioLayer(url, 0, this.isMuted);
+    void this.resolveAssetUrl(tag, manifest)
+      .then((url) => {
+        if (this.currentMusicTag !== tag) return;
+        const newAudio = this.createLoopingAudioLayer(url, 0, this.isMuted);
 
-    if (this.fadeInterval) {
-      clearInterval(this.fadeInterval);
-      this.fadeInterval = null;
-    }
-
-    const oldAudio = this.musicElement;
-    if (this.nextMusicElement && this.nextMusicElement !== oldAudio) {
-      this.nextMusicElement.stop();
-      this.nextMusicElement = null;
-    }
-    if (oldAudio) {
-      oldAudio.setMuted(this.isMuted);
-      oldAudio.setVolume(this.musicVolume);
-    }
-    this.nextMusicElement = newAudio;
-
-    newAudio.ready
-      .then(() => {
-        if (this.nextMusicElement !== newAudio) {
-          newAudio.stop();
-          return;
-        }
-        // Playback started — clear any pending retry
-        this.pendingMusic = null;
-        const steps = CROSSFADE_MS / 50;
-        const fadeStep = this.musicVolume / steps;
-        let step = 0;
-
-        const interval = setInterval(() => {
-          if (this.nextMusicElement !== newAudio) {
-            clearInterval(interval);
-            if (this.fadeInterval === interval) this.fadeInterval = null;
-            newAudio.stop();
-            return;
-          }
-
-          step++;
-          // Fade in new
-          newAudio.setMuted(this.isMuted);
-          newAudio.setVolume(Math.min(this.musicVolume, fadeStep * step));
-          // Fade out old
-          if (oldAudio) {
-            oldAudio.setMuted(this.isMuted);
-            oldAudio.setVolume(Math.max(0, this.musicVolume - fadeStep * step));
-          }
-
-          if (step >= steps) {
-            clearInterval(interval);
-            if (this.fadeInterval === interval) this.fadeInterval = null;
-            if (oldAudio) {
-              oldAudio.stop();
-            }
-            this.musicElement = newAudio;
-            this.nextMusicElement = null;
-          }
-        }, 50);
-
-        this.fadeInterval = interval;
-      })
-      .catch(() => {
-        if (this.nextMusicElement !== newAudio) {
-          newAudio.stop();
-          return;
+        if (this.fadeInterval) {
+          clearInterval(this.fadeInterval);
+          this.fadeInterval = null;
         }
 
-        this.nextMusicElement = null;
-        newAudio.stop();
-
-        // Autoplay blocked — queue for retry on user gesture
-        this.pendingMusic = { tag, manifest };
-        this.currentMusicTag = previousMusicTag;
+        const oldAudio = this.musicElement;
+        if (this.nextMusicElement && this.nextMusicElement !== oldAudio) {
+          this.nextMusicElement.stop();
+          this.nextMusicElement = null;
+        }
         if (oldAudio) {
           oldAudio.setMuted(this.isMuted);
           oldAudio.setVolume(this.musicVolume);
+        }
+        this.nextMusicElement = newAudio;
+
+        newAudio.ready
+          .then(() => {
+            if (this.nextMusicElement !== newAudio) {
+              newAudio.stop();
+              return;
+            }
+            // Playback started — clear any pending retry
+            this.pendingMusic = null;
+            const steps = CROSSFADE_MS / 50;
+            const fadeStep = this.musicVolume / steps;
+            let step = 0;
+
+            const interval = setInterval(() => {
+              if (this.nextMusicElement !== newAudio) {
+                clearInterval(interval);
+                if (this.fadeInterval === interval) this.fadeInterval = null;
+                newAudio.stop();
+                return;
+              }
+
+              step++;
+              // Fade in new
+              newAudio.setMuted(this.isMuted);
+              newAudio.setVolume(Math.min(this.musicVolume, fadeStep * step));
+              // Fade out old
+              if (oldAudio) {
+                oldAudio.setMuted(this.isMuted);
+                oldAudio.setVolume(Math.max(0, this.musicVolume - fadeStep * step));
+              }
+
+              if (step >= steps) {
+                clearInterval(interval);
+                if (this.fadeInterval === interval) this.fadeInterval = null;
+                if (oldAudio) {
+                  oldAudio.stop();
+                }
+                this.musicElement = newAudio;
+                this.nextMusicElement = null;
+              }
+            }, 50);
+
+            this.fadeInterval = interval;
+          })
+          .catch(() => {
+            if (this.nextMusicElement !== newAudio) {
+              newAudio.stop();
+              return;
+            }
+
+            this.nextMusicElement = null;
+            newAudio.stop();
+
+            // Autoplay blocked — queue for retry on user gesture
+            this.pendingMusic = { tag, manifest };
+            this.currentMusicTag = previousMusicTag;
+            if (oldAudio) {
+              oldAudio.setMuted(this.isMuted);
+              oldAudio.setVolume(this.musicVolume);
+            }
+            this.ensureGestureListener();
+          });
+      })
+      .catch(() => {
+        if (this.currentMusicTag !== tag) return;
+        this.pendingMusic = { tag, manifest };
+        this.currentMusicTag = previousMusicTag;
+        if (this.musicElement) {
+          this.musicElement.setMuted(this.isMuted);
+          this.musicElement.setVolume(this.musicVolume);
         }
         this.ensureGestureListener();
       });
@@ -771,20 +784,25 @@ class GameAudioManager {
   /** Play a one-shot sound effect. */
   playSfx(tag: string, manifest?: AssetMap | null): void {
     if (this.isMuted || this.sfxVolume <= 0 || !this.userHasInteracted) return;
-    const url = this.resolveAssetUrl(tag, manifest);
-    const audio = this.sfxPool[this.sfxIndex % SFX_POOL_SIZE]!;
-    this.sfxIndex++;
-    audio.onerror = () => {
-      audio.onerror = null;
-      this.playProceduralSfx(tag);
-    };
-    audio.src = url;
-    this.setElementLayerVolume(audio, this.sfxVolume);
-    audio.muted = false;
-    audio.currentTime = 0;
-    audio.play().catch(() => {
-      this.playProceduralSfx(tag);
-    });
+    void this.resolveAssetUrl(tag, manifest)
+      .then((url) => {
+        const audio = this.sfxPool[this.sfxIndex % SFX_POOL_SIZE]!;
+        this.sfxIndex++;
+        audio.onerror = () => {
+          audio.onerror = null;
+          this.playProceduralSfx(tag);
+        };
+        audio.src = url;
+        this.setElementLayerVolume(audio, this.sfxVolume);
+        audio.muted = false;
+        audio.currentTime = 0;
+        audio.play().catch(() => {
+          this.playProceduralSfx(tag);
+        });
+      })
+      .catch(() => {
+        this.playProceduralSfx(tag);
+      });
   }
 
   /** Set looping ambient sound. */
@@ -800,27 +818,33 @@ class GameAudioManager {
       return;
     }
 
-    const url = this.resolveAssetUrl(tag, manifest);
-    const nextAmbient = this.createLoopingAudioLayer(url, this.ambientVolume, this.isMuted);
-    nextAmbient.ready
-      .then(() => {
+    void this.resolveAssetUrl(tag, manifest)
+      .then((url) => {
         if (this.currentAmbientTag !== tag) {
-          nextAmbient.stop();
           return;
         }
+        const nextAmbient = this.createLoopingAudioLayer(url, this.ambientVolume, this.isMuted);
 
-        if (previousAmbient && previousAmbient !== nextAmbient) {
-          previousAmbient.stop();
-        }
-        this.ambientElement = nextAmbient;
-        this.pendingAmbient = null;
+        return nextAmbient.ready
+          .then(() => {
+            if (this.currentAmbientTag !== tag) {
+              nextAmbient.stop();
+              return;
+            }
+
+            if (previousAmbient && previousAmbient !== nextAmbient) {
+              previousAmbient.stop();
+            }
+            this.ambientElement = nextAmbient;
+            this.pendingAmbient = null;
+          })
+          .catch((err) => {
+            nextAmbient.stop();
+            throw err;
+          });
       })
       .catch((err) => {
-        nextAmbient.stop();
-        if (this.currentAmbientTag !== tag) {
-          return;
-        }
-
+        if (this.currentAmbientTag !== tag) return;
         console.warn("[audio] Ambient playback failed:", tag, err);
         this.pendingAmbient = { tag, manifest };
         this.currentAmbientTag = previousAmbientTag;
