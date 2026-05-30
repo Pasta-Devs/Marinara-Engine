@@ -15,10 +15,10 @@ import {
   readString,
 } from "../../generation/runtime-records";
 
-export type QuestObjective = QuestProgress["objectives"][number];
-export type QuestUpdateAction = "create" | "update" | "complete" | "fail";
+type QuestObjective = QuestProgress["objectives"][number];
+type QuestUpdateAction = "create" | "update" | "complete" | "fail";
 
-export interface NormalizedQuestUpdate {
+interface NormalizedQuestUpdate {
   action: QuestUpdateAction;
   questName: string;
   objectives?: QuestObjective[];
@@ -35,7 +35,7 @@ const RPG_ATTRIBUTE_KEYS: RpgAttributeKey[] = ["str", "dex", "con", "int", "wis"
  */
 const NESTED_QUEST_KEYS = ["quests", "activeQuests", "groups", "items", "children"] as const;
 
-export function parseQuestObjective(value: unknown): { text: string; completed: boolean } | null {
+function parseQuestObjective(value: unknown): { text: string; completed: boolean } | null {
   if (typeof value === "string") {
     const text = value.trim();
     return text ? { text, completed: false } : null;
@@ -52,7 +52,7 @@ export function parseQuestObjective(value: unknown): { text: string; completed: 
   };
 }
 
-export function firstString(...values: unknown[]): string | undefined {
+function firstString(...values: unknown[]): string | undefined {
   for (const value of values) {
     const text = readString(value).trim();
     if (text) return text;
@@ -72,7 +72,7 @@ function looksLikeQuestRecord(record: Record<string, unknown>): boolean {
   );
 }
 
-export function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null {
+function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null {
   const record = parseRecord(value);
   let name = readString(record.name).trim() || readString(record.questName).trim();
   if (!name && looksLikeQuestRecord(record)) {
@@ -202,7 +202,7 @@ export function clonePlayerStats(value: unknown): PlayerStats {
   };
 }
 
-export function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
+function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
   const normalized = readString(value).trim().toLowerCase();
   if (normalized === "completed") return "complete";
   if (normalized === "failed") return "fail";
@@ -211,7 +211,7 @@ export function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
     : null;
 }
 
-export function collectQuestObjectives(value: unknown, depth = 0): QuestObjective[] {
+function collectQuestObjectives(value: unknown, depth = 0): QuestObjective[] {
   if (value == null || depth > 5) return [];
   if (Array.isArray(value)) return value.flatMap((entry) => collectQuestObjectives(entry, depth + 1));
   const direct = parseQuestObjective(value);
@@ -226,7 +226,7 @@ export function collectQuestObjectives(value: unknown, depth = 0): QuestObjectiv
   return Object.values(record).flatMap((entry) => collectQuestObjectives(entry, depth + 1));
 }
 
-export function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | null {
+function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | null {
   const record = parseRecord(value);
   const action = normalizeQuestAction(record.action);
   const questName = firstString(record.questName, record.name, record.title, record.questEntryId);
@@ -239,7 +239,7 @@ export function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | nu
   };
 }
 
-export function cloneQuest(quest: QuestProgress): QuestProgress {
+function cloneQuest(quest: QuestProgress): QuestProgress {
   return {
     ...quest,
     objectives: quest.objectives.map((objective) => ({ ...objective })),
