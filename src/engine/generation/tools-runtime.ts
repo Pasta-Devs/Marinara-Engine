@@ -191,10 +191,23 @@ function hiddenFromAiRecord(message: JsonRecord): boolean {
 }
 
 async function hideSummarySourceMessages(storage: StorageGateway, messageIds: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(
+    messageIds.map((messageId) =>
+      storage.patchChatMessageExtra(messageId, { hiddenFromAI: true, hiddenFromAi: true }),
+    ),
+  );
   const hiddenIds: string[] = [];
-  for (const messageId of messageIds) {
-    await storage.patchChatMessageExtra(messageId, { hiddenFromAI: true, hiddenFromAi: true });
-    hiddenIds.push(messageId);
+  for (const [index, result] of results.entries()) {
+    const messageId = messageIds[index];
+    if (!messageId) continue;
+    if (result.status === "fulfilled") {
+      hiddenIds.push(messageId);
+    } else {
+      console.warn("[tools-runtime] Failed to hide automated summary source message", {
+        messageId,
+        error: result.reason,
+      });
+    }
   }
   return hiddenIds;
 }
@@ -383,14 +396,14 @@ export async function executeBuiltInTool(
         },
         { now, createId: () => newId("summary") },
       );
-      metadata.summaryEntries = appended.entries;
-      metadata.summary = appended.summary;
-      await storage.update("chats", chatId, { metadata });
       const hiddenMessageIds = input.hideAutomatedSummarySourceMessages
         ? await hideSummarySourceMessages(storage, sourceMessageIds)
         : [];
+      metadata.summaryEntries = appended.entries;
+      metadata.summary = appended.summary;
       input.chat.metadata = metadata;
       input.chatSummary = appended.summary;
+      await storage.update("chats", chatId, { metadata });
       return { success: true, entry: appended.entry, summary: appended.summary, hiddenMessageIds };
     }
     case "read_chat_variable": {
