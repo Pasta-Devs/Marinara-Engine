@@ -232,6 +232,27 @@ describe("persona hooks", () => {
     expect(convertFileSrcMock).toHaveBeenCalledWith("C:\\Marinara\\avatars\\personas\\Current.png");
   });
 
+  it("normalizes missing avatar paths to null from full persona reads", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "persona-1",
+        name: "No Avatar Persona",
+      },
+    ]);
+
+    const getPersonas = await renderHook(usePersonas);
+
+    await vi.waitFor(() =>
+      expect(getPersonas().data).toEqual([
+        {
+          id: "persona-1",
+          name: "No Avatar Persona",
+          avatarPath: null,
+        },
+      ]),
+    );
+  });
+
   it("normalizes managed avatar paths from persona detail reads", async () => {
     storageGetMock.mockResolvedValue({
       id: "persona-1",

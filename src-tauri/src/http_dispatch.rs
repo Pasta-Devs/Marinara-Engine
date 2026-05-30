@@ -2,8 +2,8 @@ use crate::state::AppState;
 use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
     entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
-    imports, integrations, knowledge, llm, lorebook_images, mari, profile, prompts, shared,
-    sprites, translation, updates,
+    imports, integrations, knowledge, llm, lorebook_images, mari, profile, profile_commands,
+    prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -79,7 +79,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
     let command = request.command.as_str();
     let args = args_object(request.args)?;
     match command {
-        "load_url_binary" => load_url_binary(&args).await,
+        "load_url_binary" => load_url_binary(state, &args).await,
         "profile_export" => profile::profile_snapshot(state),
         "profile_import" => profile::profile_call(
             state,
@@ -717,8 +717,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
     }
 }
 
-async fn load_url_binary(args: &Map<String, Value>) -> AppResult<Value> {
-    http::http_binary(
+async fn load_url_binary(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    profile_commands::load_url_binary_for_state(
+        state,
         required_string(args, "url")?,
         optional_string(args, "fallbackMime")
             .as_deref()
@@ -1248,6 +1249,7 @@ fn message_cursor(row: &Value) -> (&str, &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage_commands::media_uploads::file_path_asset_url;
     use base64::{engine::general_purpose, Engine as _};
     use std::collections::BTreeSet;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1366,6 +1368,41 @@ mod tests {
 
         assert_eq!(remote_allowlist, expected_remote);
         assert_eq!(dispatch_commands, remote_allowlist);
+    }
+
+    #[tokio::test]
+    async fn dispatch_load_url_binary_reads_managed_asset_urls() {
+        let state = test_state("load-url-binary-local-asset");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("Avatar One.png");
+        std::fs::write(&avatar_path, b"avatar-bytes").expect("avatar should be written");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "load_url_binary".to_string(),
+                args: Some(json!({
+                    "url": file_path_asset_url(&avatar_path),
+                    "fallbackMime": "application/octet-stream"
+                })),
+            },
+        )
+        .await
+        .expect("remote load_url_binary should load managed local assets");
+
+        let base64 = result
+            .get("base64")
+            .and_then(Value::as_str)
+            .expect("response should include base64");
+        let bytes = general_purpose::STANDARD
+            .decode(base64)
+            .expect("base64 should decode");
+        assert_eq!(bytes, b"avatar-bytes");
+        assert_eq!(
+            result.get("mimeType"),
+            Some(&Value::String("image/png".into()))
+        );
     }
 
     #[tokio::test]

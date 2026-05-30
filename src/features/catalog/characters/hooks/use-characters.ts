@@ -17,6 +17,7 @@ import { storageCommandsApi } from "../../../../shared/api/storage-commands-api"
 import { galleryApi, spriteApi } from "../../../../shared/api/image-generation-api";
 import type { CharacterCardVersion } from "../../../../engine/contracts/types/character";
 import type { SpriteCapabilities, SpriteCleanupEngine } from "../../../../shared/types/sprite-capabilities";
+import { characterAvatarUrl, type CharacterAvatarSource } from "../lib/character-avatar-url";
 
 export { characterKeys, spriteKeys } from "../query-keys";
 
@@ -39,7 +40,16 @@ export type CharacterSummary = {
   updatedAt?: string;
 };
 
-const CHARACTER_LIST_FIELDS = ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"];
+const CHARACTER_LIST_FIELDS = [
+  "id",
+  "data",
+  "comment",
+  "avatarPath",
+  "avatarFilePath",
+  "avatarFilename",
+  "createdAt",
+  "updatedAt",
+];
 
 const CHARACTER_SUMMARY_OPTIONS = {
   fields: CHARACTER_LIST_FIELDS,
@@ -61,16 +71,39 @@ function isPresent<T>(value: T | null | undefined): value is NonNullable<T> {
   return value != null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeCharacterAvatarFields<T>(character: T): T {
+  if (!isRecord(character)) return character;
+  const avatarPath = characterAvatarUrl(character as CharacterAvatarSource);
+  const hasAvatarPath = Object.prototype.hasOwnProperty.call(character, "avatarPath");
+  const currentAvatarPath = character.avatarPath as string | null | undefined;
+  if (hasAvatarPath && currentAvatarPath === avatarPath) return character;
+  return { ...character, avatarPath } as T;
+}
+
 function normalizeSearchQuery(search: string | null | undefined): string {
   return search?.trim() ?? "";
 }
 
-function listCharacterSummaries(search?: string): Promise<CharacterSummary[]> {
+async function listCharacters(): Promise<unknown[]> {
+  const characters = await storageApi.list<unknown>("characters", CHARACTER_LIST_OPTIONS);
+  return characters.map(normalizeCharacterAvatarFields);
+}
+
+async function listCharacterSummaries(search?: string): Promise<CharacterSummary[]> {
   const query = normalizeSearchQuery(search);
-  return storageApi.list<CharacterSummary>("characters", {
+  const characters = await storageApi.list<CharacterSummary>("characters", {
     ...CHARACTER_SUMMARY_OPTIONS,
     ...(query ? { search: query } : {}),
   });
+  return characters.map(normalizeCharacterAvatarFields);
+}
+
+async function getCharacter(id: string): Promise<unknown> {
+  return normalizeCharacterAvatarFields(await storageApi.get<unknown>("characters", id));
 }
 
 async function listCharacterSummariesByIds(ids: string[]): Promise<CharacterSummary[]> {
@@ -83,7 +116,9 @@ async function listCharacterSummariesByIds(ids: string[]): Promise<CharacterSumm
         const index = nextIndex;
         nextIndex += 1;
         try {
-          results[index] = await storageApi.get<CharacterSummary>("characters", ids[index]!, CHARACTER_SUMMARY_OPTIONS);
+          results[index] = normalizeCharacterAvatarFields(
+            await storageApi.get<CharacterSummary>("characters", ids[index]!, CHARACTER_SUMMARY_OPTIONS),
+          );
         } catch (error) {
           if (error instanceof ApiError && error.status === 404) {
             results[index] = null;
@@ -143,7 +178,7 @@ export function cacheCharacterListRecordFromResult(
   result: unknown,
 ): boolean {
   if (!result || typeof result !== "object" || Array.isArray(result)) return false;
-  const record = (result as { character?: unknown }).character;
+  const record = normalizeCharacterAvatarFields((result as { character?: unknown }).character);
   if (!isCharacterListRecord(record)) return false;
 
   const updatedList = upsertCharacterCollectionRecord(queryClient, characterKeys.list(), record);
@@ -199,7 +234,7 @@ function invalidateCharacterRecordQueries(
 export function useCharacters(enabled = true) {
   return useQuery({
     queryKey: characterKeys.list(),
-    queryFn: () => storageApi.list<unknown>("characters", CHARACTER_LIST_OPTIONS),
+    queryFn: listCharacters,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -220,7 +255,7 @@ export function useCharacterSummaries(enabled = true, search?: string) {
 export function useCharacter(id: string | null) {
   return useQuery({
     queryKey: characterKeys.detail(id ?? ""),
-    queryFn: () => storageApi.get("characters", id!),
+    queryFn: () => getCharacter(id!),
     enabled: !!id,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -232,7 +267,7 @@ export function useCharactersByIds(ids: string[], enabled = true) {
   const queries = useQueries({
     queries: uniqueIds.map((id) => ({
       queryKey: characterKeys.detail(id),
-      queryFn: () => storageApi.get("characters", id),
+      queryFn: () => getCharacter(id),
       enabled: enabled && !!id,
       staleTime: 5 * 60_000,
       refetchOnWindowFocus: false,

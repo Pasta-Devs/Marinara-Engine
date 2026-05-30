@@ -58,7 +58,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizePersonaAvatarFields<T>(persona: T): T {
   if (!isRecord(persona)) return persona;
   const avatarPath = personaAvatarUrl(persona as PersonaAvatarSource);
-  if (avatarPath === ((persona.avatarPath as string | null | undefined) ?? null)) return persona;
+  const hasAvatarPath = Object.prototype.hasOwnProperty.call(persona, "avatarPath");
+  const currentAvatarPath = persona.avatarPath as string | null | undefined;
+  if (hasAvatarPath && currentAvatarPath === avatarPath) return persona;
   return { ...persona, avatarPath } as T;
 }
 

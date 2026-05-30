@@ -3059,6 +3059,7 @@ dependencies = [
  "chrono",
  "criterion",
  "image",
+ "libc",
  "log",
  "marinara-assets",
  "marinara-core",

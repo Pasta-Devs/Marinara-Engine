@@ -1,15 +1,20 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateCharacterSchema } from "../../../../engine/contracts/schemas/character.schema";
+import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { storageApi } from "../../../../shared/api/storage-api";
 import {
   cacheCharacterListRecordFromResult,
   characterKeys,
   removeCachedCharacterRecord,
+  useCharacter,
+  useCharacterSummaries,
+  useCharactersByIds,
   useCharacters,
 } from "./use-characters";
 
@@ -17,10 +22,25 @@ import {
 
 vi.mock("../../../../shared/api/storage-api", () => ({
   storageApi: {
+    get: vi.fn(),
     list: vi.fn(),
   },
 }));
 
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: vi.fn(),
+  invoke: vi.fn(),
+}));
+
+vi.mock("../../../../shared/api/remote-runtime", () => ({
+  invokeRemote: vi.fn(),
+  isRemoteCommand: vi.fn(),
+  remoteRuntimeTarget: vi.fn(),
+}));
+
+const convertFileSrcMock = vi.mocked(convertFileSrc);
+const remoteRuntimeTargetMock = vi.mocked(remoteRuntimeTarget);
+const storageGetMock = vi.mocked(storageApi.get);
 const storageListMock = vi.mocked(storageApi.list);
 
 function characterRecord(id: string, name: string) {
@@ -30,11 +50,6 @@ function characterRecord(id: string, name: string) {
     avatarPath: null,
     comment: null,
   };
-}
-
-function UseCharactersProbe() {
-  useCharacters(true);
-  return null;
 }
 
 describe("character list query", () => {
@@ -52,6 +67,12 @@ describe("character list query", () => {
       },
     });
     storageListMock.mockResolvedValue([]);
+    storageGetMock.mockResolvedValue(null);
+    remoteRuntimeTargetMock.mockReturnValue(null);
+    convertFileSrcMock.mockImplementation((path) => `asset://localhost/${encodeURIComponent(path)}`);
+    (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__ = {
+      convertFileSrc: vi.fn(),
+    };
   });
 
   afterEach(() => {
@@ -60,24 +81,217 @@ describe("character list query", () => {
     });
     container.remove();
     queryClient.clear();
+    storageGetMock.mockReset();
     storageListMock.mockReset();
+    convertFileSrcMock.mockReset();
+    remoteRuntimeTargetMock.mockReset();
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   });
 
-  it("projects full character list reads without embedded avatar payloads", async () => {
+  async function renderHook<THook>(useHook: () => THook): Promise<() => THook> {
+    let hook: THook | undefined;
+
+    function Probe() {
+      hook = useHook();
+      return null;
+    }
+
     await act(async () => {
       root.render(
         createElement(QueryClientProvider, {
           client: queryClient,
-          children: createElement(UseCharactersProbe),
+          children: createElement(Probe),
         }),
       );
     });
 
+    if (!hook) {
+      throw new Error("Hook did not render");
+    }
+
+    return () => {
+      if (!hook) {
+        throw new Error("Hook did not render");
+      }
+      return hook;
+    };
+  }
+
+  it("requests list fields needed for managed and legacy avatar paths", async () => {
+    await renderHook(() => useCharacters(true));
+
     await vi.waitFor(() => {
       expect(storageListMock).toHaveBeenCalledWith("characters", {
-        fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
+        fields: ["id", "data", "comment", "avatarPath", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
       });
     });
+  });
+
+  it("normalizes managed avatar paths from character summaries", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+        avatarFilename: "Managed.png",
+      },
+    ]);
+
+    const getSummaries = await renderHook(useCharacterSummaries);
+
+    await vi.waitFor(() =>
+      expect(getSummaries().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+          avatarFilename: "Managed.png",
+        },
+      ]),
+    );
+  });
+
+  it("normalizes managed avatar paths from full character list reads", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarPath: "data:image/png;base64,large-avatar",
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+        avatarFilename: "Managed.png",
+      },
+    ]);
+
+    const getCharacters = await renderHook(() => useCharacters(true));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+          avatarFilename: "Managed.png",
+        },
+      ]),
+    );
+  });
+
+  it("normalizes managed avatar paths to remote runtime asset urls", async () => {
+    remoteRuntimeTargetMock.mockReturnValue({ baseUrl: "http://runtime.local" });
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed Avatar.png",
+        avatarFilename: "Managed Avatar.png",
+      },
+    ]);
+
+    const getCharacters = await renderHook(() => useCharacters(true));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "http://runtime.local/api/assets/avatar/Managed%20Avatar.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed Avatar.png",
+          avatarFilename: "Managed Avatar.png",
+        },
+      ]),
+    );
+    expect(convertFileSrcMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves legacy avatar paths from full character list reads", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "Legacy Character" },
+        avatarPath: "data:image/png;base64,legacy-avatar",
+      },
+    ]);
+
+    const getCharacters = await renderHook(() => useCharacters(true));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Legacy Character" },
+          avatarPath: "data:image/png;base64,legacy-avatar",
+        },
+      ]),
+    );
+  });
+
+  it("normalizes missing avatar paths to null from full character list reads", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "No Avatar Character" },
+      },
+    ]);
+
+    const getCharacters = await renderHook(() => useCharacters(true));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "No Avatar Character" },
+          avatarPath: null,
+        },
+      ]),
+    );
+  });
+
+  it("normalizes managed avatar paths from character detail reads", async () => {
+    storageGetMock.mockResolvedValue({
+      id: "char-1",
+      data: { name: "Managed Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+      avatarFilename: "Managed.png",
+    });
+
+    const getCharacter = await renderHook(() => useCharacter("char-1"));
+
+    await vi.waitFor(() =>
+      expect(getCharacter().data).toEqual({
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+        avatarFilename: "Managed.png",
+      }),
+    );
+  });
+
+  it("normalizes managed avatar paths from character reads by id", async () => {
+    storageGetMock.mockResolvedValue({
+      id: "char-1",
+      data: { name: "Managed Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+      avatarFilename: "Managed.png",
+    });
+
+    const getCharacters = await renderHook(() => useCharactersByIds(["char-1"]));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+          avatarFilename: "Managed.png",
+        },
+      ]),
+    );
   });
 });
 
@@ -96,6 +310,37 @@ describe("character query cache helpers", () => {
     expect(queryClient.getQueryData(characterKeys.summaries())).toEqual([created, existing]);
     expect(queryClient.getQueryData(characterKeys.detail(created.id))).toEqual(created);
     expect(queryClient.getQueryData(characterKeys.summaryDetail(created.id))).toEqual(created);
+  });
+
+  it("normalizes managed avatar paths in character cache writes", () => {
+    const queryClient = new QueryClient();
+    remoteRuntimeTargetMock.mockReturnValue(null);
+    convertFileSrcMock.mockImplementation((path) => `asset://localhost/${encodeURIComponent(path)}`);
+    (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__ = {
+      convertFileSrc: vi.fn(),
+    };
+    const created = {
+      id: "char-created",
+      data: { name: "Created Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Created.png",
+      avatarFilename: "Created.png",
+      comment: null,
+    };
+    const expected = {
+      ...created,
+      avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CCreated.png",
+    };
+
+    queryClient.setQueryData(characterKeys.list(), []);
+    queryClient.setQueryData(characterKeys.summaries(), []);
+
+    expect(cacheCharacterListRecordFromResult(queryClient, { character: created })).toBe(true);
+
+    expect(queryClient.getQueryData(characterKeys.list())).toEqual([expected]);
+    expect(queryClient.getQueryData(characterKeys.summaries())).toEqual([expected]);
+    expect(queryClient.getQueryData(characterKeys.detail(created.id))).toEqual(expected);
+    expect(queryClient.getQueryData(characterKeys.summaryDetail(created.id))).toEqual(expected);
   });
 
   it("removes deleted characters from list and summary caches", () => {
