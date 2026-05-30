@@ -1501,6 +1501,40 @@ mod tests {
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("Only image uploads"));
     }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_svg_with_prolog_doctype_and_comment() {
+        let svg = "\u{feff}<?xml version=\"1.0\"?>\n<!-- a logo -->\n<!DOCTYPE svg>\n<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "logo.svg",
+                "type": "image/svg+xml",
+                "size": svg.len(),
+                "base64": general_purpose::STANDARD.encode(svg)
+            }
+        }))
+        .expect("an SVG with BOM, prolog, comment and doctype should be accepted");
+        assert_eq!(uploaded.content_type, "image/svg+xml");
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_svg_substring_not_at_root() {
+        // `<svg` appears, but the document root is `<html>`, not `<svg>`.
+        let html = "<html><body><svg></svg></body></html>";
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "sneaky.svg",
+                "type": "image/svg+xml",
+                "size": html.len(),
+                "base64": general_purpose::STANDARD.encode(html)
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("a non-svg-root document declared as SVG should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
@@ -1646,6 +1680,48 @@ fn image_upload_invalid_type_error() -> AppError {
     AppError::invalid_input("Only image uploads are allowed")
 }
 
+/// True when the decoded bytes are a UTF-8 XML document whose first element is
+/// `<svg>`. Skips a UTF-8 BOM, leading whitespace, the `<?xml ...?>` prolog, XML
+/// comments, and `<!DOCTYPE ...>`/declarations, then requires the first start
+/// tag to be `svg`. This rejects a non-SVG document that merely contains the
+/// `<svg` substring somewhere inside it.
+fn bytes_have_svg_root(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+    loop {
+        if let Some(after) = rest.strip_prefix("<?") {
+            let Some(end) = after.find("?>") else {
+                return false;
+            };
+            rest = after[end + 2..].trim_start();
+        } else if let Some(after) = rest.strip_prefix("<!--") {
+            let Some(end) = after.find("-->") else {
+                return false;
+            };
+            rest = after[end + 3..].trim_start();
+        } else if rest.starts_with("<!") {
+            // DOCTYPE or other declaration.
+            let Some(end) = rest.find('>') else {
+                return false;
+            };
+            rest = rest[end + 1..].trim_start();
+        } else {
+            break;
+        }
+    }
+    let Some(after) = rest
+        .get(..4)
+        .filter(|head| head.eq_ignore_ascii_case("<svg"))
+        .map(|_| &rest[4..])
+    else {
+        return false;
+    };
+    // The tag name must end here (delimiter), not be a prefix like `<svguard`.
+    after.is_empty() || after.starts_with(['>', '/']) || after.starts_with(char::is_whitespace)
+}
+
 pub(crate) fn decode_uploaded_file_value(file: &Value) -> AppResult<UploadedFile> {
     let name = file
         .get("name")
@@ -1714,12 +1790,11 @@ pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile
     // them, rejecting arbitrary bytes masquerading as an image.
     if content_type.eq_ignore_ascii_case("image/svg+xml") {
         // SVG is an accepted upload type but is XML text with no binary magic,
-        // so `image::guess_format` cannot recognize it. Require a recognizable
-        // SVG root instead, which still rejects non-SVG bytes declared as SVG.
-        let looks_like_svg = std::str::from_utf8(&uploaded.bytes)
-            .map(|text| text.to_ascii_lowercase().contains("<svg"))
-            .unwrap_or(false);
-        if !looks_like_svg {
+        // so `image::guess_format` cannot recognize it. Require an `<svg>` ROOT
+        // element (not just the substring anywhere), which still rejects non-SVG
+        // bytes declared as SVG, including a document that merely embeds `<svg`
+        // inside another root element.
+        if !bytes_have_svg_root(&uploaded.bytes) {
             return Err(image_upload_invalid_type_error());
         }
     } else {
