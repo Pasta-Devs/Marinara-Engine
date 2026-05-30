@@ -9,6 +9,7 @@ import { SpeechToTextButton } from "../../../../shared/components/ui/SpeechToTex
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { translateDraftText } from "../../../../shared/lib/draft-translation";
+import { MAX_FILE_SIZES } from "../../../../engine/contracts/constants/defaults";
 import type { DiceRollResult } from "../../../../engine/contracts/types/game";
 import {
   CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
@@ -257,7 +258,8 @@ export function GameInput({
     const files = e.target.files;
     if (!files?.length) return;
     for (const file of Array.from(files)) {
-      if (file.size > 20 * 1024 * 1024) continue;
+      // Skip oversized files before reading them into a data URL.
+      if (file.size > MAX_FILE_SIZES.IMAGE_UPLOAD) continue;
       const reader = new FileReader();
       reader.onload = () => {
         setAttachments((prev) => [...prev, { type: file.type, data: reader.result as string, name: file.name }]);

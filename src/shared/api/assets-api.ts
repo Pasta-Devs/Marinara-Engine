@@ -1,4 +1,5 @@
-import { fileToUploadPayload } from "./file-payload";
+import { fileToUploadPayload, GAME_ASSET_SIZE_ERROR } from "./file-payload";
+import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { invokeTauri } from "./tauri-client";
 
 interface GameAssetFileInfo {
@@ -29,7 +30,10 @@ async function uploadGameAsset({
     body: {
       category,
       subcategory: subcategory ?? "",
-      file: await fileToUploadPayload(file),
+      file: await fileToUploadPayload(file, {
+        maxBytes: MAX_FILE_SIZES.GAME_ASSET,
+        tooLargeMessage: GAME_ASSET_SIZE_ERROR,
+      }),
     },
   });
 }

@@ -15,7 +15,10 @@ function formatUploadSize(bytes: number) {
 export const MAX_IMAGE_UPLOAD_BYTES = MAX_FILE_SIZES.IMAGE_UPLOAD;
 export const IMAGE_UPLOAD_SIZE_ERROR = `Image uploads must be ${formatUploadSize(MAX_IMAGE_UPLOAD_BYTES)} or smaller`;
 
-interface FilePayloadOptions {
+export const CHAT_IMPORT_SIZE_ERROR = `Chat imports must be ${formatUploadSize(MAX_FILE_SIZES.CHAT_JSONL)} or smaller`;
+export const GAME_ASSET_SIZE_ERROR = `Game assets must be ${formatUploadSize(MAX_FILE_SIZES.GAME_ASSET)} or smaller`;
+
+export interface FilePayloadOptions {
   maxBytes?: number;
   tooLargeMessage?: string;
 }
@@ -37,7 +40,10 @@ export async function fileToUploadPayload(file: File, options: FilePayloadOption
   };
 }
 
-export async function formDataToJson(body: FormData): Promise<Record<string, unknown>> {
+export async function formDataToJson(
+  body: FormData,
+  options: FilePayloadOptions = {},
+): Promise<Record<string, unknown>> {
   const entries: Record<string, unknown> = {};
   const appendEntry = (key: string, value: unknown) => {
     const existing = entries[key];
@@ -50,7 +56,9 @@ export async function formDataToJson(body: FormData): Promise<Record<string, unk
     }
   };
   for (const [key, value] of body.entries()) {
-    appendEntry(key, value instanceof File ? await fileToUploadPayload(value) : value);
+    // Pass the caller's size limit down so a File entry is rejected before its
+    // bytes are read into memory, rather than after.
+    appendEntry(key, value instanceof File ? await fileToUploadPayload(value, options) : value);
   }
   return entries;
 }
