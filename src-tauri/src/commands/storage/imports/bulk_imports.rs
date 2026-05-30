@@ -43,6 +43,17 @@ fn selected_import_total(options: &Value) -> usize {
     .sum()
 }
 
+fn imported_jsonl_message_role(row: &Value) -> &'static str {
+    match row.get("role").and_then(Value::as_str).map(str::trim) {
+        Some("user") => "user",
+        Some("assistant") => "assistant",
+        Some("system") => "system",
+        Some("narrator") => "narrator",
+        _ if row.get("is_user").and_then(Value::as_bool).unwrap_or(false) => "user",
+        _ => "assistant",
+    }
+}
+
 fn empty_import_counts() -> Value {
     json!({
         "characters": 0,
@@ -576,11 +587,7 @@ fn import_st_chat_text(
             if content.trim().is_empty() {
                 continue;
             }
-            let role = if row.get("is_user").and_then(Value::as_bool).unwrap_or(false) {
-                "user"
-            } else {
-                "assistant"
-            };
+            let role = imported_jsonl_message_role(&row);
             let character_id = row
                 .get("characterId")
                 .and_then(Value::as_str)
@@ -1208,6 +1215,83 @@ mod tests {
             messages[0].get("characterId").and_then(Value::as_str),
             Some("char-a"),
             "message should retain its row-level character id"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_preserves_marinara_jsonl_roles() {
+        let app_root = temp_path("chat-message-roles");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        import_st_chat_text(
+            &state,
+            concat!(
+                r#"{"role":"user","content":"hello"}"#,
+                "\n",
+                r#"{"role":"assistant","content":"hi"}"#,
+                "\n",
+                r#"{"role":"system","content":"note"}"#,
+                "\n",
+                r#"{"role":"narrator","content":"scene"}"#,
+            ),
+            "Imported Chat".to_string(),
+            None,
+        )
+        .expect("chat import should succeed");
+
+        let roles = state
+            .storage
+            .list("messages")
+            .expect("messages should list")
+            .into_iter()
+            .map(|message| {
+                message
+                    .get("role")
+                    .and_then(Value::as_str)
+                    .expect("message should include a role")
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            roles,
+            vec![
+                "user".to_string(),
+                "assistant".to_string(),
+                "system".to_string(),
+                "narrator".to_string()
+            ],
+            "Marinara JSONL roles should round-trip without ST is_user flags"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_falls_back_for_unknown_marinara_jsonl_roles() {
+        let app_root = temp_path("chat-unknown-message-role");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        import_st_chat_text(
+            &state,
+            r#"{"role":"tool","content":"internal"}"#,
+            "Imported Chat".to_string(),
+            None,
+        )
+        .expect("chat import should succeed");
+
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(
+            messages[0].get("role").and_then(Value::as_str),
+            Some("assistant"),
+            "unknown JSONL roles should not be persisted verbatim"
         );
 
         let _ = fs::remove_dir_all(app_root);
