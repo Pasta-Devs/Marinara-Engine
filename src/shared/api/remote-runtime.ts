@@ -39,7 +39,6 @@ const REMOTE_COMMANDS = new Set([
   "game_assets_create_folder",
   "game_assets_delete_folder",
   "game_assets_delete_file",
-  "game_assets_file_path",
   "game_assets_read_text",
   "game_assets_write_text",
   "game_assets_rename",
@@ -51,8 +50,6 @@ const REMOTE_COMMANDS = new Set([
   "game_assets_file_info",
   "game_assets_folder_description",
   "game_assets_upload",
-  "background_file_path",
-  "lorebook_image_file_path",
   "gif_search",
   "tts_config",
   "tts_update_config",
@@ -229,7 +226,7 @@ export function isRemoteCommand(command: string): boolean {
   return REMOTE_COMMANDS.has(command);
 }
 
-function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit {
+export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit {
   return {
     ...(target.authorization ? { Authorization: target.authorization } : {}),
     ...extra,
@@ -292,6 +289,27 @@ export async function checkRemoteRuntimeHealth(
       return {
         status: "not-writable",
         message: "Remote runtime is reachable, but its data storage is not writable.",
+        health: body,
+      };
+    }
+
+    const invokeReady = await fetch(`${target.baseUrl}/api/invoke`, {
+      method: "POST",
+      headers: remoteHeaders(target, { "content-type": "application/json" }),
+      body: JSON.stringify({
+        command: "storage_list",
+        args: {
+          entity: "chats",
+          options: { fields: ["id"], limit: 1 },
+        },
+      }),
+      signal: options.signal,
+    });
+
+    if (!invokeReady.ok) {
+      return {
+        status: "unreachable",
+        message: `Remote runtime health is reachable, but API invoke returned ${invokeReady.status}.`,
         health: body,
       };
     }

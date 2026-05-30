@@ -168,12 +168,19 @@ describe("remote LLM stream cancellation", () => {
   });
 
   it("checks remote health with normalized URL and reverse-proxy auth", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, runtime: "marinara-server", writable: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, runtime: "marinara-server", writable: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
 
     await expect(checkRemoteRuntimeHealth("https://user:pass@example.com/runtime///")).resolves.toEqual({
       status: "ok",
@@ -181,7 +188,7 @@ describe("remote LLM stream cancellation", () => {
       health: { ok: true, runtime: "marinara-server", writable: true },
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("https://example.com/runtime/health", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://example.com/runtime/health", {
       method: "GET",
       headers: {
         Authorization: "Basic dXNlcjpwYXNz",
@@ -189,6 +196,39 @@ describe("remote LLM stream cancellation", () => {
         "X-Marinara-CSRF": "1",
       },
       signal: undefined,
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://example.com/runtime/api/invoke",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Basic dXNlcjpwYXNz",
+          "content-type": "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("does not report ready when health passes but invoke auth fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, runtime: "marinara-server", writable: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: "authentication_required" }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    await expect(checkRemoteRuntimeHealth("http://user:pass@runtime.local:8787")).resolves.toEqual({
+      status: "unreachable",
+      message: "Remote runtime health is reachable, but API invoke returned 401.",
+      health: { ok: true, runtime: "marinara-server", writable: true },
     });
   });
 

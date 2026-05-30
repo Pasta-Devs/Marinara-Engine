@@ -214,9 +214,6 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
                 .remove(required_string(&args, "path")?, false)?;
             Ok(json!({ "deleted": true }))
         }
-        "game_assets_file_path" => Ok(json!({
-            "path": state.game_assets.absolute_path_string(required_string(&args, "path")?)?
-        })),
         "game_assets_read_text" => Ok(json!({
             "content": state.game_assets.read_text(required_string(&args, "path")?)?
         })),
@@ -268,12 +265,6 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         ),
         "game_assets_upload" => {
             game_assets::game_assets_upload(state, optional_value(&args, "body"))
-        }
-        "background_file_path" => Ok(json!({
-            "path": state.backgrounds.absolute_path_string(required_string(&args, "filename")?)?
-        })),
-        "lorebook_image_file_path" => {
-            lorebook_images::lorebook_image_file_path(state, required_string(&args, "filename")?)
         }
         "gif_search" => gif_search(&args).await,
         "tts_config" => integrations::tts_call(state, "GET", &["config"], Value::Null).await,
@@ -1267,6 +1258,8 @@ mod tests {
     // local filesystem paths, Tauri IPC channels, or user-machine devices.
     const NON_REMOTE_COMMANDS: &[&str] = &[
         "fonts_open_folder",
+        "background_file_path",
+        "game_assets_file_path",
         "game_assets_open_folder",
         "haptic_command",
         "haptic_connect",
@@ -1276,6 +1269,7 @@ mod tests {
         "haptic_stop_all",
         "haptic_stop_scan",
         "import_st_bulk_run_events",
+        "lorebook_image_file_path",
         "llm_stream_channel",
         "profile_import_file",
     ];
@@ -1519,6 +1513,28 @@ mod tests {
             result.get("originalName").and_then(Value::as_str),
             Some("background.png")
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_remote_raw_server_path_commands() {
+        for (command, args) in [
+            ("background_file_path", json!({ "filename": "background.png" })),
+            ("game_assets_file_path", json!({ "path": "folder/asset.png" })),
+            ("lorebook_image_file_path", json!({ "filename": "image.png" })),
+        ] {
+            let state = test_state(command);
+            let error = dispatch(
+                &state,
+                InvokeRequest {
+                    command: command.to_string(),
+                    args: Some(args),
+                },
+            )
+            .await
+            .expect_err("raw server file paths should not be exposed remotely");
+
+            assert_eq!(error.code, "unsupported_command");
+        }
     }
 
     #[tokio::test]

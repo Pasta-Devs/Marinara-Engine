@@ -1,12 +1,18 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
-import { remoteRuntimeTarget } from "./remote-runtime";
+import { remoteHeaders, remoteRuntimeTarget, type RuntimeTarget } from "./remote-runtime";
 
 export const USER_BACKGROUND_URL_PREFIX = "marinara-background:";
 export const GAME_ASSET_URL_PREFIX = "marinara-game-asset:";
 const LOREBOOK_IMAGE_URL_PREFIX = "marinara-lorebook-image:";
 
 type PathResponse = { path?: string | null };
+type RemoteManagedAsset = {
+  url: string;
+  target: RuntimeTarget;
+};
+
+const remoteAssetObjectUrls = new Map<string, string>();
 
 function hasScheme(value: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(value);
@@ -55,10 +61,12 @@ function filePathToAssetUrl(path: string | null | undefined): string {
   }
 }
 
-function remoteManagedAssetUrl(
-  kind: "avatar" | "background" | "font" | "game" | "lorebook",
+type RemoteManagedAssetKind = "avatar" | "background" | "font" | "game" | "lorebook";
+
+function remoteManagedAsset(
+  kind: RemoteManagedAssetKind,
   path: string | null | undefined,
-): string | null {
+): RemoteManagedAsset | null {
   const target = remoteRuntimeTarget();
   if (!target || !path?.trim()) return null;
   const encodedPath = path
@@ -68,7 +76,41 @@ function remoteManagedAssetUrl(
     .filter((segment) => segment && segment !== "." && segment !== "..")
     .map(encodeURIComponent)
     .join("/");
-  return encodedPath ? `${target.baseUrl}/api/assets/${kind}/${encodedPath}` : null;
+  return encodedPath ? { url: `${target.baseUrl}/api/assets/${kind}/${encodedPath}`, target } : null;
+}
+
+function remoteManagedAssetUrl(
+  kind: RemoteManagedAssetKind,
+  path: string | null | undefined,
+): string | null {
+  return remoteManagedAsset(kind, path)?.url ?? null;
+}
+
+async function remoteManagedAssetResolvableUrl(
+  kind: RemoteManagedAssetKind,
+  path: string | null | undefined,
+): Promise<string | null> {
+  const asset = remoteManagedAsset(kind, path);
+  if (!asset) return null;
+  if (!asset.target.authorization) return asset.url;
+  return fetchRemoteManagedAssetBlobUrl(asset);
+}
+
+async function fetchRemoteManagedAssetBlobUrl(asset: RemoteManagedAsset): Promise<string> {
+  const cacheKey = `${asset.target.baseUrl}\0${asset.target.authorization ?? ""}\0${asset.url}`;
+  const cached = remoteAssetObjectUrls.get(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetch(asset.url, {
+    method: "GET",
+    headers: remoteHeaders(asset.target),
+  });
+  if (!response.ok) {
+    throw new Error(`Remote managed asset returned ${response.status}`);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
+  remoteAssetObjectUrls.set(cacheKey, objectUrl);
+  return objectUrl;
 }
 
 function filenameFromPath(path: string | null | undefined): string | null {
@@ -106,21 +148,21 @@ export function avatarFileUrlFromPath(
 }
 
 export async function resolveGameAssetFileUrl(path: string): Promise<string> {
-  const remoteUrl = remoteManagedAssetUrl("game", path);
+  const remoteUrl = await remoteManagedAssetResolvableUrl("game", path);
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("game_assets_file_path", { path });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 async function resolveBackgroundFileUrl(filename: string): Promise<string> {
-  const remoteUrl = remoteManagedAssetUrl("background", filename);
+  const remoteUrl = await remoteManagedAssetResolvableUrl("background", filename);
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("background_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 async function resolveLorebookImageFileUrl(filename: string): Promise<string> {
-  const remoteUrl = remoteManagedAssetUrl("lorebook", filename);
+  const remoteUrl = await remoteManagedAssetResolvableUrl("lorebook", filename);
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("lorebook_image_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");

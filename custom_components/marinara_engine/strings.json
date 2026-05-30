@@ -6,7 +6,9 @@
         "description": "Enter the host and port where the Marinara hostable runtime is running.",
         "data": {
           "host": "Host",
-          "port": "Port"
+          "port": "Port",
+          "username": "Username",
+          "password": "Password"
         }
       }
     },
