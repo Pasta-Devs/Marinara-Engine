@@ -2407,6 +2407,44 @@ describe("retryGenerationAgents illustrator", () => {
     );
   });
 
+  it("generates an illustration via the latest-assistant fallback when no forMessageId is passed", async () => {
+    // The real Illustrate button calls retryAgents(chatId, ["illustrator"]) with
+    // no options, so the target resolves via targetAssistantMessage's
+    // latest-assistant branch rather than forMessageId.
+    const imageRequests: Record<string, unknown>[] = [];
+    const imageGenerate: IntegrationGateway["image"]["generate"] = async <T = unknown>(
+      input: Record<string, unknown>,
+    ): Promise<T> => {
+      imageRequests.push(input);
+      return {
+        base64: "generated-image",
+        mimeType: "image/png",
+        provider: "test-image-provider",
+        model: "test-image-model",
+      } as T;
+    };
+    const { deps } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      chatMetadata: { enableAgents: true },
+      agents: [illustratorAgent({ imageConnectionId: "image-conn" })],
+      streamResponses: [illustratorResponse],
+      integrations: { image: { generate: imageGenerate } },
+    });
+
+    const { events } = await retryGenerationAgents(deps, {
+      chatId: "chat-1",
+      agentTypes: ["illustrator"],
+      options: { bypassActivation: true },
+    });
+
+    expect(imageRequests).toHaveLength(1);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "illustration", data: expect.objectContaining({ galleryId: "gallery-1" }) }),
+      ]),
+    );
+  });
+
   it("emits an illustration_error and creates no gallery image when no image connection is configured", async () => {
     const imageGenerate = vi.fn();
     const { deps, patchChatMessageExtra } = generationDepsForChat({

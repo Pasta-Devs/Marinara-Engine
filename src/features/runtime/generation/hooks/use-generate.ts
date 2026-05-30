@@ -1461,7 +1461,8 @@ export function useGenerate() {
         for (const event of events) {
           if (event.type === "illustration") {
             toast("Illustration generated.");
-            scheduleChatQueryRefresh(queryClient, chatId);
+            // The chat-query refresh is fired unconditionally after this loop;
+            // here we only need the illustration-specific gallery invalidate.
             runDeferredGenerationWork("gallery refresh", () =>
               queryClient.invalidateQueries({ queryKey: ["gallery", "images", chatId] }),
             );
