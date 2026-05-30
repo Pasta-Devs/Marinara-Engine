@@ -298,6 +298,35 @@ pub(crate) fn message_swipes(
     Ok(updated)
 }
 
+pub(crate) fn update_message_content_if_unchanged(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+    expected_content: &str,
+    content: &str,
+) -> AppResult<Value> {
+    let content = collapse_excess_blank_lines(content);
+    let updated = state.storage.patch_if("messages", message_id, |message| {
+        let current_chat_id = message.get("chatId").and_then(Value::as_str).unwrap_or("");
+        if current_chat_id != chat_id {
+            return Ok(false);
+        }
+        let current_content = message.get("content").and_then(Value::as_str).unwrap_or("");
+        if current_content != expected_content {
+            return Ok(false);
+        }
+        message.insert("content".to_string(), Value::String(content.clone()));
+        let mut patch = Map::new();
+        patch.insert("content".to_string(), Value::String(content.clone()));
+        sync_message_patch_content_to_active_swipe(message, &patch);
+        Ok(true)
+    })?;
+    Ok(match updated {
+        Some(message) => json!({ "updated": true, "message": message }),
+        None => json!({ "updated": false }),
+    })
+}
+
 pub(crate) fn set_active_swipe(
     state: &AppState,
     _chat_id: &str,
@@ -1165,6 +1194,45 @@ mod tests {
             .expect("source lookup should not fail")
             .expect("source chat should still exist");
         assert_eq!(source["groupId"], "existing-group");
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_updates_only_matching_content() {
+        let state = test_state("conditional-content");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "swipes": [{ "content": "first" }]
+                }),
+            )
+            .expect("message should be created");
+
+        let stale =
+            update_message_content_if_unchanged(&state, "chat-1", "message-1", "stale", "second")
+                .expect("stale conditional update should not fail");
+        assert_eq!(stale["updated"], false);
+        let unchanged = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should still exist");
+        assert_eq!(unchanged["content"], "first");
+        assert_eq!(unchanged["swipes"][0]["content"], "first");
+
+        let updated =
+            update_message_content_if_unchanged(&state, "chat-1", "message-1", "first", "second")
+                .expect("matching conditional update should not fail");
+        assert_eq!(updated["updated"], true);
+        let message = updated["message"].clone();
+        assert_eq!(message["content"], "second");
+        assert_eq!(message["swipes"][0]["content"], "second");
     }
 
     #[test]

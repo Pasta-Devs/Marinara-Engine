@@ -512,6 +512,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "storage_delete" => storage_delete(state, &args),
         "storage_duplicate" => storage_duplicate(state, &args),
         "chat_message_add_swipe" => chat_message_add_swipe(state, &args),
+        "chat_message_update_content_if_unchanged" => {
+            chat_message_update_content_if_unchanged(state, &args)
+        }
         "chat_message_set_active_swipe" => chat_message_set_active_swipe(state, &args),
         "chat_message_delete_swipe" => chat_message_delete_swipe(state, &args),
         "chat_autonomous_unread_mark" => chat_autonomous_unread_mark(state, &args),
@@ -1027,6 +1030,19 @@ fn chat_message_add_swipe(state: &AppState, args: &Map<String, Value>) -> AppRes
         required_string(args, "chatId")?,
         required_string(args, "messageId")?,
         optional_value(args, "body"),
+    )
+}
+
+fn chat_message_update_content_if_unchanged(
+    state: &AppState,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    chats::update_message_content_if_unchanged(
+        state,
+        required_string(args, "chatId")?,
+        required_string(args, "messageId")?,
+        required_string(args, "expectedContent")?,
+        required_string(args, "content")?,
     )
 }
 

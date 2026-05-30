@@ -451,6 +451,44 @@ describe("startGeneration chat message loading", () => {
     }
   });
 
+  it("persists lorebook timing state for direct request message saves", async () => {
+    const { deps, patchChatMetadata } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      initialMessages: [{ id: "user-1", chatId: "chat-1", role: "user", content: "moonlit path" }],
+      lorebooks: [{ id: "lorebook", enabled: true, isGlobal: true }],
+      lorebookEntries: [
+        {
+          id: "entry-delay",
+          lorebookId: "lorebook",
+          name: "Delayed moonlit lore",
+          content: "Delayed content",
+          keys: ["moonlit"],
+          enabled: true,
+          delay: 1,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        messages: [{ role: "user", content: "Direct prompt" }],
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    expect(patchChatMetadata).toHaveBeenCalledWith("chat-1", {
+      entryTimingStates: {
+        "entry-delay": {
+          lastActivatedAt: null,
+          stickyCount: 0,
+          cooldownRemaining: 0,
+          delayRemaining: 0,
+        },
+      },
+    });
+  });
+
   it("uses the chat context message limit when assembling roleplay history", async () => {
     const { deps, listChatMessages, streamedRequests } = generationDepsForChat({
       chatPatch: { mode: "roleplay" },

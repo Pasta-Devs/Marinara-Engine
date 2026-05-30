@@ -2440,6 +2440,10 @@ export async function* startGeneration(
         usage,
         promptSnapshot: promptSnapshotDirect,
       });
+  if (saved) {
+    await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+  }
+  throwIfAborted(signal);
   if (saved && input.impersonate !== true) {
     await mirrorSavedAssistantMessageToDiscord({
       deps,

@@ -136,6 +136,23 @@ pub fn chat_message_add_swipe(
 }
 
 #[tauri::command]
+pub fn chat_message_update_content_if_unchanged(
+    state: State<'_, AppState>,
+    chat_id: String,
+    message_id: String,
+    expected_content: String,
+    content: String,
+) -> Result<Value, AppError> {
+    chats::update_message_content_if_unchanged(
+        &state,
+        &chat_id,
+        &message_id,
+        &expected_content,
+        &content,
+    )
+}
+
+#[tauri::command]
 pub async fn chat_message_set_active_swipe(
     state: State<'_, AppState>,
     chat_id: String,

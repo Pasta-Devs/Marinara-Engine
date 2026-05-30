@@ -1046,6 +1046,8 @@ function replaceFirstUnresolvedSkillCheckTag(content: string, resolvedTag: strin
   });
 }
 
+const SKILL_CHECK_HISTORY_PERSIST_ATTEMPTS = 3;
+
 async function persistResolvedSkillCheckTag(
   chatId: string,
   messageId: string | undefined,
@@ -1054,14 +1056,24 @@ async function persistResolvedSkillCheckTag(
   const id = typeof messageId === "string" ? messageId.trim() : "";
   if (!id) return undefined;
   try {
-    const message = await storageApi.get<ChatMessage>("messages", id);
-    if (typeof message?.chatId !== "string" || message.chatId !== chatId) return undefined;
-    const content = typeof message?.content === "string" ? message.content : "";
-    if (!content) return undefined;
-    const updatedContent = replaceFirstUnresolvedSkillCheckTag(content, serializeResolvedSkillCheckTag(result));
-    if (updatedContent === content) return undefined;
-    await storageApi.updateChatMessage<ChatMessage>(id, { content: updatedContent });
-    return updatedContent;
+    const conditionalUpdate = storageApi.updateChatMessageContentIfUnchanged;
+    if (typeof conditionalUpdate !== "function") {
+      throw new Error("Conditional chat message content update is unavailable");
+    }
+    const resolvedTag = serializeResolvedSkillCheckTag(result);
+    for (let attempt = 0; attempt < SKILL_CHECK_HISTORY_PERSIST_ATTEMPTS; attempt += 1) {
+      const message = await storageApi.get<ChatMessage>("messages", id);
+      if (typeof message?.chatId !== "string" || message.chatId !== chatId) return undefined;
+      const content = typeof message?.content === "string" ? message.content : "";
+      if (!content) return undefined;
+      const updatedContent = replaceFirstUnresolvedSkillCheckTag(content, resolvedTag);
+      if (updatedContent === content) return undefined;
+      const update = await conditionalUpdate<ChatMessage>(chatId, id, content, updatedContent);
+      if (update.updated) {
+        return typeof update.message?.content === "string" ? update.message.content : updatedContent;
+      }
+    }
+    return undefined;
   } catch (error) {
     console.warn("[game] skill check history persist failed", error);
     return undefined;

@@ -64,4 +64,39 @@ describe("storageApi typed JSON read normalization", () => {
       },
     });
   });
+
+  it("routes conditional message-content updates through the storage command", async () => {
+    invokeMock.mockResolvedValueOnce({
+      updated: true,
+      message: {
+        id: "message-1",
+        chatId: "chat-1",
+        content: "next",
+        extra: '{"thinking":"still hidden"}',
+      },
+    });
+
+    const result = await storageApi.updateChatMessageContentIfUnchanged?.(
+      "chat-1",
+      "message-1",
+      "first\n\n\nsecond",
+      "next\n\n\nline",
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("chat_message_update_content_if_unchanged", {
+      chatId: "chat-1",
+      messageId: "message-1",
+      expectedContent: "first\n\n\nsecond",
+      content: "next\n\nline",
+    });
+    expect(result).toEqual({
+      updated: true,
+      message: {
+        id: "message-1",
+        chatId: "chat-1",
+        content: "next",
+        extra: { thinking: "still hidden" },
+      },
+    });
+  });
 });

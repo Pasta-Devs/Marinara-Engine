@@ -185,6 +185,19 @@ export const storageApi: StorageGateway = {
     }),
   createChatMessage: (chatId, value) => storageApi.create("messages", chatMessageDefaults(chatId, value)),
   updateChatMessage: (messageId, patch) => storageApi.update("messages", messageId, normalizeMessageWrite(patch)),
+  updateChatMessageContentIfUnchanged: async (chatId, messageId, expectedContent, content) => {
+    const result = (await invokeTauri("chat_message_update_content_if_unchanged", {
+      chatId,
+      messageId,
+      expectedContent,
+      content: collapseExcessBlankLines(content),
+    })) as { updated?: boolean; message?: unknown } | null;
+    const message = result?.message ? normalizeStorageReadResult("messages", result.message) : undefined;
+    return {
+      updated: result?.updated === true,
+      ...(message === undefined ? {} : { message }),
+    } as never;
+  },
   deleteChatMessage: (messageId) => storageApi.delete("messages", messageId),
   patchChatMessageExtra: async (messageId, patch) => {
     const message = await storageApi.get<Record<string, unknown>>("messages", messageId);

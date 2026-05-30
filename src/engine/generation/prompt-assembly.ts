@@ -1771,8 +1771,10 @@ interface ScannedLorebookEntries {
 interface LoadedActivatedLore {
   activatedEntries: ActivatedEntry[];
   budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
+  entriesForTiming: LorebookEntry[];
+  previousTimingStates: Map<string, EntryTimingState>;
   lorebookNamesById: Map<string, string>;
-  timingStates: Record<string, LorebookEntryTimingState> | null;
+  currentMessageIndex: number;
 }
 
 function resolveLorebookTokenBudget(chat: JsonRecord, request: JsonRecord): number {
@@ -1950,21 +1952,15 @@ async function loadActivatedLore(
       scanLorebookEntries(messages, await loadLorebookEntriesForActivation(storage, book), book, options),
     ),
   );
-  const nextTimingStates = updateTimingStatesForScan(
-    scanned.flatMap((result) => result.entriesForTiming),
-    scanned.flatMap((result) => result.activatedEntries),
-    previousTimingStates,
-    messages.length,
-  );
   return {
     activatedEntries: scanned
       .flatMap((result) => result.activatedEntries)
       .sort((a, b) => a.injectionOrder - b.injectionOrder),
     budgetSkippedEntries: scanned.flatMap((result) => result.budgetSkippedEntries),
+    entriesForTiming: scanned.flatMap((result) => result.entriesForTiming),
+    previousTimingStates,
     lorebookNamesById,
-    timingStates: lorebookTimingStatesChanged(previousTimingStates, nextTimingStates)
-      ? serializeLorebookTimingStates(nextTimingStates)
-      : null,
+    currentMessageIndex: messages.length,
   };
 }
 
@@ -2070,6 +2066,15 @@ export async function assembleGenerationPrompt(
   const loadedLore = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
   const lorebookTokenBudget = resolveLorebookTokenBudget(input.chat, input.request);
   const processedLore = processActivatedEntries(loadedLore.activatedEntries, lorebookTokenBudget);
+  const nextLorebookTimingStates = updateTimingStatesForScan(
+    loadedLore.entriesForTiming,
+    processedLore.includedEntries,
+    loadedLore.previousTimingStates,
+    loadedLore.currentMessageIndex,
+  );
+  const lorebookTimingStates = lorebookTimingStatesChanged(loadedLore.previousTimingStates, nextLorebookTimingStates)
+    ? serializeLorebookTimingStates(nextLorebookTimingStates)
+    : null;
   const budgetSkippedLorebookEntries = [
     ...loadedLore.budgetSkippedEntries.map((entry) => lorebookBudgetSkippedLoreForEvent(entry, lorebookTokenBudget)),
     ...processedLore.skippedEntries.map((entry) =>
@@ -2273,7 +2278,7 @@ export async function assembleGenerationPrompt(
     characters,
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(loreForEvent),
-    lorebookTimingStates: loadedLore.timingStates,
+    lorebookTimingStates,
     budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,

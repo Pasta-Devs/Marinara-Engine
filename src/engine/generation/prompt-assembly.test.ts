@@ -1474,6 +1474,39 @@ describe("assembleGenerationPrompt lorebook activation settings", () => {
     expect(promptText(assembly)).not.toContain("LQA_CHAT_BUDGET_CONTENT_SHOULD_NOT_APPEAR");
   });
 
+  it("does not advance timing state for entries skipped by the chat lorebook budget", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-budgeted-cooldown",
+          lorebookId: "lorebook",
+          name: "Budgeted cooldown entry",
+          content: "LQA_CHAT_BUDGET_TIMING_CONTENT_SHOULD_NOT_APPEAR",
+          enabled: true,
+          constant: true,
+          cooldown: 3,
+        },
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay", metadata: { lorebookTokenBudget: 1 } },
+        storedMessages: [],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(assembly.budgetSkippedLorebookEntries).toMatchObject([
+      {
+        id: "entry-budgeted-cooldown",
+        blockedBy: "chat",
+        chatBudget: 1,
+      },
+    ]);
+    expect(assembly.lorebookTimingStates).toBeNull();
+  });
+
   it("returns budget skipped lorebook entries for active-world-info scans", async () => {
     const baseStorage = storageWithLore(
       [

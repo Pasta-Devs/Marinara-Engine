@@ -64,6 +64,12 @@ export interface StorageGateway {
   listChatMessages<T = unknown>(chatId: string, options?: Omit<StorageListOptions, "filters">): Promise<T[]>;
   createChatMessage<T = unknown>(chatId: string, value: Record<string, unknown>): Promise<T>;
   updateChatMessage<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
+  updateChatMessageContentIfUnchanged?<T = unknown>(
+    chatId: string,
+    messageId: string,
+    expectedContent: string,
+    content: string,
+  ): Promise<{ updated: boolean; message?: T }>;
   deleteChatMessage(messageId: string): Promise<{ deleted: boolean }>;
   patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
   addChatMessageSwipe<T = unknown>(

@@ -108,6 +108,7 @@ const REMOTE_COMMANDS = new Set([
   "storage_delete",
   "storage_duplicate",
   "chat_message_add_swipe",
+  "chat_message_update_content_if_unchanged",
   "chat_message_set_active_swipe",
   "chat_message_delete_swipe",
   "chat_autonomous_unread_mark",
