@@ -15,7 +15,7 @@ export interface CombatEncounterTag {
   allies?: string[] | null;
 }
 
-export interface SkillCheckTag {
+interface SkillCheckTag {
   skill: string;
   dc: number;
   advantage?: boolean;

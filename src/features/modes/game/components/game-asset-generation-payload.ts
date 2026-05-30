@@ -2,7 +2,7 @@ import { resolveAssetTag } from "../lib/asset-fuzzy-match";
 
 type AssetManifestMap = Record<string, { path: string }> | null;
 
-export type SceneAssetNpcAvatarCandidate = {
+type SceneAssetNpcAvatarCandidate = {
   name: string;
   description: string;
   avatarUrl?: string | null;

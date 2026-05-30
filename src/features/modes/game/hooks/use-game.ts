@@ -343,25 +343,6 @@ export function useRecruitPartyMember() {
   });
 }
 
-export function useRegeneratePartyCard() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: { chatId: string; characterName: string; characterId?: string; connectionId?: string }) =>
-      gameApi.upsertPartyCard(data),
-    onSuccess: (res, variables) => {
-      publishSessionChat(qc, res.sessionChat);
-      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
-      toast.success(`${res.characterName}'s sheet was regenerated.`);
-    },
-    onError: (err) => {
-      console.error("[regeneratePartyCard] Error:", err);
-      toast.error(err.message || "Failed to regenerate party sheet.");
-    },
-  });
-}
-
 export function useRemovePartyMember() {
   const qc = useQueryClient();
 
@@ -492,15 +473,6 @@ export function useUpdateGameWidgets() {
 }
 
 // ── Queries ──
-
-export function useGameSessions(gameId: string | null) {
-  return useQuery({
-    queryKey: gameKeys.sessions(gameId ?? ""),
-    queryFn: () => gameApi.gameSessions(gameId!),
-    enabled: !!gameId,
-    staleTime: 2 * 60_000,
-  });
-}
 
 // ── Sync hook — reads chat metadata and updates game store ──
 
@@ -643,27 +615,6 @@ export function useCombatRound() {
   });
 }
 
-export function useCombatLoot() {
-  return useMutation({
-    mutationFn: async (data: { chatId: string; enemyCount: number }) => {
-      const res = await gameApi.combatLoot(data);
-
-      return {
-        drops: (res.drops ?? [])
-          .filter((drop): drop is NonNullable<(typeof res.drops)[number]> => !!drop?.item?.name)
-          .map((drop) => ({ name: drop.item!.name!, quantity: drop.quantity ?? undefined })),
-      };
-    },
-  });
-}
-
-export function useLootGenerate() {
-  return useMutation({
-    mutationFn: (data: { chatId: string; count?: number }) =>
-      gameApi.lootGenerate(data),
-  });
-}
-
 export function useAdvanceTime() {
   const qc = useQueryClient();
   return useMutation({
@@ -740,15 +691,6 @@ export function useJournalEntry() {
       publishSessionChat(qc, res.sessionChat);
       qc.invalidateQueries({ queryKey: [...gameKeys.all, "journal", variables.chatId] });
     },
-  });
-}
-
-export function useGameJournal(chatId: string | null) {
-  return useQuery({
-    queryKey: [...gameKeys.all, "journal", chatId],
-    queryFn: () => gameApi.getJournal(chatId!),
-    enabled: !!chatId,
-    staleTime: 30_000,
   });
 }
 

@@ -30,7 +30,7 @@ interface LoopingAudioLayer {
   stop: () => void;
 }
 
-export interface OneShotAudioLayer {
+interface OneShotAudioLayer {
   ready: Promise<void>;
   setVolume: (volume: number) => void;
   setMuted: (muted: boolean) => void;

@@ -204,8 +204,6 @@ type GameJsonRepairContext = {
   applyBody: Record<string, unknown>;
 };
 
-const EMPTY_JOURNAL: Journal = createJournal();
-
 function newId(prefix = ""): string {
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -2351,8 +2349,4 @@ export async function applyGameJsonRepair(request: JsonRepairRequest, rawJson: s
     default:
       throw new Error("Unsupported game JSON repair request.");
   }
-}
-
-export function getEmptyJournal(): Journal {
-  return { ...EMPTY_JOURNAL, entries: [], quests: [], locations: [], npcLog: [], inventoryLog: [] };
 }
