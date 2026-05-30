@@ -5,7 +5,7 @@ import { visibleText } from "./tracker-display.helpers";
 import { type TrackerProfileColors, getTrackerProfilePalette } from "./tracker-profile-colors";
 import { withTrackerProfileStyle } from "./tracker-profile-style-vars";
 
-export function getPersonaProfileColors(persona: Persona | null): TrackerProfileColors {
+function getPersonaProfileColors(persona: Persona | null): TrackerProfileColors {
   return {
     dialogueColor: persona?.dialogueColor,
     nameColor: persona?.nameColor,

@@ -51,7 +51,7 @@ function useTrackerSpriteMessages(chatId: string | null, enabled: boolean) {
   });
 }
 
-export interface TrackerSpriteLookup {
+interface TrackerSpriteLookup {
   knownIds: Set<string>;
   idByName: Map<string, string>;
   pictureById: Record<string, string>;

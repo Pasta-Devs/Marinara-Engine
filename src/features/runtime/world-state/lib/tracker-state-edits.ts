@@ -24,7 +24,7 @@ export function appendTrackerListItem<T>(items: readonly T[], item: T): T[] {
   return [...items, item];
 }
 
-export function mergeChangedTrackerFields<T extends object>(
+function mergeChangedTrackerFields<T extends object>(
   previous: T | undefined,
   latest: T | undefined,
   next: T,
@@ -178,7 +178,7 @@ function questObjectiveKey(item: QuestObjective | undefined) {
   return item?.text?.trim() || null;
 }
 
-export function makeManualTrackerId() {
+function makeManualTrackerId() {
   const id =
     typeof globalThis.crypto?.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
@@ -377,7 +377,7 @@ export function createManualInventoryItem(options: Partial<InventoryItem> = {}):
   };
 }
 
-export function createManualQuestObjective(options: Partial<QuestProgress["objectives"][number]> = {}) {
+function createManualQuestObjective(options: Partial<QuestProgress["objectives"][number]> = {}) {
   return {
     text: options.text ?? "New objective",
     completed: options.completed ?? false,
@@ -448,7 +448,7 @@ export function addQuestObjective(
   };
 }
 
-export function replaceQuestObjective(
+function replaceQuestObjective(
   quest: QuestProgress,
   index: number,
   objective: QuestProgress["objectives"][number],

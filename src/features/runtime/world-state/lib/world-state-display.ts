@@ -1,8 +1,8 @@
 import type { WorldTemperatureUnit } from "../types";
 
-export const WORLD_MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const WORLD_MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-export const WORLD_MONTH_ALIASES: Record<string, number> = {
+const WORLD_MONTH_ALIASES: Record<string, number> = {
   jan: 0,
   january: 0,
   feb: 1,

@@ -25,24 +25,24 @@ export {
 
 export const WORLD_GRID_BASE_CLASS = "grid-cols-[2.5rem_2.5rem_minmax(0,1fr)]";
 export const WORLD_FREEFORM_DATE_GRID_BASE_CLASS = "grid-cols-[minmax(3.8rem,4.45rem)_2.5rem_minmax(0,1fr)]";
-export const WORLD_GRID_BALANCED_CLASS =
+const WORLD_GRID_BALANCED_CLASS =
   "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(6.25rem,1fr)_minmax(7.5rem,1.35fr)]";
-export const WORLD_GRID_FORECAST_HEAVY_CLASS =
+const WORLD_GRID_FORECAST_HEAVY_CLASS =
   "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(7rem,1.05fr)_minmax(7.25rem,1.2fr)]";
-export const WORLD_GRID_LOCATION_HEAVY_CLASS =
+const WORLD_GRID_LOCATION_HEAVY_CLASS =
   "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(7rem,0.95fr)_minmax(9rem,1.45fr)]";
-export const WORLD_FREEFORM_DATE_GRID_BALANCED_CLASS =
+const WORLD_FREEFORM_DATE_GRID_BALANCED_CLASS =
   "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5rem,0.86fr)_minmax(7.25rem,1.35fr)]";
-export const WORLD_FREEFORM_DATE_GRID_FORECAST_HEAVY_CLASS =
+const WORLD_FREEFORM_DATE_GRID_FORECAST_HEAVY_CLASS =
   "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5.75rem,1fr)_minmax(6.75rem,1.1fr)]";
-export const WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS =
+const WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS =
   "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5rem,0.75fr)_minmax(8.25rem,1.45fr)]";
 
 type WorldDashboardGridClassOptions = {
   hasFreeformDate?: boolean;
 };
 
-export function getWorldTileTextNeed(value: string | null | undefined, fallback: string) {
+function getWorldTileTextNeed(value: string | null | undefined, fallback: string) {
   const text = visibleText(value, fallback).replace(/\s+/g, " ");
   const longestWord = text.split(" ").reduce((longest, word) => Math.max(longest, word.length), 0);
   return text.length + longestWord * 0.7;

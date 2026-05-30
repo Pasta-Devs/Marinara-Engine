@@ -441,7 +441,7 @@ export function patchGameStateField<K extends GameStatePatchField>(
   queuePatch(chatId, field, value, target);
 }
 
-export function patchPlayerStatsField<K extends keyof PlayerStats>(chatId: string, field: K, value: PlayerStats[K]) {
+function patchPlayerStatsField<K extends keyof PlayerStats>(chatId: string, field: K, value: PlayerStats[K]) {
   const current = getCurrentGameStateForChat(chatId)?.playerStats ?? createEmptyPlayerStats();
   const nextPlayerStats: PlayerStats = { ...current, [field]: value };
   patchGameStateField(chatId, "playerStats", nextPlayerStats);
