@@ -409,8 +409,14 @@ pub(crate) fn normalize_typed_json_fields(
                     "excludeFromVectorization",
                 ],
             );
-            normalize_json_object_fields(object, &["relationships", "dynamicState"])?;
-            normalize_nullable_json_object_fields(object, &["schedule"])?;
+            // Use the nullable object normalizer so a stored entry that already
+            // carries `null` (e.g. round-tripped through a copy/duplicate) is
+            // left untouched rather than rejected, while a JSON-string object is
+            // still parsed and a malformed value still rejected.
+            normalize_nullable_json_object_fields(
+                object,
+                &["relationships", "dynamicState", "schedule"],
+            )?;
         }
         "connections" => {
             normalize_nullable_json_object_fields(
@@ -1619,6 +1625,25 @@ mod tests {
             .expect("a native lorebook entry should pass through unchanged");
 
         assert_eq!(object, before);
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_allows_null_object_fields() {
+        // A copy/duplicate round-trips a stored entry through this arm; a null
+        // relationships/dynamicState/schedule must pass through, not be rejected.
+        let Value::Object(mut object) = json!({
+            "relationships": null,
+            "dynamicState": null,
+            "schedule": null
+        }) else {
+            unreachable!("json! object literal");
+        };
+
+        normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect("null object fields should round-trip, not reject");
+        assert_eq!(object["relationships"], Value::Null);
+        assert_eq!(object["dynamicState"], Value::Null);
+        assert_eq!(object["schedule"], Value::Null);
     }
 
     #[test]
