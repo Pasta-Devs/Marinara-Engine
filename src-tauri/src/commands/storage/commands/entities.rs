@@ -2,7 +2,7 @@ use super::{avatars, chats, game_state_snapshots, lorebook_images, shared};
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use marinara_core::AppError;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use tauri::State;
 
 #[tauri::command]
@@ -299,6 +299,9 @@ pub(crate) fn delete_entity(
     };
     let deleted = state.storage.delete(entity, id)?;
     if deleted {
+        if entity == "lorebooks" {
+            delete_lorebook_children(state, id)?;
+        }
         if let Some(record) = existing.as_ref() {
             remove_owned_media(state, entity, record);
         }
@@ -308,6 +311,17 @@ pub(crate) fn delete_entity(
         }
     }
     Ok(json!({ "deleted": deleted }))
+}
+
+fn delete_lorebook_children(state: &AppState, lorebook_id: &str) -> Result<(), AppError> {
+    let mut filters = Map::new();
+    filters.insert(
+        "lorebookId".to_string(),
+        Value::String(lorebook_id.to_string()),
+    );
+    state.storage.delete_where("lorebook-entries", &filters)?;
+    state.storage.delete_where("lorebook-folders", &filters)?;
+    Ok(())
 }
 
 fn owned_record_for_delete(
@@ -407,4 +421,93 @@ fn message_cursor(row: &Value) -> (&str, &str) {
         row.get("createdAt").and_then(Value::as_str).unwrap_or(""),
         row.get("id").and_then(Value::as_str).unwrap_or(""),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-entities-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn ids_for_lorebook(state: &AppState, collection: &str, lorebook_id: &str) -> Vec<String> {
+        let mut filters = Map::new();
+        filters.insert(
+            "lorebookId".to_string(),
+            Value::String(lorebook_id.to_string()),
+        );
+        state
+            .storage
+            .list_where(collection, &filters)
+            .expect("collection should be readable")
+            .into_iter()
+            .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
+            .collect()
+    }
+
+    #[test]
+    fn deleting_lorebook_cascades_entries_and_folders_only_for_that_lorebook() {
+        let state = test_state("lorebook-delete-cascade");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-delete", "name": "Delete me" }))
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep me" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({ "id": "entry-delete", "lorebookId": "book-delete", "name": "Delete", "content": "x" }),
+            )
+            .expect("entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-delete", "lorebookId": "book-delete", "name": "Delete" }),
+            )
+            .expect("folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({ "id": "entry-keep", "lorebookId": "book-keep", "name": "Keep", "content": "x" }),
+            )
+            .expect("other entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-keep", "lorebookId": "book-keep", "name": "Keep" }),
+            )
+            .expect("other folder should be created");
+
+        let result = delete_entity(&state, "lorebooks", "book-delete", false)
+            .expect("delete should succeed");
+
+        assert_eq!(result.get("deleted").and_then(Value::as_bool), Some(true));
+        assert!(ids_for_lorebook(&state, "lorebook-entries", "book-delete").is_empty());
+        assert!(ids_for_lorebook(&state, "lorebook-folders", "book-delete").is_empty());
+        assert_eq!(
+            ids_for_lorebook(&state, "lorebook-entries", "book-keep"),
+            vec!["entry-keep".to_string()]
+        );
+        assert_eq!(
+            ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
+            vec!["folder-keep".to_string()]
+        );
+    }
 }
