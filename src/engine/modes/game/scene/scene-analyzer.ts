@@ -83,64 +83,6 @@ function buildBackgroundOptions(ctx?: SceneAnalyzerContext): string[] {
   return options;
 }
 
-/** Map a widget to its update syntax hint for the JSON template. */
-export function widgetUpdateHint(w: HudWidget): string {
-  const hints = w.config.valueHints;
-  switch (w.type) {
-    case "progress_bar":
-    case "gauge":
-    case "relationship_meter":
-      return `{"widgetId":"${w.id}","value":<number 0-${w.config.max ?? 100}>}`;
-    case "counter":
-      return `{"widgetId":"${w.id}","count":<number>}`;
-    case "list":
-    case "inventory_grid":
-      return `{"widgetId":"${w.id}","add":"<item>"} or {"widgetId":"${w.id}","remove":"<item>"}`;
-    case "timer":
-      return `{"widgetId":"${w.id}","running":<bool>,"seconds":<number>}`;
-    case "stat_block": {
-      // For stat_blocks, show per-stat update format with hints if available
-      const stats = w.config.stats ?? [];
-      if (stats.length === 0) return `{"widgetId":"${w.id}","statName":"<name>","value":"<value>"}`;
-      const examples = stats.slice(0, 3).map((s) => {
-        const hintValues = hints?.[s.name];
-        const valHint = hintValues ? `<${hintValues}>` : typeof s.value === "number" ? "<number>" : `"<string>"`;
-        return `{"widgetId":"${w.id}","statName":"${s.name}","value":${valHint}}`;
-      });
-      return examples.join(" OR ");
-    }
-    default:
-      return `{"widgetId":"${w.id}","value":<number>}`;
-  }
-}
-
-/** Summarise a widget's current state for the model context. */
-export function widgetStateSummary(w: HudWidget): string {
-  switch (w.type) {
-    case "progress_bar":
-    case "gauge":
-    case "relationship_meter":
-      return `${w.id} "${w.label}" (${w.type}): ${w.config.value ?? 0}/${w.config.max ?? 100}`;
-    case "counter":
-      return `${w.id} "${w.label}" (counter): ${w.config.count ?? 0}`;
-    case "stat_block": {
-      const stats = w.config.stats ?? [];
-      const statStr = stats.map((s) => `${s.name}=${s.value}`).join(", ");
-      return `${w.id} "${w.label}" (stat_block): [${statStr}]`;
-    }
-    case "list":
-      return `${w.id} "${w.label}" (list): [${(w.config.items ?? []).join(", ")}]`;
-    case "inventory_grid": {
-      const items = (w.config.contents ?? []).map((c) => c.name).join(", ");
-      return `${w.id} "${w.label}" (inventory): [${items}]`;
-    }
-    case "timer":
-      return `${w.id} "${w.label}" (timer): ${w.config.running ? "running" : "stopped"} ${w.config.seconds ?? 0}s`;
-    default:
-      return `${w.id} "${w.label}" (${w.type})`;
-  }
-}
-
 function compactImagePromptInstructions(value: string | null | undefined): string {
   return (value ?? "").trim().replace(/\s+/g, " ").slice(0, 1200);
 }

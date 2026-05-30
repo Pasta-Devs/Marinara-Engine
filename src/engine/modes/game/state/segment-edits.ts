@@ -234,28 +234,6 @@ function hasQuotes(s: string): boolean {
   );
 }
 
-function normalizeSegmentEditValue(value: unknown): SegmentEditValue | null {
-  if (typeof value === "string") {
-    return { content: value };
-  }
-
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  const record = value as Record<string, unknown>;
-  const content = typeof record.content === "string" ? record.content : undefined;
-  const speaker =
-    typeof record.speaker === "string" && record.speaker.trim().length > 0 ? record.speaker.trim() : undefined;
-  const readableContent = typeof record.readableContent === "string" ? record.readableContent : undefined;
-  const readableType =
-    record.readableType === "book" || record.readableType === "note" ? record.readableType : undefined;
-
-  return content !== undefined || speaker !== undefined || readableContent !== undefined || readableType !== undefined
-    ? { content, speaker, readableContent, readableType }
-    : null;
-}
-
 function parseReadableType(originalText: string): "note" | "book" | undefined {
   const trimmed = originalText.trim();
   if (/^\[book:/i.test(trimmed)) return "book";
@@ -445,83 +423,4 @@ export function applySegmentEdits(
 
   // If no edits actually matched any segment, return original content unchanged
   return anyApplied ? output.join("\n\n") : content;
-}
-
-/**
- * Collect segment edit overlays from chat metadata and apply them to the
- * corresponding messages.
- *
- * @param messages   Array of mapped messages (role + content)
- * @param chatMeta   Chat metadata object (contains segmentEdit:* keys)
- * @param allDbMessages  Original DB messages (to map messageId → index in messages array)
- */
-export function applyAllSegmentEdits(
-  messages: Array<{ role: string; content: string; [k: string]: unknown }>,
-  chatMeta: Record<string, unknown>,
-  allDbMessages: Array<{ id: string; role: string }>,
-): void {
-  // Collect edits grouped by messageId
-  const editsByMessage = new Map<string, Record<number, SegmentEditValue>>();
-  const deletesByMessage = new Map<string, Set<number>>();
-  for (const [key, value] of Object.entries(chatMeta)) {
-    const isEdit = key.startsWith("segmentEdit:");
-    const isDelete = key.startsWith("segmentDelete:");
-    if (!isEdit && !isDelete) continue;
-    if (isDelete && value !== true && value !== "true") continue;
-    // Format: segment(Edit|Delete):messageId:segmentIndex
-    const parts = key.slice(isEdit ? "segmentEdit:".length : "segmentDelete:".length);
-    const lastColon = parts.lastIndexOf(":");
-    if (lastColon < 0) continue;
-    const messageId = parts.slice(0, lastColon);
-    const segIdx = parseInt(parts.slice(lastColon + 1), 10);
-    if (isNaN(segIdx)) continue;
-
-    if (isEdit) {
-      const edit = normalizeSegmentEditValue(value);
-      if (!edit) continue;
-      let edits = editsByMessage.get(messageId);
-      if (!edits) {
-        edits = {};
-        editsByMessage.set(messageId, edits);
-      }
-      edits[segIdx] = edit;
-      continue;
-    }
-
-    let deleted = deletesByMessage.get(messageId);
-    if (!deleted) {
-      deleted = new Set<number>();
-      deletesByMessage.set(messageId, deleted);
-    }
-    deleted.add(segIdx);
-  }
-
-  if (editsByMessage.size === 0 && deletesByMessage.size === 0) return;
-
-  const messageIds = new Set<string>([...editsByMessage.keys(), ...deletesByMessage.keys()]);
-  const removals: number[] = [];
-
-  // Map messageId → index in messages array
-  // allDbMessages and messages should be in the same order (both from the same query)
-  for (const messageId of messageIds) {
-    const dbIdx = allDbMessages.findIndex((m) => m.id === messageId);
-    if (dbIdx < 0) continue;
-    const msg = messages[dbIdx];
-    if (!msg || (msg.role !== "assistant" && msg.role !== "narrator")) continue;
-    const nextContent = applySegmentEdits(
-      msg.content,
-      editsByMessage.get(messageId) ?? {},
-      deletesByMessage.get(messageId) ?? new Set(),
-    );
-    if (!nextContent.trim()) {
-      removals.push(dbIdx);
-      continue;
-    }
-    msg.content = nextContent;
-  }
-
-  removals.sort((a, b) => b - a);
-  for (const index of removals) {
-    messages.splice(index, 1);
-  }
 }
