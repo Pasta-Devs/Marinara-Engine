@@ -4,11 +4,21 @@ import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "
 
 type Row = Record<string, unknown>;
 
-function storageWithChats(chats: Map<string, Row>): StorageGateway {
+function storageWithChats(chats: Map<string, Row>, entities: Record<string, Row[]> = {}): StorageGateway {
   return {
-    list: vi.fn(async () => []),
+    list: vi.fn(async (entity: string) => {
+      if (entity === "chats") return Array.from(chats.values()) as never;
+      return (entities[entity] ?? []) as never;
+    }),
     get: vi.fn(async (entity: string, id: string) => (entity === "chats" ? ((chats.get(id) as never) ?? null) : null)),
-    create: vi.fn(async (_entity: string, value: Record<string, unknown>) => value as never),
+    create: vi.fn(async (entity: string, value: Record<string, unknown>) => {
+      if (entity === "chats") {
+        const row = { ...value, id: value.id ?? `chat-${chats.size + 1}` };
+        chats.set(String(row.id), row);
+        return row as never;
+      }
+      return value as never;
+    }),
     update: vi.fn(async (entity: string, id: string, patch: Record<string, unknown>) => {
       if (entity === "chats") {
         const next = { ...(chats.get(id) ?? { id }), ...patch };
@@ -93,6 +103,178 @@ describe("persistConnectedCommandTags connected notes", () => {
     expect(notes[0]?.consumed).toBeUndefined();
     expect(notes[1]).toMatchObject({ consumed: true });
     expect(typeof notes[1]?.consumedAt).toBe("string");
+  });
+});
+
+describe("persistConnectedCommandTags roleplay direct messages", () => {
+  const mira = { id: "char-mira", name: "Mira", data: { name: "Mira" } };
+
+  it("posts roleplay direct-message commands to an existing conversation chat when enabled", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const chats = new Map<string, Row>([
+      ["roleplay-1", roleplay],
+      ["conversation-mira", { id: "conversation-mira", mode: "conversation", name: "Mira", characterIds: ["char-mira"] }],
+    ]);
+    const storage = storageWithChats(chats, { characters: [mira] });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      'She looks away. [dm: character="Mira", message="[12:01] Meet me outside."]',
+    );
+
+    expect(result.displayContent).toBe("She looks away.");
+    expect(result.executedCommands).toEqual(["dm"]);
+    expect(storage.createChatMessage).toHaveBeenCalledWith(
+      "conversation-mira",
+      expect.objectContaining({
+        chatId: "conversation-mira",
+        role: "assistant",
+        characterId: "char-mira",
+        content: "Meet me outside.",
+      }),
+    );
+    expect(result.events).toContainEqual({
+      type: "ooc_posted",
+      data: { chatId: "conversation-mira", chatName: "Mira", count: 1, createdChat: false },
+    });
+  });
+
+  it("creates a conversation DM chat when the target character has no existing conversation", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      folderId: "folder-1",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const chats = new Map<string, Row>([["roleplay-1", roleplay]]);
+    const storage = storageWithChats(chats, { characters: [mira] });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      'She keeps narrating. [dm: character="Mira", message="I found the key."]',
+    );
+
+    expect(result.displayContent).toBe("She keeps narrating.");
+    expect(storage.create).toHaveBeenCalledWith(
+      "chats",
+      expect.objectContaining({
+        name: "Mira",
+        mode: "conversation",
+        characterIds: ["char-mira"],
+        folderId: "folder-1",
+        metadata: {},
+      }),
+    );
+    expect(storage.createChatMessage).toHaveBeenCalledWith(
+      "chat-2",
+      expect.objectContaining({
+        chatId: "chat-2",
+        role: "assistant",
+        characterId: "char-mira",
+        content: "I found the key.",
+      }),
+    );
+    expect(result.events).toContainEqual({
+      type: "ooc_posted",
+      data: { chatId: "chat-2", chatName: "Mira", count: 1, createdChat: true },
+    });
+  });
+
+  it("leaves direct-message tags visible when the roleplay setting is disabled", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: false },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["roleplay-1", roleplay]]), { characters: [mira] });
+    const content = 'Visible. [dm: character="Mira", message="Do not route this."]';
+
+    const result = await persistConnectedCommandTags(storage, roleplay, content);
+
+    expect(result.displayContent).toBe(content);
+    expect(result.executedCommands).toEqual([]);
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not enable direct-message commands outside roleplay mode", async () => {
+    const conversation = {
+      id: "conversation-1",
+      mode: "conversation",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["conversation-1", conversation]]), { characters: [mira] });
+    const content = 'Visible. [dm: character="Mira", message="Do not route this."]';
+
+    const result = await persistConnectedCommandTags(storage, conversation, content);
+
+    expect(result.displayContent).toBe(content);
+    expect(result.executedCommands).toEqual([]);
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("emits command_error when a roleplay direct-message target character cannot be found", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["roleplay-1", roleplay]]), { characters: [] });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      'Visible. [dm: character="Missing", message="This should not vanish silently."]',
+    );
+
+    expect(result.displayContent).toBe("Visible.");
+    expect(result.executedCommands).toEqual([]);
+    expect(result.events).toContainEqual({
+      type: "command_error",
+      data: {
+        command: "dm",
+        error: 'No character named "Missing" was found for the direct-message command.',
+      },
+    });
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("emits command_error when a new direct-message conversation cannot be resolved", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const storage = storageWithChats(new Map<string, Row>([["roleplay-1", roleplay]]), { characters: [mira] });
+    storage.create = vi.fn(async () => ({ name: "Mira", mode: "conversation", characterIds: ["char-mira"] }) as never);
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      'Visible. [dm: character="Mira", message="This should report failure."]',
+    );
+
+    expect(result.displayContent).toBe("Visible.");
+    expect(result.executedCommands).toEqual([]);
+    expect(result.events).toContainEqual({
+      type: "command_error",
+      data: {
+        command: "dm",
+        error: "Could not resolve a conversation for the direct-message command.",
+      },
+    });
+    expect(storage.createChatMessage).not.toHaveBeenCalled();
   });
 });
 

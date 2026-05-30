@@ -1171,6 +1171,47 @@ describe("assembleGenerationPrompt connected conversation notes", () => {
     expect(joined).toContain("- Let the next scene reveal the locked lab door.");
     expect(joined).not.toContain("This one was already spent.");
   });
+
+  it("injects roleplay direct-message command guidance only when enabled", async () => {
+    const enabled = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "roleplay-1",
+        mode: "roleplay",
+        metadata: { roleplayDmCommandsEnabled: true },
+      },
+      storedMessages: [{ role: "user", content: "What happens?", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "", strictRoleFormatting: false },
+      latestUserInput: "What happens?",
+    });
+    const disabled = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "roleplay-2",
+        mode: "roleplay",
+        metadata: { roleplayDmCommandsEnabled: false },
+      },
+      storedMessages: [{ role: "user", content: "What happens?", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "", strictRoleFormatting: false },
+      latestUserInput: "What happens?",
+    });
+    const conversation = await assembleGenerationPrompt(storageWithSections([]), {
+      chat: {
+        id: "conversation-1",
+        mode: "conversation",
+        metadata: { roleplayDmCommandsEnabled: true },
+      },
+      storedMessages: [{ role: "user", content: "What happens?", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "", strictRoleFormatting: false },
+      latestUserInput: "What happens?",
+    });
+
+    expect(promptText(enabled)).toContain("<direct_message_commands>");
+    expect(promptText(enabled)).toContain('[dm: character="Character Name" message="Message text"]');
+    expect(promptText(disabled)).not.toContain("<direct_message_commands>");
+    expect(promptText(conversation)).not.toContain("<direct_message_commands>");
+  });
 });
 
 describe("assembleGenerationPrompt game character sheets", () => {

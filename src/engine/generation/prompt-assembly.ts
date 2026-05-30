@@ -1429,6 +1429,25 @@ function buildConnectedConversationBlocks(chat: JsonRecord): ChatMLMessage[] {
   return blocks;
 }
 
+function buildRoleplayDirectMessageCommandReminder(chat: JsonRecord): ChatMLMessage[] {
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const meta = parseRecord(chat.metadata);
+  if (mode !== "roleplay" || !boolish(meta.roleplayDmCommandsEnabled, false)) return [];
+  return [
+    {
+      role: "system",
+      contextKind: "prompt",
+      content: [
+        "<direct_message_commands>",
+        'If a roleplay character naturally texts or privately messages the user outside the current scene, append one hidden command after the visible response: [dm: character="Character Name" message="Message text"].',
+        "Use the exact character name and only use this for in-world private messages, not normal spoken dialogue or narration.",
+        "Do not mention the command in visible text.",
+        "</direct_message_commands>",
+      ].join("\n"),
+    },
+  ];
+}
+
 function insertBeforeLastUser(messages: ChatMLMessage[], blocks: ChatMLMessage[]): void {
   if (blocks.length === 0) return;
   const insertAt = messages.map((message) => message.role).lastIndexOf("user");
@@ -2233,7 +2252,10 @@ export async function assembleGenerationPrompt(
     });
   }
 
-  insertBeforeLastUser(messages, buildConnectedConversationBlocks(input.chat));
+  insertBeforeLastUser(messages, [
+    ...buildConnectedConversationBlocks(input.chat),
+    ...buildRoleplayDirectMessageCommandReminder(input.chat),
+  ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
   messages = injectAtDepth(

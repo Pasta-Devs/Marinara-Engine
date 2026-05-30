@@ -1205,8 +1205,11 @@ export async function runGenerationWithUi(
         case "ooc_posted": {
           const data = parseMaybeRecord(event.data);
           const count = typeof data.count === "number" ? data.count : 1;
-          toast(`${count} message${count === 1 ? "" : "s"} posted.`);
+          const targetChatId = readString(data.chatId).trim();
+          const target = readString(data.chatName).trim();
+          toast(`${count} message${count === 1 ? "" : "s"} posted${target ? ` to ${target}` : ""}.`);
           scheduleChatQueryRefresh(queryClient, chatId);
+          if (targetChatId && targetChatId !== chatId) scheduleChatQueryRefresh(queryClient, targetChatId);
           break;
         }
         case "selfie": {
