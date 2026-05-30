@@ -1,7 +1,8 @@
 import type { AvatarCropValue } from "../../../../shared/lib/utils";
-import { avatarFileUrlFromPath } from "../../../../shared/api/local-file-api";
+import { avatarFileUrlFromPath, resolveAvatarFileUrl } from "../../../../shared/api/local-file-api";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { getCharacterAvatarLoadingMode } from "../lib/character-avatar-loading";
+import { useEffect, useState } from "react";
 
 function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
   if (!crop) return null;
@@ -29,7 +30,25 @@ export function CharacterAvatarImage({
   crop?: unknown;
   className?: string;
 }) {
-  const resolvedSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath) ?? src;
+  const initialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath) ?? src ?? null;
+  const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAsyncSrc(initialSrc);
+    resolveAvatarFileUrl(avatarFilename, avatarFilePath)
+      .then((url) => {
+        if (!cancelled) setAsyncSrc(url ?? src ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAsyncSrc(src ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarFilename, avatarFilePath, initialSrc, src]);
+
+  const resolvedSrc = asyncSrc ?? initialSrc;
   if (!resolvedSrc) return null;
 
   return (

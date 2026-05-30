@@ -83,7 +83,9 @@ function remoteManagedAssetUrl(
   kind: RemoteManagedAssetKind,
   path: string | null | undefined,
 ): string | null {
-  return remoteManagedAsset(kind, path)?.url ?? null;
+  const asset = remoteManagedAsset(kind, path);
+  if (!asset || asset.target.authorization) return null;
+  return asset.url;
 }
 
 async function remoteManagedAssetResolvableUrl(
@@ -154,11 +156,26 @@ export async function resolveGameAssetFileUrl(path: string): Promise<string> {
   return filePathToAssetUrl(response.path ?? "");
 }
 
-async function resolveBackgroundFileUrl(filename: string): Promise<string> {
+export async function resolveBackgroundFileUrl(filename: string): Promise<string> {
   const remoteUrl = await remoteManagedAssetResolvableUrl("background", filename);
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("background_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
+}
+
+export async function resolveFontFileUrl(filename: string, absolutePath?: string | null): Promise<string> {
+  const remoteUrl = await remoteManagedAssetResolvableUrl("font", filename);
+  if (remoteUrl) return remoteUrl;
+  return absolutePath ? filePathToAssetUrl(absolutePath) : "";
+}
+
+export async function resolveAvatarFileUrl(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+): Promise<string | null> {
+  const remoteUrl = await remoteManagedAssetResolvableUrl("avatar", filename?.trim() || filenameFromPath(absolutePath));
+  if (remoteUrl) return remoteUrl;
+  return absolutePath ? filePathToAssetUrl(absolutePath) : null;
 }
 
 async function resolveLorebookImageFileUrl(filename: string): Promise<string> {

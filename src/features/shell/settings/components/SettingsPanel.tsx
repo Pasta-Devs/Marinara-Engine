@@ -34,6 +34,7 @@ import { triggerDownload } from "../../../../shared/api/download-payload";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../../../shared/lib/backgrounds";
 import {
   backgroundFileUrlFromPath,
+  resolveBackgroundFileUrl,
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
@@ -2147,11 +2148,20 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
   const [src, setSrc] = useState(() => (filename ? backgroundFileUrlFromPath(filename, item.absolutePath) : ""));
 
   useEffect(() => {
+    let cancelled = false;
     if (filename) {
       setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
-      return;
+      resolveBackgroundFileUrl(filename)
+        .then((url) => {
+          if (!cancelled) setSrc(url || backgroundFileUrlFromPath(filename, item.absolutePath));
+        })
+        .catch(() => {
+          if (!cancelled) setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-    let cancelled = false;
     resolveManagedLocalAssetUrl(item.url)
       .then((url) => {
         if (!cancelled) setSrc(url ?? "");

@@ -2,10 +2,11 @@
 // File Browser — Asset grid / list view (with multi-select checkboxes)
 // ──────────────────────────────────────────────
 import { Check, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { TreeNode } from "../hooks/use-game-assets";
 import type { GameAssetSelectionStatus } from "../../game/index";
 import { formatBytes, formatDate } from "../../../../shared/lib/format";
-import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api";
+import { gameAssetFileUrlFromPath, resolveGameAssetFileUrl } from "../../../../shared/api/local-file-api";
 import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 
@@ -59,6 +60,35 @@ function FolderSelectionMark({ status }: { status: GameAssetSelectionStatus }) {
   if (status === "included") return <Check size="0.75rem" />;
   if (status === "partial") return <Minus size="0.75rem" />;
   return null;
+}
+
+function GameAssetImage({
+  node,
+  alt,
+  className,
+}: {
+  node: TreeNode;
+  alt: string;
+  className: string;
+}) {
+  const [src, setSrc] = useState(() => gameAssetFileUrlFromPath(node.path, node.absolutePath));
+
+  useEffect(() => {
+    let cancelled = false;
+    setSrc(gameAssetFileUrlFromPath(node.path, node.absolutePath));
+    resolveGameAssetFileUrl(node.path)
+      .then((url) => {
+        if (!cancelled) setSrc(url || gameAssetFileUrlFromPath(node.path, node.absolutePath));
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(gameAssetFileUrlFromPath(node.path, node.absolutePath));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [node.absolutePath, node.path]);
+
+  return <img src={src} alt={alt} className={className} loading="lazy" />;
 }
 
 /**
@@ -166,12 +196,7 @@ export function AssetGrid({
                     );
                   })()
                 ) : isImage(node.ext) ? (
-                  <img
-                    src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
-                    alt={node.name}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
+                  <GameAssetImage node={node} alt={node.name} className="h-full w-full object-cover" />
                 ) : (
                   <FileIcon ext={node.ext} className="h-8 w-8 text-[var(--primary)]" />
                 )}
@@ -252,12 +277,7 @@ export function AssetGrid({
               })()
             ) : isImage(node.ext) ? (
               <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--accent)]">
-                <img
-                  src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
+                <GameAssetImage node={node} alt="" className="h-full w-full object-cover" />
               </div>
             ) : (
               <FileIcon ext={node.ext} className="shrink-0 text-[var(--muted-foreground)]" size="1rem" />

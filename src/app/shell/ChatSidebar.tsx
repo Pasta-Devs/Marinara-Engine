@@ -49,7 +49,7 @@ import { useChatStore } from "../../shared/stores/chat.store";
 import { showConfirmDialog } from "../../shared/lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../shared/stores/ui.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../shared/lib/utils";
-import { avatarFileUrlFromPath } from "../../shared/api/local-file-api";
+import { avatarFileUrlFromPath, resolveAvatarFileUrl } from "../../shared/api/local-file-api";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { CHAT_MODES } from "../../engine/contracts/constants/chat-modes";
 import type { ChatFolder } from "../../engine/contracts/types/chat";
@@ -163,6 +163,30 @@ export function ChatSidebar({
     return Array.from(ids);
   }, [chats]);
   const { data: allCharacters } = useCharacterSummariesByIds(sidebarCharacterIds, sidebarCharacterIds.length > 0);
+  const [resolvedCharacterAvatars, setResolvedCharacterAvatars] = useState<Map<string, string | null>>(() => new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    const characters = allCharacters ?? [];
+    if (characters.length === 0) {
+      setResolvedCharacterAvatars(new Map());
+      return;
+    }
+    Promise.all(
+      characters.map(async (char) => {
+        const resolved =
+          (await resolveAvatarFileUrl(char.avatarFilename, char.avatarFilePath).catch(() => null)) ??
+          char.avatarPath ??
+          null;
+        return [char.id, resolved] as const;
+      }),
+    ).then((entries) => {
+      if (!cancelled) setResolvedCharacterAvatars(new Map(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [allCharacters]);
 
   // Build character lookup: id → { name, avatarUrl, avatarCrop, conversationStatus }
   const charLookup = useMemo(() => {
@@ -187,13 +211,17 @@ export function ChatSidebar({
         typeof extensions.conversationStatus === "string" ? extensions.conversationStatus : undefined;
       map.set(char.id, {
         name,
-        avatarUrl: avatarFileUrlFromPath(char.avatarFilename, char.avatarFilePath) ?? char.avatarPath ?? null,
+        avatarUrl:
+          resolvedCharacterAvatars.get(char.id) ??
+          avatarFileUrlFromPath(char.avatarFilename, char.avatarFilePath) ??
+          char.avatarPath ??
+          null,
         avatarCrop: (extensions.avatarCrop as AvatarCropValue | undefined) ?? null,
         conversationStatus,
       });
     }
     return map;
-  }, [allCharacters]);
+  }, [allCharacters, resolvedCharacterAvatars]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<ChatSortOption>("newest");
   const [activeTag, setActiveTag] = useState<string | null>(null);
