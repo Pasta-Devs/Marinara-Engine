@@ -984,6 +984,21 @@ import type { Chat, Message } from "../../../../engine/contracts/types/chat";
 import type { SessionSummary, Combatant, GameCombatStateSnapshot } from "../../../../engine/contracts/types/game";
 import type { CharacterMap, PersonaInfo } from "../../shared/chat-ui/types";
 
+type InventoryNotificationKind = "gain" | "loss" | "use-pending" | "use-kept" | "use-consumed" | "error";
+
+interface InventoryNotification {
+  id: string;
+  kind: InventoryNotificationKind;
+  message: string;
+}
+
+interface PendingInventoryUse {
+  id: string;
+  itemName: string;
+  normalizedItemName: string;
+  submittedAfterMessageId: string | null;
+}
+
 /** Typewriter component for the intro screen — reveals text character-by-character. */
 function IntroTypewriter({ text, onComplete }: { text: string; onComplete?: () => void }) {
   const [visible, setVisible] = useState(0);
@@ -2005,7 +2020,9 @@ export function GameSurface({
     },
     [activeChatId, queryClient],
   );
-  const [inventoryNotifications, setInventoryNotifications] = useState<string[]>([]);
+  const [inventoryNotifications, setInventoryNotifications] = useState<InventoryNotification[]>([]);
+  const [pendingInventoryUse, setPendingInventoryUse] = useState<PendingInventoryUse | null>(null);
+  const pendingInventoryUseRef = useRef<PendingInventoryUse | null>(null);
   const [removingPartyMemberId, setRemovingPartyMemberId] = useState<string | null>(null);
   const [pendingMapMove, setPendingMapMove] = useState<{
     position: { x: number; y: number } | string;
@@ -2028,6 +2045,27 @@ export function GameSurface({
   const appliedCombatStatusMessageIdsRef = useRef<Set<string>>(new Set());
   const appliedCombatElementMessageIdsRef = useRef<Set<string>>(new Set());
   const interruptedInteractiveCommandKeysRef = useRef<Set<string>>(new Set());
+  const clearInventoryNotificationTimer = useCallback(() => {
+    if (!notificationTimerRef.current) return;
+    clearTimeout(notificationTimerRef.current);
+    notificationTimerRef.current = null;
+  }, []);
+  const showInventoryNotifications = useCallback(
+    (notifications: InventoryNotification[], durationMs: number | null = 4000) => {
+      setInventoryNotifications(notifications);
+      clearInventoryNotificationTimer();
+      if (durationMs !== null) {
+        notificationTimerRef.current = setTimeout(() => {
+          setInventoryNotifications([]);
+          notificationTimerRef.current = null;
+        }, durationMs);
+      }
+    },
+    [clearInventoryNotificationTimer],
+  );
+  useEffect(() => {
+    pendingInventoryUseRef.current = pendingInventoryUse;
+  }, [pendingInventoryUse]);
   const recruitPartyMember = useRecruitPartyMember();
   const removePartyMember = useRemovePartyMember();
   const availableMaps = useMemo(() => (maps.length > 0 ? maps : currentMap ? [currentMap] : []), [currentMap, maps]);
@@ -2262,6 +2300,8 @@ export function GameSurface({
     // Reset inventory/readables for the new chat
     setInventoryItems((chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? []);
     setInventoryNotifications([]);
+    setPendingInventoryUse(null);
+    clearInventoryNotificationTimer();
     setPendingInventorySegmentUpdates([]);
     setActiveReadable(null);
     readableQueueRef.current = [];
@@ -2274,7 +2314,13 @@ export function GameSurface({
     setPrepareSessionWidgetsOpen(false);
     // Allow the auto-tutorial to re-evaluate for the new chat (guard still gates on disabled flag)
     tutorialAutoTriggeredRef.current = false;
-  }, [activeChatId, chatMeta.gameInventory, chatMeta.gameRecentMusic, chatMeta.gameRecentSpotifyTracks]);
+  }, [
+    activeChatId,
+    chatMeta.gameInventory,
+    chatMeta.gameRecentMusic,
+    chatMeta.gameRecentSpotifyTracks,
+    clearInventoryNotificationTimer,
+  ]);
 
   const clearPendingInteractiveCommands = useCallback(() => {
     setActiveChoices(null);
@@ -2297,10 +2343,12 @@ export function GameSurface({
     (updates: InventoryTag[]) => {
       if (updates.length === 0) return;
 
-      const notifications: string[] = [];
+      const notifications: InventoryNotification[] = [];
       const journalEntries: Array<{ item: string; action: "acquired" | "lost" }> = [];
       const previousInventory = inventoryItemsRef.current;
       let updated = previousInventory;
+      const pendingUse = pendingInventoryUseRef.current;
+      let consumedPendingUse = false;
       const currentGameState = useGameStateStore.getState().current;
       const currentPlayerStats = currentGameState?.chatId === activeChatId ? currentGameState.playerStats : null;
       let nextPlayerStats = currentPlayerStats;
@@ -2319,13 +2367,32 @@ export function GameSurface({
                 inventory: addInventoryUnit(nextPlayerStats.inventory, normalizedItemName),
               };
             }
-            notifications.push(`You gained ${normalizedItemName}!`);
+            notifications.push({
+              id: `gain-${normalizedItemName}-${Date.now()}-${notifications.length}`,
+              kind: "gain",
+              message: `You gained ${normalizedItemName}!`,
+            });
             applied = true;
           } else {
             const nextInventory = removeInventoryUnit(updated, normalizedItemName);
             if (nextInventory !== updated) {
               updated = nextInventory;
-              notifications.push(`You lost ${normalizedItemName}!`);
+              const matchesPendingUse =
+                !!pendingUse && normalizedItemName.toLowerCase() === pendingUse.normalizedItemName.toLowerCase();
+              if (matchesPendingUse) {
+                consumedPendingUse = true;
+                notifications.push({
+                  id: `use-consumed-${normalizedItemName}-${Date.now()}-${notifications.length}`,
+                  kind: "use-consumed",
+                  message: `${normalizedItemName} was used and removed from inventory.`,
+                });
+              } else {
+                notifications.push({
+                  id: `loss-${normalizedItemName}-${Date.now()}-${notifications.length}`,
+                  kind: "loss",
+                  message: `You lost ${normalizedItemName}!`,
+                });
+              }
               applied = true;
             }
             if (nextPlayerStats) {
@@ -2385,12 +2452,13 @@ export function GameSurface({
       }
 
       if (notifications.length > 0) {
-        setInventoryNotifications(notifications);
-        if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-        notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+        showInventoryNotifications(notifications);
+      }
+      if (consumedPendingUse) {
+        setPendingInventoryUse(null);
       }
     },
-    [activeChatId, patchVisibleGameState, persistMetadata, publishSessionChat],
+    [activeChatId, patchVisibleGameState, persistMetadata, publishSessionChat, showInventoryNotifications],
   );
 
   const playDirections = useCallback((directions: DirectionCommand[]) => {
@@ -5074,9 +5142,13 @@ export function GameSurface({
 
       setInventoryItems(updatedInventory);
 
-      setInventoryNotifications([`You gained ${addedItemName}!`]);
-      if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-      notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+      showInventoryNotifications([
+        {
+          id: `gain-${addedItemName}-${Date.now()}`,
+          kind: "gain",
+          message: `You gained ${addedItemName}!`,
+        },
+      ]);
       toast.success(`Added ${addedItemName} to inventory.`);
       return addedItemName;
     } catch (error) {
@@ -5087,7 +5159,7 @@ export function GameSurface({
       toast.error(message);
       return null;
     }
-  }, [activeChatId, inventoryItems, patchVisibleGameState, updateChatMetadata]);
+  }, [activeChatId, inventoryItems, patchVisibleGameState, showInventoryNotifications, updateChatMetadata]);
 
   const handleIncrementInventoryItem = useCallback(
     async (itemName: string) => {
@@ -5127,9 +5199,13 @@ export function GameSurface({
 
         setInventoryItems(updatedInventory);
 
-        setInventoryNotifications([`You gained ${normalizedItemName}!`]);
-        if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-        notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+        showInventoryNotifications([
+          {
+            id: `gain-${normalizedItemName}-${Date.now()}`,
+            kind: "gain",
+            message: `You gained ${normalizedItemName}!`,
+          },
+        ]);
         toast.success(`Added 1 ${normalizedItemName}.`);
       } catch (error) {
         if (patchedGameState && currentPlayerStats) {
@@ -5139,7 +5215,7 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, updateChatMetadata],
+    [activeChatId, inventoryItems, patchVisibleGameState, showInventoryNotifications, updateChatMetadata],
   );
 
   const handleRemoveInventoryItem = useCallback(
@@ -5190,9 +5266,13 @@ export function GameSurface({
           .then((res) => publishSessionChat(res.sessionChat))
           .catch(() => {});
 
-        setInventoryNotifications([`You removed ${itemName}.`]);
-        if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-        notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+        showInventoryNotifications([
+          {
+            id: `loss-${itemName}-${Date.now()}`,
+            kind: "loss",
+            message: `You removed ${itemName}.`,
+          },
+        ]);
         toast.success(`Removed ${itemName} from inventory.`);
       } catch (error) {
         if (patchedGameState && currentPlayerStats) {
@@ -5202,7 +5282,7 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, updateChatMetadata],
+    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
   );
 
   const handleClearInventoryItem = useCallback(
@@ -5255,9 +5335,13 @@ export function GameSurface({
           .then((res) => publishSessionChat(res.sessionChat))
           .catch(() => {});
 
-        setInventoryNotifications([`You removed ${itemName}.`]);
-        if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-        notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+        showInventoryNotifications([
+          {
+            id: `loss-${itemName}-${Date.now()}`,
+            kind: "loss",
+            message: `You removed ${itemName}.`,
+          },
+        ]);
         toast.success(`Removed ${itemName} from inventory.`);
       } catch (error) {
         if (patchedGameState && currentPlayerStats) {
@@ -5267,7 +5351,7 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, updateChatMetadata],
+    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
   );
 
   const handleUseCombatInventoryItem = useCallback(
@@ -5319,9 +5403,13 @@ export function GameSurface({
           .then((res) => publishSessionChat(res.sessionChat))
           .catch(() => {});
 
-        setInventoryNotifications([`You used ${normalizedItemName}.`]);
-        if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-        notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
+        showInventoryNotifications([
+          {
+            id: `use-consumed-${normalizedItemName}-${Date.now()}`,
+            kind: "use-consumed",
+            message: `You used ${normalizedItemName}.`,
+          },
+        ]);
         toast.success(`Used ${normalizedItemName}.`);
       } catch (error) {
         if (patchedGameState && currentPlayerStats) {
@@ -5331,7 +5419,7 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, updateChatMetadata],
+    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
   );
 
   const handleRenameInventoryItem = useCallback(
@@ -6868,7 +6956,7 @@ export function GameSurface({
       attachments?: Array<{ type: string; data: string }>,
       options?: { commitPendingMove?: boolean },
     ) => {
-      if (!sessionInteractive) return;
+      if (!sessionInteractive) return false;
       audioManager.unlock();
       // Commit a pending interrupt: persist the truncated GM message before generating
       // so the server-side prompt build doesn't see segments the player never read. We
@@ -6890,7 +6978,7 @@ export function GameSurface({
         } catch {
           if (interruptedCommandKey) interruptedInteractiveCommandKeysRef.current.delete(interruptedCommandKey);
           toast.error("Failed to commit the interrupt. Please try again.");
-          return;
+          return false;
         }
       }
       // Risky mode tells the GM about the interrupt via a one-line system message.
@@ -6906,7 +6994,7 @@ export function GameSurface({
         } catch {
           if (interruptedCommandKey) interruptedInteractiveCommandKeysRef.current.delete(interruptedCommandKey);
           toast.error("Failed to mark the risky interrupt. Please try again.");
-          return;
+          return false;
         }
       }
       if (interruptedCommandKey) {
@@ -6924,7 +7012,7 @@ export function GameSurface({
       if (getGameDirectAddressMode(message) === "party" && !attachments?.length) {
         if (partyTurnInFlightRef.current || partyTurn.isPending) {
           clearCommittedPendingMapMove();
-          return;
+          return false;
         }
         const playerAction = stripGameDirectAddressPrefix(message);
         const requestId = partyTurnRequestIdRef.current + 1;
@@ -6934,7 +7022,7 @@ export function GameSurface({
         setPartyChatMessageId(null);
         try {
           await createMessage.mutateAsync({ role: "user", content: message });
-          if (partyTurnRequestIdRef.current !== requestId) return;
+          if (partyTurnRequestIdRef.current !== requestId) return false;
           setPartyChatInput(playerAction);
           const result = await partyTurn.mutateAsync({
             chatId: activeChatId,
@@ -6942,7 +7030,7 @@ export function GameSurface({
             playerAction,
             connectionId: chat.connectionId ?? undefined,
           });
-          if (partyTurnRequestIdRef.current !== requestId) return;
+          if (partyTurnRequestIdRef.current !== requestId) return false;
           setPartyDialogue(result.lines);
           setPartyChatMessageId(result.messageId);
         } catch (error) {
@@ -6952,16 +7040,18 @@ export function GameSurface({
             setPartyChatInput(null);
             toast.error(error instanceof Error ? error.message : "The party did not respond.");
           }
+          return false;
         } finally {
           if (partyTurnRequestIdRef.current === requestId) {
             partyTurnInFlightRef.current = false;
           }
           clearCommittedPendingMapMove();
         }
-        return;
+        return true;
       }
       sendMessage(message, attachments);
       clearCommittedPendingMapMove();
+      return true;
     },
     [
       activeChatId,
@@ -6979,6 +7069,109 @@ export function GameSurface({
       updateMessage,
     ],
   );
+
+  const handleUseInventoryItem = useCallback(
+    async (itemName: string) => {
+      if (!activeChatId) return;
+
+      const normalizedItemName = normalizeInventoryName(itemName);
+      if (!normalizedItemName) return;
+
+      const inventoryItem = inventoryItems.find(
+        (item) => normalizeInventoryName(item.name).toLowerCase() === normalizedItemName.toLowerCase(),
+      );
+      if (!inventoryItem) {
+        toast.error(`${normalizedItemName} is no longer in your inventory.`);
+        return;
+      }
+
+      const pendingUse: PendingInventoryUse = {
+        id: `use-pending-${normalizedItemName}-${Date.now()}`,
+        itemName: inventoryItem.name,
+        normalizedItemName,
+        submittedAfterMessageId: latestAssistantMsg?.id ?? null,
+      };
+      setPendingInventoryUse(pendingUse);
+      showInventoryNotifications(
+        [
+          {
+            id: pendingUse.id,
+            kind: "use-pending",
+            message: `Using ${inventoryItem.name}... waiting for the GM response.`,
+          },
+        ],
+        null,
+      );
+      setInventoryOpen(false);
+      const submitted = await handleSendGameTurn(`I use my ${normalizedItemName}.`);
+      if (!submitted) {
+        setPendingInventoryUse(null);
+        showInventoryNotifications(
+          [
+            {
+              id: `use-error-${normalizedItemName}-${Date.now()}`,
+              kind: "error",
+              message: `Could not queue ${inventoryItem.name}. It remains in inventory.`,
+            },
+          ],
+          6000,
+        );
+      }
+    },
+    [activeChatId, handleSendGameTurn, inventoryItems, latestAssistantMsg?.id, showInventoryNotifications],
+  );
+
+  useEffect(() => {
+    if (!pendingInventoryUse) return;
+
+    if (generationFailed) {
+      showInventoryNotifications(
+        [
+          {
+            id: `use-error-${pendingInventoryUse.normalizedItemName}-${Date.now()}`,
+            kind: "error",
+            message: `Could not process ${pendingInventoryUse.itemName}. It remains in inventory.`,
+          },
+        ],
+        6000,
+      );
+      setPendingInventoryUse(null);
+      return;
+    }
+
+    if (isStreaming) return;
+    if (!latestAssistantMsg?.id || latestAssistantMsg.id === pendingInventoryUse.submittedAfterMessageId) return;
+
+    const inventoryUpdates = latestAssistantMsg.content ? parseGmTags(latestAssistantMsg.content).inventoryUpdates : [];
+    const responseWillRemoveItem = inventoryUpdates.some(
+      (update) =>
+        update.action === "remove" &&
+        update.items.some(
+          (item) => normalizeInventoryName(item).toLowerCase() === pendingInventoryUse.normalizedItemName.toLowerCase(),
+        ),
+    );
+
+    if (responseWillRemoveItem) return;
+
+    showInventoryNotifications(
+      [
+        {
+          id: `use-kept-${pendingInventoryUse.normalizedItemName}-${Date.now()}`,
+          kind: "use-kept",
+          message: `${pendingInventoryUse.itemName} action was sent. The item remains in inventory.`,
+        },
+      ],
+      6000,
+    );
+    setPendingInventoryUse(null);
+  }, [
+    generationFailed,
+    isStreaming,
+    latestAssistantMsg?.content,
+    latestAssistantMsg?.id,
+    pendingInventoryUse,
+    showInventoryNotifications,
+  ]);
 
   useEffect(() => {
     setPendingMapMove(null);
@@ -8865,10 +9058,7 @@ export function GameSurface({
                 onIncrementItem={handleIncrementInventoryItem}
                 onReorderItem={handleReorderInventoryItem}
                 canInteract={sessionInteractive && narrationDone && !isStreaming}
-                onUseItem={(itemName) => {
-                  setInventoryOpen(false);
-                  sendMessage(`I use my ${itemName}.`);
-                }}
+                onUseItem={handleUseInventoryItem}
               />
 
               {/* Readable document display (Notes / Books) */}
@@ -8889,17 +9079,20 @@ export function GameSurface({
               {/* Inventory notifications */}
               {inventoryNotifications.length > 0 && (
                 <div className="pointer-events-none absolute left-1/2 top-20 z-40 -translate-x-1/2 flex flex-col gap-1">
-                  {inventoryNotifications.map((n, i) => (
+                  {inventoryNotifications.map((notification) => (
                     <div
-                      key={i}
+                      key={notification.id}
                       className={cn(
                         "animate-in fade-in-0 slide-in-from-bottom-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur-sm",
-                        n.startsWith("You gained")
-                          ? "border-emerald-400/30 bg-emerald-900/80 text-emerald-200"
-                          : "border-red-400/30 bg-red-900/80 text-red-200",
+                        notification.kind === "gain" && "border-emerald-400/30 bg-emerald-900/80 text-emerald-200",
+                        notification.kind === "loss" && "border-red-400/30 bg-red-900/80 text-red-200",
+                        notification.kind === "use-pending" && "border-amber-300/35 bg-amber-950/85 text-amber-100",
+                        notification.kind === "use-kept" && "border-sky-300/30 bg-sky-950/85 text-sky-100",
+                        notification.kind === "use-consumed" && "border-amber-300/35 bg-emerald-950/85 text-emerald-100",
+                        notification.kind === "error" && "border-red-400/35 bg-red-950/85 text-red-100",
                       )}
                     >
-                      {n}
+                      {notification.message}
                     </div>
                   ))}
                 </div>
