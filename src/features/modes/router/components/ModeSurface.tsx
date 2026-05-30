@@ -22,8 +22,8 @@ const GameModeRoute = lazy(async () => {
 export function ModeSurface() {
   const activeChatId = useChatStore((state) => state.activeChatId);
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
-  const { data: chat, error: chatError } = useChat(activeChatId);
-  const lastModeRef = useRef<ChatMode>("conversation");
+  const { data: chat, error: chatError, isLoading: isChatLoading, isFetching: isChatFetching } = useChat(activeChatId);
+  const lastChatRef = useRef<{ id: string; mode: ChatMode } | null>(null);
 
   useEffect(() => {
     if (!activeChatId || !(chatError instanceof ApiError) || chatError.status !== 404) return;
@@ -32,9 +32,12 @@ export function ModeSurface() {
 
   if (!activeChatId) return <ModeHomeSurface />;
 
-  if (chat?.mode) lastModeRef.current = chat.mode;
-  const chatMode = chat?.mode ?? lastModeRef.current;
   const fallback = <div className="flex flex-1 overflow-hidden" />;
+  if (chat?.mode) lastChatRef.current = { id: activeChatId, mode: chat.mode };
+
+  const chatMode = chat?.mode ?? (lastChatRef.current?.id === activeChatId ? lastChatRef.current.mode : null);
+  if (!chatMode && (isChatLoading || isChatFetching)) return fallback;
+  if (!chatMode) return <ModeHomeSurface />;
 
   return (
     <Suspense fallback={fallback}>
