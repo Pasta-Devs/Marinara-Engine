@@ -57,6 +57,9 @@ importers:
         specifier: ^5.0.12
         version: 5.0.13(@types/react@19.2.14)(react@19.2.6)
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.4
+        version: 9.39.4
       '@lhci/cli':
         specifier: ^0.15.1
         version: 0.15.1

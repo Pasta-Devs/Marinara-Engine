@@ -14,6 +14,7 @@
     "lint": "pnpm lint:eslint",
     "lint:all": "pnpm lint:eslint && pnpm format:check && pnpm lint:design",
     "lint:eslint": "eslint .",
+    "lint:eslint:full-report": "node scripts/eslint-full-report.mjs",
     "lint:design": "impeccable detect --fast src",
     "lint:design:report": "pnpm lint:design || test $? -eq 2",
     "check:architecture": "depcruise src --config .dependency-cruiser.cjs && node scripts/check-rust-structure.mjs",
@@ -57,6 +58,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "@size-limit/preset-app": "^12.1.0",
