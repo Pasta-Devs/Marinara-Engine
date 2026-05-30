@@ -1430,6 +1430,43 @@ mod tests {
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("Only image uploads"));
     }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_declared_image_with_non_image_bytes() {
+        // `bm9wZQ==` decodes to "nope" - a valid `image/png` content type but
+        // bytes that are not actually an image.
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "fake.png",
+                "type": "image/png",
+                "size": 4,
+                "base64": "bm9wZQ=="
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("image-typed payload with non-image bytes should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Only image uploads"));
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_valid_png_bytes() {
+        // A real 1x1 PNG so the magic-byte check passes.
+        let png_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "pixel.png",
+                "type": "image/png",
+                "size": 70,
+                "base64": png_base64
+            }
+        }))
+        .expect("a real PNG payload should be accepted");
+        assert_eq!(uploaded.content_type, "image/png");
+        assert!(!uploaded.bytes.is_empty());
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
@@ -1638,6 +1675,12 @@ pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile
     if uploaded.bytes.len() > MAX_IMAGE_UPLOAD_BYTES {
         return Err(image_upload_too_large_error());
     }
+    // The declared `image/*` content type is caller-controlled; validate that
+    // the decoded bytes actually carry a recognized image signature before
+    // storing or serving them. A magic-byte check rejects arbitrary bytes
+    // masquerading as an image while still accepting every real image format,
+    // including ones whose decoder feature is not compiled in (e.g. GIF).
+    image::guess_format(&uploaded.bytes).map_err(|_| image_upload_invalid_type_error())?;
     Ok(uploaded)
 }
 
