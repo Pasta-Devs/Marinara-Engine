@@ -124,9 +124,10 @@ export function WorldInfoPanel({
   isMobile: boolean;
   onClose: () => void;
 }) {
-  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
+  const { data, isLoading, isError, error } = useActiveLorebookEntries(chatId, true);
   const entries = data?.entries ?? [];
   const skippedEntries = data?.budgetSkippedEntries ?? [];
+  const errorMessage = error instanceof Error ? error.message : "The active world info scan could not complete.";
 
   return (
     <>
@@ -146,6 +147,14 @@ export function WorldInfoPanel({
         <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
           <Loader2 size="0.75rem" className="animate-spin" />
           Scanning entries...
+        </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-2 text-xs text-[var(--destructive)]">
+          <div className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle size="0.75rem" />
+            World info scan failed
+          </div>
+          <p className="mt-1 leading-relaxed text-[var(--destructive)]/80">{errorMessage}</p>
         </div>
       ) : entries.length === 0 ? (
         <>
