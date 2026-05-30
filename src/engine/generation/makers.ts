@@ -2,31 +2,7 @@ import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { parseGameJsonish } from "../shared/parsing-jsonish";
 
-export type CharacterMakerData = {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  first_mes?: string;
-  mes_example?: string;
-  creator_notes?: string;
-  system_prompt?: string;
-  post_history_instructions?: string;
-  tags?: string[];
-  backstory?: string;
-  appearance?: string;
-};
-
-export type PersonaMakerData = {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  backstory?: string;
-  appearance?: string;
-};
-
-export type LorebookMakerEntry = {
+type LorebookMakerEntry = {
   name?: string;
   content?: string;
   keys?: string[];
@@ -38,7 +14,7 @@ export type LorebookMakerEntry = {
   enabled?: boolean;
 };
 
-export type LorebookMakerData = {
+type LorebookMakerData = {
   lorebook_name?: string;
   lorebook_description?: string;
   category?: string;

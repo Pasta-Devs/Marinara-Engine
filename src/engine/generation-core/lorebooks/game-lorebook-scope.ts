@@ -1,4 +1,4 @@
-export const GAME_LOREBOOK_KEEPER_SOURCE_ID = "game-lorebook-keeper";
+const GAME_LOREBOOK_KEEPER_SOURCE_ID = "game-lorebook-keeper";
 
 export type LorebookScopeExclusions = {
   excludedLorebookIds: string[];
@@ -22,9 +22,4 @@ export function resolveGameLorebookScopeExclusions(
     excludedLorebookIds: gameLorebookId ? [gameLorebookId] : [],
     excludedSourceAgentIds: [GAME_LOREBOOK_KEEPER_SOURCE_ID],
   };
-}
-
-export function filterGameInternalAgentIds(chatMode: unknown, agentIds: string[]): string[] {
-  if (chatMode !== "game") return agentIds;
-  return agentIds.filter((agentId) => agentId !== "lorebook-keeper");
 }

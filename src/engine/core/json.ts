@@ -20,7 +20,3 @@ export function parseJsonArray<T = unknown>(value: unknown): T[] {
     return [];
   }
 }
-
-export function stringifyStable(value: unknown): string {
-  return JSON.stringify(value);
-}

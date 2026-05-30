@@ -75,7 +75,7 @@ export function normalizeToolCall(value: unknown): LLMToolCall | null {
   };
 }
 
-export function parseToolParameters(value: unknown): unknown {
+function parseToolParameters(value: unknown): unknown {
   if (!value) return { type: "object", properties: {} };
   if (typeof value === "string") {
     try {
@@ -87,7 +87,7 @@ export function parseToolParameters(value: unknown): unknown {
   return value;
 }
 
-export function customToolRecord(row: JsonRecord): CustomToolRecord | null {
+function customToolRecord(row: JsonRecord): CustomToolRecord | null {
   const name = readString(row.name).trim();
   if (!name || !boolish(row.enabled, false)) return null;
   const executionType = readString(row.executionType, "static");
@@ -140,31 +140,31 @@ export function stringifyToolResult(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-export function toolArguments(call: LLMToolCall): JsonRecord {
+function toolArguments(call: LLMToolCall): JsonRecord {
   const raw = call.function?.arguments || call.arguments || "{}";
   if (typeof raw === "string") return parseRecord(raw);
   return parseRecord(raw);
 }
 
-export function stringArg(args: JsonRecord, key: string, fallback = ""): string {
+function stringArg(args: JsonRecord, key: string, fallback = ""): string {
   return readString(args[key], fallback).trim();
 }
 
-export function numberArg(args: JsonRecord, key: string, fallback: number): number {
+function numberArg(args: JsonRecord, key: string, fallback: number): number {
   return readNumber(args[key], fallback);
 }
 
-export function stringArrayArg(args: JsonRecord, key: string): string[] {
+function stringArrayArg(args: JsonRecord, key: string): string[] {
   const value = args[key];
   if (!Array.isArray(value)) return [];
   return value.map((item) => readString(item).trim()).filter(Boolean);
 }
 
-export function toolError(message: string): never {
+function toolError(message: string): never {
   throw new Error(message);
 }
 
-export function requireChatId(input: ToolRuntimeInput): string {
+function requireChatId(input: ToolRuntimeInput): string {
   const chatId = readString(input.chat.id).trim();
   if (!chatId) toolError("Tool requires a persisted chat id.");
   return chatId;
@@ -208,7 +208,7 @@ async function hideSummarySourceMessages(storage: StorageGateway, messageIds: st
   return hiddenIds;
 }
 
-export async function updateChatMetadata(
+async function updateChatMetadata(
   storage: StorageGateway,
   input: ToolRuntimeInput,
   updater: (metadata: JsonRecord) => JsonRecord,
@@ -220,7 +220,7 @@ export async function updateChatMetadata(
   return metadata;
 }
 
-export function rollDiceNotation(notation: string) {
+function rollDiceNotation(notation: string) {
   const match = notation.trim().match(/^(\d*)d(\d+)([+-]\d+)?$/i);
   if (!match) toolError("Dice notation must look like 1d20, 2d6, or 3d8+2.");
   const count = Math.max(1, Math.min(100, Number(match[1] || "1")));
@@ -463,7 +463,7 @@ export async function executeBuiltInTool(
   }
 }
 
-export function spotifyAgentId(agent: JsonRecord): string {
+function spotifyAgentId(agent: JsonRecord): string {
   const settings = parseRecord(agent.settings);
   return readString(settings.spotifyAgentId).trim() || readString(agent.id).trim() || "spotify";
 }
@@ -560,11 +560,11 @@ ${scriptBody}`,
 // Main-path metadata gating (mode-neutral)
 // ──────────────────────────────────────────────
 
-export function chatToolsEnabledFor(chat: JsonRecord): boolean {
+function chatToolsEnabledFor(chat: JsonRecord): boolean {
   return boolish(parseRecord(chat.metadata).enableTools, false);
 }
 
-export function chatActiveToolIdsFor(chat: JsonRecord): Set<string> {
+function chatActiveToolIdsFor(chat: JsonRecord): Set<string> {
   const value = parseRecord(chat.metadata).activeToolIds;
   if (!Array.isArray(value)) return new Set();
   return new Set(value.map((item) => readString(item).trim()).filter(Boolean));

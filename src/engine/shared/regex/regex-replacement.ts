@@ -65,7 +65,7 @@ function expandRegexReplacementToken(replacement: string, index: number, ctx: Re
   return { value: "$", nextIndex: index + 1 };
 }
 
-export function expandRegexReplacement(replacement: string, ctx: RegexReplaceMatch): string {
+function expandRegexReplacement(replacement: string, ctx: RegexReplaceMatch): string {
   let result = "";
   let index = 0;
   let caseMode: CaseMode = "none";

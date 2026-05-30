@@ -1,11 +1,7 @@
-import { PROVIDERS } from "../contracts/constants/providers";
 import { generationParametersSchema } from "../contracts/schemas/prompt.schema";
-import type { GameState } from "../contracts/types/game-state";
 import type { GenerationParameters } from "../contracts/types/prompt";
-import { wrapContent } from "../generation-core/prompt/format-engine.js";
 import { parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
 
-export type SimpleMessage = { role: "system" | "user" | "assistant"; content: string };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
 export type PromptAttachment = {
   type?: string | null;
@@ -36,11 +32,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-export function shouldAbortOnPassiveGenerationDisconnect(args: { chatMode: string; impersonate?: boolean }): boolean {
-  return args.chatMode !== "conversation" || args.impersonate === true;
-}
-
-export function mergeCustomParameters(
+function mergeCustomParameters(
   base: Record<string, unknown> | null | undefined,
   next: Record<string, unknown> | null | undefined,
 ): Record<string, unknown> {
@@ -56,28 +48,6 @@ export function mergeCustomParameters(
     }
   }
   return merged;
-}
-
-/** Find last message index matching a role (or predicate). Returns -1 if not found. */
-export function findLastIndex(messages: SimpleMessage[], role: string): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]!.role === role) return i;
-  }
-  return -1;
-}
-
-/** Parse a JSON extra field safely. */
-export function parseExtra(extra: unknown): Record<string, unknown> {
-  if (!extra) return {};
-  try {
-    return typeof extra === "string" ? JSON.parse(extra) : (extra as Record<string, unknown>);
-  } catch {
-    return {};
-  }
-}
-
-export function isMessageHiddenFromAI(message: { extra?: unknown }): boolean {
-  return parseExtra(message.extra).hiddenFromAI === true;
 }
 
 export function shouldPreferLatestVisibleGameState(input: {
@@ -221,7 +191,7 @@ function escapeXmlAttribute(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function buildReadableAttachmentBlocks(attachments: PromptAttachment[] | undefined): string[] {
+function buildReadableAttachmentBlocks(attachments: PromptAttachment[] | undefined): string[] {
   return (attachments ?? []).flatMap((attachment) => {
     if (!isReadableTextAttachment(attachment) || typeof attachment.data !== "string") return [];
     const decoded = decodeDataUrlText(attachment.data);
@@ -253,39 +223,8 @@ export function appendReadableAttachmentsToContent(
   return `${content}${content.trim() ? "\n\n" : ""}${blocks.join("\n\n")}`;
 }
 
-/** Resolve the base URL for a connection, falling back to the provider default. */
-export function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string {
-  if (connection.baseUrl) return connection.baseUrl.replace(/\/+$/, "");
-  const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
-  return providerDef?.defaultBaseUrl ?? "";
-}
-
-export function shouldEnableAgentsForGeneration({
-  chatEnableAgents,
-  chatMode,
-  impersonate,
-  impersonateBlockAgents,
-}: {
-  chatEnableAgents: boolean;
-  chatMode: string;
-  impersonate: boolean;
-  impersonateBlockAgents: boolean;
-}): boolean {
-  return chatEnableAgents && chatMode !== "conversation" && !(impersonate && impersonateBlockAgents);
-}
-
-export function shouldInjectIdentityFallback({
-  chatMode,
-  presetId,
-}: {
-  chatMode: string;
-  presetId: string | null | undefined;
-}): boolean {
-  return chatMode !== "game" && !presetId;
-}
-
 /** Parse connection/chat stored generation parameters without injecting schema defaults. */
-export function parseStoredGenerationParameters(raw: unknown): StoredGenerationParameters | null {
+function parseStoredGenerationParameters(raw: unknown): StoredGenerationParameters | null {
   let parsed = raw;
   if (typeof parsed === "string") {
     try {
@@ -385,44 +324,6 @@ export function generationParameterSources(
   ];
 }
 
-/**
- * Inject text into the `</output_format>` section if present,
- * otherwise append to the last user message (or last message overall).
- */
-export function injectIntoOutputFormatOrLastUser(
-  messages: SimpleMessage[],
-  block: string,
-  opts?: { indent?: boolean },
-): void {
-  const prefix = opts?.indent ? "    " : "";
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]!;
-    if (msg.content.includes("</output_format>")) {
-      messages[i] = {
-        ...msg,
-        content: msg.content.replace("</output_format>", prefix + block + "\n</output_format>"),
-      };
-      return;
-    }
-  }
-
-  const lastIdx = Math.max(findLastIndex(messages, "user"), messages.length - 1);
-  const target = messages[lastIdx]!;
-  messages[lastIdx] = { ...target, content: target.content + "\n\n" + block };
-}
-
-/** Build wrapped field parts from a record of { fieldName: value }. */
-export function wrapFields(
-  fields: Record<string, string | undefined | null>,
-  format: "xml" | "markdown" | "none",
-): string[] {
-  const parts: string[] = [];
-  for (const [name, value] of Object.entries(fields)) {
-    if (value) parts.push(wrapContent(value, name, format, 2));
-  }
-  return parts;
-}
-
 function trackerCharacterIdKey(character: Record<string, unknown>) {
   return typeof character.characterId === "string" ? character.characterId.trim().toLowerCase() : "";
 }
@@ -502,25 +403,4 @@ export function preserveTrackerCharacterUiFields(
       character.portraitZoom = previousPortraitZoom;
     }
   }
-}
-
-/** Parse game state JSON fields from a DB row. */
-export function parseGameStateRow(row: Record<string, unknown>): GameState {
-  return {
-    id: row.id as string,
-    chatId: row.chatId as string,
-    messageId: row.messageId as string,
-    swipeIndex: row.swipeIndex as number,
-    date: row.date as string | null,
-    time: row.time as string | null,
-    location: row.location as string | null,
-    weather: row.weather as string | null,
-    temperature: row.temperature as string | null,
-    presentCharacters: Array.isArray(row.presentCharacters) ? row.presentCharacters : [],
-    recentEvents: Array.isArray(row.recentEvents) ? row.recentEvents : [],
-    playerStats:
-      row.playerStats && typeof row.playerStats === "object" ? (row.playerStats as GameState["playerStats"]) : null,
-    personaStats: Array.isArray(row.personaStats) ? (row.personaStats as GameState["personaStats"]) : null,
-    createdAt: row.createdAt as string,
-  };
 }

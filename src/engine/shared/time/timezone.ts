@@ -36,7 +36,7 @@ function readPart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPar
   return parts.find((part) => part.type === type)?.value ?? "";
 }
 
-export function getZonedDateParts(date: Date, timeZone?: string): ZonedDateParts {
+function getZonedDateParts(date: Date, timeZone?: string): ZonedDateParts {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hourCycle: "h23",
