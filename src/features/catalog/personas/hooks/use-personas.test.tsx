@@ -262,6 +262,7 @@ describe("persona hooks", () => {
   it("invalidates the active persona cache after updating a persona", async () => {
     const updatePersona = await renderMutation(useUpdatePersona);
     primeActivePersonaCache();
+    queryClient.setQueryData(personaKeys.summaryDetail("persona-1"), { id: "persona-1", name: "Current Persona" });
     storageUpdateMock.mockResolvedValue({
       id: "persona-1",
       isActive: true,
@@ -274,6 +275,7 @@ describe("persona hooks", () => {
 
     expect(storageUpdateMock).toHaveBeenCalledWith("personas", "persona-1", { name: "Updated Persona" });
     expectActivePersonaInvalidated();
+    expect(queryClient.getQueryState(personaKeys.summaryDetail("persona-1"))?.isInvalidated).toBe(true);
   });
 
   it("normalizes managed avatar paths in persona update cache writes", async () => {

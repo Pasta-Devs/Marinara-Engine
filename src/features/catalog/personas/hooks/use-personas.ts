@@ -188,6 +188,7 @@ export function useUpdatePersona() {
       qc.invalidateQueries({ queryKey: personaKeys.list });
       qc.invalidateQueries({ queryKey: personaKeys.summaries });
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
+      qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
