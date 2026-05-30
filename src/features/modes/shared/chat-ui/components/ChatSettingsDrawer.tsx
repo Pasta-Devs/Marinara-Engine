@@ -172,6 +172,7 @@ import { normalizeSpritePlacements } from "../../../../runtime/visuals/sprite-pl
 import {
   getCharacterIdFromSpriteOwnerKey,
   getSpriteOwnerKeysForCharacterId,
+  getSpriteOwnerKind,
   makeSpriteOwnerKey,
 } from "../../../../runtime/visuals/sprite-owner-keys";
 import {
@@ -828,6 +829,7 @@ function ChatSettingsDrawerInner({
     () => (chat.personaId ? (personas.find((persona) => persona.id === chat.personaId) ?? null) : null),
     [chat.personaId, personas],
   );
+  const activePersonaOwnerKey = chat.personaId ? makeSpriteOwnerKey("persona", chat.personaId) : null;
 
   const chatSpriteSubjects = useMemo<ChatSpriteSubject[]>(
     () => [
@@ -850,6 +852,28 @@ function ChatSettingsDrawerInner({
     ],
     [activePersona, chatCharacters],
   );
+
+  useEffect(() => {
+    const isStalePersonaOwnerKey = (ownerKey: string) =>
+      getSpriteOwnerKind(ownerKey) === "persona" && ownerKey !== activePersonaOwnerKey;
+    const nextSpriteCharacterIds = spriteCharacterIds.filter((ownerKey) => !isStalePersonaOwnerKey(ownerKey));
+    const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+    let changed = nextSpriteCharacterIds.length !== spriteCharacterIds.length;
+
+    for (const ownerKey of Object.keys(nextSpritePlacements)) {
+      if (isStalePersonaOwnerKey(ownerKey)) {
+        delete nextSpritePlacements[ownerKey];
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+    updateMeta.mutate({
+      id: chat.id,
+      spriteCharacterIds: nextSpriteCharacterIds,
+      spritePlacements: nextSpritePlacements,
+    });
+  }, [activePersonaOwnerKey, chat.id, metadata.spritePlacements, spriteCharacterIds, updateMeta]);
 
   const chatSpriteQueries = useQueries({
     queries: chatSpriteSubjects.map((subject) => ({
