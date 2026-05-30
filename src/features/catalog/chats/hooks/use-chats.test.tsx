@@ -134,4 +134,16 @@ describe("chat deletion mutations", () => {
     expect(clearChatActivityMock).toHaveBeenCalledWith("scene-chat");
     expect(clearChatActivityMock).not.toHaveBeenCalledWith("chat-other");
   });
+
+  it("does not crash when a chat group delete response omits deleted chat ids", async () => {
+    const deleteChatGroup = await renderMutation(useDeleteChatGroup);
+    groupDeleteMock.mockResolvedValue({ deleted: 1 } as Awaited<ReturnType<typeof chatCommandApi.groupDelete>>);
+
+    await act(async () => {
+      await deleteChatGroup.mutateAsync("group-1");
+    });
+
+    expect(groupDeleteMock).toHaveBeenCalledWith("group-1");
+    expect(clearChatActivityMock).not.toHaveBeenCalled();
+  });
 });

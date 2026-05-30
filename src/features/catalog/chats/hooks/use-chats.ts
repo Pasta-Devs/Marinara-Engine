@@ -592,7 +592,7 @@ export function useDeleteChatGroup() {
       return { previous, groupId };
     },
     onSuccess: (data) => {
-      for (const chatId of uniqueIds(data.deletedChatIds)) {
+      for (const chatId of uniqueIds(data.deletedChatIds ?? [])) {
         clearChatActivity(chatId);
       }
     },
