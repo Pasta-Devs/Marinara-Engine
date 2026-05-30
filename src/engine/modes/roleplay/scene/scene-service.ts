@@ -260,7 +260,7 @@ export async function forkRoleplayScene(
       await createChatMessage(storage, forkChatId, {
         role: "narrator",
         content: continuity,
-        extra: { hiddenFromAi: true, isSceneContinuity: true },
+        extra: { hiddenFromUser: true, isSceneContinuity: true },
       });
     }
   }

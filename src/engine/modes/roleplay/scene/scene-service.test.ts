@@ -282,3 +282,82 @@ describe("forkRoleplayScene folderId inheritance", () => {
     expect(payloads[0]?.folderId).toBe("folder-xyz");
   });
 });
+
+describe("forkRoleplayScene continuity", () => {
+  it("stores cloned scene continuity as prompt-visible hidden context", async () => {
+    const storage = recordingStorage({
+      "scene-1": {
+        id: "scene-1",
+        name: "Scene: Continuity",
+        mode: "roleplay",
+        characterIds: ["char-a"],
+        folderId: null,
+        groupId: null,
+        personaId: null,
+        promptPresetId: null,
+        connectionId: null,
+        metadata: {
+          sceneOriginChatId: "origin-x",
+          sceneStatus: "active",
+          sceneConversationContext: "user: The origin user remembers the old promise.",
+          sceneRelationshipHistory: "They trust each other after the archive rescue.",
+          sceneScenario: "A midnight meeting in the observatory.",
+        },
+      },
+    });
+
+    const input: SceneForkRequest = {
+      sceneChatId: "scene-1",
+      mode: "clone",
+      includePreSceneSummary: true,
+      includeParticipationGuide: false,
+    };
+
+    await forkRoleplayScene(storage.gateway, input);
+
+    expect(storage.chatMessages).toHaveLength(1);
+    expect(storage.chatMessages[0]).toMatchObject({
+      role: "narrator",
+      extra: {
+        hiddenFromUser: true,
+        isSceneContinuity: true,
+      },
+    });
+    expect((storage.chatMessages[0]?.extra as JsonRecord).hiddenFromAi).toBeUndefined();
+    expect(storage.chatMessages[0]?.content).toContain("The origin user remembers the old promise.");
+    expect(storage.chatMessages[0]?.content).toContain("They trust each other after the archive rescue.");
+    expect(storage.chatMessages[0]?.content).toContain("A midnight meeting in the observatory.");
+  });
+
+  it("does not create continuity context when pre-scene summary carryover is disabled", async () => {
+    const storage = recordingStorage({
+      "scene-1": {
+        id: "scene-1",
+        name: "Scene: No Continuity",
+        mode: "roleplay",
+        characterIds: ["char-a"],
+        folderId: null,
+        groupId: null,
+        personaId: null,
+        promptPresetId: null,
+        connectionId: null,
+        metadata: {
+          sceneOriginChatId: "origin-x",
+          sceneStatus: "active",
+          sceneConversationContext: "user: This should not be copied.",
+        },
+      },
+    });
+
+    const input: SceneForkRequest = {
+      sceneChatId: "scene-1",
+      mode: "clone",
+      includePreSceneSummary: false,
+      includeParticipationGuide: false,
+    };
+
+    await forkRoleplayScene(storage.gateway, input);
+
+    expect(storage.chatMessages).toHaveLength(0);
+  });
+});
