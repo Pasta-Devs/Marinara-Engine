@@ -177,9 +177,26 @@ where
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
     for collection in PROFILE_COLLECTIONS {
-        let mut rows = collections
-            .get(*collection)
-            .and_then(Value::as_array)
+        // A partial modern profile (a hand-built export, or a file missing a
+        // collection) must not wipe collections it does not carry. Skipping the
+        // replacement leaves the user's existing collection untouched; a
+        // collection that is present but empty is still an explicit clear and
+        // falls through to a normal empty replacement. Mirrors the legacy table
+        // path guard added in #1518.
+        let Some(collection_value) = collections.get(*collection) else {
+            continue;
+        };
+        // A present-but-non-array collection is malformed (e.g. `"characters": {}`).
+        // Coercing it to an empty array would silently clear the collection - the
+        // same data loss the absent-key skip above guards against. Reject the
+        // import instead so nothing is replaced.
+        if !collection_value.is_array() {
+            return Err(AppError::invalid_input(format!(
+                "Profile collection `{collection}` must be a JSON array"
+            )));
+        }
+        let mut rows = collection_value
+            .as_array()
             .cloned()
             .unwrap_or_default();
         if *collection == "prompt-overrides" {
@@ -408,6 +425,78 @@ mod tests {
         assert_eq!(rows[0]["enabled"], true);
         assert_eq!(result["imported"]["prompt-overrides"], 1);
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
+    }
+
+    #[test]
+    fn profile_import_modern_skips_absent_collections() {
+        let state = test_state("modern-skip-absent");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // A partial modern profile that only carries `lorebooks` must leave the
+        // absent `characters` collection untouched instead of wiping it.
+        let mut collections = Map::new();
+        collections.insert(
+            "lorebooks".to_string(),
+            json!([{ "id": "imported-lorebook" }]),
+        );
+
+        let result =
+            import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+                .expect("partial modern profile import should succeed");
+
+        let characters = state.storage.list("characters").unwrap();
+        assert_eq!(characters.len(), 1);
+        assert_eq!(characters[0]["id"], "existing-character");
+        let lorebooks = state.storage.list("lorebooks").unwrap();
+        assert_eq!(lorebooks.len(), 1);
+        assert_eq!(lorebooks[0]["id"], "imported-lorebook");
+        // Absent collections are not reported as imported.
+        assert!(result["imported"].get("characters").is_none());
+        assert_eq!(result["imported"]["lorebooks"], 1);
+    }
+
+    #[test]
+    fn profile_import_modern_present_empty_collection_clears() {
+        let state = test_state("modern-present-empty-clears");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // An explicitly present-but-empty collection is still a deliberate clear.
+        let mut collections = Map::new();
+        collections.insert("characters".to_string(), json!([]));
+
+        import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+            .expect("present-but-empty collection should clear");
+
+        assert!(state.storage.list("characters").unwrap().is_empty());
+    }
+
+    #[test]
+    fn profile_import_modern_rejects_non_array_collection() {
+        let state = test_state("modern-reject-non-array");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // A present-but-non-array collection is malformed and must be rejected
+        // before anything is replaced, so existing data is preserved.
+        let mut collections = Map::new();
+        collections.insert("characters".to_string(), json!({}));
+
+        let error =
+            import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+                .expect_err("a non-array collection should be rejected");
+        assert_eq!(error.code, "invalid_input");
+
+        let characters = state.storage.list("characters").unwrap();
+        assert_eq!(characters.len(), 1);
+        assert_eq!(characters[0]["id"], "existing-character");
     }
 
     #[test]
