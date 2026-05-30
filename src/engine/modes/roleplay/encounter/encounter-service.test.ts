@@ -20,29 +20,29 @@ const CHAT: JsonRecord = {
  *  empty collections for everything else, so the action path runs end to end. */
 function fakeStorage(): StorageGateway {
   return {
-    list: async <T,>() => [] as T[],
-    get: async <T,>(entity: string, id: string) => {
+    list: async <T>() => [] as T[],
+    get: async <T>(entity: string, id: string) => {
       if (entity === "chats" && id === "chat-1") return CHAT as T;
       if (entity === "connections" && id === "conn-1") return { id: "conn-1", name: "Test" } as T;
       return null as T | null;
     },
-    create: async <T,>() => ({}) as T,
-    update: async <T,>() => ({}) as T,
+    create: async <T>() => ({}) as T,
+    update: async <T>() => ({}) as T,
     delete: async () => ({ deleted: true }),
     listChatMessages: async () => [],
-    createChatMessage: async <T,>() => ({}) as T,
-    updateChatMessage: async <T,>() => ({}) as T,
+    createChatMessage: async <T>() => ({}) as T,
+    updateChatMessage: async <T>() => ({}) as T,
     deleteChatMessage: async () => ({ deleted: true }),
-    patchChatMessageExtra: async <T,>() => ({}) as T,
-    addChatMessageSwipe: async <T,>() => ({}) as T,
-    patchChatMetadata: async <T,>() => ({}) as T,
-    patchChatSummaries: async <T,>() => ({}) as T,
+    patchChatMessageExtra: async <T>() => ({}) as T,
+    addChatMessageSwipe: async <T>() => ({}) as T,
+    patchChatMetadata: async <T>() => ({}) as T,
+    patchChatSummaries: async <T>() => ({}) as T,
     listChatMemories: async () => [],
-    getWorldState: async <T,>() => null as T | null,
-    saveTrackerSnapshot: async <T,>() => ({}) as T,
+    getWorldState: async <T>() => null as T | null,
+    saveTrackerSnapshot: async <T>() => ({}) as T,
     listLorebookEntries: async () => [],
     createLorebookEntries: async () => [],
-    promptFull: async <T,>() => null as T | null,
+    promptFull: async <T>() => null as T | null,
   };
 }
 
@@ -66,12 +66,8 @@ function actionRequest(): EncounterActionRequest {
     connectionId: null,
     action: "I swing my sword at the dummy.",
     combatStats: {
-      party: [
-        { name: "Hero", hp: 20, maxHp: 24, attacks: [], items: [], statuses: [], isPlayer: true },
-      ],
-      enemies: [
-        { name: "Dummy", hp: 18, maxHp: 18, attacks: [], statuses: [], description: "", sprite: "" },
-      ],
+      party: [{ name: "Hero", hp: 20, maxHp: 24, attacks: [], items: [], statuses: [], isPlayer: true }],
+      enemies: [{ name: "Dummy", hp: 18, maxHp: 18, attacks: [], statuses: [], description: "", sprite: "" }],
       environment: "a training hall",
     },
     playerActions: { attacks: [], items: [] },
