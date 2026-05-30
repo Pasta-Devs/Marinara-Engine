@@ -518,11 +518,14 @@ fn import_st_chat_text(
     let mut character_name = String::new();
     let mut character_ids = Vec::new();
     let mut parsed_rows = Vec::new();
-    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
-        let parsed = match parse_json_text(line) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
+    for (index, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let parsed = parse_json_text(line).map_err(|error| {
+            AppError::invalid_input(format!("Invalid chat JSONL at line {}: {error}", index + 1))
+        })?;
         if character_name.is_empty() {
             if let Some(name) = parsed.get("character_name").and_then(Value::as_str) {
                 character_name = name.to_string();
@@ -539,6 +542,24 @@ fn import_st_chat_text(
             }
         }
         parsed_rows.push(parsed);
+    }
+    let has_importable_message = parsed_rows.iter().any(|row| {
+        if row
+            .get("is_system")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            return false;
+        }
+        row.get("mes")
+            .or_else(|| row.get("content"))
+            .and_then(Value::as_str)
+            .is_some_and(|content| !content.trim().is_empty())
+    });
+    if !has_importable_message {
+        return Err(AppError::invalid_input(
+            "Chat import JSONL must contain at least one message",
+        ));
     }
     let mut chat = ensure_object(inherited.unwrap_or_else(|| json!({})))?;
     chat.remove("id");
@@ -1049,7 +1070,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be after epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!(
+        home_dir().join(".marinara-test-temp").join(format!(
             "marinara-st-bulk-import-{label}-{}-{nonce}",
             std::process::id()
         ))
@@ -1333,6 +1354,31 @@ mod tests {
         assert!(
             messages[0].get("characterId").is_none_or(Value::is_null),
             "ST character_name alone should keep transcript messages unlinked"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_rejects_empty_or_invalid_jsonl_without_creating_chat() {
+        let app_root = temp_path("chat-empty-invalid");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        let empty_error = import_st_chat_text(&state, " \n\n", "Empty".to_string(), None)
+            .expect_err("empty JSONL should be rejected");
+        assert_eq!(empty_error.code, "invalid_input");
+        assert!(
+            state.storage.list("chats").unwrap().is_empty(),
+            "empty JSONL must not create a chat"
+        );
+
+        let invalid_error = import_st_chat_text(&state, "{not-json}", "Invalid".to_string(), None)
+            .expect_err("invalid JSONL should be rejected");
+        assert_eq!(invalid_error.code, "invalid_input");
+        assert!(
+            state.storage.list("chats").unwrap().is_empty(),
+            "invalid JSONL must not create a chat"
         );
 
         let _ = fs::remove_dir_all(app_root);

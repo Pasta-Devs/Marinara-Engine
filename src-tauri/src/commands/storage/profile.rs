@@ -155,6 +155,7 @@ fn import_profile_collections(
     data: &Map<String, Value>,
     collections: &Map<String, Value>,
 ) -> AppResult<Value> {
+    validate_native_profile_import(data, collections)?;
     let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
     let restored_count = restored_assets.restored();
     let result =
@@ -162,6 +163,41 @@ fn import_profile_collections(
             restored_assets.install()
         });
     finish_profile_import_assets(restored_assets, result)
+}
+
+pub(super) fn validate_native_profile_import(
+    data: &Map<String, Value>,
+    collections: &Map<String, Value>,
+) -> AppResult<()> {
+    match data.get("assets") {
+        Some(Value::Array(_)) => {}
+        Some(_) => {
+            return Err(AppError::invalid_input(
+                "Profile export data.assets must be a JSON array",
+            ));
+        }
+        None => {
+            return Err(AppError::invalid_input(
+                "Native profile export is missing data.assets",
+            ));
+        }
+    }
+    for collection in PROFILE_COLLECTIONS {
+        match collections.get(*collection) {
+            Some(Value::Array(_)) => {}
+            Some(_) => {
+                return Err(AppError::invalid_input(format!(
+                    "Profile collection `{collection}` must be a JSON array"
+                )));
+            }
+            None => {
+                return Err(AppError::invalid_input(format!(
+                    "Native profile export is missing collection `{collection}`"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn import_profile_collections_with_restored_assets<F>(
@@ -374,6 +410,104 @@ mod tests {
             state.storage.list("characters").unwrap()[0]["id"],
             "old-character"
         );
+    }
+
+    #[test]
+    fn native_profile_import_rejects_missing_assets_without_wiping_existing_assets() {
+        let state = test_state("missing-assets-no-wipe");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+        let collections = complete_empty_profile_collections();
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections
+                }
+            }),
+        )
+        .expect_err("native profile missing data.assets should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    #[test]
+    fn native_profile_import_rejects_missing_collection_without_wiping_existing_rows() {
+        let state = test_state("missing-collection-no-wipe");
+        state
+            .storage
+            .upsert_with_id(
+                "characters",
+                "char-1",
+                json!({ "name": "Keep Me", "data": { "name": "Keep Me" } }),
+            )
+            .expect("seeded character should write");
+        let mut collections = complete_empty_profile_collections();
+        collections.remove("characters");
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect_err("native profile missing a collection should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .is_some());
+    }
+
+    #[test]
+    fn legacy_profile_import_without_files_preserves_existing_assets() {
+        let state = test_state("legacy-missing-files-preserves-assets");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "chats": []
+                        }
+                    }
+                }
+            }),
+        )
+        .expect("legacy profile without files should import partial tables");
+
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    fn complete_empty_profile_collections() -> Map<String, Value> {
+        PROFILE_COLLECTIONS
+            .iter()
+            .map(|collection| ((*collection).to_string(), json!([])))
+            .collect()
     }
 
     #[test]

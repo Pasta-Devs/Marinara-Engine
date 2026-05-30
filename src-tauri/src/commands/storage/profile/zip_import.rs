@@ -1,7 +1,7 @@
 use super::assets::{normalize_zip_entry_name, restore_profile_zip_assets};
 use super::{
     finish_profile_import_assets, import_profile_collections_with_restored_assets,
-    legacy::import_legacy_profile_tables_with_restored_assets,
+    legacy::import_legacy_profile_tables_with_restored_assets, validate_native_profile_import,
 };
 use crate::state::AppState;
 use marinara_core::{AppError, AppResult};
@@ -35,6 +35,7 @@ pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Val
         .and_then(|value| value.get("files"))
         .or_else(|| data.get("assets"));
     if let Some(collections) = data.get("collections").and_then(Value::as_object) {
+        validate_native_profile_import(data, collections)?;
         let mut restored_assets =
             restore_profile_zip_assets(state, &mut archive, &names, &profile_prefix, files)?;
         let restored_count = restored_assets.restored();
