@@ -145,11 +145,7 @@ describe("persistConnectedCommandTags command failures", () => {
     const chats = new Map<string, Row>([["conversation-1", conversation]]);
     const storage = storageWithChats(chats);
 
-    const result = await persistConnectedCommandTags(
-      storage,
-      conversation,
-      '[haptic: action="vibrate"]',
-    );
+    const result = await persistConnectedCommandTags(storage, conversation, '[haptic: action="vibrate"]');
 
     expect(result.events.some((event) => event.type === "command_error")).toBe(true);
     const haptic = result.events.find(
@@ -164,11 +160,7 @@ describe("persistConnectedCommandTags command failures", () => {
     const chats = new Map<string, Row>([["conversation-1", conversation]]);
     const storage = storageWithChats(chats);
 
-    const result = await persistConnectedCommandTags(
-      storage,
-      conversation,
-      "<note>[12:01] Remember the door.</note>",
-    );
+    const result = await persistConnectedCommandTags(storage, conversation, "<note>[12:01] Remember the door.</note>");
 
     expect(result.events.some((event) => event.type === "command_error")).toBe(false);
     expect(result.executedCommands).toContain("note");
