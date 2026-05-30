@@ -772,6 +772,22 @@ mod tests {
     }
 
     #[test]
+    fn apply_storage_search_matches_non_ascii_case() {
+        let mut rows = vec![json!({
+            "id": "char-elodie",
+            "data": {
+                "name": "Élodie",
+                "description": "Archivist"
+            }
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "élodie" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-elodie");
+    }
+
+    #[test]
     fn apply_storage_search_matches_character_prompt_fields() {
         let rows = vec![
             json!({
@@ -1677,7 +1693,7 @@ pub(crate) fn apply_storage_search(rows: &mut Vec<Value>, options: Option<&Value
     };
     let terms = query
         .split_whitespace()
-        .map(|term| term.to_ascii_lowercase())
+        .map(|term| term.to_lowercase())
         .filter(|term| !term.is_empty())
         .collect::<Vec<_>>();
     if terms.is_empty() {
@@ -1729,7 +1745,7 @@ fn row_matches_search_term(row: &Value, term: &str) -> bool {
 
 fn value_matches_search_term(value: Option<&Value>, term: &str) -> bool {
     match value {
-        Some(Value::String(value)) => value.to_ascii_lowercase().contains(term),
+        Some(Value::String(value)) => value.to_lowercase().contains(term),
         Some(Value::Array(values)) => values
             .iter()
             .any(|value| value_matches_search_term(Some(value), term)),

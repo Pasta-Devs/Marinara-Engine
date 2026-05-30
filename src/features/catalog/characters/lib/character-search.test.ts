@@ -48,12 +48,12 @@ describe("character search helpers", () => {
             scenario: "Hidden winter archive",
             alternate_greetings: ["The moon sigil opens the annex."],
             extensions: {
-              altDescriptions: [{ content: "Carries a silver lantern." }],
+              altDescriptions: [{ label: "Lantern bearer", content: "Carries a silver lantern." }],
             },
             tags: ["Mage"],
           },
         },
-        ["winter", "mage", "sigil", "lantern"],
+        ["winter", "mage", "sigil", "bearer", "lantern"],
       ),
     ).toBe(true);
   });

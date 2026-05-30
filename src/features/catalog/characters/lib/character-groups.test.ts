@@ -7,5 +7,9 @@ describe("character group helpers", () => {
     expect(normalizeCharacterGroupMemberIds('["char-c"," ","char-d"]')).toEqual(["char-c", "char-d"]);
     expect(normalizeCharacterGroupMemberIds("char-e")).toEqual(["char-e"]);
     expect(normalizeCharacterGroupMemberIds(null)).toEqual([]);
+    expect(normalizeCharacterGroupMemberIds(undefined)).toEqual([]);
+    expect(normalizeCharacterGroupMemberIds([])).toEqual([]);
+    expect(normalizeCharacterGroupMemberIds("[]")).toEqual([]);
+    expect(normalizeCharacterGroupMemberIds("{malformed}")).toEqual(["{malformed}"]);
   });
 });

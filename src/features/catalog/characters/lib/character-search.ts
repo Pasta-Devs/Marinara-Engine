@@ -74,9 +74,10 @@ function characterExtensionSearchValues(data: CharacterSearchData): string[] {
     depthPrompt && typeof depthPrompt === "object" && !Array.isArray(depthPrompt)
       ? asSearchText((depthPrompt as Record<string, unknown>).prompt)
       : "",
-    ...altDescriptions.map((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return "";
-      return asSearchText((entry as Record<string, unknown>).content);
+    ...altDescriptions.flatMap((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+      const alt = entry as Record<string, unknown>;
+      return [asSearchText(alt.label), asSearchText(alt.content)].filter(Boolean);
     }),
   ].filter(Boolean);
 }
