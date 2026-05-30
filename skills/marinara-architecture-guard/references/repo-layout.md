@@ -102,6 +102,7 @@ Important feature owners:
 
 - `features/catalog/chats`: chat data hooks, mutations, folders, query keys, and storage-facing types.
 - `features/catalog/characters`, `features/catalog/personas`, `features/catalog/lorebooks`, `features/catalog/presets`, `features/catalog/chat-presets`: library data and editing surfaces.
+- `features/catalog/sprites`: shared sprite query keys, types, and React Query hooks for character and persona sprite owners.
 - `features/catalog/connections`, `features/catalog/agents`, `features/catalog/gallery`, `features/catalog/knowledge`: data owners and resource hooks.
 - `features/runtime/generation`: generation hook binding UI state and capability adapters to engine generation.
 - `features/runtime/world-state`, `features/runtime/visuals`, `features/runtime/tracker`, `features/runtime/haptics`: shared runtime systems used by modes and shell.

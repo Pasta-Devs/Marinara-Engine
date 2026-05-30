@@ -55,7 +55,7 @@ The refactor branch is layered by ownership:
 - `src/features/shell` owns settings, imports, onboarding, Professor Mari, and integrations surfaces.
 - `src/features/modes` owns chat, roleplay, game, shared transcript UI, and the mode router.
 - `src/features/runtime` owns shared runtime systems such as generation, world-state, visuals, tracker, and haptics.
-- `src/features/catalog` owns resource-library UI and hooks for chats, characters, personas, lorebooks, presets, connections, agents, gallery, and knowledge sources.
+- `src/features/catalog` owns resource-library UI and hooks for chats, characters, personas, sprites, lorebooks, presets, connections, agents, gallery, and knowledge sources.
 - `src/shared` owns feature-neutral frontend components, hooks, stores, types, and browser helpers.
 - `src/shared/api` owns typed adapters for embedded Tauri commands and the optional remote Rust runtime.
 - `src/engine` owns React-free product behavior, contracts, generation, agents, capability ports, and mode engines.

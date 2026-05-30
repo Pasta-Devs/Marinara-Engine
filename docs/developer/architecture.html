@@ -50,7 +50,7 @@ flowchart TB
     ShellLayer[shell<br/>settings, connections UI, Mari,<br/>imports, bot browser, onboarding,<br/>notifications, Spotify]
     ModesLayer[modes<br/>router, shared chat UI, shared scene UI,<br/>conversation, roleplay, game, game-assets]
     RuntimeLayer[runtime<br/>generation, world-state,<br/>visuals, tracker, haptics]
-    CatalogLayer[catalog<br/>chats, characters, personas,<br/>lorebooks, presets, chat-presets,<br/>connections data, agents, gallery, knowledge]
+    CatalogLayer[catalog<br/>chats, characters, personas, sprites,<br/>lorebooks, presets, chat-presets,<br/>connections data, agents, gallery, knowledge]
   end
 
   subgraph Shared[src/shared]
@@ -170,7 +170,7 @@ flowchart TB
               <td>
                 <code>agents</code>, <code>characters</code>, <code>chat-presets</code>, <code>chats</code>,
                 <code>connections</code>, <code>gallery</code>, <code>knowledge</code>, <code>lorebooks</code>,
-                <code>personas</code>, <code>presets</code>.
+                <code>personas</code>, <code>presets</code>, <code>sprites</code>.
               </td>
               <td>Own resource hooks, storage-facing types, query keys, and library/editor surfaces.</td>
               <td>Import runtime systems, mode UI, or shell tools.</td>
@@ -286,8 +286,10 @@ flowchart TB
             </tr>
             <tr>
               <td><code>catalog/characters</code></td>
-              <td>Character library hooks, groups, sprites, start-chat helpers, and character shell surfaces.</td>
-              <td>Persona data hooks and persona groups live behind <code>catalog/personas</code>.</td>
+              <td>Character library hooks, groups, start-chat helpers, and character shell surfaces.</td>
+              <td>
+                Shared character/persona sprite hooks and query keys live behind <code>catalog/sprites</code>.
+              </td>
             </tr>
             <tr>
               <td><code>catalog/personas</code></td>
@@ -295,6 +297,14 @@ flowchart TB
               <td>
                 Public persona data callers import from <code>catalog/personas/index.ts</code>. App-shell lazy UI
                 entrypoints keep using <code>catalog/personas/shell.ts</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>catalog/sprites</code></td>
+              <td>Shared sprite query keys, types, and React Query hooks for character and persona sprite owners.</td>
+              <td>
+                Runtime and mode callers import the public sprite API instead of reaching into character or persona
+                editor internals.
               </td>
             </tr>
             <tr>
