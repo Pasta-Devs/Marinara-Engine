@@ -15,25 +15,36 @@ import {
 import { useCharacter, useCharacterSummaries, type CharacterSummary } from "../hooks/use-characters";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
+import {
+  characterHasAnyExcludedTag,
+  getCharacterTagsFromData,
+  parseCharacterSearchQuery,
+  type CharacterSearchData,
+} from "../lib/character-search";
 import { getCharacterTitle } from "../../../../shared/lib/character-display";
 import { cn } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
-type CharacterData = Record<string, unknown> & {
+type CharacterData = CharacterSearchData & {
   name?: string;
   description?: string;
   personality?: string;
   scenario?: string;
   first_mes?: string;
+  mes_example?: string;
   creator_notes?: string;
   creator?: string;
   character_version?: string;
+  system_prompt?: string;
+  post_history_instructions?: string;
   tags?: string[];
   alternate_greetings?: string[];
 };
 
 type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";
+const CHARACTER_LIBRARY_SORT_SESSION_KEY = "marinara:character-library-sort";
+const SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const satisfies SortOption[];
 
 type CharacterRow = {
   id: string;
@@ -58,16 +69,6 @@ function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
 
 function getText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function splitSearchTerms(value: string): string[] {
-  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-}
-
-function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
-  if (terms.length === 0) return true;
-  const searchableValues = values.map((value) => value.toLowerCase());
-  return terms.every((term) => searchableValues.some((value) => value.includes(term)));
 }
 
 function getCharacterSummary(char: ParsedCharacterRow) {
@@ -128,6 +129,28 @@ function gridColumnCount(width: number): number {
   if (width >= 1024) return 3;
   if (width >= 640) return 2;
   return 1;
+}
+
+function isSortOption(value: string | null): value is SortOption {
+  return SORT_OPTIONS.includes(value as SortOption);
+}
+
+function readSessionSort(): SortOption {
+  if (typeof window === "undefined") return "name-asc";
+  try {
+    const storedSort = window.sessionStorage.getItem(CHARACTER_LIBRARY_SORT_SESSION_KEY);
+    return isSortOption(storedSort) ? storedSort : "name-asc";
+  } catch {
+    return "name-asc";
+  }
+}
+
+function writeSessionSort(sort: SortOption): void {
+  try {
+    window.sessionStorage.setItem(CHARACTER_LIBRARY_SORT_SESSION_KEY, sort);
+  } catch {
+    // Session storage may be unavailable; the mounted control still works.
+  }
 }
 
 function getCharacterSections(char: ParsedCharacterRow) {
@@ -275,11 +298,12 @@ export function CharacterLibraryView() {
   const openModal = useUIStore((s) => s.openModal);
 
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortOption>("name-asc");
+  const [sort, setSort] = useState<SortOption>(readSessionSort);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 180);
-  const { data: characters, isLoading, isFetching, isError, refetch } = useCharacterSummaries(true, debouncedSearch);
+  const searchQuery = useMemo(() => parseCharacterSearchQuery(debouncedSearch), [debouncedSearch]);
+  const { data: characters, isLoading, isFetching, isError, refetch } = useCharacterSummaries(true, searchQuery.text);
   const selectedCharacterQuery = useCharacter(selectedCharacterId);
   const { data: selectedCharacterDetail } = selectedCharacterQuery;
   const listScrollRef = useRef<HTMLElement | null>(null);
@@ -291,23 +315,13 @@ export function CharacterLibraryView() {
   }, [characters]);
 
   const filteredCharacters = useMemo(() => {
-    const terms = splitSearchTerms(debouncedSearch);
-
     return parsedCharacters.filter((char) => {
       const isFavorite = !!char.parsed.extensions?.fav;
       if (favoritesOnly && !isFavorite) return false;
-
-      const fields = [
-        getText(char.parsed.name),
-        getText(char.comment),
-        getText(char.parsed.creator),
-        getText(char.parsed.creator_notes),
-        ...((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]),
-      ];
-
-      return searchValuesMatchTerms(fields, terms);
+      if (characterHasAnyExcludedTag(char.parsed, searchQuery.excludedTags)) return false;
+      return true;
     });
-  }, [debouncedSearch, favoritesOnly, parsedCharacters]);
+  }, [favoritesOnly, parsedCharacters, searchQuery.excludedTags]);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];
@@ -367,6 +381,12 @@ export function CharacterLibraryView() {
   useEffect(() => {
     rowVirtualizer.measure();
   }, [rowVirtualizer, selectedCharacterDetail, selectedCharacterId]);
+
+  const handleSortChange = (value: string) => {
+    if (!isSortOption(value)) return;
+    setSort(value);
+    writeSessionSort(value);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)]">
@@ -429,7 +449,7 @@ export function CharacterLibraryView() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search names, tags, creators, or notes"
+              placeholder='Search names, tags, descriptions, or -tag:"tag name"'
               className="w-full rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-8.5 pr-3 text-[0.8125rem] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-9 md:text-sm"
             />
           </div>
@@ -451,7 +471,7 @@ export function CharacterLibraryView() {
             <div className="relative min-w-0 flex-1 sm:w-auto sm:flex-none">
               <select
                 value={sort}
-                onChange={(event) => setSort(event.target.value as SortOption)}
+                onChange={(event) => handleSortChange(event.target.value)}
                 className="w-full appearance-none rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-3 pr-8 text-[0.8125rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-3.5 md:pr-9 md:text-sm"
               >
                 <option value="name-asc">Name A-Z</option>
@@ -523,9 +543,7 @@ export function CharacterLibraryView() {
                       const cardSummary = truncateText(getCharacterSummary(char), 180);
                       const cardMeta = getCharacterMeta(char);
                       const isFavorite = !!char.parsed.extensions?.fav;
-                      const tags = ((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]).filter(
-                        Boolean,
-                      );
+                      const tags = getCharacterTagsFromData(char.parsed);
                       const isActive = selectedCharacterId === char.id;
                       const avatarUrl = characterAvatarUrl(char);
 

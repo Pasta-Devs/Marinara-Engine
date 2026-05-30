@@ -772,6 +772,58 @@ mod tests {
     }
 
     #[test]
+    fn apply_storage_search_matches_character_prompt_fields() {
+        let rows = vec![
+            json!({
+                "id": "char-rina",
+                "comment": "ice mage",
+                "data": {
+                    "name": "Rina",
+                    "description": "Frost academy rival",
+                    "personality": "Dry humor",
+                    "scenario": "Hidden winter archive",
+                    "first_mes": "The gate is frozen shut.",
+                    "mes_example": "Rina: Keep up.",
+                    "system_prompt": "Protect the archive.",
+                    "post_history_instructions": "Stay wary.",
+                    "alternate_greetings": ["The lantern sigil glows."],
+                    "extensions": {
+                        "backstory": "Raised by the north library.",
+                        "appearance": "Silver cloak.",
+                        "altDescriptions": [{ "content": "Carries an aurora lantern." }],
+                        "depth_prompt": { "prompt": "The moon sigil matters." }
+                    },
+                    "tags": ["Mage"]
+                }
+            }),
+            json!({
+                "id": "char-mari",
+                "comment": "assistant",
+                "data": {
+                    "name": "Professor Mari",
+                    "description": "Codebase helper",
+                    "tags": ["Guide"]
+                }
+            }),
+        ];
+
+        let mut prompt_rows = rows.clone();
+        apply_storage_search(&mut prompt_rows, Some(&json!({ "search": "winter sigil" })));
+
+        assert_eq!(prompt_rows.len(), 1);
+        assert_eq!(prompt_rows[0]["id"], "char-rina");
+
+        let mut alternate_rows = rows;
+        apply_storage_search(
+            &mut alternate_rows,
+            Some(&json!({ "search": "aurora lantern" })),
+        );
+
+        assert_eq!(alternate_rows.len(), 1);
+        assert_eq!(alternate_rows[0]["id"], "char-rina");
+    }
+
+    #[test]
     fn apply_storage_search_ignores_avatar_payload_text() {
         let mut rows = vec![json!({
             "id": "char-rina",
@@ -1663,6 +1715,15 @@ fn row_matches_search_term(row: &Value, term: &str) -> bool {
                 || value_matches_search_term(data.get("creator"), term)
                 || value_matches_search_term(data.get("creator_notes"), term)
                 || value_matches_search_term(data.get("tags"), term)
+                || value_matches_search_term(data.get("description"), term)
+                || value_matches_search_term(data.get("personality"), term)
+                || value_matches_search_term(data.get("scenario"), term)
+                || value_matches_search_term(data.get("first_mes"), term)
+                || value_matches_search_term(data.get("mes_example"), term)
+                || value_matches_search_term(data.get("system_prompt"), term)
+                || value_matches_search_term(data.get("post_history_instructions"), term)
+                || value_matches_search_term(data.get("alternate_greetings"), term)
+                || character_extension_matches_search_term(data.get("extensions"), term)
         })
 }
 
@@ -1674,6 +1735,38 @@ fn value_matches_search_term(value: Option<&Value>, term: &str) -> bool {
             .any(|value| value_matches_search_term(Some(value), term)),
         _ => false,
     }
+}
+
+fn character_extension_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(extensions) = json_object_value(value) else {
+        return false;
+    };
+    let Some(extensions) = extensions.as_object() else {
+        return false;
+    };
+    value_matches_search_term(extensions.get("backstory"), term)
+        || value_matches_search_term(extensions.get("appearance"), term)
+        || value_matches_search_term(extensions.get("world"), term)
+        || character_alt_description_matches_search_term(extensions.get("altDescriptions"), term)
+        || json_object_value(extensions.get("depth_prompt")).is_some_and(|depth_prompt| {
+            depth_prompt.as_object().is_some_and(|depth_prompt| {
+                value_matches_search_term(depth_prompt.get("prompt"), term)
+            })
+        })
+}
+
+fn character_alt_description_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(Value::Array(alt_descriptions)) = value else {
+        return false;
+    };
+    alt_descriptions.iter().any(|entry| {
+        json_object_value(Some(entry)).is_some_and(|entry| {
+            entry.as_object().is_some_and(|entry| {
+                value_matches_search_term(entry.get("label"), term)
+                    || value_matches_search_term(entry.get("content"), term)
+            })
+        })
+    })
 }
 
 fn swipe_content_matches_search_term(value: Option<&Value>, term: &str) -> bool {

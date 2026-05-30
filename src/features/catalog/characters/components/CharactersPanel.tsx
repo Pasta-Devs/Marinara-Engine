@@ -15,6 +15,14 @@ import {
   useDuplicateCharacter,
 } from "../hooks/use-characters";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
+import {
+  characterHasAnyExcludedTag,
+  countIncludedTagMatches,
+  getCharacterTagsFromData,
+  parseCharacterSearchQuery,
+  type CharacterSearchData,
+} from "../lib/character-search";
+import { normalizeCharacterGroupMemberIds } from "../lib/character-groups";
 import { useUpdateChat, useCreateMessage, chatKeys } from "../../chats/index";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { exportApi } from "../../../../shared/api/export-api";
@@ -56,7 +64,7 @@ import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
 type CharacterRow = {
   id: string;
-  data: Record<string, any>;
+  data: CharacterSearchData & Record<string, any>;
   comment?: string | null;
   avatarPath?: string | null;
   avatarFilePath?: string | null;
@@ -64,51 +72,19 @@ type CharacterRow = {
   createdAt?: string;
   updatedAt?: string;
 };
-type GroupRow = { id: string; name: string; description: string; characterIds: string; avatarPath: string | null };
+type GroupRow = { id: string; name: string; description?: string; characterIds?: unknown; avatarPath?: string | null };
 type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
+type ParsedGroupRow = Omit<GroupRow, "characterIds"> & {
+  characterIds: string[];
+  memberIds: string[];
+  isSynthetic?: boolean;
+};
 
 type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";
+const UNGROUPED_CHARACTER_GROUP_ID = "__ungrouped-characters__";
 
 function getCharacterTags(char: ParsedCharacterRow): string[] {
-  return Array.isArray(char.parsed.tags) ? (char.parsed.tags as string[]).filter(Boolean) : [];
-}
-
-function splitSearchTerms(value: string): string[] {
-  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-}
-
-function parseCharacterSearchQuery(value: string) {
-  const excludedTags: string[] = [];
-  const text = value
-    .replace(/(?:^|\s)(?:-|!)(?:tag:|#)?(?:"([^"]+)"|(\S+))/gi, (_match, quoted: string, bare: string) => {
-      const tag = (quoted ?? bare ?? "").trim();
-      if (tag) excludedTags.push(tag.toLowerCase());
-      return " ";
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return {
-    text: text.toLowerCase(),
-    terms: splitSearchTerms(text),
-    excludedTags,
-  };
-}
-
-function getSearchText(value: unknown): string {
-  return typeof value === "string" ? value.toLowerCase() : "";
-}
-
-function characterMatchesSearchTerms(char: ParsedCharacterRow, terms: string[]): boolean {
-  if (terms.length === 0) return true;
-  const values = [
-    getSearchText(char.parsed.name),
-    getSearchText(char.comment),
-    getSearchText(char.parsed.creator),
-    getSearchText(char.parsed.creator_notes),
-    ...getCharacterTags(char).map((tag) => tag.toLowerCase()),
-  ].filter(Boolean);
-  return terms.every((term) => values.some((value) => value.includes(term)));
+  return getCharacterTagsFromData(char.parsed);
 }
 
 function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
@@ -194,7 +170,7 @@ export function CharactersPanel() {
     message: string;
     alternateGreetings: string[];
   } | null>(null);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [includedTags, setIncludedTags] = useState<Set<string>>(new Set());
   const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set());
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [favFilter, setFavFilter] = useState<"all" | "favorites" | "non-favorites">("all");
@@ -242,29 +218,19 @@ export function CharactersPanel() {
     } else if (favFilter === "non-favorites") {
       list = list.filter((c) => !c.parsed.extensions?.fav);
     }
-    // Filter by active tag
-    if (activeTag) {
-      list = list.filter((c) => getCharacterTags(c).some((t) => t === activeTag));
+    // Filter by included tags (OR logic), then exclude any negated tags.
+    if (includedTags.size > 0) {
+      list = list.filter((c) => countIncludedTagMatches(c.parsed, includedTags) > 0);
     }
     const excludedTagFilters = new Set([
       ...Array.from(excludedTags, (tag) => tag.toLowerCase()),
       ...searchQuery.excludedTags,
     ]);
     if (excludedTagFilters.size > 0) {
-      list = list.filter((c) => {
-        const tags = new Set(getCharacterTags(c).map((tag) => tag.toLowerCase()));
-        for (const tag of excludedTagFilters) {
-          if (tags.has(tag)) return false;
-        }
-        return true;
-      });
-    }
-    // Filter by search text
-    if (searchQuery.terms.length > 0) {
-      list = list.filter((c) => characterMatchesSearchTerms(c, searchQuery.terms));
+      list = list.filter((c) => !characterHasAnyExcludedTag(c.parsed, excludedTagFilters));
     }
     return list;
-  }, [parsedCharacters, searchQuery.excludedTags, searchQuery.terms, activeTag, excludedTags, favFilter]);
+  }, [parsedCharacters, searchQuery.excludedTags, includedTags, excludedTags, favFilter]);
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {
@@ -295,7 +261,12 @@ export function CharactersPanel() {
           const newTags = getCharacterTags(c).filter((t) => t !== tag);
           await updateCharacter.mutateAsync({ id: c.id, data: { tags: newTags } });
         }
-        if (activeTag === tag) setActiveTag(null);
+        setIncludedTags((prev) => {
+          if (!prev.has(tag)) return prev;
+          const next = new Set(prev);
+          next.delete(tag);
+          return next;
+        });
         setExcludedTags((prev) => {
           if (!prev.has(tag)) return prev;
           const next = new Set(prev);
@@ -306,11 +277,19 @@ export function CharactersPanel() {
         toast.error("Failed to remove tag from some characters");
       }
     },
-    [parsedCharacters, updateCharacter, activeTag],
+    [parsedCharacters, updateCharacter],
   );
 
   const toggleIncludedTag = useCallback((tag: string) => {
-    setActiveTag((current) => (current === tag ? null : tag));
+    setIncludedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
+      return next;
+    });
     setExcludedTags((prev) => {
       if (!prev.has(tag)) return prev;
       const next = new Set(prev);
@@ -320,7 +299,12 @@ export function CharactersPanel() {
   }, []);
 
   const toggleExcludedTag = useCallback((tag: string) => {
-    setActiveTag((current) => (current === tag ? null : current));
+    setIncludedTags((prev) => {
+      if (!prev.has(tag)) return prev;
+      const next = new Set(prev);
+      next.delete(tag);
+      return next;
+    });
     setExcludedTags((prev) => {
       const next = new Set(prev);
       if (next.has(tag)) {
@@ -333,32 +317,50 @@ export function CharactersPanel() {
   }, []);
 
   const clearTagFilters = useCallback(() => {
-    setActiveTag(null);
+    setIncludedTags(new Set());
     setExcludedTags(new Set());
   }, []);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];
+    const hasIncludedTags = includedTags.size > 0;
+    const matchCounts = hasIncludedTags
+      ? new Map(list.map((char) => [char.id, countIncludedTagMatches(char.parsed, includedTags)]))
+      : null;
+    const compareIncludedTagMatches = (left: ParsedCharacterRow, right: ParsedCharacterRow) => {
+      if (!matchCounts) return 0;
+      return (matchCounts.get(right.id) ?? 0) - (matchCounts.get(left.id) ?? 0);
+    };
     switch (sort) {
       case "name-asc":
-        return list.sort((a, b) => (a.parsed.name ?? "").localeCompare(b.parsed.name ?? ""));
+        return list.sort(
+          (a, b) => compareIncludedTagMatches(a, b) || (a.parsed.name ?? "").localeCompare(b.parsed.name ?? ""),
+        );
       case "name-desc":
-        return list.sort((a, b) => (b.parsed.name ?? "").localeCompare(a.parsed.name ?? ""));
+        return list.sort(
+          (a, b) => compareIncludedTagMatches(a, b) || (b.parsed.name ?? "").localeCompare(a.parsed.name ?? ""),
+        );
       case "newest":
-        return list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+        return list.sort(
+          (a, b) => compareIncludedTagMatches(a, b) || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
+        );
       case "oldest":
-        return list.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+        return list.sort(
+          (a, b) => compareIncludedTagMatches(a, b) || (a.createdAt ?? "").localeCompare(b.createdAt ?? ""),
+        );
       case "favorites":
         return list.sort((a, b) => {
           const aFav = a.parsed.extensions?.fav ? 1 : 0;
           const bFav = b.parsed.extensions?.fav ? 1 : 0;
           if (bFav !== aFav) return bFav - aFav;
+          const tagMatchDiff = compareIncludedTagMatches(a, b);
+          if (tagMatchDiff !== 0) return tagMatchDiff;
           return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
         });
       default:
         return list;
     }
-  }, [filteredCharacters, sort]);
+  }, [filteredCharacters, includedTags, sort]);
 
   const rowVirtualizer = useVirtualizer({
     count: sortedCharacters.length,
@@ -367,19 +369,36 @@ export function CharactersPanel() {
     overscan: 10,
   });
 
-  const parsedGroups = useMemo(() => {
+  const parsedGroups = useMemo<ParsedGroupRow[]>(() => {
     if (!groups) return [];
-    return (groups as GroupRow[]).map((g) => ({
-      ...g,
-      memberIds: (() => {
-        try {
-          return Array.isArray(g.characterIds) ? g.characterIds : [];
-        } catch {
-          return [];
-        }
-      })() as string[],
-    }));
-  }, [groups]);
+    const assignedIds = new Set<string>();
+    const realGroups = (groups as GroupRow[]).map((g) => {
+      const memberIds = normalizeCharacterGroupMemberIds(g.characterIds);
+      for (const id of memberIds) assignedIds.add(id);
+      return {
+        ...g,
+        characterIds: memberIds,
+        memberIds,
+      };
+    });
+    const ungroupedMemberIds = parsedCharacters
+      .filter((char) => !assignedIds.has(char.id))
+      .sort((a, b) => (a.parsed.name ?? "").localeCompare(b.parsed.name ?? ""))
+      .map((char) => char.id);
+    if (ungroupedMemberIds.length === 0) return realGroups;
+    return [
+      ...realGroups,
+      {
+        id: UNGROUPED_CHARACTER_GROUP_ID,
+        name: "Ungrouped",
+        description: "Characters not assigned to any group",
+        characterIds: ungroupedMemberIds,
+        avatarPath: null,
+        memberIds: ungroupedMemberIds,
+        isSynthetic: true,
+      },
+    ];
+  }, [groups, parsedCharacters]);
 
   const loadFullCharacter = useCallback(async (charId: string): Promise<ParsedCharacterRow | null> => {
     try {
@@ -667,23 +686,29 @@ export function CharactersPanel() {
             onClick={() => setTagsExpanded(!tagsExpanded)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
-              activeTag || excludedTags.size > 0
+              includedTags.size > 0 || excludedTags.size > 0
                 ? "bg-[var(--primary)]/15 text-[var(--primary)]"
                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
             )}
           >
             <Tag size="0.625rem" />
             Tags ({allTags.length})
-            {(activeTag || excludedTags.size > 0) && (
+            {(includedTags.size > 0 || excludedTags.size > 0) && (
               <span className="ml-0.5 opacity-70">
-                · {[activeTag, excludedTags.size > 0 ? `-${excludedTags.size}` : null].filter(Boolean).join(" · ")}
+                ·{" "}
+                {[
+                  includedTags.size > 0 ? `+${includedTags.size}` : null,
+                  excludedTags.size > 0 ? `-${excludedTags.size}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
             )}
             <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
           </button>
           {tagsExpanded && (
             <div className="flex flex-wrap gap-1">
-              {(activeTag || excludedTags.size > 0) && (
+              {(includedTags.size > 0 || excludedTags.size > 0) && (
                 <button
                   onClick={clearTagFilters}
                   className="flex items-center gap-1 rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20"
@@ -692,7 +717,7 @@ export function CharactersPanel() {
                 </button>
               )}
               {allTags.map((tag) => {
-                const included = activeTag === tag;
+                const included = includedTags.has(tag);
                 const excluded = excludedTags.has(tag);
                 return (
                   <div
@@ -913,6 +938,7 @@ export function CharactersPanel() {
               const isExpanded = expandedGroupId === group.id;
               const isEditing = editingGroupId === group.id;
               const isAssigning = assigningToGroup === group.id;
+              const isSynthetic = group.isSynthetic === true;
 
               return (
                 <div
@@ -962,43 +988,47 @@ export function CharactersPanel() {
                           <UserPlus size="0.6875rem" className="text-[var(--primary)]" />
                         </button>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isAssigning) {
-                            exitSelectionMode();
-                          }
-                          setAssigningToGroup(isAssigning ? null : group.id);
-                        }}
-                        className={cn(
-                          "rounded-lg p-1 transition-all hover:bg-[var(--accent)]",
-                          isAssigning && "bg-[var(--primary)]/15 text-[var(--primary)]",
-                        )}
-                        title={isAssigning ? "Done assigning" : "Add/remove members"}
-                      >
-                        <Users size="0.6875rem" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingGroupId(group.id);
-                          setEditGroupName(group.name);
-                        }}
-                        className="rounded-lg p-1 transition-all hover:bg-[var(--accent)]"
-                        title="Rename group"
-                      >
-                        <Pencil size="0.6875rem" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteGroup.mutate(group.id);
-                        }}
-                        className="rounded-lg p-1 transition-all hover:bg-[var(--destructive)]/15"
-                        title="Delete group"
-                      >
-                        <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
-                      </button>
+                      {!isSynthetic && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isAssigning) {
+                                exitSelectionMode();
+                              }
+                              setAssigningToGroup(isAssigning ? null : group.id);
+                            }}
+                            className={cn(
+                              "rounded-lg p-1 transition-all hover:bg-[var(--accent)]",
+                              isAssigning && "bg-[var(--primary)]/15 text-[var(--primary)]",
+                            )}
+                            title={isAssigning ? "Done assigning" : "Add/remove members"}
+                          >
+                            <Users size="0.6875rem" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingGroupId(group.id);
+                              setEditGroupName(group.name);
+                            }}
+                            className="rounded-lg p-1 transition-all hover:bg-[var(--accent)]"
+                            title="Rename group"
+                          >
+                            <Pencil size="0.6875rem" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteGroup.mutate(group.id);
+                            }}
+                            className="rounded-lg p-1 transition-all hover:bg-[var(--destructive)]/15"
+                            title="Delete group"
+                          >
+                            <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1061,16 +1091,18 @@ export function CharactersPanel() {
                             >
                               <MessageCircle size="0.6875rem" />
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleGroupMember(group.id, memberId, group.memberIds);
-                              }}
-                              className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
-                              title="Remove from group"
-                            >
-                              <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
-                            </button>
+                            {!isSynthetic && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleGroupMember(group.id, memberId, group.memberIds);
+                                }}
+                                className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
+                                title="Remove from group"
+                              >
+                                <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
