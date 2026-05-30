@@ -1258,7 +1258,9 @@ mod tests {
     }
 
     fn upload_body(name: &str) -> Value {
-        let bytes = [137_u8, 80, 78, 71];
+        // Full 8-byte PNG signature so the image-byte validation in
+        // decode_uploaded_image_file recognizes the fixture as a real image.
+        let bytes = [137_u8, 80, 78, 71, 13, 10, 26, 10];
         json!({
             "file": {
                 "name": name,

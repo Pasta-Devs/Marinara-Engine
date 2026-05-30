@@ -1467,6 +1467,40 @@ mod tests {
         assert_eq!(uploaded.content_type, "image/png");
         assert!(!uploaded.bytes.is_empty());
     }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_svg_with_root_element() {
+        let svg = "<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "logo.svg",
+                "type": "image/svg+xml",
+                "size": svg.len(),
+                "base64": general_purpose::STANDARD.encode(svg)
+            }
+        }))
+        .expect("a real SVG payload should be accepted");
+        assert_eq!(uploaded.content_type, "image/svg+xml");
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_svg_typed_non_svg_bytes() {
+        // `bm9wZQ==` decodes to "nope" - declared image/svg+xml but not SVG.
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "fake.svg",
+                "type": "image/svg+xml",
+                "size": 4,
+                "base64": "bm9wZQ=="
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("svg-typed payload without an svg root should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Only image uploads"));
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
@@ -1676,11 +1710,23 @@ pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile
         return Err(image_upload_too_large_error());
     }
     // The declared `image/*` content type is caller-controlled; validate that
-    // the decoded bytes actually carry a recognized image signature before
-    // storing or serving them. A magic-byte check rejects arbitrary bytes
-    // masquerading as an image while still accepting every real image format,
-    // including ones whose decoder feature is not compiled in (e.g. GIF).
-    image::guess_format(&uploaded.bytes).map_err(|_| image_upload_invalid_type_error())?;
+    // the decoded bytes actually carry image content before storing or serving
+    // them, rejecting arbitrary bytes masquerading as an image.
+    if content_type.eq_ignore_ascii_case("image/svg+xml") {
+        // SVG is an accepted upload type but is XML text with no binary magic,
+        // so `image::guess_format` cannot recognize it. Require a recognizable
+        // SVG root instead, which still rejects non-SVG bytes declared as SVG.
+        let looks_like_svg = std::str::from_utf8(&uploaded.bytes)
+            .map(|text| text.to_ascii_lowercase().contains("<svg"))
+            .unwrap_or(false);
+        if !looks_like_svg {
+            return Err(image_upload_invalid_type_error());
+        }
+    } else {
+        // A magic-byte check accepts every real raster image format, including
+        // ones whose decoder feature is not compiled in (e.g. GIF).
+        image::guess_format(&uploaded.bytes).map_err(|_| image_upload_invalid_type_error())?;
+    }
     Ok(uploaded)
 }
 
