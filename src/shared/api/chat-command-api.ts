@@ -2,7 +2,7 @@ import { invokeTauri } from "./tauri-client";
 
 export interface ChatGroupDeleteResult {
   deleted: number;
-  deletedChatIds: string[];
+  deletedChatIds?: string[];
 }
 
 export const chatCommandApi = {
