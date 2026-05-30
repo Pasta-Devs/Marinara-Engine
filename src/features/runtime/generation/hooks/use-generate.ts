@@ -370,7 +370,10 @@ async function characterNameRowsById(queryClient: QueryClient, characterIds: str
           fields: ["id", "data"],
           fieldSelections: { data: ["name"] },
         })
-        .catch(() => null),
+        .catch((error) => {
+          console.warn("[generation] character name lookup failed", error);
+          return null;
+        }),
     ),
   );
   addCharacterRowsById(rowsById, fetchedRows);

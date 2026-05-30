@@ -521,6 +521,7 @@ mod tests {
                         "description": "Frost archive keeper",
                         "personality": "Dry humor",
                         "tags": ["Mage"],
+                        "favorite_color": "violet",
                         "extensions": { "fav": true }
                     }
                 }),
@@ -589,5 +590,20 @@ mod tests {
                 .is_empty(),
             "search should not match embedded avatar payload text"
         );
+
+        let full_data_result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data"],
+                "search": "frost archive"
+            })),
+        )
+        .expect("full data search list should succeed");
+        let full_data_rows = full_data_result
+            .as_array()
+            .expect("storage_list returns an array");
+        assert_eq!(full_data_rows.len(), 1);
+        assert_eq!(full_data_rows[0]["data"]["favorite_color"], "violet");
     }
 }

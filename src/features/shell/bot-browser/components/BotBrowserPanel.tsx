@@ -9,6 +9,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { Search, User, Globe, Wand2, MessageCircle } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../../../shared/lib/utils";
 import { ContextMenu, type ContextMenuItem } from "../../../../shared/components/ui/ContextMenu";
+import { toast } from "sonner";
 
 type CharacterData = Record<string, unknown> & {
   name?: string;
@@ -145,7 +146,6 @@ export function BotBrowserPanel() {
                 const x = e.clientX;
                 const y = e.clientY;
                 void getCharacterGreeting(char.id)
-                  .catch((): { firstMes?: string; altGreetings: string[] } => ({ altGreetings: [] }))
                   .then((greeting) => {
                     setContextMenu({
                       x,
@@ -154,6 +154,16 @@ export function BotBrowserPanel() {
                       charName: char.name,
                       firstMes: greeting.firstMes,
                       altGreetings: greeting.altGreetings,
+                    });
+                  })
+                  .catch(() => {
+                    toast.error("Could not load character greetings.");
+                    setContextMenu({
+                      x,
+                      y,
+                      charId: char.id,
+                      charName: char.name,
+                      altGreetings: [],
                     });
                   });
               }}

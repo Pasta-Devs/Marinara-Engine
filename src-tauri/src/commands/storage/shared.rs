@@ -1766,10 +1766,18 @@ pub(crate) fn search_projection_field_selections(
     options: Option<&Value>,
 ) -> serde_json::Map<String, Value> {
     let mut selections = projection_field_selections(options).clone();
-    let mut data_fields = selections
-        .get("data")
-        .and_then(string_array_from_json)
-        .unwrap_or_default();
+    let original_fields = projection_fields(options).unwrap_or_default();
+    let original_requests_data = original_fields.iter().any(|field| field == "data");
+    let original_data_fields = selections.get("data").and_then(string_array_from_json);
+    if original_requests_data
+        && original_data_fields
+            .as_ref()
+            .is_none_or(|fields| fields.is_empty())
+    {
+        return selections;
+    }
+
+    let mut data_fields = original_data_fields.unwrap_or_default();
     for field in [
         "name",
         "creator",
