@@ -197,6 +197,7 @@ export function AppShell() {
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
+  const setRightPanelResizing = useUIStore((s) => s.setRightPanelResizing);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
@@ -397,6 +398,7 @@ export function AppShell() {
       document.body.style.userSelect = "none";
       rightPanelDragWidthRef.current = rightPanelWidth;
       setRightPanelDragWidth(rightPanelWidth);
+      setRightPanelResizing(true);
 
       const onMove = (moveEvent: MouseEvent) => {
         const nextWidth = clampWidth(
@@ -414,6 +416,7 @@ export function AppShell() {
         setRightPanelWidth(rightPanelDragWidthRef.current ?? useUIStore.getState().rightPanelWidth);
         rightPanelDragWidthRef.current = null;
         setRightPanelDragWidth(null);
+        setRightPanelResizing(false);
         document.body.style.cursor = originalCursor;
         document.body.style.userSelect = originalUserSelect;
         window.removeEventListener("mousemove", onMove);
@@ -425,7 +428,7 @@ export function AppShell() {
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [isMobile, rightPanelWidth, setRightPanelWidth],
+    [isMobile, rightPanelWidth, setRightPanelWidth, setRightPanelResizing],
   );
 
   const adjustSidebarWidth = useCallback(

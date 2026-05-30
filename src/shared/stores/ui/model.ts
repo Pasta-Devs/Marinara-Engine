@@ -496,6 +496,10 @@ export interface UIState {
   /** Transient: true when center content area is too narrow (overflow detected) */
   centerCompact: boolean;
 
+  /** Transient: true while the user is dragging a side-panel resizer; lets
+   * ConnectionsPanel suppress framer-motion Reorder layout animations during resize. */
+  rightPanelResizing: boolean;
+
   // Actions
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -611,6 +615,7 @@ export interface UIState {
   setTextStrokeWidth: (v: number) => void;
   setTextStrokeColor: (v: string) => void;
   setCenterCompact: (v: boolean) => void;
+  setRightPanelResizing: (v: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;

@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useUIStore } from "./ui.store";
+import { partializeUiState } from "./ui/persistence";
 
 // Snapshot the pristine store state once at module load so each case starts clean.
 // The store does not expose a reset action, so we restore the captured initial
@@ -67,5 +68,28 @@ describe("useUIStore closeAgentDetail mobile panel reopen (issue #1554)", () => 
     const closed = useUIStore.getState();
     expect(closed.agentDetailId).toBe(null);
     expect(closed.rightPanelOpen).toBe(false);
+  });
+});
+
+describe("useUIStore right-panel resize flag (issue #1586)", () => {
+  beforeEach(() => {
+    useUIStore.setState(INITIAL_STATE, true);
+  });
+
+  it("defaults to not resizing", () => {
+    expect(useUIStore.getState().rightPanelResizing).toBe(false);
+  });
+
+  it("toggles rightPanelResizing through its setter", () => {
+    useUIStore.getState().setRightPanelResizing(true);
+    expect(useUIStore.getState().rightPanelResizing).toBe(true);
+    useUIStore.getState().setRightPanelResizing(false);
+    expect(useUIStore.getState().rightPanelResizing).toBe(false);
+  });
+
+  it("never persists the transient resize flag to storage", () => {
+    useUIStore.getState().setRightPanelResizing(true);
+    const persisted = partializeUiState(useUIStore.getState());
+    expect(Object.prototype.hasOwnProperty.call(persisted, "rightPanelResizing")).toBe(false);
   });
 });

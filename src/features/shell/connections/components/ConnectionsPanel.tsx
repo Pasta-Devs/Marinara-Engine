@@ -94,7 +94,7 @@ function ConnectionRow({
     <div
       onClick={onClickRow}
       className={cn(
-        "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+        "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-[var(--sidebar-accent)]",
         isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
       )}
     >
@@ -208,11 +208,27 @@ function ConnectionFolderRow({
   onDelete: (folder: ConnectionFolder) => void;
 }) {
   const dragControls = useDragControls();
+  const isResizing = useUIStore((s) => s.rightPanelResizing);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
 
+  // While the right panel is being drag-resized, suppress framer-motion's
+  // per-item layout projection (which measures+animates on every width frame
+  // and causes the squish). `layout` is omitted from ReorderItemProps's public
+  // type even though the runtime forwards it, so it must go through a
+  // loosely-typed spread. Empty when not resizing -> default layout=true and
+  // drag-to-reorder are fully preserved.
+  const reorderLayoutProps = isResizing ? ({ layout: false } as Record<string, unknown>) : {};
+
   return (
-    <Reorder.Item value={folder.id} dragListener={false} dragControls={dragControls} as="div" className="flex flex-col">
+    <Reorder.Item
+      value={folder.id}
+      dragListener={false}
+      dragControls={dragControls}
+      as="div"
+      className="flex flex-col"
+      {...reorderLayoutProps}
+    >
       {/* Folder header */}
       <div
         onClick={() => onToggleCollapse(folder)}

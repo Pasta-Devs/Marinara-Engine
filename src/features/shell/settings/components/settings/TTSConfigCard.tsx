@@ -676,7 +676,7 @@ export function TTSConfigCard() {
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/5 to-orange-500/5 p-3 transition-all",
+        "rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/5 to-orange-500/5 p-3 transition-colors",
         expanded && "border-rose-400/30",
       )}
     >
