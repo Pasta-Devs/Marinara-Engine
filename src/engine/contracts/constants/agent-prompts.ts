@@ -404,7 +404,7 @@ Schema:
   "stats": [
     { "name": "string", "value": number, "max": number, "color": "string (hex)" }
   ],
-  "status": "string — SHORT status of the player persona (e.g. "Resting at camp", "In combat")",
+  "status": "string — SHORT status of the player persona (e.g. 'Resting at camp', 'In combat')",
   "inventory": [
     { "name": "string", "description": "string", "quantity": number, "location": "on_person|stored" }
   ],

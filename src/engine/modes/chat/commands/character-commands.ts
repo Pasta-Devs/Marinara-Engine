@@ -482,7 +482,7 @@ function parseUpdateLorebookBlock(raw: string): UpdateLorebookCommand | null {
 }
 
 function parseNumberParam(params: string, key: string): number | undefined {
-  const match = params.match(new RegExp(`${key}=(-?[0-9]+(?:.[0-9]+)?)`, "i"));
+  const match = params.match(new RegExp(`${key}=(-?[0-9]+(?:\\.[0-9]+)?)(?=$|[\\s,])`, "i"));
   if (!match) return undefined;
   const value = Number.parseFloat(match[1] ?? "");
   return Number.isFinite(value) ? value : undefined;
