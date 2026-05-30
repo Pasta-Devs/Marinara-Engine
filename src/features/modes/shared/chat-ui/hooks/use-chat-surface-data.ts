@@ -162,7 +162,13 @@ export function useChatSurfaceData({
   const resolvedMessagePageSize =
     Number.isFinite(messagePageSize) && messagePageSize > 0 ? Math.floor(messagePageSize) : DEFAULT_MESSAGE_PAGE_SIZE;
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
-  const { data: chat, error: chatError } = useChat(activeChatId);
+  const {
+    data: chat,
+    error: chatError,
+    isLoading: isChatLoading,
+    isFetching: isChatFetching,
+    refetch: refetchChat,
+  } = useChat(activeChatId);
   const {
     data: msgData,
     isLoading,
@@ -323,6 +329,10 @@ export function useChatSurfaceData({
 
   return {
     chat,
+    chatError,
+    isChatLoading,
+    isChatFetching,
+    refetchChat,
     chatMode,
     chatMeta,
     messages,
