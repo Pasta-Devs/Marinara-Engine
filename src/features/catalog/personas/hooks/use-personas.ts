@@ -164,6 +164,7 @@ export function useUpdatePersona() {
       qc.invalidateQueries({ queryKey: personaKeys.list });
       qc.invalidateQueries({ queryKey: personaKeys.summaries });
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
+      qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
 }
@@ -177,6 +178,7 @@ export function useDeletePersona() {
       qc.removeQueries({ queryKey: personaKeys.summaryDetail(id) });
       qc.invalidateQueries({ queryKey: personaKeys.list });
       qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
 }
@@ -214,6 +216,7 @@ export function useUploadPersonaAvatar() {
       qc.invalidateQueries({ queryKey: personaKeys.summaries });
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
+      qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
 }
