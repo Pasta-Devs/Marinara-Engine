@@ -569,6 +569,102 @@ describe("gameApi.concludeSession summary normalization", () => {
   });
 });
 
+describe("gameApi.skillCheck history serialization", () => {
+  beforeEach(() => {
+    Object.values(storageApiMock).forEach((fn) => fn.mockReset());
+  });
+
+  function mockSkillCheckChat(messageContent: string) {
+    const chat = {
+      id: "chat-game",
+      mode: "game",
+      metadata: {
+        gameCharacterCards: [
+          {
+            name: "Mira",
+            rpgStats: {
+              attributes: [{ name: "WIS", value: 14 }],
+            },
+          },
+        ],
+      },
+    } as unknown as Chat;
+    const message = {
+      id: "message-1",
+      chatId: "chat-game",
+      role: "assistant",
+      content: messageContent,
+    };
+    storageApiMock.get.mockImplementation(async (entity: string, id: string) => {
+      if (entity === "chats" && id === chat.id) return chat;
+      if (entity === "messages" && id === message.id) return message;
+      return null;
+    });
+    storageApiMock.updateChatMessage.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...message,
+      ...patch,
+    }));
+  }
+
+  it("replaces the unresolved skill_check tag with the resolved result tag", async () => {
+    mockSkillCheckChat(`Try it.\n[skill_check: skill="Perception" dc="15"]\nThen listen.`);
+
+    const res = await gameApi.skillCheck({
+      chatId: "chat-game",
+      skill: "Perception",
+      dc: 15,
+      preRolledD20: 12,
+      messageId: "message-1",
+    });
+
+    expect(res.result.total).toBe(14);
+    expect(res.updatedContent).toContain(`[skill_check: skill="Perception"`);
+    expect(res.updatedContent).toContain(`rolls="12"`);
+    expect(res.updatedContent).toContain(`modifier="2"`);
+    expect(res.updatedContent).toContain(`total="14"`);
+    expect(res.updatedContent).toContain(`result="failure"`);
+    expect(storageApiMock.updateChatMessage).toHaveBeenCalledWith("message-1", { content: res.updatedContent });
+  });
+
+  it("does not rewrite already resolved skill_check tags", async () => {
+    mockSkillCheckChat(
+      `[skill_check: skill="Perception" dc="15" rolls="12" used="12" modifier="2" total="14" RESULT="failure" mode="normal"]`,
+    );
+
+    const res = await gameApi.skillCheck({
+      chatId: "chat-game",
+      skill: "Perception",
+      dc: 15,
+      preRolledD20: 12,
+      messageId: "message-1",
+    });
+
+    expect(res.updatedContent).toBeUndefined();
+    expect(storageApiMock.updateChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("still returns the resolved skill check if history persistence fails", async () => {
+    mockSkillCheckChat(`[skill_check: skill="Perception" dc="15"]`);
+    storageApiMock.updateChatMessage.mockRejectedValueOnce(new Error("storage offline"));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const res = await gameApi.skillCheck({
+        chatId: "chat-game",
+        skill: "Perception",
+        dc: 15,
+        preRolledD20: 12,
+        messageId: "message-1",
+      });
+
+      expect(res.result.total).toBe(14);
+      expect(res.updatedContent).toBeUndefined();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+
 describe("gameApi.partyTurn prompt wiring", () => {
   beforeEach(() => {
     Object.values(storageApiMock).forEach((fn) => fn.mockReset());

@@ -1262,6 +1262,19 @@ async function persistTrackerSnapshotSafely(
   }
 }
 
+async function persistLorebookTimingStatesSafely(
+  storage: StorageGateway,
+  chatId: string,
+  timingStates: Record<string, unknown> | null,
+): Promise<void> {
+  if (!timingStates) return;
+  try {
+    await storage.patchChatMetadata(chatId, { entryTimingStates: timingStates });
+  } catch (error) {
+    console.warn("[generation] lorebook timing state persist failed", error);
+  }
+}
+
 function cloneSerializableValue<T>(value: T): T {
   try {
     return JSON.parse(JSON.stringify(value)) as T;
@@ -2260,6 +2273,10 @@ export async function* startGeneration(
           contextInjections: runtime?.preInjections ?? null,
         });
     let latestSaved = saved;
+    if (saved) {
+      await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+    }
+    throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
       await mirrorSavedAssistantMessageToDiscord({
         deps,

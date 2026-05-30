@@ -1551,6 +1551,87 @@ describe("assembleGenerationPrompt lorebook activation settings", () => {
     ]);
     expect(promptText(assembly)).not.toContain("LQA_LOREBOOK_BUDGET_CONTENT_SHOULD_NOT_APPEAR");
   });
+
+  it("returns next timing state when a delayed lorebook entry is still waiting", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-delay",
+          lorebookId: "lorebook",
+          name: "Delayed moonlit lore",
+          content: "LQA_DELAYED_CONTENT_SHOULD_NOT_APPEAR_YET",
+          keys: ["moonlit"],
+          enabled: true,
+          delay: 1,
+        },
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay", metadata: {} },
+        storedMessages: [{ role: "user", content: "Tell me about the moonlit path.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "Tell me about the moonlit path.",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries).toHaveLength(0);
+    expect(promptText(assembly)).not.toContain("LQA_DELAYED_CONTENT_SHOULD_NOT_APPEAR_YET");
+    expect(assembly.lorebookTimingStates).toEqual({
+      "entry-delay": {
+        lastActivatedAt: null,
+        stickyCount: 0,
+        cooldownRemaining: 0,
+        delayRemaining: 0,
+      },
+    });
+  });
+
+  it("uses persisted sticky timing state when scanning active lore", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-sticky",
+          lorebookId: "lorebook",
+          name: "Sticky moonlit lore",
+          content: "LQA_STICKY_CONTENT_FROM_PRIOR_TRIGGER",
+          keys: ["moonlit"],
+          enabled: true,
+          sticky: 2,
+        },
+      ]),
+      {
+        chat: {
+          id: "chat",
+          mode: "roleplay",
+          metadata: {
+            entryTimingStates: {
+              "entry-sticky": {
+                lastActivatedAt: 1,
+                stickyCount: 2,
+                cooldownRemaining: 0,
+                delayRemaining: 0,
+              },
+            },
+          },
+        },
+        storedMessages: [{ role: "user", content: "No keyword in this turn.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "No keyword in this turn.",
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Sticky moonlit lore"]);
+    expect(promptText(assembly)).toContain("LQA_STICKY_CONTENT_FROM_PRIOR_TRIGGER");
+    expect(assembly.lorebookTimingStates).toEqual({
+      "entry-sticky": {
+        lastActivatedAt: 1,
+        stickyCount: 1,
+        cooldownRemaining: 0,
+        delayRemaining: 0,
+      },
+    });
+  });
 });
 
 describe("assembleGenerationPrompt lorebook game-state gates", () => {

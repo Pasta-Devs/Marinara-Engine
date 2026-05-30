@@ -44,6 +44,9 @@ function generationDepsForChat(
     prompts?: Record<string, unknown>[];
     promptSections?: Record<string, unknown>[];
     promptVariables?: Record<string, unknown>[];
+    lorebooks?: Record<string, unknown>[];
+    lorebookEntries?: Record<string, unknown>[];
+    lorebookFolders?: Record<string, unknown>[];
     completeResponse?: string;
     streamResponses?: string[];
     integrations?: Partial<IntegrationGateway>;
@@ -120,6 +123,13 @@ function generationDepsForChat(
     messagesById.set(messageId, updated);
     return updated;
   });
+  const patchChatMetadata = vi.fn(async (_chatId: string, patch: Record<string, unknown>) => {
+    chat.metadata = {
+      ...((chat.metadata ?? {}) as Record<string, unknown>),
+      ...patch,
+    };
+    return chat;
+  });
   const storage = {
     get: vi.fn(async (entity: string, id: string) => {
       if (entity === "chats" && id === "chat-1") return chat;
@@ -135,6 +145,12 @@ function generationDepsForChat(
       if (entity === "agents") return options.agents ?? [];
       if (entity === "agent-runs") return options.agentRuns ?? [];
       if (entity === "prompts") return options.prompts ?? [];
+      if (entity === "lorebooks") return options.lorebooks ?? [];
+      if (entity === "lorebook-folders") {
+        return (options.lorebookFolders ?? []).filter(
+          (folder) => folder.lorebookId === listOptions?.filters?.lorebookId,
+        );
+      }
       if (entity === "prompt-sections") {
         return (options.promptSections ?? []).filter((section) => section.presetId === listOptions?.filters?.presetId);
       }
@@ -152,9 +168,12 @@ function generationDepsForChat(
     createChatMessage,
     addChatMessageSwipe,
     patchChatMessageExtra,
+    patchChatMetadata,
     listChatMessages,
     listChatMemories: vi.fn(async () => []),
-    listLorebookEntries: vi.fn(async () => []),
+    listLorebookEntries: vi.fn(async (lorebookId: string) =>
+      (options.lorebookEntries ?? []).filter((entry) => !entry.lorebookId || entry.lorebookId === lorebookId),
+    ),
     saveTrackerSnapshot: vi.fn(async (_chatId: string, snapshot: Record<string, unknown>) => snapshot),
   } as Partial<StorageGateway> as StorageGateway;
   const deps: GenerationEngineDeps = {
@@ -168,6 +187,7 @@ function generationDepsForChat(
     createChatMessage,
     addChatMessageSwipe,
     patchChatMessageExtra,
+    patchChatMetadata,
     listChatMessages,
     streamedRequests,
     completedRequests,
@@ -355,6 +375,80 @@ describe("startGeneration chat message loading", () => {
     expect(streamedRequests[0]).toMatchObject({
       messages: expect.arrayContaining([expect.objectContaining({ role: "user", content: "hello" })]),
     });
+  });
+
+  it("persists lorebook timing state after a successful generated turn", async () => {
+    const { deps, patchChatMetadata } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      lorebooks: [{ id: "lorebook", enabled: true, isGlobal: true }],
+      lorebookEntries: [
+        {
+          id: "entry-delay",
+          lorebookId: "lorebook",
+          name: "Delayed moonlit lore",
+          content: "Delayed content",
+          keys: ["moonlit"],
+          enabled: true,
+          delay: 1,
+        },
+      ],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "moonlit path",
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    expect(patchChatMetadata).toHaveBeenCalledWith("chat-1", {
+      entryTimingStates: {
+        "entry-delay": {
+          lastActivatedAt: null,
+          stickyCount: 0,
+          cooldownRemaining: 0,
+          delayRemaining: 0,
+        },
+      },
+    });
+  });
+
+  it("persists lorebook timing state before yielding the saved generated message", async () => {
+    const { deps, patchChatMetadata } = generationDepsForChat({
+      chatPatch: { mode: "roleplay" },
+      lorebooks: [{ id: "lorebook", enabled: true, isGlobal: true }],
+      lorebookEntries: [
+        {
+          id: "entry-delay",
+          lorebookId: "lorebook",
+          name: "Delayed moonlit lore",
+          content: "Delayed content",
+          keys: ["moonlit"],
+          enabled: true,
+          delay: 1,
+        },
+      ],
+    });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      userMessage: "moonlit path",
+      impersonateBlockAgents: true,
+    })) {
+      if ((event as { type?: string }).type !== "assistant_message") continue;
+      expect(patchChatMetadata).toHaveBeenCalledWith("chat-1", {
+        entryTimingStates: {
+          "entry-delay": {
+            lastActivatedAt: null,
+            stickyCount: 0,
+            cooldownRemaining: 0,
+            delayRemaining: 0,
+          },
+        },
+      });
+      break;
+    }
   });
 
   it("uses the chat context message limit when assembling roleplay history", async () => {

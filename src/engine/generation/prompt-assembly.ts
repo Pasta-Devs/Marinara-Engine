@@ -1,4 +1,4 @@
-import type { LorebookEntry, LorebookMatchingSource } from "../contracts/types/lorebook";
+import type { LorebookEntry, LorebookEntryTimingState, LorebookMatchingSource } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import type { StorageGateway } from "../capabilities/storage";
@@ -12,7 +12,9 @@ import {
 import {
   recursiveScan,
   scanForActivatedEntries,
+  updateTimingStatesForScan,
   type ActivatedEntry,
+  type EntryTimingState,
   type ScanMessage,
   type ScanOptions,
 } from "../generation-core/lorebooks/keyword-scanner";
@@ -121,6 +123,7 @@ export interface PromptAssemblyResult {
     order: number;
     constant: boolean;
   }>;
+  lorebookTimingStates: Record<string, LorebookEntryTimingState> | null;
   budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   chatSummary: string | null;
   chatSummaryFingerprint: string | null;
@@ -1762,12 +1765,14 @@ interface LoadedLorebookBudgetSkippedEntry {
 interface ScannedLorebookEntries {
   activatedEntries: ActivatedEntry[];
   budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
+  entriesForTiming: LorebookEntry[];
 }
 
 interface LoadedActivatedLore {
   activatedEntries: ActivatedEntry[];
   budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
   lorebookNamesById: Map<string, string>;
+  timingStates: Record<string, LorebookEntryTimingState> | null;
 }
 
 function resolveLorebookTokenBudget(chat: JsonRecord, request: JsonRecord): number {
@@ -1780,6 +1785,73 @@ function resolveLorebookTokenBudget(chat: JsonRecord, request: JsonRecord): numb
 
 function resolveLorebookRecursionDepth(lorebook: JsonRecord): number {
   return Math.min(MAX_LOREBOOK_RECURSION_DEPTH, Math.max(1, nonNegativeInteger(lorebook.maxRecursionDepth, 3)));
+}
+
+function normalizeLorebookTimingState(value: unknown): EntryTimingState | null {
+  if (!isRecord(value)) return null;
+  const stickyCount = readNumber(value.stickyCount, Number.NaN);
+  const cooldownRemaining = readNumber(value.cooldownRemaining, Number.NaN);
+  const delayRemaining = readNumber(value.delayRemaining, Number.NaN);
+  if (![stickyCount, cooldownRemaining, delayRemaining].every(Number.isFinite)) return null;
+  const lastActivatedAt =
+    value.lastActivatedAt === null || value.lastActivatedAt === undefined
+      ? null
+      : readNumber(value.lastActivatedAt, Number.NaN);
+  if (lastActivatedAt !== null && !Number.isFinite(lastActivatedAt)) return null;
+  return {
+    lastActivatedAt: lastActivatedAt === null ? null : Math.max(0, Math.trunc(lastActivatedAt)),
+    stickyCount: Math.max(0, Math.trunc(stickyCount)),
+    cooldownRemaining: Math.max(0, Math.trunc(cooldownRemaining)),
+    delayRemaining: Math.max(0, Math.trunc(delayRemaining)),
+  };
+}
+
+function lorebookTimingStateMap(value: unknown): Map<string, EntryTimingState> {
+  const states = new Map<string, EntryTimingState>();
+  for (const [entryId, state] of Object.entries(parseRecord(value))) {
+    const normalizedId = entryId.trim();
+    const normalizedState = normalizeLorebookTimingState(state);
+    if (normalizedId && normalizedState) states.set(normalizedId, normalizedState);
+  }
+  return states;
+}
+
+function serializeLorebookTimingStates(
+  states: Map<string, EntryTimingState>,
+): Record<string, LorebookEntryTimingState> {
+  return Object.fromEntries(
+    [...states.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([entryId, state]) => [
+        entryId,
+        {
+          lastActivatedAt: state.lastActivatedAt,
+          stickyCount: state.stickyCount,
+          cooldownRemaining: state.cooldownRemaining,
+          delayRemaining: state.delayRemaining,
+        },
+      ]),
+  );
+}
+
+function lorebookTimingStatesChanged(
+  previous: Map<string, EntryTimingState>,
+  next: Map<string, EntryTimingState>,
+): boolean {
+  if (previous.size !== next.size) return true;
+  for (const [entryId, previousState] of previous) {
+    const nextState = next.get(entryId);
+    if (!nextState) return true;
+    if (
+      previousState.lastActivatedAt !== nextState.lastActivatedAt ||
+      previousState.stickyCount !== nextState.stickyCount ||
+      previousState.cooldownRemaining !== nextState.cooldownRemaining ||
+      previousState.delayRemaining !== nextState.delayRemaining
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function loadLorebookEntriesForActivation(
@@ -1832,6 +1904,7 @@ function scanLorebookEntries(
       lorebookUsedTokens: skipped.usedTokensBefore,
       estimatedTokens: skipped.estimatedTokens,
     })),
+    entriesForTiming: entries,
   };
 }
 
@@ -1849,6 +1922,7 @@ async function loadActivatedLore(
   const activeCharacterTags = characters.flatMap((character) => character.tags);
   const meta = parseRecord(chat.metadata);
   const gameState = parseRecord(chat.gameState ?? meta.gameState);
+  const previousTimingStates = lorebookTimingStateMap(meta.entryTimingStates);
   const messages = storedMessages
     .filter((message) => !hiddenFromAi(message))
     .map((message) => ({
@@ -1861,6 +1935,8 @@ async function loadActivatedLore(
     activeCharacterTags,
     generationTriggers,
     gameState,
+    timingStates: previousTimingStates,
+    currentMessageIndex: messages.length,
     additionalMatchingSourceText: buildAdditionalMatchingSourceText(characters, persona),
   };
   const lorebookNamesById = new Map(
@@ -1874,12 +1950,21 @@ async function loadActivatedLore(
       scanLorebookEntries(messages, await loadLorebookEntriesForActivation(storage, book), book, options),
     ),
   );
+  const nextTimingStates = updateTimingStatesForScan(
+    scanned.flatMap((result) => result.entriesForTiming),
+    scanned.flatMap((result) => result.activatedEntries),
+    previousTimingStates,
+    messages.length,
+  );
   return {
     activatedEntries: scanned
       .flatMap((result) => result.activatedEntries)
       .sort((a, b) => a.injectionOrder - b.injectionOrder),
     budgetSkippedEntries: scanned.flatMap((result) => result.budgetSkippedEntries),
     lorebookNamesById,
+    timingStates: lorebookTimingStatesChanged(previousTimingStates, nextTimingStates)
+      ? serializeLorebookTimingStates(nextTimingStates)
+      : null,
   };
 }
 
@@ -2188,6 +2273,7 @@ export async function assembleGenerationPrompt(
     characters,
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(loreForEvent),
+    lorebookTimingStates: loadedLore.timingStates,
     budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,
