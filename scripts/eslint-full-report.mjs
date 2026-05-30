@@ -2,6 +2,8 @@ import { ESLint } from "eslint";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import fullReportConfig from "../eslint.full-report.config.js";
+
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--output");
 
@@ -14,7 +16,8 @@ const outputPath = path.resolve(process.cwd(), outputFile);
 
 const eslint = new ESLint({
   errorOnUnmatchedPattern: false,
-  overrideConfigFile: "eslint.full-report.config.js",
+  overrideConfig: fullReportConfig,
+  overrideConfigFile: true,
 });
 
 const results = await eslint.lintFiles(["."]);
