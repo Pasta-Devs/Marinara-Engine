@@ -1,6 +1,8 @@
 name: Bunny Style Review
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
@@ -9,18 +11,28 @@ permissions:
   issues: write
   pull-requests: write
 
+concurrency:
+  group: bunny-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
     if: >
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/bunny-review') &&
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-               github.event.comment.author_association)
+      github.event_name == 'pull_request' ||
+      (
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/bunny-review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                 github.event.comment.author_association)
+      )
     runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
       - name: Checkout trusted review runner
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           fetch-depth: 0
 
       - name: Checkout PR target
@@ -34,9 +46,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUM="${{ github.event.issue.number }}"
-          BASE=$(gh pr view "$PR_NUM" --json baseRefName -q .baseRefName)
-          gh pr checkout "$PR_NUM"
+          BASE=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
+          gh pr checkout "$PR_NUMBER"
           git fetch origin "$BASE" --depth=1 || true
           echo "PR_BASE_REF=origin/$BASE" >> "$GITHUB_ENV"
 
@@ -59,4 +70,4 @@ jobs:
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment "${{ github.event.issue.number }}" --body-file bunny-target/review.md
+        run: gh pr comment "$PR_NUMBER" --body-file bunny-target/review.md
