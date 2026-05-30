@@ -2053,7 +2053,10 @@ export async function retryGenerationAgents(
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   if (isLorebookKeeperBackfill(input)) {
-    return { results: await runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal }), events: [] };
+    return {
+      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal }),
+      events: [],
+    };
   }
   const target = targetAssistantMessage(storedMessages, input.options);
   return runGenerationAgentsForTarget({ deps, input, chat, connection, storedMessages, target, agentTypes, signal });
