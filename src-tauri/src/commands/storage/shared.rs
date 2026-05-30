@@ -1656,6 +1656,17 @@ mod tests {
             .expect_err("an unparseable array field must be rejected, not silently stored");
         assert_eq!(error.code, "invalid_input");
     }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_rejects_unparseable_object_field() {
+        let Value::Object(mut object) = json!({ "relationships": "not json" }) else {
+            unreachable!("json! object literal");
+        };
+
+        let error = normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect_err("an unparseable object field must be rejected, not silently stored");
+        assert_eq!(error.code, "invalid_input");
+    }
 }
 
 pub(crate) fn duplicate_record(state: &AppState, collection: &str, id: &str) -> AppResult<Value> {
