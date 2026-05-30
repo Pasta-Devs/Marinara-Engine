@@ -45,6 +45,7 @@ import {
   type GenerationReplay,
 } from "../../../../engine/generation/generation-replay";
 import { readNonNegativeInteger } from "../../../../engine/generation/runtime-records";
+import { applyQuestUpdatesToPlayerStats } from "../../../../engine/shared/game-state/player-stats";
 import type { AgentDebugEntry } from "../../../../engine/contracts/types/agent";
 import type { IntegrationGateway } from "../../../../engine/capabilities/integrations";
 
@@ -580,45 +581,16 @@ async function applyBackgroundChoice(chatId: string, chosen: unknown) {
 }
 
 function applyQuestUpdates(rawData: unknown) {
-  const data = parseMaybeRecord(rawData);
-  const updates = Array.isArray(data.updates) ? data.updates.map(parseMaybeRecord) : [];
-  if (updates.length === 0) return;
-
   const current = useGameStateStore.getState().current;
-  const existingPlayerStats = parseMaybeRecord(current?.playerStats);
-  const quests = Array.isArray(existingPlayerStats.activeQuests)
-    ? [...existingPlayerStats.activeQuests.map(parseMaybeRecord)]
-    : [];
-
-  for (const update of updates) {
-    const questName = readString(update.questName).trim();
-    if (!questName) continue;
-    const action = readString(update.action, "update");
-    const index = quests.findIndex((quest) => readString(quest.name) === questName);
-    if (action === "create" && index === -1) {
-      quests.push({
-        questEntryId: questName,
-        name: questName,
-        currentStage: 0,
-        objectives: Array.isArray(update.objectives) ? update.objectives : [],
-        completed: false,
-      });
-    } else if (index !== -1) {
-      if (action === "fail") {
-        quests.splice(index, 1);
-      } else {
-        quests[index] = {
-          ...quests[index],
-          ...(Array.isArray(update.objectives) ? { objectives: update.objectives } : {}),
-          ...(action === "complete" ? { completed: true } : {}),
-        };
-      }
-    }
-  }
+  const { playerStats, changed } = applyQuestUpdatesToPlayerStats(
+    current?.playerStats,
+    parseMaybeRecord(rawData).updates,
+  );
+  if (!changed) return;
 
   useGameStateStore.getState().setGameState({
     ...(current ?? ({} as never)),
-    playerStats: { ...existingPlayerStats, activeQuests: quests },
+    playerStats,
   } as never);
 }
 
