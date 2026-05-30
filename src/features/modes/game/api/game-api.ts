@@ -1047,6 +1047,7 @@ function replaceFirstUnresolvedSkillCheckTag(content: string, resolvedTag: strin
 }
 
 async function persistResolvedSkillCheckTag(
+  chatId: string,
   messageId: string | undefined,
   result: SkillCheckResult,
 ): Promise<string | undefined> {
@@ -1054,6 +1055,7 @@ async function persistResolvedSkillCheckTag(
   if (!id) return undefined;
   try {
     const message = await storageApi.get<ChatMessage>("messages", id);
+    if (typeof message?.chatId !== "string" || message.chatId !== chatId) return undefined;
     const content = typeof message?.content === "string" ? message.content : "";
     if (!content) return undefined;
     const updatedContent = replaceFirstUnresolvedSkillCheckTag(content, serializeResolvedSkillCheckTag(result));
@@ -1749,7 +1751,7 @@ export const gameApi = {
     });
     return {
       result,
-      updatedContent: await persistResolvedSkillCheckTag(data.messageId, result),
+      updatedContent: await persistResolvedSkillCheckTag(data.chatId, data.messageId, result),
     };
   },
 

@@ -574,7 +574,7 @@ describe("gameApi.skillCheck history serialization", () => {
     Object.values(storageApiMock).forEach((fn) => fn.mockReset());
   });
 
-  function mockSkillCheckChat(messageContent: string) {
+  function mockSkillCheckChat(messageContent: string, messageChatId = "chat-game") {
     const chat = {
       id: "chat-game",
       mode: "game",
@@ -591,7 +591,7 @@ describe("gameApi.skillCheck history serialization", () => {
     } as unknown as Chat;
     const message = {
       id: "message-1",
-      chatId: "chat-game",
+      chatId: messageChatId,
       role: "assistant",
       content: messageContent,
     };
@@ -639,6 +639,22 @@ describe("gameApi.skillCheck history serialization", () => {
       messageId: "message-1",
     });
 
+    expect(res.updatedContent).toBeUndefined();
+    expect(storageApiMock.updateChatMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not rewrite a skill_check tag on a message from another chat", async () => {
+    mockSkillCheckChat(`[skill_check: skill="Perception" dc="15"]`, "other-chat");
+
+    const res = await gameApi.skillCheck({
+      chatId: "chat-game",
+      skill: "Perception",
+      dc: 15,
+      preRolledD20: 12,
+      messageId: "message-1",
+    });
+
+    expect(res.result.total).toBe(14);
     expect(res.updatedContent).toBeUndefined();
     expect(storageApiMock.updateChatMessage).not.toHaveBeenCalled();
   });
