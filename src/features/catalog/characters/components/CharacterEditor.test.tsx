@@ -47,7 +47,7 @@ vi.mock("../../sprites/index", () => {
   });
   const emptyQuery = () => ({ data: undefined, isLoading: false });
   return {
-    useCharacterSprites: emptyQuery,
+    useSprites: emptyQuery,
     useUploadSprite: noopMutation,
     useUploadSprites: noopMutation,
     useDeleteSprite: noopMutation,

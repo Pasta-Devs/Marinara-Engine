@@ -15,7 +15,7 @@ export type CharacterSearchQuery = {
 
 const NEGATED_TAG_PATTERN = /(^|\s)(?:-|!)(?:tag:|#)(?:"([^"]+)"|(\S+))/gi;
 
-export function splitCharacterSearchTerms(value: string): string[] {
+function splitCharacterSearchTerms(value: string): string[] {
   return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
 }
 

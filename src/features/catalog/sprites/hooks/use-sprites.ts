@@ -84,8 +84,6 @@ export function useSprites(spriteOwnerId: string | null, ownerType: SpriteOwnerT
   });
 }
 
-export const useCharacterSprites = useSprites;
-
 export function usePersonaSprites(spriteOwnerId: string | null) {
   return useSprites(spriteOwnerId, "persona");
 }

@@ -24,11 +24,11 @@ import {
 import {
   spriteKeys,
   type SpriteInfo,
-  useCharacterSprites,
   useCleanupSavedSprites,
   useDeleteSprite,
   useRestoreSpriteCleanupPoint,
   useSpriteCapabilities,
+  useSprites,
   useUploadSprite,
   useUploadSprites,
 } from "../../sprites/index";
@@ -2126,7 +2126,7 @@ function SpritesTab({
 }) {
   type SpriteCategory = "expressions" | "full-body";
 
-  const { data: sprites, isLoading } = useCharacterSprites(characterId);
+  const { data: sprites, isLoading } = useSprites(characterId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const uploadSprites = useUploadSprites();

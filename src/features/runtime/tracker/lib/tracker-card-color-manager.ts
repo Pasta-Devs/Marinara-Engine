@@ -19,10 +19,10 @@ import {
 } from "../../../../shared/lib/tracker-metadata";
 import type { TrackerCardColorEntityLabel } from "../../../../shared/components/ui/TrackerCardColorControls";
 
-export type TrackerCardColorTargetKind = "persona" | "character";
+type TrackerCardColorTargetKind = "persona" | "character";
 export type TrackerCardColorSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
-export interface CharacterRow {
+interface CharacterRow {
   id: string;
   data: unknown;
   comment?: string | null;
@@ -61,7 +61,7 @@ export interface TrackerCardColorTargetsInput {
   personasData: unknown;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -119,7 +119,7 @@ export function getTargetSavedConfig(target: TrackerCardColorTarget): SavedTrack
   };
 }
 
-export function patchCharacterDataTrackerCardColors(
+function patchCharacterDataTrackerCardColors(
   rawData: unknown,
   serializedConfig: string,
   previewBaseSerializedConfig?: string,
@@ -182,7 +182,7 @@ export function updateCachedTrackerCardColorTargetConfig(
   queryClient.setQueryData<unknown[] | undefined>(characterKeys.summaries(), patchCharacterCache);
 }
 
-export function resolvePresentCharacterId(
+function resolvePresentCharacterId(
   character: PresentCharacter,
   charactersById: Map<string, CharacterRow>,
   idByLookupText: Map<string, string>,
