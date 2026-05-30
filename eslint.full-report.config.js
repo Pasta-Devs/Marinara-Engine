@@ -11,4 +11,11 @@ export default [
       ...js.configs.recommended.rules,
     },
   },
+  {
+    name: "marinara/staged-typescript-name-resolution",
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-undef": "off",
+    },
+  },
 ];
