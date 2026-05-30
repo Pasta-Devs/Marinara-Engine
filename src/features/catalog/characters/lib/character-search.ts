@@ -31,8 +31,7 @@ export function parseCharacterSearchQuery(value: string): CharacterSearchQuery {
       },
     )
     .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
 
   return {
     text,

@@ -24,6 +24,14 @@ describe("character search helpers", () => {
     });
   });
 
+  it("preserves positive search text casing for backend storage search", () => {
+    expect(parseCharacterSearchQuery("Élodie -tag:Mage")).toEqual({
+      text: "Élodie",
+      terms: ["élodie"],
+      excludedTags: ["mage"],
+    });
+  });
+
   it("normalizes character tags from loose card data", () => {
     expect(getCharacterTagsFromData({ tags: [" mage ", "", 42, "Winter"] })).toEqual(["mage", "Winter"]);
   });
