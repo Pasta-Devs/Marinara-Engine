@@ -42,9 +42,10 @@ pub(crate) enum SpriteOwnerKind {
 
 impl SpriteOwnerKind {
     fn from_request(value: Option<&str>) -> AppResult<Self> {
-        match value.unwrap_or("character").trim() {
-            "" | "character" => Ok(Self::Character),
-            "persona" => Ok(Self::Persona),
+        match value.map(str::trim) {
+            None => Ok(Self::Character),
+            Some("character") => Ok(Self::Character),
+            Some("persona") => Ok(Self::Persona),
             _ => Err(AppError::invalid_input("Invalid sprite owner type")),
         }
     }
@@ -1591,12 +1592,58 @@ fn migrate_legacy_persona_sprites_if_unambiguous(
     }
 
     let next_dir = persona_sprites_dir(state, persona_id);
-    if !next_dir.exists() {
+    if next_dir.exists() {
+        move_directory_contents_without_overwrite(&legacy_dir, &next_dir)?;
+    } else {
         if let Some(parent) = next_dir.parent() {
             fs::create_dir_all(parent)?;
         }
         fs::rename(&legacy_dir, &next_dir)?;
     }
+    Ok(())
+}
+
+fn move_directory_contents_without_overwrite(src_dir: &Path, dst_dir: &Path) -> AppResult<()> {
+    fs::create_dir_all(dst_dir)?;
+    ensure_directory_merge_has_no_conflicts(src_dir, dst_dir)?;
+
+    for entry in fs::read_dir(src_dir)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst_dir.join(entry.file_name());
+
+        if dst_path.exists() {
+            return Err(AppError::invalid_input(format!(
+                "Persona sprite migration destination already exists: {}",
+                dst_path.display()
+            )));
+        }
+
+        if entry.file_type()?.is_dir() {
+            fs::create_dir_all(&dst_path)?;
+            move_directory_contents_without_overwrite(&src_path, &dst_path)?;
+        } else {
+            fs::rename(&src_path, &dst_path)?;
+        }
+    }
+
+    fs::remove_dir_all(src_dir)?;
+    Ok(())
+}
+
+fn ensure_directory_merge_has_no_conflicts(src_dir: &Path, dst_dir: &Path) -> AppResult<()> {
+    for entry in fs::read_dir(src_dir)? {
+        let entry = entry?;
+        let dst_path = dst_dir.join(entry.file_name());
+
+        if dst_path.exists() {
+            return Err(AppError::invalid_input(format!(
+                "Persona sprite migration destination already exists: {}",
+                dst_path.display()
+            )));
+        }
+    }
+
     Ok(())
 }
 
@@ -2154,6 +2201,17 @@ mod sprite_upload_tests {
     }
 
     #[test]
+    fn blank_sprite_owner_type_is_rejected() {
+        let (state, root) = test_state("blank-owner-type");
+        let error = list_sprites(&state, "character-1", Some(" "))
+            .expect_err("blank owner types should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn persona_sprite_owner_is_namespaced_from_character_with_same_id() {
         let (state, root) = test_state("owner-namespace");
         state
@@ -2232,6 +2290,66 @@ mod sprite_upload_tests {
             .join("persona-legacy")
             .join("happy.png")
             .exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persona_sprite_owner_merges_legacy_dir_when_target_exists() {
+        let (state, root) = test_state("legacy-persona-merge");
+        let legacy_dir = state.data_dir.join("sprites").join("persona-merge");
+        let next_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-merge");
+        fs::create_dir_all(&legacy_dir).expect("legacy dir should be created");
+        fs::create_dir_all(&next_dir).expect("target dir should be created");
+        fs::write(legacy_dir.join("happy.png"), b"legacy")
+            .expect("legacy sprite should be written");
+        fs::write(next_dir.join("sad.png"), b"target").expect("target sprite should be written");
+
+        let sprites = list_sprites(&state, "persona-merge", Some("persona"))
+            .expect("legacy persona sprites should merge into existing target");
+
+        let expressions: Vec<_> = sprites
+            .as_array()
+            .expect("sprites should be an array")
+            .iter()
+            .filter_map(|item| item.get("expression").and_then(Value::as_str))
+            .collect();
+        assert_eq!(expressions, vec!["happy", "sad"]);
+        assert!(!legacy_dir.exists());
+        assert!(next_dir.join("happy.png").exists());
+        assert!(next_dir.join("sad.png").exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persona_sprite_owner_rejects_legacy_merge_conflicts() {
+        let (state, root) = test_state("legacy-persona-conflict");
+        let legacy_dir = state.data_dir.join("sprites").join("persona-conflict");
+        let next_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-conflict");
+        fs::create_dir_all(&legacy_dir).expect("legacy dir should be created");
+        fs::create_dir_all(&next_dir).expect("target dir should be created");
+        fs::write(legacy_dir.join("happy.png"), b"legacy")
+            .expect("legacy sprite should be written");
+        fs::write(next_dir.join("happy.png"), b"target").expect("target sprite should be written");
+
+        let error = list_sprites(&state, "persona-conflict", Some("persona"))
+            .expect_err("conflicting legacy persona sprites should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(legacy_dir.join("happy.png").exists());
+        assert_eq!(
+            fs::read(next_dir.join("happy.png")).expect("target sprite should remain readable"),
+            b"target"
+        );
 
         let _ = fs::remove_dir_all(root);
     }

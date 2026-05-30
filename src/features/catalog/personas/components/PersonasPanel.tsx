@@ -377,7 +377,9 @@ export function PersonasPanel() {
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/20">
             <User size="1.25rem" className="text-emerald-400" />
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">No personas yet — create one!</p>
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {rawList.length === 0 ? "No personas yet — create one!" : "No personas match the current filters."}
+          </p>
         </div>
       )}
 

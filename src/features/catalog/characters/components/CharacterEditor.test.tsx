@@ -55,7 +55,7 @@ vi.mock("../../sprites/index", () => {
     useRestoreSpriteCleanupPoint: noopMutation,
     useSpriteCapabilities: emptyQuery,
     spriteKeys: {
-      list: (id: string) => ["sprites", id],
+      list: (id: string, ownerType = "character") => ["sprites", ownerType, id],
       capabilities: () => ["sprites", "capabilities"],
     },
   };

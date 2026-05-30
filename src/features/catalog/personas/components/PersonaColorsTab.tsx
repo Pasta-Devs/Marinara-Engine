@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Loader2, Palette, User } from "lucide-react";
+import { toast } from "sonner";
 import { extractColorsFromImage } from "../../../../shared/lib/avatar-color-extraction";
 import { ColorPicker } from "../../../../shared/components/ui/ColorPicker";
 import { cn } from "../../../../shared/lib/utils";
@@ -16,17 +17,21 @@ export function PersonaColorsTab({
   avatarUrl: string | null;
 }) {
   const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
 
   const handleExtract = async () => {
     if (!avatarUrl) return;
     setExtracting(true);
+    setExtractError(null);
     try {
       const [nameColor, dialogueColor, boxColor] = await extractColorsFromImage(avatarUrl);
       updateField("nameColor", nameColor);
       updateField("dialogueColor", dialogueColor);
       updateField("boxColor", boxColor);
-    } catch {
-      // User can still pick colors manually if extraction fails.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Avatar color extraction failed.";
+      setExtractError(message);
+      toast.error(message);
     } finally {
       setExtracting(false);
     }
@@ -53,6 +58,11 @@ export function PersonaColorsTab({
         {extracting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Palette size="0.875rem" />}
         {extracting ? "Extracting..." : avatarUrl ? "Extract Colors from Avatar" : "Upload an avatar first"}
       </button>
+      {extractError && (
+        <p className="-mt-3 text-xs text-[var(--destructive)]" aria-live="polite">
+          {extractError}
+        </p>
+      )}
 
       <div className="space-y-3 rounded-xl border border-[var(--border)] bg-black/30 p-4">
         <p className="text-[0.625rem] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>

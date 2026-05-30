@@ -139,9 +139,13 @@ export function PersonasFilterBar({
                   {tag}
                   <button
                     type="button"
+                    aria-label={`Delete tag ${tag}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       onDeleteTag(tag);
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
                     }}
                     className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
                     title={`Delete tag "${tag}"`}

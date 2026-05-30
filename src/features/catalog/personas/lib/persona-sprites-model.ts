@@ -19,6 +19,16 @@ interface SpriteExpression {
   expression: string;
 }
 
+const FULL_BODY_PREFIX_PATTERN = /^full_/i;
+
+function hasFullBodyPrefix(expression: string): boolean {
+  return FULL_BODY_PREFIX_PATTERN.test(expression);
+}
+
+function stripFullBodyPrefix(expression: string): string {
+  return expression.replace(FULL_BODY_PREFIX_PATTERN, "");
+}
+
 export function normalizeSpriteExpression(raw: string, category: PersonaSpriteCategory): string {
   const cleaned = raw
     .trim()
@@ -26,19 +36,17 @@ export function normalizeSpriteExpression(raw: string, category: PersonaSpriteCa
     .replace(/[^a-z0-9_-]/g, "_");
   if (!cleaned) return "";
   if (category === "full-body") {
-    return cleaned.startsWith("full_") ? cleaned : `full_${cleaned}`;
+    return hasFullBodyPrefix(cleaned) ? cleaned : `full_${cleaned}`;
   }
-  return cleaned.replace(/^full_/, "");
+  return stripFullBodyPrefix(cleaned);
 }
 
 export function displaySpriteExpression(stored: string, category: PersonaSpriteCategory): string {
-  return category === "full-body" ? stored.replace(/^full_/, "") : stored;
+  return category === "full-body" ? stripFullBodyPrefix(stored) : stored;
 }
 
 export function getPortraitExpressionNames(sprites: SpriteExpression[]): string[] {
-  return sprites
-    .filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"))
-    .map((sprite) => sprite.expression);
+  return sprites.filter((sprite) => !hasFullBodyPrefix(sprite.expression)).map((sprite) => sprite.expression);
 }
 
 export function getVisibleSprites<TSprite extends SpriteExpression>(
@@ -46,7 +54,7 @@ export function getVisibleSprites<TSprite extends SpriteExpression>(
   category: PersonaSpriteCategory,
 ): TSprite[] {
   return sprites.filter((sprite) =>
-    category === "full-body" ? sprite.expression.startsWith("full_") : !sprite.expression.startsWith("full_"),
+    category === "full-body" ? hasFullBodyPrefix(sprite.expression) : !hasFullBodyPrefix(sprite.expression),
   );
 }
 

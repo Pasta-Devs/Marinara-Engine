@@ -62,11 +62,11 @@ export function PersonaSpriteGrid({
           <button
             type="button"
             onClick={() => onOpenWandCleanup(sprite)}
-            className="group/preview relative block aspect-[3/4] w-full bg-[var(--secondary)]"
+            className="group/preview relative block aspect-[3/4] w-full bg-[var(--secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/60"
             title="Open wand cleanup"
           >
             <img src={sprite.url} alt={sprite.expression} loading="lazy" className="h-full w-full object-contain" />
-            <span className="pointer-events-none absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--card)]/90 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-[var(--border)] transition-opacity group-hover/preview:opacity-100 max-md:opacity-100">
+            <span className="pointer-events-none absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--card)]/90 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-[var(--border)] transition-opacity group-hover/preview:opacity-100 group-focus-visible/preview:opacity-100 max-md:opacity-100">
               <Wand2 size="0.875rem" />
             </span>
           </button>
@@ -77,11 +77,11 @@ export function PersonaSpriteGrid({
             >
               {displayExpression(sprite.expression)}
             </span>
-            <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+            <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
               <button
                 type="button"
                 onClick={() => onOpenFrame(sprite)}
-                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50"
                 title="Frame"
               >
                 <Crop size="0.6875rem" />
@@ -89,7 +89,7 @@ export function PersonaSpriteGrid({
               <button
                 type="button"
                 onClick={() => onDownload(sprite)}
-                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50"
                 title="Download"
               >
                 <ImageDown size="0.6875rem" />
@@ -97,7 +97,7 @@ export function PersonaSpriteGrid({
               <button
                 type="button"
                 onClick={() => onReplace(sprite)}
-                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50"
                 title="Replace"
               >
                 <Upload size="0.6875rem" />
@@ -105,7 +105,7 @@ export function PersonaSpriteGrid({
               <button
                 type="button"
                 onClick={() => onDelete(sprite)}
-                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--destructive)]/50"
                 title="Delete"
               >
                 <Trash2 size="0.6875rem" />

@@ -84,6 +84,7 @@ export function PersonaDescriptionTab({
             onClick={() => setExpandedField("description")}
             className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title="Expand editor"
+            aria-label="Expand description editor"
           >
             <Maximize2 size="0.875rem" />
           </button>
@@ -117,6 +118,7 @@ export function PersonaDescriptionTab({
                 type="button"
                 onClick={() => removeTag(tag)}
                 className="ml-0.5 rounded-full transition-colors hover:text-[var(--destructive)]"
+                aria-label={`Remove tag ${tag}`}
               >
                 <X size="0.625rem" />
               </button>
@@ -182,21 +184,28 @@ export function PersonaDescriptionTab({
                 )}
               >
                 <div className="mb-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleAltDesc(description.id)}
-                    className={cn(
-                      "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
-                      description.active ? "bg-emerald-500" : "bg-[var(--muted-foreground)]/30",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        description.active && "translate-x-4",
-                      )}
+                  <label className="relative flex h-5 w-9 shrink-0 cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={description.active}
+                      onChange={() => toggleAltDesc(description.id)}
+                      className="peer sr-only"
+                      aria-label={`${description.active ? "Disable" : "Enable"} ${description.label || "description extension"}`}
                     />
-                  </button>
+                    <span
+                      className={cn(
+                        "flex h-5 w-9 items-center rounded-full p-0.5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400/60",
+                        description.active ? "bg-emerald-500" : "bg-[var(--muted-foreground)]/30",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          description.active && "translate-x-4",
+                        )}
+                      />
+                    </span>
+                  </label>
                   <input
                     value={description.label}
                     onChange={(event) => updateAltDescField(description.id, "label", event.target.value)}
@@ -208,6 +217,7 @@ export function PersonaDescriptionTab({
                     onClick={() => removeAltDesc(description.id)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
                     title="Remove extension"
+                    aria-label={`Remove ${description.label || "description extension"}`}
                   >
                     <X size="0.75rem" />
                   </button>
@@ -216,6 +226,7 @@ export function PersonaDescriptionTab({
                     onClick={() => setExpandedField(description.id)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                     title="Expand editor"
+                    aria-label={`Expand ${description.label || "description extension"} editor`}
                   >
                     <Maximize2 size="0.75rem" />
                   </button>

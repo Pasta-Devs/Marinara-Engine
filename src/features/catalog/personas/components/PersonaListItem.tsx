@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { Camera, Check, Copy, Star, Trash2, User } from "lucide-react";
 
 import { cn } from "../../../../shared/lib/utils";
@@ -36,25 +36,38 @@ export function PersonaListItem({
   onDelete,
 }: PersonaListItemProps) {
   const isInTargetGroup = targetGroup ? targetGroup.memberIds.includes(persona.id) : false;
+  const handleRowAction = () => {
+    if (selectionMode) {
+      onToggleSelection(persona.id);
+    } else if (targetGroup) {
+      onToggleGroupMember(targetGroup.id, persona.id, targetGroup.memberIds);
+    } else {
+      onOpen(persona.id);
+    }
+  };
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.currentTarget !== event.target) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleRowAction();
+  };
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${persona.name}`}
+      aria-current={active ? "true" : undefined}
+      aria-pressed={selectionMode ? isSelected : targetGroup ? isInTargetGroup : undefined}
       className={cn(
-        "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+        "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50",
         selectionMode && isSelected && "bg-emerald-400/8 ring-1 ring-emerald-400/40",
         active && "bg-emerald-400/5 ring-1 ring-emerald-400/40",
         assigningToGroup && isInTargetGroup && "bg-violet-500/10 ring-1 ring-violet-500/50",
         assigningToGroup && !isInTargetGroup && "opacity-60 hover:opacity-100",
       )}
-      onClick={() => {
-        if (selectionMode) {
-          onToggleSelection(persona.id);
-        } else if (targetGroup) {
-          onToggleGroupMember(targetGroup.id, persona.id, targetGroup.memberIds);
-        } else {
-          onOpen(persona.id);
-        }
-      }}
+      onClick={handleRowAction}
+      onKeyDown={handleRowKeyDown}
     >
       {selectionMode && (
         <button
@@ -76,9 +89,11 @@ export function PersonaListItem({
       )}
 
       <button
+        type="button"
         onClick={(event) => onAvatarClick(event, persona.id)}
         className="group/avatar relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-sm"
         title="Change avatar"
+        aria-label={`Change avatar for ${persona.name}`}
       >
         {persona.avatarPath ? (
           <img src={persona.avatarPath} alt="" loading="lazy" className="h-full w-full rounded-xl object-cover" />
@@ -110,7 +125,7 @@ export function PersonaListItem({
       </div>
 
       {!selectionMode && (
-        <div className="absolute right-2 top-1/2 flex shrink-0 -translate-y-1/2 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+        <div className="absolute right-2 top-1/2 flex shrink-0 -translate-y-1/2 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
           {!active && (
             <button
               onClick={(event) => {

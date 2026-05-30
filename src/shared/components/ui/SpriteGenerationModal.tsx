@@ -597,7 +597,7 @@ export function SpriteGenerationModal({
     setMatchExistingExpressions(false);
   }, [open, initialSpriteType]);
 
-  // Reset reference image & appearance when the target character changes
+  // Reset reference image & appearance when the target sprite owner changes
   useEffect(() => {
     setAppearance(defaultAppearance ?? "");
     setReferenceImages([]);
@@ -614,7 +614,7 @@ export function SpriteGenerationModal({
     setFramePreviewUrl(null);
     setMatchExistingExpressions(false);
     setError(null);
-  }, [entityId, defaultAvatarUrl, defaultAppearance]);
+  }, [entityId, entityKind, defaultAvatarUrl, defaultAppearance]);
 
   useEffect(() => {
     if (activeFrameIndex !== null && activeFrameIndex >= cells.length) {

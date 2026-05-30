@@ -12,6 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useRef } from "react";
 
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
@@ -64,6 +65,8 @@ export function PersonaGroupsSection({
   onToggleGroupMember,
   onExitSelectionMode,
 }: PersonaGroupsSectionProps) {
+  const skipRenameOnBlurRef = useRef(false);
+
   return (
     <>
       <div className="mt-1">
@@ -142,11 +145,18 @@ export function PersonaGroupsSection({
                         onKeyDown={(event) => {
                           if (event.key === "Enter") onRenameGroup(group.id);
                           if (event.key === "Escape") {
+                            skipRenameOnBlurRef.current = true;
                             onEditingGroupIdChange(null);
                             onEditGroupNameChange("");
                           }
                         }}
-                        onBlur={() => onRenameGroup(group.id)}
+                        onBlur={() => {
+                          if (skipRenameOnBlurRef.current) {
+                            skipRenameOnBlurRef.current = false;
+                            return;
+                          }
+                          onRenameGroup(group.id);
+                        }}
                         className="min-w-0 flex-1 bg-transparent text-xs font-medium outline-none"
                       />
                     ) : (

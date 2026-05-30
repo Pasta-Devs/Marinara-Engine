@@ -98,6 +98,61 @@ function parseAvatarCropValue(value: PersonaRow["avatarCrop"]): AvatarCrop | Leg
   return parseAvatarCropJson(JSON.stringify(value));
 }
 
+function cloneDefaultRpgStats(): PersonaRPGStats {
+  return {
+    ...DEFAULT_RPG_STATS,
+    attributes: DEFAULT_RPG_STATS.attributes.map((attribute) => ({ ...attribute })),
+    hp: { ...DEFAULT_RPG_STATS.hp },
+  };
+}
+
+function cloneDefaultPersonaStats(): PersonaStatsData {
+  return {
+    ...DEFAULT_PERSONA_STATS,
+    bars: DEFAULT_PERSONA_STATS.bars.map((bar) => ({ ...bar })),
+    rpgStats: cloneDefaultRpgStats(),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parsePersonaStatsValue(value: PersonaRow["personaStats"]): PersonaStatsData | null {
+  if (value == null) return null;
+
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return cloneDefaultPersonaStats();
+    }
+  }
+
+  if (!isRecord(parsed)) {
+    return cloneDefaultPersonaStats();
+  }
+
+  const next = cloneDefaultPersonaStats();
+  const rpgStats = isRecord(parsed.rpgStats) ? parsed.rpgStats : null;
+
+  return {
+    enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : next.enabled,
+    bars: Array.isArray(parsed.bars) ? (parsed.bars as PersonaStatBar[]) : next.bars,
+    rpgStats: {
+      enabled: rpgStats && typeof rpgStats.enabled === "boolean" ? rpgStats.enabled : (next.rpgStats?.enabled ?? false),
+      attributes:
+        rpgStats && Array.isArray(rpgStats.attributes)
+          ? (rpgStats.attributes as PersonaRPGAttribute[])
+          : (next.rpgStats?.attributes ?? []),
+      hp: isRecord(rpgStats?.hp)
+        ? { ...(next.rpgStats?.hp ?? DEFAULT_RPG_STATS.hp), ...rpgStats.hp }
+        : (next.rpgStats?.hp ?? { ...DEFAULT_RPG_STATS.hp }),
+    },
+  };
+}
+
 export function buildPersonaFormData(persona: PersonaRow): PersonaFormData {
   return {
     name: persona.name,
@@ -110,10 +165,7 @@ export function buildPersonaFormData(persona: PersonaRow): PersonaFormData {
     nameColor: persona.nameColor ?? "",
     dialogueColor: persona.dialogueColor ?? "",
     boxColor: persona.boxColor ?? "",
-    personaStats:
-      persona.personaStats && typeof persona.personaStats === "object"
-        ? (persona.personaStats as unknown as PersonaStatsData)
-        : null,
+    personaStats: parsePersonaStatsValue(persona.personaStats),
     altDescriptions: Array.isArray(persona.altDescriptions) ? persona.altDescriptions : [],
     tags: Array.isArray(persona.tags) ? persona.tags : [],
     avatarCrop: parseAvatarCropValue(persona.avatarCrop),

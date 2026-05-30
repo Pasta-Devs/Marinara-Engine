@@ -170,6 +170,11 @@ import {
 import { HapticConnectionPanel } from "./settings/HapticConnectionPanel";
 import { normalizeSpritePlacements } from "../../../../runtime/visuals/sprite-placement";
 import {
+  getCharacterIdFromSpriteOwnerKey,
+  getSpriteOwnerKeysForCharacterId,
+  makeSpriteOwnerKey,
+} from "../../../../runtime/visuals/sprite-owner-keys";
+import {
   DEFAULT_SPRITE_DISPLAY_MODES,
   hasSpriteDisplayMode,
   normalizeSpriteDisplayModes,
@@ -262,6 +267,10 @@ type DrawerCharacter = {
   avatarFilePath?: string | null;
   avatarFilename?: string | null;
 };
+
+type ChatSpriteSubject =
+  | { kind: "character"; id: string; ownerKey: string; character: DrawerCharacter }
+  | { kind: "persona"; id: string; ownerKey: string; persona: DrawerPersona };
 
 function useDebouncedValue(value: string, delayMs: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -820,10 +829,24 @@ function ChatSettingsDrawerInner({
     [chat.personaId, personas],
   );
 
-  const chatSpriteSubjects = useMemo(
+  const chatSpriteSubjects = useMemo<ChatSpriteSubject[]>(
     () => [
-      ...chatCharacters.map((character) => ({ kind: "character" as const, id: character.id, character })),
-      ...(activePersona ? [{ kind: "persona" as const, id: activePersona.id, persona: activePersona }] : []),
+      ...chatCharacters.map((character) => ({
+        kind: "character" as const,
+        id: character.id,
+        ownerKey: makeSpriteOwnerKey("character", character.id),
+        character,
+      })),
+      ...(activePersona
+        ? [
+            {
+              kind: "persona" as const,
+              id: activePersona.id,
+              ownerKey: makeSpriteOwnerKey("persona", activePersona.id),
+              persona: activePersona,
+            },
+          ]
+        : []),
     ],
     [activePersona, chatCharacters],
   );
@@ -955,12 +978,16 @@ function ChatSettingsDrawerInner({
       if (nextInactiveCharacterIds.length !== inactiveCharacterIds.length) {
         updateMeta.mutate({ id: chat.id, inactiveCharacterIds: nextInactiveCharacterIds });
       }
-      if (spriteCharacterIds.includes(charId)) {
+      const removedSpriteOwnerKeys = new Set(getSpriteOwnerKeysForCharacterId(charId));
+      const nextSpriteCharacterIds = spriteCharacterIds.filter((id) => !removedSpriteOwnerKeys.has(id));
+      if (nextSpriteCharacterIds.length !== spriteCharacterIds.length) {
         const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
-        delete nextSpritePlacements[charId];
+        for (const ownerKey of removedSpriteOwnerKeys) {
+          delete nextSpritePlacements[ownerKey];
+        }
         updateMeta.mutate({
           id: chat.id,
-          spriteCharacterIds: spriteCharacterIds.filter((id) => id !== charId),
+          spriteCharacterIds: nextSpriteCharacterIds,
           spritePlacements: nextSpritePlacements,
         });
       }
@@ -1007,15 +1034,40 @@ function ChatSettingsDrawerInner({
     updateMeta.mutate({ id: chat.id, inactiveCharacterIds: next });
   };
 
-  const toggleSprite = (charId: string) => {
+  const isSpriteSubjectActive = useCallback(
+    (subject: ChatSpriteSubject) => {
+      if (subject.kind === "persona") return spriteCharacterIds.includes(subject.ownerKey);
+      return spriteCharacterIds.some((ownerKey) => getCharacterIdFromSpriteOwnerKey(ownerKey) === subject.id);
+    },
+    [spriteCharacterIds],
+  );
+
+  const toggleSprite = (subject: ChatSpriteSubject) => {
     const current = [...spriteCharacterIds];
-    const idx = current.indexOf(charId);
-    if (idx >= 0) {
-      current.splice(idx, 1);
+    if (subject.kind === "character") {
+      const ownerKeys = new Set(getSpriteOwnerKeysForCharacterId(subject.id));
+      const next = current.filter((ownerKey) => !ownerKeys.has(ownerKey));
+      if (next.length !== current.length) {
+        const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+        for (const ownerKey of ownerKeys) {
+          delete nextSpritePlacements[ownerKey];
+        }
+        updateMeta.mutate({ id: chat.id, spriteCharacterIds: next, spritePlacements: nextSpritePlacements });
+        return;
+      }
     } else {
-      if (current.length >= 3) return; // max 3
-      current.push(charId);
+      const idx = current.indexOf(subject.ownerKey);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+        const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+        delete nextSpritePlacements[subject.ownerKey];
+        updateMeta.mutate({ id: chat.id, spriteCharacterIds: current, spritePlacements: nextSpritePlacements });
+        return;
+      }
     }
+
+    if (current.length >= 3) return; // max 3
+    current.push(subject.ownerKey);
     updateMeta.mutate({ id: chat.id, spriteCharacterIds: current });
   };
 
@@ -4296,7 +4348,7 @@ function ChatSettingsDrawerInner({
                           const title = isPersona ? subject.persona.comment || "Persona" : charTitle(subject.character);
                           const avatarPath = isPersona ? subject.persona.avatarPath : subject.character.avatarPath;
                           const avatarCrop = isPersona ? null : charAvatarCrop(subject.character);
-                          const spriteActive = spriteCharacterIds.includes(subject.id);
+                          const spriteActive = isSpriteSubjectActive(subject);
 
                           return (
                             <div
@@ -4346,7 +4398,7 @@ function ChatSettingsDrawerInner({
                               <SpriteToggleButton
                                 active={spriteActive}
                                 disabled={!spriteActive && spriteCharacterIds.length >= 3}
-                                onToggle={() => toggleSprite(subject.id)}
+                                onToggle={() => toggleSprite(subject)}
                               />
                             </div>
                           );
@@ -4358,7 +4410,8 @@ function ChatSettingsDrawerInner({
                       </p>
                     ) : (
                       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        None of the added characters have uploaded sprites yet. Open a character card to add them first.
+                        None of the added characters or the active persona have uploaded sprites yet. Open their card to
+                        add sprites first.
                       </p>
                     )}
 
@@ -6734,6 +6787,7 @@ function SpriteToggleButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onToggle}
       disabled={disabled}
       className={cn(

@@ -65,6 +65,10 @@ export function PersonaSpriteUploadPanel({
   onNewExpressionChange,
   onStartUpload,
 }: PersonaSpriteUploadPanelProps) {
+  const cleanupStrengthId = `persona-sprite-cleanup-strength-${category}`;
+  const expressionInputId = `persona-sprite-expression-${category}`;
+  const expressionLabel = category === "full-body" ? "Pose name" : "Expression name";
+
   return (
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -149,9 +153,12 @@ export function PersonaSpriteUploadPanel({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--secondary)]/60 px-3 py-2">
-        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">Cleanup strength</span>
+        <label htmlFor={cleanupStrengthId} className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+          Cleanup strength
+        </label>
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">Soft</span>
         <input
+          id={cleanupStrengthId}
           type="range"
           min={0}
           max={100}
@@ -209,7 +216,11 @@ export function PersonaSpriteUploadPanel({
         </div>
       )}
       <div className="flex gap-2">
+        <label htmlFor={expressionInputId} className="sr-only">
+          {expressionLabel}
+        </label>
         <input
+          id={expressionInputId}
           value={newExpression}
           onChange={(event) => onNewExpressionChange(event.target.value)}
           placeholder={

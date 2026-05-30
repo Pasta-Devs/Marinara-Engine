@@ -21,6 +21,11 @@ import { useEncounter } from "../encounter/hooks/use-encounter";
 import { useAgentInjectionReview } from "../hooks/use-agent-injection-review";
 import { useRoleplayTranscriptScroll } from "../hooks/use-roleplay-transcript-scroll";
 import { useScene } from "../hooks/use-scene";
+import {
+  getCharacterIdFromSpriteOwnerKey,
+  getSpriteOwnerId,
+  getSpriteOwnerKind,
+} from "../../../runtime/visuals/sprite-owner-keys";
 import { AgentInjectionReviewModal } from "./AgentInjectionReviewModal";
 import { ChatRoleplaySurface } from "./ChatRoleplaySurface";
 
@@ -183,13 +188,32 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
     data.chatMeta.expressionAvatarsEnabled === true &&
     expressionAgentEnabled &&
     data.chatCharIds.length > 0;
+  const spriteOverlayOwnerKeys = useMemo(() => {
+    const activePersonaId = data.chat?.personaId ?? null;
+    const chatCharIdSet = new Set(data.chatCharIds);
+    const ownerKeysByIdentity = new Map<string, string>();
+    for (const ownerKey of spriteState.spriteCharacterIds) {
+      const trimmed = ownerKey.trim();
+      if (!trimmed) continue;
+      const ownerId = getSpriteOwnerId(trimmed);
+      if (!ownerId) continue;
+      const ownerKind = getSpriteOwnerKind(trimmed);
+      const belongsToChat = ownerKind === "persona" ? ownerId === activePersonaId : chatCharIdSet.has(ownerId);
+      if (belongsToChat && !ownerKeysByIdentity.has(`${ownerKind}:${ownerId}`)) {
+        ownerKeysByIdentity.set(`${ownerKind}:${ownerId}`, trimmed);
+      }
+    }
+    return Array.from(ownerKeysByIdentity.values());
+  }, [data.chat?.personaId, data.chatCharIds, spriteState.spriteCharacterIds]);
   const expressionAvatarCharacterIds = useMemo(() => {
     const configuredIds =
-      spriteState.spriteCharacterIds.length > 0
-        ? spriteState.spriteCharacterIds.filter((id) => data.chatCharIds.includes(id))
+      spriteOverlayOwnerKeys.length > 0
+        ? spriteOverlayOwnerKeys
+            .map((ownerKey) => getCharacterIdFromSpriteOwnerKey(ownerKey))
+            .filter((id): id is string => !!id && data.chatCharIds.includes(id))
         : data.chatCharIds;
     return Array.from(new Set(configuredIds.filter((id) => typeof id === "string" && id.trim())));
-  }, [data.chatCharIds, spriteState.spriteCharacterIds]);
+  }, [data.chatCharIds, spriteOverlayOwnerKeys]);
   const expressionAvatarSpriteData = useQueries({
     queries: expressionAvatarCharacterIds.map((characterId) => ({
       queryKey: spriteKeys.list(characterId),
@@ -255,7 +279,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
         combatAgentEnabled={combatAgentEnabled}
         encounterActive={encounterActive}
         spritePosition={spriteState.spritePosition}
-        spriteCharacterIds={spriteState.spriteCharacterIds}
+        spriteCharacterIds={spriteOverlayOwnerKeys}
         spriteDisplayModes={spriteState.spriteDisplayModes}
         spriteExpressions={spriteState.spriteExpressions}
         spritePlacements={spriteState.spritePlacements}
