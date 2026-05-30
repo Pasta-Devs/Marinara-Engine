@@ -56,7 +56,6 @@ import { npcAvatarApi } from "../../../../shared/api/avatar-api";
 import { spriteApi } from "../../../../shared/api/image-generation-api";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { gameAssetFileUrlFromPath, userBackgroundUrl } from "../../../../shared/api/local-file-api";
-import { storageApi } from "../../../../shared/api/storage-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
@@ -87,6 +86,10 @@ import { normalizeGameSegmentEdit, serializeGameSegmentEdit, type GameSegmentEdi
 import { useGameSceneAnalysis } from "../hooks/use-game-scene-analysis";
 import { usePartyTurn } from "../hooks/use-party-turn";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
+import {
+  flushPendingGameMetadataPatches,
+  persistGameMetadataPatch,
+} from "../lib/game-metadata-persistence";
 import { dispatchSpotifySceneTrackChange } from "../../../../shared/lib/spotify-playback-events";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
 import type {
@@ -981,10 +984,6 @@ import type { Chat, Message } from "../../../../engine/contracts/types/chat";
 import type { SessionSummary, Combatant, GameCombatStateSnapshot } from "../../../../engine/contracts/types/game";
 import type { CharacterMap, PersonaInfo } from "../../shared/chat-ui/types";
 
-async function persistGameMetadata(chatId: string, patch: Record<string, unknown>) {
-  return storageApi.patchChatMetadata<Chat>(chatId, patch);
-}
-
 type InventoryNotificationKind = "gain" | "loss" | "use-pending" | "use-kept" | "use-consumed" | "error";
 
 interface InventoryNotification {
@@ -1850,6 +1849,17 @@ export function GameSurface({
     },
     [queryClient],
   );
+  const persistMetadata = useCallback(
+    (chatId: string, patch: Record<string, unknown>) =>
+      persistGameMetadataPatch(chatId, patch, { onPersisted: publishSessionChat }),
+    [publishSessionChat],
+  );
+
+  useEffect(() => {
+    void flushPendingGameMetadataPatches(activeChatId, { onPersisted: publishSessionChat }).catch(() => {
+      /* failure is retained and reported by the persistence helper */
+    });
+  }, [activeChatId, publishSessionChat]);
 
   useEffect(() => {
     const loc = gameSnapshot?.location;
@@ -2405,7 +2415,7 @@ export function GameSurface({
 
       const inventoryPersist =
         updated !== previousInventory
-          ? persistGameMetadata(activeChatId, { gameInventory: updated }).catch(() => null)
+          ? persistMetadata(activeChatId, { gameInventory: updated }).catch(() => null)
           : Promise.resolve(null);
 
       if (updated !== previousInventory) {
@@ -2448,7 +2458,7 @@ export function GameSurface({
         setPendingInventoryUse(null);
       }
     },
-    [activeChatId, patchVisibleGameState, publishSessionChat, showInventoryNotifications],
+    [activeChatId, patchVisibleGameState, persistMetadata, publishSessionChat, showInventoryNotifications],
   );
 
   const playDirections = useCallback((directions: DirectionCommand[]) => {
@@ -3043,7 +3053,7 @@ export function GameSurface({
           recentSpotifyTrackHistoryRef.current,
           track.uri,
         );
-        persistGameMetadata(activeChatId, { gameRecentSpotifyTracks: recentSpotifyTrackHistoryRef.current }).catch(
+        persistMetadata(activeChatId, { gameRecentSpotifyTracks: recentSpotifyTrackHistoryRef.current }).catch(
           () => {},
         );
         await queryClient.invalidateQueries({ queryKey: ["spotify", "player"] });
@@ -3054,7 +3064,7 @@ export function GameSurface({
         setSpotifyRetryPending(false);
       }
     },
-    [activeChatId, queryClient, useSpotifyGameMusic],
+    [activeChatId, persistMetadata, queryClient, useSpotifyGameMusic],
   );
 
   const hasCombatResultAfterMessage = useCallback(
@@ -3250,7 +3260,7 @@ export function GameSurface({
           recentMusicHistoryRef.current = appendRecentMusic(recentMusicHistoryRef.current, state.currentMusic);
           patch.gameRecentMusic = recentMusicHistoryRef.current;
         }
-        persistGameMetadata(activeChatId, patch).catch(() => {});
+        persistMetadata(activeChatId, patch).catch(() => {});
       }, 1500);
     });
     return () => {
@@ -3259,7 +3269,7 @@ export function GameSurface({
       if (scenePersistTimer.current) {
         clearTimeout(scenePersistTimer.current);
         const { currentBackground, currentMusic, currentAmbient } = useGameAssetStore.getState();
-        persistGameMetadata(activeChatId, {
+        persistMetadata(activeChatId, {
           gameSceneBackground: currentBackground,
           gameSceneMusic: currentMusic,
           gameSceneAmbient: currentAmbient,
@@ -3267,7 +3277,7 @@ export function GameSurface({
         }).catch(() => {});
       }
     };
-  }, [activeChatId]);
+  }, [activeChatId, persistMetadata]);
 
   // ── Restore in-progress combat state from chat metadata on page load ──
   // Without this, refreshing during a fight drops the user back into prose narration even
@@ -3285,7 +3295,7 @@ export function GameSurface({
     if (!snapshot || !snapshot.party?.length || !snapshot.enemies?.length) return;
     if (chatMeta.gameActiveState !== "combat") {
       // Stale snapshot — combat ended but the metadata write didn't land. Clear it.
-      persistGameMetadata(activeChatId, { gameCombatState: null }).catch(() => {});
+      persistMetadata(activeChatId, { gameCombatState: null }).catch(() => {});
       return;
     }
     // Runtime validation: the snapshot is JSON-deserialized from chat metadata that
@@ -3300,7 +3310,7 @@ export function GameSurface({
         "[game-surface] Discarding combat snapshot — failed Combatant schema validation. " +
           "Likely written by an older client version.",
       );
-      persistGameMetadata(activeChatId, { gameCombatState: null }).catch(() => {});
+      persistMetadata(activeChatId, { gameCombatState: null }).catch(() => {});
       return;
     }
     setCombatParty(rawParty);
@@ -3310,7 +3320,7 @@ export function GameSurface({
     setCombatDialogueCues(Array.isArray(snapshot.dialogueCues) ? snapshot.dialogueCues : []);
     if (snapshot.startMessageId) setCombatStartMessageId(snapshot.startMessageId);
     useGameModeStore.getState().setGameState("combat");
-  }, [activeChatId, chatMeta.gameCombatState, chatMeta.gameActiveState, isMessagesLoading]);
+  }, [activeChatId, chatMeta.gameCombatState, chatMeta.gameActiveState, isMessagesLoading, persistMetadata]);
 
   // ── Persist live combat snapshot to chat metadata (debounced) ──
   // Mirrors the scene-asset persistence above but only fires while combat is active.
@@ -3324,15 +3334,18 @@ export function GameSurface({
   // Shared helper used by combat-end + return-to-pre-combat-turn so both paths reliably
   // wipe the persisted snapshot, even if the exploration-state PATCH is still in flight
   // when the user refreshes.
-  const clearCombatSnapshot = useCallback((chatId: string | null) => {
-    if (!chatId) return;
-    if (combatPersistTimer.current) {
-      clearTimeout(combatPersistTimer.current);
-      combatPersistTimer.current = null;
-    }
-    combatPendingSnapshotRef.current = null;
-    persistGameMetadata(chatId, { gameCombatState: null }).catch(() => {});
-  }, []);
+  const clearCombatSnapshot = useCallback(
+    (chatId: string | null) => {
+      if (!chatId) return;
+      if (combatPersistTimer.current) {
+        clearTimeout(combatPersistTimer.current);
+        combatPersistTimer.current = null;
+      }
+      combatPendingSnapshotRef.current = null;
+      persistMetadata(chatId, { gameCombatState: null }).catch(() => {});
+    },
+    [persistMetadata],
+  );
   useEffect(() => {
     if (combatRestoredChatIdRef.current !== activeChatId) return;
     if (!combatParty || !combatEnemies || gameState !== "combat") return;
@@ -3351,7 +3364,7 @@ export function GameSurface({
       // keepalive flush below or the lifecycle wipes in `clearCombatSnapshot`. A
       // silent failure here means the user keeps fighting believing state is saved,
       // then loses progress on refresh — the operator needs to see this in console.
-      persistGameMetadata(activeChatId, { gameCombatState: snapshot }).catch((err: unknown) =>
+      persistMetadata(activeChatId, { gameCombatState: snapshot }).catch((err: unknown) =>
         console.error("[game-surface] combat snapshot persist failed", err),
       );
       combatPendingSnapshotRef.current = null;
@@ -3369,7 +3382,7 @@ export function GameSurface({
       // which is exactly the scenario this feature is meant to protect.
       const pending = combatPendingSnapshotRef.current;
       if (pending) {
-        persistGameMetadata(pending.chatId, { gameCombatState: pending.snapshot }).catch(() => {});
+        persistMetadata(pending.chatId, { gameCombatState: pending.snapshot }).catch(() => {});
         combatPendingSnapshotRef.current = null;
       }
     };
@@ -3382,6 +3395,7 @@ export function GameSurface({
     combatDialogueCues,
     combatStartMessageId,
     gameState,
+    persistMetadata,
   ]);
 
   // ── Self-heal stale "user" persona name in restored combat state ──
@@ -3429,13 +3443,13 @@ export function GameSurface({
       }
       if (segmentPersistTimer.current) clearTimeout(segmentPersistTimer.current);
       segmentPersistTimer.current = setTimeout(() => {
-        persistGameMetadata(activeChatId, {
+        persistMetadata(activeChatId, {
           gameNarrationIndex: index,
           gameNarrationMessageId: narrationProgressMessageId,
         }).catch(() => {});
       }, 500);
     },
-    [activeChatId, narrationProgressMessageId, segmentStorageKey],
+    [activeChatId, narrationProgressMessageId, persistMetadata, segmentStorageKey],
   );
   useEffect(() => {
     return () => {
@@ -3445,7 +3459,7 @@ export function GameSurface({
         try {
           const saved = parseStoredNarrationProgress(localStorage.getItem(segmentStorageKey));
           if (saved) {
-            persistGameMetadata(activeChatId, {
+            persistMetadata(activeChatId, {
               gameNarrationIndex: saved.index,
               gameNarrationMessageId: saved.messageId,
             }).catch(() => {});
@@ -3455,7 +3469,7 @@ export function GameSurface({
         }
       }
     };
-  }, [activeChatId, segmentStorageKey]);
+  }, [activeChatId, persistMetadata, segmentStorageKey]);
 
   // Read the saved narration index for restore — prefer localStorage (fast, survives
   // browser restarts) for instant restore, fall back to server metadata.
@@ -3589,7 +3603,7 @@ export function GameSurface({
     } catch {
       /* ignore */
     }
-    persistGameMetadata(activeChatId, { gameNarrationIndex: 0, gameNarrationMessageId: msg.id }).catch(() => {});
+    persistMetadata(activeChatId, { gameNarrationIndex: 0, gameNarrationMessageId: msg.id }).catch(() => {});
 
     const tags = parseGmTags(msg.content);
     const mapUpdateCommands = parseMapUpdateCommands(msg.content);
@@ -5512,7 +5526,7 @@ export function GameSurface({
         next.set(`${messageId}:${segmentIndex}`, payload);
         return next;
       });
-      persistGameMetadata(activeChatId, { [key]: payload }).catch(() => {});
+      persistMetadata(activeChatId, { [key]: payload }).catch(() => {});
 
       if (payload.readableContent) {
         upsertReadableJournalEntry({
@@ -5523,7 +5537,7 @@ export function GameSurface({
         });
       }
     },
-    [activeChatId, upsertReadableJournalEntry],
+    [activeChatId, persistMetadata, upsertReadableJournalEntry],
   );
 
   const handleDeleteSegment = useCallback(
@@ -5535,9 +5549,9 @@ export function GameSurface({
         next.add(`${messageId}:${segmentIndex}`);
         return next;
       });
-      persistGameMetadata(activeChatId, { [key]: true }).catch(() => {});
+      persistMetadata(activeChatId, { [key]: true }).catch(() => {});
     },
-    [activeChatId],
+    [activeChatId, persistMetadata],
   );
 
   const handleEditMessage = useCallback(

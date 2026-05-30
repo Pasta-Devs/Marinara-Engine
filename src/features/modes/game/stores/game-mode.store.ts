@@ -2,7 +2,6 @@
 // Store: Game Mode
 // ──────────────────────────────────────────────
 import { create } from "zustand";
-import { gameApi } from "../api/game-api";
 import type {
   GameActiveState,
   GameMap,
@@ -13,6 +12,7 @@ import type {
   WidgetUpdate,
 } from "../../../../engine/contracts/types/game";
 import { sanitizeGameNpcAvatarUrls } from "../../../../engine/modes/game/assets/npc-avatar-utils";
+import { persistGameMetadataPatch } from "../lib/game-metadata-persistence";
 
 interface GameModeStore {
   /** The active game ID (groupId that links all sessions). */
@@ -85,20 +85,28 @@ export function getPendingHudWidgetPersistenceSignature(chatId: string): string 
   return pendingWidgetPersistence?.chatId === chatId ? pendingWidgetPersistence.signature : null;
 }
 
+export function resetHudWidgetPersistenceForTest() {
+  if (widgetPersistTimer) clearTimeout(widgetPersistTimer);
+  widgetPersistTimer = null;
+  pendingWidgetPersistence = null;
+}
+
 function debouncedPersistWidgets(chatId: string, widgets: HudWidget[]) {
   const signature = getHudWidgetStateSignature(widgets);
   pendingWidgetPersistence = { chatId, signature };
   if (widgetPersistTimer) clearTimeout(widgetPersistTimer);
   widgetPersistTimer = setTimeout(() => {
-    gameApi
-      .updateWidgets({ chatId, widgets })
-      .catch(() => {
-        /* best-effort persistence */
+    const clearPending = () => {
+      if (pendingWidgetPersistence?.chatId === chatId && pendingWidgetPersistence.signature === signature) {
+        pendingWidgetPersistence = null;
+      }
+    };
+    persistGameMetadataPatch(chatId, { gameWidgetState: widgets }, { onPersisted: clearPending, onPersistedOnce: true })
+      .then(() => {
+        clearPending();
       })
-      .finally(() => {
-        if (pendingWidgetPersistence?.chatId === chatId && pendingWidgetPersistence.signature === signature) {
-          pendingWidgetPersistence = null;
-        }
+      .catch(() => {
+        /* failure is retained and reported by the persistence helper */
       });
   }, 1000);
 }
