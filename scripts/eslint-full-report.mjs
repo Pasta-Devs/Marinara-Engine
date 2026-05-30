@@ -9,7 +9,7 @@ if (outputIndex !== -1 && !args[outputIndex + 1]) {
   throw new Error("Missing value for --output");
 }
 
-const outputFile = outputIndex === -1 ? "scratch/eslint-full-report.json" : args[outputIndex + 1];
+const outputFile = outputIndex === -1 ? ".eslint-reports/eslint-full-report.json" : args[outputIndex + 1];
 const outputPath = path.resolve(process.cwd(), outputFile);
 
 const eslint = new ESLint({

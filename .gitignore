@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 *.tsbuildinfo
+.eslint-reports/
 
 # Local environment and app/runtime data
 .env
