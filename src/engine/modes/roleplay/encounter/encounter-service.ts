@@ -96,6 +96,15 @@ export async function resolveRoleplayEncounterAction(
     temperature: 0.8,
     maxTokens: ACTION_OUTPUT_TOKENS,
   });
+  // completeJsonObject returns null only when the model output was unparseable
+  // or the LLM call failed. In that case there is no real turn: synthesizing a
+  // deterministic fallback would silently advance combat (and can reach
+  // victory + summary writeback). Surface a recoverable invalid signal instead
+  // and leave combat state untouched. A present-but-partial response is still a
+  // real turn and continues through sanitizeCombatActionResult below.
+  if (parsed === null) {
+    return { result: fallback, invalid: true };
+  }
   const rawResult = recordValue(parsed?.result) ?? parsed;
   const result = sanitizeCombatActionResult(rawResult, input, fallback);
 

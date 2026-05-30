@@ -155,6 +155,14 @@ export function useEncounter() {
           },
         );
 
+        // Model produced no usable combat turn (unparseable output or LLM
+        // error) — surface a retryable error and keep combat state unchanged.
+        if (res.invalid) {
+          store.setError("AI returned an invalid response. Try again.");
+          store.setProcessing(false);
+          return;
+        }
+
         const r = res.result;
 
         // Validate critical fields — AI may return malformed data
