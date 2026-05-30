@@ -18,7 +18,7 @@ export interface ChatCompleteOptions {
   [key: string]: unknown;
 }
 
-export interface LLMUsage {
+interface LLMUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;

@@ -9,12 +9,3 @@ export const systemClock: Clock = {
   nowIso: () => new Date().toISOString(),
   nowMs: () => Date.now(),
 };
-
-export function createFixedClock(date: Date | string | number): Clock {
-  const fixed = new Date(date);
-  return {
-    now: () => new Date(fixed),
-    nowIso: () => fixed.toISOString(),
-    nowMs: () => fixed.getTime(),
-  };
-}

@@ -15,7 +15,7 @@ export interface PromptMessage {
  * Position 0 = WORLD_INFO_BEFORE (before character defs)
  * Position 1 = WORLD_INFO_AFTER (after character defs)
  */
-export function buildWorldInfoBlocks(activatedEntries: ActivatedEntry[]): {
+function buildWorldInfoBlocks(activatedEntries: ActivatedEntry[]): {
   before: string;
   after: string;
 } {
@@ -45,7 +45,7 @@ export function buildWorldInfoBlocks(activatedEntries: ActivatedEntry[]): {
  * Only entries with position >= 2 (depth injection mode) are included.
  * Position 0/1 entries always go to worldInfoBefore/After via buildWorldInfoBlocks.
  */
-export function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Array<{
+function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Array<{
   content: string;
   role: LorebookRole;
   depth: number;
@@ -111,10 +111,6 @@ export function injectAtDepth(
  * Trims entries (by priority/order) until total tokens are within budget.
  * Uses a rough estimate of 4 characters per token.
  */
-export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget: number): ActivatedEntry[] {
-  return applyTokenBudgetWithSkipped(activatedEntries, tokenBudget).includedEntries;
-}
-
 export interface BudgetSkippedActivatedEntry {
   activatedEntry: ActivatedEntry;
   estimatedTokens: number;
@@ -122,7 +118,7 @@ export interface BudgetSkippedActivatedEntry {
 }
 
 /**
- * Apply the same budget ordering as applyTokenBudget, while preserving the
+ * Apply token-budget ordering while preserving the
  * entries that were dropped so callers can surface budget diagnostics.
  */
 export function applyTokenBudgetWithSkipped(

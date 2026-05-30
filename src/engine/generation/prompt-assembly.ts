@@ -1660,7 +1660,7 @@ function authorNotesDepthEntry(chat: JsonRecord): { content: string; role: "syst
   return { content, role: "system", depth };
 }
 
-export function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
+function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
   return {
     id: readString(entry.id),
     lorebookId: readString(entry.lorebookId),

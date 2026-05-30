@@ -26,7 +26,7 @@ import {
   type JsonRecord,
 } from "./runtime-records";
 
-export type ConnectedCommandEvent =
+type ConnectedCommandEvent =
   | { type: "cross_post"; data: JsonRecord }
   | { type: "assistant_action"; data: JsonRecord }
   | { type: "ooc_posted"; data: JsonRecord }
