@@ -13,23 +13,25 @@ import {
   useUploadAvatar,
   useDeleteCharacter,
   useDuplicateCharacter,
-  useCharacterSprites,
   useCharacterGalleryImages,
   useUploadCharacterGalleryImage,
   useDeleteCharacterGalleryImage,
-  useUploadSprite,
-  useUploadSprites,
-  useDeleteSprite,
-  useCleanupSavedSprites,
-  useRestoreSpriteCleanupPoint,
-  useSpriteCapabilities,
   useCharacterVersions,
   useRestoreCharacterVersion,
   useDeleteCharacterVersion,
-  spriteKeys,
   type CharacterGalleryImage,
-  type SpriteInfo,
 } from "../hooks/use-characters";
+import {
+  spriteKeys,
+  type SpriteInfo,
+  useCharacterSprites,
+  useCleanupSavedSprites,
+  useDeleteSprite,
+  useRestoreSpriteCleanupPoint,
+  useSpriteCapabilities,
+  useUploadSprite,
+  useUploadSprites,
+} from "../../sprites/index";
 import { useCreatePersona, useUploadPersonaAvatar } from "../../personas/index";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { lorebookKeys, useLorebook } from "../../lorebooks/index";
@@ -2187,6 +2189,10 @@ function SpritesTab({
     (stored: string) => (category === "full-body" ? stored.replace(/^full_/, "") : stored),
     [category],
   );
+  const getSpriteErrorMessage = useCallback(
+    (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
+    [],
+  );
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2205,9 +2211,15 @@ function SpritesTab({
         });
         setNewExpression("");
         pendingExpressionRef.current = "";
+      } catch (error) {
+        toast.error(getSpriteErrorMessage(error, "Failed to upload sprite."));
       } finally {
         setUploading(false);
       }
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read sprite image.");
+      setUploading(false);
     };
     reader.readAsDataURL(file);
     // Reset input so same file can be re-selected
@@ -2288,19 +2300,35 @@ function SpritesTab({
     try {
       await deleteSprite.mutateAsync({ characterId, expression: deleteSpriteRequest.expression });
       setDeleteSpriteRequest(null);
+    } catch (error) {
+      toast.error(getSpriteErrorMessage(error, "Failed to delete sprite."));
     } finally {
       setDeletingSprites(null);
     }
-  }, [characterId, deleteSprite, deleteSpriteRequest]);
+  }, [characterId, deleteSprite, deleteSpriteRequest, getSpriteErrorMessage]);
 
   const handleDeleteVisibleSprites = useCallback(async () => {
     if (visibleSprites.length === 0) return;
     setDeletingSprites("all");
+    let deletedCount = 0;
+    let failedCount = 0;
     try {
       for (const sprite of visibleSprites) {
-        await deleteSprite.mutateAsync({ characterId, expression: sprite.expression });
+        try {
+          await deleteSprite.mutateAsync({ characterId, expression: sprite.expression });
+          deletedCount += 1;
+        } catch {
+          failedCount += 1;
+        }
       }
-      setDeleteSpriteRequest(null);
+      if (failedCount > 0) {
+        toast.warning(
+          `Deleted ${deletedCount} sprite${deletedCount === 1 ? "" : "s"}; ${failedCount} failed to delete.`,
+        );
+      } else {
+        toast.success(`Deleted ${deletedCount} sprite${deletedCount === 1 ? "" : "s"}.`);
+      }
+      if (deletedCount > 0 || failedCount === 0) setDeleteSpriteRequest(null);
     } finally {
       setDeletingSprites(null);
     }
@@ -2419,11 +2447,13 @@ function SpritesTab({
         });
         toast.success(`Framed ${displayExpression(framingSprite.expression)} sprite.`);
         setFramingSprite(null);
+      } catch (error) {
+        toast.error(getSpriteErrorMessage(error, "Failed to save framed sprite."));
       } finally {
         setSavingFrame(false);
       }
     },
-    [characterId, displayExpression, framingSprite, uploadSprite],
+    [characterId, displayExpression, framingSprite, getSpriteErrorMessage, uploadSprite],
   );
 
   const handleApplyWandCleanup = useCallback(
@@ -2439,11 +2469,13 @@ function SpritesTab({
         });
         toast.success(`Cleaned ${displayExpression(wandCleanupSprite.expression)} sprite.`);
         setWandCleanupSprite(null);
+      } catch (error) {
+        toast.error(getSpriteErrorMessage(error, "Failed to save cleaned sprite."));
       } finally {
         setSavingWandCleanup(false);
       }
     },
-    [characterId, displayExpression, uploadSprite, wandCleanupSprite],
+    [characterId, displayExpression, getSpriteErrorMessage, uploadSprite, wandCleanupSprite],
   );
 
   return (

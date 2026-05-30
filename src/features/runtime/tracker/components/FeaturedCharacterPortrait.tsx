@@ -1,5 +1,5 @@
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
-import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { useCharacterSprites, type SpriteInfo } from "../../../catalog/sprites/index";
 import {
   FEATURED_PORTRAIT_DEFAULT_FOCUS_X,
   FEATURED_PORTRAIT_DEFAULT_FOCUS_Y,

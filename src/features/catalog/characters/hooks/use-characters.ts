@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { characterKeys, spriteKeys } from "../query-keys";
+import { characterKeys } from "../query-keys";
 import {
   createCharacterSchema,
   createGroupSchema,
@@ -14,12 +14,12 @@ import { characterApi } from "../../../../shared/api/character-api";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
-import { galleryApi, spriteApi } from "../../../../shared/api/image-generation-api";
+import { galleryApi } from "../../../../shared/api/image-generation-api";
 import type { CharacterCardVersion } from "../../../../engine/contracts/types/character";
 import type { SpriteCapabilities, SpriteCleanupEngine } from "../../../../shared/types/sprite-capabilities";
 import { characterAvatarUrl, type CharacterAvatarSource } from "../lib/character-avatar-url";
 
-export { characterKeys, spriteKeys } from "../query-keys";
+export { characterKeys } from "../query-keys";
 
 type CharacterListRecord = Record<string, unknown> & { id?: string };
 export type CharacterSummary = {
@@ -413,43 +413,6 @@ export function useDuplicateCharacter() {
   });
 }
 
-// ── Character Sprites ──
-
-export interface SpriteInfo {
-  expression: string;
-  filename: string;
-  url: string;
-}
-
-export interface SpriteUploadItem {
-  expression: string;
-  image: string;
-}
-
-export interface SpriteBulkUploadResult {
-  imported: number;
-  failed: Array<{ expression: string; filename?: string; error: string }>;
-  sprites: SpriteInfo[];
-}
-
-export interface SpriteCleanupResult {
-  processed: number;
-  failed: Array<{ expression: string; error: string }>;
-  restorePointId?: string | null;
-  engine?: SpriteCleanupEngine;
-  externalCleanupProcessed?: number;
-  builtinProcessed?: number;
-  sprites: SpriteInfo[];
-  error?: string;
-}
-
-export interface SpriteCleanupRestoreResult {
-  restored: number;
-  failed: Array<{ expression: string; error: string }>;
-  sprites: SpriteInfo[];
-  error?: string;
-}
-
 export interface CharacterGalleryImage {
   id: string;
   characterId: string;
@@ -461,86 +424,6 @@ export interface CharacterGalleryImage {
   height: number | null;
   createdAt: string;
   url: string;
-}
-
-export function useSpriteCapabilities() {
-  return useQuery({
-    queryKey: spriteKeys.capabilities(),
-    queryFn: () => spriteApi.capabilities<SpriteCapabilities>(),
-    staleTime: 5 * 60_000,
-  });
-}
-
-export function useCharacterSprites(characterId: string | null) {
-  return useQuery({
-    queryKey: spriteKeys.list(characterId ?? ""),
-    queryFn: () => spriteApi.list<SpriteInfo[]>(characterId!),
-    enabled: !!characterId,
-  });
-}
-
-export function useUploadSprite() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ characterId, expression, image }: { characterId: string; expression: string; image: string }) =>
-      spriteApi.upload<SpriteInfo>(characterId, { expression, image }),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
-    },
-  });
-}
-
-export function useUploadSprites() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ characterId, sprites }: { characterId: string; sprites: SpriteUploadItem[] }) =>
-      spriteApi.bulkUpload<SpriteBulkUploadResult>(characterId, { sprites }),
-    onSuccess: (data, variables) => {
-      qc.setQueryData(spriteKeys.list(variables.characterId), data.sprites);
-    },
-  });
-}
-
-export function useDeleteSprite() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ characterId, expression }: { characterId: string; expression: string }) =>
-      spriteApi.delete(characterId, expression),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
-    },
-  });
-}
-
-export function useCleanupSavedSprites() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      characterId,
-      expressions,
-      cleanupStrength = 35,
-      engine = "auto",
-    }: {
-      characterId: string;
-      expressions?: string[];
-      cleanupStrength?: number;
-      engine?: SpriteCleanupEngine;
-    }) => spriteApi.cleanupSaved<SpriteCleanupResult>(characterId, { expressions, cleanupStrength, engine }),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
-    },
-  });
-}
-
-export function useRestoreSpriteCleanupPoint() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ characterId, restorePointId }: { characterId: string; restorePointId: string }) =>
-      spriteApi.cleanupRestore<SpriteCleanupRestoreResult>(characterId, { restorePointId }),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
-    },
-  });
 }
 
 export function useCharacterGalleryImages(characterId: string | null) {

@@ -43,7 +43,7 @@ import {
   stripSurroundingDialogueQuotes,
 } from "../../../../shared/lib/dialogue-quotes";
 import { formatNarration } from "../lib/game-narration-format";
-import type { SpriteInfo } from "../../../catalog/characters/index";
+import type { SpriteInfo } from "../../../catalog/sprites/index";
 import { useTranslate } from "../../../../shared/hooks/use-translate";
 import { useTTSConfig } from "../../../../shared/hooks/use-tts";
 import { useApplyRegex } from "../../../catalog/agents/regex-application";

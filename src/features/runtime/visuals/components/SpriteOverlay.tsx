@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { motion, AnimatePresence, type TargetAndTransition } from "framer-motion";
 import type { SpritePlacement, SpriteSide } from "../../../../engine/contracts/types/chat";
-import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { useCharacterSprites, type SpriteInfo } from "../../../catalog/sprites/index";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
 import {
   isFullBodySpriteExpression,

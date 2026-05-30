@@ -82,8 +82,8 @@ import {
   useCharacterSummaries,
   useCharacterSummariesByIds,
   useCharacterGroups,
-  type SpriteInfo,
 } from "../../../../catalog/characters/index";
+import type { SpriteInfo } from "../../../../catalog/sprites/index";
 import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { usePresetFull, usePresetSummaries } from "../../../../catalog/presets/index";

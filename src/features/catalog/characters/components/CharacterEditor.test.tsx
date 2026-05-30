@@ -30,19 +30,30 @@ vi.mock("../hooks/use-characters", () => {
     useUploadAvatar: noopMutation,
     useDeleteCharacter: noopMutation,
     useDuplicateCharacter: noopMutation,
-    useCharacterSprites: emptyQuery,
     useCharacterGalleryImages: emptyQuery,
     useUploadCharacterGalleryImage: noopMutation,
     useDeleteCharacterGalleryImage: noopMutation,
+    useCharacterVersions: () => ({ data: [], isLoading: false }),
+    useRestoreCharacterVersion: noopMutation,
+    useDeleteCharacterVersion: noopMutation,
+  };
+});
+
+vi.mock("../../sprites/index", () => {
+  const noopMutation = () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+    isPending: false,
+  });
+  const emptyQuery = () => ({ data: undefined, isLoading: false });
+  return {
+    useCharacterSprites: emptyQuery,
     useUploadSprite: noopMutation,
     useUploadSprites: noopMutation,
     useDeleteSprite: noopMutation,
     useCleanupSavedSprites: noopMutation,
     useRestoreSpriteCleanupPoint: noopMutation,
     useSpriteCapabilities: emptyQuery,
-    useCharacterVersions: () => ({ data: [], isLoading: false }),
-    useRestoreCharacterVersion: noopMutation,
-    useDeleteCharacterVersion: noopMutation,
     spriteKeys: {
       list: (id: string) => ["sprites", id],
       capabilities: () => ["sprites", "capabilities"],

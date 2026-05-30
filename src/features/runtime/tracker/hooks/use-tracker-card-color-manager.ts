@@ -5,9 +5,8 @@ import { useCharacterSummaries, useUpdateCharacter } from "../../../catalog/char
 import { usePersonas, useUpdatePersona } from "../../../catalog/personas/index";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useChat } from "../../../catalog/chats/index";
-import { useTrackerStateController } from "../../../runtime/world-state/index";
+import { useTrackerStateController } from "../../world-state/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
-import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
   cleanTrackerCardColorConfig,
   serializeTrackerCardColorConfig,
@@ -24,17 +23,22 @@ import {
   type TrackerCardColorPreviewSnapshot,
   type TrackerCardColorSaveState,
   type TrackerCardColorTarget,
-} from "./tracker-card-color-manager";
+} from "../lib/tracker-card-color-manager";
 
 export function useTrackerCardColorManager() {
   const queryClient = useQueryClient();
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const settingsTab = useUIStore((s) => s.settingsTab);
-  const shouldLoadTargets = !!activeChatId && settingsTab === "appearance";
-  const { data: activeChat } = useChat(shouldLoadTargets ? activeChatId : null);
+  const hasActiveChatId = !!activeChatId;
+  const {
+    data: activeChat,
+    isError: isActiveChatError,
+    isLoading: isLoadingActiveChat,
+  } = useChat(hasActiveChatId ? activeChatId : null);
+  const hasActiveChat = hasActiveChatId && activeChat?.id === activeChatId;
+  const shouldLoadTargets = hasActiveChat && !isActiveChatError;
   const { gameState: currentGameState, isLoadingGameState } = useTrackerStateController(
     activeChatId,
-    "settings-tracker-card-colors",
+    "tracker-card-colors",
     shouldLoadTargets,
   );
   const { data: personasData } = usePersonas(shouldLoadTargets);
@@ -66,27 +70,15 @@ export function useTrackerCardColorManager() {
 
   useEffect(() => () => void restorePreviewSnapshot(), [restorePreviewSnapshot]);
 
-  useEffect(() => {
-    if (settingsTab === "appearance") return;
-    const restored = restorePreviewSnapshot();
-    if (!restored) return;
-    selectedKeyRef.current = null;
-    savedConfigRef.current = null;
-    draftChangedRef.current = false;
-    setDraftConfig(null);
-    setSaveState("idle");
-  }, [restorePreviewSnapshot, settingsTab]);
-
-  const targets = useMemo(
-    () =>
-      resolveTrackerCardColorTargets({
-        activeChat,
-        charactersData,
-        currentPresentCharacters: currentGameState?.presentCharacters,
-        personasData,
-      }),
-    [activeChat, charactersData, currentGameState?.presentCharacters, personasData],
-  );
+  const targets = useMemo(() => {
+    if (!shouldLoadTargets) return [];
+    return resolveTrackerCardColorTargets({
+      activeChat,
+      charactersData,
+      currentPresentCharacters: currentGameState?.presentCharacters,
+      personasData,
+    });
+  }, [activeChat, charactersData, currentGameState?.presentCharacters, personasData, shouldLoadTargets]);
 
   const targetKeySignature = targets.map((target) => target.key).join("|");
   const selectedTarget = targets.find((target) => target.key === selectedTargetKey) ?? null;
@@ -279,6 +271,8 @@ export function useTrackerCardColorManager() {
     handleRevert,
     handleSave,
     hasUnsavedChanges,
+    isChatUnavailable: hasActiveChatId && !isLoadingActiveChat && (isActiveChatError || !hasActiveChat),
+    isLoadingChatContext: hasActiveChatId && isLoadingActiveChat,
     isLoadingGameState,
     saveState,
     selectedTarget,

@@ -50,7 +50,7 @@ import { galleryKeys } from "../../../catalog/gallery/query-keys";
 import { useConnections } from "../../../catalog/connections/index";
 import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { spriteKeys, type SpriteInfo } from "../../../catalog/characters/index";
+import { spriteKeys, type SpriteInfo } from "../../../catalog/sprites/index";
 import { getJsonRepairRequest, type JsonRepairRequest } from "../../../../shared/api/api-errors";
 import { npcAvatarApi } from "../../../../shared/api/avatar-api";
 import { spriteApi } from "../../../../shared/api/image-generation-api";

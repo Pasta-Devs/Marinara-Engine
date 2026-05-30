@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cn } from "../../../../shared/lib/utils";
 import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
 import { EmptySection } from "./tracker-data-sidebar.controls";
+import { TrackerCardColorSettings } from "./TrackerCardColorSettings";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { TrackerSectionList } from "./TrackerSectionList";
 import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
@@ -35,6 +36,8 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
       />
 
       <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
+        {model.activeChatId ? <TrackerCardColorSettings /> : null}
+
         {model.showTrackerSections ? (
           <TrackerSectionList model={model} deleteMode={deleteMode} addMode={addMode} />
         ) : null}

@@ -10,8 +10,3 @@ export const characterKeys = {
   gallery: (id: string) => [...characterKeys.all, "gallery", id] as const,
   groups: ["character-groups"] as const,
 };
-
-export const spriteKeys = {
-  list: (characterId: string) => ["sprites", characterId] as const,
-  capabilities: () => ["sprites", "capabilities"] as const,
-};

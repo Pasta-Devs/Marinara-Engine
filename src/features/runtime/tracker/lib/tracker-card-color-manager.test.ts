@@ -158,4 +158,15 @@ describe("tracker card color manager", () => {
       boxColor: "#333333",
     });
   });
+
+  it("does not fall back to the global active persona without active chat context", () => {
+    const targets = resolveTrackerCardColorTargets({
+      activeChat: null,
+      charactersData: [],
+      currentPresentCharacters: [],
+      personasData: [makePersona("persona-active", "Active", true, '{"mode":"custom","nameColor":"#123456"}')],
+    });
+
+    expect(targets).toEqual([]);
+  });
 });

@@ -4,7 +4,7 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useEncounterStore } from "../../../../shared/stores/encounter.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { spriteApi } from "../../../../shared/api/image-generation-api";
-import { spriteKeys, type SpriteInfo } from "../../../catalog/characters/index";
+import { spriteKeys, type SpriteInfo } from "../../../catalog/sprites/index";
 import {
   type ExpressionAvatarResolver,
   type MessageWithSwipes,

@@ -201,6 +201,8 @@ export function resolveTrackerCardColorTargets({
   currentPresentCharacters,
   personasData,
 }: TrackerCardColorTargetsInput): TrackerCardColorTarget[] {
+  if (!activeChat) return [];
+
   const personas = Array.isArray(personasData) ? (personasData as Persona[]) : [];
   const characterRows = Array.isArray(charactersData)
     ? (charactersData as CharacterRow[]).filter((character) => typeof character.id === "string" && character.id)

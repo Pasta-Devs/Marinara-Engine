@@ -1,7 +1,7 @@
 import { CheckCircle2, Loader2, Palette, RotateCcw, Save, TriangleAlert } from "lucide-react";
-import { TrackerCardColorControls } from "../../../../../shared/components/ui/TrackerCardColorControls";
-import { cn } from "../../../../../shared/lib/utils";
-import { useTrackerCardColorManager } from "../../hooks/use-tracker-card-color-manager";
+import { TrackerCardColorControls } from "../../../../shared/components/ui/TrackerCardColorControls";
+import { cn } from "../../../../shared/lib/utils";
+import { useTrackerCardColorManager } from "../hooks/use-tracker-card-color-manager";
 
 export function TrackerCardColorSettings() {
   const {
@@ -11,6 +11,8 @@ export function TrackerCardColorSettings() {
     handleRevert,
     handleSave,
     hasUnsavedChanges,
+    isChatUnavailable,
+    isLoadingChatContext,
     isLoadingGameState,
     saveState,
     selectedTarget,
@@ -63,6 +65,14 @@ export function TrackerCardColorSettings() {
       {!activeChatId ? (
         <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           Select a chat to edit tracker card colors.
+        </p>
+      ) : isLoadingChatContext ? (
+        <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          Loading chat context...
+        </p>
+      ) : isChatUnavailable ? (
+        <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          This chat is unavailable. Select another chat to edit tracker card colors.
         </p>
       ) : isLoadingGameState && targets.length === 0 ? (
         <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">

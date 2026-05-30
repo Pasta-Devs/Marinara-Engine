@@ -96,7 +96,6 @@ import { TrackerPanelIcon } from "../../../../shared/components/ui/TrackerPanelI
 import { TrackerSizeTierIcon } from "../../../../shared/components/ui/TrackerSizeTierIcon";
 import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploadDropzone";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
-import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
@@ -694,7 +693,6 @@ function TrackerPanelAppearanceDrawer({
           </button>
         </div>
         <TrackerPanelCardOrderSetting />
-        <TrackerCardColorSettings />
       </fieldset>
     </section>
   );
