@@ -836,7 +836,7 @@ async function executeCommand(
         type: "ooc_posted",
         data: { chatId: targetChatId, chatName: targetChatName, count: 1, createdChat },
       });
-      return { name: "dm" };
+      return { name: "dm", suppressSourceMessage: !visibleContent.trim() };
     }
     case "schedule_update":
       return (await applyScheduleUpdate(storage, chat, command)) ? { name: "schedule_update" } : null;

@@ -188,6 +188,34 @@ describe("persistConnectedCommandTags roleplay direct messages", () => {
     });
   });
 
+  it("suppresses the source assistant message when a direct-message command has no visible roleplay text", async () => {
+    const roleplay = {
+      id: "roleplay-1",
+      mode: "roleplay",
+      metadata: { roleplayDmCommandsEnabled: true },
+      notes: [],
+    };
+    const chats = new Map<string, Row>([
+      ["roleplay-1", roleplay],
+      ["conversation-mira", { id: "conversation-mira", mode: "conversation", name: "Mira", characterIds: ["char-mira"] }],
+    ]);
+    const storage = storageWithChats(chats, { characters: [mira] });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      roleplay,
+      '[dm: character="Mira", message="I found the key."]',
+    );
+
+    expect(result.displayContent).toBe("");
+    expect(result.executedCommands).toEqual(["dm"]);
+    expect(result.suppressAssistantMessage).toBe(true);
+    expect(storage.createChatMessage).toHaveBeenCalledWith(
+      "conversation-mira",
+      expect.objectContaining({ content: "I found the key." }),
+    );
+  });
+
   it("leaves direct-message tags visible when the roleplay setting is disabled", async () => {
     const roleplay = {
       id: "roleplay-1",
