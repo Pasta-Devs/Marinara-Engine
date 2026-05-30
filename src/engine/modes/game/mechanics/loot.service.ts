@@ -5,9 +5,9 @@
 // Difficulty and location affect rarity distribution.
 // ──────────────────────────────────────────────
 
-export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
-export interface LootItem {
+interface LootItem {
   name: string;
   description: string;
   rarity: ItemRarity;
@@ -196,7 +196,7 @@ function pickRarity(difficulty: string): ItemRarity {
 }
 
 /** Generate a single loot drop based on difficulty. */
-export function generateLootDrop(difficulty: string = "normal"): LootDrop {
+function generateLootDrop(difficulty: string = "normal"): LootDrop {
   const targetRarity = pickRarity(difficulty);
 
   // Pick a random table

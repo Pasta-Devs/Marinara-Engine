@@ -1,14 +1,6 @@
 import type { DiceRollResult } from "../../../contracts/types/game";
 
-export const DICE_NOTATION_REGEX = /^(\d+)?d(\d+)([+-]\d+)?$/i;
-
-export function isDiceNotation(value: string): boolean {
-  const match = value.trim().match(DICE_NOTATION_REGEX);
-  if (!match) return false;
-  const count = parseInt(match[1] ?? "1", 10);
-  const sides = parseInt(match[2]!, 10);
-  return count >= 1 && sides >= 1;
-}
+const DICE_NOTATION_REGEX = /^(\d+)?d(\d+)([+-]\d+)?$/i;
 
 /**
  * Parse and roll dice using NdM notation (e.g. "2d6+3", "d20", "4d8-1").

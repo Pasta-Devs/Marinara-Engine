@@ -8,12 +8,6 @@
 
 export type MoraleTier = "inspired" | "high" | "steady" | "low" | "broken";
 
-export interface MoraleState {
-  /** Morale value: 0-100 */
-  value: number;
-  tier: MoraleTier;
-}
-
 /** Event types that affect morale. */
 export type MoraleEvent =
   | "combat_victory"
@@ -83,33 +77,4 @@ export function applyMoraleEvent(
   const tier = getMoraleTier(newValue);
 
   return { value: newValue, tier, change: modifier, previousTier };
-}
-
-/** Get dice roll bonus/penalty from current morale tier. */
-export function moraleDiceModifier(tier: MoraleTier): number {
-  switch (tier) {
-    case "inspired":
-      return 2;
-    case "high":
-      return 1;
-    case "steady":
-      return 0;
-    case "low":
-      return -1;
-    case "broken":
-      return -2;
-  }
-}
-
-/** Format morale for GM context injection. */
-export function formatMoraleContext(state: MoraleState): string {
-  const tierDescriptions: Record<MoraleTier, string> = {
-    inspired: "The party is fired up and brimming with confidence. They believe they can overcome anything.",
-    high: "Spirits are high. The party moves with purpose and optimism.",
-    steady: "The party's morale is stable — neither particularly motivated nor discouraged.",
-    low: "Morale is flagging. Doubt and fatigue are setting in. The party is short-tempered.",
-    broken: "The party is demoralized. Fear and despair hang heavy. Arguments may break out.",
-  };
-
-  return `<party_morale>\nMorale: ${state.tier} (${state.value}/100)\n${tierDescriptions[state.tier]}\n</party_morale>`;
 }
