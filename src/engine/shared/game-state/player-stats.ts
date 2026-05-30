@@ -6,7 +6,14 @@ import type {
   QuestProgress,
   RPGAttributes,
 } from "../../contracts/types/game-state";
-import { boolish, isRecord, parseRecord, readNonNegativeInteger, readNumber, readString } from "../../generation/runtime-records";
+import {
+  boolish,
+  isRecord,
+  parseRecord,
+  readNonNegativeInteger,
+  readNumber,
+  readString,
+} from "../../generation/runtime-records";
 
 export type QuestObjective = QuestProgress["objectives"][number];
 export type QuestUpdateAction = "create" | "update" | "complete" | "fail";
@@ -36,8 +43,13 @@ export function parseQuestObjective(value: unknown): { text: string; completed: 
   const record = parseRecord(value);
   const text = firstString(record.text, record.description, record.objective, record.name, record.title);
   if (!text) return null;
-  const status = readString(record.status ?? record.done).trim().toLowerCase();
-  return { text, completed: boolish(record.completed, status === "complete" || status === "completed" || status === "done") };
+  const status = readString(record.status ?? record.done)
+    .trim()
+    .toLowerCase();
+  return {
+    text,
+    completed: boolish(record.completed, status === "complete" || status === "completed" || status === "done"),
+  };
 }
 
 export function firstString(...values: unknown[]): string | undefined {
@@ -159,7 +171,9 @@ function parseSkills(value: unknown): Record<string, number> {
 export function clonePlayerStats(value: unknown): PlayerStats {
   const record = parseRecord(value);
   return {
-    stats: Array.isArray(record.stats) ? record.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat) : [],
+    stats: Array.isArray(record.stats)
+      ? record.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat)
+      : [],
     attributes: parseRpgAttributes(record.attributes),
     skills: parseSkills(record.skills),
     inventory: Array.isArray(record.inventory)
@@ -167,9 +181,7 @@ export function clonePlayerStats(value: unknown): PlayerStats {
       : [],
     activeQuests: normalizeActiveQuestCollection(record.activeQuests),
     customTrackerFields: Array.isArray(record.customTrackerFields)
-      ? record.customTrackerFields
-          .map(parseCustomTrackerField)
-          .filter((field): field is CustomTrackerField => !!field)
+      ? record.customTrackerFields.map(parseCustomTrackerField).filter((field): field is CustomTrackerField => !!field)
       : undefined,
     status: readString(record.status),
   };
@@ -257,7 +269,10 @@ export function applyQuestUpdatesToPlayerStats(
 
   for (let index = quests.length - 1; index >= 0; index -= 1) {
     const quest = quests[index]!;
-    if (quest.completed && (quest.objectives.length === 0 || quest.objectives.every((objective) => objective.completed))) {
+    if (
+      quest.completed &&
+      (quest.objectives.length === 0 || quest.objectives.every((objective) => objective.completed))
+    ) {
       quests.splice(index, 1);
     }
   }

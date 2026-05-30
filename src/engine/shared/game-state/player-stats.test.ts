@@ -6,10 +6,7 @@ describe("normalizeActiveQuestCollection", () => {
     const quests = normalizeActiveQuestCollection({
       "quest-rescue": {
         name: "Rescue the Mayor",
-        objectives: [
-          { description: "Find the cell", status: "done" },
-          { text: "Open the gate" },
-        ],
+        objectives: [{ description: "Find the cell", status: "done" }, { text: "Open the gate" }],
       },
       "quest-loot": {
         questEntryId: "loot-1",
@@ -45,10 +42,7 @@ describe("normalizeActiveQuestCollection", () => {
 
   it("flattens grouped containers and wrapper collections", () => {
     const grouped = normalizeActiveQuestCollection({
-      groups: [
-        { quests: [{ name: "Quest A" }, { name: "Quest B" }] },
-        { quests: [{ name: "Quest C" }] },
-      ],
+      groups: [{ quests: [{ name: "Quest A" }, { name: "Quest B" }] }, { quests: [{ name: "Quest C" }] }],
     });
     expect(grouped.map((quest) => quest.name)).toEqual(["Quest A", "Quest B", "Quest C"]);
 
@@ -80,16 +74,13 @@ describe("normalizeActiveQuestCollection", () => {
 
   it("recovers nested objectives carried under a wrapper key during quest updates", () => {
     // collectQuestObjectives (used by quest updates) digs through nested objective wrappers.
-    const { playerStats } = applyQuestUpdatesToPlayerStats(
-      { activeQuests: [] },
-      [
-        {
-          action: "create",
-          questName: "Nested",
-          objectives: { tasks: [{ text: "Step one" }, { description: "Step two", status: "completed" }] },
-        },
-      ],
-    );
+    const { playerStats } = applyQuestUpdatesToPlayerStats({ activeQuests: [] }, [
+      {
+        action: "create",
+        questName: "Nested",
+        objectives: { tasks: [{ text: "Step one" }, { description: "Step two", status: "completed" }] },
+      },
+    ]);
     const quest = playerStats.activeQuests.find((entry) => entry.name === "Nested");
     expect(quest?.objectives).toEqual([
       { text: "Step one", completed: false },
@@ -128,9 +119,7 @@ describe("applyQuestUpdatesToPlayerStats", () => {
   it("auto-removes a completed quest whose objectives are all done (or empty)", () => {
     const { playerStats, changed } = applyQuestUpdatesToPlayerStats(
       {
-        activeQuests: [
-          { questEntryId: "q1", name: "Finish me", objectives: [{ text: "do it", completed: true }] },
-        ],
+        activeQuests: [{ questEntryId: "q1", name: "Finish me", objectives: [{ text: "do it", completed: true }] }],
       },
       [{ action: "complete", questName: "q1" }],
     );
@@ -174,26 +163,23 @@ describe("applyQuestUpdatesToPlayerStats", () => {
     expect(byName.playerStats.activeQuests[0]?.objectives).toEqual([{ text: "named", completed: false }]);
 
     // "completed" alias -> complete (and auto-remove because objectives empty).
-    const completedAlias = applyQuestUpdatesToPlayerStats(
-      { activeQuests: [{ questEntryId: "qid", name: "Done" }] },
-      [{ action: "completed", questName: "qid" }],
-    );
+    const completedAlias = applyQuestUpdatesToPlayerStats({ activeQuests: [{ questEntryId: "qid", name: "Done" }] }, [
+      { action: "completed", questName: "qid" },
+    ]);
     expect(completedAlias.playerStats.activeQuests).toHaveLength(0);
     expect(completedAlias.changed).toBe(true);
 
     // "failed" alias -> fail (removes the quest).
-    const failedAlias = applyQuestUpdatesToPlayerStats(
-      { activeQuests: [{ questEntryId: "qid", name: "Doomed" }] },
-      [{ action: "failed", questName: "qid" }],
-    );
+    const failedAlias = applyQuestUpdatesToPlayerStats({ activeQuests: [{ questEntryId: "qid", name: "Doomed" }] }, [
+      { action: "failed", questName: "qid" },
+    ]);
     expect(failedAlias.playerStats.activeQuests).toHaveLength(0);
     expect(failedAlias.changed).toBe(true);
 
     // create when no match exists.
-    const created = applyQuestUpdatesToPlayerStats(
-      { activeQuests: [] },
-      [{ action: "create", questName: "Brand New", objectives: [{ text: "begin" }] }],
-    );
+    const created = applyQuestUpdatesToPlayerStats({ activeQuests: [] }, [
+      { action: "create", questName: "Brand New", objectives: [{ text: "begin" }] },
+    ]);
     expect(created.playerStats.activeQuests).toHaveLength(1);
     expect(created.playerStats.activeQuests[0]).toMatchObject({
       questEntryId: "Brand New",
@@ -236,9 +222,7 @@ describe("applyQuestUpdatesToPlayerStats", () => {
 
   it("reports changed=false for a no-op on already-array quests", () => {
     const original = {
-      activeQuests: [
-        { questEntryId: "q1", name: "Stable", currentStage: 0, objectives: [], completed: false },
-      ],
+      activeQuests: [{ questEntryId: "q1", name: "Stable", currentStage: 0, objectives: [], completed: false }],
     };
     const { changed } = applyQuestUpdatesToPlayerStats(original, []);
     expect(changed).toBe(false);
