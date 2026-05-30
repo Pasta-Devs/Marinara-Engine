@@ -1,7 +1,27 @@
-import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateCharacterSchema } from "../../../../engine/contracts/schemas/character.schema";
-import { cacheCharacterListRecordFromResult, characterKeys, removeCachedCharacterRecord } from "./use-characters";
+import { storageApi } from "../../../../shared/api/storage-api";
+import {
+  cacheCharacterListRecordFromResult,
+  characterKeys,
+  removeCachedCharacterRecord,
+  useCharacters,
+} from "./use-characters";
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock("../../../../shared/api/storage-api", () => ({
+  storageApi: {
+    list: vi.fn(),
+  },
+}));
+
+const storageListMock = vi.mocked(storageApi.list);
 
 function characterRecord(id: string, name: string) {
   return {
@@ -11,6 +31,55 @@ function characterRecord(id: string, name: string) {
     comment: null,
   };
 }
+
+function UseCharactersProbe() {
+  useCharacters(true);
+  return null;
+}
+
+describe("character list query", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    storageListMock.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+    queryClient.clear();
+    storageListMock.mockReset();
+  });
+
+  it("projects full character list reads without embedded avatar payloads", async () => {
+    await act(async () => {
+      root.render(
+        createElement(QueryClientProvider, {
+          client: queryClient,
+          children: createElement(UseCharactersProbe),
+        }),
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(storageListMock).toHaveBeenCalledWith("characters", {
+        fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
+      });
+    });
+  });
+});
 
 describe("character query cache helpers", () => {
   it("updates character list and summary caches from a created or imported character result", () => {

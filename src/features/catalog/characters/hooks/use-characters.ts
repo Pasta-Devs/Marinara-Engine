@@ -59,6 +59,9 @@ const CHARACTER_SUMMARY_OPTIONS = {
   fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
   fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
 };
+const CHARACTER_LIST_OPTIONS = {
+  fields: ["id", "data", "comment", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
+};
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
 const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];
 
@@ -228,7 +231,7 @@ function invalidateCharacterRecordQueries(
 export function useCharacters(enabled = true) {
   return useQuery({
     queryKey: characterKeys.list(),
-    queryFn: () => storageApi.list<unknown>("characters"),
+    queryFn: () => storageApi.list<unknown>("characters", CHARACTER_LIST_OPTIONS),
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
