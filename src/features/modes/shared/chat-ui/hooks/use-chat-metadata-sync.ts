@@ -118,9 +118,10 @@ export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount
   }, [chatBackground, chat?.id, chatMeta.background]);
 
   useEffect(() => {
+    const timers = bgPersistTimers.current;
     return () => {
-      for (const timer of bgPersistTimers.current.values()) clearTimeout(timer);
-      bgPersistTimers.current.clear();
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
     };
   }, []);
 

@@ -90,9 +90,10 @@ export function SpriteOverlay({
   spriteOpacity = 1,
 }: SpriteOverlayProps) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const resolvedSpriteDisplayModes = useMemo(() => normalizeSpriteDisplayModes(spriteDisplayModes), [spriteDisplayModes]);
-  const characterIdsKey = characterIds.join("\u0000");
-
+  const resolvedSpriteDisplayModes = useMemo(
+    () => normalizeSpriteDisplayModes(spriteDisplayModes),
+    [spriteDisplayModes],
+  );
   // Subscribe to agent expression results
   const expressionResult = useAgentStore((s) => s.lastResults.get("expression"));
   // Track which agent result we already applied so we don't re-fire for stale results
@@ -208,15 +209,18 @@ export function SpriteOverlay({
       const nextKeys = Object.keys(newStates);
       if (prevKeys.length !== nextKeys.length) return newStates;
       for (const key of nextKeys) {
-        if (prev[key]?.expression !== newStates[key]?.expression || prev[key]?.transition !== newStates[key]?.transition) {
+        if (
+          prev[key]?.expression !== newStates[key]?.expression ||
+          prev[key]?.transition !== newStates[key]?.transition
+        ) {
           return newStates;
         }
       }
       return prev;
     });
-  }, [messages, characterIdsKey, expressionResult, spriteExpressions, fullBodyOnly]);
+  }, [messages, characterIds, expressionResult, spriteExpressions, fullBodyOnly]);
 
-  const visibleChars = useMemo(() => characterIds.slice(0, 3), [characterIdsKey]);
+  const visibleChars = useMemo(() => characterIds.slice(0, 3), [characterIds]);
   const resolvedPlacements = useMemo(() => {
     const placements: Record<string, SpritePlacement> = {};
     for (const [index, charId] of visibleChars.entries()) {
@@ -412,7 +416,8 @@ function CharacterSprite({
       : spriteCount === 2
         ? "h-[min(82vh,calc(60vh*var(--game-sprite-scale)))] max-w-[min(90vw,calc(64vw*var(--game-sprite-scale)))] md:h-[min(86vh,calc(56vh*var(--game-sprite-scale)))] md:max-w-[min(52vw,calc(34vw*var(--game-sprite-scale)))]"
         : "h-[min(86vh,calc(64vh*var(--game-sprite-scale)))] max-w-[min(96vw,calc(86vw*var(--game-sprite-scale)))] md:h-[min(90vh,calc(62vh*var(--game-sprite-scale)))] md:max-w-[min(70vw,calc(44vw*var(--game-sprite-scale)))]";
-  const fullBodyLayout = fullBodyOnly || (spriteDisplayModes.includes("full-body") && !spriteDisplayModes.includes("expressions"));
+  const fullBodyLayout =
+    fullBodyOnly || (spriteDisplayModes.includes("full-body") && !spriteDisplayModes.includes("expressions"));
   const sizeClass = fullBodyLayout ? fullBodySizeClass : standardSizeClass;
   const spriteScaleStyle = useMemo<CSSProperties>(
     () =>

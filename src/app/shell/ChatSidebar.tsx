@@ -490,7 +490,7 @@ export function ChatSidebar({
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [activeChatId, chats, folders, updateFolderMut]);
+  }, [activeChatId, chats, folders, onActiveTabChange, updateFolderMut]);
 
   const handleNewChatFromTab = useCallback(() => {
     if (window.innerWidth < 768) setSidebarOpen(false);

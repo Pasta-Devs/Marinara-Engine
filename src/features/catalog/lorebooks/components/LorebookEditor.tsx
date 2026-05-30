@@ -2177,9 +2177,10 @@ function VectorizeSection({
   const excludedCount = excludeFromVectorization
     ? entries.length
     : entries.filter((entry) => readBoolFlag(entry.excludeFromVectorization)).length;
-  const vectorizableEntries = excludeFromVectorization
-    ? []
-    : entries.filter((entry) => !readBoolFlag(entry.excludeFromVectorization));
+  const vectorizableEntries = useMemo(
+    () => (excludeFromVectorization ? [] : entries.filter((entry) => !readBoolFlag(entry.excludeFromVectorization))),
+    [entries, excludeFromVectorization],
+  );
   const vectorizableEntryCount = vectorizableEntries.length;
   const vectorizedCount = vectorizableEntries.filter(
     (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,

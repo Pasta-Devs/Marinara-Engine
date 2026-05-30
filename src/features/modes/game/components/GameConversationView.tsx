@@ -37,19 +37,14 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
     messageIdByOrderIndex: data.messageIdByOrderIndex,
     refreshWorldStateOnTimelineChange: true,
   });
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount } = data;
 
   useEffect(() => {
-    if (data.loadedMessageCount <= 0) return;
-    if (data.totalMessageCount <= data.loadedMessageCount) return;
-    if (!data.hasNextPage || data.isFetchingNextPage) return;
-    void data.fetchNextPage();
-  }, [
-    data.fetchNextPage,
-    data.hasNextPage,
-    data.isFetchingNextPage,
-    data.loadedMessageCount,
-    data.totalMessageCount,
-  ]);
+    if (loadedMessageCount <= 0) return;
+    if (totalMessageCount <= loadedMessageCount) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount]);
 
   if (!data.chat) return <div className="flex flex-1 overflow-hidden" />;
 

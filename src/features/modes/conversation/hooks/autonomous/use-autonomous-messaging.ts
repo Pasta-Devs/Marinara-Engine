@@ -72,61 +72,64 @@ export function useAutonomousMessaging(
     });
   }, [chatId]);
 
-  async function triggerAutonomousGeneration(characterId: string, poll: () => Promise<void>) {
-    if (!chatId) return;
-    generatingRef.current = true;
-    const startedAt = markGenerationInProgress(chatId);
-    let produced = false;
-    let shouldSchedulePoll = true;
-    try {
-      produced = await generate({
-        chatId,
-        connectionId: null,
-      });
-      if (produced) {
-        recordAssistantActivityState(chatId, characterId);
-        await qc.invalidateQueries({ queryKey: chatKeys.list() });
-        await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
-        onAutonomousMessageRef.current?.(characterId);
-      }
-    } catch {
-      // Autonomous generation is opportunistic; keep polling after failures.
-    } finally {
-      clearGenerationInProgress(chatId, startedAt);
-      generatingRef.current = false;
-    }
-
-    if (produced && exchangesEnabled) {
+  const triggerAutonomousGeneration = useCallback(
+    async (characterId: string, poll: () => Promise<void>) => {
+      if (!chatId) return;
+      generatingRef.current = true;
+      const startedAt = markGenerationInProgress(chatId);
+      let produced = false;
+      let shouldSchedulePoll = true;
       try {
-        const exchange = await checkConversationCharacterExchange(storageApi, {
+        produced = await generate({
           chatId,
-          lastSpeakerCharId: characterId,
+          connectionId: null,
         });
-        const nextCharacterId = exchange.characterIds[0];
-        if (exchange.shouldTrigger && nextCharacterId) {
-          shouldSchedulePoll = false;
-          clearTimeout(busyTimerRef.current);
-          busyTimerRef.current = setTimeout(
-            () => {
-              if (!useChatStore.getState().abortControllers.has(chatId)) {
-                void triggerAutonomousGeneration(nextCharacterId, poll);
-              } else {
-                schedulePoll(poll);
-              }
-            },
-            2_000 + Math.random() * 3_000,
-          );
+        if (produced) {
+          recordAssistantActivityState(chatId, characterId);
+          await qc.invalidateQueries({ queryKey: chatKeys.list() });
+          await qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+          onAutonomousMessageRef.current?.(characterId);
         }
       } catch {
-        // Exchange checks are best-effort.
+        // Autonomous generation is opportunistic; keep polling after failures.
+      } finally {
+        clearGenerationInProgress(chatId, startedAt);
+        generatingRef.current = false;
       }
-    }
 
-    if (!produced) {
-      recordAssistantActivityState(chatId);
-    }
-    if (shouldSchedulePoll) schedulePoll(poll);
-  }
+      if (produced && exchangesEnabled) {
+        try {
+          const exchange = await checkConversationCharacterExchange(storageApi, {
+            chatId,
+            lastSpeakerCharId: characterId,
+          });
+          const nextCharacterId = exchange.characterIds[0];
+          if (exchange.shouldTrigger && nextCharacterId) {
+            shouldSchedulePoll = false;
+            clearTimeout(busyTimerRef.current);
+            busyTimerRef.current = setTimeout(
+              () => {
+                if (!useChatStore.getState().abortControllers.has(chatId)) {
+                  void triggerAutonomousGeneration(nextCharacterId, poll);
+                } else {
+                  schedulePoll(poll);
+                }
+              },
+              2_000 + Math.random() * 3_000,
+            );
+          }
+        } catch {
+          // Exchange checks are best-effort.
+        }
+      }
+
+      if (!produced) {
+        recordAssistantActivityState(chatId);
+      }
+      if (shouldSchedulePoll) schedulePoll(poll);
+    },
+    [chatId, exchangesEnabled, generate, qc, schedulePoll],
+  );
 
   useEffect(() => {
     if (!chatId || !autonomousEnabled) return;
@@ -177,7 +180,7 @@ export function useAutonomousMessaging(
       clearTimeout(pollTimerRef.current);
       clearTimeout(busyTimerRef.current);
     };
-  }, [autonomousEnabled, chatId, exchangesEnabled, generate, qc, schedulePoll]);
+  }, [autonomousEnabled, chatId, exchangesEnabled, qc, schedulePoll, triggerAutonomousGeneration]);
 
   return {
     recordUserActivity,

@@ -758,13 +758,19 @@ export function AppShell() {
 
   useEffect(() => {
     if (!hasCompletedOnboarding) return;
+    const sidebarPanel = sidebarPanelRef.current;
+    const mobileTrackerPanel = mobileTrackerPanelRef.current;
+    const mobileRightPanel = mobileRightPanelRef.current;
+    const header = headerRef.current;
+    const main = mainRef.current;
+
     syncMobilePanelInert();
     return () => {
-      setInert(sidebarPanelRef.current, false);
-      setInert(mobileTrackerPanelRef.current, false);
-      setInert(mobileRightPanelRef.current, false);
-      setInert(headerRef.current, false);
-      setInert(mainRef.current, false);
+      setInert(sidebarPanel, false);
+      setInert(mobileTrackerPanel, false);
+      setInert(mobileRightPanel, false);
+      setInert(header, false);
+      setInert(main, false);
     };
   }, [hasCompletedOnboarding, syncMobilePanelInert]);
 
