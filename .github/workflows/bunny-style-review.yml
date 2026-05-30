@@ -64,6 +64,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: gpt-5.5
+          LLM_REASONING_EFFORT: ${{ vars.LLM_REASONING_EFFORT }}
           BUNNY_SKILL_PATH: ${{ github.workspace }}/skills/bunny-style-review/SKILL.md
         run: python ../scripts/bunny_review.py
 

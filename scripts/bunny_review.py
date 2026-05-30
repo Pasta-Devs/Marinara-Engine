@@ -12,6 +12,7 @@ REPO_ROOT = pathlib.Path.cwd().resolve()
 MAX_ITERS = 40
 MAX_FILE_BYTES = 200_000
 MAX_TOOL_OUTPUT = 60_000
+REVIEW_MARKER = "## Bunny Review"
 
 BLOCKED_NAMES = {
     ".env",
@@ -197,6 +198,35 @@ def _client() -> OpenAI:
     return OpenAI(**kwargs)
 
 
+def normalize_review(content: str) -> str:
+    text = content.strip()
+    marker_index = text.find(REVIEW_MARKER)
+    if marker_index >= 0:
+        return f"{text[marker_index:].rstrip()}\n"
+
+    return (
+        f"{REVIEW_MARKER}\n\n"
+        "### Findings\n"
+        "Review output did not match the expected Bunny format, so the raw model response was suppressed.\n\n"
+        "### Open Questions\n"
+        "- The model response did not include the required Bunny Review header.\n\n"
+        "### What I Checked\n"
+        "- The review runner completed, but rejected the final response format before posting.\n"
+    )
+
+
+def _completion_kwargs(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "tools": TOOLS,
+    }
+    reasoning_effort = os.environ.get("LLM_REASONING_EFFORT", "").strip()
+    if reasoning_effort:
+        kwargs["reasoning_effort"] = reasoning_effort
+    return kwargs
+
+
 def main() -> None:
     client = _client()
     skill_path = pathlib.Path(
@@ -221,16 +251,12 @@ def main() -> None:
     ]
 
     for _ in range(MAX_ITERS):
-        resp = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=TOOLS,
-        )
+        resp = client.chat.completions.create(**_completion_kwargs(model, messages))
         msg = resp.choices[0].message
         messages.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
-            pathlib.Path("review.md").write_text(msg.content or "", "utf-8")
+            pathlib.Path("review.md").write_text(normalize_review(msg.content or ""), "utf-8")
             return
 
         for call in msg.tool_calls:
