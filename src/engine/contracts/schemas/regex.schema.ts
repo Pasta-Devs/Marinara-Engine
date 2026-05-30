@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const regexPlacementSchema = z.enum(["ai_output", "user_input"]);
+const regexPlacementSchema = z.enum(["ai_output", "user_input"]);
 
 export const createRegexScriptSchema = z.object({
   name: z.string().min(1).max(200),

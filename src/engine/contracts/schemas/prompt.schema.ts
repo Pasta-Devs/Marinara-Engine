@@ -3,13 +3,13 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const promptRoleSchema = z.enum(["system", "user", "assistant"]);
+const promptRoleSchema = z.enum(["system", "user", "assistant"]);
 
-export const injectionPositionSchema = z.enum(["ordered", "depth"]);
+const injectionPositionSchema = z.enum(["ordered", "depth"]);
 
-export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
+const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
 
-export const markerTypeSchema = z.enum([
+const markerTypeSchema = z.enum([
   "character",
   "lorebook",
   "persona",
@@ -21,7 +21,7 @@ export const markerTypeSchema = z.enum([
   "agent_data",
 ]);
 
-export const markerConfigSchema = z.object({
+const markerConfigSchema = z.object({
   type: markerTypeSchema,
   characterFields: z.array(z.string()).optional(),
   lorebookFormat: z.enum(["full", "worldbook_only", "character_only"]).optional(),
@@ -56,12 +56,12 @@ export const generationParametersSchema = z.object({
   singleUserMessage: z.boolean().default(false),
 });
 
-export const promptVariableOptionSchema = z.object({
+const promptVariableOptionSchema = z.object({
   label: z.string(),
   value: z.string(),
 });
 
-export const promptVariableGroupSchema = z.object({
+const promptVariableGroupSchema = z.object({
   name: z.string(),
   label: z.string(),
   options: z.array(promptVariableOptionSchema),
@@ -69,7 +69,7 @@ export const promptVariableGroupSchema = z.object({
 
 // ── Choice blocks (preset variables) ──
 
-export const choiceOptionSchema = z.object({
+const choiceOptionSchema = z.object({
   id: z.string(),
   label: z.string(),
   value: z.string(),

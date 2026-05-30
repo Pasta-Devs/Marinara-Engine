@@ -135,7 +135,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
   },
 };
 
-export const TAURI_RUNTIME_PROVIDERS: readonly APIProvider[] = [
+const TAURI_RUNTIME_PROVIDERS: readonly APIProvider[] = [
   "openai",
   "openai_chatgpt",
   "anthropic",
