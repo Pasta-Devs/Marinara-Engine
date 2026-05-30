@@ -16,7 +16,6 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { galleryApi } from "../../../../shared/api/image-generation-api";
 import type { CharacterCardVersion } from "../../../../engine/contracts/types/character";
-import type { SpriteCapabilities, SpriteCleanupEngine } from "../../../../shared/types/sprite-capabilities";
 import { characterAvatarUrl, type CharacterAvatarSource } from "../lib/character-avatar-url";
 
 export { characterKeys } from "../query-keys";
