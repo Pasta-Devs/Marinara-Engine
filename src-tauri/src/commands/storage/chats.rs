@@ -882,7 +882,7 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     state.storage.delete_messages_for_chats(&delete_id_set)?;
 
     for delete_id in &delete_ids {
-        state.storage.delete("chats", &delete_id)?;
+        state.storage.delete("chats", delete_id)?;
     }
     Ok(delete_ids)
 }
