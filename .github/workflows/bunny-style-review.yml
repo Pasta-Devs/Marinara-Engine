@@ -1,0 +1,103 @@
+name: Bunny Style Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: bunny-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >
+      github.event_name == 'pull_request' ||
+      (
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/bunny-review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: gpt-5.5
+      REVIEW_MARKER: "<!-- bunny-style-review -->"
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+    steps:
+      - name: Skip when no OpenAI key is configured
+        if: env.OPENAI_API_KEY == ''
+        run: |
+          echo "OPENAI_API_KEY is not configured; skipping Bunny Style Review."
+
+      - name: Check out trusted review runner
+        uses: actions/checkout@v4
+        if: env.OPENAI_API_KEY != ''
+        with:
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          fetch-depth: 0
+          path: bunny-runner
+
+      - name: Check out PR target
+        uses: actions/checkout@v4
+        if: env.OPENAI_API_KEY != ''
+        with:
+          fetch-depth: 0
+          path: bunny-target
+
+      - name: Switch target checkout to PR head
+        if: env.OPENAI_API_KEY != ''
+        working-directory: bunny-target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr checkout "$PR_NUMBER"
+          BASE=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
+          git fetch origin "$BASE" --depth=1 || true
+          echo "PR_BASE_REF=origin/$BASE" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        if: env.OPENAI_API_KEY != ''
+        with:
+          python-version: "3.12"
+
+      - name: Install review dependencies
+        if: env.OPENAI_API_KEY != ''
+        run: pip install -r bunny-runner/scripts/requirements.txt
+
+      - name: Run review
+        if: env.OPENAI_API_KEY != ''
+        working-directory: bunny-target
+        env:
+          BUNNY_SKILL_PATH: ${{ github.workspace }}/bunny-runner/skills/bunny-style-review/SKILL.md
+        run: python ../bunny-runner/scripts/bunny_review.py
+
+      - name: Post or update the review
+        if: env.OPENAI_API_KEY != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "$REVIEW_MARKER"
+            cat bunny-target/review.md
+          } > review-comment.md
+
+          COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"${REVIEW_MARKER}\"))) | .id" \
+            | tail -n 1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            BODY=$(cat review-comment.md)
+            gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" \
+              --method PATCH \
+              --field body="$BODY" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body-file review-comment.md
+          fi
