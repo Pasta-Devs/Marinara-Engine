@@ -3,7 +3,7 @@ import type { GameActiveState } from "../../../contracts/types/game";
 const GAME_STATES: readonly GameActiveState[] = ["exploration", "dialogue", "combat", "travel_rest"];
 
 /** Returns true if transitioning from `from` to `to` is allowed. Self-transitions are always valid (no-op). */
-export function isValidTransition(from: GameActiveState, to: GameActiveState): boolean {
+function isValidTransition(from: GameActiveState, to: GameActiveState): boolean {
   return GAME_STATES.includes(from) && GAME_STATES.includes(to);
 }
 

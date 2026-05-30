@@ -8,7 +8,7 @@ import { readString as stringValue } from "../../../shared/value-readers";
 // ── Types ──
 
 /** A single time block in a character's daily schedule */
-export interface ScheduleBlock {
+interface ScheduleBlock {
   /** Hour range, e.g. "06:00-08:00" */
   time: string;
   /** What the character is doing */
@@ -18,7 +18,7 @@ export interface ScheduleBlock {
 }
 
 /** One day of a character's schedule */
-export type DaySchedule = ScheduleBlock[];
+type DaySchedule = ScheduleBlock[];
 
 /** Full weekly schedule for a character */
 export interface WeekSchedule {
@@ -37,7 +37,7 @@ export interface WeekSchedule {
 }
 
 /** All character schedules stored in chat metadata */
-export interface CharacterSchedules {
+interface CharacterSchedules {
   [characterId: string]: WeekSchedule;
 }
 
@@ -212,7 +212,7 @@ export async function generateConversationSchedules(
 /**
  * Generate a weekly schedule for a character using the LLM.
  */
-export async function generateCharacterSchedule(
+async function generateCharacterSchedule(
   provider: BaseLLMProvider,
   model: string,
   characterName: string,
@@ -443,19 +443,9 @@ export function getCurrentStatus(
 }
 
 /**
- * Get a human-readable summary of today's schedule for a character.
- */
-export function getTodaySchedule(schedule: WeekSchedule, now: Date = new Date()): string {
-  const dayName = DAYS[(now.getDay() + 6) % 7]!;
-  const daySchedule = schedule.days[dayName];
-  if (!daySchedule || daySchedule.length === 0) return "";
-  return daySchedule.map((b) => `${b.time}: ${b.activity}`).join(", ");
-}
-
-/**
  * Check if a schedule needs regeneration (older than 7 days from current Monday).
  */
-export function scheduleNeedsRefresh(schedule: WeekSchedule, now: Date = new Date()): boolean {
+function scheduleNeedsRefresh(schedule: WeekSchedule, now: Date = new Date()): boolean {
   const weekStart = new Date(schedule.weekStart);
   const currentMonday = getMonday(now);
   return currentMonday.getTime() > weekStart.getTime();
@@ -840,34 +830,4 @@ export function getBusyDelay(
   schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
 ): number {
   return getConfiguredResponseDelay(status, schedule);
-}
-
-/**
- * Shorter delay for direct user messages (user is actively waiting).
- * Returns 0 for online, shorter delays for idle/dnd than autonomous delays.
- */
-export function getDirectMessageDelay(
-  status: "online" | "idle" | "dnd" | "offline",
-  schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
-): number {
-  return getConfiguredResponseDelay(status, schedule);
-}
-
-/**
- * Reduced delay when the user @mentions a character.
- * Acts as an urgent ping: idle characters respond almost immediately,
- * DND characters respond faster (but not instantly — they're still busy).
- * Offline characters still won't respond (handled elsewhere).
- */
-export function getMentionDelay(status: "online" | "idle" | "dnd" | "offline"): number {
-  switch (status) {
-    case "online":
-      return 0;
-    case "idle":
-      return (5 + Math.random() * 10) * 1000; // 5-15 seconds
-    case "dnd":
-      return (30 + Math.random() * 60) * 1000; // 30-90 seconds
-    case "offline":
-      return 0;
-  }
 }
