@@ -3,13 +3,13 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const depthPromptSchema = z.object({
+const depthPromptSchema = z.object({
   prompt: z.string().default(""),
   depth: z.number().int().min(0).default(4),
   role: z.enum(["system", "user", "assistant"]).default("system"),
 });
 
-export const altDescriptionSchema = z.object({
+const altDescriptionSchema = z.object({
   id: z.string().default(""),
   label: z.string().default("Extension"),
   content: z.string().default(""),
@@ -28,7 +28,7 @@ export const characterExtensionsSchema = z
   })
   .passthrough();
 
-export const characterBookEntrySchema = z
+const characterBookEntrySchema = z
   .object({
     keys: z.array(z.string()).default([]),
     content: z.string().default(""),
@@ -47,7 +47,7 @@ export const characterBookEntrySchema = z
   })
   .passthrough();
 
-export const characterBookSchema = z
+const characterBookSchema = z
   .object({
     name: z.string().default(""),
     description: z.string().default(""),

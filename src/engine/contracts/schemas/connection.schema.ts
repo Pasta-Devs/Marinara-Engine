@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const apiProviderSchema = z.enum([
+const apiProviderSchema = z.enum([
   "openai",
   "openai_chatgpt",
   "anthropic",

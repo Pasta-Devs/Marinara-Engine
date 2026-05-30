@@ -3,9 +3,9 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
+const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
 
-export const agentResultTypeSchema = z.enum([
+const agentResultTypeSchema = z.enum([
   "game_state_update",
   "text_rewrite",
   "sprite_change",
