@@ -786,6 +786,7 @@ export class GameAudioManager {
     if (this.isMuted || this.sfxVolume <= 0 || !this.userHasInteracted) return;
     void this.resolveAssetUrl(tag, manifest)
       .then((url) => {
+        if (this.isMuted || this.sfxVolume <= 0) return;
         const audio = this.sfxPool[this.sfxIndex % SFX_POOL_SIZE]!;
         this.sfxIndex++;
         audio.onerror = () => {
@@ -794,7 +795,7 @@ export class GameAudioManager {
         };
         audio.src = url;
         this.setElementLayerVolume(audio, this.sfxVolume);
-        audio.muted = false;
+        audio.muted = this.isMuted;
         audio.currentTime = 0;
         audio.play().catch(() => {
           this.playProceduralSfx(tag);

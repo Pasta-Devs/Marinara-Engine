@@ -84,4 +84,25 @@ describe("GameAudioManager remote asset resolution", () => {
       expect(FakeAudio.instances.some((audio) => audio.src === "blob:sfx/hit.wav")).toBe(true);
     });
   });
+
+  it("does not play SFX if mute is enabled while async asset resolution is pending", async () => {
+    let resolveAsset!: (url: string) => void;
+    localFileApiMock.resolveGameAssetFileUrl.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAsset = resolve;
+        }),
+    );
+    const manager = await createGameAudioManager();
+    manager.unlock();
+
+    manager.playSfx("sfx:hit", { "sfx:hit": { path: "sfx/hit.wav" } });
+    manager.setMuted(true);
+    resolveAsset("blob:sfx/hit.wav");
+
+    await vi.waitFor(() => {
+      expect(localFileApiMock.resolveGameAssetFileUrl).toHaveBeenCalledWith("sfx/hit.wav");
+    });
+    expect(FakeAudio.instances.some((audio) => audio.src === "blob:sfx/hit.wav")).toBe(false);
+  });
 });
