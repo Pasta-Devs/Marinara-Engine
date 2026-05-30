@@ -47,7 +47,9 @@ const MALFORMED_REVIEW_JSON_MESSAGE =
 
 function normalizePromptReviewJson(raw: string): string | null {
   try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
+    return JSON.stringify(parsed, null, 2);
   } catch {
     return null;
   }

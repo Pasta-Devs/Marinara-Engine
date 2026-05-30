@@ -86,6 +86,18 @@ describe("reviewPromptPreset", () => {
     expect(events.some((event) => event.type === "done")).toBe(false);
   });
 
+  it("emits a clear error event when the reviewer returns non-object JSON", async () => {
+    const events = await collectReviewEvents(storageGateway(), llmGateway("null"));
+
+    expect(events).toEqual([
+      {
+        type: "error",
+        data: "Prompt Reviewer returned malformed JSON. Try again or use a model/provider with JSON mode support.",
+      },
+    ]);
+    expect(events.some((event) => event.type === "done")).toBe(false);
+  });
+
   it("throws when the preset is missing", async () => {
     await expect(collectReviewEvents(storageGateway(null), llmGateway("{}"))).rejects.toThrow(
       "Prompt preset not found.",
