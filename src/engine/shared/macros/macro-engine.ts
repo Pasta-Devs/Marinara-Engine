@@ -887,16 +887,18 @@ function resolveMacrosWithState(
   result = result.replace(/\{\{\\n\}\}/g, "\n");
 
   // ── Trim markers (processed last) ──
-  result = result.replace(/\{\{trimStart\}\}/gi, "\x00TRIM_START\x00");
-  result = result.replace(/\{\{trimEnd\}\}/gi, "\x00TRIM_END\x00");
+  const trimStartMarker = "\x00TRIM_START\x00";
+  const trimEndMarker = "\x00TRIM_END\x00";
+  result = result.replace(/\{\{trimStart\}\}/gi, trimStartMarker);
+  result = result.replace(/\{\{trimEnd\}\}/gi, trimEndMarker);
   result = result.replace(/\{\{trim\}\}/gi, "");
 
   // Apply directional trims
-  if (result.includes("\x00TRIM_START\x00")) {
-    result = result.replace(/\x00TRIM_START\x00\s*/g, "");
+  if (result.includes(trimStartMarker)) {
+    result = result.replace(new RegExp(`${trimStartMarker}\\s*`, "g"), "");
   }
-  if (result.includes("\x00TRIM_END\x00")) {
-    result = result.replace(/\s*\x00TRIM_END\x00/g, "");
+  if (result.includes(trimEndMarker)) {
+    result = result.replace(new RegExp(`\\s*${trimEndMarker}`, "g"), "");
   }
 
   // ── Catch-all: resolve any remaining {{name}} from variables ──

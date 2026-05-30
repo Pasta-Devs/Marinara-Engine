@@ -28,6 +28,7 @@ function depsForGameChat() {
     throw new Error("createChatMessage should not be called");
   });
   const stream = vi.fn(async function* () {
+    yield* [];
     throw new Error("llm.stream should not be called");
   });
 

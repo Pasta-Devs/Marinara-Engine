@@ -1168,7 +1168,7 @@ export function buildCampaignProgressionPrompt(language?: string | null): string
     `Update these campaign tracking fields based on the completed session:`,
     `- storyArc: refresh the overarching campaign arc only if the session materially advanced or changed it.`,
     `- plotTwists: keep unresolved twists that still matter, remove obsolete ones, and add any major new twist revealed this session.`,
-    `- partyArcs: return the FULL array of party arcs. Carry forward unfinished arcs with updated wording where needed. If an arc completed, mark \"completed\": true and include a short \"resolution\" note. Keep unfinished arcs as \"completed\": false or omit the field.`,
+    `- partyArcs: return the FULL array of party arcs. Carry forward unfinished arcs with updated wording where needed. If an arc completed, mark "completed": true and include a short "resolution" note. Keep unfinished arcs as "completed": false or omit the field.`,
     ``,
     `RULES:`,
     `- Be conservative. Do not rewrite campaign state unless the session justified it.`,

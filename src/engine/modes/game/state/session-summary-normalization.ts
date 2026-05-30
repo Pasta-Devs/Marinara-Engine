@@ -8,7 +8,7 @@ export interface SessionSummaryFactLists {
 function buildSessionFactKey(value: string): string {
   return value
     .toLocaleLowerCase()
-    .replace(/[.,!?;:()\[\]{}"'`*_]+/g, " ")
+    .replace(/[.,!?;:()[\]{}"'`*_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

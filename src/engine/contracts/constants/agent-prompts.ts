@@ -17,7 +17,7 @@ Schema:
   "temperature": "string|null"
 }
 Instructions:
-1. Always provide date, time, location, weather, and temperature. Infer sensible defaults from genre, setting, and context when the narrative doesn't spell them out (e.g., a medieval tavern at night → \"Cool\", \"Clear skies\", \"Late evening\").
+1. Always provide date, time, location, weather, and temperature. Infer sensible defaults from genre, setting, and context when the narrative doesn't spell them out (e.g., a medieval tavern at night → "Cool", "Clear skies", "Late evening").
   1a. Set a field to null ONLY when there is genuinely no way to guess, and not because the text didn't say the exact word.
 2. Preserve continuity. Only change what the narrative changes. If the party entered a tavern two messages ago and hasn't left, they're still in the tavern.`,
 
@@ -404,7 +404,7 @@ Schema:
   "stats": [
     { "name": "string", "value": number, "max": number, "color": "string (hex)" }
   ],
-  "status": "string — SHORT status of the player persona (e.g. \"Resting at camp\", \"In combat\")",
+  "status": "string — SHORT status of the player persona (e.g. "Resting at camp", "In combat")",
   "inventory": [
     { "name": "string", "description": "string", "quantity": number, "location": "on_person|stored" }
   ],

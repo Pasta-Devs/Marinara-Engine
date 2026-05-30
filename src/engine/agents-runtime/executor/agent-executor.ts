@@ -1651,6 +1651,6 @@ function repairJson(str: string): string {
   return str
     .replace(/\/\/[^\n]*/g, "") // remove single-line comments
     .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
-    .replace(/,\s*([\]\}])/g, "$1") // remove trailing commas before ] or }
+    .replace(/,\s*([\]}])/g, "$1") // remove trailing commas before ] or }
     .replace(/\.\.\.[^"\n]*/g, ""); // remove ... continuations/placeholders
 }

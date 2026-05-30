@@ -482,7 +482,7 @@ function parseUpdateLorebookBlock(raw: string): UpdateLorebookCommand | null {
 }
 
 function parseNumberParam(params: string, key: string): number | undefined {
-  const match = params.match(new RegExp(`${key}=(-?[0-9]+(?:\.[0-9]+)?)`, "i"));
+  const match = params.match(new RegExp(`${key}=(-?[0-9]+(?:.[0-9]+)?)`, "i"));
   if (!match) return undefined;
   const value = Number.parseFloat(match[1] ?? "");
   return Number.isFinite(value) ? value : undefined;
@@ -769,7 +769,7 @@ export function parseCharacterCommands(content: string): {
   }
 
   // Strip all commands from the visible content
-  let cleanContent = content
+  const cleanContent = content
     .replace(SCHEDULE_UPDATE_RE, "")
     .replace(CROSS_POST_RE, "")
     .replace(SELFIE_RE, "")

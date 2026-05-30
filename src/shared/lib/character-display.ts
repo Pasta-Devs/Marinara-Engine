@@ -14,7 +14,7 @@ const EXPLICIT_ALIAS_CONNECTOR_PATTERN =
   /(?:^|\s+)(?:a\.?k\.?a\.?|also known as|alias(?:es)?|nickname(?:s)?)(?:\s*(?::|-)\s*|\s+)/gi;
 const LIST_ALIAS_PATTERN = /\s*(?:[|/;]|\r?\n)\s*/;
 const LEADING_TITLE_SEPARATOR_PATTERN = /^(.+?)\s+[-\u2013\u2014]\s+.+$/u;
-const PARENTHETICAL_ALIAS_PATTERN = /[\[(]([^\])]+)[\])]/g;
+const PARENTHETICAL_ALIAS_PATTERN = /[[(]([^\])]+)[\])]/g;
 const LOOKUP_TEXT_MAX_LENGTH = 96;
 const LOOKUP_ALIAS_EDGE_PUNCTUATION = /^[\s"']+|[\s"',.:;]+$/g;
 const WRAPPED_LOOKUP_ALIAS_PATTERN = /^[([{]\s*(.+?)\s*[\])}]$/;

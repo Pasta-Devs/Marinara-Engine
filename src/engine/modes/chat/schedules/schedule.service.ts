@@ -321,7 +321,7 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
   jsonStr = jsonStr
     .replace(/\/\/[^\n]*/g, "") // remove single-line comments
     .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
-    .replace(/,\s*([\]\}])/g, "$1") // remove trailing commas before ] or }
+    .replace(/,\s*([\]}])/g, "$1") // remove trailing commas before ] or }
     .replace(/\.{3,}[^"}\]\n]*/g, "") // remove ...etc / ... continuations (not inside strings)
     .replace(/\n\s*\n/g, "\n"); // collapse blank lines left by removals
 
@@ -344,13 +344,13 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
       const trimmed = line.trim();
       // Keep lines that look like JSON structure (braces, brackets, key-value pairs, commas)
       if (!trimmed) return false;
-      if (/^[{}\[\],]/.test(trimmed)) return true;
+      if (/^[{}[\],]/.test(trimmed)) return true;
       if (/^"/.test(trimmed)) return true;
       if (/^\d/.test(trimmed)) return true;
       if (/^[}\]]/.test(trimmed)) return true;
       return false;
     });
-    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]\}])/g, "$1");
+    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]}])/g, "$1");
     try {
       data = normalizeScheduleData(JSON.parse(repairedStr));
     } catch {

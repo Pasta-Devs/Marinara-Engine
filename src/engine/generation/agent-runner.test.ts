@@ -89,6 +89,7 @@ function emptyLlm(calls: unknown[]): LlmGateway {
   return {
     async *stream(request) {
       calls.push(request);
+      yield* [];
     },
     async complete() {
       return "";
