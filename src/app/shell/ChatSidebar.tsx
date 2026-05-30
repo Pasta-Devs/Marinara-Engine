@@ -1234,9 +1234,9 @@ export function ChatSidebar({
                 <AlertTriangle size="1.125rem" className="text-[var(--destructive)]" />
               </div>
               <p className="text-sm text-[var(--muted-foreground)]">
-                This conversation has{" "}
-                <strong className="text-[var(--foreground)]">{deleteTarget.branchCount} branches</strong>. What would
-                you like to delete?
+                This group contains{" "}
+                <strong className="text-[var(--foreground)]">{deleteTarget.branchCount} chats</strong>. What would you
+                like to delete?
               </p>
             </div>
             <div className="flex flex-col gap-2">
@@ -1249,7 +1249,7 @@ export function ChatSidebar({
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
               >
                 <Trash2 size="0.8125rem" />
-                Delete This Branch Only
+                Delete This Chat Only
               </button>
               <button
                 onClick={() => {
@@ -1262,7 +1262,7 @@ export function ChatSidebar({
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98]"
               >
                 <Trash2 size="0.8125rem" />
-                Delete All {deleteTarget.branchCount} Branches
+                Delete Entire Group
               </button>
             </div>
           </div>
