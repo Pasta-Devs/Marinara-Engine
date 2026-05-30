@@ -398,6 +398,7 @@ pub(crate) fn normalize_typed_json_fields(
         }
         "chat-presets" => {
             normalize_json_object_fields(object, &["parameters"])?;
+            normalize_boolish_fields(object, &["isDefault", "default", "isActive", "active"]);
         }
         "prompts" => {
             normalize_json_array_fields(object, &["sectionOrder", "groupOrder", "variableOrder"])?;
@@ -468,6 +469,27 @@ fn normalize_json_object_fields(object: &mut Map<String, Value>, fields: &[&str]
         object.insert((*field).to_string(), normalized);
     }
     Ok(())
+}
+
+fn normalize_boolish_fields(object: &mut Map<String, Value>, fields: &[&str]) {
+    for field in fields {
+        let Some(value) = object.get_mut(*field) else {
+            continue;
+        };
+        if value.is_boolean() {
+            continue;
+        }
+        let normalized = match value.as_str().map(str::trim).map(str::to_ascii_lowercase) {
+            Some(raw) if raw == "true" || raw == "1" || raw == "yes" || raw == "on" => true,
+            Some(raw) if raw == "false" || raw == "0" || raw == "no" || raw == "off" => false,
+            _ => value
+                .as_i64()
+                .map(|number| number != 0)
+                .or_else(|| value.as_f64().map(|number| !number.is_nan() && number != 0.0))
+                .unwrap_or(false),
+        };
+        *value = Value::Bool(normalized);
+    }
 }
 
 fn normalize_nullable_json_object_fields(
@@ -1121,6 +1143,28 @@ mod tests {
         let mut record = json!("scalar");
         normalize_legacy_text_bool_fields(&mut record, &["flag"]);
         assert_eq!(record, json!("scalar"));
+    }
+
+    #[test]
+    fn chat_preset_defaults_normalize_boolish_flags() {
+        let row = with_entity_defaults(
+            "chat-presets",
+            json!({
+                "name": "Imported Preset",
+                "mode": "roleplay",
+                "parameters": {},
+                "isDefault": "false",
+                "default": "0",
+                "isActive": "true",
+                "active": "yes"
+            }),
+        )
+        .expect("chat preset defaults should normalize");
+
+        assert_eq!(row["isDefault"], json!(false));
+        assert_eq!(row["default"], json!(false));
+        assert_eq!(row["isActive"], json!(true));
+        assert_eq!(row["active"], json!(true));
     }
 
     #[test]

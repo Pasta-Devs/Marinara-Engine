@@ -30,6 +30,7 @@ import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from
 import { useChatPresets, useApplyChatPreset } from "../../../../catalog/chat-presets/index";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
+import { boolish } from "../../../../../engine/generation/runtime-records";
 import { generateConversationSchedules } from "../../../../../engine/modes/chat/schedules/schedule.service";
 import { llmApi } from "../../../../../shared/api/llm-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
@@ -1084,8 +1085,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     if (chatPresetList.length === 0) return;
     const appliedId = (metadata.appliedChatPresetId as string | undefined) ?? null;
     const applied = appliedId ? chatPresetList.find((p) => p.id === appliedId) : null;
-    const starred = chatPresetList.find((p) => p.isActive);
-    const fallback = chatPresetList.find((p) => p.isDefault);
+    const starred = chatPresetList.find((p) => boolish(p.isActive ?? p.active, false));
+    const fallback = chatPresetList.find((p) => boolish(p.isDefault ?? p.default, false));
     const pick = applied ?? starred ?? fallback;
     if (pick) setShortcutPresetId(pick.id);
   }, [chatPresetList, shortcutPresetId, metadata.appliedChatPresetId]);
@@ -1474,7 +1475,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     {chatPresetList.length === 0 && <option value="">Loading…</option>}
                     {chatPresetList.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.isDefault ? "Default" : p.name}
+                        {boolish(p.isDefault ?? p.default, false) ? "Default" : p.name}
                       </option>
                     ))}
                   </select>

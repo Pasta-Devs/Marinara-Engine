@@ -1324,8 +1324,10 @@ function ChatSettingsDrawerInner({
       const match = presetList.find((p) => p.id === appliedPresetId);
       if (match) return match;
     }
-    return presetList.find((p) => p.isDefault) ?? null;
+    return presetList.find((p) => isEnabledFlag(p.isDefault ?? p.default, false)) ?? null;
   }, [presetList, appliedPresetId]);
+  const selectedChatPresetIsDefault = isEnabledFlag(selectedChatPreset?.isDefault ?? selectedChatPreset?.default, false);
+  const selectedChatPresetIsActive = isEnabledFlag(selectedChatPreset?.isActive ?? selectedChatPreset?.active, false);
   const [renamingPreset, setRenamingPreset] = useState(false);
   const [renamePresetVal, setRenamePresetVal] = useState("");
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1533,23 +1535,23 @@ function ChatSettingsDrawerInner({
   };
 
   const handleToggleDefaultPreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isActive) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isActive ?? selectedChatPreset.active, false)) return;
     setActiveChatPreset.mutate(selectedChatPreset.id);
   };
 
   const handleSaveIntoPreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     saveChatPreset.mutate({ id: selectedChatPreset.id, settings: snapshotCurrentPresetSettings() });
   };
 
   const handleStartRenamePreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     setRenamePresetVal(selectedChatPreset.name);
     setRenamingPreset(true);
   };
 
   const handleCommitRenamePreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) {
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) {
       setRenamingPreset(false);
       return;
     }
@@ -1589,7 +1591,7 @@ function ChatSettingsDrawerInner({
   };
 
   const handleDeletePreset = async () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     const ok = await showConfirmDialog({
       title: "Delete Preset",
       message: `Delete preset "${selectedChatPreset.name}"? This cannot be undone.`,
@@ -1598,7 +1600,7 @@ function ChatSettingsDrawerInner({
     });
     if (!ok) return;
     const wasApplied = selectedChatPreset.id === appliedPresetId;
-    const defaultPreset = presetList.find((p) => p.isDefault);
+    const defaultPreset = presetList.find((p) => isEnabledFlag(p.isDefault ?? p.default, false));
     deleteChatPreset.mutate(selectedChatPreset.id, {
       onSuccess: () => {
         // If the chat was using the preset we just deleted, fall back to the
@@ -1750,34 +1752,34 @@ function ChatSettingsDrawerInner({
                   {presetList.length === 0 && <option value="">Loading…</option>}
                   {presetList.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.isDefault ? "Default" : p.name}
+                      {isEnabledFlag(p.isDefault ?? p.default, false) ? "Default" : p.name}
                     </option>
                   ))}
                 </select>
               )}
               <button
                 onClick={handleToggleDefaultPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
+                disabled={!selectedChatPreset || selectedChatPresetIsActive || setActiveChatPreset.isPending}
                 title={
                   !selectedChatPreset
                     ? "Select a preset to mark it as default"
-                    : selectedChatPreset.isActive
+                    : selectedChatPresetIsActive
                       ? "This preset is the default for new chats in this mode"
                       : "Mark this preset as default for new chats in this mode"
                 }
-                aria-pressed={!!selectedChatPreset?.isActive}
-                aria-label={selectedChatPreset?.isActive ? "Default preset" : "Mark as default preset"}
+                aria-pressed={selectedChatPresetIsActive}
+                aria-label={selectedChatPresetIsActive ? "Default preset" : "Mark as default preset"}
                 className={cn(
                   "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
-                  selectedChatPreset?.isActive
+                  selectedChatPresetIsActive
                     ? "text-yellow-400 disabled:opacity-100"
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
                 )}
               >
                 <Star
                   size="0.875rem"
-                  fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
-                  strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
+                  fill={selectedChatPresetIsActive ? "currentColor" : "none"}
+                  strokeWidth={selectedChatPresetIsActive ? 1.5 : 2}
                 />
               </button>
               <HelpTooltip
@@ -1793,9 +1795,9 @@ function ChatSettingsDrawerInner({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleSaveIntoPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
                 title={
-                  selectedChatPreset?.isDefault
+                  selectedChatPresetIsDefault
                     ? "Cannot save into the Default preset"
                     : "Save current chat settings into this preset"
                 }
@@ -1805,8 +1807,8 @@ function ChatSettingsDrawerInner({
               </button>
               <button
                 onClick={handleStartRenamePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot rename the Default preset" : "Rename preset"}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
+                title={selectedChatPresetIsDefault ? "Cannot rename the Default preset" : "Rename preset"}
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Pencil size="0.875rem" />
@@ -1837,8 +1839,8 @@ function ChatSettingsDrawerInner({
               </button>
               <button
                 onClick={handleDeletePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot delete the Default preset" : "Delete preset"}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
+                title={selectedChatPresetIsDefault ? "Cannot delete the Default preset" : "Delete preset"}
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Trash2 size="0.875rem" />

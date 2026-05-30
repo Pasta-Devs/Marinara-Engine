@@ -32,8 +32,12 @@ export interface ChatPreset {
   mode: ChatMode;
   /** True for the built-in "Default" preset (cannot be deleted, renamed, or saved into). */
   isDefault: boolean;
+  /** Legacy/default alias mirrored by imported rows and storage migrations. */
+  default?: boolean;
   /** True for the preset currently used as the starting state for new chats of this mode. */
   isActive: boolean;
+  /** Legacy/active alias mirrored by imported rows and storage migrations. */
+  active?: boolean;
   /** Bundled chat settings (JSON). */
   settings: ChatPresetSettings;
   createdAt: string;

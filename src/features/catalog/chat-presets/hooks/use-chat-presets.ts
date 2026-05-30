@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { chatPresetKeys } from "../query-keys";
 import { chatPresetSettingsSchema } from "../../../../engine/contracts/schemas/chat-preset.schema";
+import { boolish } from "../../../../engine/generation/runtime-records";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { chatKeys } from "../../chats/query-keys";
@@ -17,6 +18,19 @@ import {
 export { chatPresetKeys } from "../query-keys";
 
 const EXCLUDED_METADATA_KEYS = new Set<string>(CHAT_PRESET_EXCLUDED_METADATA_KEYS);
+
+type RawChatPreset = ChatPreset & {
+  default?: unknown;
+  active?: unknown;
+};
+
+export function normalizeChatPresetFlags<T extends RawChatPreset>(preset: T): T & ChatPreset {
+  return {
+    ...preset,
+    isDefault: boolish(preset.isDefault ?? preset.default, false),
+    isActive: boolish(preset.isActive ?? preset.active, false),
+  };
+}
 
 export function sanitizeChatPresetSettings(settings: ChatPresetSettings | null | undefined): ChatPresetSettings {
   const clean: ChatPresetSettings = {};
@@ -36,9 +50,9 @@ export function sanitizeChatPresetSettings(settings: ChatPresetSettings | null |
 }
 
 async function setOnlyActivePreset(id: string): Promise<ChatPreset> {
-  const selected = await storageApi.get<ChatPreset>("chat-presets", id);
+  const selected = await storageApi.get<RawChatPreset>("chat-presets", id);
   if (!selected) throw new Error(`Chat preset ${id} was not found`);
-  const presets = await storageApi.list<ChatPreset>("chat-presets");
+  const presets = (await storageApi.list<RawChatPreset>("chat-presets")).map(normalizeChatPresetFlags);
   await Promise.all(
     presets
       .filter((preset) => preset.mode === selected.mode)
@@ -49,14 +63,14 @@ async function setOnlyActivePreset(id: string): Promise<ChatPreset> {
         }),
       ),
   );
-  return { ...selected, isActive: true, active: true } as ChatPreset;
+  return { ...normalizeChatPresetFlags(selected), isActive: true, active: true } as ChatPreset;
 }
 
 export function useChatPresets(mode?: ChatMode | null) {
   return useQuery({
     queryKey: chatPresetKeys.list(mode ?? null),
     queryFn: async () => {
-      const presets = await storageApi.list<ChatPreset>("chat-presets");
+      const presets = (await storageApi.list<RawChatPreset>("chat-presets")).map(normalizeChatPresetFlags);
       return mode ? presets.filter((preset) => preset.mode === mode) : presets;
     },
     staleTime: 60_000,
