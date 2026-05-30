@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
-import {
-  fileToUploadPayload,
-  formDataToJson,
-  IMAGE_UPLOAD_SIZE_ERROR,
-  MAX_IMAGE_UPLOAD_BYTES,
-} from "./file-payload";
+import { fileToUploadPayload, formDataToJson, IMAGE_UPLOAD_SIZE_ERROR, MAX_IMAGE_UPLOAD_BYTES } from "./file-payload";
 
 function fakeFile(size: number, bytes = [0x89, 0x50, 0x4e, 0x47]) {
   let arrayBufferCalls = 0;
@@ -81,10 +76,7 @@ function fakeFormBody(size: number, extraFields: Record<string, string> = {}) {
       return new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer;
     },
   });
-  const entries: Array<[string, FormDataEntryValue]> = [
-    ["file", file],
-    ...Object.entries(extraFields),
-  ];
+  const entries: Array<[string, FormDataEntryValue]> = [["file", file], ...Object.entries(extraFields)];
   const body = { entries: () => entries[Symbol.iterator]() } as unknown as FormData;
   return { body, arrayBufferCalls: () => arrayBufferCalls };
 }
