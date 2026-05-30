@@ -2,7 +2,7 @@ import type { LlmGateway } from "../capabilities/llm";
 import type { MariMessage } from "./mari-entry";
 
 export const PROFESSOR_MARI_CHAT_ID = "professor-mari";
-export const MARI_COMPACTION_THRESHOLD = 0.8;
+const MARI_COMPACTION_THRESHOLD = 0.8;
 const DEFAULT_MAX_CONTEXT = 128_000;
 const COMPACTION_TAIL_CONTEXT_SHARE = 0.25;
 const COMPACTION_TAIL_MIN_MESSAGES = 16;
@@ -31,7 +31,7 @@ export function isMariResetCommand(value: string): boolean {
   return value.trim().toLowerCase() === "/reset";
 }
 
-export function estimateMariTextTokens(text: string): number {
+function estimateMariTextTokens(text: string): number {
   const trimmed = text.trim();
   return trimmed ? Math.max(1, Math.ceil(trimmed.length / 4)) : 0;
 }
@@ -46,7 +46,7 @@ function readPositiveInteger(value: unknown): number | null {
   return Math.floor(parsed);
 }
 
-export function mariConnectionMaxContext(connection: MariCompactionConnection | null | undefined): number {
+function mariConnectionMaxContext(connection: MariCompactionConnection | null | undefined): number {
   return readPositiveInteger(connection?.maxContext) ?? DEFAULT_MAX_CONTEXT;
 }
 
@@ -61,7 +61,7 @@ export function mariContextMessages(messages: MariMessage[], compaction: MariCom
   return index >= 0 ? messages.slice(index + 1) : messages;
 }
 
-export function estimateMariContextTokens(messages: MariMessage[], compaction: MariCompactionState): number {
+function estimateMariContextTokens(messages: MariMessage[], compaction: MariCompactionState): number {
   const summaryTokens = estimateMariTextTokens(compaction.compactedSummary ?? "");
   return (
     summaryTokens +

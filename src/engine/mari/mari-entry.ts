@@ -33,7 +33,7 @@ export type MariEntryRequest = {
   attachments?: MariAttachment[];
 };
 
-export const MARI_ACTION_ENTITIES = [
+const MARI_ACTION_ENTITIES = [
   "characters",
   "character-groups",
   "personas",
@@ -73,7 +73,7 @@ export type MariEntryAction =
 const MARI_DEFAULT_ACTION_REASON =
   "Professor Mari can inspect Marinara Engine's codebase, create extension/custom-agent records, and apply exact code edits through approved workspace tools.";
 
-export const MARI_DEFAULT_ACTION: MariEntryAction = {
+const MARI_DEFAULT_ACTION: MariEntryAction = {
   type: "none",
   capability: "workspace_agent",
   reason: MARI_DEFAULT_ACTION_REASON,
