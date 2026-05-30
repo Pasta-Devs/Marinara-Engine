@@ -1731,6 +1731,29 @@ fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value
     EMPTY.get_or_init(serde_json::Map::new)
 }
 
+/// Character data subfields added to projected rows so storage search can
+/// match card metadata and prompt text without returning embedded avatars.
+const CHARACTER_DATA_SEARCH_FIELDS: &[&str] = &[
+    "name",
+    "creator",
+    "creator_notes",
+    "tags",
+    "description",
+    "personality",
+    "scenario",
+    "first_mes",
+    "mes_example",
+    "system_prompt",
+    "post_history_instructions",
+    "alternate_greetings",
+    "extensions",
+];
+
+/// Expands top-level projection fields for searchable list queries.
+///
+/// The returned field set preserves the caller's requested projection, then
+/// adds fields searched by `apply_storage_search` plus default/orderBy sort
+/// fields needed before the final caller-facing projection is applied.
 pub(crate) fn search_projection_fields(options: Option<&Value>) -> Vec<String> {
     let mut fields = projection_fields(options).unwrap_or_default();
     for field in [
@@ -1762,6 +1785,10 @@ pub(crate) fn search_projection_fields(options: Option<&Value>) -> Vec<String> {
     fields
 }
 
+/// Expands nested projection selections for searchable character data.
+///
+/// When callers request a subset of `data`, this adds the character fields that
+/// search needs for matching, then final projection narrows the response again.
 pub(crate) fn search_projection_field_selections(
     options: Option<&Value>,
 ) -> serde_json::Map<String, Value> {
@@ -1769,6 +1796,9 @@ pub(crate) fn search_projection_field_selections(
     let original_fields = projection_fields(options).unwrap_or_default();
     let original_requests_data = original_fields.iter().any(|field| field == "data");
     let original_data_fields = selections.get("data").and_then(string_array_from_json);
+    // Preserve explicit full-data projections. If the caller requested `data`
+    // and `original_data_fields` is absent or empty, returning the original
+    // `selections` lets storage return complete data for search and response.
     if original_requests_data
         && original_data_fields
             .as_ref()
@@ -1778,21 +1808,7 @@ pub(crate) fn search_projection_field_selections(
     }
 
     let mut data_fields = original_data_fields.unwrap_or_default();
-    for field in [
-        "name",
-        "creator",
-        "creator_notes",
-        "tags",
-        "description",
-        "personality",
-        "scenario",
-        "first_mes",
-        "mes_example",
-        "system_prompt",
-        "post_history_instructions",
-        "alternate_greetings",
-        "extensions",
-    ] {
+    for field in CHARACTER_DATA_SEARCH_FIELDS {
         if !data_fields.iter().any(|existing| existing == field) {
             data_fields.push(field.to_string());
         }
