@@ -1,4 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
+import {
+  createLorebookEntrySchema,
+  updateLorebookEntrySchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { Lorebook, LorebookEntry } from "../../../../engine/contracts/types/lorebook";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -200,14 +204,20 @@ function appendLoreFacts(existingContent: string, update: PendingLorebookUpdate)
 
 export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): Promise<void> {
   if (update.action === "create") {
-    await storageApi.create<LorebookEntry>("lorebook-entries", entryDefaults(update.lorebookId, update));
+    await storageApi.create<LorebookEntry>(
+      "lorebook-entries",
+      createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
+    );
     return;
   }
 
   const existing = await findExistingEntry(update);
   if (!existing) {
     if (update.action === "delete") return;
-    await storageApi.create<LorebookEntry>("lorebook-entries", entryDefaults(update.lorebookId, update));
+    await storageApi.create<LorebookEntry>(
+      "lorebook-entries",
+      createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
+    );
     return;
   }
 
@@ -228,6 +238,6 @@ export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): 
   if (update.tag && update.tag !== existing.tag) patch.tag = update.tag;
   if (Object.keys(patch).length > 0) {
     patch.embedding = null;
-    await storageApi.update<LorebookEntry>("lorebook-entries", existing.id, patch);
+    await storageApi.update<LorebookEntry>("lorebook-entries", existing.id, updateLorebookEntrySchema.parse(patch));
   }
 }

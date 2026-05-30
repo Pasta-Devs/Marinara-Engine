@@ -19,7 +19,9 @@ export const createRegexScriptSchema = z.object({
   maxDepth: z.number().int().nullable().default(null),
 });
 
-export const updateRegexScriptSchema = createRegexScriptSchema.partial();
+export const updateRegexScriptSchema = createRegexScriptSchema.partial().extend({
+  sortOrder: z.number().int().optional(),
+});
 export const reorderRegexScriptsSchema = z.object({
   scriptIds: z.array(z.string().min(1)),
 });

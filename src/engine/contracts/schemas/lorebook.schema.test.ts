@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createLorebookSchema, updateLorebookEntrySchema, updateLorebookSchema } from "./lorebook.schema";
+import {
+  createLorebookEntrySchema,
+  createLorebookFolderSchema,
+  createLorebookSchema,
+  updateLorebookEntrySchema,
+  updateLorebookFolderSchema,
+  updateLorebookSchema,
+} from "./lorebook.schema";
 
 describe("lorebook schemas", () => {
   it("defaults new lorebooks to vectorization enabled", () => {
@@ -18,6 +25,46 @@ describe("lorebook schemas", () => {
     const parsed = updateLorebookEntrySchema.parse({ lorebookId: "lorebook-next" });
 
     expect(parsed).toEqual({ lorebookId: "lorebook-next" });
+  });
+
+  it("accepts display-order and embedding patches without filling defaults", () => {
+    const parsed = updateLorebookEntrySchema.parse({ sortOrder: 4, order: 4, embedding: null });
+
+    expect(parsed).toEqual({ sortOrder: 4, order: 4, embedding: null });
+  });
+
+  it("accepts copied entry storage metadata without timestamps or ids", () => {
+    const parsed = createLorebookEntrySchema.parse({
+      id: "entry-original",
+      lorebookId: "lorebook-copy",
+      name: "Copied",
+      sortOrder: 2,
+      embedding: [0.1, 0.2],
+      createdAt: "old",
+      updatedAt: "old",
+    });
+
+    expect(parsed).toMatchObject({
+      lorebookId: "lorebook-copy",
+      name: "Copied",
+      sortOrder: 2,
+      embedding: [0.1, 0.2],
+    });
+    expect(parsed).not.toHaveProperty("id");
+    expect(parsed).not.toHaveProperty("createdAt");
+    expect(parsed).not.toHaveProperty("updatedAt");
+  });
+
+  it("accepts folder sort-order patches without filling defaults", () => {
+    const parsed = updateLorebookFolderSchema.parse({ order: 1, sortOrder: 1 });
+
+    expect(parsed).toEqual({ order: 1, sortOrder: 1 });
+  });
+
+  it("requires folder creates to carry their parent lorebook id", () => {
+    const parsed = createLorebookFolderSchema.parse({ lorebookId: "lorebook-1", name: "Locations" });
+
+    expect(parsed.lorebookId).toBe("lorebook-1");
   });
 
   it("accepts game-session lorebook metadata", () => {

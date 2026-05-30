@@ -33,6 +33,8 @@ export const lorebookScheduleSchema = z.object({
   activeLocations: z.array(z.string()).default([]),
 });
 
+const lorebookEmbeddingSchema = z.array(z.number()).nullable();
+
 // ──────────────────────────────────────────────
 // Folders — collapsible containers for entries
 // `parentFolderId` is reserved for a future nested-folder PR; v1 enforces
@@ -40,10 +42,12 @@ export const lorebookScheduleSchema = z.object({
 // rejects non-null values.
 // ──────────────────────────────────────────────
 export const createLorebookFolderSchema = z.object({
+  lorebookId: z.string(),
   name: z.string().min(1).max(200),
   enabled: z.boolean().default(true),
   parentFolderId: z.string().nullable().default(null),
   order: z.number().int().default(0),
+  sortOrder: z.number().int().optional(),
 });
 
 export const updateLorebookFolderSchema = z.object({
@@ -51,6 +55,7 @@ export const updateLorebookFolderSchema = z.object({
   enabled: z.boolean().optional(),
   parentFolderId: z.string().nullable().optional(),
   order: z.number().int().optional(),
+  sortOrder: z.number().int().optional(),
 });
 
 export const createLorebookSchema = z.object({
@@ -154,6 +159,7 @@ export const createLorebookEntrySchema = z.object({
   position: z.number().int().min(0).max(2).default(0),
   depth: z.number().int().min(0).default(4),
   order: z.number().int().default(100),
+  sortOrder: z.number().int().optional(),
   role: z.enum(["system", "user", "assistant"]).default("system"),
   sticky: z.number().nullable().default(null),
   cooldown: z.number().nullable().default(null),
@@ -171,6 +177,7 @@ export const createLorebookEntrySchema = z.object({
   activationConditions: z.array(activationConditionSchema).default([]),
   schedule: lorebookScheduleSchema.nullable().default(null),
   excludeFromVectorization: z.boolean().default(false),
+  embedding: lorebookEmbeddingSchema.optional(),
 });
 
 export const updateLorebookEntrySchema = z.object({
@@ -199,6 +206,7 @@ export const updateLorebookEntrySchema = z.object({
   position: z.number().int().min(0).max(2).optional(),
   depth: z.number().int().min(0).optional(),
   order: z.number().int().optional(),
+  sortOrder: z.number().int().optional(),
   role: z.enum(["system", "user", "assistant"]).optional(),
   sticky: z.number().nullable().optional(),
   cooldown: z.number().nullable().optional(),
@@ -215,6 +223,7 @@ export const updateLorebookEntrySchema = z.object({
   activationConditions: z.array(activationConditionSchema).optional(),
   schedule: lorebookScheduleSchema.nullable().optional(),
   excludeFromVectorization: z.boolean().optional(),
+  embedding: lorebookEmbeddingSchema.optional(),
 });
 
 export type CreateLorebookInput = z.input<typeof createLorebookSchema>;

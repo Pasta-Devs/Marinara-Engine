@@ -68,7 +68,7 @@ export function useReorderRegexScripts() {
       const payload = reorderRegexScriptsSchema.parse({ scriptIds });
       await Promise.all(
         payload.scriptIds.map((id, index) =>
-          storageApi.update("regex-scripts", id, { sortOrder: index, order: index }),
+          storageApi.update("regex-scripts", id, updateRegexScriptSchema.parse({ sortOrder: index, order: index })),
         ),
       );
       return storageApi.list<RegexScriptRow>("regex-scripts");
