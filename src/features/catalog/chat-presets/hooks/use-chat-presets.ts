@@ -32,6 +32,23 @@ export function normalizeChatPresetFlags<T extends RawChatPreset>(preset: T): T 
   };
 }
 
+export async function listChatPresets(mode?: ChatMode | null): Promise<ChatPreset[]> {
+  const presets = (await storageApi.list<RawChatPreset>("chat-presets")).map(normalizeChatPresetFlags);
+  return mode ? presets.filter((preset) => preset.mode === mode) : presets;
+}
+
+export function findUserStarredChatPreset(
+  presets: readonly RawChatPreset[] | null | undefined,
+  mode: ChatMode | null,
+): ChatPreset | null {
+  if (!mode) return null;
+  return (
+    presets
+      ?.map(normalizeChatPresetFlags)
+      .find((preset) => preset.mode === mode && preset.isActive && !preset.isDefault) ?? null
+  );
+}
+
 export function sanitizeChatPresetSettings(settings: ChatPresetSettings | null | undefined): ChatPresetSettings {
   const clean: ChatPresetSettings = {};
   if (!settings) return clean;
@@ -69,10 +86,7 @@ async function setOnlyActivePreset(id: string): Promise<ChatPreset> {
 export function useChatPresets(mode?: ChatMode | null) {
   return useQuery({
     queryKey: chatPresetKeys.list(mode ?? null),
-    queryFn: async () => {
-      const presets = (await storageApi.list<RawChatPreset>("chat-presets")).map(normalizeChatPresetFlags);
-      return mode ? presets.filter((preset) => preset.mode === mode) : presets;
-    },
+    queryFn: () => listChatPresets(mode),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

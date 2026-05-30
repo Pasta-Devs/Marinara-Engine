@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeChatPresetFlags, sanitizeChatPresetSettings } from "./use-chat-presets";
+import { findUserStarredChatPreset, normalizeChatPresetFlags, sanitizeChatPresetSettings } from "./use-chat-presets";
 
 describe("sanitizeChatPresetSettings", () => {
   it("removes chat-specific summary metadata from saved presets", () => {
@@ -56,5 +56,49 @@ describe("normalizeChatPresetFlags", () => {
 
     expect(preset.isDefault).toBe(true);
     expect(preset.isActive).toBe(false);
+  });
+});
+
+describe("findUserStarredChatPreset", () => {
+  it("normalizes imported text boolean flags before choosing the starred preset", () => {
+    const starred = findUserStarredChatPreset(
+      [
+        {
+          id: "default-preset",
+          name: "Default",
+          mode: "roleplay",
+          isDefault: "true" as unknown as boolean,
+          isActive: "true" as unknown as boolean,
+          settings: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "inactive-preset",
+          name: "Inactive",
+          mode: "roleplay",
+          isDefault: "false" as unknown as boolean,
+          isActive: "false" as unknown as boolean,
+          settings: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "starred-preset",
+          name: "Starred",
+          mode: "roleplay",
+          isDefault: "false" as unknown as boolean,
+          isActive: "true" as unknown as boolean,
+          settings: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      "roleplay",
+    );
+
+    expect(starred?.id).toBe("starred-preset");
+    expect(starred?.isDefault).toBe(false);
+    expect(starred?.isActive).toBe(true);
   });
 });

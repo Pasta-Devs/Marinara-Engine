@@ -4,7 +4,7 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { chatKeys, useCreateChat } from "../../chats/index";
-import { useApplyChatPreset, useChatPresets } from "../../chat-presets/index";
+import { findUserStarredChatPreset, useApplyChatPreset, useChatPresets } from "../../chat-presets/index";
 import { useConnections } from "../../connections/index";
 
 type ChatMode = "roleplay" | "conversation";
@@ -28,9 +28,7 @@ export function useStartChatFromCharacter() {
     ({ characterId, characterName, mode, firstMessage, alternateGreetings }: StartChatFromCharacterOptions) => {
       const label = mode === "conversation" ? "Conversation" : "Roleplay";
       const presetMode = mode === "conversation" ? "conversation" : "roleplay";
-      const starred = (chatPresetsData ?? []).find(
-        (preset) => preset.mode === presetMode && preset.isActive && !preset.isDefault,
-      );
+      const starred = findUserStarredChatPreset(chatPresetsData, presetMode);
       const connectionRows = filterLanguageGenerationConnections(
         (connections ?? []) as Array<{ id: string; provider?: string }>,
       ).filter((connection) => !!connection.id);

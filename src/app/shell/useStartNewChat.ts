@@ -2,8 +2,12 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CHAT_MODES } from "../../engine/contracts/constants/chat-modes";
 import type { ChatMode } from "../../engine/contracts/types/chat";
-import type { ChatPreset } from "../../engine/contracts/types/chat-preset";
-import { chatPresetKeys, useApplyChatPreset } from "../../features/catalog/chat-presets/index";
+import {
+  chatPresetKeys,
+  findUserStarredChatPreset,
+  listChatPresets,
+  useApplyChatPreset,
+} from "../../features/catalog/chat-presets/index";
 import { useCreateChat } from "../../features/catalog/chats/index";
 import { connectionKeys } from "../../features/catalog/connections/index";
 import { storageApi } from "../../shared/api/storage-api";
@@ -45,14 +49,11 @@ export function useStartNewChat() {
       const presets = presetMode
         ? await queryClient.fetchQuery({
             queryKey: chatPresetKeys.list(null),
-            queryFn: () => storageApi.list<ChatPreset>("chat-presets"),
+            queryFn: () => listChatPresets(null),
             staleTime: 60_000,
           })
         : [];
-      const starred =
-        presetMode && presets
-          ? (presets.find((preset) => preset.mode === presetMode && preset.isActive && !preset.isDefault) ?? null)
-          : null;
+      const starred = findUserStarredChatPreset(presets, presetMode);
 
       createChat.mutate(
         {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Loader2, MessageCircle, Plug, Settings, X } from "lucide-react";
 import { useCreateChat } from "../../../../catalog/chats/index";
-import { useApplyChatPreset, useChatPresets } from "../../../../catalog/chat-presets/index";
+import { findUserStarredChatPreset, useApplyChatPreset, useChatPresets } from "../../../../catalog/chat-presets/index";
 import { useConnections } from "../../../../catalog/connections/index";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { cn } from "../../../../../shared/lib/utils";
@@ -59,9 +59,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
     const label = MODE_META[mode].label;
     const presets = chatPresetsData ?? [];
     const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
-    const starred = presetMode
-      ? (presets.find((preset) => preset.mode === presetMode && preset.isActive && !preset.isDefault) ?? null)
-      : null;
+    const starred = findUserStarredChatPreset(presets, presetMode);
     createChat.mutate(
       {
         name: `New ${label}`,
