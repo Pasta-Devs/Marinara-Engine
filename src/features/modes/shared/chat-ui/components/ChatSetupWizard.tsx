@@ -182,9 +182,10 @@ function characterMatchesSearch(
   character: { id?: string; data: unknown; comment?: string | null },
   search: string,
 ): boolean {
-  const query = search.trim().toLowerCase();
-  if (!query) return true;
-  return characterSearchValues(character).some((value) => value.toLowerCase().includes(query));
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const values = characterSearchValues(character).map((value) => value.toLowerCase());
+  return terms.every((term) => values.some((value) => value.includes(term)));
 }
 
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {

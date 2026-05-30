@@ -227,6 +227,7 @@ fn avatar_asset_filename(path: &str) -> Result<String, AppError> {
         || filename == ".."
         || filename.contains('/')
         || filename.contains('\\')
+        || filename.contains(':')
     {
         return Err(AppError::not_found("Avatar asset was not found"));
     }
@@ -1107,6 +1108,8 @@ mod tests {
         assert!(avatar_asset_filename(".").is_err());
         assert!(avatar_asset_filename("characters/avatar.png").is_err());
         assert!(avatar_asset_filename("characters\\avatar.png").is_err());
+        assert!(avatar_asset_filename("C:evil.png").is_err());
+        assert!(avatar_asset_filename("X:avatar.png").is_err());
         assert_eq!(
             avatar_asset_filename("avatar one.png").expect("valid avatar filename"),
             "avatar one.png"

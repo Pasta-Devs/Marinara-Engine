@@ -129,6 +129,16 @@ function useDebouncedValue(value: string, delayMs: number): string {
   return debounced;
 }
 
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const normalizedValues = values.map((value) => value.toLowerCase());
+  return terms.every((term) => normalizedValues.some((value) => value.includes(term)));
+}
+
 // ── Types ──
 type LinkedResourceItem = {
   id: string;
@@ -194,12 +204,11 @@ function LinkedResourcePicker({
         deleted: true,
       },
   );
+  const searchTerms = useMemo(() => splitSearchTerms(search), [search]);
   const availableItems = items.filter(
     (item) =>
       !selectedIds.includes(item.id) &&
-      (item.searchText ?? [item.name, item.description ?? ""]).some((value) =>
-        value.toLowerCase().includes(search.toLowerCase()),
-      ),
+      searchValuesMatchTerms(item.searchText ?? [item.name, item.description ?? ""], searchTerms),
   );
 
   return (

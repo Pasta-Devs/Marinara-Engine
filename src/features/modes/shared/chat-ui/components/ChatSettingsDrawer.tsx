@@ -307,13 +307,13 @@ function characterSearchValues(character: { id?: string; data?: unknown; comment
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
-function characterMatchesSearch(
-  character: { id?: string; data?: unknown; comment?: string | null },
-  search: string,
-): boolean {
-  const query = search.trim().toLowerCase();
-  if (!query) return true;
-  return characterSearchValues(character).some((value) => value.toLowerCase().includes(query));
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  return terms.every((term) => values.some((value) => value.includes(term)));
 }
 
 function useDeferredDrawerContent(open: boolean, contentKey: string): boolean {
@@ -786,6 +786,26 @@ function ChatSettingsDrawerInner({
   const characterSearchPending =
     showCharPicker && (searchedCharactersFetching || charSearch.trim() !== debouncedCharSearch.trim());
   const characterSearchFailed = showCharPicker && searchedCharactersError;
+  const availableCharacters = useMemo(() => {
+    const selectedIds = new Set(chatCharIds);
+    return characters.filter((character) => !selectedIds.has(character.id));
+  }, [characters, chatCharIds]);
+  const availableCharacterSearchEntries = useMemo(
+    () =>
+      availableCharacters.map((character) => ({
+        character,
+        searchValues: characterSearchValues(character).map((value) => value.toLowerCase()),
+      })),
+    [availableCharacters],
+  );
+  const characterSearchTerms = useMemo(() => splitSearchTerms(charSearch), [charSearch]);
+  const filteredAvailableCharacters = useMemo(
+    () =>
+      availableCharacterSearchEntries
+        .filter(({ searchValues }) => searchValuesMatchTerms(searchValues, characterSearchTerms))
+        .map(({ character }) => character),
+    [availableCharacterSearchEntries, characterSearchTerms],
+  );
 
   const chatCharacters = useMemo(
     () =>
@@ -2377,42 +2397,37 @@ function ChatSettingsDrawerInner({
                   onClose={() => setShowCharPicker(false)}
                   placeholder="Search characters…"
                 >
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(c, charSearch))
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
-                          </div>
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(c, charSearch)).length === 0 && (
+                  {filteredAvailableCharacters.map((c) => {
+                    const name = charName(c);
+                    const title = charTitle(c);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          toggleCharacter(c.id);
+                          setShowCharPicker(false);
+                        }}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-xs">{name}</span>
+                          {title && (
+                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                              {title}
+                            </span>
+                          )}
+                        </div>
+                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                    );
+                  })}
+                  {filteredAvailableCharacters.length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                       {characterSearchFailed
                         ? "Characters could not be loaded."
                         : characterSearchPending
                           ? "Loading characters..."
-                          : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
+                          : availableCharacters.length === 0
                             ? "All characters already added."
                             : "No matches."}
                     </p>
@@ -2707,57 +2722,52 @@ function ChatSettingsDrawerInner({
                   onClose={() => setShowCharPicker(false)}
                   placeholder="Search characters…"
                 >
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(c, charSearch))
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          {c.avatarPath ? (
-                            <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
-                              <img
-                                src={c.avatarPath}
-                                alt={name}
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(charAvatarCrop(c))}
-                              />
-                            </span>
-                          ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
-                              {name[0]}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
+                  {filteredAvailableCharacters.map((c) => {
+                    const name = charName(c);
+                    const title = charTitle(c);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          toggleCharacter(c.id);
+                          setShowCharPicker(false);
+                        }}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                      >
+                        {c.avatarPath ? (
+                          <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
+                            <img
+                              src={c.avatarPath}
+                              alt={name}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                              style={getAvatarCropStyle(charAvatarCrop(c))}
+                            />
+                          </span>
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
+                            {name[0]}
                           </div>
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => characterMatchesSearch(c, charSearch)).length === 0 && (
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-xs">{name}</span>
+                          {title && (
+                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                              {title}
+                            </span>
+                          )}
+                        </div>
+                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                    );
+                  })}
+                  {filteredAvailableCharacters.length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                       {characterSearchFailed
                         ? "Characters could not be loaded."
                         : characterSearchPending
                           ? "Loading characters..."
-                          : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
+                          : availableCharacters.length === 0
                             ? "All characters already added."
                             : "No matches."}
                     </p>

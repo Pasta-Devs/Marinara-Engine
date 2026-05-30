@@ -60,6 +60,16 @@ function getText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const searchableValues = values.map((value) => value.toLowerCase());
+  return terms.every((term) => searchableValues.some((value) => value.includes(term)));
+}
+
 function getCharacterSummary(char: ParsedCharacterRow) {
   const creatorNotes = getText(char.parsed.creator_notes);
   if (creatorNotes) return creatorNotes;
@@ -281,12 +291,11 @@ export function CharacterLibraryView() {
   }, [characters]);
 
   const filteredCharacters = useMemo(() => {
-    const query = debouncedSearch.trim().toLowerCase();
+    const terms = splitSearchTerms(debouncedSearch);
 
     return parsedCharacters.filter((char) => {
       const isFavorite = !!char.parsed.extensions?.fav;
       if (favoritesOnly && !isFavorite) return false;
-      if (!query) return true;
 
       const fields = [
         getText(char.parsed.name),
@@ -296,7 +305,7 @@ export function CharacterLibraryView() {
         ...((Array.isArray(char.parsed.tags) ? char.parsed.tags : []) as string[]),
       ];
 
-      return fields.some((value) => value.toLowerCase().includes(query));
+      return searchValuesMatchTerms(fields, terms);
     });
   }, [debouncedSearch, favoritesOnly, parsedCharacters]);
 
@@ -507,7 +516,7 @@ export function CharacterLibraryView() {
                   className="absolute left-0 top-0 w-full pb-3"
                   style={{ transform: `translateY(${virtualRow.start}px)` }}
                 >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
+                  <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}>
                     {(virtualRows[virtualRow.index] ?? []).map((char) => {
                       const charName = getText(char.parsed.name) || "Unnamed";
                       const charTitle = getCharacterTitle({ name: charName, comment: char.comment });

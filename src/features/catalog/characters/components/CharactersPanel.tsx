@@ -73,6 +73,10 @@ function getCharacterTags(char: ParsedCharacterRow): string[] {
   return Array.isArray(char.parsed.tags) ? (char.parsed.tags as string[]).filter(Boolean) : [];
 }
 
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
 function parseCharacterSearchQuery(value: string) {
   const excludedTags: string[] = [];
   const text = value
@@ -86,8 +90,25 @@ function parseCharacterSearchQuery(value: string) {
 
   return {
     text: text.toLowerCase(),
+    terms: splitSearchTerms(text),
     excludedTags,
   };
+}
+
+function getSearchText(value: unknown): string {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
+function characterMatchesSearchTerms(char: ParsedCharacterRow, terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const values = [
+    getSearchText(char.parsed.name),
+    getSearchText(char.comment),
+    getSearchText(char.parsed.creator),
+    getSearchText(char.parsed.creator_notes),
+    ...getCharacterTags(char).map((tag) => tag.toLowerCase()),
+  ].filter(Boolean);
+  return terms.every((term) => values.some((value) => value.includes(term)));
 }
 
 function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
@@ -239,18 +260,11 @@ export function CharactersPanel() {
       });
     }
     // Filter by search text
-    if (searchQuery.text) {
-      list = list.filter(
-        (c) =>
-          (c.parsed.name ?? "").toLowerCase().includes(searchQuery.text) ||
-          (typeof c.comment === "string" && c.comment.toLowerCase().includes(searchQuery.text)) ||
-          (c.parsed.creator ?? "").toLowerCase().includes(searchQuery.text) ||
-          (c.parsed.creator_notes ?? "").toLowerCase().includes(searchQuery.text) ||
-          getCharacterTags(c).some((t) => t.toLowerCase().includes(searchQuery.text)),
-      );
+    if (searchQuery.terms.length > 0) {
+      list = list.filter((c) => characterMatchesSearchTerms(c, searchQuery.terms));
     }
     return list;
-  }, [parsedCharacters, searchQuery.excludedTags, searchQuery.text, activeTag, excludedTags, favFilter]);
+  }, [parsedCharacters, searchQuery.excludedTags, searchQuery.terms, activeTag, excludedTags, favFilter]);
 
   // Collect all unique tags across characters for the filter bar
   const allTags = useMemo(() => {
