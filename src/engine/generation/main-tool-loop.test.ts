@@ -6,6 +6,7 @@ import { startGeneration, type GenerationEngineDeps } from "./start-generation";
 import {
   buildMainToolDefinitions,
   executeMainToolCall,
+  searchLorebookTool,
   normalizeToolCall,
   type CustomToolRecord,
 } from "./tools-runtime";
@@ -706,6 +707,8 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
       input: {
         chat: { id: "chat-1", metadata: {} },
         activatedLorebookEntries: [],
+        characters: [],
+        persona: null,
         chatSummary: null,
       },
       customTools,
@@ -750,6 +753,8 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
       input: {
         chat: { id: "chat-1", metadata: {} },
         activatedLorebookEntries: [],
+        characters: [],
+        persona: null,
         chatSummary: null,
       },
       customTools: new Map(),
@@ -855,5 +860,90 @@ describe("row 10 — custom-tool name collision with built-in: built-in wins, no
     expect(generationInfo.usage.promptTokens).toBe(250);
     expect(generationInfo.usage.completionTokens).toBe(50);
     expect(generationInfo.usage.totalTokens).toBe(300);
+  });
+});
+
+describe("search_lorebook active context", () => {
+  it("does not return disabled, disabled-folder, or unrelated stored lorebook entries", async () => {
+    const storage = {
+      list: vi.fn(async (entity: string, options?: { filters?: Record<string, unknown> }) => {
+        if (entity === "lorebooks") {
+          return [
+            { id: "active-book", name: "Active book", enabled: true, isGlobal: true },
+            { id: "disabled-book", name: "Disabled book", enabled: false, isGlobal: true },
+            { id: "other-character-book", name: "Other character", enabled: true, characterId: "other-character" },
+          ];
+        }
+        if (entity === "lorebook-folders") {
+          if (options?.filters?.lorebookId === "active-book") {
+            return [{ id: "disabled-folder", lorebookId: "active-book", enabled: false }];
+          }
+          return [];
+        }
+        return [];
+      }),
+      listLorebookEntries: vi.fn(async (lorebookId: string) => {
+        if (lorebookId === "active-book") {
+          return [
+            {
+              id: "allowed-entry",
+              lorebookId,
+              name: "Allowed",
+              content: "moonstone archive visible",
+              enabled: true,
+              keys: [],
+            },
+            {
+              id: "disabled-folder-entry",
+              lorebookId,
+              name: "Disabled folder",
+              content: "moonstone archive hidden by folder",
+              enabled: true,
+              folderId: "disabled-folder",
+              keys: [],
+            },
+          ];
+        }
+        if (lorebookId === "disabled-book") {
+          return [
+            {
+              id: "disabled-book-entry",
+              lorebookId,
+              name: "Disabled book",
+              content: "moonstone archive hidden by book",
+              enabled: true,
+              keys: [],
+            },
+          ];
+        }
+        if (lorebookId === "other-character-book") {
+          return [
+            {
+              id: "other-character-entry",
+              lorebookId,
+              name: "Other character",
+              content: "moonstone archive hidden by character scope",
+              enabled: true,
+              keys: [],
+            },
+          ];
+        }
+        return [];
+      }),
+    } as unknown as StorageGateway;
+
+    const result = await searchLorebookTool(
+      storage,
+      {
+        chat: { id: "chat-1", mode: "conversation", metadata: {} },
+        activatedLorebookEntries: [],
+        characters: [{ id: "character-1", name: "Hero", description: "", tags: [] }],
+        persona: null,
+        chatSummary: null,
+      },
+      { query: "moonstone archive" },
+    );
+
+    expect(result.entries.map((entry) => entry.id)).toEqual(["allowed-entry"]);
   });
 });

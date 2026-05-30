@@ -2,8 +2,16 @@ import { BUILT_IN_TOOLS, DEFAULT_AGENT_TOOLS, type ToolDefinition } from "../con
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmToolDefinition } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
+import type { LorebookEntry } from "../contracts/types/lorebook";
 import type { LLMToolCall, LLMToolDefinition } from "../generation-core/llm/base-provider";
+import { lorebookEntryPassesContextFilters } from "../generation-core/lorebooks/keyword-scanner";
 import { appendChatSummaryEntryToMetadata } from "../shared/text/chat-summary-entries";
+import {
+  loadLorebookEntriesForActivation,
+  lorebookAppliesToContext,
+  type GenerationCharacterContext,
+  type GenerationPersonaContext,
+} from "./prompt-assembly";
 import {
   boolish,
   isRecord,
@@ -26,6 +34,8 @@ import {
 export interface ToolRuntimeInput {
   chat: JsonRecord;
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
+  characters: GenerationCharacterContext[];
+  persona: GenerationPersonaContext | null;
   chatSummary: string | null;
 }
 
@@ -187,12 +197,33 @@ export function rollDiceNotation(notation: string) {
   };
 }
 
+function lorebookToolEntryPassesContext(entry: LorebookEntry, input: ToolRuntimeInput): boolean {
+  return lorebookEntryPassesContextFilters(entry, {
+    activeCharacterIds: input.characters.map((character) => character.id),
+    activeCharacterTags: input.characters.flatMap((character) => character.tags),
+    generationTriggers: ["chat", readString(input.chat.mode || input.chat.chatMode)].filter(Boolean),
+  });
+}
+
+async function loadSearchableStoredLorebookEntries(
+  storage: StorageGateway,
+  input: ToolRuntimeInput,
+): Promise<LorebookEntry[]> {
+  const lorebooks = (await storage.list<JsonRecord>("lorebooks")).filter((book) =>
+    lorebookAppliesToContext(book, input.chat, input.characters, input.persona),
+  );
+  const entries = await Promise.all(
+    lorebooks.map((book) => loadLorebookEntriesForActivation(storage, book)),
+  );
+  return entries.flat().filter((entry) => lorebookToolEntryPassesContext(entry, input));
+}
+
 export async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {
   const query = stringArg(args, "query").toLowerCase();
   if (!query) toolError("query is required.");
   const category = stringArg(args, "category").toLowerCase();
   const tokens = query.split(/\s+/).filter((token) => token.length > 1);
-  const rows = await storage.list<JsonRecord>("lorebook-entries").catch(() => []);
+  const rows = await loadSearchableStoredLorebookEntries(storage, input);
   const activated = input.activatedLorebookEntries.map((entry) => ({
     id: entry.id,
     name: entry.name,
@@ -201,10 +232,10 @@ export async function searchLorebookTool(storage: StorageGateway, input: ToolRun
     source: "activated",
   }));
   const stored = rows.map((entry) => ({
-    id: readString(entry.id),
-    name: readString(entry.name || entry.comment || entry.title, "Lorebook entry"),
-    content: readString(entry.content),
-    tag: readString(entry.tag || entry.category || entry.position),
+    id: entry.id,
+    name: entry.name || "Lorebook entry",
+    content: entry.content,
+    tag: entry.tag || String(entry.position),
     source: "stored",
   }));
   const seen = new Set<string>();

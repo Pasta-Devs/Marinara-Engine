@@ -1695,7 +1695,7 @@ export function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
   };
 }
 
-function lorebookAppliesToContext(
+export function lorebookAppliesToContext(
   lorebook: JsonRecord,
   chat: JsonRecord,
   characters: GenerationCharacterContext[],
@@ -1782,7 +1782,7 @@ function resolveLorebookRecursionDepth(lorebook: JsonRecord): number {
   return Math.min(MAX_LOREBOOK_RECURSION_DEPTH, Math.max(1, nonNegativeInteger(lorebook.maxRecursionDepth, 3)));
 }
 
-async function loadLorebookEntriesForActivation(
+export async function loadLorebookEntriesForActivation(
   storage: StorageGateway,
   lorebook: JsonRecord,
 ): Promise<LorebookEntry[]> {

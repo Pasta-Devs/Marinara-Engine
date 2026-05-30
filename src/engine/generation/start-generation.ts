@@ -2193,6 +2193,8 @@ export async function* startGeneration(
     const toolRuntimeInput: ToolRuntimeInput = {
       chat: chatForGeneration,
       activatedLorebookEntries: assembly.activatedLorebookEntries,
+      characters: assembly.characters,
+      persona: assembly.persona,
       chatSummary: assembly.chatSummary,
     };
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input)].filter(
@@ -2358,6 +2360,8 @@ export async function* startGeneration(
   const toolRuntimeInputDirect: ToolRuntimeInput = {
     chat: chatForGeneration,
     activatedLorebookEntries: assembly.activatedLorebookEntries,
+    characters: assembly.characters,
+    persona: assembly.persona,
     chatSummary: assembly.chatSummary,
   };
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
