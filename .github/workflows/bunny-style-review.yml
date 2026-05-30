@@ -1,4 +1,3 @@
-# .github/workflows/bunny-review.yml
 name: Bunny Style Review
 
 on:
@@ -7,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
 
 jobs:
@@ -18,32 +18,27 @@ jobs:
                github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted review runner
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Fetch PR and checkout head
+      - name: Checkout PR target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: bunny-target
+
+      - name: Fetch PR and checkout target head
+        working-directory: bunny-target
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Verify we're in a git repo
-          git status
-          
-          # Get PR details
           PR_NUM="${{ github.event.issue.number }}"
           BASE=$(gh pr view "$PR_NUM" --json baseRefName -q .baseRefName)
-          HEAD=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
-          
-          # Fetch the PR branches
-          git fetch origin "$BASE:$BASE" || git fetch origin "$BASE"
-          git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
-          
-          # Checkout the PR head
-          git checkout "pr-$PR_NUM"
-          
-          # Set the base ref for the review script
-          echo "PR_BASE_REF=$BASE" >> "$GITHUB_ENV"
+          gh pr checkout "$PR_NUM"
+          git fetch origin "$BASE" --depth=1 || true
+          echo "PR_BASE_REF=origin/$BASE" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
@@ -53,13 +48,15 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Run review
+        working-directory: bunny-target
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: gpt-5.5
-        run: python scripts/bunny_review.py
+          BUNNY_SKILL_PATH: ${{ github.workspace }}/skills/bunny-style-review/SKILL.md
+        run: python ../scripts/bunny_review.py
 
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment "${{ github.event.issue.number }}" --body-file review.md
+        run: gh pr comment "${{ github.event.issue.number }}" --body-file bunny-target/review.md
