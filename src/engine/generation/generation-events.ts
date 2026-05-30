@@ -13,6 +13,7 @@ export type GenerationEvent =
   | { type: "ooc_posted"; data: unknown }
   | { type: "selfie"; data: unknown }
   | { type: "selfie_error"; data: unknown }
+  | { type: "command_error"; data: unknown }
   | { type: "illustration"; data: unknown }
   | { type: "illustration_error"; data: unknown }
   | { type: "scene_created"; data: unknown }

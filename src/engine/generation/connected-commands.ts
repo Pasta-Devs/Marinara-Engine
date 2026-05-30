@@ -31,6 +31,7 @@ export type ConnectedCommandEvent =
   | { type: "ooc_posted"; data: JsonRecord }
   | { type: "selfie"; data: JsonRecord }
   | { type: "selfie_error"; data: JsonRecord }
+  | { type: "command_error"; data: JsonRecord }
   | { type: "scene_created"; data: JsonRecord };
 
 export interface ConnectedCommandResult {
@@ -427,6 +428,10 @@ function eventsPushSelfieError(events: ConnectedCommandEvent[], characterId: str
   events.push({ type: "selfie_error", data: { characterId, error } });
 }
 
+function eventsPushCommandError(events: ConnectedCommandEvent[], command: string, error: string): void {
+  events.push({ type: "command_error", data: { command, error } });
+}
+
 async function createSceneFromCommand(args: {
   storage: StorageGateway;
   llm?: LlmGateway;
@@ -649,6 +654,7 @@ async function executeCommand(
         });
         return { name: "haptic" };
       }
+      eventsPushCommandError(events, command.type, "Haptic integration is not connected.");
       return null;
     case "spotify":
       if (integrations) {
@@ -660,6 +666,7 @@ async function executeCommand(
         if (track) await integrations.spotify.playTrack({ track });
         return { name: "spotify" };
       }
+      eventsPushCommandError(events, command.type, "Spotify integration is not connected.");
       return null;
     case "create_persona":
       await storage.create("personas", personaPatch(command));
@@ -826,23 +833,31 @@ export async function persistConnectedCommandTags(
   let suppressAssistantMessage = false;
 
   for (const command of parsed.commands) {
-    const executed = await executeCommand(
-      storage,
-      integrations,
-      llm,
-      llmConnectionId,
-      chat,
-      command,
-      createdNotes,
-      pendingNoteWrites,
-      events,
-      assistantAttachments,
-      parsed.cleanContent,
-      imagePromptSettings,
-    ).catch(() => null);
-    if (executed) {
-      executedCommands.push(executed.name);
-      suppressAssistantMessage = suppressAssistantMessage || executed.suppressSourceMessage === true;
+    try {
+      const executed = await executeCommand(
+        storage,
+        integrations,
+        llm,
+        llmConnectionId,
+        chat,
+        command,
+        createdNotes,
+        pendingNoteWrites,
+        events,
+        assistantAttachments,
+        parsed.cleanContent,
+        imagePromptSettings,
+      );
+      if (executed) {
+        executedCommands.push(executed.name);
+        suppressAssistantMessage = suppressAssistantMessage || executed.suppressSourceMessage === true;
+      }
+    } catch (error) {
+      eventsPushCommandError(
+        events,
+        command.type,
+        error instanceof Error ? error.message : "Command execution failed.",
+      );
     }
   }
 

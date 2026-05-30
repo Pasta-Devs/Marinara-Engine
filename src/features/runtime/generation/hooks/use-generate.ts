@@ -1250,6 +1250,12 @@ export async function runGenerationWithUi(
           toast.error(readString(data.error, "Selfie generation failed."));
           break;
         }
+        case "command_error": {
+          const data = parseMaybeRecord(event.data);
+          const command = readString(data.command).trim();
+          toast.error(readString(data.error, command ? `Command "${command}" failed.` : "Command failed."));
+          break;
+        }
         case "illustration": {
           toast("Illustration generated.");
           scheduleChatQueryRefresh(queryClient, chatId);

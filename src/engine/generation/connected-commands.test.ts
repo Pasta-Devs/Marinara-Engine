@@ -95,3 +95,82 @@ describe("persistConnectedCommandTags connected notes", () => {
     expect(typeof notes[1]?.consumedAt).toBe("string");
   });
 });
+
+describe("persistConnectedCommandTags command failures", () => {
+  it("emits command_error when a command throws during execution instead of swallowing it", async () => {
+    const conversation = { id: "conversation-1", mode: "conversation", notes: [] };
+    const chats = new Map<string, Row>([["conversation-1", conversation]]);
+    const storage = storageWithChats(chats);
+    storage.create = vi.fn(async () => {
+      throw new Error("disk full");
+    });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      conversation,
+      'Sure thing. [create_character: name="Ada"]',
+    );
+
+    expect(result.events).toContainEqual({
+      type: "command_error",
+      data: { command: "create_character", error: "disk full" },
+    });
+    expect(result.executedCommands).not.toContain("create_character");
+    // The failure is now surfaced, but the command tag is still stripped from the visible message.
+    expect(result.displayContent).toBe("Sure thing.");
+  });
+
+  it("continues processing remaining commands after one throws", async () => {
+    const conversation = { id: "conversation-1", mode: "conversation", notes: [] };
+    const chats = new Map<string, Row>([["conversation-1", conversation]]);
+    const storage = storageWithChats(chats);
+    storage.create = vi.fn(async () => {
+      throw new Error("disk full");
+    });
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      conversation,
+      '[create_character: name="Ada"]\n<note>[12:01] Remember the door.</note>',
+    );
+
+    const commandErrors = result.events.filter((event) => event.type === "command_error");
+    expect(commandErrors).toHaveLength(1);
+    // The note after the failing command still runs — no rethrow / no abort.
+    expect(result.executedCommands).toContain("note");
+  });
+
+  it("emits command_error for an unsupported haptic command when integrations are absent", async () => {
+    const conversation = { id: "conversation-1", mode: "conversation", notes: [] };
+    const chats = new Map<string, Row>([["conversation-1", conversation]]);
+    const storage = storageWithChats(chats);
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      conversation,
+      '[haptic: action="vibrate"]',
+    );
+
+    expect(result.events.some((event) => event.type === "command_error")).toBe(true);
+    const haptic = result.events.find(
+      (event): event is Extract<typeof event, { type: "command_error" }> => event.type === "command_error",
+    );
+    expect(haptic?.data.command).toBe("haptic");
+    expect(result.executedCommands).not.toContain("haptic");
+  });
+
+  it("does not emit command_error for a successful note (intentional no-ops stay silent)", async () => {
+    const conversation = { id: "conversation-1", mode: "conversation", notes: [] };
+    const chats = new Map<string, Row>([["conversation-1", conversation]]);
+    const storage = storageWithChats(chats);
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      conversation,
+      "<note>[12:01] Remember the door.</note>",
+    );
+
+    expect(result.events.some((event) => event.type === "command_error")).toBe(false);
+    expect(result.executedCommands).toContain("note");
+  });
+});
