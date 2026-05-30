@@ -1,6 +1,6 @@
 export type PersonaSpriteCategory = "expressions" | "full-body";
 
-export const DEFAULT_PERSONA_SPRITE_EXPRESSIONS = [
+const DEFAULT_PERSONA_SPRITE_EXPRESSIONS = [
   "neutral",
   "happy",
   "sad",

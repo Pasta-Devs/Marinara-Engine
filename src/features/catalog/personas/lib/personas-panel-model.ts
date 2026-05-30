@@ -25,7 +25,7 @@ export function isPersonaActive(persona: PersonaPanelRow): boolean {
   return persona.isActive === true || persona.isActive === "true";
 }
 
-export function estimatePersonaTokens(persona: PersonaPanelRow): number {
+function estimatePersonaTokens(persona: PersonaPanelRow): number {
   const text = [persona.description, persona.personality, persona.scenario, persona.backstory, persona.appearance].join(
     "",
   );

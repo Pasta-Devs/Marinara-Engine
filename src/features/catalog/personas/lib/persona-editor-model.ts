@@ -7,14 +7,14 @@ export interface AltDescriptionEntry {
   active: boolean;
 }
 
-export interface PersonaStatBar {
+interface PersonaStatBar {
   name: string;
   value: number;
   max: number;
   color: string;
 }
 
-export interface PersonaRPGAttribute {
+interface PersonaRPGAttribute {
   name: string;
   value: number;
 }
