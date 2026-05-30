@@ -1671,6 +1671,10 @@ export function GameSurface({
 }: GameSurfaceProps) {
   // Sync game metadata → store
   useSyncGameState(activeChatId, chatMeta);
+  const chatMetaRef = useRef(chatMeta);
+  useEffect(() => {
+    chatMetaRef.current = chatMeta;
+  }, [chatMeta]);
 
   const {
     gameState,
@@ -2355,7 +2359,7 @@ export function GameSurface({
 
       const inventoryPersist =
         updated !== previousInventory
-          ? persistGameMetadata(activeChatId, { gameInventory: updated }, chatMeta).catch(() => null)
+          ? persistGameMetadata(activeChatId, { gameInventory: updated }, chatMetaRef.current).catch(() => null)
           : Promise.resolve(null);
 
       if (updated !== previousInventory) {
@@ -2995,7 +2999,7 @@ export function GameSurface({
         persistGameMetadata(
           activeChatId,
           { gameRecentSpotifyTracks: recentSpotifyTrackHistoryRef.current },
-          chatMeta,
+          chatMetaRef.current,
         ).catch(() => {});
         await queryClient.invalidateQueries({ queryKey: ["spotify", "player"] });
       } catch (error) {
@@ -3201,7 +3205,7 @@ export function GameSurface({
           recentMusicHistoryRef.current = appendRecentMusic(recentMusicHistoryRef.current, state.currentMusic);
           patch.gameRecentMusic = recentMusicHistoryRef.current;
         }
-        persistGameMetadata(activeChatId, patch, chatMeta).catch(() => {});
+        persistGameMetadata(activeChatId, patch, chatMetaRef.current).catch(() => {});
       }, 1500);
     });
     return () => {
@@ -3218,7 +3222,7 @@ export function GameSurface({
             gameSceneAmbient: currentAmbient,
             gameRecentMusic: recentMusicHistoryRef.current,
           },
-          chatMeta,
+          chatMetaRef.current,
         ).catch(() => {});
       }
     };
@@ -3240,7 +3244,7 @@ export function GameSurface({
     if (!snapshot || !snapshot.party?.length || !snapshot.enemies?.length) return;
     if (chatMeta.gameActiveState !== "combat") {
       // Stale snapshot — combat ended but the metadata write didn't land. Clear it.
-      persistGameMetadata(activeChatId, { gameCombatState: null }, chatMeta).catch(() => {});
+      persistGameMetadata(activeChatId, { gameCombatState: null }, chatMetaRef.current).catch(() => {});
       return;
     }
     // Runtime validation: the snapshot is JSON-deserialized from chat metadata that
@@ -3255,7 +3259,7 @@ export function GameSurface({
         "[game-surface] Discarding combat snapshot — failed Combatant schema validation. " +
           "Likely written by an older client version.",
       );
-      persistGameMetadata(activeChatId, { gameCombatState: null }, chatMeta).catch(() => {});
+      persistGameMetadata(activeChatId, { gameCombatState: null }, chatMetaRef.current).catch(() => {});
       return;
     }
     setCombatParty(rawParty);
@@ -3306,7 +3310,7 @@ export function GameSurface({
       // keepalive flush below or the lifecycle wipes in `clearCombatSnapshot`. A
       // silent failure here means the user keeps fighting believing state is saved,
       // then loses progress on refresh — the operator needs to see this in console.
-      persistGameMetadata(activeChatId, { gameCombatState: snapshot }, chatMeta).catch((err: unknown) =>
+      persistGameMetadata(activeChatId, { gameCombatState: snapshot }, chatMetaRef.current).catch((err: unknown) =>
         console.error("[game-surface] combat snapshot persist failed", err),
       );
       combatPendingSnapshotRef.current = null;
@@ -3390,7 +3394,7 @@ export function GameSurface({
             gameNarrationIndex: index,
             gameNarrationMessageId: narrationProgressMessageId,
           },
-          chatMeta,
+          chatMetaRef.current,
         ).catch(() => {});
       }, 500);
     },
@@ -3410,7 +3414,7 @@ export function GameSurface({
                 gameNarrationIndex: saved.index,
                 gameNarrationMessageId: saved.messageId,
               },
-              chatMeta,
+              chatMetaRef.current,
             ).catch(() => {});
           }
         } catch {
@@ -5457,7 +5461,7 @@ export function GameSurface({
         next.set(`${messageId}:${segmentIndex}`, payload);
         return next;
       });
-      persistGameMetadata(activeChatId, { [key]: payload }, chatMeta).catch(() => {});
+      persistGameMetadata(activeChatId, { [key]: payload }, chatMetaRef.current).catch(() => {});
 
       if (payload.readableContent) {
         upsertReadableJournalEntry({
@@ -5480,7 +5484,7 @@ export function GameSurface({
         next.add(`${messageId}:${segmentIndex}`);
         return next;
       });
-      persistGameMetadata(activeChatId, { [key]: true }, chatMeta).catch(() => {});
+      persistGameMetadata(activeChatId, { [key]: true }, chatMetaRef.current).catch(() => {});
     },
     [activeChatId],
   );
@@ -6832,7 +6836,6 @@ export function GameSurface({
     gameSnapshot?.time,
     gameSnapshot?.weather,
     generateMap,
-    generateMap.isPending,
     handleJsonRepairError,
     isStreaming,
     latestNarrationText,
