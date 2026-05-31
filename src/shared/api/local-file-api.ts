@@ -180,6 +180,41 @@ function filenameFromPath(path: string | null | undefined): string | null {
   return filename && filename !== "." && filename !== ".." ? filename : null;
 }
 
+function managedAvatarPathFromAbsolutePath(path: string | null | undefined): string | null {
+  const value = path?.trim();
+  if (!value) return null;
+  const normalized = value.replace(/\\/g, "/");
+  const lower = normalized.toLowerCase();
+  const marker = "/avatars/";
+  const markerIndex = lower.lastIndexOf(marker);
+  const relative =
+    markerIndex >= 0
+      ? normalized.slice(markerIndex + marker.length)
+      : lower.startsWith("avatars/")
+        ? normalized.slice("avatars/".length)
+        : null;
+  if (!relative) return null;
+  const segments = relative
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === ".." || segment.includes(":"))) {
+    return null;
+  }
+  const collection = segments[0];
+  if (!collection || !["characters", "personas", "character-groups", "persona-groups", "npc"].includes(collection)) {
+    return null;
+  }
+  return segments.join("/");
+}
+
+function avatarRemoteManagedPath(
+  filename: string | null | undefined,
+  absolutePath: string | null | undefined,
+): string | null {
+  return managedAvatarPathFromAbsolutePath(absolutePath) ?? filename?.trim() ?? filenameFromPath(absolutePath);
+}
+
 export function gameAssetFileUrlFromPath(path: string, absolutePath?: string | null): string {
   const remoteUrl = remoteManagedAssetUrl("game", path);
   if (remoteUrl) return remoteUrl;
@@ -196,7 +231,7 @@ export function avatarFileUrlFromPath(
   filename: string | null | undefined,
   absolutePath?: string | null,
 ): string | null {
-  const remoteUrl = remoteManagedAssetUrl("avatar", filename?.trim() || filenameFromPath(absolutePath));
+  const remoteUrl = remoteManagedAssetUrl("avatar", avatarRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : null;
 }
@@ -225,7 +260,7 @@ export async function resolveAvatarFileUrl(
   filename: string | null | undefined,
   absolutePath?: string | null,
 ): Promise<string | null> {
-  const remoteUrl = await remoteManagedAssetResolvableUrl("avatar", filename?.trim() || filenameFromPath(absolutePath));
+  const remoteUrl = await remoteManagedAssetResolvableUrl("avatar", avatarRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : null;
 }
