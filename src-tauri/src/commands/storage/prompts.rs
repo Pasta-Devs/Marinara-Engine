@@ -2,6 +2,8 @@ use super::shared::*;
 use super::*;
 use marinara_security::is_allowed_outbound_url;
 
+const LEGACY_LOCAL_SIDECAR_CONNECTION_ID: &str = "__local_sidecar__";
+
 pub(crate) async fn vectorize_lorebook(
     state: &AppState,
     lorebook_id: &str,
@@ -99,6 +101,9 @@ pub(crate) fn resolve_embedding_connection_for_id(
     state: &AppState,
     connection_id: &str,
 ) -> AppResult<(String, Value)> {
+    if is_legacy_local_sidecar_connection_id(connection_id) {
+        return Err(legacy_local_sidecar_embedding_error());
+    }
     let connection = get_required(state, "connections", connection_id)?;
     if let Some(embedding_connection_id) = connection
         .get("embeddingConnectionId")
@@ -106,6 +111,9 @@ pub(crate) fn resolve_embedding_connection_for_id(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
+        if is_legacy_local_sidecar_connection_id(embedding_connection_id) {
+            return Err(legacy_local_sidecar_embedding_error());
+        }
         let embedding_connection = get_required(state, "connections", embedding_connection_id)?;
         if is_openai_chatgpt_connection(&embedding_connection) {
             return Err(openai_chatgpt_embedding_error());
@@ -120,8 +128,13 @@ pub(crate) fn resolve_embedding_connection_for_id(
 
 pub(crate) fn resolve_default_embedding_connection(state: &AppState) -> AppResult<(String, Value)> {
     let connections = state.storage.list("connections")?;
-    let selected = connections
+    let embedding_candidates = connections
         .iter()
+        .filter(|connection| !is_legacy_local_sidecar_connection(connection))
+        .collect::<Vec<_>>();
+    let selected = embedding_candidates
+        .iter()
+        .copied()
         .find(|connection| {
             connection
                 .get("isDefault")
@@ -130,19 +143,20 @@ pub(crate) fn resolve_default_embedding_connection(state: &AppState) -> AppResul
                 && has_embedding_model(connection)
         })
         .or_else(|| {
-            connections
+            embedding_candidates
                 .iter()
+                .copied()
                 .find(|connection| has_embedding_model(connection))
         })
         .or_else(|| {
-            connections.iter().find(|connection| {
+            embedding_candidates.iter().copied().find(|connection| {
                 connection
                     .get("isDefault")
                     .and_then(Value::as_bool)
                     .unwrap_or(false)
             })
         })
-        .or_else(|| connections.first())
+        .or_else(|| embedding_candidates.first().copied())
         .ok_or_else(|| AppError::invalid_input("No embedding connection is configured"))?;
     let connection_id = selected
         .get("id")
@@ -165,10 +179,22 @@ pub(crate) fn embedding_model(connection: &Value, explicit: Option<&str>) -> App
 
 fn has_embedding_model(connection: &Value) -> bool {
     !is_openai_chatgpt_connection(connection)
+        && !is_legacy_local_sidecar_connection(connection)
         && connection
             .get("embeddingModel")
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn is_legacy_local_sidecar_connection(connection: &Value) -> bool {
+    connection
+        .get("id")
+        .and_then(Value::as_str)
+        .is_some_and(is_legacy_local_sidecar_connection_id)
+}
+
+fn is_legacy_local_sidecar_connection_id(connection_id: &str) -> bool {
+    connection_id.trim() == LEGACY_LOCAL_SIDECAR_CONNECTION_ID
 }
 
 fn is_openai_chatgpt_connection(connection: &Value) -> bool {
@@ -258,6 +284,12 @@ pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> A
 fn openai_chatgpt_embedding_error() -> AppError {
     AppError::invalid_input(
         "OpenAI (ChatGPT) does not support embeddings through Codex auth. Configure a separate embedding connection.",
+    )
+}
+
+fn legacy_local_sidecar_embedding_error() -> AppError {
+    AppError::invalid_input(
+        "Local Model (sidecar) embeddings are retired in the refactor. Configure a normal embedding-capable connection.",
     )
 }
 
@@ -763,6 +795,41 @@ mod tests {
         assert!(error.message.contains("does not support embeddings"));
     }
 
+    #[test]
+    fn resolve_embedding_connection_rejects_legacy_local_sidecar_id() {
+        let state = test_state("legacy-sidecar-embedding-rejected");
+
+        let error = resolve_embedding_connection_for_id(&state, LEGACY_LOCAL_SIDECAR_CONNECTION_ID)
+            .expect_err("legacy sidecar should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("retired in the refactor"));
+    }
+
+    #[test]
+    fn resolve_embedding_connection_rejects_legacy_local_sidecar_as_dedicated_connection() {
+        let state = test_state("legacy-sidecar-dedicated-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": LEGACY_LOCAL_SIDECAR_CONNECTION_ID
+                }),
+            )
+            .expect("chat connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "chat-connection")
+            .expect_err("legacy sidecar dedicated connection should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("retired in the refactor"));
+    }
+
     #[tokio::test]
     async fn embed_text_rejects_openai_chatgpt_before_provider_call() {
         let connection = json!({
@@ -856,6 +923,71 @@ mod tests {
             embedding_model(&connection, None).unwrap(),
             "local-embedding"
         );
+    }
+
+    #[test]
+    fn resolve_default_embedding_connection_skips_legacy_local_sidecar_candidate() {
+        let state = test_state("default-skips-legacy-sidecar");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": LEGACY_LOCAL_SIDECAR_CONNECTION_ID,
+                    "name": "Local Model (sidecar)",
+                    "provider": "custom",
+                    "model": "local-sidecar",
+                    "embeddingModel": "local-sidecar",
+                    "isDefault": true
+                }),
+            )
+            .expect("legacy sidecar connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "embedding-connection",
+                    "name": "Embeddings",
+                    "provider": "custom",
+                    "model": "chat-model",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("embedding connection should insert");
+
+        let (id, connection) = resolve_default_embedding_connection(&state).unwrap();
+
+        assert_eq!(id, "embedding-connection");
+        assert_eq!(
+            embedding_model(&connection, None).unwrap(),
+            "text-embedding-3-small"
+        );
+    }
+
+    #[test]
+    fn resolve_default_embedding_connection_rejects_only_legacy_local_sidecar() {
+        let state = test_state("default-only-legacy-sidecar");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": LEGACY_LOCAL_SIDECAR_CONNECTION_ID,
+                    "name": "Local Model (sidecar)",
+                    "provider": "custom",
+                    "model": "local-sidecar",
+                    "embeddingModel": "local-sidecar",
+                    "isDefault": true
+                }),
+            )
+            .expect("legacy sidecar connection should insert");
+
+        let error = resolve_default_embedding_connection(&state)
+            .expect_err("legacy sidecar should not be selected as default embedding connection");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("No embedding connection"));
     }
 
     #[tokio::test]
