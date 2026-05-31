@@ -719,7 +719,50 @@ def render_finding_body(finding):
     ]
     if finding.fix_hint:
         parts.extend(["", f"Suggested fix: {finding.fix_hint}"])
+    parts.extend(["", render_agent_prompt_details([finding], "Prompt for AI Agents")])
     return "\n".join(parts).strip()
+
+
+def code_block_text(text):
+    return text.replace("```", "'''").strip()
+
+
+def agent_prompt_for_finding(finding):
+    lines = [
+        f"In `@{finding.path}` around line {finding.line}:",
+        f"- {finding.title}",
+        "",
+        finding.body,
+    ]
+    if finding.fix_hint:
+        lines.extend(["", f"Suggested fix: {finding.fix_hint}"])
+    return "\n".join(lines)
+
+
+def render_agent_prompt(findings):
+    sections = [
+        "Verify each Bunny finding against current code. Fix only still-valid issues, "
+        "skip the rest with a brief reason, keep changes minimal, and validate.",
+    ]
+    sections.extend(agent_prompt_for_finding(finding) for finding in findings)
+    return code_block_text("\n\n".join(sections))
+
+
+def render_agent_prompt_details(findings, summary):
+    if not findings:
+        return ""
+    return "\n".join(
+        [
+            "<details>",
+            f"<summary>{summary}</summary>",
+            "",
+            "```text",
+            render_agent_prompt(findings),
+            "```",
+            "",
+            "</details>",
+        ]
+    )
 
 
 def is_ci_check(item):
@@ -792,6 +835,11 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
     ]
     body.extend([f"- {line}" for line in summary[:3]] or ["- No change summary produced."])
     body.extend(["", "### Findings", *finding_lines])
+    agent_prompt = render_agent_prompt_details(
+        findings, "Prompt for all Bunny findings with AI agents"
+    )
+    if agent_prompt:
+        body.extend(["", agent_prompt])
     if pre_merge:
         body.extend(["", "### Pre-Merge Checks"])
         for item in pre_merge[:8]:
