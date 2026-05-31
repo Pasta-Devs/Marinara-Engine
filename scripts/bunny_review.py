@@ -15,6 +15,9 @@ MAX_IDENTIFIER_CONTEXT_CHARS = 60_000
 MAX_IDENTIFIER_TERMS = 24
 MAX_IDENTIFIER_HITS_PER_TERM = 12
 
+class ReviewTooLarge(Exception):
+    pass
+
 # --- safety: keep file reads inside the repo and away from secrets ---
 def _safe_path(rel: str) -> pathlib.Path:
     full = (REPO_ROOT / rel).resolve()
@@ -27,12 +30,15 @@ def _safe_path(rel: str) -> pathlib.Path:
         raise ValueError("blocked sensitive file")
     return full
 
-def run_git(args, limit=MAX_SECTION_CHARS):
+def run_git_raw(args):
     out = subprocess.run(
         ["git", *args], cwd=REPO_ROOT,
         capture_output=True, text=True, timeout=60,
     )
-    return truncate(out.stdout + out.stderr, limit)
+    return out.stdout + out.stderr
+
+def run_git(args, limit=MAX_SECTION_CHARS):
+    return truncate(run_git_raw(args), limit)
 
 def truncate(text, limit):
     if len(text) <= limit:
@@ -176,10 +182,14 @@ def select_guidance(files):
 
 def build_review_packet(base, ci_status):
     files = changed_files(base)
-    patch = run_git(
+    patch = run_git_raw(
         ["diff", "--find-renames", "--unified=80", f"{base}...HEAD"],
-        MAX_SECTION_CHARS,
     )
+    if len(patch) > MAX_SECTION_CHARS:
+        raise ReviewTooLarge(
+            f"Patch is {len(patch)} characters, above Bunny Review's "
+            f"{MAX_SECTION_CHARS} character per-patch limit."
+        )
     sections = [
         ("git status", run_git(["status", "--short", "--branch"], 12_000)),
         ("repo root", run_git(["rev-parse", "--show-toplevel"], 4_000)),
@@ -204,6 +214,11 @@ def build_review_packet(base, ci_status):
     packet = "\n\n".join(
         f"## {title}\n```text\n{body}\n```" for title, body in sections
     )
+    if len(packet) > MAX_REVIEW_PACKET_CHARS:
+        raise ReviewTooLarge(
+            f"Review packet is {len(packet)} characters, above Bunny Review's "
+            f"{MAX_REVIEW_PACKET_CHARS} character total limit."
+        )
     return truncate(packet, MAX_REVIEW_PACKET_CHARS)
 
 def usage_value(usage, *path):
@@ -293,6 +308,31 @@ def clean_review_text(content):
         cleaned = cleaned[cleaned.find(marker):]
     return cleaned.replace("FINAL_REVIEW", "", 1).strip()
 
+def maybe_remove_change_summary(review):
+    if os.environ.get("BUNNY_OMIT_CHANGE_SUMMARY", "").lower() != "true":
+        return review
+    return re.sub(
+        r"\n### Change Summary\n.*?(?=\n### Findings\b)",
+        "\n",
+        review,
+        count=1,
+        flags=re.DOTALL,
+    ).strip()
+
+def write_skipped_review(title, body):
+    pathlib.Path("review.md").write_text(
+        "\n".join(
+            [
+                "## Bunny Review",
+                "",
+                f"### {title}",
+                body,
+            ]
+        ).strip()
+        + "\n",
+        "utf-8",
+    )
+
 def build_extra_context(request, stats):
     sections = []
     for path in request.get("files", []):
@@ -317,19 +357,36 @@ def build_extra_context(request, stats):
     return context
 
 def main():
+    if not os.environ.get("OPENAI_API_KEY"):
+        write_skipped_review(
+            "Review Skipped",
+            "Bunny Review could not run because `OPENAI_API_KEY` is not available to this workflow run. This is expected for PRs where repository secrets are withheld.",
+        )
+        print("Bunny telemetry: skipped=missing_openai_api_key", flush=True)
+        return
+
+    base = os.environ.get("PR_BASE_REF", "main")
+    ci_status = os.environ.get("CI_STATUS", "")
+    try:
+        review_packet = build_review_packet(base, ci_status)
+    except ReviewTooLarge as exc:
+        write_skipped_review(
+            "Review Cancelled",
+            f"{exc} Bunny Review skipped the model pass so it would not produce a partial review. Please split the PR or request a manual review.",
+        )
+        print(f"Bunny telemetry: skipped=review_too_large; reason={exc}", flush=True)
+        return
+
     client = OpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ.get("LLM_BASE_URL"),
     )
     skill_path = pathlib.Path(
-        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-style-review/SKILL.md")
+        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-review/SKILL.md")
     )
     if not skill_path.is_absolute():
         skill_path = REPO_ROOT / skill_path
     skill = skill_path.read_text("utf-8")
-    base = os.environ.get("PR_BASE_REF", "main")
-    ci_status = os.environ.get("CI_STATUS", "")
-    review_packet = build_review_packet(base, ci_status)
 
     triage_content = (
         f"Review this PR. The review base branch is '{base}'. "
@@ -373,6 +430,7 @@ def main():
             },
         ]
         review = clean_review_text(model_call(client, final_messages, stats))
+    review = maybe_remove_change_summary(review)
     pathlib.Path("review.md").write_text(review or "Bunny could not produce review text.", "utf-8")
     print_telemetry(stats)
 
