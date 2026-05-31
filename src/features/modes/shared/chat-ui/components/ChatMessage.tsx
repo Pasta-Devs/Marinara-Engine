@@ -75,6 +75,7 @@ import type {
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import { readStoredThinking } from "../lib/message-thinking";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
@@ -1139,7 +1140,7 @@ export const ChatMessage = memo(function ChatMessage({
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
-  const thinking = extra.thinking as string | undefined;
+  const thinking = readStoredThinking(extra);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const promptSnapshotsBySwipe =
     extra.generationPromptSnapshotsBySwipe &&

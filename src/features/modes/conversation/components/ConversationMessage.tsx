@@ -27,7 +27,11 @@ import { resolveMessageMacros } from "../../../../shared/lib/chat-macros";
 import { useTranslate } from "../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "../../shared/chat-ui/types";
-import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "../../shared/chat-ui/index";
+import {
+  GenerationReplayDetailsModal,
+  hasGenerationReplayDetails,
+  readStoredThinking,
+} from "../../shared/chat-ui/index";
 import { ImagePromptPanel } from "../../shared/chat-ui/index";
 import { SwipeJumpControl } from "../../shared/chat-ui/index";
 
@@ -566,7 +570,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     prevContentRef.current = renderedContent;
   }, [renderedContent, segmentCount]);
 
-  const thinking = extra?.thinking;
+  const thinking = readStoredThinking(extra);
   const swipeCount = message.swipeCount ?? 0;
   const hasSwipes = swipeCount > 1;
 
