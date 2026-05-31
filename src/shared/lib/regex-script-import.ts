@@ -2,6 +2,7 @@
 // ST Card Regex Script Extraction & Import
 // ──────────────────────────────────────────────
 import { storageApi } from "../../shared/api/storage-api";
+import { isPatternSafe } from "../../engine/shared/regex/regex-safety";
 
 /** Numeric placement map from ST card format to engine placement strings. */
 const PLACEMENT_MAP: Record<number, string> = {
@@ -69,6 +70,9 @@ export function extractEmbeddedRegexScripts(
     if (!entry.findRegex) continue;
 
     const { pattern, flags: parsedFlags } = parseRegexLiteral(entry.findRegex);
+
+    // Skip patterns that could cause catastrophic backtracking (ReDoS)
+    if (!isPatternSafe(pattern)) continue;
 
     // Map numeric placements to engine placement strings
     const placements: string[] = [];
