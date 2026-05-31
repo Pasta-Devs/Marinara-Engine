@@ -12,6 +12,7 @@ const baseConfig: TTSConfig = {
   enabled: true,
   source: "openai",
   baseUrl: "https://api.openai.com/v1",
+  voicesPath: "",
   apiKey: "",
   voice: "alloy",
   narratorVoiceEnabled: false,

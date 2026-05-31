@@ -114,6 +114,7 @@ fn default_config() -> Value {
         "enabled": false,
         "source": "openai",
         "baseUrl": "https://api.openai.com/v1",
+        "voicesPath": "",
         "apiKey": "",
         "voice": "alloy",
         "model": "tts-1",
@@ -221,6 +222,7 @@ async fn voices(state: &AppState) -> AppResult<Value> {
         .get(openai_voices_url(
             &base,
             config.get("model").and_then(Value::as_str),
+            config.get("voicesPath").and_then(Value::as_str),
         ))
         .headers(openai_headers(api_key)?)
         .send()
@@ -485,8 +487,17 @@ fn configured_base_url(config: &Value) -> String {
 /// providers can return the right catalog. If URL parsing fails, return the
 /// raw legacy endpoint and let the provider request fail through the existing
 /// fallback path.
-fn openai_voices_url(base: &str, model: Option<&str>) -> String {
-    let raw_url = format!("{base}/audio/voices");
+fn openai_voices_url(base: &str, model: Option<&str>, voices_path: Option<&str>) -> String {
+    let configured_path = voices_path
+        .map(str::trim)
+        .unwrap_or("")
+        .trim_start_matches('/');
+    let path = if configured_path.is_empty() {
+        "audio/voices"
+    } else {
+        configured_path
+    };
+    let raw_url = format!("{base}/{path}");
     let Ok(mut url) = reqwest::Url::parse(&raw_url) else {
         return raw_url;
     };
@@ -817,7 +828,10 @@ mod tests {
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
     }
 
-    async fn serve_model_gated_voices(expected_model: &'static str) -> String {
+    async fn serve_model_gated_voices(
+        expected_path_prefix: &'static str,
+        expected_model: &'static str,
+    ) -> String {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("test voice server should bind");
@@ -837,11 +851,15 @@ mod tests {
             let request = String::from_utf8_lossy(&buffer[..bytes]);
             let path = request.lines().next().unwrap_or_default();
             let encoded_model = expected_model.replace('/', "%2F");
+            let has_expected_path = path.starts_with(expected_path_prefix);
             let has_model = path.contains(&format!("model={encoded_model}"));
-            let (status, body) = if has_model {
+            let (status, body) = if has_expected_path && has_model {
                 ("200 OK", r#"{"voices":["af_heart"]}"#)
             } else {
-                ("400 Bad Request", r#"{"error":"missing model"}"#)
+                (
+                    "404 Not Found",
+                    r#"{"error":"unexpected voice lookup route"}"#,
+                )
             };
             let response = format!(
                 "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
@@ -931,7 +949,7 @@ mod tests {
     async fn openai_compatible_voice_lookup_passes_configured_model() {
         let state = test_state("openai-voices-model");
         let model = "mlx-community/Kokoro-82M-bf16";
-        let base_url = serve_model_gated_voices(model).await;
+        let base_url = serve_model_gated_voices("GET /v1/audio/voices?", model).await;
         state
             .storage
             .upsert_with_id(
@@ -942,6 +960,37 @@ mod tests {
                         "enabled": true,
                         "source": "openai",
                         "baseUrl": base_url,
+                        "apiKey": "",
+                        "model": model
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = voices(&state).await.expect("voice lookup should complete");
+
+        assert_eq!(result["fromProvider"], true);
+        assert_eq!(result["fallback"], false);
+        assert!(result.get("providerError").is_none());
+        assert_eq!(result["voices"], json!(["af_heart"]));
+    }
+
+    #[tokio::test]
+    async fn openai_compatible_voice_lookup_uses_configured_path() {
+        let state = test_state("openai-voices-path");
+        let model = "mlx-community/Kokoro-82M-bf16";
+        let base_url = serve_model_gated_voices("GET /v1/voices?", model).await;
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": base_url,
+                        "voicesPath": "/voices",
                         "apiKey": "",
                         "model": model
                     }
@@ -1056,7 +1105,8 @@ mod tests {
         assert_eq!(
             openai_voices_url(
                 "http://127.0.0.1:8081/v1",
-                Some(" mlx-community/Kokoro-82M-bf16 ")
+                Some(" mlx-community/Kokoro-82M-bf16 "),
+                None,
             ),
             "http://127.0.0.1:8081/v1/audio/voices?model=mlx-community%2FKokoro-82M-bf16"
         );
@@ -1065,8 +1115,16 @@ mod tests {
     #[test]
     fn openai_voices_url_omits_blank_model() {
         assert_eq!(
-            openai_voices_url("http://127.0.0.1:8081/v1", Some("  ")),
+            openai_voices_url("http://127.0.0.1:8081/v1", Some("  "), None),
             "http://127.0.0.1:8081/v1/audio/voices"
+        );
+    }
+
+    #[test]
+    fn openai_voices_url_uses_configured_path() {
+        assert_eq!(
+            openai_voices_url("http://127.0.0.1:8081/v1", Some("tts-1"), Some(" /voices ")),
+            "http://127.0.0.1:8081/v1/voices?model=tts-1"
         );
     }
 }
