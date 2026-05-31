@@ -447,7 +447,7 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
     data: unfilteredCharactersForEmptyState,
     isFetching: unfilteredCharactersForEmptyStateFetching,
     isError: unfilteredCharactersForEmptyStateError,
-  } = useCharacterSummaries(hasCharacterSearch);
+  } = useCharacterSummaries(hasCharacterSearch, "");
   const { data: selectedCharacters } = useCharacterSummariesByIds(chatCharIds, chatCharIds.length > 0);
   const { data: allPersonas } = usePersonaSummaries();
   const updateChat = useUpdateChat();
@@ -1029,7 +1029,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     data: unfilteredCharactersForEmptyState,
     isFetching: unfilteredCharactersForEmptyStateFetching,
     isError: unfilteredCharactersForEmptyStateError,
-  } = useCharacterSummaries(shouldLoadCharacters && hasCharacterSearch);
+  } = useCharacterSummaries(shouldLoadCharacters && hasCharacterSearch, "");
   const { data: lorebooks } = useLorebooks();
 
   // Chat-settings presets for the shortcut view
