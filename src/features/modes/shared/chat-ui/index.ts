@@ -4,6 +4,7 @@ export * from "./components/ChatBranchSelector";
 export * from "./components/ChatCommonOverlays";
 export * from "./components/ChatInput";
 export * from "./components/ChatMessage";
+export * from "./components/CreatorNotesCssInjector";
 export * from "./components/EchoChamberPanel";
 export * from "./components/GenerationReplayDetailsModal";
 export * from "./components/ImagePromptPanel";

@@ -145,8 +145,14 @@ function sanitizeChatCss(css: string): string {
 
   // ── Content injection prevention ──
   // Strip content property (prevent phishing text/UI spoofing)
-  // Allow content:"" (used for pseudo-element clearing) but block non-empty values
-  out = out.replace(/content\s*:\s*(?!['"]?\s*['"]\s*['"]?\s*[;}\n])[^;]*;/gi, "content: '';");
+  // Allow content:"" (used for pseudo-element clearing) but block non-empty values.
+  out = out.replace(/content\s*:\s*([^;}]*)([;}]|$)/gi, (_match, value: string, terminator: string) => {
+    const normalized = value.trim();
+    if (/^(['"])\s*\1$/.test(normalized)) {
+      return `content: ${normalized}${terminator}`;
+    }
+    return `content: ''${terminator}`;
+  });
   // Strip </style (prevent injection breakout)
   out = out.replace(/<\/style/gi, "");
 
