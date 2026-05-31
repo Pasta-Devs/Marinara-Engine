@@ -76,6 +76,7 @@ import type {
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import { readStoredThinking } from "../lib/message-thinking";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
@@ -1140,7 +1141,7 @@ export const ChatMessage = memo(function ChatMessage({
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
-  const thinking = extra.thinking as string | undefined;
+  const thinking = readStoredThinking(extra);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const promptSnapshotsBySwipe =
     extra.generationPromptSnapshotsBySwipe &&
@@ -1725,6 +1726,7 @@ export const ChatMessage = memo(function ChatMessage({
             "mari-message mari-message-narrator rpg-narrator-msg group mb-4 px-2",
             multiSelectMode && isSelected && "rounded-lg bg-[var(--destructive)]/5 ring-2 ring-[var(--destructive)]/50",
           )}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleMessageDoubleClick}
         >
@@ -1802,6 +1804,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
           data-message-id={message.id}
           data-message-role={message.role}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleMessageDoubleClick}
           style={roleplayAvatarScaleStyle}
@@ -2343,6 +2346,7 @@ export const ChatMessage = memo(function ChatMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-card-css={message.characterId ?? undefined}
       onClick={handleMobileTap}
       onDoubleClick={handleMessageDoubleClick}
     >

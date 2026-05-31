@@ -5,6 +5,7 @@ import {
 } from "../../../../engine/contracts/schemas/lorebook.schema";
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { Lorebook, LorebookEntry } from "../../../../engine/contracts/types/lorebook";
+import { resolveLorebookKeeperTarget } from "../../../../engine/generation-core/lorebooks/lorebook-keeper-target";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import type { PendingLorebookUpdate } from "../../../../shared/stores/agent.store";
@@ -100,21 +101,17 @@ async function lorebooksForUpdate(queryClient: QueryClient): Promise<Lorebook[]>
   return storageApi.list<Lorebook>("lorebooks").catch(() => []);
 }
 
-async function resolveTargetLorebook(
-  queryClient: QueryClient,
-  chatId: string,
+function resolveTargetLorebook(
+  chat: Chat | null,
+  lorebooks: Lorebook[],
   rawUpdate: Record<string, unknown>,
-): Promise<{ id: string; name: string } | null> {
-  const explicitLorebookId = readString(rawUpdate.lorebookId);
-  const chat = await chatForUpdate(queryClient, chatId);
-  const metadata = parseChatMetadata(chat?.metadata);
-  const metadataLorebookId = readString(metadata.lorebookKeeperTargetLorebookId);
-  const activeLorebookIds = stringArray(metadata.activeLorebookIds);
-  const lorebooks = await lorebooksForUpdate(queryClient);
-  const targetId = explicitLorebookId || metadataLorebookId || activeLorebookIds[0] || lorebooks[0]?.id || "";
-  if (!targetId) return null;
-  const lorebook = lorebooks.find((item) => item.id === targetId);
-  return { id: targetId, name: lorebook?.name || "Lorebook" };
+): { id: string; name: string } | null {
+  return resolveLorebookKeeperTarget(lorebooks, {
+    chat,
+    characters: (chat?.characterIds ?? []).map((id) => ({ id })),
+    persona: chat?.personaId ? { id: chat.personaId } : null,
+    proposedLorebookId: rawUpdate.lorebookId,
+  });
 }
 
 function normalizeRawLorebookUpdate(raw: unknown): Record<string, unknown> | null {
@@ -149,9 +146,11 @@ export async function buildPendingLorebookUpdates(
   if (updates.length === 0) return [];
 
   const timestamp = Date.now();
+  const chat = await chatForUpdate(queryClient, chatId);
+  const lorebooks = await lorebooksForUpdate(queryClient);
   const pending: PendingLorebookUpdate[] = [];
   for (const rawUpdate of updates) {
-    const target = await resolveTargetLorebook(queryClient, chatId, rawUpdate);
+    const target = resolveTargetLorebook(chat, lorebooks, rawUpdate);
     if (!target) continue;
     const action = readString(rawUpdate.action).toLowerCase() as PendingLorebookUpdate["action"];
     pending.push({

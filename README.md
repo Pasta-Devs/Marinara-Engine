@@ -105,6 +105,13 @@ With Docker Compose:
 docker compose up --build
 ```
 
+The Compose file is intended for same-machine browser access by default. It binds
+the host port to `127.0.0.1:8787` and enables the Docker bridge auth bypass so a
+host browser can reach the container through the mapped local port. For LAN or
+reverse-proxy access, intentionally change the bind address and configure
+`BASIC_AUTH_USER`/`BASIC_AUTH_PASS`, `IP_ALLOWLIST`, or another explicit remote
+access opt-in.
+
 ## Developer Docs
 
 Open the static docs directly:

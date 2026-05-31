@@ -52,9 +52,11 @@ import {
   Music2,
   Loader2,
   Code2,
+  Paintbrush,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
+import { extractCreatorNotesCss } from "../../../../../shared/lib/creator-notes-css";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../../../../shared/lib/app-dialogs";
 import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
 import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTextarea";
@@ -908,6 +910,28 @@ function ChatSettingsDrawerInner({
     }
     return map;
   }, [charInfoMap]);
+
+  const cardCssCharacters = useMemo(() => {
+    const result: Array<{ id: string; name: string }> = [];
+    for (const id of chatCharIds) {
+      const char = characters.find((c) => c.id === id);
+      if (!char) continue;
+      try {
+        const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
+        const notes: string = parsed?.creator_notes ?? "";
+        if (!notes) continue;
+        const { css } = extractCreatorNotesCss(notes);
+        if (css.trim()) result.push({ id, name: charNameMap.get(id) ?? "Unknown" });
+      } catch { /* skip */ }
+    }
+    return result;
+  }, [chatCharIds, characters, charNameMap]);
+
+  const cardCssMode = useMemo(() => {
+    const mode = metadata.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat";
+  }, [metadata.cardCssMode]);
 
   const getCharacterInfo = useCallback(
     (c: { id?: string; data?: unknown; comment?: string | null }) => {
@@ -3892,6 +3916,40 @@ function ChatSettingsDrawerInner({
             </Section>
           )}
 
+          {/* Card Theming — creator-notes CSS mode selector */}
+          {cardCssCharacters.length > 0 && (
+            <Section
+              label="Card Theming"
+              icon={<Paintbrush size="0.875rem" />}
+              count={cardCssMode !== "disabled" ? cardCssCharacters.length : 0}
+              help="Characters can embed custom CSS in their creator notes to theme the chat. Choose how broadly their styles are applied."
+            >
+              <div className="space-y-1.5">
+                <CardCssModeSelector
+                  mode={cardCssMode}
+                  onChange={(mode) => updateMeta.mutate({ id: chat.id, cardCssMode: mode })}
+                />
+                <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {cardCssMode === "disabled"
+                    ? "Card CSS is disabled — no character styling is applied."
+                    : cardCssMode === "exclusive"
+                      ? "Each character's CSS only affects their own messages."
+                      : "All card CSS affects the entire chat area, including UI elements."}
+                </p>
+                {cardCssMode !== "disabled" && (
+                  <div className="space-y-1">
+                    <span className="block px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">Characters with CSS:</span>
+                    {cardCssCharacters.map((char) => (
+                      <div key={char.id} className="flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]">
+                        <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">{char.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           {/* Agents — hidden for conversation mode */}
           {!isConversation && (
             <Section
@@ -4177,8 +4235,8 @@ function ChatSettingsDrawerInner({
                           <span>Lorebook Keeper</span>
                         </div>
                         <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Pick a chat-specific target lorebook and optionally keep Lorebook Keeper a few assistant
-                          replies behind the latest canon before it writes.
+                          Pick a chat-specific target lorebook. If blank, Keeper uses a scoped active lorebook and skips
+                          writing when none is available.
                         </p>
                       </div>
                       <button
@@ -4209,7 +4267,7 @@ function ChatSettingsDrawerInner({
                           }
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                         >
-                          <option value="">Auto-select first writable lorebook</option>
+                          <option value="">Use scoped active lorebook</option>
                           {((lorebooks ?? []) as Array<{ id: string; name: string }>).map((lorebook) => (
                             <option key={lorebook.id} value={lorebook.id}>
                               {lorebook.name}
@@ -7394,7 +7452,7 @@ function ScopedRegexModeSelector({
       </div>
       <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
         {mode === "disabled" && "Only global regex scripts run. Character-scoped scripts are ignored."}
-        {mode === "chat" && "Global + matching character-scoped scripts run together."}
+        {mode === "chat" && "Global + all character-scoped scripts in this chat run together."}
         {mode === "exclusive" && "Only character-scoped scripts run. Global scripts are skipped."}
       </p>
     </div>
@@ -7475,6 +7533,43 @@ function ScopedRegexCharacterGroup({
                 )}
               />
               <span className="truncate text-[0.625rem]">{s.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CardCssModeSelector({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
+  const options = [
+    { id: "disabled", label: "Disabled", tooltip: "No card CSS is applied" },
+    { id: "exclusive", label: "Exclusive", tooltip: "Each character's CSS only affects their own messages" },
+    { id: "chat", label: "Chat", tooltip: "All card CSS affects the entire chat area" },
+  ];
+  return (
+    <div className="space-y-1.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">CSS Mode</span>
+      </div>
+      <div className="grid grid-cols-3 overflow-hidden rounded-md ring-1 ring-[var(--border)]">
+        {options.map((option, index) => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(option.id)}
+              className={cn(
+                "min-w-0 px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
+                index > 0 && "border-l border-[var(--border)]",
+                active
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              title={option.tooltip}
+            >
+              {option.label}
             </button>
           );
         })}

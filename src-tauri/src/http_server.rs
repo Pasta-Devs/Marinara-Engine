@@ -212,12 +212,22 @@ fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBu
 }
 
 fn avatar_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
-    let filename = avatar_asset_filename(path)?;
-    Ok(state
-        .data_dir
-        .join("avatars")
-        .join("characters")
-        .join(filename))
+    let segments = avatar_asset_path_segments(path)?;
+    let mut asset_path = state.data_dir.join("avatars");
+    if segments.len() == 1 {
+        asset_path = asset_path.join("characters").join(&segments[0]);
+    } else {
+        let collection = segments
+            .first()
+            .ok_or_else(|| AppError::not_found("Avatar asset was not found"))?;
+        if !is_avatar_asset_collection(collection) {
+            return Err(AppError::not_found("Avatar asset was not found"));
+        }
+        for segment in segments {
+            asset_path = asset_path.join(segment);
+        }
+    }
+    Ok(asset_path)
 }
 
 fn avatar_asset_filename(path: &str) -> Result<String, AppError> {
@@ -232,6 +242,28 @@ fn avatar_asset_filename(path: &str) -> Result<String, AppError> {
         return Err(AppError::not_found("Avatar asset was not found"));
     }
     Ok(filename.to_string())
+}
+
+fn avatar_asset_path_segments(path: &str) -> Result<Vec<String>, AppError> {
+    let value = path.trim();
+    if value.is_empty() {
+        return Err(AppError::not_found("Avatar asset was not found"));
+    }
+    let mut segments = Vec::new();
+    for segment in value.split('/') {
+        segments.push(avatar_asset_filename(segment)?);
+    }
+    if segments.is_empty() {
+        return Err(AppError::not_found("Avatar asset was not found"));
+    }
+    Ok(segments)
+}
+
+fn is_avatar_asset_collection(value: &str) -> bool {
+    matches!(
+        value,
+        "characters" | "personas" | "character-groups" | "persona-groups" | "npc"
+    )
 }
 
 fn content_type_for_path(path: &FsPath) -> &'static str {
@@ -1005,6 +1037,17 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
 mod tests {
     use super::*;
 
+    fn test_state(label: &str) -> AppState {
+        let root = std::env::temp_dir().join(format!(
+            "marinara-http-server-{label}-{}",
+            health_probe_filename()
+        ));
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("stale test data dir should be removed");
+        }
+        AppState::from_data_dir(root, Vec::new()).expect("test app state should initialize")
+    }
+
     fn test_security() -> SecurityConfig {
         SecurityConfig {
             cors_wildcard: false,
@@ -1114,6 +1157,50 @@ mod tests {
             avatar_asset_filename("avatar one.png").expect("valid avatar filename"),
             "avatar one.png"
         );
+    }
+
+    #[test]
+    fn avatar_asset_path_routes_known_avatar_collections() {
+        let state = test_state("avatar-collections");
+        assert_eq!(
+            avatar_asset_path(&state, "avatar.png")
+                .expect("legacy character filename should resolve"),
+            state
+                .data_dir
+                .join("avatars")
+                .join("characters")
+                .join("avatar.png")
+        );
+        assert_eq!(
+            avatar_asset_path(&state, "characters/character.png")
+                .expect("character collection should resolve"),
+            state
+                .data_dir
+                .join("avatars")
+                .join("characters")
+                .join("character.png")
+        );
+        assert_eq!(
+            avatar_asset_path(&state, "personas/persona.png")
+                .expect("persona collection should resolve"),
+            state
+                .data_dir
+                .join("avatars")
+                .join("personas")
+                .join("persona.png")
+        );
+        assert_eq!(
+            avatar_asset_path(&state, "npc/chat-1/innkeeper.png")
+                .expect("npc subpath should resolve"),
+            state
+                .data_dir
+                .join("avatars")
+                .join("npc")
+                .join("chat-1")
+                .join("innkeeper.png")
+        );
+        assert!(avatar_asset_path(&state, "sprites/mari.png").is_err());
+        assert!(avatar_asset_path(&state, "personas/../avatar.png").is_err());
     }
 
     #[test]

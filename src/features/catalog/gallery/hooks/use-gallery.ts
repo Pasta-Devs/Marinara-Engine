@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { galleryKeys } from "../query-keys";
-import { galleryApi } from "../../../../shared/api/image-generation-api";
+import { galleryApi, imageGenerationApi } from "../../../../shared/api/image-generation-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { ChatImage } from "../../../../shared/types/gallery";
@@ -8,6 +8,30 @@ import type { ChatImage } from "../../../../shared/types/gallery";
 function imageCreatedAt(image: ChatImage) {
   const timestamp = typeof image.createdAt === "string" ? Date.parse(image.createdAt) : NaN;
   return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function readTrimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function imageExtension(mimeType: string | null | undefined): string {
+  const normalized = mimeType?.toLowerCase() ?? "";
+  if (normalized.includes("jpeg") || normalized.includes("jpg")) return "jpg";
+  if (normalized.includes("webp")) return "webp";
+  return "png";
+}
+
+function imageDimension(value: number | null | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+}
+
+function imageConnectionId(chat: Chat | null): string {
+  if (!chat) return "";
+  return (
+    readTrimmed(chat.metadata?.gameImageConnectionId) ||
+    readTrimmed(chat.metadata?.imageGenConnectionId) ||
+    readTrimmed(chat.metadata?.illustrationImageConnectionId)
+  );
 }
 
 function getGameGalleryScopeId(chat: Chat | null): string | null {
@@ -98,6 +122,64 @@ export function useUploadGalleryImage(chatId: string | null) {
       }
     },
     meta: { chatId },
+  });
+}
+
+export function useRegenerateGalleryImage(chat: Chat | null) {
+  const queryClient = useQueryClient();
+  const gameId = getGameGalleryScopeId(chat);
+  const gameSessions = queryClient.getQueryData<Chat[]>(galleryKeys.gameSessions(gameId)) ?? [];
+  const galleryChatIds = getGalleryChatIds(chat, gameSessions);
+  const activeGalleryQueryKey = galleryKeys.images(chat?.id ?? null, galleryChatIds);
+
+  return useMutation({
+    mutationFn: async (image: ChatImage) => {
+      if (!chat?.id) throw new Error("Open a chat before regenerating gallery images.");
+
+      const prompt = readTrimmed(image.prompt);
+      if (!prompt) throw new Error("This image does not have a saved prompt to regenerate.");
+
+      const connectionId = imageConnectionId(chat);
+      if (!connectionId) throw new Error("Choose an image generation connection in chat settings first.");
+
+      const width = imageDimension(image.width, 1024);
+      const height = imageDimension(image.height, 1024);
+      const generated = await imageGenerationApi.generate<{
+        base64?: string;
+        mimeType?: string;
+        image?: string;
+        provider?: string;
+        model?: string;
+      }>({
+        connectionId,
+        prompt,
+        width,
+        height,
+      });
+      const mimeType = generated.mimeType || "image/png";
+      const imageUrl =
+        readTrimmed(generated.image) ||
+        (readTrimmed(generated.base64) ? `data:${mimeType};base64,${readTrimmed(generated.base64)}` : "");
+      if (!imageUrl) throw new Error("Image provider returned no image data.");
+
+      const filename = `regenerated_${Date.now()}.${imageExtension(mimeType)}`;
+      return storageApi.create<ChatImage>("gallery", {
+        chatId: chat.id,
+        filePath: filename,
+        filename,
+        url: imageUrl,
+        prompt,
+        provider: generated.provider ?? image.provider ?? "image_generation",
+        model: generated.model ?? image.model ?? null,
+        width,
+        height,
+        sourceGalleryId: image.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activeGalleryQueryKey });
+    },
+    meta: { chatId: chat?.id ?? null },
   });
 }
 

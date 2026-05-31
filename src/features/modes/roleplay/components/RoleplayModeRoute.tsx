@@ -28,6 +28,7 @@ import {
 } from "../../../runtime/visuals/sprite-owner-keys";
 import { AgentInjectionReviewModal } from "./AgentInjectionReviewModal";
 import { ChatRoleplaySurface } from "./ChatRoleplaySurface";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 type RoleplayModeRouteProps = {
   activeChatId: string;
@@ -268,8 +269,20 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
     [activeChatId, forkScene, isForking, timeline.isStreaming],
   );
 
+  const cardCssMode = (() => {
+    const mode = data.chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
+
   return (
     <>
+      <CreatorNotesCssInjector
+        allCharacters={data.allCharacters}
+        characterIds={data.chatCharIds}
+        mode={cardCssMode}
+        chatMode="roleplay"
+      />
       <ChatRoleplaySurface
         activeChatId={activeChatId}
         chat={data.chat}

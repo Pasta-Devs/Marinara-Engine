@@ -154,7 +154,7 @@ export interface ChatMetadata {
   agentOverrides: Record<string, boolean>;
   /** Agent IDs scoped to this chat. Non-empty = only these agents run; empty = use globally-enabled agents. */
   activeAgentIds: string[];
-  /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = auto-pick. */
+  /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = use a scoped active lorebook when available. */
   lorebookKeeperTargetLorebookId?: string | null;
   /** How many assistant responses behind the latest available one Lorebook Keeper should read from. */
   lorebookKeeperReadBehindMessages?: number;
@@ -348,7 +348,12 @@ export interface ChatMetadata {
    */
   summaryTailMessages?: number;
 
+  /** How character-scoped regex scripts are applied: "disabled" | "exclusive" | "chat" (default). */
   scopedRegexMode?: "disabled" | "exclusive" | "chat";
+
+  // ── Card Theming ──
+  /** How creator-notes CSS is applied: "disabled" | "exclusive" | "chat" (default). */
+  cardCssMode?: "disabled" | "exclusive" | "chat";
 
   /** Any extra key-value data */
   [key: string]: unknown;

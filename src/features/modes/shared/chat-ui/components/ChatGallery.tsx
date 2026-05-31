@@ -15,8 +15,14 @@ import {
   Sparkles,
   Pin,
   Minimize2,
+  RotateCcw,
 } from "lucide-react";
-import { useGalleryImages, useUploadGalleryImage, useDeleteGalleryImage } from "../../../../catalog/gallery/index";
+import {
+  useGalleryImages,
+  useUploadGalleryImage,
+  useDeleteGalleryImage,
+  useRegenerateGalleryImage,
+} from "../../../../catalog/gallery/index";
 import { useGalleryStore } from "../../../../../shared/stores/gallery.store";
 import { ImageUploadDropzone } from "../../../../../shared/components/ui/ImageUploadDropzone";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -46,6 +52,7 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
   const { data: images, isLoading } = useGalleryImages(chat);
   const upload = useUploadGalleryImage(chat.id);
   const remove = useDeleteGalleryImage(chat.id);
+  const regenerate = useRegenerateGalleryImage(chat);
   const [lightbox, setLightbox] = useState<ChatImage | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [illustratePending, setIllustratePending] = useState(false);
@@ -53,6 +60,7 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
   const pinImage = useGalleryStore((s) => s.pinImage);
   const lightboxPrompt = lightbox?.prompt?.trim() ?? "";
   const lightboxMeta = lightbox ? formatImageMeta(lightbox) : "";
+  const regeneratingImageId = regenerate.isPending ? regenerate.variables?.id : null;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -84,6 +92,20 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
     setConfirmDeleteId(null);
     if (lightbox?.id === id) setLightbox(null);
   };
+
+  const handleRegenerate = useCallback(
+    (image: ChatImage) => {
+      regenerate.mutate(image, {
+        onSuccess: () => {
+          toast.success("Image regenerated from the saved prompt.");
+        },
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : "Failed to regenerate image.");
+        },
+      });
+    },
+    [regenerate],
+  );
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -179,6 +201,23 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
                     >
                       <Pin size="0.75rem" />
                     </button>
+                    {img.prompt?.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerate(img)}
+                        disabled={regenerate.isPending}
+                        aria-label="Regenerate image from prompt"
+                        aria-busy={regeneratingImageId === img.id}
+                        className="rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-60"
+                        title="Regenerate from prompt"
+                      >
+                        {regeneratingImageId === img.id ? (
+                          <Loader2 size="0.75rem" className="animate-spin" />
+                        ) : (
+                          <RotateCcw size="0.75rem" />
+                        )}
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -253,6 +292,23 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
                 >
                   <Minimize2 size="0.875rem" />
                 </button>
+                {lightboxPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => handleRegenerate(lightbox)}
+                    disabled={regenerate.isPending}
+                    aria-label="Regenerate image from prompt"
+                    aria-busy={regeneratingImageId === lightbox.id}
+                    className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:cursor-wait disabled:opacity-60"
+                    title="Regenerate from prompt"
+                  >
+                    {regeneratingImageId === lightbox.id ? (
+                      <Loader2 size="0.875rem" className="animate-spin" />
+                    ) : (
+                      <RotateCcw size="0.875rem" />
+                    )}
+                  </button>
+                )}
                 <a
                   href={lightbox.url}
                   download
@@ -271,6 +327,22 @@ export function ChatGallery({ chat, onIllustrate }: ChatGalleryProps) {
                 </button>
               </div>
             </div>
+            {lightboxPrompt && (
+              <button
+                type="button"
+                onClick={() => handleRegenerate(lightbox)}
+                disabled={regenerate.isPending}
+                aria-busy={regeneratingImageId === lightbox.id}
+                className="flex min-h-9 items-center justify-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-medium text-white transition-colors hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+              >
+                {regeneratingImageId === lightbox.id ? (
+                  <Loader2 size="0.875rem" className="animate-spin" />
+                ) : (
+                  <RotateCcw size="0.875rem" />
+                )}
+                <span>{regeneratingImageId === lightbox.id ? "Regenerating..." : "Regenerate from prompt"}</span>
+              </button>
+            )}
             <ImagePromptPanel prompt={lightboxPrompt} meta={lightboxMeta} className="w-full max-w-3xl" />
           </div>
         </div>

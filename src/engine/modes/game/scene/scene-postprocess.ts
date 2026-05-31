@@ -102,9 +102,9 @@ function sanitizeSpotifyTrack(
 
   return {
     uri: candidate.uri,
-    name: candidate.name,
-    artist: candidate.artist,
-    album: candidate.album ?? null,
+    name: sanitizeString(candidate.name),
+    artist: sanitizeString(candidate.artist),
+    album: sanitizeString(candidate.album),
   };
 }
 
