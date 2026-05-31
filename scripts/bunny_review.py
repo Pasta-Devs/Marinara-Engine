@@ -97,7 +97,12 @@ def main():
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ.get("LLM_BASE_URL"),
     )
-    skill = (REPO_ROOT / "skills/bunny-style-review/SKILL.md").read_text("utf-8")
+    skill_path = pathlib.Path(
+        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-style-review/SKILL.md")
+    )
+    if not skill_path.is_absolute():
+        skill_path = REPO_ROOT / skill_path
+    skill = skill_path.read_text("utf-8")
     base = os.environ.get("PR_BASE_REF", "main")
     ci_status = os.environ.get("CI_STATUS", "")
 

@@ -35,6 +35,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Preserve review tooling
+        run: |
+          mkdir -p /tmp/bunny-review-tool/scripts
+          mkdir -p /tmp/bunny-review-tool/skills/bunny-style-review
+          cp scripts/bunny_review.py /tmp/bunny-review-tool/scripts/bunny_review.py
+          cp scripts/requirements.txt /tmp/bunny-review-tool/scripts/requirements.txt
+          cp skills/bunny-style-review/SKILL.md /tmp/bunny-review-tool/skills/bunny-style-review/SKILL.md
+
       - name: Fetch PR and checkout head
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,14 +84,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
+        run: pip install -r /tmp/bunny-review-tool/scripts/requirements.txt
 
       - name: Run review
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: gpt-5.5
-        run: python scripts/bunny_review.py
+          BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/skills/bunny-style-review/SKILL.md
+        run: python /tmp/bunny-review-tool/scripts/bunny_review.py
 
       - name: Post the review
         env:
