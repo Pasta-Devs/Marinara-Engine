@@ -6,7 +6,7 @@ import {
   createAgentConfigSchema,
   updateAgentConfigSchema,
 } from "../../../../engine/contracts/schemas/agent.schema";
-import { BUILT_IN_AGENTS } from "../../../../engine/contracts/types/agent";
+import { BUILT_IN_AGENTS, DEFAULT_AGENT_CREDIT } from "../../../../engine/contracts/types/agent";
 import { agentApi } from "../../../../shared/api/agent-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 
@@ -20,6 +20,7 @@ export interface AgentConfigRow {
   type: string;
   name: string;
   description: string;
+  credit?: string;
   phase: string;
   enabled: string;
   connectionId: string | null;
@@ -46,6 +47,10 @@ export interface AgentRunRow {
 }
 
 const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
+
+export function agentCreditLabel(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : DEFAULT_AGENT_CREDIT;
+}
 
 function normalizeAgentUpdatePayload(data: Record<string, unknown>): Record<string, unknown> {
   const nested = data.data;

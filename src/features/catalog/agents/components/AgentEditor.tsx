@@ -6,7 +6,14 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { agentKeys, useAgentConfigs, useUpdateAgent, useCreateAgent, type AgentConfigRow } from "../hooks/use-agents";
+import {
+  agentCreditLabel,
+  agentKeys,
+  useAgentConfigs,
+  useUpdateAgent,
+  useCreateAgent,
+  type AgentConfigRow,
+} from "../hooks/use-agents";
 import { useConnections } from "../../connections/index";
 import {
   isCustomToolSelectable,
@@ -65,6 +72,7 @@ import {
   BUILT_IN_AGENTS,
   BUILT_IN_TOOLS,
   DEFAULT_AGENT_CONTEXT_SIZE,
+  DEFAULT_AGENT_CREDIT,
   DEFAULT_AGENT_TOOLS,
   DEFAULT_AGENT_MAX_TOKENS,
   MAX_AGENT_MAX_TOKENS,
@@ -487,6 +495,7 @@ export function AgentEditor() {
     const payload = {
       name: localName,
       description: localDescription,
+      credit: agentCreditLabel(dbConfig?.credit ?? builtIn?.credit ?? DEFAULT_AGENT_CREDIT),
       phase: savedPhase,
       enabled: true,
       connectionId: localConnectionId || null,
@@ -627,6 +636,7 @@ export function AgentEditor() {
     (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : localPhase;
   const showTurnDataAccess = (isCustomAgent || isNewCustomAgent) && effectivePhase === "post_processing";
   const isPending = updateAgent.isPending || createAgent.isPending;
+  const displayedCredit = agentCreditLabel(dbConfig?.credit ?? builtIn?.credit ?? DEFAULT_AGENT_CREDIT);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
@@ -755,6 +765,16 @@ export function AgentEditor() {
               className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               placeholder="What does this agent do…"
             />
+          </FieldGroup>
+
+          <FieldGroup
+            label="Credit"
+            icon={<Sparkles size="0.875rem" className="text-[var(--primary)]" />}
+            help="Who authored or maintains this agent."
+          >
+            <div className="rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)]">
+              {displayedCredit}
+            </div>
           </FieldGroup>
 
           {/* ── Pipeline Phase ── */}

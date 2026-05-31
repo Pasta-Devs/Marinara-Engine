@@ -1006,6 +1006,9 @@ fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Valu
             optional_value(args, "patch"),
         )?));
     }
+    if entity == "characters" {
+        return characters::update_character(state, id, optional_value(args, "patch"));
+    }
     state.storage.patch(
         entity,
         id,

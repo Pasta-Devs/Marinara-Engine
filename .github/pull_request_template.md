@@ -45,7 +45,7 @@ Pressure points touched:
 
 <!-- Check only what you personally ran or manually verified. Treat unchecked items as explicit TODOs. -->
 
-- [ ] `pnpm check` passes locally
+- [ ] Matching validation command passes locally (for example `pnpm typecheck`, `pnpm build`, `pnpm check:architecture`, `pnpm check:docs`, or full `pnpm check` when warranted)
 - [ ] `pnpm typecheck` passes locally
 - [ ] `pnpm build` passes locally
 - [ ] `pnpm check:architecture` passes locally
@@ -53,7 +53,7 @@ Pressure points touched:
 - [ ] `cargo check --manifest-path src-tauri/Cargo.toml --workspace` passes locally
 - [ ] Rust clippy/tests were run for Rust behavior changes
 - [ ] Browser or Tauri app manual verification completed
-- [ ] Playwright, screenshot, or recording evidence added for UI changes
+- [ ] Browser screenshot/recording evidence added when UI/browser state is the claim
 - [ ] Remote runtime smoke checked when relevant
 
 ### Manual verification notes

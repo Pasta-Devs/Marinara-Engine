@@ -2,6 +2,7 @@
 // Agent Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { DEFAULT_AGENT_CREDIT } from "../types/agent";
 
 const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
 
@@ -37,6 +38,7 @@ export const createAgentConfigSchema = z.object({
   type: z.string().min(1),
   name: z.string().min(1).max(200),
   description: z.string().default(""),
+  credit: z.string().default(DEFAULT_AGENT_CREDIT),
   phase: agentPhaseSchema,
   enabled: z.boolean().default(true),
   connectionId: z.string().nullable().default(null),

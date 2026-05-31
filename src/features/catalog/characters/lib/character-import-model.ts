@@ -22,6 +22,7 @@ type CharacterImportUpdatePatch = {
   avatarPath?: string;
   versionSource: "import";
   versionReason: string;
+  skipVersionSnapshot: true;
 };
 
 type CharacterImportVersionSnapshot = {
@@ -135,6 +136,7 @@ export function buildCharacterImportUpdatePlan(
     comment: readCharacterImportString(importedRow?.comment),
     versionSource: "import",
     versionReason: `Imported updated card from ${importedName}`,
+    skipVersionSnapshot: true,
   };
 
   const importedAvatarPath = readCharacterImportString(importedRow?.avatarPath);

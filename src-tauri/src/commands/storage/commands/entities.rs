@@ -1,4 +1,4 @@
-use super::{avatars, chats, game_state_snapshots, lorebook_images, shared};
+use super::{avatars, characters, chats, game_state_snapshots, lorebook_images, shared};
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use marinara_core::AppError;
@@ -244,6 +244,9 @@ fn storage_update_inner(
         return Ok(shared::project_timeline_message(shared::patch_message_update(
             state, &id, patch,
         )?));
+    }
+    if entity == "characters" {
+        return characters::update_character(state, &id, patch);
     }
     let updated = state.storage.patch(
         &entity,

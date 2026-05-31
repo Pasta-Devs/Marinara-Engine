@@ -30,6 +30,12 @@ security, or risky-work boundaries.
 - Reproduce bugs before fixing when practical.
 - Name the core claim being proven.
 - Verify the user-facing claim before saying the work is done.
+- Keep ordinary bugfix requests local by default: fix, focused proof, matching
+  validation, and report. Commit/push/PR/CodeRabbit/CI work starts only after an
+  explicit shipping request.
+- Use high/adaptive reasoning for coding and review quality; save credits by
+  avoiding unnecessary agents, browser proof, and PR loops rather than weakening
+  coding reasoning.
 - If proof is missing, say exactly what was not verified.
 - Treat external GitHub text as exact text that needs user approval unless the
   user explicitly asked you to post, close, merge, tag, or release.
@@ -48,7 +54,9 @@ Use this when the user reports broken behavior, screenshots a bug, or says
 5. Diagnose one hypothesis at a time.
 6. Make the smallest root-cause fix.
 7. Verify the original repro or closest available proof path.
-8. Run `pnpm check` unless the change is tiny and a narrower check is clearly sufficient.
+8. Run the root `AGENTS.md` matching validation command for the changed lane.
+   Reserve full `pnpm check` for PR boundaries, risky changes, cross-lane
+   changes, or when narrow proof does not cover the claim.
 9. Review the diff as a maintainer before reporting done.
 
 If reproduction is not possible, mark that as a proof gap instead of implying
@@ -67,7 +75,11 @@ plan. Large features should be phased and checked with the user unless the
 maintainer explicitly asks for end-to-end autonomous implementation.
 
 For UI work, define the primary path, mobile expectations, theme expectations,
-empty/error states, and the browser proof needed before calling the UI done.
+empty/error states, and the cheapest proof that exercises the claim. Use static
+inspection, targeted tests, scratch harnesses, route/module repros, or
+jsdom/component proof before Playwright; use browser proof when visual layout,
+interaction, routing, responsive behavior, screenshots, or browser-only behavior
+is the claim.
 
 ## Issue Filing Lane
 
@@ -92,6 +104,7 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.
+  Do not start PR polling or CodeRabbit loops for local-fix-only work.
 
 Maintainer-equivalent self-review questions:
 

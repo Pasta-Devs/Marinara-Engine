@@ -825,6 +825,9 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
             object
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
+            object
+                .entry("credit".to_string())
+                .or_insert_with(|| Value::String("Marinara Dev Team".to_string()));
         }
         _ => {}
     }

@@ -39,6 +39,8 @@ export type AgentResultType =
   | "game_map_update"
   | "game_state_transition";
 
+export const DEFAULT_AGENT_CREDIT = "Marinara Dev Team";
+
 /** Configuration for a single agent. */
 export interface AgentConfig {
   id: string;
@@ -47,6 +49,7 @@ export interface AgentConfig {
   /** Display name */
   name: string;
   description: string;
+  credit: string;
   /** When this agent runs in the pipeline */
   phase: AgentPhase;
   /** Whether globally enabled */
@@ -220,6 +223,7 @@ export interface BuiltInAgentMeta {
   id: string;
   name: string;
   description: string;
+  credit: string;
   phase: AgentPhase;
   enabledByDefault: boolean;
   /** Whether "Add as Prompt Section" should default to on when first created */
@@ -227,7 +231,7 @@ export interface BuiltInAgentMeta {
   category: AgentCategory;
 }
 
-export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
+const BUILT_IN_AGENT_DEFINITIONS: Array<Omit<BuiltInAgentMeta, "credit">> = [
   // ── Writer Agents ──
   {
     id: "prose-guardian",
@@ -487,6 +491,11 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
     category: "writer",
   },
 ];
+
+export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = BUILT_IN_AGENT_DEFINITIONS.map((agent) => ({
+  ...agent,
+  credit: DEFAULT_AGENT_CREDIT,
+}));
 
 export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Readonly<Record<string, number>> = {
   director: 5,
