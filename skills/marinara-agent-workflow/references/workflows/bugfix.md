@@ -7,7 +7,7 @@ Use this when the user gives a bug report, screenshot, failing check, broken UI 
 1. Read the report completely.
 2. Restate the failing behavior in one short paragraph.
 3. Load `skills/marinara-bugfix-discipline/SKILL.md`.
-4. Name the narrow fix boundary, owning layer/module, affected modes/capabilities, dependent callers, and core claim.
+4. Name the cheap gate first: core claim, likely owner/lane, risk level, and proof target.
 5. Name the main code-smell risk when the bug is not tiny.
 6. Reproduce before editing when practical; if not practical, state the closest representative proof.
 7. Trace one hypothesis at a time across UI, feature API/hook, engine, shared API adapter, Tauri command, and Rust capability as needed.
@@ -21,11 +21,18 @@ Ordinary bugfix language means local fix and verification. Commit, push, PR
 creation, CodeRabbit, CI polling, screenshot upload, ready marking, and merge
 start only after an explicit shipping request.
 
+## Fast + Cheap Tiering
+
+- Tiny local path: use this for narrow, low-risk, machine-provable bugs that do not touch schema/version/dependency/auth/storage/import/export/prompt/provider/security-sensitive paths, cross-entrypoint behavior, PR state, or browser-evidence-dependent claims. Do not create a full ledger by default. Finish with a compact receipt: `Claim`, `Proof`, `Validation`, `Files`, `Risk`, and `Vault`.
+- Full workflow path: use the ledger, proof-health, and fast-lane helpers for nontrivial, risky, PR-affecting, cross-boundary, browser-evidence-dependent, or uncertain bugs. If risk appears during a tiny fix, stop treating it as tiny and upgrade the workflow.
+- Exploration budget: read the report completely, then inspect the likely owner path and direct callers first. Pivot only after the current hypothesis is falsified; do not search broadly just to feel safer.
+- When available, `workflow-health.mjs` is for nontrivial work, PR work, issue selection, and risky workflow changes. It is not mandatory for a tiny one-file local bug unless repo policy or visible risk requires it.
+
 ## Proof Rule
 
 Proof must cover the user-facing symptom or core behavior, not merely the edited line. Risky work needs representative positive rows, realistic negative controls, and explicit manual blockers for anything untested.
 
-Before nontrivial edits, use the smallest useful architecture gate: tiny fixes name owner, impact, modes/capabilities, and checks; normal fixes also name callers and contracts; risky or cross-layer fixes trace boundary path, input/output/persistence/error behavior, dependency direction, shared-code justification, forbidden shortcuts avoided, and docs/skills impact.
+Before nontrivial edits, use the smallest useful architecture gate: tiny fixes name only the cheap gate; normal fixes also name callers and contracts; risky or cross-layer fixes trace boundary path, input/output/persistence/error behavior, dependency direction, shared-code justification, forbidden shortcuts avoided, and docs/skills impact.
 
 When machine proof cannot cover the whole claim, manual tests must name the start command, exact app path or route, action sequence, expected result, failure signal, and any unverified mode/provider/viewport/platform/data coverage.
 

@@ -35,6 +35,13 @@ Do not store secrets, private user data, bulky raw logs, or machine-local paths 
 
 The source pack mentions `.agents/automation/scripts/*`, `workflow-health`, `pr-health`, `proof-health`, `publish-evidence`, and `automation-ledger`. This repo does not currently provide those helpers.
 
+Even when automation helpers are available in a local checkout, do not create
+helper work for its own sake. Tiny local bugs may use a compact receipt instead
+of a ledger when they are narrow, low-risk, machine-provable, and not
+PR-affecting. Reserve workflow-health style checks for nontrivial work, PR work,
+issue selection, and risky workflow changes unless repo policy or visible risk
+requires them.
+
 When a helper is missing, use equivalent direct checks: `git status`, `git remote -v`, focused tests, `pnpm typecheck`, `pnpm build`, `cargo check --manifest-path src-tauri/Cargo.toml`, `pnpm check:docs`, GitHub CLI/API checks, browser automation, or manual verification scripts. Ordinary bugfix language still means local fix and verification; GitHub PR creation, CodeRabbit, CI polling, ready marking, and merge require an explicit shipping request.
 
 Do not treat missing pack automation as a blocker. Treat it as a reason to make the evidence explicit in the final report.
