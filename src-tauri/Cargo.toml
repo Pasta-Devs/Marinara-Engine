@@ -31,6 +31,10 @@ source = "Rust domain crates own Tauri boundary DTOs and export TypeScript bindi
 name = "marinara_engine_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+devtools = ["dep:tauri-plugin-devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -48,6 +52,7 @@ pdf-extract = "0.10"
 png = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-devtools = { version = "2", optional = true }
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"

@@ -11,6 +11,47 @@ const tauriArgs = process.argv.slice(2);
 const isTauriDev = tauriArgs[0] === "dev";
 const autoDevtoolsEnv = "MARINARA_TAURI_AUTO_DEVTOOLS";
 const webview2DebugArg = "--remote-debugging-port=9222";
+const devtoolsFeature = "devtools";
+
+function splitCargoFeatures(value) {
+  return value.split(/[,\s]+/).filter(Boolean);
+}
+
+function hasCargoFeature(args, feature) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--") {
+      return false;
+    }
+    if (arg === "--features" || arg === "-f") {
+      for (let featureIndex = index + 1; featureIndex < args.length; featureIndex += 1) {
+        const value = args[featureIndex];
+        if (!value || value.startsWith("-")) {
+          break;
+        }
+        if (splitCargoFeatures(value).includes(feature)) {
+          return true;
+        }
+      }
+      continue;
+    }
+    if (arg.startsWith("--features=")) {
+      if (splitCargoFeatures(arg.slice("--features=".length)).includes(feature)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function insertBeforeRunnerArgs(args, values) {
+  const separatorIndex = args.indexOf("--");
+  if (separatorIndex === -1) {
+    args.push(...values);
+    return;
+  }
+  args.splice(separatorIndex, 0, ...values);
+}
 
 if (cargoBin && existsSync(cargoBin)) {
   env[pathKey] = [cargoBin, env[pathKey]].filter(Boolean).join(delimiter);
@@ -18,6 +59,9 @@ if (cargoBin && existsSync(cargoBin)) {
 
 if (isTauriDev) {
   env[autoDevtoolsEnv] ??= "1";
+  if (!hasCargoFeature(tauriArgs, devtoolsFeature)) {
+    insertBeforeRunnerArgs(tauriArgs, ["--features", devtoolsFeature]);
+  }
 
   if (
     process.platform === "win32" &&

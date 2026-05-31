@@ -71,6 +71,57 @@
           using that port before running Tauri dev.
         </div>
 
+        <h2>Monitor Tauri Performance</h2>
+        <p>
+          <code>pnpm tauri dev</code> enables the optional <code>devtools</code> Cargo feature and registers
+          <a href="https://docs.crabnebula.dev/devtools/get-started/">CrabNebula DevTools</a> instrumentation for that
+          development run. Regular builds keep the feature disabled. Open the CrabNebula DevTools desktop app and
+          connect it to the running Marinara process. Use its
+          <a href="https://docs.crabnebula.dev/devtools/tabs/calls/">Calls tab</a> to inspect Tauri command timing,
+          payloads, responses, and IPC spans.
+        </p>
+        <p>
+          The normal <code>pnpm tauri dev</code> wrapper also opens native WebView DevTools and enables the WebView2
+          debugging port on Windows. Use the WebView Performance panel for React render/layout jank, and use
+          CrabNebula Calls for Rust command, storage, asset, provider, and IPC timing.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Slow span</th>
+              <th>Likely owner</th>
+              <th>Next check</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ipc::request::run</code></td>
+              <td>Rust command or capability module</td>
+              <td>Profile command internals, storage reads, asset work, provider calls, or locks.</td>
+            </tr>
+            <tr>
+              <td><code>ipc::request::deserialize_arg</code></td>
+              <td>Frontend payload shape</td>
+              <td>Check for oversized arguments, full records sent where IDs or deltas would work, or repeated calls.</td>
+            </tr>
+            <tr>
+              <td><code>ipc::request::respond</code> or <code>wry::eval</code></td>
+              <td>Return payload or WebView handoff</td>
+              <td>Check response size, JSON shape, and whether the UI can page, virtualize, or defer heavy data.</td>
+            </tr>
+            <tr>
+              <td>Long WebView frame tasks</td>
+              <td>React feature surface</td>
+              <td>Use the Performance panel to find expensive renders, layout shifts, effects, or unvirtualized lists.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Best first passes: startup, opening a large chat, sending/generating a message, switching modes, importing
+          large files, browsing sprites/assets, and opening catalog editors. Compare cold run, second run, and repeated
+          same-action runs before deciding whether the root cause is startup, caching, payload size, or render churn.
+        </p>
+
         <h2>Run The Web Shell Only</h2>
         <p>
           Use this when you only need the React webview. Tauri-only capabilities may not work correctly because the
