@@ -14,7 +14,7 @@ import {
 } from "../../shared/chat-ui/index";
 import { useDeleteChat } from "../../../catalog/chats/index";
 import { ChatConversationSurface } from "./ChatConversationSurface";
-import { CreatorNotesCssInjector } from "../../shared/chat-ui/components/CreatorNotesCssInjector";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 type ConversationModeRouteProps = {
   activeChatId: string;

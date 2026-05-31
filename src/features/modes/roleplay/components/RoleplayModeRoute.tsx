@@ -28,7 +28,7 @@ import {
 } from "../../../runtime/visuals/sprite-owner-keys";
 import { AgentInjectionReviewModal } from "./AgentInjectionReviewModal";
 import { ChatRoleplaySurface } from "./ChatRoleplaySurface";
-import { CreatorNotesCssInjector } from "../../shared/chat-ui/components/CreatorNotesCssInjector";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 type RoleplayModeRouteProps = {
   activeChatId: string;

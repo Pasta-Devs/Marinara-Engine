@@ -16,6 +16,7 @@ export * from "./components/QuickSwitcherMobile";
 export * from "./components/SlashCommandFeedback";
 export * from "./components/SummaryPopover";
 export * from "./components/SwipeJumpControl";
+export * from "./components/CreatorNotesCssInjector";
 export * from "./hooks/use-chat-metadata-sync";
 export * from "./hooks/use-chat-overlays";
 export * from "./hooks/use-chat-surface-data";

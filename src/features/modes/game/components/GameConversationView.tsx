@@ -11,7 +11,7 @@ import {
   useSpriteMetadataState,
 } from "../../shared/chat-ui/index";
 import { GameSurface } from "./GameSurface";
-import { CreatorNotesCssInjector } from "../../shared/chat-ui/components/CreatorNotesCssInjector";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 interface GameConversationViewProps {
   activeChatId: string;

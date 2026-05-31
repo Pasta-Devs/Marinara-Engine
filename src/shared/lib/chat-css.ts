@@ -115,7 +115,7 @@ function stripComments(css: string): string {
  * - Inject phishing content via `content` property
  * - Cause denial-of-service via resource-heavy rules
  */
-export function sanitizeChatCss(css: string): string {
+function sanitizeChatCss(css: string): string {
   let out = stripComments(css);
 
   // ── Network exfiltration prevention ──
