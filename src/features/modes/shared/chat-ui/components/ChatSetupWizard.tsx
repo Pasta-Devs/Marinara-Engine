@@ -192,7 +192,6 @@ function characterMatchesSearch(
 function characterPickerEmptyText({
   hasError,
   isPending,
-  hasSearch,
   hasCharacters,
   hasUnselectedCharacters,
   noCharactersText,
@@ -200,7 +199,6 @@ function characterPickerEmptyText({
 }: {
   hasError: boolean;
   isPending: boolean;
-  hasSearch: boolean;
   hasCharacters: boolean;
   hasUnselectedCharacters: boolean;
   noCharactersText: string;
@@ -210,7 +208,6 @@ function characterPickerEmptyText({
   if (isPending) return "Loading characters...";
   if (!hasCharacters) return noCharactersText;
   if (!hasUnselectedCharacters) return allAddedText;
-  if (hasSearch) return "No matches.";
   return "No matches.";
 }
 
@@ -813,7 +810,6 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                       {characterPickerEmptyText({
                         hasError: emptyStateCharacterError,
                         isPending: emptyStateCharacterPending,
-                        hasSearch: hasCharacterSearch,
                         hasCharacters: emptyStateCharacters.length > 0,
                         hasUnselectedCharacters,
                         noCharactersText: "No characters yet. Create or import one before starting a conversation.",
@@ -1437,7 +1433,6 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                 {characterPickerEmptyText({
                   hasError: emptyStateCharacterError,
                   isPending: emptyStateCharacterPending,
-                  hasSearch: hasCharacterSearch,
                   hasCharacters: emptyStateCharacters.length > 0,
                   hasUnselectedCharacters,
                   noCharactersText: "No characters yet. Create or import one before adding them to this roleplay.",
@@ -1725,7 +1720,6 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                           {characterPickerEmptyText({
                             hasError: emptyStateCharacterError,
                             isPending: emptyStateCharacterPending,
-                            hasSearch: hasCharacterSearch,
                             hasCharacters: emptyStateCharacters.length > 0,
                             hasUnselectedCharacters,
                             noCharactersText: "No characters yet. Create or import one before applying setup.",
