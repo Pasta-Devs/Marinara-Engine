@@ -43,7 +43,7 @@ function describeCancelError(error: unknown): CancelErrorDetails {
   };
 }
 
-export function reportLlmStreamCancelFailure(
+function reportLlmStreamCancelFailure(
   transport: LlmStreamCancelTransport,
   streamId: string,
   error: unknown,

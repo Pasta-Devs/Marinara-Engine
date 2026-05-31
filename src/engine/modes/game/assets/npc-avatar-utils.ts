@@ -1,6 +1,6 @@
 import type { GameNpc } from "../../../contracts/types/game";
 
-export const BUILT_IN_MARI_AVATAR = "/sprites/mari/Mari_profile.png";
+const BUILT_IN_MARI_AVATAR = "/sprites/mari/Mari_profile.png";
 
 function normalizeNpcName(name: string): string {
   return name

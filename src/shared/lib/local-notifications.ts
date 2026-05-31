@@ -59,7 +59,7 @@ function isAppFocusedForNotifications(): boolean {
   return document.visibilityState === "visible" && document.hasFocus();
 }
 
-export function shouldShowConversationLocalNotification({
+function shouldShowConversationLocalNotification({
   enabled,
   permission,
   appFocused,

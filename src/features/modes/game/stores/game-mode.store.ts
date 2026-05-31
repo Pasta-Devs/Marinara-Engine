@@ -85,12 +85,6 @@ export function getPendingHudWidgetPersistenceSignature(chatId: string): string 
   return pendingWidgetPersistence?.chatId === chatId ? pendingWidgetPersistence.signature : null;
 }
 
-export function resetHudWidgetPersistenceForTest() {
-  if (widgetPersistTimer) clearTimeout(widgetPersistTimer);
-  widgetPersistTimer = null;
-  pendingWidgetPersistence = null;
-}
-
 function debouncedPersistWidgets(chatId: string, widgets: HudWidget[]) {
   const signature = getHudWidgetStateSignature(widgets);
   pendingWidgetPersistence = { chatId, signature };

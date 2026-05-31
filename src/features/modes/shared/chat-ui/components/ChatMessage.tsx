@@ -81,7 +81,7 @@ const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
 const MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR =
   "button, a, textarea, input, select, label, [role='button'], [contenteditable='true'], .mari-message-actions";
 
-export function formatEditableMessageText(value: string, quoteFormat: QuoteFormat): string {
+function formatEditableMessageText(value: string, quoteFormat: QuoteFormat): string {
   return formatTextQuotes(value, quoteFormat);
 }
 
@@ -130,7 +130,7 @@ function firstGenerationNumber(records: readonly GenerationLabelRecord[], keys: 
   return null;
 }
 
-export function formatGenerationLabelForMessage(
+function formatGenerationLabelForMessage(
   message: Message,
   showModelName: boolean,
   showTokenUsage: boolean,
@@ -674,7 +674,7 @@ function isRunawaySizeValue(value: string): boolean {
   return CHAT_CSS_VIEWPORT_UNIT_RE.test(value) || CHAT_CSS_RUNAWAY_PX_RE.test(value);
 }
 
-export function sanitizeChatStyleDeclarations(style: string): string {
+function sanitizeChatStyleDeclarations(style: string): string {
   return style
     .split(";")
     .map((declaration) => {
@@ -733,7 +733,7 @@ function extractChatStyleBlocks(html: string): { html: string; css: string } {
   return { html: withoutStyles, css: cssBlocks.join("\n") };
 }
 
-export function sanitizeChatCss(css: string): string {
+function sanitizeChatCss(css: string): string {
   return sanitizeChatCssDeclarationBlocks(
     css
       .replace(/<\/?style\b[^>]*>/gi, "")
