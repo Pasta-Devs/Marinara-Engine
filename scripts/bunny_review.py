@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -113,6 +114,8 @@ def read_context_file(path):
 def search_repo(pattern):
     if not pattern or len(pattern) > 120:
         return "refused: search pattern must be 1-120 characters"
+    if not shutil.which("rg"):
+        return search_repo_with_python(pattern)
     rg = run(
         [
             "rg",
@@ -149,6 +152,40 @@ def search_repo(pattern):
         if len(lines) >= MAX_SEARCH_HITS:
             break
     return "\n".join(lines) or "no matches"
+
+
+def search_repo_with_python(pattern):
+    hits = []
+    ignored_parts = {
+        ".git",
+        "node_modules",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "playwright-report",
+    }
+    for path in REPO_ROOT.rglob("*"):
+        if len(hits) >= MAX_SEARCH_HITS:
+            break
+        if any(part in ignored_parts for part in path.parts):
+            continue
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_SEARCH_FILE_BYTES:
+                continue
+            rel = path.relative_to(REPO_ROOT)
+            text = path.read_text("utf-8", "replace")
+        except Exception:
+            continue
+        for line_no, line in enumerate(text.splitlines(), 1):
+            if pattern in line:
+                hits.append(f"{rel}:{line_no}: {line.strip()[:220]}")
+                if len(hits) >= MAX_SEARCH_HITS:
+                    break
+    return "\n".join(hits) or "no matches"
 
 
 def search_repo_hits(pattern, max_hits):

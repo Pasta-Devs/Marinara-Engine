@@ -85,9 +85,9 @@ jobs:
           TARGET_CHECKS='Frontend|Rust|Smoke'
           for attempt in $(seq 1 90); do
             FOUND=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
-              --jq ".check_runs | map(select(.name | test(\"$TARGET_CHECKS\"))) | length")
+              --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | .name" | wc -l)
             PENDING=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
-              --jq ".check_runs | map(select(.name | test(\"$TARGET_CHECKS\") and .status != \"completed\")) | length")
+              --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status != \"completed\") | .name" | wc -l)
             if [ "${FOUND:-0}" -ge 3 ] && [ "${PENDING:-0}" -eq 0 ]; then
               break
             fi
@@ -98,7 +98,7 @@ jobs:
             echo ""
             echo "### CI Status"
             FINAL_CHECKS=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
-              --jq ".check_runs | map(select(.name | test(\"$TARGET_CHECKS\"))) | map(\"- \(.name): \(.conclusion // .status)\") | join(\"\n\")")
+              --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | \"- \(.name): \(.conclusion // .status)\"")
             if [ -z "$FINAL_CHECKS" ]; then
               echo "- No Frontend, Rust, or Smoke checks were found before Bunny posted."
             else
