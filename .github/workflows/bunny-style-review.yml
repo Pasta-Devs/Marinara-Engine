@@ -19,11 +19,16 @@ concurrency:
 jobs:
   review:
     if: >
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/bunny-review') &&
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-               github.event.comment.author_association)
+      github.event_name == 'pull_request' ||
+      (
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/bunny-review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                 github.event.comment.author_association)
+      )
     runs-on: ubuntu-latest
+    env:
+      PR_NUM: ${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,7 +41,6 @@ jobs:
         run: |
           git status
           
-          PR_NUM="${{ github.event.issue.number }}"
           BASE=$(gh pr view "$PR_NUM" --json baseRefName -q .baseRefName)
           HEAD=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
           
@@ -51,8 +55,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUM="${{ github.event.issue.number }}"
-          
           # Get the latest commit SHA for the PR
           HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
           
@@ -86,4 +88,4 @@ jobs:
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment "${{ github.event.issue.number }}" --body-file review.md
+        run: gh pr comment "$PR_NUM" --body-file review.md
