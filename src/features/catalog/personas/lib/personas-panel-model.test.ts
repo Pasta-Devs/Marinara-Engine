@@ -128,6 +128,21 @@ describe("personas panel model", () => {
     expect(parsePersonaGroups(groups, personas).some((group) => group.isSynthetic)).toBe(false);
   });
 
+  it("buckets every persona as ungrouped when no real groups exist", () => {
+    const parsed = parsePersonaGroups([], personas);
+
+    expect(parsed).toEqual([
+      {
+        id: UNGROUPED_PERSONA_GROUP_ID,
+        name: "Ungrouped",
+        description: "Personas not assigned to any group",
+        personaIds: ["persona-1", "persona-2", "persona-3"],
+        memberIds: ["persona-1", "persona-2", "persona-3"],
+        isSynthetic: true,
+      },
+    ]);
+  });
+
   it("sorts personas by name, creation date, and estimated token size", () => {
     expect(sortPersonas(personas, "name-asc").map((row) => row.id)).toEqual(["persona-1", "persona-2", "persona-3"]);
     expect(sortPersonas(personas, "name-desc").map((row) => row.id)).toEqual(["persona-3", "persona-2", "persona-1"]);
