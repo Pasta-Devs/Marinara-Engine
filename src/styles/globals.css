@@ -1,4 +1,8 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../../index.html";
+@source "../app";
+@source "../features";
+@source "../shared";
 @import "./themes/sillytavern.css";
 
 /* World state & tracker widgets: equal flex sizing on mobile */

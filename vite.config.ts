@@ -35,4 +35,10 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+
+  build: {
+    // Refactor's largest lazy JS chunk is intentionally below 800 kB raw, and `pnpm perf:size`
+    // tracks aggregate JS/CSS transfer budgets. Keep Vite noisy only for new outsized chunks.
+    chunkSizeWarningLimit: 800,
+  },
 }));

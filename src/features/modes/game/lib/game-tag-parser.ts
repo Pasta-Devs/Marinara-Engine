@@ -27,7 +27,7 @@ interface SkillCheckTag {
   disadvantage?: boolean;
   resolvedResult?: SkillCheckResult;
   /**
-   * Player-submitted d20 echoed by the GM when a `[dice:1d20]` was rolled
+   * Player-submitted d20 echoed by the GM when a dice:1d20 tag was rolled
    * before the check. Forwarded to the server resolver so the sheet's
    * attribute modifier is applied on top of the player's number.
    */
