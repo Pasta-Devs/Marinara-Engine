@@ -1,5 +1,5 @@
 # scripts/bunny_review.py
-import json, os, pathlib, subprocess, glob, fnmatch
+import json, os, pathlib, subprocess, glob, fnmatch, time
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
@@ -92,6 +92,44 @@ TOOLS = [
 DISPATCH = {"run_git": run_git, "read_file": read_file,
             "list_dir": list_dir, "search": search}
 
+def usage_value(usage, *path):
+    current = usage
+    for key in path:
+        if current is None:
+            return 0
+        if isinstance(current, dict):
+            current = current.get(key)
+        else:
+            current = getattr(current, key, None)
+    return current or 0
+
+def add_usage(totals, usage):
+    totals["prompt_tokens"] += usage_value(usage, "prompt_tokens")
+    totals["completion_tokens"] += usage_value(usage, "completion_tokens")
+    totals["total_tokens"] += usage_value(usage, "total_tokens")
+    totals["reasoning_tokens"] += usage_value(
+        usage, "completion_tokens_details", "reasoning_tokens"
+    )
+
+def print_telemetry(stats):
+    elapsed = time.monotonic() - stats["started_at"]
+    tool_counts = ", ".join(
+        f"{name}={count}" for name, count in sorted(stats["tool_counts"].items())
+    ) or "none"
+    print(
+        "Bunny telemetry: "
+        f"elapsed_s={elapsed:.1f}; "
+        f"model_calls={stats['model_calls']}; "
+        f"tool_calls={stats['tool_calls']}; "
+        f"forced_final={stats['forced_final']}; "
+        f"tool_counts={tool_counts}; "
+        f"prompt_tokens={stats['prompt_tokens']}; "
+        f"completion_tokens={stats['completion_tokens']}; "
+        f"reasoning_tokens={stats['reasoning_tokens']}; "
+        f"total_tokens={stats['total_tokens']}",
+        flush=True,
+    )
+
 def main():
     client = OpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
@@ -134,6 +172,17 @@ def main():
         {"role": "system", "content": skill},
         {"role": "user", "content": user_content},
     ]
+    stats = {
+        "started_at": time.monotonic(),
+        "model_calls": 0,
+        "tool_calls": 0,
+        "tool_counts": {},
+        "forced_final": False,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 0,
+    }
 
     for _ in range(MAX_TOOL_ITERS):
         resp = client.chat.completions.create(
@@ -141,14 +190,21 @@ def main():
             messages=messages,
             tools=TOOLS,
         )
+        stats["model_calls"] += 1
+        add_usage(stats, getattr(resp, "usage", None))
         msg = resp.choices[0].message
         messages.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
             pathlib.Path("review.md").write_text(msg.content or "", "utf-8")
+            print_telemetry(stats)
             return
 
         for call in msg.tool_calls:
+            stats["tool_calls"] += 1
+            stats["tool_counts"][call.function.name] = (
+                stats["tool_counts"].get(call.function.name, 0) + 1
+            )
             try:
                 args = json.loads(call.function.arguments or "{}")
                 result = DISPATCH[call.function.name](**args)
@@ -168,17 +224,21 @@ def main():
             "What I Checked instead of continuing research."
         ),
     })
+    stats["forced_final"] = True
     resp = client.chat.completions.create(
         model=os.environ.get("LLM_MODEL", "gpt-5.5"),
         messages=messages,
         tools=TOOLS,
         tool_choice="none",
     )
+    stats["model_calls"] += 1
+    add_usage(stats, getattr(resp, "usage", None))
     msg = resp.choices[0].message
     pathlib.Path("review.md").write_text(
         msg.content or "Bunny could not produce review text after the tool budget closed.",
         "utf-8",
     )
+    print_telemetry(stats)
 
 if __name__ == "__main__":
     main()
