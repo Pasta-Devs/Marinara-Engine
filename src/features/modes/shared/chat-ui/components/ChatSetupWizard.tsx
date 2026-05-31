@@ -189,6 +189,30 @@ function characterMatchesSearch(
   return terms.every((term) => values.some((value) => value.includes(term)));
 }
 
+function characterPickerEmptyText({
+  hasError,
+  isPending,
+  hasSearch,
+  hasCharacters,
+  hasUnselectedCharacters,
+  noCharactersText,
+  allAddedText,
+}: {
+  hasError: boolean;
+  isPending: boolean;
+  hasSearch: boolean;
+  hasCharacters: boolean;
+  hasUnselectedCharacters: boolean;
+  noCharactersText: string;
+  allAddedText: string;
+}): string {
+  if (hasError) return "Characters could not be loaded.";
+  if (isPending) return "Loading characters...";
+  if (hasSearch) return "No matches.";
+  if (!hasCharacters) return noCharactersText;
+  return hasUnselectedCharacters ? "No matches." : allAddedText;
+}
+
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
   const title = persona.comment?.trim();
   return title ? title : null;
@@ -530,6 +554,8 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
     if (chatCharIds.includes(c.id)) return false;
     return characterMatchesSearch(c, search);
   });
+  const hasCharacterSearch = search.trim().length > 0;
+  const hasUnselectedCharacters = characters.some((c) => !chatCharIds.includes(c.id));
 
   const hasConnection = !!chat.connectionId;
   const hasCharacters = chatCharIds.length > 0;
@@ -772,13 +798,15 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                   })}
                   {available.length === 0 && (
                     <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {allCharactersError
-                        ? "Characters could not be loaded."
-                        : characterSearchPending
-                          ? "Loading characters..."
-                          : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                            ? "All characters added."
-                            : "No matches."}
+                      {characterPickerEmptyText({
+                        hasError: allCharactersError,
+                        isPending: characterSearchPending,
+                        hasSearch: hasCharacterSearch,
+                        hasCharacters: characters.length > 0,
+                        hasUnselectedCharacters,
+                        noCharactersText: "No characters yet. Create or import one before starting a conversation.",
+                        allAddedText: "All characters added.",
+                      })}
                     </p>
                   )}
                 </div>
@@ -1283,6 +1311,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       if (chatCharIds.includes(c.id)) return false;
       return characterMatchesSearch(c, charSearch);
     });
+    const hasCharacterSearch = charSearch.trim().length > 0;
+    const hasUnselectedCharacters = characters.some((c) => !chatCharIds.includes(c.id));
 
     return (
       <div className="space-y-2">
@@ -1379,13 +1409,15 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             })}
             {available.length === 0 && (
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {searchedCharactersError
-                  ? "Characters could not be loaded."
-                  : characterSearchPending
-                    ? "Loading characters..."
-                    : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                      ? "All characters already added."
-                      : "No matches."}
+                {characterPickerEmptyText({
+                  hasError: searchedCharactersError,
+                  isPending: characterSearchPending,
+                  hasSearch: hasCharacterSearch,
+                  hasCharacters: characters.length > 0,
+                  hasUnselectedCharacters,
+                  noCharactersText: "No characters yet. Create or import one before adding them to this roleplay.",
+                  allAddedText: "All characters already added.",
+                })}
               </p>
             )}
           </div>
@@ -1665,13 +1697,15 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                         return characterMatchesSearch(c, charSearch);
                       }).length === 0 && (
                         <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                          {searchedCharactersError
-                            ? "Characters could not be loaded."
-                            : characterSearchPending
-                              ? "Loading characters..."
-                              : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                                ? "All characters added."
-                                : "No matches."}
+                          {characterPickerEmptyText({
+                            hasError: searchedCharactersError,
+                            isPending: characterSearchPending,
+                            hasSearch: charSearch.trim().length > 0,
+                            hasCharacters: characters.length > 0,
+                            hasUnselectedCharacters: characters.some((c) => !chatCharIds.includes(c.id)),
+                            noCharactersText: "No characters yet. Create or import one before applying setup.",
+                            allAddedText: "All characters added.",
+                          })}
                         </p>
                       )}
                     </div>
