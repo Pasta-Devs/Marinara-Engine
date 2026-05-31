@@ -15,17 +15,32 @@ import { filterLanguageGenerationConnections } from "../../shared/lib/connection
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
 
+function hasEmbeddedTauriIpc(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+  );
+}
+
 export function useStartNewChat() {
   const queryClient = useQueryClient();
   const createChat = useCreateChat();
   const applyChatPreset = useApplyChatPreset();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
+  const remoteRuntimeUrl = useUIStore((s) => s.remoteRuntimeUrl);
   const hasAnyDetailOpen = useUIStore((s) => s.hasAnyDetailOpen);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
 
   return useCallback(
     async (mode: ChatMode) => {
+      if (!hasEmbeddedTauriIpc() && remoteRuntimeUrl.trim().length === 0) {
+        if (mode === "conversation" || mode === "roleplay" || mode === "game") {
+          setPendingNewChatMode(mode);
+        }
+        return;
+      }
+
       const connections = await queryClient.fetchQuery({
         queryKey: connectionKeys.list(),
         queryFn: () => storageApi.list<Record<string, unknown>>("connections"),
@@ -84,6 +99,7 @@ export function useStartNewChat() {
       createChat,
       hasAnyDetailOpen,
       queryClient,
+      remoteRuntimeUrl,
       setActiveChatId,
       setPendingNewChatMode,
     ],
