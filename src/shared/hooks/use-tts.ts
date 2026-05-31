@@ -20,6 +20,14 @@ export function useTTSConfig() {
   });
 }
 
+export function useCachedTTSConfig() {
+  return useQuery({
+    queryKey: KEYS.config,
+    queryFn: () => ttsApi.config(),
+    enabled: false,
+  });
+}
+
 export function useUpdateTTSConfig() {
   const qc = useQueryClient();
   return useMutation({

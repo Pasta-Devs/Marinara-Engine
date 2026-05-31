@@ -55,7 +55,7 @@ import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useTranslate } from "../../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { ttsService } from "../../../../../shared/lib/tts-service";
-import { useTTSConfig } from "../../../../../shared/hooks/use-tts";
+import { useCachedTTSConfig } from "../../../../../shared/hooks/use-tts";
 import { isStreamingTTSActive, stopStreamingTTS, subscribeStreamingTTSActive } from "../hooks/use-streaming-tts";
 import { buildTTSVoiceRequests, clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import {
@@ -1053,7 +1053,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isTranslating = !!translating[message.id];
 
   // TTS
-  const { data: ttsConfig } = useTTSConfig();
+  const { data: ttsConfig } = useCachedTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
   const ttsSpeakerName = message.characterId ? characterMap?.get(message.characterId)?.name : undefined;
   const ttsVoiceRequests = useMemo(

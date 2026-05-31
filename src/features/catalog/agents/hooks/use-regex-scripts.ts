@@ -36,6 +36,9 @@ export function useRegexScripts() {
   return useQuery({
     queryKey: regexKeys.all,
     queryFn: () => storageApi.list<RegexScriptRow>("regex-scripts"),
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
