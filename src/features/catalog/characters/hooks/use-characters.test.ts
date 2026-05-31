@@ -6,6 +6,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateCharacterSchema } from "../../../../engine/contracts/schemas/character.schema";
+import { characterApi } from "../../../../shared/api/character-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { storageApi } from "../../../../shared/api/storage-api";
 import {
@@ -16,6 +17,7 @@ import {
   useCharacterSummaries,
   useCharactersByIds,
   useCharacters,
+  useUpdateCharacter,
 } from "./use-characters";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -24,6 +26,12 @@ vi.mock("../../../../shared/api/storage-api", () => ({
   storageApi: {
     get: vi.fn(),
     list: vi.fn(),
+  },
+}));
+
+vi.mock("../../../../shared/api/character-api", () => ({
+  characterApi: {
+    update: vi.fn(),
   },
 }));
 
@@ -39,6 +47,7 @@ vi.mock("../../../../shared/api/remote-runtime", () => ({
 }));
 
 const convertFileSrcMock = vi.mocked(convertFileSrc);
+const characterUpdateMock = vi.mocked(characterApi.update);
 const remoteRuntimeTargetMock = vi.mocked(remoteRuntimeTarget);
 const storageGetMock = vi.mocked(storageApi.get);
 const storageListMock = vi.mocked(storageApi.list);
@@ -68,6 +77,7 @@ describe("character list query", () => {
     });
     storageListMock.mockResolvedValue([]);
     storageGetMock.mockResolvedValue(null);
+    characterUpdateMock.mockResolvedValue(characterRecord("char-updated", "Updated Character") as never);
     remoteRuntimeTargetMock.mockReturnValue(null);
     convertFileSrcMock.mockImplementation((path) => `asset://localhost/${encodeURIComponent(path)}`);
     (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__ = {
@@ -83,6 +93,7 @@ describe("character list query", () => {
     queryClient.clear();
     storageGetMock.mockReset();
     storageListMock.mockReset();
+    characterUpdateMock.mockReset();
     convertFileSrcMock.mockReset();
     remoteRuntimeTargetMock.mockReset();
     delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
@@ -246,6 +257,27 @@ describe("character list query", () => {
         },
       ]),
     );
+  });
+
+  it("preserves version snapshot options through update mutations", async () => {
+    const readHook = await renderHook(() => useUpdateCharacter());
+
+    await act(async () => {
+      await readHook().mutateAsync({
+        id: "char-1",
+        data: { name: "Updated" },
+        versionSource: "agent",
+        versionReason: "Professor Mari card update",
+        skipVersionSnapshot: true,
+      });
+    });
+
+    expect(characterUpdateMock).toHaveBeenCalledWith("char-1", {
+      data: { name: "Updated" },
+      versionSource: "agent",
+      versionReason: "Professor Mari card update",
+      skipVersionSnapshot: true,
+    });
   });
 
   it("normalizes managed avatar paths from character detail reads", async () => {

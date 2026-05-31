@@ -36,6 +36,7 @@ describe("character import model", () => {
       avatarPath: "avatars/imported.png",
       versionSource: "import",
       versionReason: "Imported updated card from Imported",
+      skipVersionSnapshot: true,
     });
     expect(plan.importedId).toBe("imported-1");
     expect(plan.updatedName).toBe("Target");

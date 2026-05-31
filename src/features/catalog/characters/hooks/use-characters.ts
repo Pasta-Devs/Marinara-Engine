@@ -228,7 +228,7 @@ export function useUpdateCharacter() {
       versionSource?: string;
       versionReason?: string;
       skipVersionSnapshot?: boolean;
-    }) => storageApi.update("characters", id, updateCharacterSchema.parse(data)),
+    }) => characterApi.update(id, updateCharacterSchema.parse(data)),
     onSuccess: (_data, variables) => {
       invalidateCharacterRecordQueries(qc, variables.id, { includeVersions: true });
     },
