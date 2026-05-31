@@ -4,6 +4,7 @@
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { lorebookKeys } from "../query-keys";
 import { scanActiveLorebookEntries } from "../../../../engine/generation/active-lorebooks";
+import type { LorebookSemanticScanStatus } from "../../../../engine/generation/active-lorebook-scanner";
 import {
   createLorebookEntrySchema,
   createLorebookFolderSchema,
@@ -19,6 +20,7 @@ import type { Lorebook, LorebookEntry, LorebookFolder } from "../../../../engine
 import { characterKeys } from "../../characters/query-keys";
 
 export { lorebookKeys } from "../query-keys";
+export type { LorebookSemanticScanStatus };
 
 async function transferLorebookEntries(
   sourceLorebookId: string,
@@ -463,6 +465,7 @@ interface ActiveLorebookScan {
   budgetSkippedEntries: BudgetSkippedLorebookEntry[];
   totalTokens: number;
   totalEntries: number;
+  semanticStatus: LorebookSemanticScanStatus;
 }
 
 export function useActiveLorebookEntries(chatId: string | null, enabled = false) {

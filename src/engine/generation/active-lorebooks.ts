@@ -1,6 +1,12 @@
 import type { StorageGateway } from "../capabilities/storage";
-import { loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
-import { assembleGenerationPrompt, type BudgetSkippedLorebookEntry } from "./prompt-assembly";
+import {
+  lorebookActivatedEntryForEvent,
+  scanActiveLorebooks,
+  type BudgetSkippedLorebookEntry,
+  type LorebookSemanticScanStatus,
+} from "./active-lorebook-scanner";
+import { loadChatMessages, requireRecord } from "./context";
+import { loadCharacters, loadPersona } from "./prompt-assembly";
 
 export interface ActiveLorebookScanResult {
   entries: Array<{
@@ -15,6 +21,7 @@ export interface ActiveLorebookScanResult {
   budgetSkippedEntries: BudgetSkippedLorebookEntry[];
   totalTokens: number;
   totalEntries: number;
+  semanticStatus: LorebookSemanticScanStatus;
 }
 
 export async function scanActiveLorebookEntries(
@@ -22,28 +29,35 @@ export async function scanActiveLorebookEntries(
   chatId: string,
 ): Promise<ActiveLorebookScanResult> {
   const chat = requireRecord(await storage.get("chats", chatId), "Chat");
-  const connection = await resolveGenerationConnection(storage, chat, {});
   const storedMessages = await loadChatMessages(storage, chatId);
-  const assembly = await assembleGenerationPrompt(storage, {
+  const characters = await loadCharacters(storage, chat);
+  const persona = await loadPersona(storage, chat);
+  const scan = await scanActiveLorebooks({
+    storage,
     chat,
+    characters,
+    persona,
     storedMessages,
-    connection,
     request: {},
     latestUserInput: "",
   });
-  const entries = assembly.activatedLorebookEntries.map((entry) => ({
-    id: entry.id,
-    name: entry.name,
-    content: entry.content,
-    keys: entry.matchedKeys,
-    lorebookId: entry.lorebookId,
-    order: entry.order,
-    constant: entry.constant,
-  }));
+  const entries = scan.processedLore.includedEntries.map((entry) => {
+    const event = lorebookActivatedEntryForEvent(entry);
+    return {
+      id: event.id,
+      name: event.name,
+      content: event.content,
+      keys: event.matchedKeys,
+      lorebookId: event.lorebookId,
+      order: event.order,
+      constant: event.constant,
+    };
+  });
   return {
     entries,
-    budgetSkippedEntries: assembly.budgetSkippedLorebookEntries,
+    budgetSkippedEntries: scan.budgetSkippedLorebookEntries,
     totalTokens: Math.ceil(entries.reduce((sum, entry) => sum + entry.content.length, 0) / 4),
     totalEntries: entries.length,
+    semanticStatus: scan.semanticStatus,
   };
 }

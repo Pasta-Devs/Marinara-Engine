@@ -1486,6 +1486,68 @@ describe("assembleGenerationPrompt lorebook activation settings", () => {
     expect(promptText(assembly)).toContain("LQA_ADDITIONAL_PERSONA_SOURCE_CONTENT");
   });
 
+  it("uses the generation embedding source for semantic lorebook activation", async () => {
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-semantic",
+          lorebookId: "lorebook",
+          name: "Semantic moonlit lore",
+          content: "LQA_SEMANTIC_LORE_CONTENT_SHOULD_APPEAR",
+          keys: ["LQA_KEYWORD_NOT_IN_CHAT"],
+          embedding: [1, 0],
+          enabled: true,
+        },
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [{ role: "user", content: "No keyword appears here.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "semantic-only moonlit query",
+        embeddingSource: { embed: async () => [[1, 0]] },
+      },
+    );
+
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Semantic moonlit lore"]);
+    expect(assembly.activatedLorebookEntries[0]?.matchedKeys).toEqual(["[semantic:1.000]"]);
+    expect(promptText(assembly)).toContain("LQA_SEMANTIC_LORE_CONTENT_SHOULD_APPEAR");
+  });
+
+  it("does not request semantic embeddings for vectorized constant-only lore", async () => {
+    let embedCalls = 0;
+    const assembly = await assembleGenerationPrompt(
+      storageWithLore([
+        {
+          id: "entry-constant-vectorized",
+          lorebookId: "lorebook",
+          name: "Constant vectorized lore",
+          content: "LQA_CONSTANT_VECTORIZED_CONTENT",
+          constant: true,
+          embedding: [1, 0],
+          enabled: true,
+        },
+      ]),
+      {
+        chat: { id: "chat", mode: "roleplay" },
+        storedMessages: [{ role: "user", content: "No keyword appears here.", contextKind: "history" }],
+        connection: {},
+        request: { ...request, promptPresetId: "" },
+        latestUserInput: "semantic query should not be embedded",
+        embeddingSource: {
+          embed: async () => {
+            embedCalls += 1;
+            return [[1, 0]];
+          },
+        },
+      },
+    );
+
+    expect(embedCalls).toBe(0);
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Constant vectorized lore"]);
+    expect(promptText(assembly)).toContain("LQA_CONSTANT_VECTORIZED_CONTENT");
+  });
+
   it("applies lorebook-level scan depth to entries without an override", async () => {
     const assembly = await assembleGenerationPrompt(
       storageWithLore(
@@ -1676,7 +1738,8 @@ describe("assembleGenerationPrompt lorebook activation settings", () => {
         return baseStorage.get<T>(entity, id);
       },
       list: async <T>(entity: string, options?: { filters?: Record<string, unknown> }) => {
-        if (entity === "connections") return [{}] as T[];
+        if (entity === "connections")
+          throw new Error("active lorebook scans should not resolve generation connections");
         return baseStorage.list<T>(entity, options);
       },
       listChatMessages: async () => [],
@@ -1693,6 +1756,36 @@ describe("assembleGenerationPrompt lorebook activation settings", () => {
         chatBudget: 1,
       },
     ]);
+  });
+
+  it("reports keyword-only active scans when vectorized entries lack an embedding source", async () => {
+    const baseStorage = storageWithLore([
+      {
+        id: "entry-vectorized",
+        lorebookId: "lorebook",
+        name: "Vectorized moonlit lore",
+        content: "LQA_VECTORIZED_CONTENT_SHOULD_NOT_APPEAR",
+        keys: ["LQA_KEYWORD_NOT_IN_CHAT"],
+        embedding: [1, 0],
+        enabled: true,
+      },
+    ]);
+    const storage: StorageGateway = {
+      ...baseStorage,
+      get: async <T>(entity: string, id: string) => {
+        if (entity === "chats" && id === "chat") {
+          return { id: "chat", mode: "roleplay", metadata: {} } as T;
+        }
+        return baseStorage.get<T>(entity, id);
+      },
+      listChatMessages: async <T>() =>
+        [{ role: "user", content: "No keyword appears here.", contextKind: "history" }] as T[],
+    };
+
+    const scan = await scanActiveLorebookEntries(storage, "chat");
+
+    expect(scan.entries).toHaveLength(0);
+    expect(scan.semanticStatus).toEqual({ state: "missing_embedding_source", vectorizedEntryCount: 1 });
   });
 
   it("applies per-lorebook token budgets before prompt injection", async () => {
@@ -2185,6 +2278,58 @@ describe("assembleGenerationPrompt conversation scene awareness gates", () => {
     const prompt = assembly.messages.map((message) => message.content).join("\n\n");
     expect(prompt).toContain("A memory found only by provider vector.");
     expect(prompt).not.toContain("A memory with another vector.");
+  });
+
+  it("reuses one provider embedding query for semantic lorebook activation and memory recall", async () => {
+    const base = storageWithLore([
+      {
+        id: "semantic-lore",
+        lorebookId: "lorebook",
+        name: "Shared semantic lore",
+        content: "LQA_SHARED_EMBEDDING_LORE_CONTENT",
+        keys: ["LQA_KEYWORD_NOT_IN_CHAT"],
+        embedding: [1, 0, 0],
+        enabled: true,
+      },
+    ]);
+    const storage: StorageGateway = {
+      ...base,
+      listChatMemories: async <T>() =>
+        [
+          {
+            id: "memory-hit",
+            content: "LQA_SHARED_EMBEDDING_MEMORY_CONTENT",
+            embedding: [1, 0, 0],
+            embeddingSource: "provider",
+          },
+        ] as T[],
+    };
+    let embedCalls = 0;
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "conversation-chat",
+        mode: "conversation",
+        characterIds: [],
+        metadata: {},
+      },
+      storedMessages: [{ role: "user", content: "No keyword appears here.", contextKind: "history" }],
+      connection: {},
+      request: { ...request, promptPresetId: "" },
+      latestUserInput: "shared semantic query",
+      embeddingSource: {
+        embed: async () => {
+          embedCalls += 1;
+          return [[1, 0, 0]];
+        },
+      },
+    });
+
+    const prompt = assembly.messages.map((message) => message.content).join("\n\n");
+    expect(embedCalls).toBe(1);
+    expect(assembly.activatedLorebookEntries.map((entry) => entry.name)).toEqual(["Shared semantic lore"]);
+    expect(prompt).toContain("LQA_SHARED_EMBEDDING_LORE_CONTENT");
+    expect(prompt).toContain("LQA_SHARED_EMBEDDING_MEMORY_CONTENT");
   });
 
   it("keeps normal conversation summaries when conversation cross-chat awareness is off", async () => {

@@ -6,12 +6,8 @@ import type { LorebookEntry } from "../contracts/types/lorebook";
 import type { LLMToolCall, LLMToolDefinition } from "../generation-core/llm/base-provider";
 import { lorebookEntryPassesContextFilters } from "../generation-core/lorebooks/keyword-scanner";
 import { appendChatSummaryEntryToMetadata } from "../shared/text/chat-summary-entries";
-import {
-  loadLorebookEntriesForActivation,
-  lorebookAppliesToContext,
-  type GenerationCharacterContext,
-  type GenerationPersonaContext,
-} from "./prompt-assembly";
+import { loadLorebookEntriesForActivation, lorebookAppliesToContext } from "./active-lorebook-scanner";
+import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import {
   boolish,
   isRecord,
