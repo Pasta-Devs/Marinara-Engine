@@ -1,283 +1,158 @@
-import fnmatch
-import glob
-import json
-import os
-import pathlib
-import subprocess
-from typing import Any
-
+# scripts/bunny_review.py
+import json, os, pathlib, subprocess, glob, fnmatch
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
 MAX_ITERS = 40
 MAX_FILE_BYTES = 200_000
-MAX_TOOL_OUTPUT = 60_000
-REVIEW_MARKER = "## Bunny Review"
 
-BLOCKED_NAMES = {
-    ".env",
-    ".env.local",
-    ".env.development",
-    ".env.production",
-    ".npmrc",
-    ".netrc",
-    "credentials.json",
-    "id_ed25519",
-    "id_rsa",
-}
-BLOCKED_DIRS = {
-    ".git",
-    ".idea",
-    ".vscode",
-    "dist",
-    "dist-ssr",
-    "node_modules",
-    "playwright-report",
-    "src-tauri/target",
-    "target",
-}
-
-
+# --- safety: keep file reads inside the repo and away from secrets ---
 def _safe_path(rel: str) -> pathlib.Path:
     full = (REPO_ROOT / rel).resolve()
     if full != REPO_ROOT and REPO_ROOT not in full.parents:
         raise ValueError("path escapes repo root")
-    relative = full.relative_to(REPO_ROOT).as_posix()
     name = full.name.lower()
-    if name.startswith(".env") or name in BLOCKED_NAMES:
+    if name.startswith(".env") or name in {
+        "credentials.json", "id_rsa", "id_ed25519", ".npmrc", ".netrc"
+    }:
         raise ValueError("blocked sensitive file")
-    if any(relative == blocked or relative.startswith(f"{blocked}/") for blocked in BLOCKED_DIRS):
-        raise ValueError("blocked generated or internal path")
     return full
 
-
-def _is_readable_repo_file(path: pathlib.Path) -> bool:
-    try:
-        relative = path.resolve().relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        return False
-    name = path.name.lower()
-    if name.startswith(".env") or name in BLOCKED_NAMES:
-        return False
-    if any(relative == blocked or relative.startswith(f"{blocked}/") for blocked in BLOCKED_DIRS):
-        return False
-    return path.is_file()
-
-
+# --- read-only git only; no build/check commands ---
 ALLOWED_GIT = {
-    "status",
-    "diff",
-    "log",
-    "show",
-    "rev-parse",
-    "merge-base",
-    "name-only",
-    "ls-files",
-    "blame",
+    "status", "diff", "log", "show", "rev-parse",
+    "merge-base", "name-only", "ls-files", "blame",
 }
-
-
-def run_git(args: list[str]) -> str:
+def run_git(args):
     if not args or args[0] not in ALLOWED_GIT:
         return f"refused: git '{args[0] if args else ''}' not allowed"
     out = subprocess.run(
-        ["git", *args],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=False,
+        ["git", *args], cwd=REPO_ROOT,
+        capture_output=True, text=True, timeout=60,
     )
-    return (out.stdout + out.stderr)[:MAX_TOOL_OUTPUT]
+    return (out.stdout + out.stderr)[:60_000]
 
-
-def read_file(path: str, start: int = 1, end: int | None = None) -> str:
+def read_file(path, start=1, end=None):
     p = _safe_path(path)
     data = p.read_text(encoding="utf-8", errors="replace")[:MAX_FILE_BYTES]
     lines = data.splitlines()
-    stop = end or len(lines)
-    chunk = lines[max(0, start - 1) : stop]
-    return "\n".join(f"{i + start}: {line}" for i, line in enumerate(chunk))
+    end = end or len(lines)
+    chunk = lines[max(0, start - 1):end]
+    return "\n".join(f"{i + start}: {l}" for i, l in enumerate(chunk))
 
-
-def list_dir(path: str = ".") -> str:
+def list_dir(path="."):
     p = _safe_path(path)
-    return "\n".join(sorted(f"{c.name}/" if c.is_dir() else c.name for c in p.iterdir()))
+    return "\n".join(sorted(
+        f"{c.name}/" if c.is_dir() else c.name for c in p.iterdir()
+    ))
 
-
-def search(pattern: str, glob_expr: str = "**/*") -> str:
-    hits: list[str] = []
-    for candidate in glob.glob(str(REPO_ROOT / glob_expr), recursive=True):
-        fp = pathlib.Path(candidate)
-        if not _is_readable_repo_file(fp):
-            continue
-        rel = fp.relative_to(REPO_ROOT).as_posix()
-        if not fnmatch.fnmatch(rel, glob_expr):
+def search(pattern, glob_expr="**/*"):
+    hits = []
+    for f in glob.glob(str(REPO_ROOT / glob_expr), recursive=True):
+        fp = pathlib.Path(f)
+        if not fp.is_file():
             continue
         try:
-            for line_number, line in enumerate(fp.read_text("utf-8", "replace").splitlines(), 1):
+            for n, line in enumerate(fp.read_text("utf-8", "replace").splitlines(), 1):
                 if pattern in line:
-                    hits.append(f"{rel}:{line_number}: {line.strip()[:200]}")
+                    rel = fp.relative_to(REPO_ROOT)
+                    hits.append(f"{rel}:{n}: {line.strip()[:200]}")
                     if len(hits) >= 100:
                         return "\n".join(hits)
-        except OSError:
+        except Exception:
             continue
     return "\n".join(hits) or "no matches"
 
-
-TOOLS: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "run_git",
-            "description": "Run a read-only git command. First arg is the subcommand.",
-            "parameters": {
-                "type": "object",
-                "properties": {"args": {"type": "array", "items": {"type": "string"}}},
-                "required": ["args"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read a repo file. Optional 1-based start/end lines.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "start": {"type": "integer"},
-                    "end": {"type": "integer"},
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_dir",
-            "description": "List a directory inside the repo.",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}},
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search",
-            "description": "Substring search across files matching a glob.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pattern": {"type": "string"},
-                    "glob_expr": {"type": "string"},
-                },
-                "required": ["pattern"],
-            },
-        },
-    },
+TOOLS = [
+    {"type": "function", "function": {
+        "name": "run_git",
+        "description": "Run a read-only git command. First arg is the subcommand.",
+        "parameters": {"type": "object", "properties": {
+            "args": {"type": "array", "items": {"type": "string"}}},
+            "required": ["args"]}}},
+    {"type": "function", "function": {
+        "name": "read_file",
+        "description": "Read a repo file. Optional 1-based start/end lines.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "start": {"type": "integer"}, "end": {"type": "integer"}},
+            "required": ["path"]}}},
+    {"type": "function", "function": {
+        "name": "list_dir",
+        "description": "List a directory inside the repo.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}}, "required": []}}},
+    {"type": "function", "function": {
+        "name": "search",
+        "description": "Substring search across files matching a glob.",
+        "parameters": {"type": "object", "properties": {
+            "pattern": {"type": "string"}, "glob_expr": {"type": "string"}},
+            "required": ["pattern"]}}},
 ]
+DISPATCH = {"run_git": run_git, "read_file": read_file,
+            "list_dir": list_dir, "search": search}
 
-DISPATCH = {
-    "run_git": run_git,
-    "read_file": read_file,
-    "list_dir": list_dir,
-    "search": search,
-}
-
-
-def _client() -> OpenAI:
-    kwargs: dict[str, str] = {"api_key": os.environ["OPENAI_API_KEY"]}
-    base_url = os.environ.get("LLM_BASE_URL")
-    if base_url:
-        kwargs["base_url"] = base_url
-    return OpenAI(**kwargs)
-
-
-def normalize_review(content: str) -> str:
-    text = content.strip()
-    marker_index = text.find(REVIEW_MARKER)
-    if marker_index >= 0:
-        return f"{text[marker_index:].rstrip()}\n"
-
-    return (
-        f"{REVIEW_MARKER}\n\n"
-        "### Findings\n"
-        "Review output did not match the expected Bunny format, so the raw model response was suppressed.\n\n"
-        "### Open Questions\n"
-        "- The model response did not include the required Bunny Review header.\n\n"
-        "### What I Checked\n"
-        "- The review runner completed, but rejected the final response format before posting.\n"
+def main():
+    client = OpenAI(
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.environ.get("LLM_BASE_URL"),
     )
+    skill = (REPO_ROOT / "skills/bunny-style-review/SKILL.md").read_text("utf-8")
+    base = os.environ.get("PR_BASE_REF", "main")
+    ci_status = os.environ.get("CI_STATUS", "")
 
-
-def _completion_kwargs(model: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "tools": TOOLS,
-    }
-    reasoning_effort = os.environ.get("LLM_REASONING_EFFORT", "").strip()
-    if reasoning_effort:
-        kwargs["reasoning_effort"] = reasoning_effort
-    return kwargs
-
-
-def main() -> None:
-    client = _client()
-    skill_path = pathlib.Path(
-        os.environ.get("BUNNY_SKILL_PATH", REPO_ROOT / "skills/bunny-style-review/SKILL.md")
+    # Build the user message with CI status if available
+    user_content = (
+        f"Review this PR. The review base branch is '{base}'. "
+        f"Follow the skill's Setup and Review Passes using the tools, "
+        f"load only the docs and marinara skills that match the touched area, "
+        f"and produce the final review in the skill's Output Shape. "
+        f"Do not edit files."
     )
-    skill = skill_path.read_text("utf-8")
-    base = os.environ.get("PR_BASE_REF", "origin/main")
-    model = os.environ.get("LLM_MODEL", "gpt-5.5")
+    
+    if ci_status:
+        user_content += (
+            f"\n\nCI Status: {ci_status}\n"
+            f"The CI jobs (typecheck, build, cargo check, architecture checks, tests) "
+            f"have already run. Reference their status in your Validation section rather "
+            f"than re-running these commands. Focus your verification on reasoning checks "
+            f"that CI cannot perform: ownership boundaries, failure-path analysis, "
+            f"mode separation, and contract correctness."
+        )
+    
+    user_content += "\n\nWhen done, reply with only the review text in the Output Shape format."
 
-    messages: list[dict[str, Any]] = [
+    messages = [
         {"role": "system", "content": skill},
-        {
-            "role": "user",
-            "content": (
-                f"Review this PR. The review base branch is '{base}'. "
-                "Follow the skill's Setup and Review Passes using the tools, "
-                "load only the docs and Marinara skills that match the touched area, "
-                "and produce the final review in the skill's Output Shape. "
-                "Do not edit files. When done, reply with only the review text."
-            ),
-        },
+        {"role": "user", "content": user_content},
     ]
 
     for _ in range(MAX_ITERS):
-        resp = client.chat.completions.create(**_completion_kwargs(model, messages))
+        resp = client.chat.completions.create(
+            model=os.environ.get("LLM_MODEL", "gpt-4o"),
+            messages=messages,
+            tools=TOOLS,
+        )
         msg = resp.choices[0].message
         messages.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
-            pathlib.Path("review.md").write_text(normalize_review(msg.content or ""), "utf-8")
+            pathlib.Path("review.md").write_text(msg.content or "", "utf-8")
             return
 
         for call in msg.tool_calls:
             try:
                 args = json.loads(call.function.arguments or "{}")
                 result = DISPATCH[call.function.name](**args)
-            except Exception as exc:
-                result = f"error: {exc}"
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": str(result)[:MAX_TOOL_OUTPUT],
-                }
-            )
+            except Exception as e:
+                result = f"error: {e}"
+            messages.append({
+                "role": "tool", "tool_call_id": call.id,
+                "content": str(result)[:60_000],
+            })
 
     pathlib.Path("review.md").write_text(
-        "Review did not converge within the iteration budget.",
-        "utf-8",
-    )
-
+        "Review did not converge within the iteration budget.", "utf-8")
 
 if __name__ == "__main__":
     main()

@@ -1,55 +1,67 @@
+# .github/workflows/bunny-review.yml
 name: Bunny Style Review
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
 permissions:
   contents: read
-  issues: write
   pull-requests: write
-
-concurrency:
-  group: bunny-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+  actions: read  # needed to read CI status
 
 jobs:
   review:
     if: >
-      github.event_name == 'pull_request' ||
-      (
-        github.event.issue.pull_request &&
-        startsWith(github.event.comment.body, '/bunny-review') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association)
-      )
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/bunny-review') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+               github.event.comment.author_association)
     runs-on: ubuntu-latest
-    env:
-      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
-      - name: Checkout trusted review runner
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
-          fetch-depth: 0
-
-      - name: Checkout PR target
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: bunny-target
 
-      - name: Fetch PR and checkout target head
-        working-directory: bunny-target
+      - name: Fetch PR and checkout head
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BASE=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
-          gh pr checkout "$PR_NUMBER"
-          git fetch origin "$BASE" --depth=1 || true
-          echo "PR_BASE_REF=origin/$BASE" >> "$GITHUB_ENV"
+          git status
+          
+          PR_NUM="${{ github.event.issue.number }}"
+          BASE=$(gh pr view "$PR_NUM" --json baseRefName -q .baseRefName)
+          HEAD=$(gh pr view "$PR_NUM" --json headRefName -q .headRefName)
+          
+          git fetch origin "$BASE:$BASE" || git fetch origin "$BASE"
+          git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
+          
+          git checkout "pr-$PR_NUM"
+          
+          echo "PR_BASE_REF=$BASE" >> "$GITHUB_ENV"
+
+      - name: Get CI status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.issue.number }}"
+          
+          # Get the latest commit SHA for the PR
+          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+          
+          # Get check runs for this commit
+          CI_CHECKS=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+            --jq '.check_runs | map(select(.name | test("Frontend|Rust|Smoke"))) | 
+                  map("\(.name): \(.conclusion // "pending")") | join(", ")')
+          
+          if [ -z "$CI_CHECKS" ]; then
+            CI_STATUS="No CI checks found for this PR"
+          else
+            CI_STATUS="$CI_CHECKS"
+          fi
+          
+          echo "CI_STATUS=$CI_STATUS" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
@@ -59,16 +71,13 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Run review
-        working-directory: bunny-target
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-          LLM_MODEL: gpt-5.5
-          LLM_REASONING_EFFORT: ${{ vars.LLM_REASONING_EFFORT }}
-          BUNNY_SKILL_PATH: ${{ github.workspace }}/skills/bunny-style-review/SKILL.md
-        run: python ../scripts/bunny_review.py
+          LLM_MODEL: gpt-4o
+        run: python scripts/bunny_review.py
 
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment "$PR_NUMBER" --body-file bunny-target/review.md
+        run: gh pr comment "${{ github.event.issue.number }}" --body-file review.md
