@@ -53,7 +53,7 @@ function parseRegexLiteral(value: string): { pattern: string; flags: string } {
 /**
  * Extract embedded regex scripts from a character's ST card extensions data.
  */
-export function extractEmbeddedRegexScripts(
+function extractEmbeddedRegexScripts(
   characterData: Record<string, unknown>,
   characterId: string,
 ): ExtractedRegexScript[] {

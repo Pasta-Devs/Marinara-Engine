@@ -79,7 +79,7 @@ function applyScripts(
  * - "exclusive": only scoped scripts matching the characterId (skip globals)
  * - "chat": global + scoped scripts matching the characterId
  */
-export function filterForMode(
+function filterForMode(
   scripts: ParsedRegexScript[],
   mode: ScopedRegexMode | undefined,
   characterId: string | null | undefined,

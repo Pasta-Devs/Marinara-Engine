@@ -101,28 +101,3 @@ export function useDeleteRegexScript() {
   });
 }
 
-export function useBatchCreateRegexScripts() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (scripts: Array<Record<string, unknown>>) =>
-      Promise.all(scripts.map((data) => storageApi.create<RegexScriptRow>("regex-scripts", data))),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: regexKeys.all });
-    },
-  });
-}
-
-export function useDeleteRegexScriptsByCharacter() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (characterId: string) => {
-      const all = await storageApi.list<RegexScriptRow>("regex-scripts");
-      const toDelete = all.filter((s) => s.characterId === characterId);
-      await Promise.all(toDelete.map((s) => storageApi.delete("regex-scripts", s.id)));
-      return toDelete.length;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: regexKeys.all });
-    },
-  });
-}
