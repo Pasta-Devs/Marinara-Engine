@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
+import { GlobalErrorBoundary, installGlobalErrorDiagnostics, reportReactRootError } from "./GlobalErrorBoundary";
 import { startKeepAlive } from "./lib/keep-alive";
 import { installCsrfFetchShim } from "./lib/csrf-fetch";
 import "./styles/globals.css";
@@ -9,6 +10,7 @@ import "./styles/globals.css";
 // Prevent Chrome/Edge from sleeping this tab
 startKeepAlive();
 installCsrfFetchShim();
+installGlobalErrorDiagnostics();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,10 +67,16 @@ function registerServiceWorker() {
   });
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById("root")!, {
+  onCaughtError: (error, errorInfo) => reportReactRootError("caught", error, errorInfo),
+  onUncaughtError: (error, errorInfo) => reportReactRootError("uncaught", error, errorInfo),
+  onRecoverableError: (error, errorInfo) => reportReactRootError("recoverable", error, errorInfo),
+}).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
     </QueryClientProvider>
   </React.StrictMode>,
 );
