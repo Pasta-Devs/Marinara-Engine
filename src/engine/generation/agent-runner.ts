@@ -41,6 +41,7 @@ import {
 } from "../generation-core/lorebooks/keyword-scanner";
 import { resolveGameLorebookScopeExclusions } from "../generation-core/lorebooks/game-lorebook-scope";
 import { buildSpriteExpressionChoices } from "../modes/game/prompts/sprite.service";
+import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { llmParameters } from "./context";
 import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
 import {
@@ -556,8 +557,16 @@ function chatActiveToolIds(input: GenerationAgentRuntimeInput): Set<string> {
   return stringSet(chatMetadata(input).activeToolIds);
 }
 
+function promptVisibleStoredMessages(
+  input: GenerationAgentRuntimeInput,
+  chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay"),
+  chatMeta = parseRecord(input.chat.metadata),
+): JsonRecord[] {
+  return chatMode === "game" ? applyAllSegmentEdits(input.storedMessages, chatMeta) : input.storedMessages;
+}
+
 function activationScanMessages(input: GenerationAgentRuntimeInput): ActivationScanMessage[] {
-  return input.storedMessages
+  return promptVisibleStoredMessages(input)
     .filter((message) => !hiddenFromAi(message))
     .map((message) => ({ content: readString(message.content) }));
 }
@@ -1091,6 +1100,7 @@ async function buildAgentContext(
   const chatId = readString(input.chat.id);
   const chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay");
   const chatMeta = parseRecord(input.chat.metadata);
+  const recentSourceMessages = promptVisibleStoredMessages(input, chatMode, chatMeta);
   const memoryRows = await Promise.all(
     (await deps.storage.list<JsonRecord>("agents"))
       .filter((agent) => readString(agent.id).trim())
@@ -1107,7 +1117,7 @@ async function buildAgentContext(
   const context: AgentContext = {
     chatId,
     chatMode,
-    recentMessages: input.storedMessages
+    recentMessages: recentSourceMessages
       .filter((message) => !hiddenFromAi(message))
       .slice(-60)
       .map((message) => ({

@@ -182,7 +182,9 @@ function formatGenerationLabelForMessage(
     const durationMs = firstGenerationNumber(records, ["durationMs", "duration_ms"]);
 
     if (tokensPrompt != null || tokensCompletion != null) {
-      parts.push(tokensPrompt != null ? `${tokensPrompt}\u2192${tokensCompletion ?? "?"} tok` : `${tokensCompletion} tok`);
+      parts.push(
+        tokensPrompt != null ? `${tokensPrompt}\u2192${tokensCompletion ?? "?"} tok` : `${tokensCompletion} tok`,
+      );
     }
     if ((tokensCachedPrompt ?? 0) > 0) parts.push(`cache hit ${tokensCachedPrompt!.toLocaleString()}`);
     if ((tokensCacheWritePrompt ?? 0) > 0) parts.push(`cache write ${tokensCacheWritePrompt!.toLocaleString()}`);

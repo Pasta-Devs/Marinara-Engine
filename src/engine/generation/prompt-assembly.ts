@@ -22,6 +22,7 @@ import type {
 } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { formatPerceptionHints, generatePerceptionHints } from "../modes/game/mechanics/perception.service";
+import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
 import {
@@ -1721,8 +1722,15 @@ function sectionContent(args: {
 
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
-  input: PromptAssemblyInput,
+  rawInput: PromptAssemblyInput,
 ): Promise<PromptAssemblyResult> {
+  let input = rawInput;
+  const chatMeta = parseRecord(input.chat.metadata);
+  const chatMode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+  if (chatMode === "game") {
+    input = { ...input, storedMessages: applyAllSegmentEdits(input.storedMessages, chatMeta) };
+  }
+
   const characters = await loadCharacters(storage, input.chat);
   const persona = await loadPersona(storage, input.chat);
   const embeddingSource = memoizedEmbeddingSource(input.embeddingSource);
@@ -1760,7 +1768,6 @@ export async function assembleGenerationPrompt(
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
   const promptCharacters = promptCharactersForGeneration(input, characters);
-  const chatMeta = parseRecord(input.chat.metadata);
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
   const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
   const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
@@ -1851,7 +1858,6 @@ export async function assembleGenerationPrompt(
     messages.push(...history);
   }
 
-  const chatMode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   if (chatMode === "game") {
     const [gameSystem, gameReminder] = await buildGamePromptMessages(
       storage,

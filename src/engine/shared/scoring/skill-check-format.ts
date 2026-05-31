@@ -1,11 +1,25 @@
 import type { SkillCheckResult } from "../../contracts/types/game.js";
 
+function getSkillCheckOutcomeLabel(
+  result: Pick<SkillCheckResult, "success" | "criticalSuccess" | "criticalFailure">,
+): string {
+  if (result.criticalSuccess) return "Critical success";
+  if (result.criticalFailure) return "Critical failure";
+  return result.success ? "Success" : "Failure";
+}
+
 function getSkillCheckOutcomeKey(
   result: Pick<SkillCheckResult, "success" | "criticalSuccess" | "criticalFailure">,
 ): string {
   if (result.criticalSuccess) return "critical_success";
   if (result.criticalFailure) return "critical_failure";
   return result.success ? "success" : "failure";
+}
+
+export function formatSkillCheckResultSummary(result: SkillCheckResult): string {
+  const modifier = result.modifier === 0 ? "" : ` ${result.modifier > 0 ? "+" : ""}${result.modifier}`;
+  const rollMode = result.rollMode !== "normal" ? ` (${result.rollMode})` : "";
+  return `${result.skill} check (DC ${result.dc}): [${result.rolls.join(", ")}]${modifier}${rollMode} = ${result.total}. ${getSkillCheckOutcomeLabel(result)}.`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
