@@ -2,11 +2,6 @@ export type CharacterSearchData = Record<string, unknown> & {
   tags?: unknown;
 };
 
-export type CharacterSearchRow = {
-  data?: CharacterSearchData | null;
-  comment?: unknown;
-};
-
 export type CharacterSearchQuery = {
   text: string;
   terms: string[];
@@ -40,15 +35,6 @@ export function parseCharacterSearchQuery(value: string): CharacterSearchQuery {
   };
 }
 
-function asSearchText(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function searchTextList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(asSearchText).filter(Boolean);
-}
-
 export function getCharacterTagsFromData(data: CharacterSearchData | null | undefined): string[] {
   if (!Array.isArray(data?.tags)) return [];
   return data.tags
@@ -58,28 +44,6 @@ export function getCharacterTagsFromData(data: CharacterSearchData | null | unde
 
 function normalizedTagSet(data: CharacterSearchData | null | undefined): Set<string> {
   return new Set(getCharacterTagsFromData(data).map((tag) => tag.toLowerCase()));
-}
-
-function characterExtensionSearchValues(data: CharacterSearchData): string[] {
-  const extensions = data.extensions;
-  if (!extensions || typeof extensions !== "object" || Array.isArray(extensions)) return [];
-  const record = extensions as Record<string, unknown>;
-  const depthPrompt = record.depth_prompt;
-  const altDescriptions = Array.isArray(record.altDescriptions) ? record.altDescriptions : [];
-
-  return [
-    asSearchText(record.backstory),
-    asSearchText(record.appearance),
-    asSearchText(record.world),
-    depthPrompt && typeof depthPrompt === "object" && !Array.isArray(depthPrompt)
-      ? asSearchText((depthPrompt as Record<string, unknown>).prompt)
-      : "",
-    ...altDescriptions.flatMap((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-      const alt = entry as Record<string, unknown>;
-      return [asSearchText(alt.label), asSearchText(alt.content)].filter(Boolean);
-    }),
-  ].filter(Boolean);
 }
 
 export function characterHasAnyExcludedTag(
@@ -103,27 +67,4 @@ export function countIncludedTagMatches(
     if (tags.has(tag.toLowerCase())) matches += 1;
   }
   return matches;
-}
-
-export function characterMatchesSearchTerms(row: CharacterSearchRow, terms: string[]): boolean {
-  if (terms.length === 0) return true;
-  const data = row.data ?? {};
-  const fields = [
-    asSearchText(data.name),
-    asSearchText(row.comment),
-    asSearchText(data.creator),
-    asSearchText(data.creator_notes),
-    asSearchText(data.description),
-    asSearchText(data.personality),
-    asSearchText(data.scenario),
-    asSearchText(data.first_mes),
-    asSearchText(data.mes_example),
-    asSearchText(data.system_prompt),
-    asSearchText(data.post_history_instructions),
-    ...searchTextList(data.alternate_greetings),
-    ...characterExtensionSearchValues(data),
-    ...getCharacterTagsFromData(data).map((tag) => tag.toLowerCase()),
-  ].filter(Boolean);
-
-  return terms.every((term) => fields.some((field) => field.includes(term)));
 }

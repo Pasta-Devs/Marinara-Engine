@@ -80,7 +80,7 @@ function setAmbientAudioSession(): void {
 }
 
 /** Singleton audio manager for game mode. */
-export class GameAudioManager {
+class GameAudioManager {
   private musicElement: LoopingAudioLayer | null = null;
   private nextMusicElement: LoopingAudioLayer | null = null;
   private ambientElement: LoopingAudioLayer | null = null;

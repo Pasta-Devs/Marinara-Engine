@@ -24,7 +24,7 @@ type RawChatPreset = ChatPreset & {
   active?: unknown;
 };
 
-export function normalizeChatPresetFlags<T extends RawChatPreset>(preset: T): T & ChatPreset {
+function normalizeChatPresetFlags<T extends RawChatPreset>(preset: T): T & ChatPreset {
   return {
     ...preset,
     isDefault: boolish(preset.isDefault ?? preset.default, false),
