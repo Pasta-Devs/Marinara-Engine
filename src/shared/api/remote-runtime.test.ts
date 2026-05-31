@@ -158,7 +158,18 @@ describe("remote LLM stream cancellation", () => {
     });
   });
 
-  it("does not fetch health when the remote runtime URL is blank", async () => {
+  it("reports blank remote runtime URLs as unconfigured web-shell state outside Tauri", async () => {
+    await expect(checkRemoteRuntimeHealth("  ")).resolves.toEqual({
+      status: "unconfigured",
+      message: "Remote Runtime URL is required in web-shell mode.",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports blank remote runtime URLs as embedded runtime state inside Tauri", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+
     await expect(checkRemoteRuntimeHealth("  ")).resolves.toEqual({
       status: "unconfigured",
       message: "Embedded Tauri runtime in use.",

@@ -38,7 +38,11 @@ import {
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
-import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../shared/api/remote-runtime";
+import {
+  checkRemoteRuntimeHealth,
+  unconfiguredRemoteRuntimeHealth,
+  type RemoteRuntimeHealthCheck,
+} from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { AUDIO_MIME_MAP, IMAGE_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
@@ -3261,7 +3265,7 @@ function AdvancedSettings() {
   const [remoteRuntimeHealth, setRemoteRuntimeHealth] = useState<RemoteRuntimeHealthView>(() =>
     remoteRuntimeUrl.trim()
       ? { status: "idle", message: "Status checks when this section is visible." }
-      : { status: "unconfigured", message: "Embedded Tauri runtime in use." },
+      : unconfiguredRemoteRuntimeHealth(),
   );
   const queryClient = useQueryClient();
 
@@ -3270,7 +3274,7 @@ function AdvancedSettings() {
     remoteRuntimeHealthAbortRef.current?.abort();
 
     if (!url) {
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 
@@ -3304,7 +3308,7 @@ function AdvancedSettings() {
   useEffect(() => {
     if (!remoteRuntimeUrl.trim()) {
       remoteRuntimeHealthAbortRef.current?.abort();
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 

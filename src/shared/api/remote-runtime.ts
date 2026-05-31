@@ -191,6 +191,18 @@ export type RemoteRuntimeHealthCheck =
   | { status: "unreachable"; message: string; health?: RemoteRuntimeHealthPayload }
   | { status: "not-writable"; message: string; health: RemoteRuntimeHealthPayload };
 
+export function hasEmbeddedTauriRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const runtimeWindow = window as unknown as { __TAURI__?: unknown; __TAURI_INTERNALS__?: unknown };
+  return Boolean(runtimeWindow.__TAURI__ || runtimeWindow.__TAURI_INTERNALS__);
+}
+
+export function unconfiguredRemoteRuntimeHealth(): RemoteRuntimeHealthCheck {
+  return hasEmbeddedTauriRuntime()
+    ? { status: "unconfigured", message: "Embedded Tauri runtime in use." }
+    : { status: "unconfigured", message: "Remote Runtime URL is required in web-shell mode." };
+}
+
 function encodeBasicAuth(username: string, password: string): string {
   return `Basic ${btoa(`${decodeURIComponent(username)}:${decodeURIComponent(password)}`)}`;
 }
@@ -255,7 +267,7 @@ export async function checkRemoteRuntimeHealth(
   options: { signal?: AbortSignal } = {},
 ): Promise<RemoteRuntimeHealthCheck> {
   if (!rawUrl.trim()) {
-    return { status: "unconfigured", message: "Embedded Tauri runtime in use." };
+    return unconfiguredRemoteRuntimeHealth();
   }
 
   let target: RuntimeTarget | null;
@@ -266,7 +278,7 @@ export async function checkRemoteRuntimeHealth(
   }
 
   if (!target) {
-    return { status: "unconfigured", message: "Embedded Tauri runtime in use." };
+    return unconfiguredRemoteRuntimeHealth();
   }
 
   try {
