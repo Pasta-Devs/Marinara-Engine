@@ -26,6 +26,102 @@ fn block_collection_writes(state: &AppState, collection: &str) {
     fs::create_dir(collection_path).expect("collection path should block file writes");
 }
 
+fn uploaded_json(name: &str, payload: Value) -> Value {
+    let bytes = serde_json::to_vec(&payload).expect("fixture payload should serialize");
+    uploaded_bytes(name, "application/json", bytes)
+}
+
+fn uploaded_bytes(name: &str, content_type: &str, bytes: Vec<u8>) -> Value {
+    json!({
+        "name": name,
+        "type": content_type,
+        "base64": general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+#[test]
+fn import_st_character_batch_rejects_wrong_route_lorebook_json() {
+    let app_root = temp_path("wrong-route-lorebook");
+    let state =
+        AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
+    let lorebook_payload = json!({
+        "name": "Scout Wrong Route Lorebook",
+        "entries": {
+            "0": {
+                "key": ["scout"],
+                "content": "This belongs to a lorebook, not a character."
+            }
+        }
+    });
+
+    let result = import_st_character_batch(
+        &state,
+        json!({
+            "files": [
+                uploaded_json(
+                    "valid-character.json",
+                    json!({
+                        "spec": "chara_card_v2",
+                        "data": {
+                            "name": "Valid Character",
+                            "description": "A real character card."
+                        }
+                    })
+                ),
+                uploaded_bytes(
+                    "invalid.json",
+                    "application/json",
+                    b"{ this is not json".to_vec()
+                ),
+                uploaded_json(
+                    "world-info.json",
+                    lorebook_payload.clone()
+                )
+            ]
+        }),
+    )
+    .expect("batch import should return per-file results");
+
+    let file_results = result
+        .get("results")
+        .and_then(Value::as_array)
+        .expect("batch import should include file results");
+    assert_eq!(file_results.len(), 3);
+    assert_eq!(file_results[0].get("success"), Some(&Value::Bool(true)));
+    assert_eq!(
+        file_results[0].get("name").and_then(Value::as_str),
+        Some("Valid Character")
+    );
+    assert_eq!(file_results[1].get("success"), Some(&Value::Bool(false)));
+    assert_eq!(
+        file_results[1].get("error").and_then(Value::as_str),
+        Some("Invalid file format. Expected a JSON character card, PNG with embedded character data, or .charx file.")
+    );
+    let file_result = file_results
+        .get(2)
+        .expect("batch import should include a file result");
+    assert_eq!(file_result.get("success"), Some(&Value::Bool(false)));
+    assert_eq!(
+        file_result.get("error").and_then(Value::as_str),
+        Some("Invalid file format. Expected a JSON character card, PNG with embedded character data, or .charx file.")
+    );
+    assert_eq!(
+        state.storage.list("characters").unwrap().len(),
+        1,
+        "wrong-route lorebook imports must not create an extra blank character"
+    );
+    let lorebook_result = import_call(&state, &["st-lorebook"], lorebook_payload)
+        .expect("the same payload should still import through the lorebook route");
+    assert_eq!(
+        lorebook_result
+            .get("entriesImported")
+            .and_then(Value::as_u64),
+        Some(1)
+    );
+
+    let _ = fs::remove_dir_all(app_root);
+}
+
 #[test]
 fn create_lorebook_rolls_back_parent_when_entry_write_fails() {
     let app_root = temp_path("lorebook-rollback");
