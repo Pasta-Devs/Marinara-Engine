@@ -109,12 +109,14 @@ export class GlobalErrorBoundary extends Component<GlobalErrorBoundaryProps, Glo
 
   private copyDebugDetails = () => {
     const debugDetails = buildDebugDetails(this.state.error, this.state.componentStack);
-    const writePromise = navigator.clipboard?.writeText(debugDetails);
+    const writeText = navigator.clipboard?.writeText;
 
-    if (!writePromise) {
+    if (typeof writeText !== "function") {
       this.setState({ copyStatus: "failed" });
       return;
     }
+
+    const writePromise = writeText.call(navigator.clipboard, debugDetails);
 
     void writePromise
       .then(() => this.setState({ copyStatus: "copied" }))

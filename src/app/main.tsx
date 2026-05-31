@@ -25,10 +25,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
   onRecoverableError: (error, errorInfo) => reportReactRootError("recoverable", error, errorInfo),
 }).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <GlobalErrorBoundary>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
         <App />
-      </GlobalErrorBoundary>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   </React.StrictMode>,
 );

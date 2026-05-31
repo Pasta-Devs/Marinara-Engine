@@ -90,6 +90,32 @@ describe("GlobalErrorBoundary", () => {
     expect(container.textContent).toContain("Copied debug details");
   });
 
+  it("shows copy failure when clipboard writeText is unavailable", () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {},
+    });
+
+    act(() => {
+      root.render(
+        <GlobalErrorBoundary>
+          <BrokenChild />
+        </GlobalErrorBoundary>,
+      );
+    });
+
+    const copyButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Copy debug details"),
+    );
+    expect(copyButton).toBeDefined();
+
+    act(() => {
+      copyButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain("Copy failed");
+  });
+
   it("runs the provided reload action from the fallback", () => {
     const onReload = vi.fn();
 
