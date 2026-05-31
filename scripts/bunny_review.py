@@ -215,6 +215,8 @@ def model_call(client, messages, stats):
     )
     stats["model_calls"] += 1
     add_usage(stats, getattr(resp, "usage", None))
+    if isinstance(resp, str):
+        return resp
     return resp.choices[0].message.content or ""
 
 def parse_context_request(content):
