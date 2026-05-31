@@ -1030,6 +1030,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-card-css={message.characterId ?? undefined}
       onClick={handleMessageClick}
       onDoubleClick={handleMessageDoubleClick}
     >

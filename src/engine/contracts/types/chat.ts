@@ -348,6 +348,10 @@ export interface ChatMetadata {
    */
   summaryTailMessages?: number;
 
+  // ── Card Theming ──
+  /** How creator-notes CSS is applied: "disabled" | "exclusive" | "chat" (default). */
+  cardCssMode?: "disabled" | "exclusive" | "chat";
+
   /** Any extra key-value data */
   [key: string]: unknown;
 }
