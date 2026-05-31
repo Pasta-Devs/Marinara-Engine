@@ -727,6 +727,31 @@ def is_ci_check(item):
     return name in {"ci", "ci status", "checks", "github checks"}
 
 
+def is_stale_ci_text(text):
+    lowered = text.lower()
+    if "ci" not in lowered and "cargo" not in lowered and "rust check" not in lowered:
+        return False
+    stale_markers = (
+        "still running",
+        "not available",
+        "unavailable",
+        "unknown",
+        "pending",
+        "not include",
+        "not provided",
+    )
+    return any(marker in lowered for marker in stale_markers)
+
+
+def is_stale_ci_check(item):
+    if is_ci_check(item):
+        return True
+    combined = " ".join(
+        str(item.get(key, "")) for key in ("name", "status", "detail")
+    )
+    return is_stale_ci_text(combined)
+
+
 def normalize_ci_status(ci_status):
     if not ci_status:
         return ""
@@ -752,7 +777,8 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
     normalized_ci_status = normalize_ci_status(ci_status)
     pre_merge = review_obj.get("pre_merge_checks") or []
     if normalized_ci_status:
-        pre_merge = [item for item in pre_merge if not is_ci_check(item)]
+        pre_merge = [item for item in pre_merge if not is_stale_ci_check(item)]
+        checked = [item for item in checked if not is_stale_ci_text(str(item))]
     finding_lines = (
         [f"- [{f.severity}] `{f.path}:{f.line}` - {f.title}" for f in findings]
         or ["No actionable findings."]
