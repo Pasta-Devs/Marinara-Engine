@@ -62,7 +62,9 @@
       ],
       "checks": [
         "Fixes address root causes instead of adding fake success, silent catches, broad fallbacks, or UI-only guards.",
-        "Provider, storage, command, and transport changes preserve error contracts and hostable behavior."
+        "Provider, storage, command, and transport changes preserve error contracts and hostable behavior.",
+        "Parent records must not collect IDs, metadata, counts, or relationships from child rows that later skip import or fail to persist.",
+        "Pre-scan logic should use the same eligibility criteria as the write loop, especially for imports, migrations, and rollback-sensitive storage paths."
       ]
     },
     {

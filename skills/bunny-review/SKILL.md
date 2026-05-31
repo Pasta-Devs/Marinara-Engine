@@ -48,6 +48,13 @@ Treat these as high-signal Marinara review concerns:
 - Fake success states, silent catches, broad fallbacks, or UI-only guards over broken contracts.
 - Changes without tests when the touched behavior has realistic regression risk.
 
+For import, storage, migration, and persistence changes, explicitly check for invariant drift:
+
+- Parent records populated from child rows that are later skipped, filtered, or fail to persist.
+- Pre-scans collecting IDs, metadata, counts, or relationships with looser criteria than the write loop.
+- Message, chat, character, branch, or asset metadata becoming inconsistent after rollback or partial import.
+- Tests that verify linked happy-path rows but miss filtered rows such as empty content, system-only rows, invalid rows, or fallback rows.
+
 ## Output Shape
 
 Reply with only `FINAL_REVIEW` followed by a single JSON object. Do not wrap the JSON in Markdown. Keep strings concise while still reporting every actionable finding. Do not include exhaustive audit trails, repeated CI history, or long file lists unless they change the reviewer’s decision.
