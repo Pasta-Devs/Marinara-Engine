@@ -704,7 +704,7 @@ const chartavernProvider: ProviderConfig = {
         externalUrl: `https://character-tavern.com/character/${h.path}`,
         _raw: h,
       })),
-      totalCount: (data?.totalHits ?? data?.totalPages) ? data.totalPages! * 60 : hits.length,
+      totalCount: data?.totalPages != null ? data.totalPages * 60 : (data?.totalHits ?? hits.length),
     };
   },
   fetchDetail: async (card) => {

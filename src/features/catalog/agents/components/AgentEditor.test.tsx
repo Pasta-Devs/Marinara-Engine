@@ -42,6 +42,8 @@ vi.mock("../hooks/use-agents", () => {
       detail: (id: string) => ["agents", id],
       customRuns: (id: string) => ["agents", "runs", "custom", id],
     },
+    agentCreditLabel: (value: unknown) =>
+      typeof value === "string" && value.trim() ? value.trim() : "Marinara Dev Team",
     useAgentConfigs: () => ({ data: agentHookMocks.configs }),
     useUpdateAgent: () => agentHookMocks.updateAgent,
     useCreateAgent: () => agentHookMocks.createAgent,
