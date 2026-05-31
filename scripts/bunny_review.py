@@ -722,11 +722,37 @@ def render_finding_body(finding):
     return "\n".join(parts).strip()
 
 
+def is_ci_check(item):
+    name = str(item.get("name", "")).strip().lower()
+    return name in {"ci", "ci status", "checks", "github checks"}
+
+
+def normalize_ci_status(ci_status):
+    if not ci_status:
+        return ""
+    unique_lines = []
+    seen = set()
+    for raw_line in ci_status.splitlines():
+        line = raw_line.strip()
+        if not line or line.lower() == "### ci status":
+            continue
+        if line.startswith("- "):
+            key = line.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+        unique_lines.append(line)
+    return "\n".join(unique_lines).strip()
+
+
 def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_sha):
     summary = review_obj.get("change_summary") or []
     questions = review_obj.get("open_questions") or []
     checked = review_obj.get("what_i_checked") or []
+    normalized_ci_status = normalize_ci_status(ci_status)
     pre_merge = review_obj.get("pre_merge_checks") or []
+    if normalized_ci_status:
+        pre_merge = [item for item in pre_merge if not is_ci_check(item)]
     finding_lines = (
         [f"- [{f.severity}] `{f.path}:{f.line}` - {f.title}" for f in findings]
         or ["No actionable findings."]
@@ -756,8 +782,8 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         body.append(
             f"- Skipped {len(invalid_findings)} model finding(s) because Bunny could not validate their diff locations."
         )
-    if ci_status:
-        body.extend(["", "### CI Status", ci_status.strip()])
+    if normalized_ci_status:
+        body.extend(["", "### CI Status", normalized_ci_status])
     return "\n".join(body).strip() + "\n"
 
 
