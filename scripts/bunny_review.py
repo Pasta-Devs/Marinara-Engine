@@ -1,10 +1,10 @@
 # scripts/bunny_review.py
-import json, os, pathlib, subprocess, glob, fnmatch, time
+import os, pathlib, subprocess, time
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
-MAX_TOOL_ITERS = 30
-MAX_FILE_BYTES = 200_000
+MAX_REVIEW_PACKET_CHARS = 180_000
+MAX_SECTION_CHARS = 60_000
 
 # --- safety: keep file reads inside the repo and away from secrets ---
 def _safe_path(rel: str) -> pathlib.Path:
@@ -18,79 +18,101 @@ def _safe_path(rel: str) -> pathlib.Path:
         raise ValueError("blocked sensitive file")
     return full
 
-# --- read-only git only; no build/check commands ---
-ALLOWED_GIT = {
-    "status", "diff", "log", "show", "rev-parse",
-    "merge-base", "name-only", "ls-files", "blame",
-}
-def run_git(args):
-    if not args or args[0] not in ALLOWED_GIT:
-        return f"refused: git '{args[0] if args else ''}' not allowed"
+def run_git(args, limit=MAX_SECTION_CHARS):
     out = subprocess.run(
         ["git", *args], cwd=REPO_ROOT,
         capture_output=True, text=True, timeout=60,
     )
-    return (out.stdout + out.stderr)[:60_000]
+    return truncate(out.stdout + out.stderr, limit)
 
-def read_file(path, start=1, end=None):
+def truncate(text, limit):
+    if len(text) <= limit:
+        return text
+    return (
+        text[:limit]
+        + f"\n\n[truncated: section was {len(text)} chars, limit is {limit} chars]\n"
+    )
+
+def read_text(path, limit=MAX_SECTION_CHARS):
     p = _safe_path(path)
-    data = p.read_text(encoding="utf-8", errors="replace")[:MAX_FILE_BYTES]
-    lines = data.splitlines()
-    end = end or len(lines)
-    chunk = lines[max(0, start - 1):end]
-    return "\n".join(f"{i + start}: {l}" for i, l in enumerate(chunk))
+    return truncate(p.read_text(encoding="utf-8", errors="replace"), limit)
 
-def list_dir(path="."):
-    p = _safe_path(path)
-    return "\n".join(sorted(
-        f"{c.name}/" if c.is_dir() else c.name for c in p.iterdir()
-    ))
+def changed_files(base):
+    names = run_git(["diff", "--name-only", f"{base}...HEAD"])
+    return [line.strip() for line in names.splitlines() if line.strip()]
 
-def search(pattern, glob_expr="**/*"):
-    hits = []
-    for f in glob.glob(str(REPO_ROOT / glob_expr), recursive=True):
-        fp = pathlib.Path(f)
-        if not fp.is_file():
-            continue
+def select_guidance(files):
+    guidance = ["AGENTS.md"]
+    joined = "\n".join(files)
+    if any(
+        marker in joined
+        for marker in (
+            "src/engine/",
+            "src/features/",
+            "src/shared/api/",
+            "src-tauri/",
+        )
+    ):
+        guidance.append("skills/marinara-architecture-guard/SKILL.md")
+    if any(
+        marker in joined
+        for marker in (
+            "chat",
+            "roleplay",
+            "game",
+            "modes",
+            "prompt",
+            "generation",
+            "summary",
+            "memory",
+        )
+    ):
+        guidance.append("skills/marinara-mode-separation/SKILL.md")
+    if any(
+        marker in joined
+        for marker in (
+            "fix/",
+            "storage",
+            "imports",
+            "provider",
+            "transport",
+            "commands",
+        )
+    ):
+        guidance.append("skills/marinara-bugfix-discipline/SKILL.md")
+    if any(marker in joined for marker in ("README", "docs/", "skills/", "AGENTS.md")):
+        guidance.append("skills/marinara-getting-started/SKILL.md")
+    return list(dict.fromkeys(guidance))
+
+def build_review_packet(base, ci_status):
+    files = changed_files(base)
+    sections = [
+        ("git status", run_git(["status", "--short", "--branch"], 12_000)),
+        ("repo root", run_git(["rev-parse", "--show-toplevel"], 4_000)),
+        ("merge base", run_git(["merge-base", "HEAD", base], 4_000)),
+        ("diff stat", run_git(["diff", "--stat", f"{base}...HEAD"], 20_000)),
+        ("changed files", "\n".join(files) or "No changed files reported."),
+        ("numstat", run_git(["diff", "--numstat", f"{base}...HEAD"], 20_000)),
+        (
+            "patch",
+            run_git(
+                ["diff", "--find-renames", "--unified=80", f"{base}...HEAD"],
+                MAX_SECTION_CHARS,
+            ),
+        ),
+    ]
+    if ci_status:
+        sections.append(("CI status", ci_status))
+    for path in select_guidance(files):
         try:
-            for n, line in enumerate(fp.read_text("utf-8", "replace").splitlines(), 1):
-                if pattern in line:
-                    rel = fp.relative_to(REPO_ROOT)
-                    hits.append(f"{rel}:{n}: {line.strip()[:200]}")
-                    if len(hits) >= 100:
-                        return "\n".join(hits)
-        except Exception:
-            continue
-    return "\n".join(hits) or "no matches"
+            sections.append((f"guidance: {path}", read_text(path, 30_000)))
+        except Exception as exc:
+            sections.append((f"guidance: {path}", f"Could not read: {exc}"))
 
-TOOLS = [
-    {"type": "function", "function": {
-        "name": "run_git",
-        "description": "Run a read-only git command. First arg is the subcommand.",
-        "parameters": {"type": "object", "properties": {
-            "args": {"type": "array", "items": {"type": "string"}}},
-            "required": ["args"]}}},
-    {"type": "function", "function": {
-        "name": "read_file",
-        "description": "Read a repo file. Optional 1-based start/end lines.",
-        "parameters": {"type": "object", "properties": {
-            "path": {"type": "string"},
-            "start": {"type": "integer"}, "end": {"type": "integer"}},
-            "required": ["path"]}}},
-    {"type": "function", "function": {
-        "name": "list_dir",
-        "description": "List a directory inside the repo.",
-        "parameters": {"type": "object", "properties": {
-            "path": {"type": "string"}}, "required": []}}},
-    {"type": "function", "function": {
-        "name": "search",
-        "description": "Substring search across files matching a glob.",
-        "parameters": {"type": "object", "properties": {
-            "pattern": {"type": "string"}, "glob_expr": {"type": "string"}},
-            "required": ["pattern"]}}},
-]
-DISPATCH = {"run_git": run_git, "read_file": read_file,
-            "list_dir": list_dir, "search": search}
+    packet = "\n\n".join(
+        f"## {title}\n```text\n{body}\n```" for title, body in sections
+    )
+    return truncate(packet, MAX_REVIEW_PACKET_CHARS)
 
 def usage_value(usage, *path):
     current = usage
@@ -113,16 +135,11 @@ def add_usage(totals, usage):
 
 def print_telemetry(stats):
     elapsed = time.monotonic() - stats["started_at"]
-    tool_counts = ", ".join(
-        f"{name}={count}" for name, count in sorted(stats["tool_counts"].items())
-    ) or "none"
     print(
         "Bunny telemetry: "
         f"elapsed_s={elapsed:.1f}; "
         f"model_calls={stats['model_calls']}; "
-        f"tool_calls={stats['tool_calls']}; "
-        f"forced_final={stats['forced_final']}; "
-        f"tool_counts={tool_counts}; "
+        f"review_packet_chars={stats['review_packet_chars']}; "
         f"prompt_tokens={stats['prompt_tokens']}; "
         f"completion_tokens={stats['completion_tokens']}; "
         f"reasoning_tokens={stats['reasoning_tokens']}; "
@@ -143,29 +160,19 @@ def main():
     skill = skill_path.read_text("utf-8")
     base = os.environ.get("PR_BASE_REF", "main")
     ci_status = os.environ.get("CI_STATUS", "")
+    review_packet = build_review_packet(base, ci_status)
 
-    # Build the user message with CI status if available
     user_content = (
         f"Review this PR. The review base branch is '{base}'. "
-        f"Follow the skill's Setup and Review Passes using the tools, "
-        f"load only the docs and marinara skills that match the touched area, "
-        f"and produce the final review in the skill's Output Shape. "
-        f"Do not edit files."
+        "Use the provided review packet as the complete inspection context. "
+        "Do not ask for tools, do not claim you ran commands beyond the packet, "
+        "and produce only the final review in the skill's Output Shape."
     )
-    
-    if ci_status:
-        user_content += (
-            f"\n\nCI Status: {ci_status}\n"
-            f"The CI jobs (typecheck, build, cargo check, architecture checks, tests) "
-            f"have already run. Reference their status in your What I Checked section rather "
-            f"than re-running these commands. Focus your verification on reasoning checks "
-            f"that CI cannot perform: ownership boundaries, failure-path analysis, "
-            f"mode separation, and contract correctness."
-        )
-    
     user_content += (
-        "\n\nUse the tools for focused inspection only. When you have enough context, "
-        "stop calling tools and reply with only the review text in the Output Shape format."
+        "\n\nFocus on correctness, contracts, failure paths, tests, and architecture. "
+        "If the packet is truncated or missing context for a potential issue, mention that "
+        "limitation in What I Checked rather than inventing certainty."
+        f"\n\n# Review Packet\n{review_packet}"
     )
 
     messages = [
@@ -175,67 +182,22 @@ def main():
     stats = {
         "started_at": time.monotonic(),
         "model_calls": 0,
-        "tool_calls": 0,
-        "tool_counts": {},
-        "forced_final": False,
+        "review_packet_chars": len(review_packet),
         "prompt_tokens": 0,
         "completion_tokens": 0,
         "reasoning_tokens": 0,
         "total_tokens": 0,
     }
 
-    for _ in range(MAX_TOOL_ITERS):
-        resp = client.chat.completions.create(
-            model=os.environ.get("LLM_MODEL", "gpt-5.5"),
-            messages=messages,
-            tools=TOOLS,
-        )
-        stats["model_calls"] += 1
-        add_usage(stats, getattr(resp, "usage", None))
-        msg = resp.choices[0].message
-        messages.append(msg.model_dump(exclude_none=True))
-
-        if not msg.tool_calls:
-            pathlib.Path("review.md").write_text(msg.content or "", "utf-8")
-            print_telemetry(stats)
-            return
-
-        for call in msg.tool_calls:
-            stats["tool_calls"] += 1
-            stats["tool_counts"][call.function.name] = (
-                stats["tool_counts"].get(call.function.name, 0) + 1
-            )
-            try:
-                args = json.loads(call.function.arguments or "{}")
-                result = DISPATCH[call.function.name](**args)
-            except Exception as e:
-                result = f"error: {e}"
-            messages.append({
-                "role": "tool", "tool_call_id": call.id,
-                "content": str(result)[:60_000],
-            })
-
-    messages.append({
-        "role": "user",
-        "content": (
-            "The tool-call budget is now closed. Do not call any more tools. "
-            "Using only the context already gathered, produce the final Bunny Review "
-            "in the required Output Shape. If evidence is incomplete, say so in "
-            "What I Checked instead of continuing research."
-        ),
-    })
-    stats["forced_final"] = True
     resp = client.chat.completions.create(
         model=os.environ.get("LLM_MODEL", "gpt-5.5"),
         messages=messages,
-        tools=TOOLS,
-        tool_choice="none",
     )
     stats["model_calls"] += 1
     add_usage(stats, getattr(resp, "usage", None))
     msg = resp.choices[0].message
     pathlib.Path("review.md").write_text(
-        msg.content or "Bunny could not produce review text after the tool budget closed.",
+        msg.content or "Bunny could not produce review text from the review packet.",
         "utf-8",
     )
     print_telemetry(stats)
