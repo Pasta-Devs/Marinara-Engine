@@ -578,6 +578,7 @@ export function AgentEditor() {
     isCustomAgent,
     isNewCustomAgent,
     isKnowledgeRetrievalAgent,
+    isIllustratorAgent,
     updateAgent,
     createAgent,
     openAgentDetail,
