@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { personaKeys } from "../query-keys";
 import { personaApi } from "../../../../shared/api/persona-api";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -118,6 +118,11 @@ export function useActivePersona(enabled = true) {
   });
 }
 
+export function invalidatePersonaCollectionQueries(queryClient: Pick<QueryClient, "invalidateQueries">): void {
+  queryClient.invalidateQueries({ queryKey: personaKeys.list, exact: true });
+  queryClient.invalidateQueries({ queryKey: personaKeys.summaries, exact: true });
+}
+
 export function useCreatePersona() {
   const qc = useQueryClient();
   return useMutation({
@@ -140,8 +145,7 @@ export function useCreatePersona() {
       avatarCrop?: unknown;
     }) => storageApi.create("personas", data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
     },
   });
 }
@@ -187,8 +191,7 @@ export function useUpdatePersona() {
         });
       });
 
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.active });
@@ -203,8 +206,7 @@ export function useDeletePersona() {
     onSuccess: (_data, id) => {
       qc.removeQueries({ queryKey: personaKeys.detail(id) });
       qc.removeQueries({ queryKey: personaKeys.summaryDetail(id) });
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
@@ -215,8 +217,7 @@ export function useDuplicatePersona() {
   return useMutation({
     mutationFn: (id: string) => storageCommandsApi.duplicate("personas", id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
     },
   });
 }
@@ -226,8 +227,7 @@ export function useActivatePersona() {
   return useMutation({
     mutationFn: (id: string) => personaApi.activate(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.active });
     },
   });
@@ -239,8 +239,7 @@ export function useUploadPersonaAvatar() {
     mutationFn: ({ id, avatar, filename }: { id: string; avatar: string; filename?: string }) =>
       personaApi.uploadAvatar(id, avatar, filename),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: personaKeys.list });
-      qc.invalidateQueries({ queryKey: personaKeys.summaries });
+      invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.active });

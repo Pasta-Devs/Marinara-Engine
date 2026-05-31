@@ -11,6 +11,7 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { personaKeys } from "../query-keys";
 import {
+  invalidatePersonaCollectionQueries,
   useDeletePersona,
   usePersona,
   usePersonaSummaries,
@@ -151,6 +152,20 @@ describe("persona hooks", () => {
   function expectActivePersonaInvalidated() {
     expect(queryClient.getQueryState(personaKeys.active)?.isInvalidated).toBe(true);
   }
+
+  it("invalidates persona list and summary caches together", () => {
+    queryClient.setQueryData(personaKeys.list, [{ id: "persona-1", name: "Full Persona" }]);
+    queryClient.setQueryData(personaKeys.summaries, [{ id: "persona-1", name: "Summary Persona" }]);
+    queryClient.setQueryData(personaKeys.detail("persona-1"), { id: "persona-1", name: "Detail Persona" });
+    queryClient.setQueryData(personaKeys.active, { id: "persona-1", name: "Active Persona" });
+
+    invalidatePersonaCollectionQueries(queryClient);
+
+    expect(queryClient.getQueryState(personaKeys.list)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(personaKeys.summaries)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(personaKeys.detail("persona-1"))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(personaKeys.active)?.isInvalidated).toBe(false);
+  });
 
   it("projects persona summaries with file-backed avatar fields", async () => {
     storageListMock.mockResolvedValue([
