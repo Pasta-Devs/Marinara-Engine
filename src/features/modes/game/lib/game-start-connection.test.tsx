@@ -3,6 +3,7 @@ import {
   canStartGameWithConnection,
   GAME_START_CONNECTION_REQUIRED_MESSAGE,
   normalizeGameStartConnectionId,
+  RANDOM_CONNECTION_SENTINEL,
 } from "./game-start-connection";
 
 describe("game start connection gate", () => {
@@ -15,7 +16,7 @@ describe("game start connection gate", () => {
 
   it("allows selected connections and the existing random sentinel", () => {
     expect(canStartGameWithConnection("conn-1")).toBe(true);
-    expect(canStartGameWithConnection(" random ")).toBe(true);
+    expect(canStartGameWithConnection(` ${RANDOM_CONNECTION_SENTINEL} `)).toBe(true);
     expect(normalizeGameStartConnectionId(" conn-1 ")).toBe("conn-1");
   });
 
