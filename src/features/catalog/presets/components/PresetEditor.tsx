@@ -227,6 +227,7 @@ export function PresetEditor() {
   }, [dirty, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Local editable state
   const [localName, setLocalName] = useState("");
@@ -254,25 +255,26 @@ export function PresetEditor() {
     closePresetDetail();
   }, [dirty, closePresetDetail]);
 
-  const handleSave = useCallback(() => {
-    if (!presetDetailId) return;
-    updatePreset.mutate(
-      {
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!presetDetailId) return false;
+    setSaveError(null);
+    try {
+      await updatePreset.mutateAsync({
         id: presetDetailId,
         name: localName,
         description: localDescription,
         wrapFormat: localWrapFormat,
         author: localAuthor,
         parameters: localParams,
-      },
-      {
-        onSuccess: () => {
-          setDirty(false);
-          setShowSaved(true);
-          setTimeout(() => setShowSaved(false), 1500);
-        },
-      },
-    );
+      });
+      setDirty(false);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 1500);
+      return true;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save preset");
+      return false;
+    }
   }, [presetDetailId, localName, localDescription, localWrapFormat, localAuthor, localParams, updatePreset]);
 
   const handleDelete = useCallback(async () => {
@@ -445,15 +447,30 @@ export function PresetEditor() {
               Discard
             </button>
             <button
-              onClick={() => {
-                handleSave();
-                closePresetDetail();
+              onClick={async () => {
+                const saved = await handleSave();
+                if (saved) closePresetDetail();
               }}
+              disabled={updatePreset.isPending}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >
               Save & close
             </button>
           </div>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
+          <AlertTriangle size="0.8125rem" />
+          <span className="flex-1">{saveError}</span>
+          <button
+            onClick={() => setSaveError(null)}
+            className="rounded-lg px-2 py-0.5 hover:bg-red-500/20"
+            aria-label="Dismiss save error"
+          >
+            <X size="0.75rem" aria-hidden="true" />
+          </button>
         </div>
       )}
 

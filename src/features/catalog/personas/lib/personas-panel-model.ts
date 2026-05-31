@@ -17,7 +17,7 @@ export type PersonaGroupRow = { id: string; name: string; description: string; p
 
 export type PersonaPanelGroup = PersonaGroupRow & { memberIds: string[]; isSynthetic?: boolean };
 
-export const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
+const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
 
 export type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
 

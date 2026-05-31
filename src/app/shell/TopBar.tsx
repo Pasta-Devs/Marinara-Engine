@@ -93,6 +93,7 @@ export function TopBar({
       <button
         type="button"
         onClick={openChats}
+        data-tour="sidebar-toggle"
         className={cn(
           "mari-mobile-topbar-button shrink-0",
           sidebarOpen && "mari-mobile-topbar-button-active text-[var(--primary)]",

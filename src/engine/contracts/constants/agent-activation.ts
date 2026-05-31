@@ -1,6 +1,6 @@
 export const DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH = 5;
 export const MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH = 200;
-export const MAX_CUSTOM_AGENT_ACTIVATION_KEYWORDS = 100;
+const MAX_CUSTOM_AGENT_ACTIVATION_KEYWORDS = 100;
 
 export function normalizeCustomAgentActivationKeywords(value: unknown): string[] {
   const rawKeywords = typeof value === "string" ? value.split(/\r?\n|,/) : Array.isArray(value) ? value : [];
