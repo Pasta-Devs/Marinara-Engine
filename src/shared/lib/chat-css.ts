@@ -231,10 +231,14 @@ export function scopeChatCss(css: string, scopeSelector: string): string {
     // Scope each selector in the comma-separated list
     const scopedSelectors = selector.split(",").map((sel) => {
       const s = sel.trim();
-      // :root, html, body -> scopeSelector
+      // :root, html, body -> scopeSelector (targets the scope element itself)
       if (/^(:root|html|body)$/i.test(s)) return scopeSelector;
-      // Starts with :root, html, body -> replace with scope
+      // Starts with :root, html, body -> replace prefix with scope
       if (/^(:root|html|body)\s/i.test(s)) return s.replace(/^(:root|html|body)/i, scopeSelector);
+      // [data-card-css] alone -> scopeSelector (self-reference in exclusive mode)
+      if (/^\[data-card-css\]$/i.test(s)) return scopeSelector;
+      // [data-card-css] with descendant -> replace with scope
+      if (/^\[data-card-css\]\s/i.test(s)) return s.replace(/^\[data-card-css\]/i, scopeSelector);
       // Otherwise prefix
       return `${scopeSelector} ${s}`;
     });
