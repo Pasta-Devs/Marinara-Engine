@@ -734,6 +734,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           isStreaming && "bg-[var(--secondary)]/20",
           multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
         )}
+        data-card-css={message.characterId ?? undefined}
         onClick={handleMessageClick}
         onDoubleClick={handleMessageDoubleClick}
       >
