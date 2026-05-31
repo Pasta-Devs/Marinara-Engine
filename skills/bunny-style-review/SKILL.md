@@ -44,22 +44,22 @@ Treat these as high-signal Marinara review concerns:
 
 ## Output Shape
 
-Reply with only the review text. Use this exact structure:
+Reply with only the review text. Keep the review concise while still reporting every actionable finding. Do not include exhaustive audit trails, repeated CI history, or long file lists unless they change the reviewer’s decision. Use this exact structure:
 
 ```
 ## Bunny Review
 
 ### Change Summary
-- Plain-language summary of what the PR changes and why it matters. Write for a reader who may not know the codebase or implementation details.
+- 1-2 plain-language sentences explaining what the PR changes and why it matters for a reader who may not know the codebase.
 
 ### Findings
-- [severity] file:line - Finding title. Explain the concrete risk, why it happens, and the smallest useful fix.
+- [severity] file:line - Finding title. Use 2-4 sentences max: risk, cause, smallest useful fix.
 
 ### Open Questions
-- Question or assumption, if any.
+- 0-2 concise questions or assumptions, if any.
 
 ### What I Checked
-- Short list of the main commands/files/contracts inspected.
+- 3-5 concise bullets covering the main commands, files, or contracts inspected.
 ```
 
 If there are no findings, write:
@@ -68,7 +68,7 @@ If there are no findings, write:
 ## Bunny Review
 
 ### Change Summary
-- Plain-language summary of what the PR changes and why it matters. Write for a reader who may not know the codebase or implementation details.
+- 1-2 plain-language sentences explaining what the PR changes and why it matters for a reader who may not know the codebase.
 
 ### Findings
 No actionable findings.
@@ -77,5 +77,5 @@ No actionable findings.
 - None.
 
 ### What I Checked
-- Short list of the main commands/files/contracts inspected.
+- 3-5 concise bullets covering the main commands, files, or contracts inspected.
 ```
