@@ -91,6 +91,8 @@ const PANEL_BACKDROP =
   "fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]";
 const TRACKER_FOREGROUND_AVOIDANCE_CLASS =
   "pl-[var(--tracker-chat-avoid-left)] pr-[var(--tracker-chat-avoid-right)] transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
+const TRACKER_SCROLL_AVOIDANCE_CLASS =
+  "transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
 const PANEL_CONTAINER =
   "relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in";
 
@@ -971,7 +973,11 @@ export function ChatRoleplaySurface({
             )}
 
             <div
-              className={cn("relative z-10 min-h-0 flex-1 basis-0 overflow-hidden", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}
+              className={cn("relative z-10 min-h-0 flex-1 basis-0 overflow-hidden", TRACKER_SCROLL_AVOIDANCE_CLASS)}
+              style={{
+                paddingLeft: "var(--tracker-chat-scroll-avoid-left)",
+                paddingRight: "var(--tracker-chat-scroll-avoid-right)",
+              }}
             >
               <div
                 ref={scrollRef}

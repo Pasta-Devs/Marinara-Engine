@@ -697,6 +697,12 @@ export function AppShell() {
         ? "var(--tracker-panel-mobile-width)"
         : `${Math.round(trackerPanelWidth * 0.62)}px`
       : "0px";
+  const trackerPanelScrollAvoidance =
+    trackerPanelAnchoredForMotion && trackerPanelSurfaceAvailable
+      ? isMobile
+        ? "var(--tracker-panel-mobile-width)"
+        : `${trackerPanelWidth + TRACKER_PANEL_HUD_GAP}px`
+      : "0px";
   const trackerPanelHudClearance =
     trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
       ? isMobile
@@ -1058,6 +1064,10 @@ export function AppShell() {
                   "--tracker-panel-mobile-width": mobileTrackerPanelWidth,
                   "--tracker-chat-avoid-left": trackerPanelSide === "left" ? trackerPanelChatAvoidance : "0px",
                   "--tracker-chat-avoid-right": trackerPanelSide === "right" ? trackerPanelChatAvoidance : "0px",
+                  "--tracker-chat-scroll-avoid-left":
+                    trackerPanelSide === "left" ? trackerPanelScrollAvoidance : "0px",
+                  "--tracker-chat-scroll-avoid-right":
+                    trackerPanelSide === "right" ? trackerPanelScrollAvoidance : "0px",
                   "--tracker-panel-hud-clear-left": trackerPanelSide === "left" ? trackerPanelHudClearance : "0px",
                   "--tracker-panel-hud-clear-right": trackerPanelSide === "right" ? trackerPanelHudClearance : "0px",
                 } as CSSProperties
