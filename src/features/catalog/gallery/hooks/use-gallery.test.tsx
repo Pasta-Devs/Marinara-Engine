@@ -126,7 +126,10 @@ describe("gallery hooks", () => {
 
   it("regenerates a gallery image from its saved prompt and stores the new image", async () => {
     const regenerate = await renderHook(() => useRegenerateGalleryImage(chat()));
-    queryClient.setQueryData(galleryKeys.images("chat-1"), [image()]);
+    const activeGalleryKey = galleryKeys.images("chat-1", ["chat-1"]);
+    const otherGalleryKey = galleryKeys.images("other-chat", ["other-chat"]);
+    queryClient.setQueryData(activeGalleryKey, [image()]);
+    queryClient.setQueryData(otherGalleryKey, []);
     generateMock.mockResolvedValue({
       image: "data:image/webp;base64,new-image",
       mimeType: "image/webp",
@@ -159,27 +162,51 @@ describe("gallery hooks", () => {
         url: "data:image/webp;base64,new-image",
       }),
     );
-    expect(queryClient.getQueryState(galleryKeys.images("chat-1"))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(activeGalleryKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherGalleryKey)?.isInvalidated).toBe(false);
   });
 
   it("uses the game image connection when regenerating game gallery images", async () => {
+    const gameChat = chat({
+      mode: "game",
+      groupId: "game-1",
+      metadata: {
+        summary: null,
+        tags: [],
+        enableAgents: false,
+        agentOverrides: {},
+        activeAgentIds: [],
+        activeToolIds: [],
+        presetChoices: {},
+        imageGenConnectionId: "conversation-image-connection",
+        gameImageConnectionId: "game-image-connection",
+        gameId: "game-1",
+      },
+    });
+    const activeGalleryKey = galleryKeys.images("chat-1", ["chat-2", "chat-1"]);
+    const unrelatedGalleryKey = galleryKeys.images("other-chat", ["other-chat"]);
+    queryClient.setQueryData(galleryKeys.gameSessions("game-1"), [
+      chat({
+        id: "chat-2",
+        mode: "game",
+        groupId: "game-1",
+        metadata: {
+          summary: null,
+          tags: [],
+          enableAgents: false,
+          agentOverrides: {},
+          activeAgentIds: [],
+          activeToolIds: [],
+          presetChoices: {},
+          gameId: "game-1",
+        },
+      }),
+    ]);
+    queryClient.setQueryData(activeGalleryKey, []);
+    queryClient.setQueryData(unrelatedGalleryKey, []);
+
     const regenerate = await renderHook(() =>
-      useRegenerateGalleryImage(
-        chat({
-          mode: "game",
-          metadata: {
-            summary: null,
-            tags: [],
-            enableAgents: false,
-            agentOverrides: {},
-            activeAgentIds: [],
-            activeToolIds: [],
-            presetChoices: {},
-            imageGenConnectionId: "conversation-image-connection",
-            gameImageConnectionId: "game-image-connection",
-          },
-        }),
-      ),
+      useRegenerateGalleryImage(gameChat),
     );
     generateMock.mockResolvedValue({ base64: "new-image", mimeType: "image/png" });
     createMock.mockResolvedValue({ id: "gallery-2" });
@@ -201,6 +228,8 @@ describe("gallery hooks", () => {
         url: "data:image/png;base64,new-image",
       }),
     );
+    expect(queryClient.getQueryState(activeGalleryKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(unrelatedGalleryKey)?.isInvalidated).toBe(false);
   });
 
   it("rejects images without a saved prompt before calling the provider", async () => {

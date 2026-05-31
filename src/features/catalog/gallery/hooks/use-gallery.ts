@@ -127,6 +127,11 @@ export function useUploadGalleryImage(chatId: string | null) {
 
 export function useRegenerateGalleryImage(chat: Chat | null) {
   const queryClient = useQueryClient();
+  const gameId = getGameGalleryScopeId(chat);
+  const gameSessions = queryClient.getQueryData<Chat[]>(galleryKeys.gameSessions(gameId)) ?? [];
+  const galleryChatIds = getGalleryChatIds(chat, gameSessions);
+  const activeGalleryQueryKey = galleryKeys.images(chat?.id ?? null, galleryChatIds);
+
   return useMutation({
     mutationFn: async (image: ChatImage) => {
       if (!chat?.id) throw new Error("Open a chat before regenerating gallery images.");
@@ -172,7 +177,7 @@ export function useRegenerateGalleryImage(chat: Chat | null) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: galleryKeys.all });
+      queryClient.invalidateQueries({ queryKey: activeGalleryQueryKey });
     },
     meta: { chatId: chat?.id ?? null },
   });
