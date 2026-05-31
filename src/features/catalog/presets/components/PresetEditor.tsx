@@ -300,8 +300,8 @@ export function PresetEditor() {
 
   const orderedSections = useMemo<PromptSectionRow[]>(() => {
     if (!data?.sections) return [];
-    const map = new Map(data.sections.map((section) => [section.id, section]));
-    return sectionOrder.map((id) => map.get(id)).filter((section): section is PromptSection => Boolean(section));
+    const map = new Map<string, PromptSectionRow>(data.sections.map((section) => [section.id, section]));
+    return sectionOrder.map((id) => map.get(id)).filter((section): section is PromptSectionRow => Boolean(section));
   }, [data?.sections, sectionOrder]);
 
   const sectionHasLorebookMarker = useMemo(() => {
