@@ -16,6 +16,8 @@ const EMPTY_STATE: GlobalErrorBoundaryState = {
   copyStatus: "idle",
 };
 
+const reactRootUncaughtErrors = new WeakSet<object>();
+
 function describeError(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -52,6 +54,10 @@ export function reportReactRootError(
   error: unknown,
   errorInfo?: ErrorInfo,
 ) {
+  if (type === "uncaught" && (typeof error === "object" || typeof error === "function") && error !== null) {
+    reactRootUncaughtErrors.add(error);
+  }
+
   console.error(`[Marinara] React ${type} error`, error, {
     componentStack: errorInfo?.componentStack ?? "",
   });
@@ -64,6 +70,14 @@ export function installGlobalErrorDiagnostics() {
   globalDiagnosticsInstalled = true;
 
   window.addEventListener("error", (event) => {
+    if (
+      event.error &&
+      (typeof event.error === "object" || typeof event.error === "function") &&
+      reactRootUncaughtErrors.has(event.error)
+    ) {
+      return;
+    }
+
     console.error("[Marinara] Unhandled window error", event.error ?? event.message);
   });
 
