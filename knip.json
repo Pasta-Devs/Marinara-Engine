@@ -33,6 +33,10 @@
     "src/engine/contracts/types/prompt.ts": ["exports", "types"],
     "src/engine/contracts/types/regex.ts": ["types"],
     "src/engine/contracts/types/scene.ts": ["types"],
+    "src/engine/contracts/constants/agent-activation.ts": ["exports"],
+    "src/engine/generation-core/llm/inline-thinking.ts": ["exports", "types"],
+    "src/engine/generation/generate-route-utils.ts": ["exports"],
+    "src/engine/generation/tools-runtime.ts": ["exports"],
     "src/engine/mari/mari-entry.ts": ["types"],
     "src/features/catalog/characters/hooks/use-characters.ts": ["exports"],
     "src/features/runtime/tracker/components/tracker-data-sidebar.constants.ts": ["duplicates"]

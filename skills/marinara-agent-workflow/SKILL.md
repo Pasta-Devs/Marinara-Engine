@@ -48,7 +48,7 @@ Read `references/source-map.md` when auditing or updating this skill against `ch
 
 Before nontrivial edits, scale the gate to risk:
 
-- Tiny: owner, impact, affected modes/capabilities, checks.
+- Tiny local bug: core claim, likely owner/lane, risk level, and proof target.
 - Normal: owner, impact area, callers, contracts, affected modes/capabilities, checks.
 - Risky or cross-layer: boundary path, input/output/persistence/error behavior, dependency direction, shared-code justification, forbidden shortcuts avoided, docs/skills impact.
 
@@ -83,6 +83,13 @@ Ordinary bugfix language means local fix and verification by default. Do not
 commit, push, open or update PRs, trigger CodeRabbit, poll CI, mark ready, upload
 screenshots, or merge unless the user explicitly asks to ship, push, open a PR,
 or ready the work.
+
+For a narrow, low-risk, machine-provable local bug, use the tiny path: no full
+ledger by default, a narrow owner/proof gate before editing, the matching
+validation command after editing, and a compact final receipt. Upgrade to the
+full workflow as soon as the bug is nontrivial, PR-affecting, cross-boundary,
+storage/import/export/prompt/provider/security-sensitive,
+browser-evidence-dependent, or uncertain.
 
 Use a proof ladder before browser automation: static inspection, targeted tests,
 scratch harnesses, route/module repros, and jsdom/component proof first; use

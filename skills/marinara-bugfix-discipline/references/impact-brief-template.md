@@ -6,12 +6,10 @@ Use this structure before and after bug fixes. Keep it concise, but account for 
 
 ```text
 Bug:
-Owner:
-Likely root cause:
-Impact area:
-Affected modes:
-Files likely to change:
-Checks planned:
+Core claim:
+Likely owner/lane:
+Risk: low|risky
+Proof target:
 ```
 
 ## After Editing
@@ -27,6 +25,20 @@ Rust/TS boundary impact:
 Verification:
 Not touched:
 Remaining risk:
+```
+
+## Tiny Local Receipt
+
+Use this instead of a full ledger only for narrow, low-risk, machine-provable
+local bugs:
+
+```text
+Claim:
+Proof:
+Validation:
+Files:
+Risk:
+Vault:
 ```
 
 ## Root Cause Checklist
