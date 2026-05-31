@@ -41,6 +41,37 @@ export type CharacterImportUpdatePlan = {
   updatedName: string;
 };
 
+export class CharacterImportPartialSuccessError extends Error {
+  readonly importedId: string;
+  readonly importedName: string;
+  readonly targetId: string;
+  readonly updatedName: string;
+
+  constructor({
+    cause,
+    importedId,
+    importedName,
+    targetId,
+    updatedName,
+  }: {
+    cause: unknown;
+    importedId: string;
+    importedName: string;
+    targetId: string;
+    updatedName: string;
+  }) {
+    const causeMessage = cause instanceof Error ? cause.message : "Unknown cleanup error.";
+    super(
+      `Updated "${updatedName}" from "${importedName}", but the imported duplicate "${importedId}" could not be removed. Delete the duplicate manually. ${causeMessage}`,
+    );
+    this.name = "CharacterImportPartialSuccessError";
+    this.importedId = importedId;
+    this.importedName = importedName;
+    this.targetId = targetId;
+    this.updatedName = updatedName;
+  }
+}
+
 export const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; description: string }> = [
   { value: "all", label: "All tags", description: "Keep source tags." },
   { value: "none", label: "No tags", description: "Skip source tags." },

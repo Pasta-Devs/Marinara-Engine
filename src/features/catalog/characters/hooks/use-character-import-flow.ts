@@ -12,6 +12,7 @@ import { lorebookKeys } from "../../lorebooks/index";
 import { classifyCharacterImportFiles } from "../lib/character-import-file-classifier";
 import {
   buildCharacterImportUpdatePlan,
+  CharacterImportPartialSuccessError,
   type CharacterImportMode,
   type CharacterImportRow,
   type ImportResultRow,
@@ -52,6 +53,7 @@ export function useCharacterImportFlow(open: boolean) {
 
   const updateCharacterFromImportPlan = async (
     plan: ReturnType<typeof buildCharacterImportUpdatePlan>,
+    importedName: string,
   ): Promise<void> => {
     const snapshotId = generateClientId();
     await storageApi.create("character-versions", { id: snapshotId, ...plan.snapshot });
@@ -70,7 +72,17 @@ export function useCharacterImportFlow(open: boolean) {
     }
 
     if (plan.importedId && plan.importedId !== plan.patch.id) {
-      await deleteCharacter.mutateAsync(plan.importedId);
+      try {
+        await deleteCharacter.mutateAsync(plan.importedId);
+      } catch (error) {
+        throw new CharacterImportPartialSuccessError({
+          cause: error,
+          importedId: plan.importedId,
+          importedName,
+          targetId: plan.patch.id,
+          updatedName: plan.updatedName,
+        });
+      }
     }
   };
 
@@ -81,9 +93,37 @@ export function useCharacterImportFlow(open: boolean) {
     });
     const plan = buildCharacterImportUpdatePlan(target, imported, importedName);
 
-    await updateCharacterFromImportPlan(plan);
+    await updateCharacterFromImportPlan(plan, importedName);
 
     return plan.updatedName;
+  };
+
+  const pushUpdateExistingResult = async ({
+    filename,
+    imported,
+    importedName,
+    nextResults,
+  }: {
+    filename: string;
+    imported: unknown;
+    importedName: string;
+    nextResults: ImportResultRow[];
+  }) => {
+    try {
+      const updatedName = await updateImportedCharacterInPlace(imported, importedName);
+      nextResults.push({
+        filename,
+        success: true,
+        message: `Updated "${updatedName}" from "${importedName}"`,
+      });
+    } catch (error) {
+      if (!(error instanceof CharacterImportPartialSuccessError)) throw error;
+      nextResults.push({
+        filename,
+        success: true,
+        message: error.message,
+      });
+    }
   };
 
   const handleFiles = async (files: File[], importEmbeddedLorebook?: boolean) => {
@@ -177,14 +217,11 @@ export function useCharacterImportFlow(open: boolean) {
           if (result.lorebook?.lorebookId) importedLorebook = true;
           if (result.success) {
             if (importMode === "update") {
-              const updatedName = await updateImportedCharacterInPlace(
-                result.character,
-                result.name ?? result.filename,
-              );
-              nextResults.push({
+              await pushUpdateExistingResult({
                 filename: result.filename,
-                success: true,
-                message: `Updated "${updatedName}" from "${result.name ?? result.filename}"`,
+                imported: result.character,
+                importedName: result.name ?? result.filename,
+                nextResults,
               });
               continue;
             } else {
@@ -224,11 +261,11 @@ export function useCharacterImportFlow(open: boolean) {
 
           if (result.success) {
             if (importMode === "update") {
-              const updatedName = await updateImportedCharacterInPlace(result.character, result.name ?? item.file.name);
-              nextResults.push({
+              await pushUpdateExistingResult({
                 filename: item.file.name,
-                success: true,
-                message: `Updated "${updatedName}" from "${result.name ?? item.file.name}"`,
+                imported: result.character,
+                importedName: result.name ?? item.file.name,
+                nextResults,
               });
               continue;
             } else {
@@ -267,11 +304,11 @@ export function useCharacterImportFlow(open: boolean) {
           });
           if (result.success) {
             if (importMode === "update") {
-              const updatedName = await updateImportedCharacterInPlace(result.character, result.name ?? file.name);
-              nextResults.push({
+              await pushUpdateExistingResult({
                 filename: file.name,
-                success: true,
-                message: `Updated "${updatedName}" from "${result.name ?? file.name}"`,
+                imported: result.character,
+                importedName: result.name ?? file.name,
+                nextResults,
               });
               continue;
             } else {

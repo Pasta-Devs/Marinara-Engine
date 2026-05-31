@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCharacterImportUpdatePlan } from "./character-import-model";
+import { buildCharacterImportUpdatePlan, CharacterImportPartialSuccessError } from "./character-import-model";
 
 describe("character import model", () => {
   it("builds the update patch and pre-import version snapshot", () => {
@@ -63,5 +63,21 @@ describe("character import model", () => {
     expect(() =>
       buildCharacterImportUpdatePlan({ id: "target-1" }, { data: { name: "Imported" } }, "card.json"),
     ).toThrow('Imported character "card.json" is missing required card field: description.');
+  });
+
+  it("labels duplicate cleanup failures as partial import success", () => {
+    const error = new CharacterImportPartialSuccessError({
+      cause: new Error("delete failed"),
+      importedId: "imported-1",
+      importedName: "Imported",
+      targetId: "target-1",
+      updatedName: "Target",
+    });
+
+    expect(error.importedId).toBe("imported-1");
+    expect(error.targetId).toBe("target-1");
+    expect(error.message).toBe(
+      'Updated "Target" from "Imported", but the imported duplicate "imported-1" could not be removed. Delete the duplicate manually. delete failed',
+    );
   });
 });
