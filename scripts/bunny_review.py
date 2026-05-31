@@ -11,6 +11,9 @@ MAX_CONTEXT_CHARS = 80_000
 MAX_CONTEXT_FILE_CHARS = 20_000
 MAX_SEARCH_HITS = 30
 MAX_SEARCH_FILE_BYTES = 250_000
+MAX_IDENTIFIER_CONTEXT_CHARS = 60_000
+MAX_IDENTIFIER_TERMS = 24
+MAX_IDENTIFIER_HITS_PER_TERM = 12
 
 # --- safety: keep file reads inside the repo and away from secrets ---
 def _safe_path(rel: str) -> pathlib.Path:
@@ -81,6 +84,49 @@ def search_repo(pattern):
                     break
     return "\n".join(hits) or "no matches"
 
+def search_repo_hits(pattern, max_hits):
+    result = search_repo(pattern)
+    if result == "no matches" or result.startswith("refused:"):
+        return []
+    return result.splitlines()[:max_hits]
+
+def extract_changed_identifiers(patch):
+    stop_words = {
+        "true", "false", "null", "none", "some", "string", "value", "json",
+        "expect", "should", "test", "result", "state", "data", "content",
+        "message", "messages", "chat", "chats", "role", "rows", "row",
+        "import", "imported", "storage", "create", "get", "list", "id",
+    }
+    counts = {}
+    for line in patch.splitlines():
+        if not line.startswith(("+", "-")) or line.startswith(("+++", "---")):
+            continue
+        for token in re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", line):
+            if token.lower() in stop_words:
+                continue
+            counts[token] = counts.get(token, 0) + 1
+    preferred = sorted(
+        counts,
+        key=lambda token: (
+            not any(char.isupper() for char in token) and "_" not in token,
+            -counts[token],
+            token.lower(),
+        ),
+    )
+    return preferred[:MAX_IDENTIFIER_TERMS]
+
+def build_identifier_context(patch):
+    terms = extract_changed_identifiers(patch)
+    sections = []
+    for term in terms:
+        hits = search_repo_hits(term, MAX_IDENTIFIER_HITS_PER_TERM)
+        if not hits:
+            continue
+        sections.append(f"### {term}\n" + "\n".join(hits))
+    if not sections:
+        return "No changed identifier usage context found."
+    return truncate("\n\n".join(sections), MAX_IDENTIFIER_CONTEXT_CHARS)
+
 def changed_files(base):
     names = run_git(["diff", "--name-only", f"{base}...HEAD"])
     return [line.strip() for line in names.splitlines() if line.strip()]
@@ -130,6 +176,10 @@ def select_guidance(files):
 
 def build_review_packet(base, ci_status):
     files = changed_files(base)
+    patch = run_git(
+        ["diff", "--find-renames", "--unified=80", f"{base}...HEAD"],
+        MAX_SECTION_CHARS,
+    )
     sections = [
         ("git status", run_git(["status", "--short", "--branch"], 12_000)),
         ("repo root", run_git(["rev-parse", "--show-toplevel"], 4_000)),
@@ -139,11 +189,9 @@ def build_review_packet(base, ci_status):
         ("numstat", run_git(["diff", "--numstat", f"{base}...HEAD"], 20_000)),
         (
             "patch",
-            run_git(
-                ["diff", "--find-renames", "--unified=80", f"{base}...HEAD"],
-                MAX_SECTION_CHARS,
-            ),
+            patch,
         ),
+        ("changed identifier usage", build_identifier_context(patch)),
     ]
     if ci_status:
         sections.append(("CI status", ci_status))
