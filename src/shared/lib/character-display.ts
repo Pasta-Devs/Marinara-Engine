@@ -25,11 +25,6 @@ function cleanDisplayText(value: string | null | undefined): string {
   return cleaned.match(WRAPPED_LOOKUP_ALIAS_PATTERN)?.[1]?.trim() ?? cleaned;
 }
 
-function addCandidate(candidates: Set<string>, value: string | null | undefined) {
-  const cleaned = cleanDisplayText(value);
-  if (cleaned && cleaned.length <= LOOKUP_TEXT_MAX_LENGTH) candidates.add(cleaned);
-}
-
 function addAliasCandidate(
   candidates: CharacterLookupAliasCandidate[],
   seen: Set<string>,
@@ -120,19 +115,6 @@ export function getCharacterLookupAliasCandidates(
 export function getCharacterTitle(character: CharacterDisplayInfo | null | undefined): string | null {
   const title = typeof character?.comment === "string" ? character.comment.trim() : "";
   return title || null;
-}
-
-export function getCharacterLookupAliases(character: CharacterDisplayInfo | null | undefined): string[] {
-  const aliases = new Set<string>();
-  for (const candidate of getCharacterLookupAliasCandidates(character)) addCandidate(aliases, candidate.text);
-  return Array.from(aliases);
-}
-
-export function getCharacterLookupTexts(character: CharacterDisplayInfo | null | undefined): string[] {
-  const candidates = new Set<string>();
-  addCandidate(candidates, character?.name);
-  for (const alias of getCharacterLookupAliases(character)) addCandidate(candidates, alias);
-  return Array.from(candidates);
 }
 
 export function parseCharacterDisplayData(raw: { data: unknown; comment?: string | null }): CharacterDisplayInfo {

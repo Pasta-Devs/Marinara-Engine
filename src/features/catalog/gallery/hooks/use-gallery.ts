@@ -10,14 +10,14 @@ function imageCreatedAt(image: ChatImage) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-export function getGameGalleryScopeId(chat: Chat | null): string | null {
+function getGameGalleryScopeId(chat: Chat | null): string | null {
   if (!chat || chat.mode !== "game") return null;
   const metadataGameId =
     typeof chat.metadata?.gameId === "string" && chat.metadata.gameId.trim() ? chat.metadata.gameId.trim() : null;
   return metadataGameId ?? chat.groupId ?? null;
 }
 
-export function getGalleryChatIds(chat: Chat | null, gameSessions: readonly Chat[] = []): string[] {
+function getGalleryChatIds(chat: Chat | null, gameSessions: readonly Chat[] = []): string[] {
   if (!chat) return [];
   const gameId = getGameGalleryScopeId(chat);
   if (!gameId) return [chat.id];
@@ -30,7 +30,7 @@ export function getGalleryChatIds(chat: Chat | null, gameSessions: readonly Chat
   return Array.from(new Set([...sessionIds, chat.id]));
 }
 
-export async function listGalleryImagesForChatIds(
+async function listGalleryImagesForChatIds(
   galleryChatIds: readonly string[],
   listByChatId: (chatId: string) => Promise<ChatImage[]> = (chatId) =>
     storageApi.list<ChatImage>("gallery", { filters: { chatId } }),
@@ -57,7 +57,7 @@ export function useGalleryImages(chat: Chat | null) {
   });
 }
 
-export function chatGalleryUploadFailureError(fileCount: number, failures: unknown[]): Error {
+function chatGalleryUploadFailureError(fileCount: number, failures: unknown[]): Error {
   if (fileCount === 1 && failures[0] instanceof Error) {
     return failures[0];
   }

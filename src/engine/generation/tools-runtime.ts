@@ -250,7 +250,7 @@ async function loadSearchableStoredLorebookEntries(
   return entries.flat().filter((entry) => lorebookToolEntryPassesContext(entry, input));
 }
 
-export async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {
+async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {
   const query = stringArg(args, "query").toLowerCase();
   if (!query) toolError("query is required.");
   const category = stringArg(args, "category").toLowerCase();

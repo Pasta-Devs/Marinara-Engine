@@ -254,7 +254,7 @@ function queuePatch<K extends GameStatePatchField>(
   );
 }
 
-export async function flushGameStatePatch(chatId?: string) {
+async function flushGameStatePatch(chatId?: string) {
   const errors: unknown[] = [];
   const entries = Array.from(pendingPatches.entries()).filter(([, queued]) => !chatId || queued.chatId === chatId);
 
@@ -424,7 +424,7 @@ function retainBeforeUnloadFlush() {
   };
 }
 
-export function patchGameStateField<K extends GameStatePatchField>(
+function patchGameStateField<K extends GameStatePatchField>(
   chatId: string,
   field: K,
   value: GameStatePatchValue[K],

@@ -13,7 +13,7 @@ export type ClassifiedCharacterImportFiles = {
   results: ImportResultRow[];
 };
 
-export async function isZipCharacterImportFile(file: File): Promise<boolean> {
+async function isZipCharacterImportFile(file: File): Promise<boolean> {
   if (file.size < 4) return false;
   const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
   return head[0] === 0x50 && head[1] === 0x4b;

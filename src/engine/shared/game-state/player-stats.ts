@@ -100,7 +100,7 @@ function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null
  * agents produce: plain arrays, keyed quest maps (`{ questId: quest }`), grouped
  * containers (`{ quests: [...] }`, `{ groups: [...] }`), and nested collections.
  */
-export function normalizeActiveQuestCollection(value: unknown, depth = 0): QuestProgress[] {
+function normalizeActiveQuestCollection(value: unknown, depth = 0): QuestProgress[] {
   if (value == null || depth > 5) return [];
   if (Array.isArray(value)) {
     return value.flatMap((entry) => normalizeActiveQuestCollection(entry, depth + 1));
