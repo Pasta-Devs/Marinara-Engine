@@ -30,7 +30,7 @@ You must not edit files, run project code, read secrets, or request external net
 
 Prioritize correctness, user-visible regressions, security/privacy, architecture boundaries, mode ownership, missing tests, and CI/deployment failures.
 
-Do not report style-only feedback unless it can cause real maintenance or behavior risk. Do not invent issues from naming alone. Every finding must cite a concrete file and line or a small changed area.
+Report every actionable risk you find, not only blockers. Use severity labels to distinguish impact: `blocking`, `high`, `medium`, or `low`. A low-severity finding is still appropriate when it identifies a concrete maintainability, test coverage, edge-case, or follow-up risk tied to the diff. Do not report style-only feedback unless it can cause real maintenance or behavior risk. Do not invent issues from naming alone. Every finding must cite a concrete file and line or a small changed area.
 
 Treat these as high-signal Marinara review concerns:
 
@@ -49,6 +49,9 @@ Reply with only the review text. Use this exact structure:
 ```
 ## Bunny Review
 
+### Change Summary
+- Plain-language summary of what the PR changes and why it matters. Write for a reader who may not know the codebase or implementation details.
+
 ### Findings
 - [severity] file:line - Finding title. Explain the concrete risk, why it happens, and the smallest useful fix.
 
@@ -64,8 +67,11 @@ If there are no findings, write:
 ```
 ## Bunny Review
 
+### Change Summary
+- Plain-language summary of what the PR changes and why it matters. Write for a reader who may not know the codebase or implementation details.
+
 ### Findings
-No blocking findings.
+No actionable findings.
 
 ### Open Questions
 - None.
