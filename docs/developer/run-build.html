@@ -285,8 +285,14 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
         <h2>Run The Remote Runtime With Docker</h2>
         <p>Build and start the Rust API server with Docker Compose:</p>
         <pre><code>docker compose up --build</code></pre>
-        <p>The compose service exposes:</p>
+        <p>The compose service is intended for same-machine browser access by default and exposes:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
+        <p>
+          The default Compose port binding is limited to <code>127.0.0.1</code>. For LAN or
+          reverse-proxy access, intentionally change the bind address and configure
+          <code>BASIC_AUTH_USER</code>/<code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or another
+          explicit remote access opt-in.
+        </p>
         <p>To build directly from GitHub, use Docker's remote git context:</p>
         <pre><code>docker build -t marinara-engine-server https://github.com/Pasta-Devs/Marinara-Engine.git#refactor
 docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-server</code></pre>
