@@ -28,7 +28,6 @@ export { characterKeys } from "../query-keys";
 export {
   cacheCharacterListRecordFromResult,
   invalidateCharacterCollectionQueries,
-  removeCachedCharacterRecord,
 } from "../lib/character-query-cache";
 
 export type CharacterSummary = {
@@ -64,9 +63,6 @@ const CHARACTER_SUMMARY_OPTIONS = {
   fields: CHARACTER_LIST_FIELDS,
   fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
 };
-const CHARACTER_LIST_OPTIONS = {
-  fields: CHARACTER_LIST_FIELDS,
-};
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
 const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];
 
@@ -76,11 +72,6 @@ function isPresent<T>(value: T | null | undefined): value is NonNullable<T> {
 
 function normalizeSearchQuery(search: string | null | undefined): string {
   return search?.trim() ?? "";
-}
-
-async function listCharacters(): Promise<unknown[]> {
-  const characters = await storageApi.list<unknown>("characters", CHARACTER_LIST_OPTIONS);
-  return characters.map(normalizeCharacterAvatarFields);
 }
 
 async function listCharacterSummaries(search?: string): Promise<CharacterSummary[]> {
@@ -123,16 +114,6 @@ async function listCharacterSummariesByIds(ids: string[]): Promise<CharacterSumm
 }
 
 // ── Characters ──
-
-export function useCharacters(enabled = true) {
-  return useQuery({
-    queryKey: characterKeys.list(),
-    queryFn: listCharacters,
-    enabled,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
-}
 
 export function useCharacterSummaries(enabled = true, search?: string) {
   const query = normalizeSearchQuery(search);

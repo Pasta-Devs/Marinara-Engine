@@ -36,7 +36,7 @@ export type ParsedGroupRow = Omit<GroupRow, "characterIds"> & {
 export type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";
 export type FavoriteFilter = "all" | "favorites" | "non-favorites";
 
-export const UNGROUPED_CHARACTER_GROUP_ID = "__ungrouped-characters__";
+const UNGROUPED_CHARACTER_GROUP_ID = "__ungrouped-characters__";
 
 export function parseCharacterRows(characters: unknown): ParsedCharacterRow[] {
   if (!characters) return [];

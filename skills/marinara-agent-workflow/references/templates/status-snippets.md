@@ -11,6 +11,10 @@ Done: <result or root cause>. Files: <paths + tiny summaries>. Verification: <pr
 ```
 
 ```text
+Claim: <one sentence behavior proven>. Proof: <repro or targeted proof command/result>. Validation: <matching repo command/result>. Files: <paths + tiny summaries>. Risk: <none or explicit gap>. Durable note: <none or classification>.
+```
+
+```text
 Verdict: <ship|needs work|blocked>. Findings: <none or bullets>. Verification: <checks run or not run>. Risk: <gap>.
 ```
 

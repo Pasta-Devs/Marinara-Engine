@@ -46,6 +46,7 @@ Pressure points touched:
 <!-- Check only what you personally ran or manually verified. Treat unchecked items as explicit TODOs. -->
 
 - [ ] Matching validation command passes locally (for example `pnpm typecheck`, `pnpm build`, `pnpm check:architecture`, `pnpm check:docs`, or full `pnpm check` when warranted)
+- [ ] `pnpm check` passes locally before PR push/handoff, including the unused-code check
 - [ ] `pnpm typecheck` passes locally
 - [ ] `pnpm build` passes locally
 - [ ] `pnpm check:architecture` passes locally

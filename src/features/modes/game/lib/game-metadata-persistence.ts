@@ -162,12 +162,6 @@ function requeuePatch(key: string, queued: QueuedGameMetadataPatch) {
   scheduleRetry(queued.chatId);
 }
 
-export function getPendingGameMetadataPatch(chatId: string): GameMetadataPatch | null {
-  restorePendingPatchesFromStorage();
-  const queued = pendingPatches.get(chatId) ?? durablePatches.get(chatId);
-  return queued ? { ...queued.patch } : null;
-}
-
 export function persistGameMetadataPatch(chatId: string, patch: GameMetadataPatch, options: PersistOptions = {}) {
   restorePendingPatchesFromStorage();
   retainPersistedHandler(chatId, options);
@@ -256,22 +250,5 @@ export async function flushPendingGameMetadataPatches(chatId?: string, options: 
 
   if (errors.length > 0) {
     throw new Error(`Failed to persist ${errors.length} game metadata patch${errors.length === 1 ? "" : "es"}.`);
-  }
-}
-
-export async function resetGameMetadataPersistenceForTest() {
-  for (const timer of retryTimers.values()) clearTimeout(timer);
-  retryTimers.clear();
-  pendingPatches.clear();
-  durablePatches.clear();
-  persistedChatHandlers.clear();
-  lastFailureToastAt.clear();
-  const inFlight = Array.from(inFlightPatches.values());
-  inFlightPatches.clear();
-  await Promise.allSettled(inFlight);
-  restoredStoredPatches = false;
-  nextPatchRevision = 1;
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(PATCH_QUEUE_STORAGE_KEY);
   }
 }

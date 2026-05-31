@@ -62,6 +62,10 @@ import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { audioManager } from "../lib/game-audio";
 import {
+  canStartGameWithConnection,
+  GAME_START_CONNECTION_REQUIRED_MESSAGE,
+} from "../lib/game-start-connection";
+import {
   GAME_AUDIO_SETTINGS_STORAGE_KEY,
   getEffectiveVolume,
   normalizeVolume,
@@ -1739,6 +1743,7 @@ export function GameSurface({
     },
     [activeChatId, updateChat],
   );
+  const hasSelectedStartConnection = canStartGameWithConnection(chat.connectionId);
 
   const sceneWrapCharacterNames = useMemo(() => {
     const partyIds = mergeUniqueIds(getActivePartyIds(chatMeta), chatCharacterIds);
@@ -4807,6 +4812,10 @@ export function GameSurface({
 
   const handleStartGameNow = useCallback(() => {
     if (startGame.isPending || startGameRequested || startGameGuardRef.current) return;
+    if (!hasSelectedStartConnection) {
+      toast.error(GAME_START_CONNECTION_REQUIRED_MESSAGE);
+      return;
+    }
     startGameGuardRef.current = true;
     setStartGameRequested(true);
     startGame.mutate(
@@ -4830,7 +4839,7 @@ export function GameSurface({
         },
       },
     );
-  }, [activeChatId, generateInitialGameTurn, startGame, startGameRequested]);
+  }, [activeChatId, generateInitialGameTurn, hasSelectedStartConnection, startGame, startGameRequested]);
 
   const handleJsonRepairError = useCallback((error: unknown) => {
     const request = getJsonRepairRequest(error);
@@ -7591,12 +7600,22 @@ export function GameSurface({
 
   const handleStartGameRequest = useCallback(() => {
     if (startGame.isPending || startGameRequested || startGameGuardRef.current) return;
+    if (!hasSelectedStartConnection) {
+      toast.error(GAME_START_CONNECTION_REQUIRED_MESSAGE);
+      return;
+    }
     if (normalizedWidgets.length > 0) {
       setPrepareInitialWidgetsOpen(true);
       return;
     }
     handleStartGameNow();
-  }, [handleStartGameNow, normalizedWidgets.length, startGame.isPending, startGameRequested]);
+  }, [
+    handleStartGameNow,
+    hasSelectedStartConnection,
+    normalizedWidgets.length,
+    startGame.isPending,
+    startGameRequested,
+  ]);
 
   useEffect(() => {
     if (combatUiActive || normalizedWidgets.length === 0) {
@@ -7908,6 +7927,11 @@ export function GameSurface({
                     </option>
                   ))}
                 </select>
+                {!hasSelectedStartConnection && (
+                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    Choose a GM / Party Model before starting.
+                  </span>
+                )}
               </label>
               {introPhase === "intro" ? (
                 <div className="flex flex-col items-center gap-3">
@@ -7981,7 +8005,8 @@ export function GameSurface({
                     audioManager.unlock();
                     handleStartGameRequest();
                   }}
-                  disabled={startGame.isPending || startGameRequested}
+                  disabled={startGame.isPending || startGameRequested || !hasSelectedStartConnection}
+                  title={!hasSelectedStartConnection ? GAME_START_CONNECTION_REQUIRED_MESSAGE : undefined}
                   className="group flex items-center gap-2 rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white transition-all hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/30 disabled:opacity-50 disabled:hover:scale-100"
                 >
                   <Play size={18} className="transition-transform group-hover:scale-110" />

@@ -70,7 +70,7 @@ function estimateMariContextTokens(messages: MariMessage[], compaction: MariComp
   );
 }
 
-export function shouldCompactMariHistory(
+function shouldCompactMariHistory(
   messages: MariMessage[],
   compaction: MariCompactionState,
   connection: MariCompactionConnection | null | undefined,

@@ -6,7 +6,7 @@ import { formatSkillCheckResultSummary } from "../../../shared/scoring/skill-che
  * Mirrors the client's `stripGmTagsKeepReadables`. Resolved skill checks are
  * preserved as plain text because the roll result is canonical history.
  */
-export function stripGmCommandTags(content: string): string {
+function stripGmCommandTags(content: string): string {
   let text = preserveResolvedSkillCheckResults(content)
     .replace(/\[music:\s*[^\]]+\]/gi, "")
     .replace(/\[sfx:\s*[^\]]+\]/gi, "")
@@ -24,6 +24,7 @@ export function stripGmCommandTags(content: string): string {
     .replace(/\[element_attack:\s*[^\]]+\]/gi, "")
     .replace(/\[inventory:\s*[^\]]+\]/gi, "")
     .replace(/\[party_change:\s*[^\]]+\]/gi, "")
+    .replace(/\[party_add:\s*[^\]]+\]/gi, "")
     .replace(/\[party-turn\]/gi, "")
     .replace(/\[party-chat\]/gi, "")
     .replace(/\[dice:\s*[^\]]+\]/gi, "");
@@ -219,9 +220,18 @@ interface SegmentEditValue {
   readableType?: "note" | "book";
 }
 
+type SegmentEditableMessage = {
+  id?: unknown;
+  role?: unknown;
+  content?: unknown;
+  [key: string]: unknown;
+};
+
 const PARTY_LINE_RE =
   /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
 const COMPACT_DIALOGUE_RE = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+const LEGACY_DIALOGUE_RE = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
+const NARRATION_PREFIX_RE = /^\s*Narration\s*:\s*(.+)$/i;
 const READABLE_PLACEHOLDER_RE = /^__READABLE_\d+__$/;
 
 /** Check if a dialogue content string has surrounding quotes. */
@@ -243,6 +253,28 @@ function parseReadableType(originalText: string): "note" | "book" | undefined {
 
 function replaceDialogueSpeaker(prefix: string, speaker: string): string {
   return prefix.replace(/^(\s*)\[[^\]]+\]/, `$1[${speaker}]`);
+}
+
+function normalizeSegmentEditValue(value: unknown): SegmentEditValue | null {
+  if (typeof value === "string") {
+    return { content: value };
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const content = typeof record.content === "string" ? record.content : undefined;
+  const speaker =
+    typeof record.speaker === "string" && record.speaker.trim().length > 0 ? record.speaker.trim() : undefined;
+  const readableContent = typeof record.readableContent === "string" ? record.readableContent : undefined;
+  const readableType =
+    record.readableType === "book" || record.readableType === "note" ? record.readableType : undefined;
+
+  return content !== undefined || speaker !== undefined || readableContent !== undefined || readableType !== undefined
+    ? { content, speaker, readableContent, readableType }
+    : null;
 }
 
 function normalizeInlineVnDialogueLines(source: string): string {
@@ -340,8 +372,15 @@ function parseSegments(stripped: string): ParsedSegment[] {
       continue;
     }
 
+    const narrationMatch = line.match(NARRATION_PREFIX_RE);
+    if (narrationMatch) {
+      flushFallback();
+      segments.push({ originalText: narrationMatch[1]!.trim() });
+      continue;
+    }
+
     // Dialogue
-    const dialogueMatch = line.match(COMPACT_DIALOGUE_RE);
+    const dialogueMatch = line.match(LEGACY_DIALOGUE_RE) || line.match(COMPACT_DIALOGUE_RE);
     if (dialogueMatch) {
       flushFallback();
       const spokenContent = dialogueMatch[3]!.trim();
@@ -374,7 +413,7 @@ function parseSegments(stripped: string): ParsedSegment[] {
  * @returns        Modified content with edits applied (command tags stripped,
  *                 since they've already been processed by the engine)
  */
-export function applySegmentEdits(
+function applySegmentEdits(
   content: string,
   edits: Record<number, SegmentEditValue>,
   deletedSegments: Set<number> = new Set(),
@@ -423,4 +462,79 @@ export function applySegmentEdits(
 
   // If no edits actually matched any segment, return original content unchanged
   return anyApplied ? output.join("\n\n") : content;
+}
+
+function collectSegmentOverlayMaps(chatMeta: Record<string, unknown>): {
+  editsByMessage: Map<string, Record<number, SegmentEditValue>>;
+  deletesByMessage: Map<string, Set<number>>;
+} {
+  const editsByMessage = new Map<string, Record<number, SegmentEditValue>>();
+  const deletesByMessage = new Map<string, Set<number>>();
+
+  for (const [key, value] of Object.entries(chatMeta)) {
+    const isEdit = key.startsWith("segmentEdit:");
+    const isDelete = key.startsWith("segmentDelete:");
+    if (!isEdit && !isDelete) continue;
+    if (isDelete && value !== true && value !== "true") continue;
+
+    const keyBody = key.slice(isEdit ? "segmentEdit:".length : "segmentDelete:".length);
+    const lastColon = keyBody.lastIndexOf(":");
+    if (lastColon < 0) continue;
+    const messageId = keyBody.slice(0, lastColon);
+    const segmentIndex = Number.parseInt(keyBody.slice(lastColon + 1), 10);
+    if (!messageId || Number.isNaN(segmentIndex)) continue;
+
+    if (isEdit) {
+      const edit = normalizeSegmentEditValue(value);
+      if (!edit) continue;
+      let edits = editsByMessage.get(messageId);
+      if (!edits) {
+        edits = {};
+        editsByMessage.set(messageId, edits);
+      }
+      edits[segmentIndex] = edit;
+      continue;
+    }
+
+    let deleted = deletesByMessage.get(messageId);
+    if (!deleted) {
+      deleted = new Set<number>();
+      deletesByMessage.set(messageId, deleted);
+    }
+    deleted.add(segmentIndex);
+  }
+
+  return { editsByMessage, deletesByMessage };
+}
+
+export function applyAllSegmentEdits<TMessage extends SegmentEditableMessage>(
+  messages: readonly TMessage[],
+  chatMeta: Record<string, unknown>,
+): TMessage[] {
+  const { editsByMessage, deletesByMessage } = collectSegmentOverlayMaps(chatMeta);
+  if (editsByMessage.size === 0 && deletesByMessage.size === 0) return [...messages];
+
+  const output: TMessage[] = [];
+  for (const message of messages) {
+    const messageId = typeof message.id === "string" ? message.id : "";
+    const role = typeof message.role === "string" ? message.role : "";
+    if (!messageId || (role !== "assistant" && role !== "narrator")) {
+      output.push(message);
+      continue;
+    }
+
+    const edits = editsByMessage.get(messageId);
+    const deletedSegments = deletesByMessage.get(messageId);
+    if (!edits && !deletedSegments) {
+      output.push(message);
+      continue;
+    }
+
+    const content = typeof message.content === "string" ? message.content : "";
+    const nextContent = applySegmentEdits(content, edits ?? {}, deletedSegments ?? new Set<number>());
+    if (!nextContent.trim()) continue;
+    output.push({ ...message, content: nextContent });
+  }
+
+  return output;
 }

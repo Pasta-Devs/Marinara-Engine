@@ -12,13 +12,12 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import {
   cacheCharacterListRecordFromResult,
   characterKeys,
-  removeCachedCharacterRecord,
   useCharacter,
   useCharacterSummaries,
   useCharactersByIds,
-  useCharacters,
   useUpdateCharacter,
 } from "./use-characters";
+import { removeCachedCharacterRecord } from "../lib/character-query-cache";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -128,16 +127,6 @@ describe("character list query", () => {
     };
   }
 
-  it("requests list fields needed for managed and legacy avatar paths", async () => {
-    await renderHook(() => useCharacters(true));
-
-    await vi.waitFor(() => {
-      expect(storageListMock).toHaveBeenCalledWith("characters", {
-        fields: ["id", "data", "comment", "avatarPath", "avatarFilePath", "avatarFilename", "createdAt", "updatedAt"],
-      });
-    });
-  });
-
   it("normalizes managed avatar paths from character summaries", async () => {
     storageListMock.mockResolvedValue([
       {
@@ -158,102 +147,6 @@ describe("character list query", () => {
           avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
           avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
           avatarFilename: "Managed.png",
-        },
-      ]),
-    );
-  });
-
-  it("normalizes managed avatar paths from full character list reads", async () => {
-    storageListMock.mockResolvedValue([
-      {
-        id: "char-1",
-        data: { name: "Managed Character" },
-        avatarPath: "data:image/png;base64,large-avatar",
-        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
-        avatarFilename: "Managed.png",
-      },
-    ]);
-
-    const getCharacters = await renderHook(() => useCharacters(true));
-
-    await vi.waitFor(() =>
-      expect(getCharacters().data).toEqual([
-        {
-          id: "char-1",
-          data: { name: "Managed Character" },
-          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
-          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
-          avatarFilename: "Managed.png",
-        },
-      ]),
-    );
-  });
-
-  it("normalizes managed avatar paths to remote runtime asset urls", async () => {
-    remoteRuntimeTargetMock.mockReturnValue({ baseUrl: "http://runtime.local" });
-    storageListMock.mockResolvedValue([
-      {
-        id: "char-1",
-        data: { name: "Managed Character" },
-        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed Avatar.png",
-        avatarFilename: "Managed Avatar.png",
-      },
-    ]);
-
-    const getCharacters = await renderHook(() => useCharacters(true));
-
-    await vi.waitFor(() =>
-      expect(getCharacters().data).toEqual([
-        {
-          id: "char-1",
-          data: { name: "Managed Character" },
-          avatarPath: "http://runtime.local/api/assets/avatar/Managed%20Avatar.png",
-          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed Avatar.png",
-          avatarFilename: "Managed Avatar.png",
-        },
-      ]),
-    );
-    expect(convertFileSrcMock).not.toHaveBeenCalled();
-  });
-
-  it("preserves legacy avatar paths from full character list reads", async () => {
-    storageListMock.mockResolvedValue([
-      {
-        id: "char-1",
-        data: { name: "Legacy Character" },
-        avatarPath: "data:image/png;base64,legacy-avatar",
-      },
-    ]);
-
-    const getCharacters = await renderHook(() => useCharacters(true));
-
-    await vi.waitFor(() =>
-      expect(getCharacters().data).toEqual([
-        {
-          id: "char-1",
-          data: { name: "Legacy Character" },
-          avatarPath: "data:image/png;base64,legacy-avatar",
-        },
-      ]),
-    );
-  });
-
-  it("normalizes missing avatar paths to null from full character list reads", async () => {
-    storageListMock.mockResolvedValue([
-      {
-        id: "char-1",
-        data: { name: "No Avatar Character" },
-      },
-    ]);
-
-    const getCharacters = await renderHook(() => useCharacters(true));
-
-    await vi.waitFor(() =>
-      expect(getCharacters().data).toEqual([
-        {
-          id: "char-1",
-          data: { name: "No Avatar Character" },
-          avatarPath: null,
         },
       ]),
     );
