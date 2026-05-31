@@ -166,6 +166,7 @@ import {
   resolveActiveLorebookScopeReasons,
   type ActiveLorebookScopeReasonLabel,
 } from "../../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import { resolveGameLorebookScopeExclusions } from "../../../../../engine/generation-core/lorebooks/game-lorebook-scope";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -570,8 +571,9 @@ function ChatSettingsDrawerInner({
       chat,
       characters: chatCharIds.map((id) => ({ id })),
       persona: chat.personaId ? { id: chat.personaId } : null,
+      scopeExclusions: resolveGameLorebookScopeExclusions(chatMode, metadata),
     }),
-    [chat, chatCharIds],
+    [chat, chatCharIds, chatMode, metadata],
   );
   const activeLorebooks = useMemo<ActiveLorebookView[]>(() => {
     const lorebookList = (lorebooks ?? []) as Lorebook[];

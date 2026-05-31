@@ -167,11 +167,15 @@ export function resolveActiveLorebookScopeReasons(
     });
   }
 
-  const personaId = readString(chat.personaId);
-  if (context.persona && personaId) {
+  const activePersonaIds = [readString(chat.personaId), readString(context.persona?.id)].filter(
+    (id, index, ids) => id && ids.indexOf(id) === index,
+  );
+  if (context.persona && activePersonaIds.length > 0) {
     const personaIds = stringArray(lorebook.personaIds);
-    if (personaIds.includes(personaId) || readString(lorebook.personaId) === personaId) {
-      reasons.push({ lorebookId, lorebookName, reason: "persona", matchedIds: [personaId] });
+    const lorebookPersonaId = readString(lorebook.personaId);
+    const matchedPersonaIds = activePersonaIds.filter((id) => personaIds.includes(id) || lorebookPersonaId === id);
+    if (matchedPersonaIds.length > 0) {
+      reasons.push({ lorebookId, lorebookName, reason: "persona", matchedIds: matchedPersonaIds });
     }
   }
 

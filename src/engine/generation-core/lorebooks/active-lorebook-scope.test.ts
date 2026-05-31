@@ -57,6 +57,28 @@ describe("active lorebook scope", () => {
     expect(reason?.reason).toBe("global");
   });
 
+  it("uses persona context id when chat persona id is unavailable", () => {
+    const reasons = resolveActiveLorebookScopeReasons(
+      {
+        id: "book",
+        enabled: true,
+        personaIds: ["persona-from-context"],
+      },
+      {
+        chat: { id: "chat-1", mode: "roleplay" },
+        characters: [],
+        persona: { id: "persona-from-context" },
+      },
+    );
+
+    expect(reasons).toMatchObject([
+      {
+        reason: "persona",
+        matchedIds: ["persona-from-context"],
+      },
+    ]);
+  });
+
   it("excludes disabled Game Lorebook Keeper books in game scope", () => {
     const disabledKeeperContext = {
       chat: {
