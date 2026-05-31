@@ -15,7 +15,9 @@ export type PersonaPanelRow = {
 
 export type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string[] };
 
-export type PersonaPanelGroup = PersonaGroupRow & { memberIds: string[] };
+export type PersonaPanelGroup = PersonaGroupRow & { memberIds: string[]; isSynthetic?: boolean };
+
+export const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
 
 export type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
 
@@ -50,12 +52,41 @@ export function buildPersonaMap(personas: PersonaPanelRow[]): Map<string, Person
   return map;
 }
 
-export function parsePersonaGroups(personaGroupsRaw: PersonaGroupRow[] | undefined): PersonaPanelGroup[] {
+export function parsePersonaGroups(
+  personaGroupsRaw: PersonaGroupRow[] | undefined,
+  personas?: PersonaPanelRow[],
+): PersonaPanelGroup[] {
   if (!personaGroupsRaw) return [];
-  return personaGroupsRaw.map((group) => ({
-    ...group,
-    memberIds: Array.isArray(group.personaIds) ? [...group.personaIds] : [],
-  }));
+  const assignedIds = new Set<string>();
+  const groups = personaGroupsRaw.map((group) => {
+    const memberIds = Array.isArray(group.personaIds) ? [...group.personaIds] : [];
+    for (const id of memberIds) assignedIds.add(id);
+    return {
+      ...group,
+      memberIds,
+    };
+  });
+
+  if (!personas) return groups;
+
+  const ungroupedMemberIds = personas
+    .filter((persona) => !assignedIds.has(persona.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((persona) => persona.id);
+
+  if (ungroupedMemberIds.length === 0) return groups;
+
+  return [
+    ...groups,
+    {
+      id: UNGROUPED_PERSONA_GROUP_ID,
+      name: "Ungrouped",
+      description: "Personas not assigned to any group",
+      personaIds: [...ungroupedMemberIds],
+      memberIds: ungroupedMemberIds,
+      isSynthetic: true,
+    },
+  ];
 }
 
 export function filterPersonas({

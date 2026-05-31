@@ -127,6 +127,7 @@ export function PersonaGroupsSection({
 
             {groups.map((group) => {
               const isExpanded = expandedGroupId === group.id;
+              const isSynthetic = group.isSynthetic === true;
               return (
                 <div key={group.id} className="rounded-xl bg-[var(--secondary)]/60 ring-1 ring-[var(--border)]/50">
                   <div className="flex items-center gap-1.5 px-2.5 py-2">
@@ -165,54 +166,56 @@ export function PersonaGroupsSection({
                       </span>
                     )}
 
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => {
-                          if (assigningToGroup !== group.id) onExitSelectionMode();
-                          onAssigningToGroupChange(assigningToGroup === group.id ? null : group.id);
-                        }}
-                        className={cn(
-                          "rounded-lg p-1 transition-colors",
-                          assigningToGroup === group.id
-                            ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                        )}
-                        title="Assign personas"
-                      >
-                        <UserPlus size="0.75rem" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          onEditingGroupIdChange(group.id);
-                          onEditGroupNameChange(group.name);
-                        }}
-                        className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                        title="Rename"
-                      >
-                        <Pencil size="0.75rem" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (
-                            !(await showConfirmDialog({
-                              title: "Delete Group",
-                              message: `Delete group "${group.name}"?`,
-                              confirmLabel: "Delete",
-                              tone: "destructive",
-                            }))
-                          ) {
-                            return;
-                          }
-                          onDeleteGroup(group.id);
-                          if (expandedGroupId === group.id) onExpandedGroupIdChange(null);
-                          if (assigningToGroup === group.id) onAssigningToGroupChange(null);
-                        }}
-                        className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
-                        title="Delete group"
-                      >
-                        <Trash2 size="0.75rem" />
-                      </button>
-                    </div>
+                    {!isSynthetic && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => {
+                            if (assigningToGroup !== group.id) onExitSelectionMode();
+                            onAssigningToGroupChange(assigningToGroup === group.id ? null : group.id);
+                          }}
+                          className={cn(
+                            "rounded-lg p-1 transition-colors",
+                            assigningToGroup === group.id
+                              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                          )}
+                          title="Assign personas"
+                        >
+                          <UserPlus size="0.75rem" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            onEditingGroupIdChange(group.id);
+                            onEditGroupNameChange(group.name);
+                          }}
+                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          title="Rename"
+                        >
+                          <Pencil size="0.75rem" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (
+                              !(await showConfirmDialog({
+                                title: "Delete Group",
+                                message: `Delete group "${group.name}"?`,
+                                confirmLabel: "Delete",
+                                tone: "destructive",
+                              }))
+                            ) {
+                              return;
+                            }
+                            onDeleteGroup(group.id);
+                            if (expandedGroupId === group.id) onExpandedGroupIdChange(null);
+                            if (assigningToGroup === group.id) onAssigningToGroupChange(null);
+                          }}
+                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                          title="Delete group"
+                        >
+                          <Trash2 size="0.75rem" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {isExpanded && (
@@ -240,13 +243,15 @@ export function PersonaGroupsSection({
                                   )}
                                 </div>
                                 <span className="min-w-0 flex-1 truncate">{persona.name}</span>
-                                <button
-                                  onClick={() => onToggleGroupMember(group.id, personaId, group.memberIds)}
-                                  className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
-                                  title="Remove from group"
-                                >
-                                  <UserMinus size="0.625rem" />
-                                </button>
+                                {!isSynthetic && (
+                                  <button
+                                    onClick={() => onToggleGroupMember(group.id, personaId, group.memberIds)}
+                                    className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                                    title="Remove from group"
+                                  >
+                                    <UserMinus size="0.625rem" />
+                                  </button>
+                                )}
                               </div>
                             );
                           })}

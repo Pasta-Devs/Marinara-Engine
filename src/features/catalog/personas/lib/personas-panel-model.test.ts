@@ -4,6 +4,7 @@ import {
   filterPersonas,
   parsePersonaGroups,
   sortPersonas,
+  UNGROUPED_PERSONA_GROUP_ID,
   type PersonaGroupRow,
   type PersonaPanelRow,
 } from "./personas-panel-model";
@@ -103,27 +104,35 @@ describe("personas panel model", () => {
     expect(parsed[0]?.memberIds).not.toBe(groups[0]?.personaIds);
   });
 
+  it("appends a synthetic ungrouped bucket for personas outside real groups", () => {
+    const groups: PersonaGroupRow[] = [{ id: "group-2", name: "Archive", description: "", personaIds: ["persona-3"] }];
+
+    const parsed = parsePersonaGroups(groups, personas);
+
+    expect(parsed.at(-1)).toEqual({
+      id: UNGROUPED_PERSONA_GROUP_ID,
+      name: "Ungrouped",
+      description: "Personas not assigned to any group",
+      personaIds: ["persona-1", "persona-2"],
+      memberIds: ["persona-1", "persona-2"],
+      isSynthetic: true,
+    });
+    expect(groups).toEqual([{ id: "group-2", name: "Archive", description: "", personaIds: ["persona-3"] }]);
+  });
+
+  it("omits the synthetic ungrouped bucket when every persona belongs to a group", () => {
+    const groups: PersonaGroupRow[] = [
+      { id: "group-1", name: "All", description: "", personaIds: ["persona-1", "persona-2", "persona-3"] },
+    ];
+
+    expect(parsePersonaGroups(groups, personas).some((group) => group.isSynthetic)).toBe(false);
+  });
+
   it("sorts personas by name, creation date, and estimated token size", () => {
-    expect(sortPersonas(personas, "name-asc").map((row) => row.id)).toEqual([
-      "persona-1",
-      "persona-2",
-      "persona-3",
-    ]);
-    expect(sortPersonas(personas, "name-desc").map((row) => row.id)).toEqual([
-      "persona-3",
-      "persona-2",
-      "persona-1",
-    ]);
-    expect(sortPersonas(personas, "newest").map((row) => row.id)).toEqual([
-      "persona-1",
-      "persona-3",
-      "persona-2",
-    ]);
-    expect(sortPersonas(personas, "oldest").map((row) => row.id)).toEqual([
-      "persona-2",
-      "persona-3",
-      "persona-1",
-    ]);
+    expect(sortPersonas(personas, "name-asc").map((row) => row.id)).toEqual(["persona-1", "persona-2", "persona-3"]);
+    expect(sortPersonas(personas, "name-desc").map((row) => row.id)).toEqual(["persona-3", "persona-2", "persona-1"]);
+    expect(sortPersonas(personas, "newest").map((row) => row.id)).toEqual(["persona-1", "persona-3", "persona-2"]);
+    expect(sortPersonas(personas, "oldest").map((row) => row.id)).toEqual(["persona-2", "persona-3", "persona-1"]);
     expect(sortPersonas(personas, "tokens").map((row) => row.id)[0]).toBe("persona-2");
   });
 });

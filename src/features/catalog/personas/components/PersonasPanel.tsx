@@ -136,8 +136,8 @@ export function PersonasPanel() {
   const personaMap = useMemo(() => buildPersonaMap(rawList), [rawList]);
 
   const parsedGroups = useMemo(
-    () => parsePersonaGroups(personaGroupsRaw as PersonaGroupRow[] | undefined),
-    [personaGroupsRaw],
+    () => parsePersonaGroups(personaGroupsRaw as PersonaGroupRow[] | undefined, rawList),
+    [personaGroupsRaw, rawList],
   );
 
   const handleCreateGroup = useCallback(() => {
