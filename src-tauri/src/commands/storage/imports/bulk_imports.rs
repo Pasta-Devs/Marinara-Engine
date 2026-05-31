@@ -66,6 +66,8 @@ fn empty_import_counts() -> Value {
     })
 }
 
+const ST_BACKGROUND_EXTENSIONS: &[&str] = &[".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
+
 fn imported_count(imported: &Value, key: &str) -> i64 {
     imported.get(key).and_then(Value::as_i64).unwrap_or(0)
 }
@@ -444,7 +446,7 @@ pub(super) fn scan_st_folder(body: Value) -> AppResult<Value> {
         .collect();
     let backgrounds: Vec<Value> = list_files(
         &data_dir.join("backgrounds"),
-        &[".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"],
+        ST_BACKGROUND_EXTENSIONS,
         true,
     )
     .into_iter()
@@ -812,6 +814,11 @@ fn restore_record(
 }
 
 fn copy_background_file(state: &AppState, path: &Path) -> AppResult<Value> {
+    if !has_allowed_extension(path, ST_BACKGROUND_EXTENSIONS) {
+        return Err(AppError::invalid_input(
+            "Background import only supports image files",
+        ));
+    }
     let name = path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
@@ -840,6 +847,15 @@ fn copy_background_file(state: &AppState, path: &Path) -> AppResult<Value> {
     }
     fs::copy(path, &final_target)?;
     Ok(json!({ "success": true, "path": final_target.to_string_lossy() }))
+}
+
+fn has_allowed_extension(path: &Path, extensions: &[&str]) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{}", ext.to_ascii_lowercase()))
+        .unwrap_or_default();
+    extensions.iter().any(|allowed| *allowed == ext)
 }
 
 fn run_st_bulk_import_inner(
@@ -1587,6 +1603,64 @@ mod tests {
         assert!(
             persona.get("avatar").and_then(Value::as_str).is_none(),
             "persona imports should not duplicate avatar bytes into the avatar field"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+        let _ = fs::remove_dir_all(st_root);
+    }
+
+    #[test]
+    fn run_st_bulk_import_rejects_unscanned_non_image_background_selection() {
+        let app_root = temp_path("app");
+        let st_root = temp_path("source");
+        let data_dir = st_root.join("data").join("default-user");
+        fs::create_dir_all(data_dir.join("characters")).expect("characters dir should be created");
+        write_bytes(
+            &data_dir.join("backgrounds").join("valid.png"),
+            b"valid-background",
+        );
+        write_bytes(
+            &data_dir.join("backgrounds").join("not-image.txt"),
+            b"do not import me",
+        );
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        let (folder_path, folder_token) = folder_access(&st_root);
+        let scan = scan_st_folder(json!({
+            "folderPath": folder_path,
+            "folderToken": folder_token,
+        }))
+        .expect("fixture scan should succeed");
+
+        assert_eq!(
+            scan_ids(&scan, "backgrounds"),
+            vec!["backgrounds:backgrounds/valid.png".to_string()],
+            "scan must not advertise non-image background files"
+        );
+
+        let result = run_st_bulk_import_inner(
+            &state,
+            json!({
+                "folderPath": folder_path,
+                "folderToken": folder_token,
+                "options": {
+                    "backgrounds": [
+                        "backgrounds:backgrounds/valid.png",
+                        "backgrounds:backgrounds/not-image.txt"
+                    ],
+                }
+            }),
+            None,
+        )
+        .expect("unsupported stale background selection should be reported, not abort the import");
+
+        assert_eq!(result["success"], Value::Bool(true));
+        assert_eq!(result["imported"]["backgrounds"], json!(1));
+        assert_eq!(result["errors"].as_array().map(Vec::len), Some(1));
+        assert!(state.backgrounds.root().join("valid.png").is_file());
+        assert!(
+            !state.backgrounds.root().join("not-image.txt").exists(),
+            "non-image background selections must not be copied into managed backgrounds"
         );
 
         let _ = fs::remove_dir_all(app_root);
