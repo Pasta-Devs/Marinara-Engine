@@ -46,12 +46,19 @@ jobs:
 
       - name: Preserve review tooling from base branch
         run: |
-          mkdir -p /tmp/bunny-review-tool/scripts
-          mkdir -p /tmp/bunny-review-tool/skills/bunny-review
-          git show "origin/$PR_BASE_REF:scripts/bunny_review.py" > /tmp/bunny-review-tool/scripts/bunny_review.py
-          git show "origin/$PR_BASE_REF:scripts/requirements.txt" > /tmp/bunny-review-tool/scripts/requirements.txt
-          git show "origin/$PR_BASE_REF:skills/bunny-review/SKILL.md" > /tmp/bunny-review-tool/skills/bunny-review/SKILL.md
-          git show "origin/$PR_BASE_REF:skills/bunny-review/rules.json" > /tmp/bunny-review-tool/skills/bunny-review/rules.json || true
+          mkdir -p /tmp/bunny-review-tool/.github/bunny-review
+          if git cat-file -e "origin/$PR_BASE_REF:.github/bunny-review/bunny_review.py"; then
+            git show "origin/$PR_BASE_REF:.github/bunny-review/bunny_review.py" > /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py
+            git show "origin/$PR_BASE_REF:.github/bunny-review/requirements.txt" > /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
+            git show "origin/$PR_BASE_REF:.github/bunny-review/reviewer-prompt.md" > /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+            git show "origin/$PR_BASE_REF:.github/bunny-review/rules.json" > /tmp/bunny-review-tool/.github/bunny-review/rules.json || true
+          else
+            git show "origin/$PR_BASE_REF:scripts/bunny_review.py" > /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py
+            git show "origin/$PR_BASE_REF:scripts/requirements.txt" > /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
+            git show "origin/$PR_BASE_REF:skills/bunny-review/SKILL.md" > /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+            git show "origin/$PR_BASE_REF:skills/bunny-review/rules.json" > /tmp/bunny-review-tool/.github/bunny-review/rules.json || true
+          fi
+          cp /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
 
       - name: Fetch PR and checkout head
         env:
@@ -66,7 +73,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r /tmp/bunny-review-tool/scripts/requirements.txt
+        run: pip install -r /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
 
       - name: Run review while CI completes
         env:
@@ -74,11 +81,12 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: gpt-5.5
           CI_STATUS: CI checks are still running; final CI results will be appended before posting.
-          BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/skills/bunny-review/SKILL.md
+          BUNNY_REVIEW_PROMPT_PATH: /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+          BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
           BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python /tmp/bunny-review-tool/scripts/bunny_review.py produce &
+          python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py produce &
           BUNNY_PID=$!
 
           HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
@@ -112,9 +120,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
-        run: python /tmp/bunny-review-tool/scripts/bunny_review.py render
+        run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py render
 
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python /tmp/bunny-review-tool/scripts/bunny_review.py post
+        run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py post

@@ -1,4 +1,4 @@
-# scripts/bunny_review.py
+# .github/bunny-review/bunny_review.py
 import argparse
 import json
 import os
@@ -273,13 +273,19 @@ def load_json_file(path):
         return {"_load_error": str(exc)}
 
 
-def bunny_skill_dir():
-    skill_path = pathlib.Path(
-        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-review/SKILL.md")
+def bunny_prompt_path():
+    prompt_path = pathlib.Path(
+        os.environ.get("BUNNY_REVIEW_PROMPT_PATH")
+        or os.environ.get("BUNNY_REVIEW_SKILL_PATH")
+        or ".github/bunny-review/reviewer-prompt.md"
     )
-    if not skill_path.is_absolute():
-        skill_path = REPO_ROOT / skill_path
-    return skill_path.parent
+    if not prompt_path.is_absolute():
+        prompt_path = REPO_ROOT / prompt_path
+    return prompt_path
+
+
+def bunny_skill_dir():
+    return bunny_prompt_path().parent
 
 
 def load_rules():
@@ -983,8 +989,7 @@ def produce_review(args):
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ.get("LLM_BASE_URL"),
     )
-    skill_path = bunny_skill_dir() / "SKILL.md"
-    skill = skill_path.read_text("utf-8")
+    skill = bunny_prompt_path().read_text("utf-8")
 
     def triage_for_packet(review_packet, focus_note):
         triage = (
