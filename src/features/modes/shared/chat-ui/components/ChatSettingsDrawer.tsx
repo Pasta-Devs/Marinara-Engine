@@ -51,6 +51,7 @@ import {
   RotateCcw,
   Music2,
   Loader2,
+  Code2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
@@ -139,6 +140,7 @@ import type { AgentPhase } from "../../../../../engine/contracts/types/agent";
 import type { Chat, ChatMode, ChatMemoryChunk, ConversationNote } from "../../../../../engine/contracts/types/chat";
 import type { ChatPreset, ChatPresetSettings } from "../../../../../engine/contracts/types/chat-preset";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../../../catalog/agents/index";
+import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../../../catalog/agents/hooks/use-regex-scripts";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { DEFAULT_AGENT_PROMPTS } from "../../../../../engine/contracts/constants/agent-prompts";
 import { LIMITS } from "../../../../../engine/contracts/constants/defaults";
@@ -608,6 +610,13 @@ function ChatSettingsDrawerInner({
     [chatCharIds, inactiveCharacterIdSet],
   );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
+  const { data: allRegexScripts } = useRegexScripts(chatCharIds);
+  const updateRegexScript = useUpdateRegexScript();
+  const scopedRegexScripts = useMemo(
+    () => (allRegexScripts ?? []).filter((s) => !!s.characterId),
+    [allRegexScripts],
+  );
+  const scopedRegexCount = scopedRegexScripts.length;
   const spotifyActive = activeAgentIds.includes("spotify");
   const hapticAgentActive = activeAgentIds.includes(HAPTIC_AGENT_ID);
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
@@ -3855,6 +3864,26 @@ function ChatSettingsDrawerInner({
               </PickerDropdown>
             )}
           </Section>
+
+          {/* Scoped Regex Scripts */}
+          {scopedRegexCount > 0 && (
+            <Section
+              label="Scoped Regex Scripts"
+              icon={<Code2 size="0.875rem" />}
+              count={scopedRegexCount}
+              help="Character-scoped regex scripts imported from ST cards. Control how they interact with global regex scripts."
+            >
+              <ScopedRegexModeSelector
+                mode={(metadata.scopedRegexMode as "disabled" | "exclusive" | "chat" | undefined) ?? "chat"}
+                onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
+              />
+              <ScopedRegexCharacterGroups
+                scripts={scopedRegexScripts}
+                charInfoMap={charInfoMap}
+                onToggle={(id, enabled) => updateRegexScript.mutate({ id, enabled })}
+              />
+            </Section>
+          )}
 
           {/* Agents — hidden for conversation mode */}
           {!isConversation && (
@@ -7323,5 +7352,126 @@ function ConversationNotesSection({ chatId }: { chatId: string }) {
         )}
       </div>
     </Section>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Scoped Regex Scripts Components
+// ──────────────────────────────────────────────
+
+function ScopedRegexModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: "disabled" | "exclusive" | "chat";
+  onChange: (mode: "disabled" | "exclusive" | "chat") => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Scoped Mode</label>
+      <div className="flex gap-1">
+        {(["disabled", "chat", "exclusive"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => onChange(m)}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1.5 text-[0.625rem] font-medium capitalize transition-all",
+              mode === m
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+        {mode === "disabled" && "Only global regex scripts run. Character-scoped scripts are ignored."}
+        {mode === "chat" && "Global + matching character-scoped scripts run together."}
+        {mode === "exclusive" && "Only character-scoped scripts run. Global scripts are skipped."}
+      </p>
+    </div>
+  );
+}
+
+function ScopedRegexCharacterGroups({
+  scripts,
+  charInfoMap,
+  onToggle,
+}: {
+  scripts: RegexScriptRow[];
+  charInfoMap: Map<string, { name: string; comment?: string | null }>;
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, RegexScriptRow[]>();
+    for (const s of scripts) {
+      if (!s.characterId) continue;
+      const arr = map.get(s.characterId) ?? [];
+      arr.push(s);
+      map.set(s.characterId, arr);
+    }
+    return map;
+  }, [scripts]);
+
+  return (
+    <div className="mt-2 space-y-2">
+      {Array.from(grouped.entries()).map(([charId, charScripts]) => {
+        const info = charInfoMap.get(charId);
+        return (
+          <ScopedRegexCharacterGroup
+            key={charId}
+            characterName={info?.name ?? "Unknown"}
+            scripts={charScripts}
+            onToggle={onToggle}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ScopedRegexCharacterGroup({
+  characterName,
+  scripts,
+  onToggle,
+}: {
+  characterName: string;
+  scripts: RegexScriptRow[];
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--muted)] text-[0.5rem] font-bold">
+          {characterName[0]}
+        </div>
+        <span className="text-[0.6875rem] font-medium">{characterName}</span>
+        <span className="ml-auto text-[0.5625rem] text-[var(--muted-foreground)]">{scripts.length} scripts</span>
+      </div>
+      <div className="space-y-1">
+        {scripts.map((s) => {
+          const isEnabled = s.enabled === true || s.enabled === "true";
+          return (
+            <button
+              key={s.id}
+              onClick={() => onToggle(s.id, !isEnabled)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-all",
+                isEnabled ? "bg-[var(--primary)]/5" : "opacity-50",
+              )}
+            >
+              <div
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full",
+                  isEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/40",
+                )}
+              />
+              <span className="truncate text-[0.625rem]">{s.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

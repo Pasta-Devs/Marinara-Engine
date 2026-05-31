@@ -220,7 +220,8 @@ export function ConversationInput({
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
   const currentInput = useChatStore((s) => s.currentInput);
   const { generate } = useGenerate();
-  const { applyToUserInput } = useApplyRegex();
+  const chatCharacterIds = useMemo(() => chatCharacters?.map((c) => c.id), [chatCharacters]);
+  const { applyToUserInput } = useApplyRegex(chatCharacterIds);
   const enterToSend = useUIStore((s) => s.enterToSendConvo);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
@@ -564,10 +565,10 @@ export function ConversationInput({
       const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
       const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
       const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-      // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-      let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
-      // Input translation for streaming path too
       const streamMeta = parseChatMetadata(activeChatData?.metadata);
+      // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
+      let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: streamMeta.scopedRegexMode });
+      // Input translation for streaming path too
       if (streamMeta.translateInput && message.trim()) {
         try {
           const { translateText } = await import("../../../../shared/lib/translate-text");
@@ -669,11 +670,11 @@ export function ConversationInput({
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
+    const chatMeta = parseChatMetadata(activeChat?.metadata);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
+    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: chatMeta.scopedRegexMode });
 
     // Input translation: translate user's message before sending
-    const chatMeta = parseChatMetadata(activeChat?.metadata);
     if (chatMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../shared/lib/translate-text");
@@ -867,10 +868,10 @@ export function ConversationInput({
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
+    const chatMeta3 = parseChatMetadata(activeChatData?.metadata);
+    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: chatMeta3.scopedRegexMode });
 
-    const chatMeta = parseChatMetadata(activeChatData?.metadata);
-    if (chatMeta.translateInput && message.trim()) {
+    if (chatMeta3.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../shared/lib/translate-text");
         const translated = await translateText(message);

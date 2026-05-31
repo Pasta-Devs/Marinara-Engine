@@ -15,6 +15,7 @@ const regexKeys = {
 
 export interface RegexScriptRow {
   id: string;
+  characterId: string | null;
   name: string;
   // Stored verbatim as a JSON boolean (matches the engine contract and seed_defaults);
   // legacy rows may still carry the string form, so reads must tolerate both.
@@ -32,10 +33,17 @@ export interface RegexScriptRow {
   updatedAt: string;
 }
 
-export function useRegexScripts() {
+export function useRegexScripts(characterIds?: string[]) {
   return useQuery({
-    queryKey: regexKeys.all,
-    queryFn: () => storageApi.list<RegexScriptRow>("regex-scripts"),
+    queryKey: characterIds ? [...regexKeys.all, ...characterIds] : regexKeys.all,
+    queryFn: async () => {
+      const all = await storageApi.list<RegexScriptRow>("regex-scripts");
+      if (!characterIds) {
+        return all.filter((s) => !s.characterId);
+      }
+      const idSet = new Set(characterIds);
+      return all.filter((s) => !s.characterId || idSet.has(s.characterId));
+    },
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
@@ -87,6 +95,32 @@ export function useDeleteRegexScript() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => storageApi.delete("regex-scripts", id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: regexKeys.all });
+    },
+  });
+}
+
+export function useBatchCreateRegexScripts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scripts: Array<Record<string, unknown>>) =>
+      Promise.all(scripts.map((data) => storageApi.create<RegexScriptRow>("regex-scripts", data))),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: regexKeys.all });
+    },
+  });
+}
+
+export function useDeleteRegexScriptsByCharacter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const all = await storageApi.list<RegexScriptRow>("regex-scripts");
+      const toDelete = all.filter((s) => s.characterId === characterId);
+      await Promise.all(toDelete.map((s) => storageApi.delete("regex-scripts", s.id)));
+      return toDelete.length;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: regexKeys.all });
     },

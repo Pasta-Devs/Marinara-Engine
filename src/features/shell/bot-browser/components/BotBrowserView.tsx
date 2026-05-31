@@ -42,6 +42,7 @@ import {
   hasLorebookEntries,
   readEmbeddedLorebookFromCharacterPayload,
 } from "../../../../shared/lib/character-import";
+import { importRegexScriptsForCharacter } from "../../../../shared/lib/regex-script-import";
 import {
   botBrowserAssetUrl,
   botBrowserBlob,
@@ -1474,6 +1475,12 @@ export function BotBrowserView() {
           const cached = cacheCharacterListRecordFromResult(qc, data);
           if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
+          if (data.character) {
+            const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
+            if (charRecord.id && charRecord.data) {
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord });
+            }
+          }
         } else throw new Error(data.error ?? "Import failed");
       } else {
         // Optional enrichment re-fetch: degrade to the search-result-backed card
@@ -1523,6 +1530,12 @@ export function BotBrowserView() {
           const cached = cacheCharacterListRecordFromResult(qc, data);
           if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
+          if (data.character) {
+            const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
+            if (charRecord.id && charRecord.data) {
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord });
+            }
+          }
         } else throw new Error(data.error ?? "Import failed");
       }
     } catch (err) {

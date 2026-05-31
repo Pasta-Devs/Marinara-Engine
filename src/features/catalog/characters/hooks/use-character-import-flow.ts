@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { importApi } from "../../../../shared/api/import-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import { importRegexScriptsForCharacter } from "../../../../shared/lib/regex-script-import";
 import {
   inspectCharacterFilesForEmbeddedLorebooks,
   type EmbeddedLorebookImportPreview,
@@ -228,6 +229,16 @@ export function useCharacterImportFlow(open: boolean) {
               cacheCharacterListRecordFromResult(qc, result);
             }
           }
+          let regexCount = 0;
+          if (result.success && result.character) {
+            const charRecord = result.character as { id?: string; data?: Record<string, unknown> };
+            if (charRecord.id && charRecord.data) {
+              regexCount = await importRegexScriptsForCharacter({
+                characterId: charRecord.id,
+                character: charRecord,
+              });
+            }
+          }
           nextResults.push({
             filename: result.filename,
             success: result.success,
@@ -238,7 +249,7 @@ export function useCharacterImportFlow(open: boolean) {
                     : result.lorebook?.lorebookId
                       ? " with its embedded lorebook"
                       : ""
-                }`
+                }${regexCount > 0 ? ` (${regexCount} regex scripts)` : ""}`
               : (result.error ?? "Import failed"),
           });
         }

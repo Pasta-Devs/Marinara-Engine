@@ -348,6 +348,8 @@ export interface ChatMetadata {
    */
   summaryTailMessages?: number;
 
+  scopedRegexMode?: "disabled" | "exclusive" | "chat";
+
   /** Any extra key-value data */
   [key: string]: unknown;
 }

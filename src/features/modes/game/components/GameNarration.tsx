@@ -47,6 +47,7 @@ import type { SpriteInfo } from "../../../catalog/sprites/index";
 import { useTranslate } from "../../../../shared/hooks/use-translate";
 import { useTTSConfig } from "../../../../shared/hooks/use-tts";
 import { useApplyRegex } from "../../../catalog/agents/regex-application";
+import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -934,7 +935,15 @@ export function GameNarration({
   onMaxNavOffsetChange,
 }: GameNarrationProps) {
   const { translations, translating } = useTranslate();
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(activeCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    return (meta as Record<string, unknown> | undefined)?.scopedRegexMode as
+      | "disabled"
+      | "exclusive"
+      | "chat"
+      | undefined;
+  });
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -1314,12 +1323,15 @@ export function GameNarration({
       resolveMacrosForText: (value: string) => string,
     ) => {
       if (sourceRole !== "assistant" && sourceRole !== "narrator") return text;
+      const sourceMsg = sourceMessageId ? sourceMessagesById.get(sourceMessageId) : undefined;
       return applyToAIOutput(text, {
         depth: sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
         resolveMacros: resolveMacrosForText,
+        scopedMode: scopedRegexMode,
+        characterId: sourceMsg?.characterId ?? null,
       });
     },
-    [applyToAIOutput, messageDepthById],
+    [applyToAIOutput, messageDepthById, scopedRegexMode, sourceMessagesById],
   );
 
   const prepareSegmentText = useCallback(

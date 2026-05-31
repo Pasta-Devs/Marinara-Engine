@@ -49,6 +49,7 @@ import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys } from "../../../../catalog/chats/index";
 import { useShallow } from "zustand/react/shallow";
+import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { createMessageMacroResolver } from "../../../../../shared/lib/chat-macros";
 import { useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
@@ -1297,7 +1298,15 @@ export const ChatMessage = memo(function ChatMessage({
   }, []);
 
   // Apply regex scripts to AI output (assistant/narrator roles)
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(chatCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    return (meta as Record<string, unknown> | undefined)?.scopedRegexMode as
+      | "disabled"
+      | "exclusive"
+      | "chat"
+      | undefined;
+  });
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;
@@ -1355,7 +1364,12 @@ export const ChatMessage = memo(function ChatMessage({
     const text =
       isUser || isSystem
         ? message.content
-        : applyToAIOutput(message.content, { depth: messageDepth, resolveMacros: resolveDisplayMacros });
+        : applyToAIOutput(message.content, {
+            depth: messageDepth,
+            resolveMacros: resolveDisplayMacros,
+            scopedMode: scopedRegexMode,
+            characterId: message.characterId,
+          });
     return resolveDisplayMacros(text);
   }, [
     applyToAIOutput,
@@ -1364,6 +1378,7 @@ export const ChatMessage = memo(function ChatMessage({
     isUser,
     macroCharacters,
     message.content,
+    message.characterId,
     messageDepth,
     personaAppearance,
     personaBackstory,
@@ -1371,6 +1386,7 @@ export const ChatMessage = memo(function ChatMessage({
     personaPersonality,
     personaScenario,
     primaryCharInfo,
+    scopedRegexMode,
     userName,
   ]);
 
