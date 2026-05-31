@@ -7370,7 +7370,7 @@ function ScopedRegexModeSelector({
     <div className="space-y-1.5">
       <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Scoped Mode</label>
       <div className="flex gap-1">
-        {(["disabled", "chat", "exclusive"] as const).map((m) => (
+        {(["disabled", "exclusive", "chat"] as const).map((m) => (
           <button
             key={m}
             onClick={() => onChange(m)}
