@@ -3,7 +3,7 @@ import json, os, pathlib, subprocess, glob, fnmatch
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
-MAX_ITERS = 40
+MAX_TOOL_ITERS = 30
 MAX_FILE_BYTES = 200_000
 
 # --- safety: keep file reads inside the repo and away from secrets ---
@@ -119,22 +119,25 @@ def main():
         user_content += (
             f"\n\nCI Status: {ci_status}\n"
             f"The CI jobs (typecheck, build, cargo check, architecture checks, tests) "
-            f"have already run. Reference their status in your Validation section rather "
+            f"have already run. Reference their status in your What I Checked section rather "
             f"than re-running these commands. Focus your verification on reasoning checks "
             f"that CI cannot perform: ownership boundaries, failure-path analysis, "
             f"mode separation, and contract correctness."
         )
     
-    user_content += "\n\nWhen done, reply with only the review text in the Output Shape format."
+    user_content += (
+        "\n\nUse the tools for focused inspection only. When you have enough context, "
+        "stop calling tools and reply with only the review text in the Output Shape format."
+    )
 
     messages = [
         {"role": "system", "content": skill},
         {"role": "user", "content": user_content},
     ]
 
-    for _ in range(MAX_ITERS):
+    for _ in range(MAX_TOOL_ITERS):
         resp = client.chat.completions.create(
-            model=os.environ.get("LLM_MODEL", "gpt-4o"),
+            model=os.environ.get("LLM_MODEL", "gpt-5.5"),
             messages=messages,
             tools=TOOLS,
         )
@@ -156,8 +159,26 @@ def main():
                 "content": str(result)[:60_000],
             })
 
+    messages.append({
+        "role": "user",
+        "content": (
+            "The tool-call budget is now closed. Do not call any more tools. "
+            "Using only the context already gathered, produce the final Bunny Review "
+            "in the required Output Shape. If evidence is incomplete, say so in "
+            "What I Checked instead of continuing research."
+        ),
+    })
+    resp = client.chat.completions.create(
+        model=os.environ.get("LLM_MODEL", "gpt-5.5"),
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="none",
+    )
+    msg = resp.choices[0].message
     pathlib.Path("review.md").write_text(
-        "Review did not converge within the iteration budget.", "utf-8")
+        msg.content or "Bunny could not produce review text after the tool budget closed.",
+        "utf-8",
+    )
 
 if __name__ == "__main__":
     main()
