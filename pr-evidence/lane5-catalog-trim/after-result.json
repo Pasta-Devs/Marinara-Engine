@@ -1,0 +1,23 @@
+{
+  "baseUrl": "http://127.0.0.1:5179/",
+  "rows": [
+    {
+      "entity": "characters",
+      "topLevelName": "Padded Character",
+      "dataName": "Padded Character",
+      "topLevelTrimmed": true,
+      "dataNameTrimmed": true
+    }
+  ],
+  "passed": true,
+  "events": [
+    {
+      "type": "pageerror",
+      "text": "Cannot read properties of undefined (reading 'unregisterListener')"
+    },
+    {
+      "type": "pageerror",
+      "text": "Cannot read properties of undefined (reading 'unregisterListener')"
+    }
+  ]
+}
