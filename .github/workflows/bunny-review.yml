@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
   actions: read # needed to read CI status
 
 concurrency:
@@ -50,6 +51,7 @@ jobs:
           git show "origin/$PR_BASE_REF:scripts/bunny_review.py" > /tmp/bunny-review-tool/scripts/bunny_review.py
           git show "origin/$PR_BASE_REF:scripts/requirements.txt" > /tmp/bunny-review-tool/scripts/requirements.txt
           git show "origin/$PR_BASE_REF:skills/bunny-review/SKILL.md" > /tmp/bunny-review-tool/skills/bunny-review/SKILL.md
+          git show "origin/$PR_BASE_REF:skills/bunny-review/rules.json" > /tmp/bunny-review-tool/skills/bunny-review/rules.json || true
 
       - name: Fetch PR and checkout head
         env:
@@ -59,17 +61,6 @@ jobs:
           git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
           git checkout "pr-$PR_NUM"
 
-      - name: Detect previous Bunny review
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          EXISTING=$(gh pr view "$PR_NUM" --json comments --jq '[.comments[] | select(.body | startswith("## Bunny Review"))] | length')
-          if [ "${EXISTING:-0}" -gt 0 ]; then
-            echo "BUNNY_OMIT_CHANGE_SUMMARY=true" >> "$GITHUB_ENV"
-          else
-            echo "BUNNY_OMIT_CHANGE_SUMMARY=false" >> "$GITHUB_ENV"
-          fi
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -77,19 +68,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r /tmp/bunny-review-tool/scripts/requirements.txt
 
-      - name: Run review
+      - name: Run review while CI completes
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: gpt-5.5
           CI_STATUS: CI checks are still running; final CI results will be appended before posting.
           BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/skills/bunny-review/SKILL.md
-        run: python /tmp/bunny-review-tool/scripts/bunny_review.py
-
-      - name: Wait for CI status
-        env:
+          BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          python /tmp/bunny-review-tool/scripts/bunny_review.py produce &
+          BUNNY_PID=$!
+
           HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
           TARGET_CHECKS='Frontend|Rust|Smoke'
           for attempt in $(seq 1 90); do
@@ -113,12 +104,17 @@ jobs:
             else
               echo "$FINAL_CHECKS"
             fi
-          } > /tmp/bunny-ci-status.md
+          } > bunny-ci-status.md
 
-      - name: Add CI status to review
-        run: cat /tmp/bunny-ci-status.md >> review.md
+          wait "$BUNNY_PID"
+
+      - name: Render review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
+        run: python /tmp/bunny-review-tool/scripts/bunny_review.py render
 
       - name: Post the review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment "$PR_NUM" --body-file review.md
+        run: python /tmp/bunny-review-tool/scripts/bunny_review.py post

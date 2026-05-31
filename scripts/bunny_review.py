@@ -1,8 +1,18 @@
 # scripts/bunny_review.py
-import json, os, pathlib, re, subprocess, time
+import argparse
+import json
+import os
+import pathlib
+import re
+import subprocess
+import time
+from dataclasses import dataclass
+
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
+BUNNY_MARKER = "<!-- bunny-review:walkthrough -->"
+STATE_MARKER_RE = re.compile(r"<!-- bunny-review:last-reviewed-sha=([0-9a-f]{40}) -->")
 MAX_REVIEW_PACKET_CHARS = 180_000
 MAX_SECTION_CHARS = 60_000
 MAX_CONTEXT_FILES = 5
@@ -14,31 +24,73 @@ MAX_SEARCH_FILE_BYTES = 250_000
 MAX_IDENTIFIER_CONTEXT_CHARS = 60_000
 MAX_IDENTIFIER_TERMS = 24
 MAX_IDENTIFIER_HITS_PER_TERM = 12
+MAX_FILE_PATCH_CHARS = 55_000
+MAX_FILE_SUMMARY_CHARS = 9_000
+MAX_REVIEW_CHUNKS = 8
+MAX_CHUNK_PATCH_CHARS = 90_000
+
 
 class ReviewTooLarge(Exception):
     pass
 
-# --- safety: keep file reads inside the repo and away from secrets ---
+
+@dataclass
+class Finding:
+    severity: str
+    path: str
+    line: int | None
+    title: str
+    body: str
+    fix_hint: str
+
+
 def _safe_path(rel: str) -> pathlib.Path:
     full = (REPO_ROOT / rel).resolve()
     if full != REPO_ROOT and REPO_ROOT not in full.parents:
         raise ValueError("path escapes repo root")
     name = full.name.lower()
     if name.startswith(".env") or name in {
-        "credentials.json", "id_rsa", "id_ed25519", ".npmrc", ".netrc"
+        "credentials.json",
+        "id_rsa",
+        "id_ed25519",
+        ".npmrc",
+        ".netrc",
     }:
         raise ValueError("blocked sensitive file")
     return full
 
-def run_git_raw(args):
-    out = subprocess.run(
-        ["git", *args], cwd=REPO_ROOT,
-        capture_output=True, text=True, timeout=60,
+
+def run(args, *, input_text=None, timeout=120, check=False):
+    result = subprocess.run(
+        args,
+        cwd=REPO_ROOT,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
     )
-    return out.stdout + out.stderr
+    if check and result.returncode != 0:
+        raise RuntimeError(
+            f"{' '.join(args)} failed with {result.returncode}:\n"
+            f"{result.stdout}{result.stderr}"
+        )
+    return result
+
+
+def run_git_raw(args):
+    result = run(["git", *args], timeout=90)
+    return result.stdout + result.stderr
+
 
 def run_git(args, limit=MAX_SECTION_CHARS):
-    return truncate(run_git_raw(args), limit)
+    result = run(["git", *args], timeout=90)
+    return truncate(result.stdout + result.stderr, limit)
+
+
+def run_gh(args, *, input_text=None, timeout=120, check=False):
+    return run(["gh", *args], input_text=input_text, timeout=timeout, check=check)
+
 
 def truncate(text, limit):
     if len(text) <= limit:
@@ -48,47 +100,56 @@ def truncate(text, limit):
         + f"\n\n[truncated: section was {len(text)} chars, limit is {limit} chars]\n"
     )
 
+
 def read_text(path, limit=MAX_SECTION_CHARS):
     p = _safe_path(path)
     return truncate(p.read_text(encoding="utf-8", errors="replace"), limit)
 
+
 def read_context_file(path):
     return read_text(path, MAX_CONTEXT_FILE_CHARS)
+
 
 def search_repo(pattern):
     if not pattern or len(pattern) > 120:
         return "refused: search pattern must be 1-120 characters"
-    hits = []
-    ignored_parts = {
-        ".git",
-        "node_modules",
-        "target",
-        "dist",
-        "build",
-        ".next",
-        "coverage",
-        "playwright-report",
-    }
-    for path in REPO_ROOT.rglob("*"):
-        if len(hits) >= MAX_SEARCH_HITS:
-            break
-        if any(part in ignored_parts for part in path.parts):
-            continue
-        if not path.is_file():
-            continue
-        if path.stat().st_size > MAX_SEARCH_FILE_BYTES:
-            continue
+    rg = run(
+        [
+            "rg",
+            "--fixed-strings",
+            "--line-number",
+            "--glob",
+            "!node_modules",
+            "--glob",
+            "!target",
+            "--glob",
+            "!dist",
+            "--glob",
+            "!build",
+            "--glob",
+            "!coverage",
+            "--glob",
+            "!playwright-report",
+            pattern,
+        ],
+        timeout=60,
+    )
+    if rg.returncode not in (0, 1):
+        return truncate(rg.stdout + rg.stderr, MAX_CONTEXT_FILE_CHARS)
+    lines = []
+    for line in rg.stdout.splitlines():
         try:
-            rel = path.relative_to(REPO_ROOT)
-            text = path.read_text("utf-8", "replace")
+            rel, line_no, body = line.split(":", 2)
+            p = _safe_path(rel)
+            if p.stat().st_size > MAX_SEARCH_FILE_BYTES:
+                continue
+            lines.append(f"{rel}:{line_no}: {body.strip()[:220]}")
         except Exception:
             continue
-        for line_no, line in enumerate(text.splitlines(), 1):
-            if pattern in line:
-                hits.append(f"{rel}:{line_no}: {line.strip()[:220]}")
-                if len(hits) >= MAX_SEARCH_HITS:
-                    break
-    return "\n".join(hits) or "no matches"
+        if len(lines) >= MAX_SEARCH_HITS:
+            break
+    return "\n".join(lines) or "no matches"
+
 
 def search_repo_hits(pattern, max_hits):
     result = search_repo(pattern)
@@ -96,12 +157,38 @@ def search_repo_hits(pattern, max_hits):
         return []
     return result.splitlines()[:max_hits]
 
+
 def extract_changed_identifiers(patch):
     stop_words = {
-        "true", "false", "null", "none", "some", "string", "value", "json",
-        "expect", "should", "test", "result", "state", "data", "content",
-        "message", "messages", "chat", "chats", "role", "rows", "row",
-        "import", "imported", "storage", "create", "get", "list", "id",
+        "true",
+        "false",
+        "null",
+        "none",
+        "some",
+        "string",
+        "value",
+        "json",
+        "expect",
+        "should",
+        "test",
+        "result",
+        "state",
+        "data",
+        "content",
+        "message",
+        "messages",
+        "chat",
+        "chats",
+        "role",
+        "rows",
+        "row",
+        "import",
+        "imported",
+        "storage",
+        "create",
+        "get",
+        "list",
+        "id",
     }
     counts = {}
     for line in patch.splitlines():
@@ -121,6 +208,7 @@ def extract_changed_identifiers(patch):
     )
     return preferred[:MAX_IDENTIFIER_TERMS]
 
+
 def build_identifier_context(patch):
     terms = extract_changed_identifiers(patch)
     sections = []
@@ -133,21 +221,58 @@ def build_identifier_context(patch):
         return "No changed identifier usage context found."
     return truncate("\n\n".join(sections), MAX_IDENTIFIER_CONTEXT_CHARS)
 
+
 def changed_files(base):
     names = run_git(["diff", "--name-only", f"{base}...HEAD"])
     return [line.strip() for line in names.splitlines() if line.strip()]
 
+
+def load_json_file(path):
+    try:
+        return json.loads(read_text(path, 50_000))
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {"_load_error": str(exc)}
+
+
+def bunny_skill_dir():
+    skill_path = pathlib.Path(
+        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-review/SKILL.md")
+    )
+    if not skill_path.is_absolute():
+        skill_path = REPO_ROOT / skill_path
+    return skill_path.parent
+
+
+def load_rules():
+    rules_path = bunny_skill_dir() / "rules.json"
+    try:
+        return json.loads(rules_path.read_text("utf-8"))
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:
+        return {"_load_error": str(exc)}
+
+
+def guidance_from_rules(files, rules):
+    guidance = ["AGENTS.md"]
+    for item in rules.get("path_instructions", []):
+        prefixes = item.get("prefixes", [])
+        if any(any(path.startswith(prefix) for prefix in prefixes) for path in files):
+            guidance.extend(item.get("guidance", []))
+    return list(dict.fromkeys(guidance))
+
+
 def select_guidance(files):
+    rules = load_rules()
+    if rules and "_load_error" not in rules:
+        return guidance_from_rules(files, rules)
     guidance = ["AGENTS.md"]
     joined = "\n".join(files)
     if any(
         marker in joined
-        for marker in (
-            "src/engine/",
-            "src/features/",
-            "src/shared/api/",
-            "src-tauri/",
-        )
+        for marker in ("src/engine/", "src/features/", "src/shared/api/", "src-tauri/")
     ):
         guidance.append("skills/marinara-architecture-guard/SKILL.md")
     if any(
@@ -166,42 +291,82 @@ def select_guidance(files):
         guidance.append("skills/marinara-mode-separation/SKILL.md")
     if any(
         marker in joined
-        for marker in (
-            "fix/",
-            "storage",
-            "imports",
-            "provider",
-            "transport",
-            "commands",
-        )
+        for marker in ("fix/", "storage", "imports", "provider", "transport", "commands")
     ):
         guidance.append("skills/marinara-bugfix-discipline/SKILL.md")
     if any(marker in joined for marker in ("README", "docs/", "skills/", "AGENTS.md")):
         guidance.append("skills/marinara-getting-started/SKILL.md")
     return list(dict.fromkeys(guidance))
 
-def build_review_packet(base, ci_status):
+
+def matching_path_rules(files):
+    rules = load_rules()
+    if not rules or "_load_error" in rules:
+        return "No additional Bunny path rules loaded."
+    matched = []
+    for item in rules.get("path_instructions", []):
+        prefixes = item.get("prefixes", [])
+        if any(any(path.startswith(prefix) for prefix in prefixes) for path in files):
+            matched.append(item)
+    payload = {
+        "severity_policy": rules.get("severity_policy", {}),
+        "review_focus": rules.get("review_focus", []),
+        "matched_path_instructions": matched,
+    }
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def diff_for_path(base, path):
+    return run_git_raw(["diff", "--find-renames", "--unified=80", f"{base}...HEAD", "--", path])
+
+
+def build_file_context(base, files):
+    sections = []
+    for path in files:
+        patch = diff_for_path(base, path)
+        if not patch:
+            continue
+        if len(patch) <= MAX_FILE_PATCH_CHARS:
+            sections.append(f"### {path}\n```diff\n{patch}\n```")
+            continue
+        sections.append(
+            "### "
+            + path
+            + "\n```text\n"
+            + truncate(run_git(["diff", "--stat", f"{base}...HEAD", "--", path], 2_000), 2_000)
+            + truncate(patch, MAX_FILE_SUMMARY_CHARS)
+            + "\n```"
+        )
+    return "\n\n".join(sections) or "No per-file patch context found."
+
+
+def build_review_packet(base, ci_status, mode, focus_files=None, include_full_patch=True):
     files = changed_files(base)
-    patch = run_git_raw(
-        ["diff", "--find-renames", "--unified=80", f"{base}...HEAD"],
-    )
-    if len(patch) > MAX_SECTION_CHARS:
-        raise ReviewTooLarge(
-            f"Patch is {len(patch)} characters, above Bunny Review's "
-            f"{MAX_SECTION_CHARS} character per-patch limit."
+    context_files = focus_files or files
+    if focus_files is None or include_full_patch:
+        patch = run_git_raw(["diff", "--find-renames", "--unified=80", f"{base}...HEAD"])
+    else:
+        patch = "\n".join(diff_for_path(base, path) for path in focus_files)
+    patch_body = patch
+    if len(patch_body) > MAX_SECTION_CHARS:
+        patch_body = (
+            "Full patch exceeded the inline packet limit; use the per-file patch sections "
+            "below and request focused extra context for specific files if needed.\n\n"
+            + truncate(patch_body, MAX_SECTION_CHARS)
         )
     sections = [
+        ("review mode", mode),
         ("git status", run_git(["status", "--short", "--branch"], 12_000)),
         ("repo root", run_git(["rev-parse", "--show-toplevel"], 4_000)),
         ("merge base", run_git(["merge-base", "HEAD", base], 4_000)),
         ("diff stat", run_git(["diff", "--stat", f"{base}...HEAD"], 20_000)),
         ("changed files", "\n".join(files) or "No changed files reported."),
         ("numstat", run_git(["diff", "--numstat", f"{base}...HEAD"], 20_000)),
-        (
-            "patch",
-            patch,
-        ),
+        ("focus files", "\n".join(context_files) or "All changed files."),
+        ("patch overview", patch_body),
+        ("per-file patch context", build_file_context(base, context_files)),
         ("changed identifier usage", build_identifier_context(patch)),
+        ("Bunny path rules", matching_path_rules(files)),
     ]
     if ci_status:
         sections.append(("CI status", ci_status))
@@ -215,11 +380,31 @@ def build_review_packet(base, ci_status):
         f"## {title}\n```text\n{body}\n```" for title, body in sections
     )
     if len(packet) > MAX_REVIEW_PACKET_CHARS:
-        raise ReviewTooLarge(
-            f"Review packet is {len(packet)} characters, above Bunny Review's "
-            f"{MAX_REVIEW_PACKET_CHARS} character total limit."
-        )
-    return truncate(packet, MAX_REVIEW_PACKET_CHARS)
+        packet = truncate(packet, MAX_REVIEW_PACKET_CHARS)
+    return packet
+
+
+def chunk_changed_files(base, files):
+    chunks = []
+    current = []
+    current_size = 0
+    for path in files:
+        patch_size = len(diff_for_path(base, path))
+        if current and current_size + patch_size > MAX_CHUNK_PATCH_CHARS:
+            chunks.append(current)
+            current = []
+            current_size = 0
+        current.append(path)
+        current_size += patch_size
+    if current:
+        chunks.append(current)
+    if len(chunks) <= MAX_REVIEW_CHUNKS:
+        return chunks
+    merged = chunks[: MAX_REVIEW_CHUNKS - 1]
+    overflow = [path for chunk in chunks[MAX_REVIEW_CHUNKS - 1 :] for path in chunk]
+    merged.append(overflow)
+    return merged
+
 
 def usage_value(usage, *path):
     current = usage
@@ -232,6 +417,7 @@ def usage_value(usage, *path):
             current = getattr(current, key, None)
     return current or 0
 
+
 def add_usage(totals, usage):
     totals["prompt_tokens"] += usage_value(usage, "prompt_tokens")
     totals["completion_tokens"] += usage_value(usage, "completion_tokens")
@@ -239,6 +425,7 @@ def add_usage(totals, usage):
     totals["reasoning_tokens"] += usage_value(
         usage, "completion_tokens_details", "reasoning_tokens"
     )
+
 
 def build_stats(review_packet):
     return {
@@ -253,6 +440,7 @@ def build_stats(review_packet):
         "reasoning_tokens": 0,
         "total_tokens": 0,
     }
+
 
 def print_telemetry(stats):
     elapsed = time.monotonic() - stats["started_at"]
@@ -271,6 +459,7 @@ def print_telemetry(stats):
         flush=True,
     )
 
+
 def model_call(client, messages, stats):
     resp = client.chat.completions.create(
         model=os.environ.get("LLM_MODEL", "gpt-5.5"),
@@ -281,6 +470,33 @@ def model_call(client, messages, stats):
     if isinstance(resp, str):
         return resp
     return resp.choices[0].message.content or ""
+
+
+def review_packet_with_model(client, skill, triage_content, stats):
+    messages = [
+        {"role": "system", "content": skill},
+        {"role": "user", "content": triage_content},
+    ]
+    first_response = model_call(client, messages, stats)
+    request = parse_context_request(first_response)
+    if request is None:
+        return extract_json(first_response)
+    extra_context = build_extra_context(request, stats)
+    final_messages = [
+        {"role": "system", "content": skill},
+        {"role": "user", "content": triage_content},
+        {"role": "assistant", "content": first_response},
+        {
+            "role": "user",
+            "content": (
+                "Here is the bounded extra context you requested. "
+                "Do not request more context. Produce only the final JSON review object."
+                f"\n\n# Extra Context\n{extra_context}"
+            ),
+        },
+    ]
+    return extract_json(model_call(client, final_messages, stats))
+
 
 def parse_context_request(content):
     marker = "CONTEXT_REQUEST"
@@ -298,40 +514,24 @@ def parse_context_request(content):
     searches = parsed.get("searches", [])
     return {
         "files": [value for value in files if isinstance(value, str)][:MAX_CONTEXT_FILES],
-        "searches": [value for value in searches if isinstance(value, str)][:MAX_CONTEXT_SEARCHES],
+        "searches": [
+            value for value in searches if isinstance(value, str)
+        ][:MAX_CONTEXT_SEARCHES],
     }
 
-def clean_review_text(content):
+
+def extract_json(content):
     cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
-    marker = "## Bunny Review"
-    if marker in cleaned:
-        cleaned = cleaned[cleaned.find(marker):]
-    return cleaned.replace("FINAL_REVIEW", "", 1).strip()
+    cleaned = cleaned.replace("FINAL_REVIEW", "", 1).strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("model response did not contain a JSON object")
+    return json.loads(cleaned[start : end + 1])
 
-def maybe_remove_change_summary(review):
-    if os.environ.get("BUNNY_OMIT_CHANGE_SUMMARY", "").lower() != "true":
-        return review
-    return re.sub(
-        r"\n### Change Summary\n.*?(?=\n### Findings\b)",
-        "\n",
-        review,
-        count=1,
-        flags=re.DOTALL,
-    ).strip()
-
-def write_skipped_review(title, body):
-    pathlib.Path("review.md").write_text(
-        "\n".join(
-            [
-                "## Bunny Review",
-                "",
-                f"### {title}",
-                body,
-            ]
-        ).strip()
-        + "\n",
-        "utf-8",
-    )
 
 def build_extra_context(request, stats):
     sections = []
@@ -356,7 +556,223 @@ def build_extra_context(request, stats):
     stats["extra_context_chars"] = len(context)
     return context
 
-def main():
+
+def touched_lines(base):
+    by_path: dict[str, set[int]] = {}
+    current_path = None
+    new_line = None
+    diff = run_git_raw(["diff", "--unified=0", f"{base}...HEAD"])
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            current_path = line.removeprefix("+++ b/")
+            by_path.setdefault(current_path, set())
+            continue
+        match = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+        if match:
+            new_line = int(match.group(1))
+            continue
+        if current_path is None or new_line is None:
+            continue
+        if line.startswith("+") and not line.startswith("+++"):
+            by_path[current_path].add(new_line)
+            new_line += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            continue
+        else:
+            new_line += 1
+    return by_path
+
+
+def validate_findings(review_obj, base):
+    allowed = touched_lines(base)
+    valid = []
+    invalid = []
+    severities = {"blocking", "high", "medium", "low"}
+    for item in review_obj.get("findings", []):
+        try:
+            finding = Finding(
+                severity=str(item.get("severity", "medium")).lower(),
+                path=str(item.get("path", "")).strip(),
+                line=item.get("line"),
+                title=str(item.get("title", "")).strip(),
+                body=str(item.get("body", "")).strip(),
+                fix_hint=str(item.get("fix_hint", "")).strip(),
+            )
+        except Exception as exc:
+            invalid.append(f"Malformed finding skipped: {exc}")
+            continue
+        if finding.severity not in severities:
+            finding.severity = "medium"
+        if not finding.path or finding.path not in allowed:
+            invalid.append(f"{finding.path or '<missing path>'}: not in changed files")
+            continue
+        if not isinstance(finding.line, int):
+            invalid.append(f"{finding.path}: missing integer line for '{finding.title}'")
+            continue
+        if finding.line not in allowed.get(finding.path, set()):
+            invalid.append(
+                f"{finding.path}:{finding.line}: line is not an added/changed diff line"
+            )
+            continue
+        if not finding.title or not finding.body:
+            invalid.append(f"{finding.path}:{finding.line}: missing title/body")
+            continue
+        valid.append(finding)
+    return valid, invalid
+
+
+def render_finding_body(finding):
+    parts = [
+        f"**[{finding.severity}] {finding.title}**",
+        "",
+        finding.body,
+    ]
+    if finding.fix_hint:
+        parts.extend(["", f"Suggested fix: {finding.fix_hint}"])
+    return "\n".join(parts).strip()
+
+
+def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_sha):
+    summary = review_obj.get("change_summary") or []
+    questions = review_obj.get("open_questions") or []
+    checked = review_obj.get("what_i_checked") or []
+    pre_merge = review_obj.get("pre_merge_checks") or []
+    finding_lines = (
+        [f"- [{f.severity}] `{f.path}:{f.line}` - {f.title}" for f in findings]
+        or ["No actionable findings."]
+    )
+    body = [
+        BUNNY_MARKER,
+        f"<!-- bunny-review:last-reviewed-sha={head_sha} -->",
+        "## Bunny Review",
+        "",
+        "### Change Summary",
+    ]
+    body.extend([f"- {line}" for line in summary[:3]] or ["- No change summary produced."])
+    body.extend(["", "### Findings", *finding_lines])
+    if pre_merge:
+        body.extend(["", "### Pre-Merge Checks"])
+        for item in pre_merge[:8]:
+            name = item.get("name", "check")
+            status = item.get("status", "unknown")
+            detail = item.get("detail", "")
+            body.append(f"- {name}: {status}. {detail}".strip())
+    body.extend(["", "### Open Questions"])
+    body.extend([f"- {line}" for line in questions[:2]] or ["- None."])
+    body.extend(["", "### What I Checked"])
+    body.extend([f"- {line}" for line in checked[:6]] or ["- Review packet and diff context."])
+    if invalid_findings:
+        body.extend(["", "### Reviewer Notes"])
+        body.append(
+            f"- Skipped {len(invalid_findings)} model finding(s) because Bunny could not validate their diff locations."
+        )
+    if ci_status:
+        body.extend(["", "### CI Status", ci_status.strip()])
+    return "\n".join(body).strip() + "\n"
+
+
+def merge_review_objects(reviews):
+    merged = {
+        "change_summary": [],
+        "findings": [],
+        "pre_merge_checks": [],
+        "open_questions": [],
+        "what_i_checked": [],
+    }
+    seen_findings = set()
+    for review in reviews:
+        for key in ("change_summary", "open_questions", "what_i_checked"):
+            for item in review.get(key, []):
+                if item not in merged[key]:
+                    merged[key].append(item)
+        for check in review.get("pre_merge_checks", []):
+            key = (check.get("name"), check.get("status"), check.get("detail"))
+            if key not in {
+                (item.get("name"), item.get("status"), item.get("detail"))
+                for item in merged["pre_merge_checks"]
+            }:
+                merged["pre_merge_checks"].append(check)
+        for finding in review.get("findings", []):
+            key = (
+                finding.get("path"),
+                finding.get("line"),
+                finding.get("title"),
+            )
+            if key in seen_findings:
+                continue
+            seen_findings.add(key)
+            merged["findings"].append(finding)
+    return merged
+
+
+def write_skipped_review(title, body):
+    pathlib.Path("review.json").write_text(
+        json.dumps(
+            {
+                "change_summary": [body],
+                "findings": [],
+                "pre_merge_checks": [
+                    {"name": title, "status": "unknown", "detail": body}
+                ],
+                "open_questions": [],
+                "what_i_checked": ["Bunny Review did not run a model pass."],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        "utf-8",
+    )
+
+
+def discover_last_reviewed_sha(pr_num):
+    gh = run_gh(["pr", "view", pr_num, "--json", "comments", "--jq", ".comments[].body"])
+    matches = STATE_MARKER_RE.findall(gh.stdout)
+    if matches:
+        return matches[-1]
+    return None
+
+
+def resolve_review_base(pr_num, requested_mode):
+    pr = run_gh(
+        [
+            "pr",
+            "view",
+            pr_num,
+            "--json",
+            "baseRefName,headRefOid",
+        ],
+        check=True,
+    )
+    data = json.loads(pr.stdout)
+    base_ref = os.environ.get("PR_BASE_REF") or data["baseRefName"]
+    head_sha = data["headRefOid"]
+    explicit_base = os.environ.get("BUNNY_BASE_SHA")
+    mode = requested_mode
+    if explicit_base:
+        return explicit_base, base_ref, head_sha, "custom"
+    if mode == "full":
+        return f"origin/{base_ref}", base_ref, head_sha, mode
+    previous = discover_last_reviewed_sha(pr_num)
+    if previous:
+        exists = run(["git", "cat-file", "-e", f"{previous}^{{commit}}"])
+        if exists.returncode == 0:
+            return previous, base_ref, head_sha, "incremental"
+    return f"origin/{base_ref}", base_ref, head_sha, "full"
+
+
+def parse_command_mode():
+    body = os.environ.get("BUNNY_COMMENT_BODY", "")
+    if "/bunny-review" not in body:
+        return os.environ.get("BUNNY_REVIEW_MODE", "auto")
+    if re.search(r"/bunny-review\s+full\b", body):
+        return "full"
+    if re.search(r"/bunny-review\s+review\b", body):
+        return "auto"
+    return "auto"
+
+
+def produce_review(args):
     if not os.environ.get("OPENAI_API_KEY"):
         write_skipped_review(
             "Review Skipped",
@@ -365,74 +781,212 @@ def main():
         print("Bunny telemetry: skipped=missing_openai_api_key", flush=True)
         return
 
-    base = os.environ.get("PR_BASE_REF", "main")
+    pr_num = os.environ.get("PR_NUM", "")
+    requested_mode = args.mode or parse_command_mode()
+    base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
     ci_status = os.environ.get("CI_STATUS", "")
-    try:
-        review_packet = build_review_packet(base, ci_status)
-    except ReviewTooLarge as exc:
-        write_skipped_review(
-            "Review Cancelled",
-            f"{exc} Bunny Review skipped the model pass so it would not produce a partial review. Please split the PR or request a manual review.",
-        )
-        print(f"Bunny telemetry: skipped=review_too_large; reason={exc}", flush=True)
-        return
+    files = changed_files(base)
+    chunks = chunk_changed_files(base, files)
+    use_chunked_review = len(chunks) > 1
 
     client = OpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
         base_url=os.environ.get("LLM_BASE_URL"),
     )
-    skill_path = pathlib.Path(
-        os.environ.get("BUNNY_REVIEW_SKILL_PATH", "skills/bunny-review/SKILL.md")
-    )
-    if not skill_path.is_absolute():
-        skill_path = REPO_ROOT / skill_path
+    skill_path = bunny_skill_dir() / "SKILL.md"
     skill = skill_path.read_text("utf-8")
 
-    triage_content = (
-        f"Review this PR. The review base branch is '{base}'. "
-        "Use the provided review packet as the complete inspection context. "
-        "You have one chance to request focused extra context before the final review. "
-        "If the packet is enough, reply with FINAL_REVIEW followed by the review in the skill's Output Shape. "
-        "If more context is necessary to validate a concrete potential finding, reply only with "
-        'CONTEXT_REQUEST and JSON like {"files":["path"],"searches":["literal text"]}. '
-        f"Request at most {MAX_CONTEXT_FILES} files and {MAX_CONTEXT_SEARCHES} literal searches."
-    )
-    triage_content += (
-        "\n\nFocus on correctness, contracts, failure paths, tests, and architecture. "
-        "If the packet is truncated or missing context for a potential issue, mention that "
-        "limitation in What I Checked rather than inventing certainty."
-        f"\n\n# Review Packet\n{review_packet}"
-    )
+    def triage_for_packet(review_packet, focus_note):
+        triage = (
+            f"Review this PR. The review base is '{base}' from target branch '{base_ref}', "
+            f"head is '{head_sha}', and mode is '{effective_mode}'. {focus_note} "
+            "Use the provided review packet as the complete inspection context. "
+            "You have one chance to request focused extra context before the final review. "
+            "If the packet is enough, reply with FINAL_REVIEW followed by a JSON object in the skill's schema. "
+            "If more context is necessary to validate a concrete potential finding, reply only with "
+            'CONTEXT_REQUEST and JSON like {"files":["path"],"searches":["literal text"]}. '
+            f"Request at most {MAX_CONTEXT_FILES} files and {MAX_CONTEXT_SEARCHES} literal searches."
+        )
+        triage += (
+            "\n\nFocus on correctness, contracts, failure paths, tests, CI/deployment risks, "
+            "and architecture. Findings must point to changed diff lines. "
+            "If the packet is truncated or missing context for a potential issue, mention that "
+            "limitation in what_i_checked rather than inventing certainty."
+            f"\n\n# Review Packet\n{review_packet}"
+        )
+        return triage
 
-    messages = [
-        {"role": "system", "content": skill},
-        {"role": "user", "content": triage_content},
-    ]
-    stats = build_stats(review_packet)
-
-    first_response = model_call(client, messages, stats)
-    request = parse_context_request(first_response)
-    if request is None:
-        review = clean_review_text(first_response)
+    if use_chunked_review:
+        stats = build_stats("")
+        chunk_reviews = []
+        for index, chunk in enumerate(chunks, 1):
+            review_packet = build_review_packet(
+                base,
+                ci_status,
+                effective_mode,
+                focus_files=chunk,
+                include_full_patch=False,
+            )
+            stats["review_packet_chars"] += len(review_packet)
+            focus_note = (
+                f"This is chunk {index} of {len(chunks)}. Review only these focus files: "
+                + ", ".join(chunk)
+                + "."
+            )
+            chunk_reviews.append(
+                review_packet_with_model(
+                    client, skill, triage_for_packet(review_packet, focus_note), stats
+                )
+            )
+        review_obj = merge_review_objects(chunk_reviews)
+        review_obj.setdefault("what_i_checked", []).append(
+            f"Reviewed the PR in {len(chunks)} file chunk(s) to avoid dropping large-diff context."
+        )
     else:
-        extra_context = build_extra_context(request, stats)
-        final_messages = [
-            {"role": "system", "content": skill},
-            {"role": "user", "content": triage_content},
-            {"role": "assistant", "content": first_response},
-            {
-                "role": "user",
-                "content": (
-                    "Here is the bounded extra context you requested. "
-                    "Do not request more context. Produce only the final review in the skill's Output Shape."
-                    f"\n\n# Extra Context\n{extra_context}"
-                ),
-            },
-        ]
-        review = clean_review_text(model_call(client, final_messages, stats))
-    review = maybe_remove_change_summary(review)
-    pathlib.Path("review.md").write_text(review or "Bunny could not produce review text.", "utf-8")
+        review_packet = build_review_packet(base, ci_status, effective_mode)
+        stats = build_stats(review_packet)
+        review_obj = review_packet_with_model(
+            client,
+            skill,
+            triage_for_packet(review_packet, "Review the full current diff."),
+            stats,
+        )
+    review_obj.setdefault("head_sha", head_sha)
+    review_obj.setdefault("review_base", base)
+    review_obj.setdefault("base_ref", base_ref)
+    review_obj.setdefault("mode", effective_mode)
+    pathlib.Path("review.json").write_text(
+        json.dumps(review_obj, indent=2, sort_keys=True) + "\n", "utf-8"
+    )
     print_telemetry(stats)
+
+
+def read_ci_status():
+    path = pathlib.Path("bunny-ci-status.md")
+    if path.exists():
+        return path.read_text("utf-8")
+    return ""
+
+
+def render_review(args):
+    review_obj = json.loads(pathlib.Path(args.review_json).read_text("utf-8"))
+    base = (
+        args.base
+        or os.environ.get("BUNNY_VALIDATION_BASE")
+        or os.environ.get("BUNNY_BASE_SHA")
+        or review_obj.get("review_base")
+    )
+    if not base:
+        pr_num = os.environ.get("PR_NUM", "")
+        requested_mode = args.mode or parse_command_mode()
+        base, _, _, _ = resolve_review_base(pr_num, requested_mode)
+    findings, invalid = validate_findings(review_obj, base)
+    ci_status = read_ci_status()
+    head_sha = review_obj.get("head_sha") or os.environ.get("BUNNY_HEAD_SHA", "")
+    walkthrough = render_walkthrough(review_obj, findings, invalid, ci_status, head_sha)
+    pathlib.Path("review.md").write_text(walkthrough, "utf-8")
+    inline = [
+        {
+            "path": f.path,
+            "line": f.line,
+            "side": "RIGHT",
+            "body": render_finding_body(f),
+        }
+        for f in findings
+    ]
+    pathlib.Path("inline-comments.json").write_text(
+        json.dumps(inline, indent=2, sort_keys=True) + "\n", "utf-8"
+    )
+
+
+def find_walkthrough_comment(pr_num):
+    gh = run_gh(
+        [
+            "api",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments?per_page=100",
+            "--paginate",
+        ],
+        check=True,
+    )
+    try:
+        comments = json.loads(gh.stdout or "[]")
+    except json.JSONDecodeError:
+        comments = []
+        for line in gh.stdout.splitlines():
+            if not line.strip():
+                continue
+            loaded = json.loads(line)
+            if isinstance(loaded, list):
+                comments.extend(loaded)
+    for comment in comments:
+        if BUNNY_MARKER in comment.get("body", ""):
+            return comment.get("id")
+    return None
+
+
+def post_review(args):
+    pr_num = os.environ["PR_NUM"]
+    body = pathlib.Path(args.review_md).read_text("utf-8")
+    comment_id = find_walkthrough_comment(pr_num)
+    if comment_id:
+        run_gh(
+            [
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/comments/{comment_id}",
+                "--input",
+                "-",
+            ],
+            input_text=json.dumps({"body": body}),
+            check=True,
+        )
+    else:
+        run_gh(["pr", "comment", pr_num, "--body-file", args.review_md], check=True)
+
+    comments = json.loads(pathlib.Path(args.inline_json).read_text("utf-8"))
+    if not comments:
+        return
+    payload = {
+        "event": "COMMENT",
+        "body": "Bunny Review inline findings",
+        "comments": comments,
+    }
+    run_gh(
+        [
+            "api",
+            "--method",
+            "POST",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{pr_num}/reviews",
+            "--input",
+            "-",
+        ],
+        input_text=json.dumps(payload),
+        check=True,
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+    produce = sub.add_parser("produce")
+    produce.add_argument("--mode", choices=["auto", "full", "incremental"])
+    render = sub.add_parser("render")
+    render.add_argument("--review-json", default="review.json")
+    render.add_argument("--base")
+    render.add_argument("--mode", choices=["auto", "full", "incremental"])
+    post = sub.add_parser("post")
+    post.add_argument("--review-md", default="review.md")
+    post.add_argument("--inline-json", default="inline-comments.json")
+    args = parser.parse_args()
+
+    if args.command in (None, "produce"):
+        produce_review(args)
+    elif args.command == "render":
+        render_review(args)
+    elif args.command == "post":
+        post_review(args)
+
 
 if __name__ == "__main__":
     main()
