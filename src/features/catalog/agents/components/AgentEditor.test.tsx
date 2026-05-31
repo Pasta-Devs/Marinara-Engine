@@ -173,7 +173,9 @@ describe("AgentEditor", () => {
         enabled: "true",
       },
     ];
-    agentHookMocks.updateAgent.mutateAsync.mockRejectedValueOnce(new Error("simulated storage write failure"));
+    agentHookMocks.updateAgent.mutateAsync
+      .mockRejectedValueOnce(new Error("simulated storage write failure"))
+      .mockResolvedValueOnce({ id: "agent-row-1" });
     useUIStore.setState({ agentDetailId: "continuity" });
 
     await act(async () => {
