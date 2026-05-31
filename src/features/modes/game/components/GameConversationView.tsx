@@ -107,6 +107,7 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
         allCharacters={data.allCharacters}
         characterIds={data.chatCharIds}
         mode={cardCssMode}
+        chatMode="game"
       />
       <GameSurface
         activeChatId={activeChatId}

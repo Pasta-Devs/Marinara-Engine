@@ -281,6 +281,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
         allCharacters={data.allCharacters}
         characterIds={data.chatCharIds}
         mode={cardCssMode}
+        chatMode="roleplay"
       />
       <ChatRoleplaySurface
         activeChatId={activeChatId}

@@ -5,7 +5,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useMemo } from "react";
 import { extractCreatorNotesCss } from "../../../../../shared/lib/creator-notes-css";
-import { scopeChatCss } from "../../../../../shared/lib/chat-css";
+import { scopeChatCss, filterCssByMode, type ChatModeFilter } from "../../../../../shared/lib/chat-css";
 
 type CardCssMode = "disabled" | "exclusive" | "chat";
 
@@ -21,6 +21,8 @@ interface CreatorNotesCssInjectorProps {
   allCharacters: CharacterRow[] | undefined;
   /** CSS injection mode: disabled | exclusive | chat */
   mode: CardCssMode;
+  /** Current chat surface mode — controls @chat-mode filtering. */
+  chatMode: ChatModeFilter;
 }
 
 const STYLE_ELEMENT_ID = "marinara-card-css";
@@ -30,7 +32,7 @@ const SCOPE_SELECTOR = ".mari-card-css";
  * Extracts `<style>` blocks from the creator_notes of all active characters,
  * sanitizes and scopes them, then injects the combined CSS into the document head.
  */
-export function CreatorNotesCssInjector({ characterIds, allCharacters, mode }: CreatorNotesCssInjectorProps) {
+export function CreatorNotesCssInjector({ characterIds, allCharacters, mode, chatMode }: CreatorNotesCssInjectorProps) {
   const scopedCss = useMemo(() => {
     if (mode === "disabled" || !allCharacters || characterIds.length === 0) return "";
 
@@ -54,8 +56,12 @@ export function CreatorNotesCssInjector({ characterIds, allCharacters, mode }: C
       const creatorNotes = (parsed as { creator_notes?: string }).creator_notes;
       if (!creatorNotes) continue;
 
-      const { css } = extractCreatorNotesCss(creatorNotes);
-      if (!css) continue;
+      const { css: rawCss } = extractCreatorNotesCss(creatorNotes);
+      if (!rawCss) continue;
+
+      // Filter by @chat-mode blocks — only include rules targeting the active surface
+      const css = filterCssByMode(rawCss, chatMode);
+      if (!css.trim()) continue;
 
       // Scope mode determines the selector target
       const scope = mode === "exclusive" ? `${SCOPE_SELECTOR} [data-card-css="${charId}"]` : SCOPE_SELECTOR;
@@ -65,7 +71,7 @@ export function CreatorNotesCssInjector({ characterIds, allCharacters, mode }: C
 
     if (cssChunks.length === 0) return "";
     return `@layer card-css {\n${cssChunks.join("\n")}\n}`;
-  }, [characterIds, allCharacters, mode]);
+  }, [characterIds, allCharacters, mode, chatMode]);
 
   useEffect(() => {
     let styleEl = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;

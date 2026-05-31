@@ -2,6 +2,61 @@
 // Chat CSS — sanitization and scoping utilities
 // ──────────────────────────────────────────────
 
+export type ChatModeFilter = "roleplay" | "conversation" | "game";
+
+const CHAT_MODE_RE = /@chat-mode\s+(roleplay|conversation|game)\s*\{/gi;
+
+/**
+ * Filter CSS by `@chat-mode <mode> { ... }` blocks.
+ *
+ * - `@chat-mode conversation { ... }` → included only in conversation mode
+ * - `@chat-mode roleplay { ... }` → included only in roleplay mode
+ * - `@chat-mode game { ... }` → included only in game mode
+ * - CSS outside any `@chat-mode` block → included in ALL modes
+ *
+ * Card creators use this to target styles to specific surfaces while
+ * keeping a shared base that applies everywhere.
+ */
+export function filterCssByMode(css: string, chatMode: ChatModeFilter): string {
+  const chunks: string[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  CHAT_MODE_RE.lastIndex = 0;
+
+  while ((match = CHAT_MODE_RE.exec(css)) !== null) {
+    // Emit any CSS between the last block and this one (unscoped = all modes)
+    if (match.index > cursor) {
+      chunks.push(css.slice(cursor, match.index));
+    }
+
+    const targetMode = match[1].toLowerCase();
+    const bodyStart = match.index + match[0].length;
+
+    // Find the matching closing brace (handle one level of nesting)
+    let depth = 1;
+    let i = bodyStart;
+    while (i < css.length && depth > 0) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}") depth--;
+      i++;
+    }
+    const body = css.slice(bodyStart, i - 1);
+    cursor = i;
+    CHAT_MODE_RE.lastIndex = i;
+
+    if (targetMode === chatMode) {
+      chunks.push(body);
+    }
+  }
+
+  // Trailing CSS after the last @chat-mode block (unscoped = all modes)
+  if (cursor < css.length) {
+    chunks.push(css.slice(cursor));
+  }
+
+  return chunks.join("\n");
+}
+
 /** Theme tokens that card CSS must never override. */
 const THEME_TOKEN_BLOCKLIST = [
   "--background",

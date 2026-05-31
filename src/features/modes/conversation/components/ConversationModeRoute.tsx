@@ -128,6 +128,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         allCharacters={data.allCharacters}
         characterIds={data.chatCharIds}
         mode={cardCssMode}
+        chatMode="conversation"
       />
       <ChatConversationSurface
         activeChatId={activeChatId}
