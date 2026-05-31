@@ -1,5 +1,5 @@
 # scripts/bunny_review.py
-import json, os, pathlib, subprocess, time
+import json, os, pathlib, re, subprocess, time
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
@@ -238,6 +238,13 @@ def parse_context_request(content):
         "searches": [value for value in searches if isinstance(value, str)][:MAX_CONTEXT_SEARCHES],
     }
 
+def clean_review_text(content):
+    cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    marker = "## Bunny Review"
+    if marker in cleaned:
+        cleaned = cleaned[cleaned.find(marker):]
+    return cleaned.replace("FINAL_REVIEW", "", 1).strip()
+
 def build_extra_context(request, stats):
     sections = []
     for path in request.get("files", []):
@@ -301,7 +308,7 @@ def main():
     first_response = model_call(client, messages, stats)
     request = parse_context_request(first_response)
     if request is None:
-        review = first_response.replace("FINAL_REVIEW", "", 1).strip()
+        review = clean_review_text(first_response)
     else:
         extra_context = build_extra_context(request, stats)
         final_messages = [
@@ -317,7 +324,7 @@ def main():
                 ),
             },
         ]
-        review = model_call(client, final_messages, stats).replace("FINAL_REVIEW", "", 1).strip()
+        review = clean_review_text(model_call(client, final_messages, stats))
     pathlib.Path("review.md").write_text(review or "Bunny could not produce review text.", "utf-8")
     print_telemetry(stats)
 
