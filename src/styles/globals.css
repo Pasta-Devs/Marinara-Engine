@@ -1059,7 +1059,6 @@ body {
   flex: 0 0 auto;
   border-radius: 0.18rem;
   filter: drop-shadow(0 0 0.25rem color-mix(in srgb, var(--primary) 22%, transparent));
-  animation: mari-title-heartbeat 2.4s ease-in-out infinite;
 }
 
 .mari-title-word {
@@ -1109,20 +1108,6 @@ body {
   }
   70% {
     transform: translateY(-1px) rotate(-4deg) scale(1.08);
-  }
-}
-
-@keyframes mari-title-heartbeat {
-  0%,
-  64%,
-  100% {
-    transform: scale(1);
-  }
-  72% {
-    transform: scale(1.22);
-  }
-  82% {
-    transform: scale(0.98);
   }
 }
 
@@ -1520,27 +1505,13 @@ summary[class*="cursor-pointer"],
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
-@keyframes twinkle-glow {
-  0%,
-  100% {
-    opacity: 0.6;
-    filter: blur(0);
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.2;
-    filter: blur(0.5px);
-    transform: scale(0.9);
-  }
-}
-
 .y2k-star,
 .y2k-star-md,
 .y2k-star-lg {
   position: fixed;
   pointer-events: none;
   border-radius: 50%;
-  animation: twinkle-glow 4s ease-in-out infinite;
+  opacity: 0.55;
 }
 
 .y2k-star {
@@ -1559,7 +1530,7 @@ summary[class*="cursor-pointer"],
   box-shadow:
     0 0 10px 4px rgba(212, 173, 252, 0.6),
     0 0 20px 8px rgba(212, 173, 252, 0.3);
-  animation-duration: 5s;
+  opacity: 0.45;
 }
 
 .y2k-star-lg {
@@ -1569,7 +1540,7 @@ summary[class*="cursor-pointer"],
   box-shadow:
     0 0 12px 5px rgba(255, 228, 245, 0.7),
     0 0 24px 10px rgba(255, 228, 245, 0.4);
-  animation-duration: 6s;
+  opacity: 0.5;
 }
 
 @keyframes pulse-glow {
