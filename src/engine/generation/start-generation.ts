@@ -851,6 +851,13 @@ function withImageAttachments(messages: LlmMessage[], images: string[]): LlmMess
   return next;
 }
 
+function impersonatePromptTemplate(input: StartGenerationInput, chat: JsonRecord): string | null {
+  const requestPrompt = readString(input.impersonatePromptTemplate).trim();
+  if (requestPrompt) return requestPrompt;
+  const chatPrompt = readString(parseRecord(chat.metadata).impersonatePrompt).trim();
+  return chatPrompt || null;
+}
+
 function directiveMessages(
   input: StartGenerationInput,
   chat: JsonRecord,
@@ -865,7 +872,7 @@ function directiveMessages(
     messages.push({
       role: "user",
       content: buildImpersonateInstruction({
-        customPrompt: input.impersonatePromptTemplate,
+        customPrompt: impersonatePromptTemplate(input, chat),
         direction: prepared.content,
         personaName,
         personaDescription: persona?.description,

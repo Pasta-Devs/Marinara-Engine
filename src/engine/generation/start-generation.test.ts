@@ -1080,6 +1080,58 @@ describe("startGeneration generation replay metadata", () => {
     expect(promptText).toContain("Requested beat: give a direct order");
   });
 
+  it("falls back to chat-scoped impersonate prompt metadata when no request template is supplied", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: {
+        personaId: "persona-1",
+      },
+      chatMetadata: {
+        impersonatePrompt: "Chat scoped prompt for {{user}}: {{impersonate_direction}}",
+      },
+      personas: [{ id: "persona-1", name: "Chai", description: "A brisk captain with clipped wording." }],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage: "answer with a toast",
+        impersonate: true,
+        impersonateBlockAgents: true,
+      }),
+    );
+
+    const promptText = (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+      .map((message) => message.content)
+      .join("\n");
+    expect(promptText).toContain("Chat scoped prompt for Chai: answer with a toast");
+  });
+
+  it("normalizes legacy wrapped impersonate directions before prompt assembly", async () => {
+    const { deps, streamedRequests } = generationDepsForChat({
+      chatPatch: {
+        personaId: "persona-1",
+      },
+      personas: [{ id: "persona-1", name: "Chai", description: "A brisk captain with clipped wording." }],
+    });
+
+    await drainGeneration(
+      startGeneration(deps, {
+        chatId: "chat-1",
+        userMessage:
+          "[Impersonation instruction - write {{user}}'s next response, steering it toward the following: answer quietly]",
+        impersonate: true,
+        impersonateBlockAgents: true,
+        impersonatePromptTemplate: "Write as {{user}}. Direction: {{impersonate_direction}}",
+      }),
+    );
+
+    const promptText = (streamedRequests[0] as { messages: Array<{ content: string }> }).messages
+      .map((message) => message.content)
+      .join("\n");
+    expect(promptText).toContain("Write as Chai. Direction: answer quietly");
+    expect(promptText).not.toContain("Impersonation instruction");
+  });
+
   it("uses a concrete fallback name for impersonation when no persona is selected", async () => {
     const { deps, streamedRequests } = generationDepsForChat();
 
