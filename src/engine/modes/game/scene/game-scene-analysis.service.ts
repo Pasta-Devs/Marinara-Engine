@@ -121,13 +121,27 @@ function sanitizeGameSceneAnalysis(parsed: JsonRecord): SceneAnalysis {
   } as SceneAnalysis;
 }
 
-function parseObject(raw: string): JsonRecord {
+function parseObject(raw: string): JsonRecord | null {
   try {
     const parsed = parseGameJsonish(raw);
-    return isRecord(parsed) ? parsed : {};
+    return isRecord(parsed) ? parsed : null;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function malformedJsonFallback(sceneContext: SceneAnalyzerContext): SceneAnalysis {
+  const fallback = defaultGameSceneAnalysis();
+  const track = sceneContext.useSpotifyMusic ? sceneContext.availableSpotifyTracks?.[0] : null;
+  if (track) {
+    fallback.spotifyTrack = {
+      uri: track.uri,
+      name: track.name,
+      artist: track.artist,
+      album: track.album ?? null,
+    };
+  }
+  return fallback;
 }
 
 function readNullableString(value: unknown): string | null {
@@ -226,7 +240,9 @@ export async function analyzeGameScene(
       ],
       parameters: { maxTokens: 1200, temperature: 0.2 },
     });
-    return postProcessSceneResult(sanitizeGameSceneAnalysis(parseObject(raw)), scenePostProcessContext(sceneContext));
+    const parsed = parseObject(raw);
+    const analysis = parsed ? sanitizeGameSceneAnalysis(parsed) : malformedJsonFallback(sceneContext);
+    return postProcessSceneResult(analysis, scenePostProcessContext(sceneContext));
   } catch {
     return defaultGameSceneAnalysis();
   }
