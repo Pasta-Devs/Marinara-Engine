@@ -49,6 +49,7 @@ export function WindowTitleBar({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const spotifyPlayerEnabled = useUIStore((s) => s.spotifyPlayerEnabled);
   const hasOpenSurface = useUIStore((s) =>
     Boolean(
@@ -127,8 +128,9 @@ export function WindowTitleBar({
   const goHome = useCallback(() => {
     setActiveChatId(null);
     closeAllDetails();
+    closeRightPanel();
     onGoHome?.();
-  }, [closeAllDetails, onGoHome, setActiveChatId]);
+  }, [closeAllDetails, closeRightPanel, onGoHome, setActiveChatId]);
 
   const isHomeSurface = !professorMariOpen && !activeChatId && !hasOpenSurface;
   const controlActions: WindowControlAction[] =
