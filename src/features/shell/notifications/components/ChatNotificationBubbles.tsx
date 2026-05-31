@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { X, MessageCircle } from "lucide-react";
 import { useChatStore } from "../../../../shared/stores/chat.store";
-import { useGameModeStore } from "../../../modes/game";
+import { useSetGameSetupActive } from "../../../modes/game/startup";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -22,7 +22,7 @@ export function ChatNotificationBubbles() {
   const setShouldOpenWizard = useChatStore((s) => s.setShouldOpenWizard);
   const setShouldOpenWizardInShortcutMode = useChatStore((s) => s.setShouldOpenWizardInShortcutMode);
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
-  const setSetupActive = useGameModeStore((s) => s.setSetupActive);
+  const setSetupActive = useSetGameSetupActive();
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
