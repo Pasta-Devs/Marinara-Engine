@@ -268,7 +268,7 @@ fn looks_like_top_level_lorebook(payload: &Value) -> bool {
         && !has_character_specific_fields(payload)
         && !payload
             .get("data")
-            .is_some_and(|data| has_character_specific_fields(data))
+            .is_some_and(has_character_specific_fields)
 }
 
 fn validate_character_json_payload(payload: Value) -> AppResult<Value> {
