@@ -64,7 +64,7 @@ export function getChatCharacterIds(chat: { characterIds?: unknown } | null | un
   return [];
 }
 
-export function parseCharacterMacroData(
+function parseCharacterMacroData(
   raw: { id?: string; data: unknown } | null | undefined,
 ): MacroCharacterData | null {
   if (!raw) return null;
@@ -227,16 +227,6 @@ export function createMessageMacroResolver(context: Parameters<typeof buildMessa
 
 export function isPromptPreviewMacro(input: string): boolean {
   return /^\{\{\s*(?:prompt|prompt_preview|preview_prompt)\s*\}\}$/i.test(input.trim());
-}
-
-export function resolveInputMacrosForChat(
-  template: string,
-  chat: { characterIds?: unknown; personaId?: string | null; mode?: string | null } | null | undefined,
-  characters: Array<{ id: string; data: unknown }> | undefined,
-  personas: Array<Record<string, unknown>> | undefined,
-  lastInput?: string,
-): string {
-  return createInputMacroResolverForChat(chat, characters, personas, lastInput)(template);
 }
 
 export function createInputMacroResolverForChat(

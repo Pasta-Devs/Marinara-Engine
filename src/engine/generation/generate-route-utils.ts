@@ -336,7 +336,7 @@ function trackerCharacterKey(character: Record<string, unknown>) {
   return trackerCharacterIdKey(character) || trackerCharacterNameKey(character) || null;
 }
 
-export function isManualTrackerCharacterId(value: unknown): boolean {
+function isManualTrackerCharacterId(value: unknown): boolean {
   return typeof value === "string" && value.trim().startsWith("manual-");
 }
 
