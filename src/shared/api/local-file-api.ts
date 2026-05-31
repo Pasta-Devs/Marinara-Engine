@@ -192,12 +192,6 @@ export function backgroundFileUrlFromPath(filename: string, absolutePath?: strin
   return absolutePath ? filePathToAssetUrl(absolutePath) : userBackgroundUrl(filename);
 }
 
-export function fontFileUrlFromPath(filename: string, absolutePath?: string | null): string {
-  const remoteUrl = remoteManagedAssetUrl("font", filename);
-  if (remoteUrl) return remoteUrl;
-  return absolutePath ? filePathToAssetUrl(absolutePath) : "";
-}
-
 export function avatarFileUrlFromPath(
   filename: string | null | undefined,
   absolutePath?: string | null,
