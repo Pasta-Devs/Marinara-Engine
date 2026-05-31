@@ -20,28 +20,32 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const agentHookMocks = vi.hoisted(() => ({
+  configs: [] as Array<Record<string, unknown>>,
+  updateAgent: { mutateAsync: vi.fn(), isPending: false },
+  createAgent: { mutateAsync: vi.fn(), isPending: false },
+  deleteAgent: { mutateAsync: vi.fn(), isPending: false },
+}));
+
 // React-query hooks the editor consumes. Returning empty data keeps the
 // component on the built-in agent code path (no DB config row → uses the
 // built-in meta for the name), which is the simplest path that still renders
 // the real header input we care about.
-// Every mocked hook returns STABLE references (frozen empties + a shared
-// mutation stub defined inside each factory closure). Returning a fresh array /
-// object identity on every render would change a useEffect/useMemo dependency
-// each pass and drive the editor into an infinite re-render loop (OOMs the
-// vitest worker). Stable identities keep the mount deterministic.
+// Every mocked hook returns STABLE references from agentHookMocks. Returning a
+// fresh array / object identity on every render would change a useEffect/useMemo
+// dependency each pass and drive the editor into an infinite re-render loop
+// (OOMs the vitest worker). Stable identities keep the mount deterministic.
 vi.mock("../hooks/use-agents", () => {
-  const EMPTY: never[] = [];
-  const noop = { mutateAsync: vi.fn(), isPending: false };
   return {
     agentKeys: {
       all: ["agents"],
       detail: (id: string) => ["agents", id],
       customRuns: (id: string) => ["agents", "runs", "custom", id],
     },
-    useAgentConfigs: () => ({ data: EMPTY }),
-    useUpdateAgent: () => noop,
-    useCreateAgent: () => noop,
-    useDeleteAgent: () => noop,
+    useAgentConfigs: () => ({ data: agentHookMocks.configs }),
+    useUpdateAgent: () => agentHookMocks.updateAgent,
+    useCreateAgent: () => agentHookMocks.createAgent,
+    useDeleteAgent: () => agentHookMocks.deleteAgent,
   };
 });
 
@@ -95,13 +99,20 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 
-describe("AgentEditor header name input (#1556)", () => {
+describe("AgentEditor", () => {
   let container: HTMLDivElement;
   let root: Root;
   let queryClient: QueryClient;
 
   beforeEach(() => {
     window.localStorage.clear();
+    agentHookMocks.configs = [];
+    agentHookMocks.updateAgent.mutateAsync.mockReset();
+    agentHookMocks.createAgent.mutateAsync.mockReset();
+    agentHookMocks.deleteAgent.mutateAsync.mockReset();
+    agentHookMocks.updateAgent.isPending = false;
+    agentHookMocks.createAgent.isPending = false;
+    agentHookMocks.deleteAgent.isPending = false;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -146,5 +157,74 @@ describe("AgentEditor header name input (#1556)", () => {
     const classes = nameInput!.className.split(/\s+/);
     expect(classes).toContain("min-w-0");
     expect(classes).toContain("flex-1");
+  });
+
+  it("keeps the agent editor open when Save & close fails and closes after a successful retry", async () => {
+    agentHookMocks.configs = [
+      {
+        id: "agent-row-1",
+        type: "continuity",
+        name: "Continuity Checker",
+        description: "Checks the conversation for continuity drift.",
+        phase: "post_processing",
+        connectionId: null,
+        promptTemplate: "",
+        settings: {},
+        enabled: "true",
+      },
+    ];
+    agentHookMocks.updateAgent.mutateAsync.mockRejectedValueOnce(new Error("simulated storage write failure"));
+    useUIStore.setState({ agentDetailId: "continuity" });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <AgentEditor />
+        </QueryClientProvider>,
+      );
+    });
+
+    const nameInput = container.querySelector<HTMLInputElement>('input[placeholder="Agent name…"]');
+    expect(nameInput).toBeTruthy();
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+      setter?.call(nameInput, "Continuity Checker edited");
+      nameInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const backButton = container.querySelector<HTMLButtonElement>('button[aria-label="Back to agents"]');
+    expect(backButton).toBeTruthy();
+    await act(async () => {
+      backButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const saveAndClose = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+      button.textContent?.includes("Save & close"),
+    );
+    expect(saveAndClose).toBeTruthy();
+
+    await act(async () => {
+      saveAndClose!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(agentHookMocks.updateAgent.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(useUIStore.getState().agentDetailId).toBe("continuity");
+    expect(container.querySelector<HTMLInputElement>('input[placeholder="Agent name…"]')?.value).toBe(
+      "Continuity Checker edited",
+    );
+    expect(container.textContent).toContain("simulated storage write failure");
+
+    const retrySaveAndClose = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+      button.textContent?.includes("Save & close"),
+    );
+    expect(retrySaveAndClose).toBeTruthy();
+
+    await act(async () => {
+      retrySaveAndClose!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(agentHookMocks.updateAgent.mutateAsync).toHaveBeenCalledTimes(2);
+    expect(useUIStore.getState().agentDetailId).toBeNull();
   });
 });

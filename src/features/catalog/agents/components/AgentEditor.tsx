@@ -457,8 +457,8 @@ export function AgentEditor() {
 
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
 
-  const handleSave = useCallback(async () => {
-    if (!agentDetailId) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!agentDetailId) return false;
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
     const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
@@ -542,8 +542,10 @@ export function AgentEditor() {
       setDirty(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
+      return false;
     }
   }, [
     agentDetailId,
@@ -698,8 +700,8 @@ export function AgentEditor() {
             </button>
             <button
               onClick={async () => {
-                await handleSave();
-                closeAgentDetail();
+                const saved = await handleSave();
+                if (saved) closeAgentDetail();
               }}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >
