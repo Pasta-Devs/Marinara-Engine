@@ -1,10 +1,16 @@
 # scripts/bunny_review.py
-import os, pathlib, subprocess, time
+import json, os, pathlib, subprocess, time
 from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
 MAX_REVIEW_PACKET_CHARS = 180_000
 MAX_SECTION_CHARS = 60_000
+MAX_CONTEXT_FILES = 5
+MAX_CONTEXT_SEARCHES = 5
+MAX_CONTEXT_CHARS = 80_000
+MAX_CONTEXT_FILE_CHARS = 20_000
+MAX_SEARCH_HITS = 30
+MAX_SEARCH_FILE_BYTES = 250_000
 
 # --- safety: keep file reads inside the repo and away from secrets ---
 def _safe_path(rel: str) -> pathlib.Path:
@@ -36,6 +42,44 @@ def truncate(text, limit):
 def read_text(path, limit=MAX_SECTION_CHARS):
     p = _safe_path(path)
     return truncate(p.read_text(encoding="utf-8", errors="replace"), limit)
+
+def read_context_file(path):
+    return read_text(path, MAX_CONTEXT_FILE_CHARS)
+
+def search_repo(pattern):
+    if not pattern or len(pattern) > 120:
+        return "refused: search pattern must be 1-120 characters"
+    hits = []
+    ignored_parts = {
+        ".git",
+        "node_modules",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        "coverage",
+        "playwright-report",
+    }
+    for path in REPO_ROOT.rglob("*"):
+        if len(hits) >= MAX_SEARCH_HITS:
+            break
+        if any(part in ignored_parts for part in path.parts):
+            continue
+        if not path.is_file():
+            continue
+        if path.stat().st_size > MAX_SEARCH_FILE_BYTES:
+            continue
+        try:
+            rel = path.relative_to(REPO_ROOT)
+            text = path.read_text("utf-8", "replace")
+        except Exception:
+            continue
+        for line_no, line in enumerate(text.splitlines(), 1):
+            if pattern in line:
+                hits.append(f"{rel}:{line_no}: {line.strip()[:220]}")
+                if len(hits) >= MAX_SEARCH_HITS:
+                    break
+    return "\n".join(hits) or "no matches"
 
 def changed_files(base):
     names = run_git(["diff", "--name-only", f"{base}...HEAD"])
@@ -133,6 +177,20 @@ def add_usage(totals, usage):
         usage, "completion_tokens_details", "reasoning_tokens"
     )
 
+def build_stats(review_packet):
+    return {
+        "started_at": time.monotonic(),
+        "model_calls": 0,
+        "review_packet_chars": len(review_packet),
+        "extra_context_chars": 0,
+        "context_files": 0,
+        "context_searches": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 0,
+    }
+
 def print_telemetry(stats):
     elapsed = time.monotonic() - stats["started_at"]
     print(
@@ -140,12 +198,66 @@ def print_telemetry(stats):
         f"elapsed_s={elapsed:.1f}; "
         f"model_calls={stats['model_calls']}; "
         f"review_packet_chars={stats['review_packet_chars']}; "
+        f"extra_context_chars={stats['extra_context_chars']}; "
+        f"context_files={stats['context_files']}; "
+        f"context_searches={stats['context_searches']}; "
         f"prompt_tokens={stats['prompt_tokens']}; "
         f"completion_tokens={stats['completion_tokens']}; "
         f"reasoning_tokens={stats['reasoning_tokens']}; "
         f"total_tokens={stats['total_tokens']}",
         flush=True,
     )
+
+def model_call(client, messages, stats):
+    resp = client.chat.completions.create(
+        model=os.environ.get("LLM_MODEL", "gpt-5.5"),
+        messages=messages,
+    )
+    stats["model_calls"] += 1
+    add_usage(stats, getattr(resp, "usage", None))
+    return resp.choices[0].message.content or ""
+
+def parse_context_request(content):
+    marker = "CONTEXT_REQUEST"
+    if marker not in content:
+        return None
+    start = content.find("{")
+    end = content.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return {"files": [], "searches": []}
+    try:
+        parsed = json.loads(content[start : end + 1])
+    except Exception:
+        return {"files": [], "searches": []}
+    files = parsed.get("files", [])
+    searches = parsed.get("searches", [])
+    return {
+        "files": [value for value in files if isinstance(value, str)][:MAX_CONTEXT_FILES],
+        "searches": [value for value in searches if isinstance(value, str)][:MAX_CONTEXT_SEARCHES],
+    }
+
+def build_extra_context(request, stats):
+    sections = []
+    for path in request.get("files", []):
+        stats["context_files"] += 1
+        try:
+            body = read_context_file(path)
+        except Exception as exc:
+            body = f"Could not read: {exc}"
+        sections.append((f"context file: {path}", body))
+    for pattern in request.get("searches", []):
+        stats["context_searches"] += 1
+        try:
+            body = search_repo(pattern)
+        except Exception as exc:
+            body = f"Could not search: {exc}"
+        sections.append((f"context search: {pattern}", body))
+    context = "\n\n".join(
+        f"## {title}\n```text\n{body}\n```" for title, body in sections
+    )
+    context = truncate(context, MAX_CONTEXT_CHARS)
+    stats["extra_context_chars"] = len(context)
+    return context
 
 def main():
     client = OpenAI(
@@ -162,13 +274,16 @@ def main():
     ci_status = os.environ.get("CI_STATUS", "")
     review_packet = build_review_packet(base, ci_status)
 
-    user_content = (
+    triage_content = (
         f"Review this PR. The review base branch is '{base}'. "
         "Use the provided review packet as the complete inspection context. "
-        "Do not ask for tools, do not claim you ran commands beyond the packet, "
-        "and produce only the final review in the skill's Output Shape."
+        "You have one chance to request focused extra context before the final review. "
+        "If the packet is enough, reply with FINAL_REVIEW followed by the review in the skill's Output Shape. "
+        "If more context is necessary to validate a concrete potential finding, reply only with "
+        'CONTEXT_REQUEST and JSON like {"files":["path"],"searches":["literal text"]}. '
+        f"Request at most {MAX_CONTEXT_FILES} files and {MAX_CONTEXT_SEARCHES} literal searches."
     )
-    user_content += (
+    triage_content += (
         "\n\nFocus on correctness, contracts, failure paths, tests, and architecture. "
         "If the packet is truncated or missing context for a potential issue, mention that "
         "limitation in What I Checked rather than inventing certainty."
@@ -177,29 +292,31 @@ def main():
 
     messages = [
         {"role": "system", "content": skill},
-        {"role": "user", "content": user_content},
+        {"role": "user", "content": triage_content},
     ]
-    stats = {
-        "started_at": time.monotonic(),
-        "model_calls": 0,
-        "review_packet_chars": len(review_packet),
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "reasoning_tokens": 0,
-        "total_tokens": 0,
-    }
+    stats = build_stats(review_packet)
 
-    resp = client.chat.completions.create(
-        model=os.environ.get("LLM_MODEL", "gpt-5.5"),
-        messages=messages,
-    )
-    stats["model_calls"] += 1
-    add_usage(stats, getattr(resp, "usage", None))
-    msg = resp.choices[0].message
-    pathlib.Path("review.md").write_text(
-        msg.content or "Bunny could not produce review text from the review packet.",
-        "utf-8",
-    )
+    first_response = model_call(client, messages, stats)
+    request = parse_context_request(first_response)
+    if request is None:
+        review = first_response.replace("FINAL_REVIEW", "", 1).strip()
+    else:
+        extra_context = build_extra_context(request, stats)
+        final_messages = [
+            {"role": "system", "content": skill},
+            {"role": "user", "content": triage_content},
+            {"role": "assistant", "content": first_response},
+            {
+                "role": "user",
+                "content": (
+                    "Here is the bounded extra context you requested. "
+                    "Do not request more context. Produce only the final review in the skill's Output Shape."
+                    f"\n\n# Extra Context\n{extra_context}"
+                ),
+            },
+        ]
+        review = model_call(client, final_messages, stats).replace("FINAL_REVIEW", "", 1).strip()
+    pathlib.Path("review.md").write_text(review or "Bunny could not produce review text.", "utf-8")
     print_telemetry(stats)
 
 if __name__ == "__main__":
