@@ -218,12 +218,23 @@ export function useCharacterImportFlow(open: boolean) {
           if (result.lorebook?.lorebookId) importedLorebook = true;
           if (result.success) {
             if (importMode === "update") {
+              const beforeUpdateResults = nextResults.length;
               await pushUpdateExistingResult({
                 filename: result.filename,
                 imported: result.character,
                 importedName: result.name ?? result.filename,
                 nextResults,
               });
+              const updateResult = nextResults[beforeUpdateResults];
+              if (updateResult?.success && result.character && targetCharacterId) {
+                const regexCount = await importRegexScriptsForCharacter({
+                  characterId: targetCharacterId,
+                  character: result.character as { data?: Record<string, unknown> },
+                });
+                if (regexCount > 0) {
+                  updateResult.message = `${updateResult.message} (${regexCount} regex scripts)`;
+                }
+              }
               continue;
             } else {
               cacheCharacterListRecordFromResult(qc, result);

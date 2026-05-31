@@ -77,7 +77,7 @@ function applyScripts(
  * Filter parsed scripts based on the scoped regex mode and the target characterId.
  * - "disabled": only global scripts (no characterId)
  * - "exclusive": only scoped scripts matching the characterId (skip globals)
- * - "chat": global + scoped scripts matching the characterId
+ * - "chat": all loaded scripts for the chat, including scoped scripts on user input
  */
 function filterForMode(
   scripts: ParsedRegexScript[],
@@ -91,8 +91,7 @@ function filterForMode(
     if (!characterId) return [];
     return scripts.filter((s) => !!s.characterId && s.characterId === characterId);
   }
-  // "chat": global + scoped matching this character
-  return scripts.filter((s) => !s.characterId || (!!characterId && s.characterId === characterId));
+  return scripts;
 }
 
 export function useApplyRegex(characterIds?: string[]) {
