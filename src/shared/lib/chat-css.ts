@@ -104,37 +104,54 @@ function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-/** Remove dangerous constructs from CSS. */
+/**
+ * Remove dangerous constructs from CSS.
+ *
+ * Security model: card CSS is untrusted user content shared between users.
+ * A malicious card creator must not be able to:
+ * - Make network requests (data exfiltration, IP tracking)
+ * - Escape the scoped container to style/probe app UI
+ * - Override application theme tokens
+ * - Inject phishing content via `content` property
+ * - Cause denial-of-service via resource-heavy rules
+ */
 export function sanitizeChatCss(css: string): string {
   let out = stripComments(css);
 
-  // Strip @import and @namespace
+  // ── Network exfiltration prevention ──
+  // Strip ALL url() except data:image/* (no external network requests)
+  out = out.replace(/url\s*\(\s*(['"]?)\s*(?!['"]?\s*data:image\/)[^)]*\)/gi, "url(about:invalid)");
+  // Strip @import (network request + CSS injection)
   out = out.replace(/@import\b[^;]*;/gi, "");
+  // Strip @namespace
   out = out.replace(/@namespace\b[^;]*;/gi, "");
+  // Strip @font-face (network request via font loading)
+  out = out.replace(/@font-face\s*\{[^}]*\}/gi, "");
 
-  // Strip expression()
+  // ── Script/expression injection ──
   out = out.replace(/expression\s*\([^)]*\)/gi, "");
-
-  // Strip javascript: / vbscript:
   out = out.replace(/javascript\s*:/gi, "");
   out = out.replace(/vbscript\s*:/gi, "");
-
-  // Strip behavior:
   out = out.replace(/behavior\s*:[^;]*/gi, "");
-
-  // Strip -moz-binding:
   out = out.replace(/-moz-binding\s*:[^;]*/gi, "");
 
-  // Strip unsafe url() (only those with protocols or data:)
-  out = out.replace(/url\s*\(\s*['"]?\s*(javascript|vbscript|data)\s*:/gi, "url(about:invalid");
-
-  // Convert position:fixed to position:absolute
+  // ── Scope escape prevention ──
+  // Strip :has() — can probe elements outside the scoped container
+  out = out.replace(/:has\s*\([^)]*\)/gi, "");
+  // Strip :visited — can detect browsing history via style differences
+  out = out.replace(/:visited/gi, ":link");
+  // Convert position:fixed to position:absolute (prevent viewport overlays)
   out = out.replace(/position\s*:\s*fixed/gi, "position:absolute");
 
+  // ── Content injection prevention ──
+  // Strip content property (prevent phishing text/UI spoofing)
+  // Allow content:"" (used for pseudo-element clearing) but block non-empty values
+  out = out.replace(/content\s*:\s*(?!['"]?\s*['"]\s*['"]?\s*[;}\n])[^;]*;/gi, "content: '';");
   // Strip </style (prevent injection breakout)
   out = out.replace(/<\/style/gi, "");
 
-  // Strip theme token declarations (property: value pairs that set blocked tokens)
+  // ── Theme protection ──
+  // Strip theme token declarations
   out = out.replace(
     new RegExp(
       `(${THEME_TOKEN_BLOCKLIST.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\s*:[^;]*;?`,
@@ -142,24 +159,10 @@ export function sanitizeChatCss(css: string): string {
     ),
     "",
   );
-
-  // Strip !important
+  // Strip !important (prevent overriding app styles)
   out = out.replace(/!important/gi, "");
 
   return out;
-}
-
-const STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-
-/** Extract `<style>` blocks from HTML, returning the CSS content. */
-export function extractChatStyleBlocks(html: string): string {
-  const blocks: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = STYLE_BLOCK_RE.exec(html)) !== null) {
-    blocks.push(match[1]);
-  }
-  STYLE_BLOCK_RE.lastIndex = 0;
-  return blocks.join("\n");
 }
 
 /**
