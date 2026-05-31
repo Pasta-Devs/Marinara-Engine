@@ -152,6 +152,44 @@ describe("analyzeGameScene", () => {
     });
   });
 
+  it("normalizes malformed Spotify candidate metadata before falling back", async () => {
+    const llm = {
+      complete: vi.fn(async () => "{ not valid json"),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The battle starts.",
+        context: {
+          useSpotifyMusic: true,
+          availableSpotifyTracks: [
+            {
+              uri: "spotify:track:first",
+              name: 123,
+              artist: null,
+              album: { title: "Fallbacks" },
+            },
+          ],
+        },
+      },
+    );
+
+    expect(result.spotifyTrack).toEqual({
+      uri: "spotify:track:first",
+      name: null,
+      artist: null,
+      album: null,
+    });
+  });
+
   it("does not fall back when valid scene analysis explicitly returns no Spotify track", async () => {
     const llm = {
       complete: vi.fn(async () => JSON.stringify({ spotifyTrack: null })),
