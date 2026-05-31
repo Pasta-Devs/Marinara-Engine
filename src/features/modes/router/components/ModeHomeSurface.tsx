@@ -234,9 +234,11 @@ function QuickStartCard({
   };
 
   return (
-    <div
+    <button
+      type="button"
       onClick={handleClick}
       title={tooltip}
+      aria-label={`${comingSoon && !onClick ? "Show status for" : "Start"} ${label} chat`}
       className={cn(
         "group card-3d-tilt btn-scanlines relative flex w-20 sm:w-28 flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 sm:p-4 text-center transition-all",
         "cursor-pointer hover:-translate-y-1 hover:border-[var(--primary)]/40 hover:shadow-lg",
@@ -255,6 +257,6 @@ function QuickStartCard({
         {icon}
       </div>
       <span className="text-[0.625rem] sm:text-xs font-medium text-[var(--muted-foreground)]">{label}</span>
-    </div>
+    </button>
   );
 }
