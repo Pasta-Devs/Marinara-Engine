@@ -7,6 +7,7 @@ import {
   inspectCharacterFilesForEmbeddedLorebooks,
   type EmbeddedLorebookImportPreview,
 } from "../../../../shared/lib/character-import";
+import { generateClientId } from "../../../../shared/lib/utils";
 import { lorebookKeys } from "../../lorebooks/index";
 import { classifyCharacterImportFiles } from "../lib/character-import-file-classifier";
 import {
@@ -49,6 +50,30 @@ export function useCharacterImportFlow(open: boolean) {
 
   const characters = (rawCharacters ?? []) as CharacterImportRow[];
 
+  const updateCharacterFromImportPlan = async (
+    plan: ReturnType<typeof buildCharacterImportUpdatePlan>,
+  ): Promise<void> => {
+    const snapshotId = generateClientId();
+    await storageApi.create("character-versions", { id: snapshotId, ...plan.snapshot });
+    try {
+      await updateCharacter.mutateAsync(plan.patch);
+    } catch (error) {
+      try {
+        await storageApi.delete("character-versions", snapshotId);
+      } catch (rollbackError) {
+        const updateMessage = error instanceof Error ? error.message : "Character update failed.";
+        const rollbackMessage =
+          rollbackError instanceof Error ? rollbackError.message : "Snapshot rollback failed.";
+        throw new Error(`${updateMessage} ${rollbackMessage}`);
+      }
+      throw error;
+    }
+
+    if (plan.importedId && plan.importedId !== plan.patch.id) {
+      await deleteCharacter.mutateAsync(plan.importedId);
+    }
+  };
+
   const updateImportedCharacterInPlace = async (imported: unknown, importedName: string) => {
     if (!targetCharacterId) throw new Error("Choose a character to update.");
     const target = await storageApi.get<CharacterImportRow>("characters", targetCharacterId, {
@@ -56,12 +81,7 @@ export function useCharacterImportFlow(open: boolean) {
     });
     const plan = buildCharacterImportUpdatePlan(target, imported, importedName);
 
-    await storageApi.create("character-versions", plan.snapshot);
-    await updateCharacter.mutateAsync(plan.patch);
-
-    if (plan.importedId && plan.importedId !== plan.patch.id) {
-      await deleteCharacter.mutateAsync(plan.importedId);
-    }
+    await updateCharacterFromImportPlan(plan);
 
     return plan.updatedName;
   };
@@ -121,7 +141,6 @@ export function useCharacterImportFlow(open: boolean) {
       }
 
       let importedLorebook = false;
-      let importedCharacterMissingCacheRecord = false;
 
       if (stCharacterFiles.length > 0) {
         const shouldImportEmbeddedLorebook = importMode === "update" ? false : (importEmbeddedLorebook ?? true);
@@ -169,8 +188,7 @@ export function useCharacterImportFlow(open: boolean) {
               });
               continue;
             } else {
-              const cached = cacheCharacterListRecordFromResult(qc, result);
-              if (!cached) importedCharacterMissingCacheRecord = true;
+              cacheCharacterListRecordFromResult(qc, result);
             }
           }
           nextResults.push({
@@ -214,8 +232,7 @@ export function useCharacterImportFlow(open: boolean) {
               });
               continue;
             } else {
-              const cached = cacheCharacterListRecordFromResult(qc, result);
-              if (!cached) importedCharacterMissingCacheRecord = true;
+              cacheCharacterListRecordFromResult(qc, result);
             }
           }
           nextResults.push({
@@ -258,8 +275,7 @@ export function useCharacterImportFlow(open: boolean) {
               });
               continue;
             } else {
-              const cached = cacheCharacterListRecordFromResult(qc, result);
-              if (!cached) importedCharacterMissingCacheRecord = true;
+              cacheCharacterListRecordFromResult(qc, result);
             }
           }
           nextResults.push({
@@ -279,9 +295,7 @@ export function useCharacterImportFlow(open: boolean) {
       setResults(nextResults);
       setStatus("done");
 
-      if (importedCharacterMissingCacheRecord) {
-        invalidateCharacterCollectionQueries(qc);
-      }
+      invalidateCharacterCollectionQueries(qc);
       if (importedLorebook) {
         qc.invalidateQueries({ queryKey: lorebookKeys.all });
       }
@@ -294,6 +308,7 @@ export function useCharacterImportFlow(open: boolean) {
         },
       ]);
       setStatus("done");
+      invalidateCharacterCollectionQueries(qc);
     }
   };
 

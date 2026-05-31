@@ -87,6 +87,15 @@ export function buildCharacterImportUpdatePlan(
     imported && typeof imported === "object" && !Array.isArray(imported) ? (imported as CharacterImportRow) : null;
   const importedData = characterImportData(importedRow);
   if (Object.keys(importedData).length === 0) throw new Error("Imported character record did not include card data.");
+  const missingRequiredFields = ["name", "description"].filter(
+    (field) => typeof importedData[field] !== "string",
+  );
+  if (missingRequiredFields.length > 0) {
+    const displayName = readCharacterImportString(importedRow?.name) || importedName || "imported character";
+    throw new Error(
+      `Imported character "${displayName}" is missing required card field${missingRequiredFields.length === 1 ? "" : "s"}: ${missingRequiredFields.join(", ")}.`,
+    );
+  }
 
   const targetData = characterImportData(target);
   const patch: CharacterImportUpdatePatch = {

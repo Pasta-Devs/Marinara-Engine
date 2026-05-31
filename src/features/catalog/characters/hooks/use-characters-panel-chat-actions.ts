@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ export function useCharactersPanelChatActions() {
   const pendingStartCharacterIdRef = useRef<string | null>(null);
   const [pendingStartCharacterId, setPendingStartCharacterId] = useState<string | null>(null);
 
-  const chatCharacterIds: string[] = activeChat ? (activeChat.characterIds ?? []) : [];
+  const chatCharacterIds = useMemo(() => activeChat?.characterIds ?? [], [activeChat?.characterIds]);
   const isConversation = (activeChat as unknown as { mode?: string })?.mode === "conversation";
 
   const loadFullCharacter = useCallback(async (charId: string): Promise<ParsedCharacterRow | null> => {

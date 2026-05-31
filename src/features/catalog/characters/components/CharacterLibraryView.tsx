@@ -46,6 +46,30 @@ function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   return width;
 }
 
+function characterSummaryToRow(character: CharacterSummary): CharacterRow {
+  const data = character.data ?? {};
+  return {
+    id: character.id,
+    data: {
+      name: getText(data.name) || undefined,
+      creator: getText(data.creator) || undefined,
+      creator_notes: getText(data.creator_notes) || undefined,
+      character_version: getText(data.character_version) || undefined,
+      tags: Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+      extensions:
+        data.extensions && typeof data.extensions === "object" && !Array.isArray(data.extensions)
+          ? data.extensions
+          : undefined,
+    },
+    comment: character.comment,
+    avatarPath: character.avatarPath,
+    avatarFilePath: character.avatarFilePath,
+    avatarFilename: character.avatarFilename,
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+  };
+}
+
 export function CharacterLibraryView() {
   const closeCharacterLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
@@ -65,7 +89,7 @@ export function CharacterLibraryView() {
 
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
-    return (characters as CharacterSummary[] as CharacterRow[]).map(parseCharacterRow);
+    return characters.map((character) => parseCharacterRow(characterSummaryToRow(character)));
   }, [characters]);
 
   const filteredCharacters = useMemo(() => {

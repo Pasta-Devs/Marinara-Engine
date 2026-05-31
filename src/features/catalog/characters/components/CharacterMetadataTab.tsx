@@ -34,6 +34,8 @@ export function CharacterMetadataTab({
 }) {
   // Read the saved source-rectangle crop and write the same current shape on edit.
   const savedCrop = (formData.extensions.avatarCrop as AvatarCrop | undefined) ?? null;
+  const talkativeness =
+    typeof formData.extensions.talkativeness === "number" ? formData.extensions.talkativeness : 0.5;
 
   return (
     <div className="space-y-5">
@@ -99,13 +101,11 @@ export function CharacterMetadataTab({
             min={0}
             max={1}
             step={0.05}
-            value={formData.extensions.talkativeness}
+            value={talkativeness}
             onChange={(event) => updateExtension("talkativeness", parseFloat(event.target.value))}
             className="w-full accent-[var(--primary)]"
           />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {Math.round(formData.extensions.talkativeness * 100)}%
-          </span>
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]">{Math.round(talkativeness * 100)}%</span>
         </label>
       </div>
 

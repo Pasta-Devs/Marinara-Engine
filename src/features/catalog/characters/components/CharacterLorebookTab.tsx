@@ -8,6 +8,7 @@ import { characterApi } from "../../../../shared/api/character-api";
 import { cn } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { lorebookKeys, useLorebook } from "../../lorebooks/index";
+import { characterKeys } from "../hooks/use-characters";
 import { CharacterEditorSectionHeader as SectionHeader } from "./CharacterEditorSectionHeader";
 
 export function CharacterLorebookTab({
@@ -45,7 +46,7 @@ export function CharacterLorebookTab({
       const result = await characterApi.importEmbeddedLorebook(characterId);
       queryClient.invalidateQueries({ queryKey: lorebookKeys.all });
       if (result.lorebookId) {
-        queryClient.invalidateQueries({ queryKey: ["characters", "detail", characterId] });
+        queryClient.invalidateQueries({ queryKey: characterKeys.detail(characterId) });
       }
       toast.success(
         result.reimported

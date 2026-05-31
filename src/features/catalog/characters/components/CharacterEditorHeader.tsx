@@ -150,8 +150,17 @@ export function CharacterEditorHeader({
         </button>
 
         <div
-          className="group relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 shadow-md shadow-pink-500/20 max-md:h-10 max-md:w-10"
+          className="group relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 shadow-md shadow-pink-500/20 outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/45 max-md:h-10 max-md:w-10"
+          role="button"
+          tabIndex={0}
+          aria-label="Upload avatar"
           onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }}
         >
           {avatarPreview ? (
             <img

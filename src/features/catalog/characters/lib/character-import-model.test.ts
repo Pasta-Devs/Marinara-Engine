@@ -44,7 +44,7 @@ describe("character import model", () => {
   it("omits blank imported avatar paths and falls back to current target version", () => {
     const plan = buildCharacterImportUpdatePlan(
       { id: "target-1", data: { name: "Target" }, comment: "" },
-      { data: { name: "Imported" }, avatarPath: " " },
+      { data: { name: "Imported", description: "" }, avatarPath: " " },
       "card.json",
     );
 
@@ -60,5 +60,8 @@ describe("character import model", () => {
     expect(() => buildCharacterImportUpdatePlan({ id: "target-1" }, { comment: "Missing data" }, "card.json")).toThrow(
       "Imported character record did not include card data.",
     );
+    expect(() =>
+      buildCharacterImportUpdatePlan({ id: "target-1" }, { data: { name: "Imported" } }, "card.json"),
+    ).toThrow('Imported character "card.json" is missing required card field: description.');
   });
 });

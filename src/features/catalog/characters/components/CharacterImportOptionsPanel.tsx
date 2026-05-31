@@ -36,7 +36,7 @@ export function CharacterImportOptionsPanel({
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label
-            className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+            className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors focus-within:ring-2 focus-within:ring-[var(--primary)]/40 ${
               importMode === "new"
                 ? "border-[var(--primary)] bg-[var(--primary)]/10"
                 : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
@@ -56,7 +56,7 @@ export function CharacterImportOptionsPanel({
             </span>
           </label>
           <label
-            className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+            className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors focus-within:ring-2 focus-within:ring-[var(--primary)]/40 ${
               importMode === "update"
                 ? "border-[var(--primary)] bg-[var(--primary)]/10"
                 : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
@@ -105,7 +105,7 @@ export function CharacterImportOptionsPanel({
           {TAG_IMPORT_OPTIONS.map((option) => (
             <label
               key={option.value}
-              className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+              className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors focus-within:ring-2 focus-within:ring-[var(--primary)]/40 ${
                 tagImportMode === option.value
                   ? "border-[var(--primary)] bg-[var(--primary)]/10"
                   : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"

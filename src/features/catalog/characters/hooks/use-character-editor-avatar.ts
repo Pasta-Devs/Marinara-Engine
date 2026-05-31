@@ -106,8 +106,9 @@ export function useCharacterEditorAvatar({
         }
         try {
           await uploadAvatar.mutateAsync({ id: uploadCharacterId, avatar: dataUrl });
-        } catch {
+        } catch (error) {
           if (!isCurrentAvatarUpload(uploadToken, uploadCharacterId)) return;
+          toast.error(error instanceof Error ? error.message : "Failed to upload avatar.");
           setAvatarPreview(fallbackAvatarPreview);
           if (shouldClearAvatarCrop) {
             setExtensionValue("avatarCrop", fallbackAvatarCrop);

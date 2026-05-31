@@ -30,6 +30,7 @@ export function CharacterDialogueTab({
       "alternate_greetings",
       formData.alternate_greetings.filter((_, idx) => idx !== i),
     );
+    setExpandedField((current) => (typeof current === "number" && current >= i ? null : current));
   };
 
   return (

@@ -31,12 +31,8 @@ export function useCharactersPanelFilters(parsedCharacters: ParsedCharacterRow[]
       ) {
         return;
       }
-      try {
-        const affected = parsedCharacters.filter((character) => getCharacterTags(character).includes(tag));
-        for (const character of affected) {
-          const newTags = getCharacterTags(character).filter((candidate) => candidate !== tag);
-          await updateCharacter.mutateAsync({ id: character.id, data: { tags: newTags } });
-        }
+      const affected = parsedCharacters.filter((character) => getCharacterTags(character).includes(tag));
+      const clearTagSelections = () => {
         setIncludedTags((prev) => {
           if (!prev.has(tag)) return prev;
           const next = new Set(prev);
@@ -49,8 +45,29 @@ export function useCharactersPanelFilters(parsedCharacters: ParsedCharacterRow[]
           next.delete(tag);
           return next;
         });
-      } catch {
-        toast.error("Failed to remove tag from some characters");
+      };
+      if (affected.length === 0) {
+        clearTagSelections();
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        affected.map((character) => {
+          const newTags = getCharacterTags(character).filter((candidate) => candidate !== tag);
+          return updateCharacter.mutateAsync({ id: character.id, data: { tags: newTags } });
+        }),
+      );
+      const failed = results.filter((result) => result.status === "rejected");
+      const successCount = affected.length - failed.length;
+      if (failed.length === 0) {
+        clearTagSelections();
+        toast.success(`Removed tag from ${successCount} character${successCount === 1 ? "" : "s"}.`);
+        return;
+      }
+      if (successCount > 0) {
+        toast.warning(`Removed tag from ${successCount} of ${affected.length} characters.`);
+      } else {
+        toast.error("Failed to remove tag from any characters.");
       }
     },
     [parsedCharacters, updateCharacter],

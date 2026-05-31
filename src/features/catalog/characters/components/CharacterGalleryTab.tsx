@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Camera, Download, Trash2, Upload, X } from "lucide-react";
 
@@ -17,6 +17,50 @@ export function CharacterGalleryTab({ characterId, characterName }: { characterI
   const upload = useUploadCharacterGalleryImage(characterId);
   const remove = useDeleteCharacterGalleryImage(characterId);
   const [lightbox, setLightbox] = useState<CharacterGalleryImage | null>(null);
+  const lightboxDialogRef = useRef<HTMLDivElement>(null);
+  const lightboxCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const lightboxPreviousFocusRef = useRef<HTMLElement | null>(null);
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    lightboxPreviousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lightboxCloseButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLightbox();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = lightboxDialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      const previousFocus = lightboxPreviousFocusRef.current;
+      lightboxPreviousFocusRef.current = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [closeLightbox, lightbox]);
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -139,10 +183,18 @@ export function CharacterGalleryTab({ characterId, characterName }: { characterI
 
       {lightbox && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lightbox.prompt || characterName || "Character image preview"}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
-          onClick={() => setLightbox(null)}
+          onClick={closeLightbox}
         >
-          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={lightboxDialogRef}
+            tabIndex={-1}
+            className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <img
               src={lightbox.url}
               alt={lightbox.prompt || characterName || "Character image"}
@@ -157,8 +209,9 @@ export function CharacterGalleryTab({ characterId, characterName }: { characterI
                 <Download size="0.875rem" />
               </a>
               <button
+                ref={lightboxCloseButtonRef}
                 type="button"
-                onClick={() => setLightbox(null)}
+                onClick={closeLightbox}
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
               >
                 <X size="0.875rem" />

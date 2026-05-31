@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { Plus, X } from "lucide-react";
 import type { CharacterData, RPGStatsConfig } from "../../../../engine/contracts/types/character";
+import { generateClientId } from "../../../../shared/lib/utils";
 import { DEFAULT_RPG_STATS } from "../lib/character-editor-model";
 import { CharacterEditorSectionHeader } from "./CharacterEditorSectionHeader";
 
@@ -11,6 +13,13 @@ export function CharacterStatsTab({
   updateExtension: (key: string, value: unknown) => void;
 }) {
   const stats: RPGStatsConfig = (formData.extensions.rpgStats as RPGStatsConfig) ?? DEFAULT_RPG_STATS;
+  const attributeKeysRef = useRef<string[]>([]);
+  while (attributeKeysRef.current.length < stats.attributes.length) {
+    attributeKeysRef.current.push(generateClientId());
+  }
+  if (attributeKeysRef.current.length > stats.attributes.length) {
+    attributeKeysRef.current.length = stats.attributes.length;
+  }
 
   const update = (patch: Partial<RPGStatsConfig>) => {
     updateExtension("rpgStats", { ...stats, ...patch });
@@ -23,10 +32,12 @@ export function CharacterStatsTab({
   };
 
   const addAttribute = () => {
+    attributeKeysRef.current.push(generateClientId());
     update({ attributes: [...stats.attributes, { name: "NEW", value: 10 }] });
   };
 
   const removeAttribute = (index: number) => {
+    attributeKeysRef.current.splice(index, 1);
     update({ attributes: stats.attributes.filter((_, i) => i !== index) });
   };
 
@@ -87,7 +98,7 @@ export function CharacterStatsTab({
             <div className="space-y-2">
               {stats.attributes.map((attr, index) => (
                 <div
-                  key={index}
+                  key={attributeKeysRef.current[index]}
                   className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2"
                 >
                   <input

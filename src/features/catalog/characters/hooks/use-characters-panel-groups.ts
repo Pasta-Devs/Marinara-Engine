@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import { useCreateGroup, useUpdateGroup } from "./use-characters";
 
@@ -27,30 +28,47 @@ export function useCharactersPanelGroups() {
     setNewGroupName("");
   }, []);
 
-  const handleCreateGroup = useCallback(() => {
+  const handleCreateGroup = useCallback(async () => {
     const name = newGroupName.trim();
     if (!name) return;
-    createGroup.mutate({ name, characterIds: [] });
+    const previousName = newGroupName;
     setNewGroupName("");
     setCreatingGroup(false);
+    try {
+      await createGroup.mutateAsync({ name, characterIds: [] });
+    } catch (error) {
+      setNewGroupName(previousName);
+      setCreatingGroup(true);
+      toast.error(error instanceof Error ? error.message : "Failed to create character group.");
+    }
   }, [newGroupName, createGroup]);
 
   const handleRenameGroup = useCallback(
-    (groupId: string) => {
+    async (groupId: string) => {
       const name = editGroupName.trim();
       if (!name) return;
-      updateGroup.mutate({ id: groupId, name });
+      const previousEditingGroupId = editingGroupId;
+      const previousEditGroupName = editGroupName;
       setEditingGroupId(null);
       setEditGroupName("");
+      try {
+        await updateGroup.mutateAsync({ id: groupId, name });
+      } catch (error) {
+        setEditingGroupId(previousEditingGroupId ?? groupId);
+        setEditGroupName(previousEditGroupName);
+        toast.error(error instanceof Error ? error.message : "Failed to rename character group.");
+      }
     },
-    [editGroupName, updateGroup],
+    [editGroupName, editingGroupId, updateGroup],
   );
 
   const toggleGroupMember = useCallback(
     (groupId: string, charId: string, currentMembers: string[]) => {
       const isMember = currentMembers.includes(charId);
       const newMembers = isMember ? currentMembers.filter((id) => id !== charId) : [...currentMembers, charId];
-      updateGroup.mutate({ id: groupId, characterIds: newMembers });
+      void updateGroup.mutateAsync({ id: groupId, characterIds: newMembers }).catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Failed to update group membership.");
+      });
     },
     [updateGroup],
   );

@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import type { DragEvent, KeyboardEvent } from "react";
 import { Download, FileJson, Image } from "lucide-react";
 
 type CharacterImportDropZoneProps = {
@@ -18,6 +18,12 @@ export function CharacterImportDropZone({
   onDragLeave,
   onClick,
 }: CharacterImportDropZoneProps) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onClick();
+  };
+
   return (
     <div
       onDrop={onDrop}
@@ -25,10 +31,13 @@ export function CharacterImportDropZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={onClick}
-      className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all ${
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 ${
         dragOver
           ? "border-[var(--primary)] bg-[var(--primary)]/10"
-          : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50"
+          : "border-[var(--border)] hover:border-[var(--muted-foreground)] hover:bg-[var(--secondary)]/50 focus:border-[var(--primary)]/50"
       }`}
     >
       <Download

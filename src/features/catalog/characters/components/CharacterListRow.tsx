@@ -3,6 +3,7 @@ import { Check, Copy, Trash2, User, X } from "lucide-react";
 import { getCharacterTitle } from "../../../../shared/lib/character-display";
 import { cn } from "../../../../shared/lib/utils";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
+import { getText } from "../lib/character-library-model";
 import { getCharacterPreviewMetadata, getCharacterTags, type ParsedCharacterRow } from "../lib/characters-panel-model";
 import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
@@ -51,24 +52,39 @@ export function CharacterListRow({
   onDeleteCharacter: (character: ParsedCharacterRow) => void;
   onToggleIncludedTag: (tag: string) => void;
 }) {
-  const charName = character.parsed.name ?? "Unnamed";
+  const charName = getText(character.parsed.name) || "Unnamed";
   const charTitle = getCharacterTitle({ name: charName, comment: character.comment });
   const charTags = getCharacterTags(character);
   const charNameColor = (character.parsed.extensions?.nameColor as string) || undefined;
   const avatarUrl = characterAvatarUrl(character);
   const isInTargetGroup = assigningGroup?.memberIds.includes(character.id) ?? false;
   const previewMetadata = getCharacterPreviewMetadata(character);
+  const rowActionLabel = selectionMode
+    ? `${isBulkSelected ? "Deselect" : "Select"} ${charName}`
+    : assigningGroup
+      ? `${isInTargetGroup ? "Remove" : "Add"} ${charName} ${isInTargetGroup ? "from" : "to"} group`
+      : `Open ${charName}`;
+  const activateRow = () => {
+    if (selectionMode) {
+      onToggleSelection(character.id);
+    } else if (assigningGroup) {
+      onToggleGroupMember(assigningGroup.id, character.id, assigningGroup.memberIds);
+    } else {
+      onOpenCharacterDetail(character.id);
+    }
+  };
 
   return (
     <div
-      onClick={() => {
-        if (selectionMode) {
-          onToggleSelection(character.id);
-        } else if (assigningGroup) {
-          onToggleGroupMember(assigningGroup.id, character.id, assigningGroup.memberIds);
-        } else {
-          onOpenCharacterDetail(character.id);
-        }
+      role="button"
+      tabIndex={0}
+      aria-label={rowActionLabel}
+      onClick={activateRow}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        activateRow();
       }}
       onContextMenu={(event) => {
         if (selectionMode || isAssigning) return;
@@ -82,6 +98,7 @@ export function CharacterListRow({
       }}
       className={cn(
         "group relative flex cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
+        "outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/45",
         selectionMode && isBulkSelected && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/8",
         isSelected && !isAssigning && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/5",
         isAssigning && isInTargetGroup && "ring-1 ring-violet-500/50 bg-violet-500/10",
