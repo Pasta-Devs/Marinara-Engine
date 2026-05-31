@@ -4,6 +4,30 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 
 const host = process.env.TAURI_DEV_HOST;
+const vendorChunkGroups: Record<string, string[]> = {
+  "vendor-react": ["react", "react-dom"],
+  "vendor-runtime": ["@tanstack/react-query", "zustand", "zod", "clsx", "tailwind-merge"],
+  "vendor-ui": ["framer-motion", "motion", "@dnd-kit", "dompurify", "sonner"],
+  "vendor-tauri": [
+    "@tauri-apps/api",
+    "@tauri-apps/plugin-dialog",
+    "@tauri-apps/plugin-notification",
+    "@tauri-apps/plugin-opener",
+  ],
+};
+
+function manualVendorChunk(id: string) {
+  const normalizedId = id.replace(/\\/g, "/");
+  if (!normalizedId.includes("/node_modules/")) return undefined;
+
+  for (const [chunkName, packages] of Object.entries(vendorChunkGroups)) {
+    if (packages.some((packageName) => normalizedId.includes(`/node_modules/${packageName}/`))) {
+      return chunkName;
+    }
+  }
+
+  return undefined;
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -37,8 +61,13 @@ export default defineConfig(async () => ({
   },
 
   build: {
-    // Refactor's largest lazy JS chunk is intentionally below 800 kB raw, and `pnpm perf:size`
-    // tracks aggregate JS/CSS transfer budgets. Keep Vite noisy only for new outsized chunks.
-    chunkSizeWarningLimit: 800,
+    // The largest remaining JS chunk is lazy Game mode route code; keep
+    // startup/vendor leakage visible while allowing that intentional split.
+    chunkSizeWarningLimit: 650,
+    rollupOptions: {
+      output: {
+        manualChunks: manualVendorChunk,
+      },
+    },
   },
 }));
