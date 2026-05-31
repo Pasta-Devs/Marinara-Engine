@@ -17,6 +17,10 @@ Use this when the user gives a bug report, screenshot, failing check, broken UI 
 11. Run the checks that match the touched area.
 12. Report root cause, files changed, docs/release-note status when relevant, verification, related issues not fixed, and manual blockers.
 
+Ordinary bugfix language means local fix and verification. Commit, push, PR
+creation, CodeRabbit, CI polling, screenshot upload, ready marking, and merge
+start only after an explicit shipping request.
+
 ## Proof Rule
 
 Proof must cover the user-facing symptom or core behavior, not merely the edited line. Risky work needs representative positive rows, realistic negative controls, and explicit manual blockers for anything untested.
@@ -29,7 +33,10 @@ The maintainer review must also check shape. A passing repro is not enough if th
 
 ## Common Evidence
 
-- UI bug: before and after screenshots from the real app when feasible.
+- UI bug: cheapest proof that exercises the claim. Use targeted tests, scratch
+  harnesses, route/module repros, or jsdom/component proof before Playwright;
+  capture real-app before/after screenshots when visual/browser state is the
+  claim or when an explicit shipping flow needs reviewer-visible UI evidence.
 - Backend, engine, or logic bug: focused repro output before and after.
 - Build or type bug: failing command output before and passing command output after.
 - Risky data path: risk claim matrix plus focused proof review.

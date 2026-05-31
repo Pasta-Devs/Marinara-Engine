@@ -69,9 +69,26 @@ If ownership, callers, contract shape, or dependency direction cannot be named c
 3. Name the owner and expected impact before editing.
 4. Reproduce or inspect enough evidence to avoid patching the wrong layer.
 5. Make the smallest coherent change in the owning module.
-6. Verify the claim with commands, UI proof, screenshots, or a manual script.
+6. Verify the claim with the cheapest proof that exercises it: targeted command, focused test, scratch harness, route/module repro, jsdom/component proof, browser proof, or manual script.
 7. Review the diff for ownership, duplication, coupling, bloat, repeated conditionals, and hidden fallbacks.
 8. Report verification gaps as gaps, not confidence.
+
+## Credit-Aware Defaults
+
+Keep coding and review quality high. Use high/adaptive reasoning for code edits,
+reviews, risky debugging, and architecture; save credits by avoiding unnecessary
+agents, browser proof, and PR/CI loops.
+
+Ordinary bugfix language means local fix and verification by default. Do not
+commit, push, open or update PRs, trigger CodeRabbit, poll CI, mark ready, upload
+screenshots, or merge unless the user explicitly asks to ship, push, open a PR,
+or ready the work.
+
+Use a proof ladder before browser automation: static inspection, targeted tests,
+scratch harnesses, route/module repros, and jsdom/component proof first; use
+Playwright/browser proof when visual layout, interaction, routing, responsive
+behavior, screenshots, console/network behavior, or browser-only behavior is the
+claim.
 
 ## Risky Work
 

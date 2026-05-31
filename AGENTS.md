@@ -7,6 +7,12 @@
 - Chat, roleplay, and game remain separate mode owners.
 - Fix root causes; do not add fake success, silent catches, broad fallbacks, or UI-only guards over broken contracts.
 
+## Credit And Workflow Budget
+
+- Preserve coding quality: use high/adaptive reasoning for code edits, reviews, risky debugging, and architecture. Save credits by avoiding unnecessary agents, browser proof, and PR loops rather than weakening coding reasoning.
+- Ordinary bugfix language means local fix and verification by default. Commit, push, draft PR creation, CodeRabbit, CI polling, ready marking, and merge require an explicit shipping request such as "ship it", "open a PR", "push this", or "ready for review".
+- Use the cheapest proof that proves the claim. Prefer static inspection, targeted tests, scratch harnesses, route/module repros, or jsdom/component proof before Playwright; use browser proof when visual layout, interaction, routing, responsive behavior, screenshots, console/network behavior, or browser-only behavior is the claim.
+
 ## Verification
 
 Run checks that match the change:
