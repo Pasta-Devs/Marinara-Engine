@@ -43,6 +43,8 @@ export function ModeHomeSurface() {
     [connections, createChat],
   );
 
+  const showEmptyStateEffects = true;
+
   return (
     <>
       <div
@@ -51,14 +53,19 @@ export function ModeHomeSurface() {
       >
         <div className="flex w-full max-w-2xl flex-col items-center gap-3 py-2 sm:gap-4 sm:py-3 lg:pt-4 lg:pb-5">
           <div className="relative">
-            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-orange-500/20 sm:h-20 sm:w-20">
+            <div
+              className={cn(
+                "flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-orange-500/20 sm:h-20 sm:w-20",
+                showEmptyStateEffects && "animate-pulse-ring bunny-glow",
+              )}
+            >
               <img
-                src="/logo.png"
+                src={showEmptyStateEffects ? "/logo-splash.gif" : "/logo.png"}
                 alt="Marinara Engine"
                 width={80}
                 height={80}
                 decoding="async"
-                className="h-full w-full object-contain p-1.5 sm:p-2"
+                className={cn("h-full w-full", showEmptyStateEffects ? "object-cover" : "object-contain p-1.5 sm:p-2")}
               />
             </div>
           </div>
@@ -70,7 +77,9 @@ export function ModeHomeSurface() {
             </p>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+          <div
+            className={cn("flex flex-wrap justify-center gap-2 sm:gap-3", showEmptyStateEffects && "stagger-children")}
+          >
             <QuickStartCard
               icon={<MessageSquare size="1.125rem" />}
               label="Conversation"
@@ -100,7 +109,9 @@ export function ModeHomeSurface() {
           <RecentChats />
           <HomeFaq />
 
-          <div className="h-px w-48 rounded-[1px] bg-[var(--border)]/40" />
+          <div
+            className={cn("w-48", showEmptyStateEffects ? "retro-divider" : "h-px rounded-[1px] bg-[var(--border)]/40")}
+          />
 
           <div className="flex w-full max-w-2xl flex-col items-center gap-2">
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight text-[var(--muted-foreground)]/55 sm:text-xs">
