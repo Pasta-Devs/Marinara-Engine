@@ -46,6 +46,7 @@ vi.mock("../hooks/use-agents", () => {
     useUpdateAgent: () => agentHookMocks.updateAgent,
     useCreateAgent: () => agentHookMocks.createAgent,
     useDeleteAgent: () => agentHookMocks.deleteAgent,
+    agentCreditLabel: (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : "Codex"),
   };
 });
 
