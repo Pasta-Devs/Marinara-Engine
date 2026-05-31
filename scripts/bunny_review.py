@@ -535,28 +535,57 @@ def review_packet_with_model(client, skill, triage_content, stats):
     return extract_json(model_call(client, final_messages, stats))
 
 
-def skeptical_review_pass(client, skill, triage_content, first_review, stats):
-    if first_review.get("findings"):
-        return first_review
+def skeptical_review_pass(client, skill, triage_content, stats):
     audit_prompt = (
-        "The first review reported no findings. Do one stricter skeptical audit pass over "
-        "the same packet before accepting that result. Focus especially on invariant "
-        "mismatches introduced by the diff: data collected in a pre-scan but persisted "
-        "after later filters, parent metadata derived from rows that are not imported as "
-        "children, fallback behavior that diverges from validation, rollback paths, and "
-        "tests that prove only the happy path. Report only concrete actionable findings "
-        "that cite added or changed diff lines. If there are still no findings, return the "
-        "same JSON schema with an empty findings array and mention the skeptical audit in "
-        "what_i_checked."
-        f"\n\n# First Review JSON\n{json.dumps(first_review, indent=2, sort_keys=True)}"
+        "Run an independent skeptical specialist review over the same packet. Do not treat "
+        "any broad-review conclusion as authoritative. Focus on invariant mismatches "
+        "introduced by the diff: data collected in a pre-scan but persisted after later "
+        "filters, parent metadata derived from rows that are not imported as children, "
+        "fallback behavior that diverges from validation, rollback paths, partial writes, "
+        "contract drift, and tests that prove only the happy path. Report only concrete "
+        "actionable findings that cite added or changed diff lines. If there are no "
+        "findings from this specialist lens, return the same JSON schema with an empty "
+        "findings array and mention the skeptical audit in what_i_checked."
     )
     messages = [
         {"role": "system", "content": skill},
         {"role": "user", "content": triage_content},
-        {"role": "assistant", "content": "FINAL_REVIEW " + json.dumps(first_review)},
         {"role": "user", "content": audit_prompt},
     ]
     return extract_json(model_call(client, messages, stats))
+
+
+def judge_review_pass(client, skill, triage_content, broad_review, skeptical_review, stats):
+    judge_prompt = (
+        "Merge these two independent review passes into the final Bunny Review JSON. "
+        "Deduplicate overlapping findings, keep the clearest title/body/fix_hint, normalize "
+        "severity, and reject weak or speculative findings. Preserve concrete findings even "
+        "if only one pass found them. Every final finding must be actionable and cite an "
+        "added or changed diff line. Combine useful change_summary, pre_merge_checks, "
+        "open_questions, and what_i_checked entries without repeating yourself. Reply only "
+        "with FINAL_REVIEW followed by the final JSON object."
+        f"\n\n# Broad Review JSON\n{json.dumps(broad_review, indent=2, sort_keys=True)}"
+        f"\n\n# Skeptical Review JSON\n{json.dumps(skeptical_review, indent=2, sort_keys=True)}"
+    )
+    messages = [
+        {"role": "system", "content": skill},
+        {"role": "user", "content": triage_content},
+        {"role": "user", "content": judge_prompt},
+    ]
+    return extract_json(model_call(client, messages, stats))
+
+
+def three_pass_review(client, skill, triage_content, stats):
+    broad_review = review_packet_with_model(client, skill, triage_content, stats)
+    skeptical_review = skeptical_review_pass(client, skill, triage_content, stats)
+    return judge_review_pass(
+        client,
+        skill,
+        triage_content,
+        broad_review,
+        skeptical_review,
+        stats,
+    )
 
 
 def parse_context_request(content):
@@ -895,21 +924,7 @@ def produce_review(args):
                 + "."
             )
             triage_content = triage_for_packet(review_packet, focus_note)
-            first_review = review_packet_with_model(
-                client,
-                skill,
-                triage_content,
-                stats,
-            )
-            chunk_reviews.append(
-                skeptical_review_pass(
-                    client,
-                    skill,
-                    triage_content,
-                    first_review,
-                    stats,
-                )
-            )
+            chunk_reviews.append(three_pass_review(client, skill, triage_content, stats))
         review_obj = merge_review_objects(chunk_reviews)
         review_obj.setdefault("what_i_checked", []).append(
             f"Reviewed the PR in {len(chunks)} file chunk(s) to avoid dropping large-diff context."
@@ -918,19 +933,7 @@ def produce_review(args):
         review_packet = build_review_packet(base, ci_status, effective_mode)
         stats = build_stats(review_packet)
         triage_content = triage_for_packet(review_packet, "Review the full current diff.")
-        first_review = review_packet_with_model(
-            client,
-            skill,
-            triage_content,
-            stats,
-        )
-        review_obj = skeptical_review_pass(
-            client,
-            skill,
-            triage_content,
-            first_review,
-            stats,
-        )
+        review_obj = three_pass_review(client, skill, triage_content, stats)
     review_obj.setdefault("head_sha", head_sha)
     review_obj.setdefault("review_base", base)
     review_obj.setdefault("base_ref", base_ref)
