@@ -2,8 +2,8 @@ use crate::state::AppState;
 use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
     entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
-    imports, integrations, knowledge, llm, lorebook_images, mari, profile, profile_commands,
-    prompts, shared, sprites, translation, updates,
+    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
+    profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -671,7 +671,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             optional_value(&args, "body"),
             optional_string(&args, "ownerType").as_deref(),
         ),
-        "persona_activate" => characters::activate_persona(state, required_string(&args, "id")?),
+        "persona_activate" => personas::activate_persona(state, required_string(&args, "id")?),
         "character_avatar_upload" => avatars::update_character_avatar(
             state,
             "characters",

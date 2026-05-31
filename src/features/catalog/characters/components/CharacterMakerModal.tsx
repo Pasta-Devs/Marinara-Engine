@@ -8,95 +8,25 @@ import { useConnections } from "../../connections/index";
 import { useCharacterGroups, useCreateCharacter, useUpdateGroup } from "../hooks/use-characters";
 import { useCreateLorebookEntry, useLorebooks } from "../../lorebooks/index";
 import { useUIStore } from "../../../../shared/stores/ui.store";
-import {
-  Sparkles,
-  Loader2,
-  Wand2,
-  CheckCircle,
-  AlertCircle,
-  ChevronDown,
-  User,
-  Save,
-  Folder,
-  BookOpen,
-} from "lucide-react";
+import { Sparkles, Loader2, Wand2, AlertCircle, ChevronDown, Folder, BookOpen } from "lucide-react";
 import { ProfessorMariWorkingWindow } from "../../../../shared/components/ui/ProfessorMariWorkingWindow";
 import { generateCharacterMaker } from "../../../../engine/generation/makers";
 import { llmApi } from "../../../../shared/api/llm-api";
 import type { CharacterGroup } from "../../../../engine/contracts/types/character";
 import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
+import { CharacterMakerGeneratedPreview } from "./CharacterMakerGeneratedPreview";
+import {
+  characterLorebookContent,
+  mergeTags,
+  nameKeywords,
+  parseTagsInput,
+  type ConnectionRow,
+  type GeneratedCharacterData,
+} from "../lib/character-maker-model";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-}
-
-type ConnectionRow = {
-  id: string;
-  name: string;
-  provider: string;
-  model: string;
-};
-
-type GeneratedData = {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  first_mes?: string;
-  mes_example?: string;
-  creator_notes?: string;
-  system_prompt?: string;
-  post_history_instructions?: string;
-  tags?: string[];
-  backstory?: string;
-  appearance?: string;
-};
-
-function parseTagsInput(value: string): string[] {
-  const seen = new Set<string>();
-  return value
-    .split(/[,\n]/)
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      const key = tag.toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-function mergeTags(generatedTags: string[] | undefined, referenceTags: string[]): string[] {
-  const seen = new Set<string>();
-  return [...(generatedTags ?? []), ...referenceTags]
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      const key = tag.toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-function nameKeywords(name: string): string[] {
-  const parts = name
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return Array.from(new Set([name.trim(), ...parts])).filter(Boolean);
-}
-
-function characterLorebookContent(data: GeneratedData, name: string): string {
-  return [
-    `Name: ${name}`,
-    data.description ? `Description: ${data.description}` : "",
-    data.personality ? `Personality: ${data.personality}` : "",
-    data.backstory ? `Backstory: ${data.backstory}` : "",
-    data.appearance ? `Appearance: ${data.appearance}` : "",
-    data.scenario ? `Scenario: ${data.scenario}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 export function CharacterMakerModal({ open, onClose }: Props) {
@@ -119,7 +49,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
   const [connectionId, setConnectionId] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
-  const [generated, setGenerated] = useState<GeneratedData | null>(null);
+  const [generated, setGenerated] = useState<GeneratedCharacterData | null>(null);
   const [confirmedName, setConfirmedName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -147,7 +77,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
 
     try {
       let fullText = "";
-      let parsed: GeneratedData | null = null;
+      let parsed: GeneratedCharacterData | null = null;
       const referenceTags = parseTagsInput(referenceTagsInput);
       for await (const event of generateCharacterMaker(
         { llm: llmApi },
@@ -166,7 +96,7 @@ export function CharacterMakerModal({ open, onClose }: Props) {
           fullText += event.data;
           setStreamText(fullText);
         } else if (event.type === "done") {
-          parsed = JSON.parse(event.data) as GeneratedData;
+          parsed = JSON.parse(event.data) as GeneratedCharacterData;
         }
       }
 
@@ -437,85 +367,15 @@ export function CharacterMakerModal({ open, onClose }: Props) {
 
         {/* Generated preview */}
         {generated && (
-          <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle size="0.875rem" className="text-emerald-500" />
-              <span className="text-xs font-medium text-emerald-500">Character Generated!</span>
-            </div>
-
-            {/* Preview card */}
-            <div className="flex items-start gap-3 rounded-xl bg-[var(--card)] p-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-purple-500 shadow-md">
-                <User size="1.25rem" className="text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <label className="sr-only" htmlFor="character-maker-confirmed-name">
-                  Confirm character name
-                </label>
-                <input
-                  id="character-maker-confirmed-name"
-                  value={confirmedName}
-                  onChange={(e) => setConfirmedName(e.target.value)}
-                  className="w-full rounded-lg border border-transparent bg-transparent px-0 py-0 text-sm font-bold outline-none transition-colors focus:border-[var(--primary)]/30 focus:bg-[var(--secondary)] focus:px-2 focus:py-1"
-                />
-                <p className="mt-0.5 text-xs text-[var(--muted-foreground)] line-clamp-2">
-                  {generated.description?.slice(0, 200)}
-                </p>
-                {generated.tags && generated.tags.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {generated.tags.slice(0, 5).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Preview sections */}
-            <div className="grid gap-2 text-xs">
-              {generated.personality && <PreviewSection label="Personality" text={generated.personality} />}
-              {generated.backstory && <PreviewSection label="Backstory" text={generated.backstory} />}
-              {generated.appearance && <PreviewSection label="Appearance" text={generated.appearance} />}
-              {generated.first_mes && <PreviewSection label="First Message" text={generated.first_mes} />}
-            </div>
-
-            {/* Save button */}
-            <button
-              onClick={handleSave}
-              disabled={saving || !confirmedName.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-400 to-purple-500 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-pink-500/20 transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <Loader2 size="0.9375rem" className="animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Save size="0.9375rem" />
-                  Save & Edit Character
-                </>
-              )}
-            </button>
-          </div>
+          <CharacterMakerGeneratedPreview
+            generated={generated}
+            confirmedName={confirmedName}
+            onConfirmedNameChange={setConfirmedName}
+            saving={saving}
+            onSave={handleSave}
+          />
         )}
       </div>
     </Modal>
-  );
-}
-
-function PreviewSection({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="rounded-lg bg-[var(--secondary)] p-2.5">
-      <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-        {label}
-      </span>
-      <p className="mt-1 text-[var(--foreground)] line-clamp-3">{text}</p>
-    </div>
   );
 }

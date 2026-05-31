@@ -1,4 +1,6 @@
-use super::{avatars, characters, generation, images, llm, lorebook_images, shared, sprites};
+use super::{
+    avatars, characters, generation, images, llm, lorebook_images, personas, shared, sprites,
+};
 use crate::state::AppState;
 use marinara_core::AppError;
 use serde_json::{json, Value};
@@ -186,7 +188,7 @@ pub fn connection_save_default_parameters(
 
 #[tauri::command]
 pub fn persona_activate(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
-    characters::activate_persona(&state, &id)
+    personas::activate_persona(&state, &id)
 }
 
 #[tauri::command]
