@@ -5,7 +5,7 @@
 // The model picks a type + config during setup;
 // the renderer handles all visual presentation.
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -272,17 +272,7 @@ export function GameWidgetPanel({ widgets, position, chatId, constraintsRef }: G
 
   return (
     <>
-      <div className="pointer-events-auto flex flex-col gap-2">
-        {filtered.map((w) => (
-          <WidgetCard
-            key={`${chatId}:${w.id}`}
-            widget={w}
-            chatId={chatId}
-            constraintsRef={constraintsRef}
-            onEdit={openEditor}
-          />
-        ))}
-      </div>
+      <FloatingWidgetStack widgets={filtered} chatId={chatId} constraintsRef={constraintsRef} onEdit={openEditor} />
       <WidgetEditorModal
         widget={editingWidget}
         open={!!editingWidget}
@@ -291,6 +281,82 @@ export function GameWidgetPanel({ widgets, position, chatId, constraintsRef }: G
         isSaving={isSaving}
       />
     </>
+  );
+}
+
+/**
+ * Lays the widget cards out as independent floating panels so collapsing or
+ * dragging one never reflows its neighbours.
+ *
+ * Variable-height, collapsible cards can't be positioned independently in pure
+ * CSS, so we measure-then-pin: render once in normal flex flow, capture each
+ * card's natural top via `useLayoutEffect` (before paint — no flicker), then
+ * switch every card to `position: absolute` at its measured top. From then on a
+ * card's height changes (collapse/expand) only affect that card. We re-measure
+ * *only* when the visible set changes — never on collapse — so a minimised card
+ * leaves its slot open instead of yanking the others up to fill it.
+ */
+function FloatingWidgetStack({
+  widgets,
+  chatId,
+  constraintsRef,
+  onEdit,
+}: {
+  widgets: HudWidget[];
+  chatId: string;
+  constraintsRef?: RefObject<HTMLElement | null>;
+  onEdit: (widget: HudWidget) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [layout, setLayout] = useState<{ tops: Record<string, number>; height: number } | null>(null);
+
+  // Identity of the visible set — re-measure when widgets are added/removed/reordered.
+  const idsKey = widgets.map((w) => w.id).join("|");
+
+  // Drop back to flow whenever the set changes so the next pass measures fresh.
+  useLayoutEffect(() => {
+    setLayout(null);
+  }, [idsKey]);
+
+  // Measure natural flow positions, then pin. Runs while unpinned (layout === null).
+  useLayoutEffect(() => {
+    if (layout) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const tops: Record<string, number> = {};
+    let height = 0;
+    for (const w of widgets) {
+      const el = itemRefs.current.get(w.id);
+      if (!el) continue;
+      tops[w.id] = el.offsetTop;
+      height = Math.max(height, el.offsetTop + el.offsetHeight);
+    }
+    setLayout({ tops, height });
+  }, [layout, widgets]);
+
+  const pinned = layout !== null;
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn("pointer-events-auto", !pinned && "flex flex-col gap-2")}
+      style={pinned ? { position: "relative", height: layout.height } : undefined}
+    >
+      {widgets.map((w) => (
+        <div
+          key={`${chatId}:${w.id}`}
+          ref={(el) => {
+            if (el) itemRefs.current.set(w.id, el);
+            else itemRefs.current.delete(w.id);
+          }}
+          style={pinned ? { position: "absolute", top: layout.tops[w.id] ?? 0, left: 0, right: 0 } : undefined}
+        >
+          <WidgetCard widget={w} chatId={chatId} constraintsRef={constraintsRef} onEdit={onEdit} />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -387,6 +453,14 @@ function WidgetCard({
   const accent = widget.accent ?? "#a78bfa";
   const { locked, toggleLocked, x, y, panelRef, handleDragEnd } = useDraggablePanel(chatId, `widget:${widget.id}`);
 
+  // Distinguishes a drag from a click on the header. framer-motion fires the
+  // header's onClick on pointer-up even after a drag, which would toggle
+  // collapse every time you reposition the panel. We flag drags via
+  // onDragStart (only fires past framer's movement threshold) and swallow the
+  // trailing click. The flag resets on the next pointer-down so a genuine
+  // click — or a click after framer already suppressed its own — still toggles.
+  const draggedRef = useRef(false);
+
   return (
     <motion.div
       ref={panelRef}
@@ -394,6 +468,9 @@ function WidgetCard({
       dragMomentum={false}
       dragElastic={0}
       dragConstraints={constraintsRef as RefObject<Element>}
+      onDragStart={() => {
+        draggedRef.current = true;
+      }}
       onDragEnd={handleDragEnd}
       style={{ x, y, borderColor: `${accent}30` }}
       data-game-skip-bg-nav="true"
@@ -406,7 +483,16 @@ function WidgetCard({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setCollapsed((c) => !c)}
+        onPointerDownCapture={() => {
+          draggedRef.current = false;
+        }}
+        onClick={() => {
+          if (draggedRef.current) {
+            draggedRef.current = false;
+            return;
+          }
+          setCollapsed((c) => !c);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
