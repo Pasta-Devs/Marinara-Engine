@@ -59,6 +59,10 @@ Use this when the user reports broken behavior, screenshots a bug, or says
    changes, or when narrow proof does not cover the claim.
 9. Review the diff as a maintainer before reporting done.
 
+For ordinary local bugfix requests, stop after focused proof and the matching
+validation command. If the user then asks to ship, push, open a PR, or mark
+ready, switch to the Review And PR lane and run the full pre-PR gate there.
+
 If reproduction is not possible, mark that as a proof gap instead of implying
 the repro was exercised.
 
@@ -101,6 +105,9 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - For reviews, lead with findings ordered by severity. If no issues are found, say so.
 - Before pushing or opening a PR, check the dirty tree, remotes, branch, intended files, and target branch.
 - New refactor-line PRs should target `refactor` and be draft by default unless the maintainer says otherwise.
+- Before pushing, opening, or handing off a PR, run `pnpm check` after the final
+  diff. It includes the unused-code check; if it fails, stop and report whether
+  the failure is in-scope or pre-existing instead of waiting for CI to block it.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.

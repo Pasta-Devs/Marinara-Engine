@@ -22,6 +22,12 @@ Run checks that match the change:
 - Rust commands/capabilities/provider transport/hostable runtime: `cargo check --manifest-path src-tauri/Cargo.toml`
 - Docs/skills/agent guidance: `pnpm check:docs`
 - Architecture/import rules: `pnpm check:architecture`
+- PR boundary/ready-for-review: `pnpm check` (includes the unused-code check)
+
+Ordinary local bugfixes should run the focused proof and matching lane check.
+Do not turn every "fix the bug" request into full `pnpm check`; run full
+`pnpm check` when the work becomes PR/shipping/ready-for-review, risky,
+cross-lane, or otherwise needs the full baseline.
 
 For code changes, final responses must include behavior changed, primary files/modules touched, impact/dependent areas reviewed, verification, and remaining risk.
 

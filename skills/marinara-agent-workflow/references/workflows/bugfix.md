@@ -21,6 +21,11 @@ Ordinary bugfix language means local fix and verification. Commit, push, PR
 creation, CodeRabbit, CI polling, screenshot upload, ready marking, and merge
 start only after an explicit shipping request.
 
+Do not run full `pnpm check` for every ordinary local bugfix. Use the focused
+proof and the matching lane validation command. When the user asks to ship, push,
+open a PR, or mark ready, switch to the PR workflow and run full `pnpm check`
+there before the PR leaves local hands.
+
 ## Proof Rule
 
 Proof must cover the user-facing symptom or core behavior, not merely the edited line. Risky work needs representative positive rows, realistic negative controls, and explicit manual blockers for anything untested.

@@ -18,7 +18,7 @@ Before push or PR creation:
 2. Read `CONTRIBUTING.md` and verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
 3. Confirm only intentional files will ship.
 4. Verify evidence exists for the PR claim.
-5. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR.
+5. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
    If it cannot run, record the exact blocker and why the PR is still being handed off.
 6. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
 7. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
@@ -28,6 +28,10 @@ Before push or PR creation:
 `pnpm check` is the general pre-PR gate. It does not replace targeted proof
 such as focused tests, lint, build, size checks, clippy, native Tauri QA, or
 browser checks when the change needs them.
+
+If `pnpm check` fails, do not push or mark the PR ready. Classify the failure as
+in-scope or pre-existing/unrelated, fix in-scope failures, and report unrelated
+failures clearly instead of letting CI be the first place they appear.
 
 Open new PRs as draft unless the user or target workflow says it should be ready for review. Never push directly to protected branches or force-push without explicit approval.
 
