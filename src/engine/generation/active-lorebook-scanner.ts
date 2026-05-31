@@ -11,6 +11,11 @@ import {
   type LorebookScopeExclusions,
 } from "../generation-core/lorebooks/game-lorebook-scope";
 import {
+  lorebookAppliesToContext as lorebookAppliesToActiveScopeContext,
+  resolveActiveLorebookScopeReason,
+  type ActiveLorebookScopeReason,
+} from "../generation-core/lorebooks/active-lorebook-scope";
+import {
   recursiveScan,
   scanForActivatedEntries,
   updateTimingStatesForScan,
@@ -61,15 +66,6 @@ export interface BudgetSkippedLorebookEntry {
   chatBudget: number;
   chatUsedTokens: number;
   blockedBy: "lorebook" | "chat" | "both";
-}
-
-type ActiveLorebookScopeReasonType = "global" | "character" | "persona" | "chat" | "selected";
-
-interface ActiveLorebookScopeReason {
-  lorebookId: string;
-  lorebookName: string;
-  reason: ActiveLorebookScopeReasonType;
-  matchedIds: string[];
 }
 
 export interface LorebookSemanticScanStatus {
@@ -213,64 +209,13 @@ function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
   };
 }
 
-function resolveActiveLorebookScopeReason(
-  lorebook: JsonRecord,
-  chat: JsonRecord,
-  characters: LorebookActivationCharacterContext[],
-  persona: LorebookActivationPersonaContext | null,
-  scopeExclusions: LorebookScopeExclusions = resolveGameLorebookScopeExclusions(
-    readString(chat.mode || chat.chatMode),
-    parseRecord(chat.metadata),
-  ),
-): ActiveLorebookScopeReason | null {
-  if (!boolish(lorebook.enabled, true)) return null;
-  const lorebookId = readString(lorebook.id);
-  const lorebookName = readString(lorebook.name, lorebookId || "Lorebook");
-  if (scopeExclusions.excludedLorebookIds.includes(lorebookId)) return null;
-  if (scopeExclusions.excludedSourceAgentIds.includes(readString(lorebook.sourceAgentId))) return null;
-  if (boolish(lorebook.isGlobal ?? lorebook.global, false)) {
-    return { lorebookId, lorebookName, reason: "global", matchedIds: [] };
-  }
-
-  const activeIds = new Set(characters.map((character) => character.id));
-  const lorebookCharacterIds = stringArray(lorebook.characterIds);
-  const matchedCharacterIds = [
-    ...lorebookCharacterIds.filter((id) => activeIds.has(id)),
-    readString(lorebook.characterId),
-  ].filter((id, index, ids) => id && activeIds.has(id) && ids.indexOf(id) === index);
-  if (matchedCharacterIds.length > 0) {
-    return { lorebookId, lorebookName, reason: "character", matchedIds: matchedCharacterIds };
-  }
-
-  const personaId = readString(chat.personaId);
-  if (persona && personaId) {
-    const personaIds = stringArray(lorebook.personaIds);
-    if (personaIds.includes(personaId) || readString(lorebook.personaId) === personaId) {
-      return { lorebookId, lorebookName, reason: "persona", matchedIds: [personaId] };
-    }
-  }
-
-  const chatId = readString(chat.id).trim();
-  const chatScopedId = readString(lorebook.chatId).trim();
-  if (chatScopedId && chatScopedId === chatId) {
-    return { lorebookId, lorebookName, reason: "chat", matchedIds: [chatId] };
-  }
-
-  const meta = parseRecord(chat.metadata);
-  if (stringArray(meta.activeLorebookIds ?? chat.activeLorebookIds).includes(lorebookId)) {
-    return { lorebookId, lorebookName, reason: "selected", matchedIds: [lorebookId] };
-  }
-
-  return null;
-}
-
 export function lorebookAppliesToContext(
   lorebook: JsonRecord,
   chat: JsonRecord,
   characters: LorebookActivationCharacterContext[],
   persona: LorebookActivationPersonaContext | null,
 ): boolean {
-  return !!resolveActiveLorebookScopeReason(lorebook, chat, characters, persona);
+  return lorebookAppliesToActiveScopeContext(lorebook, { chat, characters, persona });
 }
 
 function joinMatchingSourceParts(parts: Array<string | undefined>): string {
@@ -482,7 +427,12 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
   const scopedLorebooks = (await input.storage.list<JsonRecord>("lorebooks"))
     .map((book) => ({
       book,
-      reason: resolveActiveLorebookScopeReason(book, input.chat, input.characters, input.persona, scopeExclusions),
+      reason: resolveActiveLorebookScopeReason(book, {
+        chat: input.chat,
+        characters: input.characters,
+        persona: input.persona,
+        scopeExclusions,
+      }),
     }))
     .filter((entry): entry is { book: JsonRecord; reason: ActiveLorebookScopeReason } => !!entry.reason);
   const lorebooks = scopedLorebooks.map((entry) => entry.book);

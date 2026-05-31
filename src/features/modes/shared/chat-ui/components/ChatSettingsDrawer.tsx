@@ -162,6 +162,11 @@ import { boolish as isEnabledFlag } from "../../../../../engine/generation/runti
 import type { CharacterGroup } from "../../../../../engine/contracts/types/character";
 import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
 import {
+  activeLorebookScopeReasonLabels,
+  resolveActiveLorebookScopeReasons,
+  type ActiveLorebookScopeReasonLabel,
+} from "../../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
   useCustomTools,
@@ -237,7 +242,7 @@ type AvailableAgent = {
   builtIn: boolean;
 };
 
-type LorebookActiveReason = "Global" | "Character" | "Persona" | "Chat";
+type LorebookActiveReason = ActiveLorebookScopeReasonLabel;
 
 type ActiveLorebookView = Lorebook & {
   activeReasons: LorebookActiveReason[];
@@ -560,52 +565,26 @@ function ChatSettingsDrawerInner({
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
   const gameLorebookKeeperLorebookId =
     typeof metadata.gameLorebookKeeperLorebookId === "string" ? metadata.gameLorebookKeeperLorebookId : null;
+  const activeLorebookScopeContext = useMemo(
+    () => ({
+      chat,
+      characters: chatCharIds.map((id) => ({ id })),
+      persona: chat.personaId ? { id: chat.personaId } : null,
+    }),
+    [chat, chatCharIds],
+  );
   const activeLorebooks = useMemo<ActiveLorebookView[]>(() => {
-    const pinnedIds = new Set(activeLorebookIds);
     const lorebookList = (lorebooks ?? []) as Lorebook[];
 
     return lorebookList.flatMap((lorebook) => {
-      if (
-        isGame &&
-        !gameLorebookKeeperEnabled &&
-        (lorebook.id === gameLorebookKeeperLorebookId || lorebook.sourceAgentId === "game-lorebook-keeper")
-      ) {
-        return [];
-      }
-
-      const reasons: LorebookActiveReason[] = [];
-      const isPinned = pinnedIds.has(lorebook.id);
-
-      if (lorebook.enabled !== false) {
-        if (isPinned) reasons.push("Chat");
-        if (lorebook.isGlobal) reasons.push("Global");
-        if (
-          lorebook.characterIds?.some((id) => chatCharIds.includes(id)) ||
-          (lorebook.characterId && chatCharIds.includes(lorebook.characterId))
-        ) {
-          reasons.push("Character");
-        }
-        if (
-          chat.personaId &&
-          (lorebook.personaIds?.includes(chat.personaId) || lorebook.personaId === chat.personaId)
-        ) {
-          reasons.push("Persona");
-        }
-        if (lorebook.chatId === chat.id && !reasons.includes("Chat")) reasons.push("Chat");
-      }
+      const reasons = activeLorebookScopeReasonLabels(
+        resolveActiveLorebookScopeReasons(lorebook, activeLorebookScopeContext),
+      );
+      const isPinned = activeLorebookIds.includes(lorebook.id);
 
       return reasons.length > 0 ? [{ ...lorebook, activeReasons: reasons, isPinned }] : [];
     });
-  }, [
-    activeLorebookIds,
-    chat.id,
-    chat.personaId,
-    chatCharIds,
-    gameLorebookKeeperEnabled,
-    gameLorebookKeeperLorebookId,
-    isGame,
-    lorebooks,
-  ]);
+  }, [activeLorebookIds, activeLorebookScopeContext, lorebooks]);
   const activeLorebookIdSet = useMemo(() => new Set(activeLorebooks.map((lorebook) => lorebook.id)), [activeLorebooks]);
   const lorebookTokenBudget =
     typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
@@ -1322,47 +1301,8 @@ function ChatSettingsDrawerInner({
       }
     });
   }, [currentPromptPresetFull?.sections]);
-  const hasScopedOrGlobalLorebooks = useMemo(() => {
-    return (
-      (lorebooks ?? []) as Array<{
-        id: string;
-        enabled?: boolean;
-        isGlobal?: boolean;
-        characterId?: string | null;
-        characterIds?: string[];
-        personaId?: string | null;
-        personaIds?: string[];
-        chatId?: string | null;
-        sourceAgentId?: string | null;
-      }>
-    ).some(
-      (lorebook) =>
-        lorebook.enabled !== false &&
-        !(
-          isGame &&
-          !gameLorebookKeeperEnabled &&
-          (lorebook.id === gameLorebookKeeperLorebookId || lorebook.sourceAgentId === "game-lorebook-keeper")
-        ) &&
-        (lorebook.isGlobal ||
-          activeLorebookIds.includes(lorebook.id) ||
-          lorebook.characterIds?.some((id) => chatCharIds.includes(id)) ||
-          (lorebook.characterId && chatCharIds.includes(lorebook.characterId)) ||
-          (chat.personaId && lorebook.personaIds?.includes(chat.personaId)) ||
-          (lorebook.personaId && lorebook.personaId === chat.personaId) ||
-          (lorebook.chatId && lorebook.chatId === chat.id)),
-    );
-  }, [
-    activeLorebookIds,
-    chat.id,
-    chat.personaId,
-    chatCharIds,
-    gameLorebookKeeperEnabled,
-    gameLorebookKeeperLorebookId,
-    isGame,
-    lorebooks,
-  ]);
   const showLorebookMarkerWarning =
-    !!chat.promptPresetId && hasScopedOrGlobalLorebooks && !currentPromptPresetHasLorebookMarker;
+    !!chat.promptPresetId && activeLorebooks.length > 0 && !currentPromptPresetHasLorebookMarker;
 
   const setPreset = (presetId: string | null) => {
     updateChat.mutate(
