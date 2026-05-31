@@ -4141,8 +4141,8 @@ function ChatSettingsDrawerInner({
                           <span>Lorebook Keeper</span>
                         </div>
                         <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Pick a chat-specific target lorebook and optionally keep Lorebook Keeper a few assistant
-                          replies behind the latest canon before it writes.
+                          Pick a chat-specific target lorebook. If blank, Keeper uses a scoped active lorebook and skips
+                          writing when none is available.
                         </p>
                       </div>
                       <button
@@ -4173,7 +4173,7 @@ function ChatSettingsDrawerInner({
                           }
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                         >
-                          <option value="">Auto-select first writable lorebook</option>
+                          <option value="">Use scoped active lorebook</option>
                           {((lorebooks ?? []) as Array<{ id: string; name: string }>).map((lorebook) => (
                             <option key={lorebook.id} value={lorebook.id}>
                               {lorebook.name}

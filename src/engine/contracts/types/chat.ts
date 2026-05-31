@@ -154,7 +154,7 @@ export interface ChatMetadata {
   agentOverrides: Record<string, boolean>;
   /** Agent IDs scoped to this chat. Non-empty = only these agents run; empty = use globally-enabled agents. */
   activeAgentIds: string[];
-  /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = auto-pick. */
+  /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = use a scoped active lorebook when available. */
   lorebookKeeperTargetLorebookId?: string | null;
   /** How many assistant responses behind the latest available one Lorebook Keeper should read from. */
   lorebookKeeperReadBehindMessages?: number;
