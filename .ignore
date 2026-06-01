@@ -1,0 +1,10 @@
+scratch/
+.pnpm-store-issue-*/
+.cargo-target-issue-*/
+.claude/
+.playwright-mcp/
+extensions/
+node_modules/
+target/
+src-tauri/target/
+dist/
