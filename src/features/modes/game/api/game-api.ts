@@ -110,17 +110,27 @@ export interface StartGameResponse {
   status: string;
   alreadyStarted?: boolean;
   sessionChat: Chat;
+  checkpointWarning?: GameCheckpointWarning;
 }
 
 export interface StartSessionResponse {
   sessionChat: Chat;
   sessionNumber: number;
   recap: string;
+  checkpointWarning?: GameCheckpointWarning;
 }
 
 export interface SessionSummaryResponse {
   summary: SessionSummary;
   sessionChat: Chat;
+  checkpointWarning?: GameCheckpointWarning;
+}
+
+export interface GameCheckpointWarning {
+  chatId: string;
+  triggerType: string;
+  label: string;
+  message: string;
 }
 
 export interface RegenerateSessionLorebookResponse {
@@ -368,14 +378,28 @@ async function createGameCheckpoint(data: {
   return { id: record.id };
 }
 
-async function createAutomaticGameCheckpoint(data: { chatId: string; label: string; triggerType: string }): Promise<void> {
-  await createGameCheckpoint(data).catch((error) => {
+async function createAutomaticGameCheckpoint(data: {
+  chatId: string;
+  label: string;
+  triggerType: string;
+}): Promise<GameCheckpointWarning | null> {
+  try {
+    await createGameCheckpoint(data);
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Automatic checkpoint failed";
     console.warn("[game] Automatic checkpoint failed", {
       chatId: data.chatId,
       triggerType: data.triggerType,
       error,
     });
-  });
+    return {
+      chatId: data.chatId,
+      triggerType: data.triggerType,
+      label: data.label || "Checkpoint",
+      message,
+    };
+  }
 }
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
@@ -1716,8 +1740,12 @@ export const gameApi = {
       gameSessionStatus: "active",
       gameActiveState: "exploration",
     });
-    await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Session started", triggerType: "session_start" });
-    return { status: "active", alreadyStarted: false, sessionChat };
+    const checkpointWarning = await createAutomaticGameCheckpoint({
+      chatId: data.chatId,
+      label: "Session started",
+      triggerType: "session_start",
+    });
+    return { status: "active", alreadyStarted: false, sessionChat, ...(checkpointWarning ? { checkpointWarning } : {}) };
   },
 
   async startSession(data: { gameId: string; connectionId?: string }): Promise<StartSessionResponse> {
@@ -1784,8 +1812,12 @@ export const gameApi = {
       });
       mirrorGameMessageToDiscord(chatMeta(sessionChat), recap.trim(), "Narrator");
     }
-    await createAutomaticGameCheckpoint({ chatId: sessionChat.id, label: "Session started", triggerType: "session_start" });
-    return { sessionChat, sessionNumber, recap };
+    const checkpointWarning = await createAutomaticGameCheckpoint({
+      chatId: sessionChat.id,
+      label: "Session started",
+      triggerType: "session_start",
+    });
+    return { sessionChat, sessionNumber, recap, ...(checkpointWarning ? { checkpointWarning } : {}) };
   },
 
   async concludeSession(data: {
@@ -1857,8 +1889,12 @@ export const gameApi = {
       gameCampaignProgression: campaignProgression,
       gameCharacterCards: characterCards,
     });
-    await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Session ended", triggerType: "session_end" });
-    return { summary, sessionChat };
+    const checkpointWarning = await createAutomaticGameCheckpoint({
+      chatId: data.chatId,
+      label: "Session ended",
+      triggerType: "session_end",
+    });
+    return { summary, sessionChat, ...(checkpointWarning ? { checkpointWarning } : {}) };
   },
 
   async regenerateSessionLorebook(data: {
@@ -2051,14 +2087,23 @@ export const gameApi = {
     const previousState = (meta.gameActiveState as GameActiveState | undefined) ?? "exploration";
     const newState = validateTransition(previousState, data.newState);
     const sessionChat = await patchChatMetadata(data.chatId, { gameActiveState: newState });
+    let checkpointWarning: GameCheckpointWarning | null = null;
     if (previousState !== newState) {
       if (newState === "combat") {
-        await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Combat started", triggerType: "combat_start" });
+        checkpointWarning = await createAutomaticGameCheckpoint({
+          chatId: data.chatId,
+          label: "Combat started",
+          triggerType: "combat_start",
+        });
       } else if (previousState === "combat") {
-        await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Combat ended", triggerType: "combat_end" });
+        checkpointWarning = await createAutomaticGameCheckpoint({
+          chatId: data.chatId,
+          label: "Combat ended",
+          triggerType: "combat_end",
+        });
       }
     }
-    return { previousState, newState, sessionChat };
+    return { previousState, newState, sessionChat, ...(checkpointWarning ? { checkpointWarning } : {}) };
   },
 
   async generateMap(data: {
