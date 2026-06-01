@@ -37,16 +37,15 @@ jobs:
           status_body() {
             local title="$1"
             local detail="$2"
-            cat <<EOF
-<!-- bunny-review:command-status -->
-## Bunny Review $title
-
-Command: \`$COMMENT_BODY\`
-Mode: \`$REVIEW_MODE\`
-Requested by: \`$COMMENT_AUTHOR\`
-Target ref: \`$TARGET_REF\`
-Status: $detail
-EOF
+            printf '%s\n' \
+              '<!-- bunny-review:command-status -->' \
+              "## Bunny Review $title" \
+              '' \
+              "Command: \`$COMMENT_BODY\`" \
+              "Mode: \`$REVIEW_MODE\`" \
+              "Requested by: \`$COMMENT_AUTHOR\`" \
+              "Target ref: \`$TARGET_REF\`" \
+              "Status: $detail"
           }
 
           upsert_status() {
