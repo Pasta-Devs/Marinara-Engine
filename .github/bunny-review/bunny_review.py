@@ -14,6 +14,7 @@ from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
 BUNNY_MARKER = "<!-- bunny-review:walkthrough -->"
+COMMAND_STATUS_MARKER = "<!-- bunny-review:command-status -->"
 FINDING_MARKER_RE = re.compile(r"<!-- bunny-review:finding=([0-9a-f]{16}) -->")
 STATE_MARKER_RE = re.compile(r"<!-- bunny-review:last-reviewed-sha=([0-9a-f]{40}) -->")
 MAX_REVIEW_PACKET_CHARS = 180_000
@@ -1178,6 +1179,48 @@ def find_walkthrough_comment(pr_num):
     return None
 
 
+def find_command_status_comment(pr_num):
+    gh = run_gh(
+        [
+            "api",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments?per_page=100",
+            "--paginate",
+        ],
+        check=True,
+    )
+    for comment in load_json_list(gh.stdout):
+        if COMMAND_STATUS_MARKER in comment.get("body", ""):
+            return comment.get("id")
+    return None
+
+
+def patch_command_status_complete(pr_num, head_sha):
+    comment_id = find_command_status_comment(pr_num)
+    if not comment_id:
+        return
+    body = "\n".join(
+        [
+            COMMAND_STATUS_MARKER,
+            "## Bunny Review Completed",
+            "",
+            f"Head: `{short_ref(head_sha)}`",
+            "Status: Review posted. The specimen has been returned to the table.",
+        ]
+    )
+    run_gh(
+        [
+            "api",
+            "--method",
+            "PATCH",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/comments/{comment_id}",
+            "--input",
+            "-",
+        ],
+        input_text=json.dumps({"body": body}),
+        check=True,
+    )
+
+
 def load_json_list(stdout):
     try:
         loaded = json.loads(stdout or "[]")
@@ -1231,6 +1274,8 @@ def filter_duplicate_inline_comments(pr_num, comments):
 def post_review(args):
     pr_num = os.environ["PR_NUM"]
     body = pathlib.Path(args.review_md).read_text("utf-8")
+    head_sha_match = STATE_MARKER_RE.search(body)
+    head_sha = head_sha_match.group(1) if head_sha_match else ""
     comment_id = find_walkthrough_comment(pr_num)
     if comment_id:
         run_gh(
@@ -1247,6 +1292,8 @@ def post_review(args):
         )
     else:
         run_gh(["pr", "comment", pr_num, "--body-file", args.review_md], check=True)
+
+    patch_command_status_complete(pr_num, head_sha)
 
     comments = json.loads(pathlib.Path(args.inline_json).read_text("utf-8"))
     comments = filter_duplicate_inline_comments(pr_num, comments)
