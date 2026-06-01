@@ -97,6 +97,11 @@ Playwright/browser proof when visual layout, interaction, routing, responsive
 behavior, screenshots, console/network behavior, or browser-only behavior is the
 claim.
 
+Do not submit `*.test.ts` or `*.test.tsx` files in PRs as proof. Existing tests
+and local-only scratch harnesses can still inform a fix, but submitted PR proof
+must cite checks, command output, app/browser/Tauri verification, or manual
+verification notes instead.
+
 ## Risky Work
 
 Treat these as risky: storage, migrations, import/export, installers, user data, prompt assembly, provider transport, auth/secrets, destructive actions, cross-entrypoint behavior, legacy compatibility, and new abstractions.

@@ -30,6 +30,10 @@ Before push or PR creation:
 such as focused tests, lint, build, size checks, clippy, native Tauri QA, or
 browser checks when the change needs them.
 
+Do not submit `*.test.ts` or `*.test.tsx` files as PR proof. If a repro needs
+one locally, keep it out of the submitted diff and cite the command output,
+existing checks, app/browser/Tauri proof, or manual verification notes instead.
+
 If `pnpm check` fails, do not push or mark the PR ready. Classify the failure as
 in-scope or pre-existing/unrelated, fix in-scope failures, and report unrelated
 failures clearly instead of letting CI be the first place they appear.

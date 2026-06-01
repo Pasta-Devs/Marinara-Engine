@@ -126,6 +126,9 @@ This is the general pre-PR gate for line endings, architecture, TypeScript,
 Rust compile, docs, and unused-code checks. Run additional targeted proof when
 the change needs it, such as focused tests, lint, build, size checks, clippy,
 Rust tests, native Tauri QA, or browser checks.
+Do not submit `*.test.ts` or `*.test.tsx` files in a PR as proof; validation
+belongs in existing checks, command output, local-only scratch harnesses,
+app/browser/Tauri verification, or manual verification notes.
 
 Leave PR template checkboxes unchecked until a human has actually verified each item. If an AI agent drafts a PR body, treat the checkboxes as a to-do list, not as proof.
 

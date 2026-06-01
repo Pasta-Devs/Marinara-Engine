@@ -15,6 +15,7 @@
 - Use the tiny local bug path for narrow, low-risk, machine-provable fixes: no full ledger by default, just a short claim/proof/validation/files/risk/vault receipt. Escalate to the full workflow as soon as the bug is nontrivial, PR-affecting, cross-boundary, storage/import/export/prompt/provider/security-sensitive, browser-evidence-dependent, or uncertain.
 - Before local bugfix edits, name only the cheap gate: core claim, likely owner/lane, risk level, and proof target. Broaden the gate only after a hypothesis is falsified or a risk boundary appears.
 - Use the cheapest proof that proves the claim. Prefer static inspection, targeted tests, scratch harnesses, route/module repros, or jsdom/component proof before Playwright; use browser proof when visual layout, interaction, routing, responsive behavior, screenshots, console/network behavior, or browser-only behavior is the claim.
+- Do not submit `*.test.ts` or `*.test.tsx` files in PRs as proof. Use existing tests, scratch/local-only harnesses, command output, app/browser/Tauri proof, or manual verification notes instead.
 - When available, keep `workflow-health.mjs` for nontrivial Marinara work, PR work, issue selection, and risky workflow changes. Do not spend it on a tiny one-file local bug unless repo policy or visible risk requires it.
 
 ## Verification

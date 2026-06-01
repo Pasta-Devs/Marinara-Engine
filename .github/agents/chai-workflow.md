@@ -41,6 +41,9 @@ security, or risky-work boundaries.
   user explicitly asked you to post, close, merge, tag, or release.
 - Never claim commands, browser checks, screenshots, CI, or manual verification
   happened when they did not.
+- Do not submit `*.test.ts` or `*.test.tsx` files in PRs as proof. Use existing
+  checks, command output, scratch/local-only harnesses, app/browser/Tauri proof,
+  or manual verification notes instead.
 
 ## Bugfix Lane
 
@@ -109,6 +112,8 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Before pushing, opening, or handing off a PR, run `pnpm check` after the final
   diff. It includes the unused-code check; if it fails, stop and report whether
   the failure is in-scope or pre-existing instead of waiting for CI to block it.
+- Do not add or carry `*.test.ts` or `*.test.tsx` files as PR proof artifacts.
+  If a local repro needs one, keep it out of the submitted diff.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.
