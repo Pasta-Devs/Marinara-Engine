@@ -1,7 +1,6 @@
 # .github/bunny-review/bunny_review.py
 import argparse
 import hashlib
-import html
 import json
 import os
 import pathlib
@@ -726,24 +725,13 @@ def validate_findings(review_obj, base):
 def render_finding_body(finding):
     parts = [
         finding_marker(finding),
-        "<details>",
-        f"<summary>[{finding.severity}] {html.escape(finding.title)}</summary>",
+        f"**[{finding.severity}] {finding.title}**",
         "",
         finding.body,
     ]
     if finding.fix_hint:
         parts.extend(["", f"Suggested fix: {finding.fix_hint}"])
-    parts.extend(
-        [
-            "",
-            "**Prompt for AI Agents**",
-            "",
-            "```text",
-            render_agent_prompt([finding]),
-            "```",
-        ]
-    )
-    parts.extend(["", "</details>"])
+    parts.extend(["", render_agent_prompt_details([finding], "Prompt for AI Agents")])
     return "\n".join(parts).strip()
 
 
@@ -764,29 +752,12 @@ def short_ref(value):
     return value[:24]
 
 
-def commit_subject(commit_sha):
-    if not commit_sha or not re.fullmatch(r"[0-9a-f]{40}", str(commit_sha)):
-        return ""
-    result = run(["git", "log", "-1", "--format=%s", str(commit_sha)], timeout=30)
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip().replace("\n", " ")
-
-
-def render_commit_label(head_sha):
-    subject = commit_subject(head_sha)
-    label = f"Commit: `{short_ref(head_sha)}`"
-    if subject:
-        label += f" - {subject}"
-    return label
-
-
 def render_review_metadata(review_obj, head_sha):
     mode = review_obj.get("mode") or "unknown"
     base = review_obj.get("review_base") or review_obj.get("base_ref") or "unknown"
     parts = [
         f"Mode: `{mode}`",
-        render_commit_label(head_sha),
+        f"Head: `{short_ref(head_sha)}`",
         f"Base: `{short_ref(base)}`",
     ]
     return "_Review update: " + " · ".join(parts) + "._"
@@ -1231,7 +1202,7 @@ def patch_command_status_running(pr_num, head_sha, mode):
             "## Bunny Review Running",
             "",
             f"Mode: `{mode or 'unknown'}`",
-            render_commit_label(head_sha),
+            f"Head: `{short_ref(head_sha)}`",
             "Status: Reviewer workflow is running. The specimen is under observation.",
         ]
     )
@@ -1244,7 +1215,7 @@ def patch_command_status_complete(pr_num, head_sha):
             COMMAND_STATUS_MARKER,
             "## Bunny Review Completed",
             "",
-            render_commit_label(head_sha),
+            f"Head: `{short_ref(head_sha)}`",
             "Status: Review posted. The specimen has been returned to the table.",
         ]
     )
