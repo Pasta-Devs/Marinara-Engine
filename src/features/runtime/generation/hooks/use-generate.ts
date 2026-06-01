@@ -50,7 +50,12 @@ import {
   type GenerationReplay,
 } from "../../../../engine/generation/generation-replay";
 import { readNonNegativeInteger } from "../../../../engine/generation/runtime-records";
-import { applyQuestUpdatesToPlayerStats } from "../../../../engine/shared/game-state/player-stats";
+import {
+  applyQuestUpdatesToPlayerStats,
+  parseCustomTrackerField,
+  parseInventoryItem,
+  parseStat,
+} from "../../../../engine/shared/game-state/player-stats";
 import type { AgentDebugEntry } from "../../../../engine/contracts/types/agent";
 import type { IntegrationGateway } from "../../../../engine/capabilities/integrations";
 
@@ -648,15 +653,6 @@ function readNullableString(value: unknown): string | null {
   return null;
 }
 
-function readNumber(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
 function trackerTargetFromMessagePayload(value: unknown): WorldStateTarget | null {
   const record = parseMaybeRecord(value);
   const messageId = readString(record.id).trim();
@@ -695,29 +691,6 @@ async function refreshGameStateFromStorage(chatId: string, target?: WorldStateTa
   }
 }
 
-function parseStat(value: unknown): CharacterStat | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  const max = Math.max(1, readNumber(record.max, 100));
-  const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
-  const color = readString(record.color).trim() || "#8b5cf6";
-  return { statId: readString(record.statId).trim(), name, value: valueNumber, max, color };
-}
-
-function parseInventoryItem(value: unknown): InventoryItem | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  return {
-    inventoryItemId: readString(record.inventoryItemId).trim(),
-    name,
-    description: readString(record.description).trim(),
-    quantity: Math.max(0, readNumber(record.quantity, 1)),
-    location: readString(record.location).trim() || "on_person",
-  };
-}
-
 function parsePresentCharacter(value: unknown): PresentCharacter | null {
   const record = parseMaybeRecord(value);
   const name = readString(record.name).trim();
@@ -744,13 +717,6 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
       : [],
     thoughts: readNullableString(record.thoughts),
   };
-}
-
-function parseCustomTrackerField(value: unknown): CustomTrackerField | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  return { customFieldId: readString(record.customFieldId).trim(), name, value: readString(record.value).trim() };
 }
 
 function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {

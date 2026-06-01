@@ -101,7 +101,7 @@ function normalizeQuestProgressRows(quests: readonly Partial<QuestProgress>[] | 
   return (quests ?? []).map((quest) => {
     const name = readString(quest.name) || "Quest";
     return {
-      questEntryId: readString(quest.questEntryId) || name,
+      questEntryId: readString(quest.questEntryId) || makeManualTrackerRowId(),
       name,
       currentStage: typeof quest.currentStage === "number" && Number.isFinite(quest.currentStage) ? quest.currentStage : 0,
       objectives: normalizeQuestObjectives(quest.objectives),

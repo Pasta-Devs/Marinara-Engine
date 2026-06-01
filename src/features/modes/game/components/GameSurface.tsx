@@ -1082,29 +1082,42 @@ function addInventoryUnit<T extends { name: string; quantity: number }>(items: T
   return addedToExisting ? updated : [...updated, { name, quantity: 1 } as T];
 }
 
-function addDetailedInventoryUnit(items: InventoryItem[], itemName: string): InventoryItem[] {
+function addDetailedInventoryUnit(items: InventoryItem[], itemName: string, inventoryItemId?: string): InventoryItem[] {
   const name = normalizeInventoryName(itemName);
   if (!name) return items;
 
-  let addedToExisting = false;
-  const updated = items.map((item) => {
-    if (item.name.trim().toLowerCase() !== name.toLowerCase()) return item;
-    addedToExisting = true;
-    return { ...item, quantity: item.quantity + 1 };
-  });
+  const targetItemId = inventoryItemId?.trim();
+  if (targetItemId) {
+    let addedToExisting = false;
+    const updated = items.map((item) => {
+      if (item.inventoryItemId !== targetItemId) return item;
+      addedToExisting = true;
+      return { ...item, quantity: item.quantity + 1 };
+    });
 
-  return addedToExisting
-    ? updated
-    : [
-        ...updated,
-        {
-          inventoryItemId: makeManualTrackerRowId(),
-          name,
-          description: "",
-          quantity: 1,
-          location: "on_person",
-        },
-      ];
+    if (addedToExisting) return updated;
+  }
+
+  const normalizedName = name.toLowerCase();
+  const matchingIndexes = items
+    .map((item, index) => (item.name.trim().toLowerCase() === normalizedName ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (matchingIndexes.length === 1) {
+    const targetIndex = matchingIndexes[0]!;
+    return items.map((item, index) => (index === targetIndex ? { ...item, quantity: item.quantity + 1 } : item));
+  }
+
+  return [
+    ...items,
+    {
+      inventoryItemId: makeManualTrackerRowId(),
+      name,
+      description: "",
+      quantity: 1,
+      location: "on_person",
+    },
+  ];
 }
 
 function normalizeInventoryName(value: string): string {
