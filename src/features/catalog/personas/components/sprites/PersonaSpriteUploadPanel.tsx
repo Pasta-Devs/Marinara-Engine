@@ -1,6 +1,6 @@
 import { Eraser, FolderOpen, ImageDown, Loader2, Plus, RotateCcw, Upload, Wand2 } from "lucide-react";
 
-import type { PersonaSpriteCategory } from "../lib/persona-sprites-model";
+import type { PersonaSpriteCategory } from "../../lib/persona-sprites-model";
 
 interface PersonaSpriteUploadPanelProps {
   category: PersonaSpriteCategory;

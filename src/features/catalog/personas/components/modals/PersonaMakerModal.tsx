@@ -3,14 +3,14 @@
 // Streams persona generation and lets user review/edit before saving.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback } from "react";
-import { Modal } from "../../../../shared/components/ui/Modal";
-import { useConnections } from "../../connections/index";
-import { useCreatePersona } from "../hooks/use-personas";
-import { useUIStore } from "../../../../shared/stores/ui.store";
+import { Modal } from "../../../../../shared/components/ui/Modal";
+import { useConnections } from "../../../connections/index";
+import { useCreatePersona } from "../../hooks/use-personas";
+import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { Sparkles, Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, User, Save } from "lucide-react";
-import { ProfessorMariWorkingWindow } from "../../../../shared/components/ui/ProfessorMariWorkingWindow";
-import { generatePersonaMaker } from "../../../../engine/generation/makers";
-import { llmApi } from "../../../../shared/api/llm-api";
+import { ProfessorMariWorkingWindow } from "../../../../../shared/components/ui/ProfessorMariWorkingWindow";
+import { generatePersonaMaker } from "../../../../../engine/generation/makers";
+import { llmApi } from "../../../../../shared/api/llm-api";
 
 interface Props {
   open: boolean;

@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 
-import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { cn } from "../../../../shared/lib/utils";
-import type { PersonaPanelGroup, PersonaPanelRow } from "../lib/personas-panel-model";
+import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { cn } from "../../../../../shared/lib/utils";
+import type { PersonaPanelGroup, PersonaPanelRow } from "../../lib/personas-panel-model";
 
 interface PersonaGroupsSectionProps {
   groups: PersonaPanelGroup[];

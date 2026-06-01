@@ -2,12 +2,12 @@
 // Modal: Import Persona (JSON / Marinara export)
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
-import { Modal } from "../../../../shared/components/ui/Modal";
+import { Modal } from "../../../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidatePersonaCollectionQueries } from "../hooks/use-personas";
-import { importApi } from "../../../../shared/api/import-api";
-import { storageApi } from "../../../../shared/api/storage-api";
+import { invalidatePersonaCollectionQueries } from "../../hooks/use-personas";
+import { importApi } from "../../../../../shared/api/import-api";
+import { storageApi } from "../../../../../shared/api/storage-api";
 
 interface Props {
   open: boolean;
@@ -21,6 +21,12 @@ function stringField(value: unknown) {
 function jsonStringField(value: unknown, fallback?: string) {
   if (typeof value === "string") return value;
   if (Array.isArray(value) || (value && typeof value === "object")) return JSON.stringify(value);
+  return fallback;
+}
+
+function jsonObjectStringField(value: unknown, fallback?: string) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && !Array.isArray(value)) return JSON.stringify(value);
   return fallback;
 }
 
@@ -101,7 +107,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
           dialogueColor: stringField(json.dialogueColor),
           boxColor: stringField(json.boxColor),
           trackerCardColors: jsonStringField(json.trackerCardColors),
-          personaStats: stringField(json.personaStats),
+          personaStats: jsonObjectStringField(json.personaStats, ""),
           altDescriptions: jsonStringField(json.altDescriptions, "[]"),
           tags: jsonStringField(json.tags, "[]"),
           savedStatusOptions: jsonStringField(json.savedStatusOptions, "[]"),

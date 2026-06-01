@@ -1,7 +1,7 @@
 import { Crop, Image, ImageDown, Trash2, Upload, Wand2 } from "lucide-react";
 
-import type { SpriteInfo } from "../../sprites/index";
-import type { PersonaSpriteCategory } from "../lib/persona-sprites-model";
+import type { SpriteInfo } from "../../../sprites/index";
+import type { PersonaSpriteCategory } from "../../lib/persona-sprites-model";
 
 interface PersonaSpriteGridProps {
   category: PersonaSpriteCategory;

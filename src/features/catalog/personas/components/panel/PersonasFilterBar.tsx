@@ -1,8 +1,8 @@
 import { ArrowUpDown, ChevronDown, Search, Star, Tag, X } from "lucide-react";
 
-import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
-import { cn } from "../../../../shared/lib/utils";
-import type { PersonaActiveFilter, SortOption } from "../lib/personas-panel-model";
+import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
+import { cn } from "../../../../../shared/lib/utils";
+import type { PersonaActiveFilter, SortOption } from "../../lib/personas-panel-model";
 
 interface PersonasFilterBarProps {
   search: string;

@@ -5,11 +5,11 @@ import { useCallback, useMemo, useRef, useState, type ChangeEvent, type MouseEve
 import { Check, Download, Plus, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 
-import { exportApi } from "../../../../shared/api/export-api";
-import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
-import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { cn } from "../../../../shared/lib/utils";
-import { useUIStore } from "../../../../shared/stores/ui.store";
+import { exportApi } from "../../../../../shared/api/export-api";
+import { ExportFormatDialog, type ExportFormatChoice } from "../../../../../shared/components/ui/ExportFormatDialog";
+import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { cn } from "../../../../../shared/lib/utils";
+import { useUIStore } from "../../../../../shared/stores/ui.store";
 import {
   buildPersonaMap,
   filterPersonas,
@@ -22,7 +22,7 @@ import {
   type PersonaGroupRow,
   type PersonaPanelRow,
   type SortOption,
-} from "../lib/personas-panel-model";
+} from "../../lib/personas-panel-model";
 import {
   useActivatePersona,
   useCreatePersonaGroup,
@@ -34,7 +34,7 @@ import {
   useUpdatePersona,
   useUpdatePersonaGroup,
   useUploadPersonaAvatar,
-} from "../hooks/use-personas";
+} from "../../hooks/use-personas";
 import { PersonaGroupsSection } from "./PersonaGroupsSection";
 import { PersonaListItem } from "./PersonaListItem";
 import { PersonasFilterBar } from "./PersonasFilterBar";

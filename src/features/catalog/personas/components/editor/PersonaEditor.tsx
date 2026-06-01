@@ -6,9 +6,9 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { usePersona, useUpdatePersona, useUploadPersonaAvatar, useDeletePersona } from "../hooks/use-personas";
-import { useConnections } from "../../connections/index";
-import { useUIStore } from "../../../../shared/stores/ui.store";
+import { usePersona, useUpdatePersona, useUploadPersonaAvatar, useDeletePersona } from "../../hooks/use-personas";
+import { useConnections } from "../../../connections/index";
+import { useUIStore } from "../../../../../shared/stores/ui.store";
 import {
   ArrowLeft,
   Save,
@@ -27,17 +27,17 @@ import {
   Image,
   Wand2,
 } from "lucide-react";
-import { cn, generateClientId, getAvatarCropStyle } from "../../../../shared/lib/utils";
-import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
-import { ExpandedTextarea } from "../../../../shared/components/ui/ExpandedTextarea";
-import { exportApi } from "../../../../shared/api/export-api";
-import { AvatarGenerationModal } from "../../../../shared/components/ui/AvatarGenerationModal";
-import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
-import { buildPersonaFormData, type PersonaFormData, type PersonaRow } from "../lib/persona-editor-model";
+import { cn, generateClientId, getAvatarCropStyle } from "../../../../../shared/lib/utils";
+import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
+import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTextarea";
+import { exportApi } from "../../../../../shared/api/export-api";
+import { AvatarGenerationModal } from "../../../../../shared/components/ui/AvatarGenerationModal";
+import { ExportFormatDialog, type ExportFormatChoice } from "../../../../../shared/components/ui/ExportFormatDialog";
+import { buildPersonaFormData, type PersonaFormData, type PersonaRow } from "../../lib/persona-editor-model";
 import { PersonaColorsTab } from "./PersonaColorsTab";
 import { PersonaDescriptionTab } from "./PersonaDescriptionTab";
-import { PersonaSpritesTab } from "./PersonaSpritesTab";
+import { PersonaSpritesTab } from "../sprites/PersonaSpritesTab";
 import { PersonaStatsTab } from "./PersonaStatsTab";
 
 // ── Tabs ──

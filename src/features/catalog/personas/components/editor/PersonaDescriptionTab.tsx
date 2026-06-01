@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Maximize2, Plus, Tag, X } from "lucide-react";
-import { AvatarCropWidget } from "../../../../shared/components/ui/AvatarCropWidget";
-import { ExpandedTextarea } from "../../../../shared/components/ui/ExpandedTextarea";
-import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
-import { cn, generateClientId } from "../../../../shared/lib/utils";
-import type { AltDescriptionEntry, PersonaFormData } from "../lib/persona-editor-model";
+import { AvatarCropWidget } from "../../../../../shared/components/ui/AvatarCropWidget";
+import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTextarea";
+import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
+import { cn, generateClientId } from "../../../../../shared/lib/utils";
+import type { AltDescriptionEntry, PersonaFormData } from "../../lib/persona-editor-model";
 
 export function PersonaDescriptionTab({
   formData,

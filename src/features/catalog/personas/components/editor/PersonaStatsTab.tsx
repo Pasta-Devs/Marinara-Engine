@@ -5,7 +5,7 @@ import {
   type PersonaFormData,
   type PersonaRPGStats,
   type PersonaStatsData,
-} from "../lib/persona-editor-model";
+} from "../../lib/persona-editor-model";
 import { PersonaEditorSectionHeader } from "./PersonaEditorSectionHeader";
 
 export function PersonaStatsTab({

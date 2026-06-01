@@ -2,10 +2,10 @@ import { useCallback, useRef, useState, type ChangeEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { SpriteGenerationModal } from "../../../../shared/components/ui/SpriteGenerationModal";
-import { showAlertDialog, showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { cn } from "../../../../shared/lib/utils";
-import { downloadBlob, loadUrlBlob } from "../../../../shared/lib/url-blob";
+import { SpriteGenerationModal } from "../../../../../shared/components/ui/SpriteGenerationModal";
+import { showAlertDialog, showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { cn } from "../../../../../shared/lib/utils";
+import { downloadBlob, loadUrlBlob } from "../../../../../shared/lib/url-blob";
 import {
   spriteKeys,
   type SpriteInfo,
@@ -16,7 +16,7 @@ import {
   useSpriteCapabilities,
   useUploadSprite,
   useUploadSprites,
-} from "../../sprites/index";
+} from "../../../sprites/index";
 import {
   displaySpriteExpression,
   getExistingSpriteExpressions,
@@ -25,7 +25,7 @@ import {
   getVisibleSprites,
   normalizeSpriteExpression,
   type PersonaSpriteCategory,
-} from "../lib/persona-sprites-model";
+} from "../../lib/persona-sprites-model";
 import { PersonaSpriteDeleteDialog } from "./PersonaSpriteDeleteDialog";
 import { PersonaSpriteEditors } from "./PersonaSpriteEditors";
 import { PersonaSpriteGrid } from "./PersonaSpriteGrid";

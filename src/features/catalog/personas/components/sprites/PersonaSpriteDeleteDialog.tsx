@@ -1,8 +1,8 @@
 import { Loader2, Trash2 } from "lucide-react";
 
-import { Modal } from "../../../../shared/components/ui/Modal";
-import type { SpriteInfo } from "../../sprites/index";
-import type { PersonaSpriteCategory } from "../lib/persona-sprites-model";
+import { Modal } from "../../../../../shared/components/ui/Modal";
+import type { SpriteInfo } from "../../../sprites/index";
+import type { PersonaSpriteCategory } from "../../lib/persona-sprites-model";
 
 interface PersonaSpriteDeleteDialogProps {
   category: PersonaSpriteCategory;

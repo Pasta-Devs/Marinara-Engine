@@ -1,8 +1,8 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Camera, Check, Copy, Star, Trash2, User } from "lucide-react";
 
-import { cn } from "../../../../shared/lib/utils";
-import type { PersonaPanelGroup, PersonaPanelRow } from "../lib/personas-panel-model";
+import { cn } from "../../../../../shared/lib/utils";
+import type { PersonaPanelGroup, PersonaPanelRow } from "../../lib/personas-panel-model";
 
 interface PersonaListItemProps {
   persona: PersonaPanelRow;

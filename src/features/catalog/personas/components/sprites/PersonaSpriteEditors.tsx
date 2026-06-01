@@ -1,6 +1,6 @@
-import { SpriteFrameEditor } from "../../../../shared/components/ui/SpriteFrameEditor";
-import { SpriteWandCleanupEditor } from "../../../../shared/components/ui/sprite-wand-cleanup/SpriteWandCleanupEditor";
-import type { SpriteInfo } from "../../sprites/index";
+import { SpriteFrameEditor } from "../../../../../shared/components/ui/SpriteFrameEditor";
+import { SpriteWandCleanupEditor } from "../../../../../shared/components/ui/sprite-wand-cleanup/SpriteWandCleanupEditor";
+import type { SpriteInfo } from "../../../sprites/index";
 
 interface PersonaSpriteEditorsProps {
   framingSprite: SpriteInfo | null;
