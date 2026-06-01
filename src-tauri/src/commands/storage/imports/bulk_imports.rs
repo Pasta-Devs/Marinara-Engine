@@ -1,4 +1,5 @@
 use super::*;
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use std::path::Component;
 
 fn bool_option(value: Option<&Value>) -> Option<bool> {
@@ -332,6 +333,341 @@ fn scan_item(category: &str, data_dir: &Path, path: &Path) -> Value {
     })
 }
 
+fn normalized_st_lookup_key(value: &str) -> String {
+    let file_stemmed = Path::new(value)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(value);
+    file_stemmed
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn push_unique_string(values: &mut Vec<String>, value: impl Into<String>) {
+    let value = value.into();
+    if !value.trim().is_empty() && !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
+}
+
+fn character_record_name(record: &Value) -> Option<String> {
+    record
+        .get("data")
+        .and_then(|data| data.get("name"))
+        .or_else(|| record.get("name"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn add_character_lookup_alias(
+    lookup: &mut HashMap<String, String>,
+    alias: impl AsRef<str>,
+    character_id: &str,
+) {
+    let key = normalized_st_lookup_key(alias.as_ref());
+    if !key.is_empty() {
+        lookup
+            .entry(key)
+            .or_insert_with(|| character_id.to_string());
+    }
+}
+
+fn add_character_lookup_record(
+    lookup: &mut HashMap<String, String>,
+    record: &Value,
+    filename: Option<&str>,
+) {
+    let Some(character_id) = record.get("id").and_then(Value::as_str) else {
+        return;
+    };
+    if let Some(name) = character_record_name(record) {
+        add_character_lookup_alias(lookup, name, character_id);
+    }
+    if let Some(filename) = filename {
+        add_character_lookup_alias(lookup, filename, character_id);
+    }
+    for field in ["avatarFilename", "avatarPath"] {
+        if let Some(value) = record.get(field).and_then(Value::as_str) {
+            add_character_lookup_alias(lookup, value, character_id);
+        }
+    }
+}
+
+fn character_lookup_from_state(state: &AppState) -> HashMap<String, String> {
+    let mut lookup = HashMap::new();
+    if let Ok(characters) = state.storage.list("characters") {
+        for character in characters {
+            add_character_lookup_record(&mut lookup, &character, None);
+        }
+    }
+    lookup
+}
+
+fn lookup_character_id(lookup: &HashMap<String, String>, alias: impl AsRef<str>) -> Option<String> {
+    let key = normalized_st_lookup_key(alias.as_ref());
+    if key.is_empty() {
+        None
+    } else {
+        lookup.get(&key).cloned()
+    }
+}
+
+fn st_preset_scan_item(data_dir: &Path, path: &Path) -> Value {
+    let mut item = scan_item("presets", data_dir, path);
+    if let Some(object) = item.as_object_mut() {
+        let name = file_stem(path).to_ascii_lowercase();
+        object.insert(
+            "isBuiltin".to_string(),
+            Value::Bool(matches!(
+                name.as_str(),
+                "default"
+                    | "deterministic"
+                    | "neutral"
+                    | "universal-creative"
+                    | "universal-light"
+                    | "universal-super-creative"
+            )),
+        );
+        let folder_name = path
+            .parent()
+            .and_then(|path| path.file_name())
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default();
+        object.insert("sourceFolder".to_string(), Value::String(folder_name));
+    }
+    item
+}
+
+#[derive(Clone, Debug, Default)]
+struct StGroupMetadata {
+    id: Option<String>,
+    chat_id: Option<String>,
+    name: String,
+    members: Vec<String>,
+}
+
+impl StGroupMetadata {
+    fn display_name(&self, fallback: &Path) -> String {
+        if self.name.trim().is_empty() {
+            file_stem(fallback).replace('_', " ")
+        } else {
+            self.name.clone()
+        }
+    }
+}
+
+fn string_array_from_json(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn read_st_group_metadata_file(path: &Path) -> Option<StGroupMetadata> {
+    let raw = fs::read_to_string(path).ok()?;
+    let parsed = serde_json::from_str::<Value>(&raw).ok()?;
+    let name = parsed
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| file_stem(path));
+    Some(StGroupMetadata {
+        id: parsed
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
+        chat_id: parsed
+            .get("chat_id")
+            .or_else(|| parsed.get("chatId"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
+        name,
+        members: string_array_from_json(parsed.get("members")),
+    })
+}
+
+fn st_group_metadata_by_key(data_dir: &Path) -> HashMap<String, StGroupMetadata> {
+    let mut metadata_by_key = HashMap::new();
+    for path in list_files(&data_dir.join("groups"), &[".json"], false) {
+        let Some(metadata) = read_st_group_metadata_file(&path) else {
+            continue;
+        };
+        for key in [
+            metadata.id.as_deref(),
+            metadata.chat_id.as_deref(),
+            Some(metadata.name.as_str()),
+            path.file_stem().and_then(|stem| stem.to_str()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let normalized = normalized_st_lookup_key(key);
+            if !normalized.is_empty() {
+                metadata_by_key
+                    .entry(normalized)
+                    .or_insert_with(|| metadata.clone());
+            }
+        }
+    }
+    metadata_by_key
+}
+
+fn st_group_metadata_for_chat(
+    metadata_by_key: &HashMap<String, StGroupMetadata>,
+    chat_path: &Path,
+) -> Option<StGroupMetadata> {
+    let stem = file_stem(chat_path);
+    let normalized = normalized_st_lookup_key(&stem);
+    metadata_by_key.get(&normalized).cloned()
+}
+
+fn resolve_member_character_ids(
+    lookup: &HashMap<String, String>,
+    members: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Vec<String> {
+    let mut character_ids = Vec::new();
+    for member in members {
+        if let Some(character_id) = lookup_character_id(lookup, member.as_ref()) {
+            push_unique_string(&mut character_ids, character_id);
+        }
+    }
+    character_ids
+}
+
+fn st_message_speaker_name(row: &Value) -> Option<String> {
+    for value in [
+        row.get("character_name"),
+        row.get("name"),
+        row.get("display_name"),
+        row.get("extra").and_then(|extra| extra.get("name")),
+        row.get("extra")
+            .and_then(|extra| extra.get("character_name")),
+    ] {
+        if let Some(value) = value
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
+fn st_message_display_text(row: &Value) -> Option<String> {
+    row.get("extra")
+        .and_then(|extra| {
+            extra
+                .get("display_text")
+                .or_else(|| extra.get("displayText"))
+        })
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn st_message_timestamp(row: &Value) -> Option<String> {
+    let raw = row
+        .get("send_date")
+        .or_else(|| row.get("sendDate"))
+        .or_else(|| row.get("createdAt"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(raw) {
+        return Some(parsed.with_timezone(&Utc).to_rfc3339());
+    }
+    for pattern in [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%B %d, %Y %I:%M%p",
+        "%B %d, %Y %I:%M %p",
+        "%b %d, %Y %I:%M%p",
+        "%b %d, %Y %I:%M %p",
+    ] {
+        if let Ok(parsed) = NaiveDateTime::parse_from_str(raw, pattern) {
+            if let Some(local) = Local.from_local_datetime(&parsed).single() {
+                return Some(local.with_timezone(&Utc).to_rfc3339());
+            }
+        }
+    }
+    None
+}
+
+#[derive(Clone, Default)]
+struct StChatImportContext {
+    character_lookup: HashMap<String, String>,
+    default_character_id: Option<String>,
+}
+
+fn st_row_character_id(row: &Value, context: &StChatImportContext, role: &str) -> Value {
+    if let Some(character_id) = row
+        .get("characterId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Value::String(character_id.to_string());
+    }
+    if role != "assistant" && role != "narrator" {
+        return Value::Null;
+    }
+    if let Some(speaker) = st_message_speaker_name(row) {
+        if let Some(character_id) = lookup_character_id(&context.character_lookup, speaker) {
+            return Value::String(character_id);
+        }
+    }
+    context
+        .default_character_id
+        .as_ref()
+        .map(|value| Value::String(value.clone()))
+        .unwrap_or(Value::Null)
+}
+
+fn st_message_extra(row: &Value) -> Value {
+    let mut extra = Map::new();
+    if let Some(display_text) = st_message_display_text(row) {
+        extra.insert("displayText".to_string(), Value::String(display_text));
+    }
+    if let Some(send_date) = row
+        .get("send_date")
+        .or_else(|| row.get("sendDate"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        extra.insert(
+            "sillyTavernSendDate".to_string(),
+            Value::String(send_date.to_string()),
+        );
+    }
+    if let Some(speaker) = st_message_speaker_name(row) {
+        extra.insert(
+            "sillyTavernSpeaker".to_string(),
+            Value::String(speaker.to_string()),
+        );
+    }
+    Value::Object(extra)
+}
+
 pub(super) fn scan_st_folder(body: Value) -> AppResult<Value> {
     let root = match resolve_import_folder(&body) {
         Ok(root) => root,
@@ -402,39 +738,37 @@ pub(super) fn scan_st_folder(body: Value) -> AppResult<Value> {
             item
         })
         .collect();
+    let group_metadata_by_key = st_group_metadata_by_key(&data_dir);
     let group_chats: Vec<Value> =
         list_files(&data_dir.join("group chats"), &[".jsonl", ".json"], true)
             .into_iter()
             .map(|path| {
                 let mut item = scan_item("groupChats", &data_dir, &path);
                 if let Some(object) = item.as_object_mut() {
-                    object.insert("groupName".to_string(), Value::String(file_stem(&path)));
-                    object.insert("members".to_string(), json!([]));
+                    let metadata = st_group_metadata_for_chat(&group_metadata_by_key, &path);
+                    let group_name = metadata
+                        .as_ref()
+                        .map(|metadata| metadata.display_name(&path))
+                        .unwrap_or_else(|| file_stem(&path));
+                    let members = metadata
+                        .as_ref()
+                        .map(|metadata| metadata.members.clone())
+                        .unwrap_or_default();
+                    object.insert("groupName".to_string(), Value::String(group_name));
+                    object.insert("members".to_string(), json!(members));
                 }
                 item
             })
             .collect();
-    let presets: Vec<Value> = list_files(&data_dir.join("presets"), &[".json"], false)
+    let mut preset_files = Vec::new();
+    for folder in ["presets", "TextGen Settings", "OpenAI Settings"] {
+        preset_files.extend(list_files(&data_dir.join(folder), &[".json"], false));
+    }
+    preset_files.sort();
+    preset_files.dedup();
+    let presets: Vec<Value> = preset_files
         .into_iter()
-        .map(|path| {
-            let mut item = scan_item("presets", &data_dir, &path);
-            if let Some(object) = item.as_object_mut() {
-                let name = file_stem(&path).to_ascii_lowercase();
-                object.insert(
-                    "isBuiltin".to_string(),
-                    Value::Bool(matches!(
-                        name.as_str(),
-                        "default"
-                            | "deterministic"
-                            | "neutral"
-                            | "universal-creative"
-                            | "universal-light"
-                            | "universal-super-creative"
-                    )),
-                );
-            }
-            item
-        })
+        .map(|path| st_preset_scan_item(&data_dir, &path))
         .collect();
     let mut lorebook_files = list_files(&data_dir.join("worlds"), &[".json"], false);
     lorebook_files.extend(list_files(&data_dir.join("world-info"), &[".json"], false));
@@ -516,6 +850,7 @@ fn import_st_chat_text(
     text: &str,
     chat_name: String,
     inherited: Option<Value>,
+    context: StChatImportContext,
 ) -> AppResult<Value> {
     let mut character_name = String::new();
     let mut character_ids = Vec::new();
@@ -543,7 +878,19 @@ fn import_st_chat_text(
                 character_ids.push(character_id.to_string());
             }
         }
+        let role = imported_jsonl_message_role(&parsed);
+        if role == "assistant" || role == "narrator" {
+            if let Some(speaker) = st_message_speaker_name(&parsed) {
+                if let Some(character_id) = lookup_character_id(&context.character_lookup, speaker)
+                {
+                    push_unique_string(&mut character_ids, character_id);
+                }
+            }
+        }
         parsed_rows.push(parsed);
+    }
+    if let Some(default_character_id) = context.default_character_id.as_ref() {
+        push_unique_string(&mut character_ids, default_character_id.clone());
     }
     let has_importable_message = parsed_rows.iter().any(|row| {
         if row
@@ -611,25 +958,24 @@ fn import_st_chat_text(
                 continue;
             }
             let role = imported_jsonl_message_role(&row);
-            let character_id = row
-                .get("characterId")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(|value| Value::String(value.to_string()))
-                .unwrap_or(Value::Null);
-            let message = state.storage.create(
-                "messages",
-                json!({
-                    "chatId": chat_id,
-                    "role": role,
-                    "content": content,
-                    "characterId": character_id,
-                    "extra": {},
-                    "activeSwipeIndex": 0,
-                    "swipes": [{ "content": content }]
-                }),
-            )?;
+            let character_id = st_row_character_id(&row, &context, role);
+            let extra = st_message_extra(&row);
+            let mut message_payload = json!({
+                "chatId": chat_id,
+                "role": role,
+                "content": content,
+                "characterId": character_id,
+                "extra": extra,
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": content, "extra": extra }]
+            });
+            if let Some(created_at) = st_message_timestamp(&row) {
+                if let Some(object) = message_payload.as_object_mut() {
+                    object.insert("createdAt".to_string(), Value::String(created_at.clone()));
+                    object.insert("updatedAt".to_string(), Value::String(created_at));
+                }
+            }
+            let message = state.storage.create("messages", message_payload)?;
             created_message_ids.push(created_record_id(&message, "message")?);
             imported += 1;
         }
@@ -665,7 +1011,13 @@ pub(super) fn import_st_chat(state: &AppState, body: Value) -> AppResult<Value> 
         .map(|name| name.to_string_lossy().replace('_', " "))
         .filter(|name| !name.trim().is_empty())
         .unwrap_or_else(|| "Imported Chat".to_string());
-    import_st_chat_text(state, &text, chat_name, None)
+    import_st_chat_text(
+        state,
+        &text,
+        chat_name,
+        None,
+        StChatImportContext::default(),
+    )
 }
 
 pub(super) fn import_st_chat_into_group(state: &AppState, body: Value) -> AppResult<Value> {
@@ -694,7 +1046,19 @@ pub(super) fn import_st_chat_into_group(state: &AppState, body: Value) -> AppRes
         .map(|name| name.to_string_lossy().replace('_', " "))
         .filter(|name| !name.trim().is_empty())
         .unwrap_or_else(|| "Imported".to_string());
-    import_st_chat_text(state, &text, branch_name, Some(inherited)).map_err(|error| {
+    let mut context = StChatImportContext {
+        character_lookup: character_lookup_from_state(state),
+        default_character_id: None,
+    };
+    if let Some(character_id) = target
+        .get("characterIds")
+        .and_then(Value::as_array)
+        .and_then(|ids| ids.first())
+        .and_then(Value::as_str)
+    {
+        context.default_character_id = Some(character_id.to_string());
+    }
+    import_st_chat_text(state, &text, branch_name, Some(inherited), context).map_err(|error| {
         let mut rollback_errors = Vec::new();
         restore_record(state, "chats", &target, &mut rollback_errors);
         append_rollback_errors(error, "chat branch import", rollback_errors)
@@ -876,6 +1240,9 @@ fn run_st_bulk_import_inner(
         .unwrap_or("all");
     let import_embedded = bool_option(options.get("importEmbeddedLorebook")).unwrap_or(true);
     let (persona_names, persona_descriptions) = read_st_persona_settings(&data_dir);
+    let mut character_lookup = character_lookup_from_state(state);
+    let mut chat_group_ids: HashMap<String, String> = HashMap::new();
+    let group_metadata_by_key = st_group_metadata_by_key(&data_dir);
 
     for id in selected_ids(&options, "characters") {
         let Some(path) = selected_path(&data_dir, "characters", &id, &mut errors) else {
@@ -904,7 +1271,20 @@ fn run_st_bulk_import_inner(
                 )
             });
         match result {
-            Ok(_) => bump_imported(&mut imported, "characters"),
+            Ok(result) => {
+                bump_imported(&mut imported, "characters");
+                let filename = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(ToOwned::to_owned);
+                if let Some(character) = result.get("character") {
+                    add_character_lookup_record(
+                        &mut character_lookup,
+                        character,
+                        filename.as_deref(),
+                    );
+                }
+            }
             Err(error) => push_path_import_error(&mut errors, &path, error),
         }
     }
@@ -1003,10 +1383,62 @@ fn run_st_bulk_import_inner(
             continue;
         };
         progress.emit_item("Chats", &path, &imported)?;
+        let folder_name = path
+            .parent()
+            .and_then(|path| path.file_name())
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let branch_name = file_stem(&path).replace('_', " ");
+        let default_character_id = lookup_character_id(&character_lookup, &folder_name);
+        let chat_name = if folder_name.trim().is_empty() {
+            branch_name.clone()
+        } else {
+            folder_name.clone()
+        };
+        let group_key = normalized_st_lookup_key(&folder_name);
+        let group_id = if group_key.is_empty() {
+            None
+        } else {
+            Some(
+                chat_group_ids
+                    .entry(group_key)
+                    .or_insert_with(new_id)
+                    .clone(),
+            )
+        };
+        let character_ids = default_character_id
+            .as_ref()
+            .map(|id| vec![id.clone()])
+            .unwrap_or_default();
+        let mut inherited = json!({
+            "name": chat_name,
+            "mode": "roleplay",
+            "characterIds": character_ids,
+            "metadata": {
+                "branchName": branch_name,
+                "sillyTavernSource": "chat",
+                "sillyTavernCharacterFolder": folder_name,
+                "sillyTavernFile": path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default()
+            }
+        });
+        if let Some(group_id) = group_id {
+            if let Some(object) = inherited.as_object_mut() {
+                object.insert("groupId".to_string(), Value::String(group_id));
+            }
+        }
         let result = fs::read_to_string(&path)
             .map_err(AppError::from)
             .and_then(|text| {
-                import_st_chat_text(state, &text, file_stem(&path).replace('_', " "), None)
+                import_st_chat_text(
+                    state,
+                    &text,
+                    chat_name,
+                    Some(inherited),
+                    StChatImportContext {
+                        character_lookup: character_lookup.clone(),
+                        default_character_id,
+                    },
+                )
             });
         match result {
             Ok(_) => bump_imported(&mut imported, "chats"),
@@ -1020,10 +1452,50 @@ fn run_st_bulk_import_inner(
             continue;
         };
         progress.emit_item("Group chats", &path, &imported)?;
+        let metadata = st_group_metadata_for_chat(&group_metadata_by_key, &path);
+        let chat_name = metadata
+            .as_ref()
+            .map(|metadata| metadata.display_name(&path))
+            .unwrap_or_else(|| file_stem(&path).replace('_', " "));
+        let member_names = metadata
+            .as_ref()
+            .map(|metadata| metadata.members.clone())
+            .unwrap_or_default();
+        let character_ids = resolve_member_character_ids(&character_lookup, &member_names);
+        let group_id = metadata
+            .as_ref()
+            .and_then(|metadata| metadata.id.clone().or_else(|| metadata.chat_id.clone()))
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(new_id);
+        let inherited = json!({
+            "name": chat_name,
+            "mode": "roleplay",
+            "groupId": group_id,
+            "characterIds": character_ids,
+            "metadata": {
+                "branchName": file_stem(&path).replace('_', " "),
+                "groupChatMode": "individual",
+                "groupResponseOrder": "sequential",
+                "sillyTavernSource": "groupChat",
+                "sillyTavernGroupId": metadata.as_ref().and_then(|metadata| metadata.id.clone()).unwrap_or_default(),
+                "sillyTavernChatId": metadata.as_ref().and_then(|metadata| metadata.chat_id.clone()).unwrap_or_default(),
+                "sillyTavernMembers": member_names,
+                "sillyTavernFile": path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_default()
+            }
+        });
         let result = fs::read_to_string(&path)
             .map_err(AppError::from)
             .and_then(|text| {
-                import_st_chat_text(state, &text, file_stem(&path).replace('_', " "), None)
+                import_st_chat_text(
+                    state,
+                    &text,
+                    chat_name,
+                    Some(inherited),
+                    StChatImportContext {
+                        character_lookup: character_lookup.clone(),
+                        default_character_id: None,
+                    },
+                )
             });
         match result {
             Ok(_) => bump_imported(&mut imported, "groupChats"),
@@ -1190,6 +1662,264 @@ mod tests {
             .collect()
     }
 
+    fn row_with_content<'a>(rows: &'a [Value], content: &str) -> &'a Value {
+        rows.iter()
+            .find(|row| row.get("content").and_then(Value::as_str) == Some(content))
+            .expect("expected imported message content")
+    }
+
+    fn character_id_by_name(state: &AppState, name: &str) -> String {
+        state
+            .storage
+            .list("characters")
+            .expect("characters should list")
+            .into_iter()
+            .find(|row| {
+                row.get("data")
+                    .and_then(|data| data.get("name"))
+                    .and_then(Value::as_str)
+                    == Some(name)
+            })
+            .and_then(|row| row.get("id").and_then(Value::as_str).map(ToOwned::to_owned))
+            .expect("imported character id should exist")
+    }
+
+    #[test]
+    fn scan_st_folder_includes_legacy_preset_folders_and_group_metadata() {
+        let st_root = temp_path("scan-legacy-folders");
+        let data_dir = st_root.join("data").join("default-user");
+        write_json(
+            &data_dir.join("characters").join("Alice.json"),
+            &json!({ "spec": "chara_card_v2", "data": { "name": "Alice" } }),
+        );
+        write_json(&data_dir.join("presets").join("Default.json"), &json!({}));
+        write_json(
+            &data_dir.join("TextGen Settings").join("Novel.json"),
+            &json!({}),
+        );
+        write_json(
+            &data_dir.join("OpenAI Settings").join("GPT.json"),
+            &json!({}),
+        );
+        write_json(
+            &data_dir.join("groups").join("party.json"),
+            &json!({
+                "id": "group-party",
+                "chat_id": "party-chat",
+                "name": "Party Chat",
+                "members": ["Alice.png", "Bob.png"]
+            }),
+        );
+        write_bytes(
+            &data_dir.join("group chats").join("party-chat.jsonl"),
+            br#"{"name":"Alice","mes":"hello"}"#,
+        );
+        let (folder_path, folder_token) = folder_access(&st_root);
+
+        let scan = scan_st_folder(json!({
+            "folderPath": folder_path,
+            "folderToken": folder_token,
+        }))
+        .expect("scan should succeed");
+        let preset_ids = scan_ids(&scan, "presets");
+        assert!(
+            preset_ids.contains(&"presets:presets/Default.json".to_string()),
+            "native presets folder should still scan"
+        );
+        assert!(
+            preset_ids.contains(&"presets:TextGen Settings/Novel.json".to_string()),
+            "legacy TextGen Settings folder should scan"
+        );
+        assert!(
+            preset_ids.contains(&"presets:OpenAI Settings/GPT.json".to_string()),
+            "legacy OpenAI Settings folder should scan"
+        );
+        let group_chat = scan
+            .get("groupChats")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("group chat should scan");
+        assert_eq!(
+            group_chat.get("groupName").and_then(Value::as_str),
+            Some("Party Chat")
+        );
+        assert_eq!(
+            shared::string_array_from_value(group_chat.get("members")),
+            vec!["Alice.png".to_string(), "Bob.png".to_string()]
+        );
+
+        let _ = fs::remove_dir_all(st_root);
+    }
+
+    #[test]
+    fn run_st_bulk_import_links_chat_branches_and_group_speakers() {
+        let app_root = temp_path("bulk-chat-parity-app");
+        let st_root = temp_path("bulk-chat-parity-source");
+        let data_dir = st_root.join("data").join("default-user");
+        write_json(
+            &data_dir.join("characters").join("Alice.json"),
+            &json!({ "spec": "chara_card_v2", "data": { "name": "Alice" } }),
+        );
+        write_json(
+            &data_dir.join("characters").join("Bob.json"),
+            &json!({ "spec": "chara_card_v2", "data": { "name": "Bob" } }),
+        );
+        write_bytes(
+            &data_dir.join("chats").join("Alice").join("Branch_One.jsonl"),
+            concat!(
+                r#"{"is_user":true,"mes":"Hi Alice","send_date":"2026-01-01T12:00:00Z"}"#,
+                "\n",
+                r#"{"character_name":"Alice","mes":"Raw Alice","send_date":"2026-01-01T12:01:00Z","extra":{"display_text":"Rendered Alice"}}"#
+            )
+            .as_bytes(),
+        );
+        write_bytes(
+            &data_dir
+                .join("chats")
+                .join("Alice")
+                .join("Branch_Two.jsonl"),
+            br#"{"character_name":"Alice","mes":"Second branch"}"#,
+        );
+        write_json(
+            &data_dir.join("groups").join("party.json"),
+            &json!({
+                "id": "group-party",
+                "chat_id": "party-chat",
+                "name": "Party Chat",
+                "members": ["Alice.png", "Bob.png"]
+            }),
+        );
+        write_bytes(
+            &data_dir.join("group chats").join("party-chat.jsonl"),
+            concat!(
+                r#"{"name":"Alice","mes":"Alice speaks"}"#,
+                "\n",
+                r#"{"name":"Bob","mes":"Bob speaks"}"#
+            )
+            .as_bytes(),
+        );
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        let (folder_path, folder_token) = folder_access(&st_root);
+        let scan = scan_st_folder(json!({
+            "folderPath": folder_path,
+            "folderToken": folder_token,
+        }))
+        .expect("scan should succeed");
+
+        let result = run_st_bulk_import_inner(
+            &state,
+            json!({
+                "folderPath": folder_path,
+                "folderToken": folder_token,
+                "options": {
+                    "characters": scan_ids(&scan, "characters"),
+                    "chats": scan_ids(&scan, "chats"),
+                    "groupChats": scan_ids(&scan, "groupChats")
+                }
+            }),
+            None,
+        )
+        .expect("bulk import should succeed");
+        assert_eq!(result["success"], Value::Bool(true));
+        assert_eq!(result["imported"]["characters"], json!(2));
+        assert_eq!(result["imported"]["chats"], json!(2));
+        assert_eq!(result["imported"]["groupChats"], json!(1));
+
+        let alice_id = character_id_by_name(&state, "Alice");
+        let bob_id = character_id_by_name(&state, "Bob");
+        let chats = state.storage.list("chats").expect("chats should list");
+        let alice_chats = chats
+            .iter()
+            .filter(|chat| chat.get("name").and_then(Value::as_str) == Some("Alice"))
+            .collect::<Vec<_>>();
+        assert_eq!(alice_chats.len(), 2);
+        let branch_group_id = alice_chats[0]
+            .get("groupId")
+            .and_then(Value::as_str)
+            .expect("branch chats should share a group id");
+        assert!(
+            alice_chats
+                .iter()
+                .all(|chat| chat.get("groupId").and_then(Value::as_str) == Some(branch_group_id)),
+            "chat branches from the same ST character folder should be grouped"
+        );
+        assert!(
+            alice_chats
+                .iter()
+                .all(
+                    |chat| shared::string_array_from_value(chat.get("characterIds"))
+                        .contains(&alice_id)
+                ),
+            "one-on-one imported branches should link to the matching imported character"
+        );
+        assert!(
+            alice_chats.iter().any(|chat| {
+                chat.get("metadata")
+                    .and_then(|metadata| metadata.get("branchName"))
+                    .and_then(Value::as_str)
+                    == Some("Branch One")
+            }),
+            "branch metadata should preserve the source file label"
+        );
+
+        let party_chat = chats
+            .iter()
+            .find(|chat| chat.get("name").and_then(Value::as_str) == Some("Party Chat"))
+            .expect("group chat should import with ST group name");
+        assert_eq!(
+            party_chat.get("groupId").and_then(Value::as_str),
+            Some("group-party")
+        );
+        assert_eq!(
+            shared::string_array_from_value(party_chat.get("characterIds")),
+            vec![alice_id.clone(), bob_id.clone()]
+        );
+        assert_eq!(
+            party_chat
+                .get("metadata")
+                .and_then(|metadata| metadata.get("groupChatMode"))
+                .and_then(Value::as_str),
+            Some("individual")
+        );
+
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        let rendered_alice = row_with_content(&messages, "Raw Alice");
+        assert_eq!(
+            rendered_alice.get("characterId").and_then(Value::as_str),
+            Some(alice_id.as_str())
+        );
+        assert_eq!(
+            rendered_alice
+                .get("extra")
+                .and_then(|extra| extra.get("displayText"))
+                .and_then(Value::as_str),
+            Some("Rendered Alice")
+        );
+        assert_eq!(
+            rendered_alice.get("createdAt").and_then(Value::as_str),
+            Some("2026-01-01T12:01:00+00:00")
+        );
+        assert_eq!(
+            row_with_content(&messages, "Alice speaks")
+                .get("characterId")
+                .and_then(Value::as_str),
+            Some(alice_id.as_str())
+        );
+        assert_eq!(
+            row_with_content(&messages, "Bob speaks")
+                .get("characterId")
+                .and_then(Value::as_str),
+            Some(bob_id.as_str())
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+        let _ = fs::remove_dir_all(st_root);
+    }
+
     #[test]
     fn import_st_chat_text_rolls_back_chat_when_message_write_fails() {
         let app_root = temp_path("chat-rollback");
@@ -1202,6 +1932,7 @@ mod tests {
             r#"{"character_name":"Bot","mes":"hello"}"#,
             "Rollback Chat".to_string(),
             None,
+            StChatImportContext::default(),
         )
         .expect_err("message storage failure should reject chat import");
 
@@ -1225,6 +1956,7 @@ mod tests {
             r#"{"role":"assistant","characterId":"char-a","content":"hello"}"#,
             "Imported Chat".to_string(),
             None,
+            StChatImportContext::default(),
         )
         .expect("chat import should succeed");
 
@@ -1276,6 +2008,7 @@ mod tests {
             ),
             "Imported Chat".to_string(),
             None,
+            StChatImportContext::default(),
         )
         .expect("chat import should succeed");
 
@@ -1317,6 +2050,7 @@ mod tests {
             r#"{"role":"tool","content":"internal"}"#,
             "Imported Chat".to_string(),
             None,
+            StChatImportContext::default(),
         )
         .expect("chat import should succeed");
 
@@ -1345,6 +2079,7 @@ mod tests {
             r#"{"character_name":"Bot","mes":"hello"}"#,
             "Imported Chat".to_string(),
             None,
+            StChatImportContext::default(),
         )
         .expect("chat import should succeed");
 
@@ -1381,16 +2116,28 @@ mod tests {
         let state = AppState::from_data_dir(&app_root, Vec::new())
             .expect("test app state should initialize");
 
-        let empty_error = import_st_chat_text(&state, " \n\n", "Empty".to_string(), None)
-            .expect_err("empty JSONL should be rejected");
+        let empty_error = import_st_chat_text(
+            &state,
+            " \n\n",
+            "Empty".to_string(),
+            None,
+            StChatImportContext::default(),
+        )
+        .expect_err("empty JSONL should be rejected");
         assert_eq!(empty_error.code, "invalid_input");
         assert!(
             state.storage.list("chats").unwrap().is_empty(),
             "empty JSONL must not create a chat"
         );
 
-        let invalid_error = import_st_chat_text(&state, "{not-json}", "Invalid".to_string(), None)
-            .expect_err("invalid JSONL should be rejected");
+        let invalid_error = import_st_chat_text(
+            &state,
+            "{not-json}",
+            "Invalid".to_string(),
+            None,
+            StChatImportContext::default(),
+        )
+        .expect_err("invalid JSONL should be rejected");
         assert_eq!(invalid_error.code, "invalid_input");
         assert!(
             state.storage.list("chats").unwrap().is_empty(),
