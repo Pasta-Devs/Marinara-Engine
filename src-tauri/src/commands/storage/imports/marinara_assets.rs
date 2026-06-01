@@ -30,10 +30,33 @@ fn import_image_filename(raw: Option<&str>, fallback: &str, ext: &str) -> String
     filename
 }
 
+#[derive(Clone, Copy)]
+enum SpriteRestoreOwnerKind {
+    Character,
+    Persona,
+}
+
 pub(super) fn restore_sprites(
     state: &AppState,
     target_id: &str,
     sprites: Option<&Value>,
+) -> AppResult<usize> {
+    restore_sprites_for_owner(state, target_id, sprites, SpriteRestoreOwnerKind::Character)
+}
+
+pub(super) fn restore_persona_sprites(
+    state: &AppState,
+    target_id: &str,
+    sprites: Option<&Value>,
+) -> AppResult<usize> {
+    restore_sprites_for_owner(state, target_id, sprites, SpriteRestoreOwnerKind::Persona)
+}
+
+fn restore_sprites_for_owner(
+    state: &AppState,
+    target_id: &str,
+    sprites: Option<&Value>,
+    owner_kind: SpriteRestoreOwnerKind,
 ) -> AppResult<usize> {
     let Some(items) = sprites.and_then(Value::as_array) else {
         return Ok(0);
@@ -41,7 +64,14 @@ pub(super) fn restore_sprites(
     if items.is_empty() || target_id.contains('/') || target_id.contains('\\') {
         return Ok(0);
     }
-    let dir = state.data_dir.join("sprites").join(target_id);
+    let dir = match owner_kind {
+        SpriteRestoreOwnerKind::Character => state.data_dir.join("sprites").join(target_id),
+        SpriteRestoreOwnerKind::Persona => state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join(target_id),
+    };
     fs::create_dir_all(&dir)?;
     let mut imported = 0usize;
     for (index, sprite) in items.iter().enumerate() {

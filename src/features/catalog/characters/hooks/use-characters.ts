@@ -25,19 +25,25 @@ import {
 } from "../lib/character-query-cache";
 
 export { characterKeys } from "../query-keys";
-export {
-  cacheCharacterListRecordFromResult,
-  invalidateCharacterCollectionQueries,
-} from "../lib/character-query-cache";
+export { cacheCharacterListRecordFromResult, invalidateCharacterCollectionQueries } from "../lib/character-query-cache";
 
 export type CharacterSummary = {
   id: string;
   data?: {
     name?: string;
+    description?: string;
+    personality?: string;
+    scenario?: string;
+    first_mes?: string;
+    mes_example?: string;
     creator?: string;
     creator_notes?: string;
     character_version?: string;
+    system_prompt?: string;
+    post_history_instructions?: string;
     tags?: unknown[];
+    alternate_greetings?: unknown[];
+    character_book?: unknown;
     extensions?: Record<string, unknown>;
   };
   comment?: string | null;
@@ -61,7 +67,25 @@ const CHARACTER_LIST_FIELDS = [
 
 const CHARACTER_SUMMARY_OPTIONS = {
   fields: CHARACTER_LIST_FIELDS,
-  fieldSelections: { data: ["name", "creator", "creator_notes", "character_version", "tags", "extensions"] },
+  fieldSelections: {
+    data: [
+      "name",
+      "description",
+      "personality",
+      "scenario",
+      "first_mes",
+      "mes_example",
+      "creator",
+      "creator_notes",
+      "character_version",
+      "system_prompt",
+      "post_history_instructions",
+      "tags",
+      "alternate_greetings",
+      "character_book",
+      "extensions",
+    ],
+  },
 };
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
 const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];

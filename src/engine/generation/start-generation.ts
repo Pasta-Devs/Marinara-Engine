@@ -51,6 +51,11 @@ import type { GenerationCharacterContext, GenerationPersonaContext } from "./pro
 import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
 import {
+  validateSpriteExpressionEntries,
+  type AvailableSpriteCharacter,
+  type SpriteExpressionEntry,
+} from "./sprite-expression-validation";
+import {
   boolish,
   hiddenFromAi,
   isRecord,
@@ -612,10 +617,7 @@ function appendReferenceGuidance(prompt: string, subjectNames: string[]): string
   const names = subjectNames.map((name) => name.trim()).filter(Boolean);
   if (names.length === 0) return prompt.trim();
   if (promptAlreadyMentionsReferences(prompt)) return prompt.trim();
-  const label =
-    names.length === 1
-      ? names[0]!
-      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const label = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   return [
     prompt.trim(),
     `Reference guidance: Consult the attached reference image(s) for ${label} to preserve identity, face, hair, body proportions, and distinctive visible features. Follow the scene prompt for the current outfit, pose, expression, injuries, lighting, and other moment-specific details; scene-specific appearance overrides default reference clothing.`,
@@ -1426,21 +1428,35 @@ function buildSavedGenerationPromptSnapshot(args: {
   };
 }
 
-function spriteExpressionsFromAgentResults(results: AgentResult[]): Record<string, string> | null {
+function spriteExpressionsFromAgentResults(
+  results: AgentResult[],
+  availableSprites: AvailableSpriteCharacter[] | undefined,
+): Record<string, string> | null {
+  const entries: SpriteExpressionEntry[] = [];
+  const hasAvailableSprites = Array.isArray(availableSprites) && availableSprites.length > 0;
   const expressions: Record<string, string> = {};
   for (const result of results) {
     if (!result.success || result.agentType !== "expression") continue;
     const data = parseRecord(result.data);
-    const entries = Array.isArray(data.expressions) ? data.expressions : [];
-    for (const entry of entries) {
+    const rawEntries = Array.isArray(data.expressions) ? data.expressions : [];
+    for (const entry of rawEntries) {
       const record = parseRecord(entry);
-      const expression = readString(record.expression).trim();
-      if (!expression) continue;
-      const characterId = readString(record.characterId).trim();
-      const characterName = readString(record.characterName).trim();
-      if (characterId) expressions[characterId] = expression;
-      if (characterName) expressions[characterName] = expression;
+      entries.push({
+        characterId: record.characterId,
+        characterName: record.characterName,
+        expression: record.expression,
+        transition: record.transition,
+      });
     }
+  }
+
+  if (entries.length === 0 || !hasAvailableSprites) return null;
+
+  const validation = validateSpriteExpressionEntries(entries, availableSprites);
+  for (const entry of validation.expressions) {
+    const expression = readString(entry.expression).trim();
+    const characterId = readString(entry.characterId).trim();
+    if (characterId && expression) expressions[characterId] = expression;
   }
   return Object.keys(expressions).length > 0 ? expressions : null;
 }
@@ -1811,6 +1827,7 @@ async function persistAgentMessageExtraForTarget(
   target: JsonRecord | null,
   results: AgentResult[],
   contextInjections: AgentInjectionOverride[] | null,
+  availableSprites: AvailableSpriteCharacter[],
 ): Promise<void> {
   const messageId = readString(target?.id).trim();
   if (!messageId) return;
@@ -1820,7 +1837,7 @@ async function persistAgentMessageExtraForTarget(
     existingExtra: target?.extra,
     mergeContextInjectionUpdates: true,
   });
-  const spriteExpressions = spriteExpressionsFromAgentResults(results);
+  const spriteExpressions = spriteExpressionsFromAgentResults(results, availableSprites);
   if (spriteExpressions && Object.keys(spriteExpressions).length > 0) {
     extraPatch.spriteExpressions = spriteExpressions;
   }
@@ -2055,7 +2072,13 @@ async function runGenerationAgentsForTarget(args: {
     unique.set(resultKey(result), result);
   }
   const finalResults = [...unique.values()];
-  await persistAgentMessageExtraForTarget(deps.storage, target, finalResults, runtime.preInjections);
+  await persistAgentMessageExtraForTarget(
+    deps.storage,
+    target,
+    finalResults,
+    runtime.preInjections,
+    runtime.availableSprites,
+  );
   if (target) {
     await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
   }
@@ -2343,7 +2366,10 @@ export async function* startGeneration(
     let content = streamedContent;
 
     const preSaveAgentResults = uniqueAgentResults(runtime?.preResults ?? []);
-    const preSaveSpriteExpressions = spriteExpressionsFromAgentResults(preSaveAgentResults);
+    const preSaveSpriteExpressions = spriteExpressionsFromAgentResults(
+      preSaveAgentResults,
+      runtime?.availableSprites ?? [],
+    );
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     throwIfAborted(signal);
     const connected = await persistConnectedCommandTags(
@@ -2407,7 +2433,7 @@ export async function* startGeneration(
     }
     agentEvents.length = 0;
     const allAgentResults = uniqueAgentResults([...preSaveAgentResults, ...emittedAgentResults]);
-    const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults);
+    const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults, runtime?.availableSprites ?? []);
     if (saved) {
       const patched = await patchSavedMessageAgentExtra({
         storage: deps.storage,

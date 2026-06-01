@@ -1,6 +1,7 @@
-import { Star, User } from "lucide-react";
+import { Hash, Star, User } from "lucide-react";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
 import { getCharacterTagsFromData } from "../lib/character-search";
+import { estimateCharacterCardTokens, formatEstimatedTokens } from "../lib/character-token-count";
 import {
   getCharacterMeta,
   getCharacterSummary,
@@ -26,6 +27,7 @@ export function CharacterLibraryCard({ character, active, onSelect }: CharacterL
   const isFavorite = !!character.parsed.extensions?.fav;
   const tags = getCharacterTagsFromData(character.parsed);
   const avatarUrl = characterAvatarUrl(character);
+  const tokenEstimate = estimateCharacterCardTokens(character.parsed);
 
   return (
     <button
@@ -79,6 +81,13 @@ export function CharacterLibraryCard({ character, active, onSelect }: CharacterL
         </p>
 
         <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+            title="Estimated from character card text fields; actual tokenizer counts vary by model."
+          >
+            <Hash size="0.5625rem" />
+            {formatEstimatedTokens(tokenEstimate)}
+          </span>
           {tags.slice(0, 2).map((tag) => (
             <span
               key={tag}

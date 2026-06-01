@@ -273,22 +273,55 @@ function characterDepthPrompt(data: JsonRecord, extensions: JsonRecord): Generat
 
 function loadPersonaContext(record: JsonRecord): GenerationPersonaContext {
   const data = dataRecord(record);
+  const personaStats = personaStatsContext(data.personaStats ?? record.personaStats);
   return {
     name: field(data, "name") || field(record, "name") || "User",
-    description: field(data, "description") || field(record, "description"),
+    description: personaDescriptionWithActiveExtensions(data, record),
     personality: field(data, "personality") || undefined,
     backstory: field(data, "backstory") || undefined,
     appearance: field(data, "appearance") || undefined,
     scenario: field(data, "scenario") || undefined,
     tags: stringArray(data.tags ?? record.tags),
-    personaStats: isPersonaStats(data.personaStats),
-    rpgStats: isRpgStats(data.rpgStats),
+    personaStats,
+    rpgStats: personaRpgStatsContext(data, record),
   };
 }
 
+function personaDescriptionWithActiveExtensions(data: JsonRecord, record: JsonRecord): string {
+  const base = field(data, "description") || field(record, "description");
+  const extensions = activeAltDescriptionTexts(
+    data.altDescriptions ?? record.altDescriptions ?? parseRecord(data.extensions).altDescriptions,
+  );
+  return [base, ...extensions].filter(Boolean).join("\n");
+}
+
+function activeAltDescriptionTexts(value: unknown): string[] {
+  return parseArray(value)
+    .map(parseRecord)
+    .filter((entry) => boolish(entry.active, false))
+    .map((entry) => cleanPromptText(readString(entry.content)))
+    .filter(Boolean);
+}
+
+function personaStatsContext(value: unknown): GenerationPersonaContext["personaStats"] | undefined {
+  return isPersonaStats(value);
+}
+
+function personaRpgStatsContext(
+  data: JsonRecord,
+  record: JsonRecord,
+): GenerationPersonaContext["rpgStats"] | undefined {
+  return (
+    isRpgStats(data.rpgStats) ??
+    isRpgStats(parseRecord(data.personaStats).rpgStats) ??
+    isRpgStats(parseRecord(record.personaStats).rpgStats)
+  );
+}
+
 function isPersonaStats(value: unknown): GenerationPersonaContext["personaStats"] | undefined {
-  if (!isRecord(value) || typeof value.enabled !== "boolean" || !Array.isArray(value.bars)) return undefined;
-  const bars = value.bars.filter(
+  const record = parseRecord(value);
+  if (typeof record.enabled !== "boolean" || !Array.isArray(record.bars)) return undefined;
+  const bars = record.bars.filter(
     (bar): bar is { name: string; value: number; max: number; color: string } =>
       isRecord(bar) &&
       typeof bar.name === "string" &&
@@ -296,22 +329,23 @@ function isPersonaStats(value: unknown): GenerationPersonaContext["personaStats"
       typeof bar.max === "number" &&
       typeof bar.color === "string",
   );
-  return { enabled: value.enabled, bars };
+  return { enabled: record.enabled, bars };
 }
 
 function isRpgStats(value: unknown): GenerationPersonaContext["rpgStats"] | undefined {
-  if (!isRecord(value) || typeof value.enabled !== "boolean" || !isRecord(value.hp)) return undefined;
-  const attributes = Array.isArray(value.attributes)
-    ? value.attributes.filter(
+  const record = parseRecord(value);
+  if (typeof record.enabled !== "boolean" || !isRecord(record.hp)) return undefined;
+  const attributes = Array.isArray(record.attributes)
+    ? record.attributes.filter(
         (attr): attr is { name: string; value: number } =>
           isRecord(attr) && typeof attr.name === "string" && typeof attr.value === "number",
       )
     : [];
   const hp = {
-    value: readNumber(value.hp.value, 0),
-    max: readNumber(value.hp.max, 0),
+    value: readNumber(record.hp.value, 0),
+    max: readNumber(record.hp.max, 0),
   };
-  return { enabled: value.enabled, attributes, hp };
+  return { enabled: record.enabled, attributes, hp };
 }
 
 export async function loadCharacters(storage: StorageGateway, chat: JsonRecord): Promise<GenerationCharacterContext[]> {
@@ -1992,8 +2026,7 @@ export async function assembleGenerationPrompt(
   ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
-  const characterDepthEntries =
-    chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros);
+  const characterDepthEntries = chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros);
   messages = injectAtDepth(
     messages,
     authorNotesEntry

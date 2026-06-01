@@ -344,7 +344,7 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
         let record = state.storage.create("personas", record_value)?;
         let persona_id = created_record_id(&record, "persona")?;
         created_persona_id = Some(persona_id.clone());
-        let sprites_imported = restore_sprites(state, &persona_id, data.get("sprites"))?;
+        let sprites_imported = restore_persona_sprites(state, &persona_id, data.get("sprites"))?;
         Ok(json!({
             "success": true,
             "type": "marinara_persona",
@@ -356,7 +356,7 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
     result.map_err(|error| {
         let mut rollback_errors = Vec::new();
         if let Some(persona_id) = created_persona_id.as_deref() {
-            rollback_managed_child_dir(state, "sprites", persona_id, &mut rollback_errors);
+            rollback_managed_child_dir(state, "sprites/personas", persona_id, &mut rollback_errors);
             rollback_created_records_collect(
                 state,
                 "personas",

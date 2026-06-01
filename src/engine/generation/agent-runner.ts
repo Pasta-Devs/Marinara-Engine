@@ -41,10 +41,15 @@ import {
 } from "../generation-core/lorebooks/keyword-scanner";
 import { resolveGameLorebookScopeExclusions } from "../generation-core/lorebooks/game-lorebook-scope";
 import { resolveLorebookKeeperTarget } from "../generation-core/lorebooks/lorebook-keeper-target";
-import { buildSpriteExpressionChoices } from "../modes/game/prompts/sprite.service";
 import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { llmParameters } from "./context";
 import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
+import {
+  buildAvailableSpriteCharacter,
+  normalizeSpriteDisplayModes,
+  type AvailableSpriteCharacter,
+  type SpriteDisplayMode,
+} from "./sprite-expression-validation";
 import {
   boolish,
   hiddenFromAi,
@@ -90,6 +95,7 @@ export interface GenerationAgentRuntime {
   preInjections: AgentInjection[];
   preResults: AgentResult[];
   agentData: Record<string, string>;
+  availableSprites: AvailableSpriteCharacter[];
   runParallel(): Promise<AgentResult[]>;
   runPost(mainResponse: string): Promise<AgentResult[]>;
 }
@@ -115,9 +121,7 @@ const MAX_ASSISTANT_RUN_INTERVAL = 100;
 const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event"]);
 type AutomaticIntervalMessageRole = "assistant" | "user";
-type SpriteDisplayMode = "expressions" | "full-body";
 
-const DEFAULT_SPRITE_DISPLAY_MODES: SpriteDisplayMode[] = ["expressions", "full-body"];
 const DEFAULT_ROLEPLAY_EXPRESSIONS = [
   "angry",
   "blushing",
@@ -173,22 +177,6 @@ function uniqueStrings(values: string[]): string[] {
   return result;
 }
 
-function normalizeSpriteDisplayModes(value: unknown): SpriteDisplayMode[] {
-  const rawModes = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
-  const modes: SpriteDisplayMode[] = [];
-
-  for (const mode of rawModes) {
-    const normalized = mode === "fullBody" || mode === "full_body" ? "full-body" : mode;
-    if (normalized === "expressions" && !modes.includes("expressions")) {
-      modes.push("expressions");
-    } else if (normalized === "full-body" && !modes.includes("full-body")) {
-      modes.push("full-body");
-    }
-  }
-
-  return modes.length > 0 ? modes : [...DEFAULT_SPRITE_DISPLAY_MODES];
-}
-
 function isFullBodySpriteExpression(expression: string): boolean {
   return expression.toLowerCase().startsWith("full_");
 }
@@ -208,20 +196,13 @@ function spriteExpressionsForAgent(sprites: SpriteAssetInfo[], displayModes: rea
   return uniqueStrings([...expressions, ...fullBody]);
 }
 
-function buildAvailableSpriteCharacter(
+function buildAvailableSpriteCharacterFromAssets(
   characterId: string,
   characterName: string,
   sprites: SpriteAssetInfo[],
   displayModes: readonly SpriteDisplayMode[],
-): { characterId: string; characterName: string; expressions: string[]; expressionChoices: string[] } | null {
-  const expressions = spriteExpressionsForAgent(sprites, displayModes);
-  if (expressions.length === 0) return null;
-  return {
-    characterId,
-    characterName,
-    expressions,
-    expressionChoices: buildSpriteExpressionChoices(expressions),
-  };
+): AvailableSpriteCharacter | null {
+  return buildAvailableSpriteCharacter(characterId, characterName, spriteExpressionsForAgent(sprites, displayModes));
 }
 
 interface AutomaticIntervalGate {
@@ -1022,6 +1003,33 @@ function agentTypeActive(agents: ResolvedAgent[], type: string): boolean {
   return agents.some((agent) => agent.type === type);
 }
 
+function selectedSpriteOwners(value: unknown): {
+  restrict: boolean;
+  characterIds: Set<string>;
+  personaIds: Set<string>;
+} {
+  const ownerKeys = stringSet(value);
+  const characterIds = new Set<string>();
+  const personaIds = new Set<string>();
+
+  for (const ownerKey of ownerKeys) {
+    if (ownerKey.startsWith("character:")) {
+      const id = ownerKey.slice("character:".length).trim();
+      if (id) characterIds.add(id);
+      continue;
+    }
+    if (ownerKey.startsWith("persona:")) {
+      const id = ownerKey.slice("persona:".length).trim();
+      if (id) personaIds.add(id);
+      continue;
+    }
+    characterIds.add(ownerKey);
+    personaIds.add(ownerKey);
+  }
+
+  return { restrict: ownerKeys.size > 0, characterIds, personaIds };
+}
+
 async function loadAgentAvailableSprites(
   visuals: VisualAssetGateway,
   input: GenerationAgentRuntimeInput,
@@ -1029,21 +1037,25 @@ async function loadAgentAvailableSprites(
   chatMeta: JsonRecord,
 ): Promise<void> {
   const spriteDisplayModes = normalizeSpriteDisplayModes(chatMeta.spriteDisplayModes);
-  const selectedSpriteIds = stringSet(chatMeta.spriteCharacterIds);
-  const restrictToSelectedSprites = selectedSpriteIds.size > 0;
+  const selectedSprites = selectedSpriteOwners(chatMeta.spriteCharacterIds);
   const perCharacter = await Promise.all(
     context.characters
-      .filter((character) => !restrictToSelectedSprites || selectedSpriteIds.has(character.id))
+      .filter((character) => !selectedSprites.restrict || selectedSprites.characterIds.has(character.id))
       .map(async (character) => {
-        const sprites = await visuals.listSprites(character.id).catch(() => []);
-        return buildAvailableSpriteCharacter(character.id, character.name, sprites, spriteDisplayModes);
+        const sprites = await visuals.listSprites(character.id, "character").catch(() => []);
+        return buildAvailableSpriteCharacterFromAssets(character.id, character.name, sprites, spriteDisplayModes);
       }),
   );
 
   const personaId = readString(input.chat.personaId).trim();
-  if (personaId && input.persona && (!restrictToSelectedSprites || selectedSpriteIds.has(personaId))) {
+  if (personaId && input.persona && (!selectedSprites.restrict || selectedSprites.personaIds.has(personaId))) {
     const sprites = await visuals.listSprites(personaId, "persona").catch(() => []);
-    const spritePersona = buildAvailableSpriteCharacter(personaId, input.persona.name, sprites, spriteDisplayModes);
+    const spritePersona = buildAvailableSpriteCharacterFromAssets(
+      personaId,
+      input.persona.name,
+      sprites,
+      spriteDisplayModes,
+    );
     if (spritePersona) perCharacter.push(spritePersona);
   }
 
@@ -1053,6 +1065,11 @@ async function loadAgentAvailableSprites(
   if (availableSprites.length > 0) {
     context.memory._availableSprites = availableSprites;
   }
+}
+
+function availableSpritesFromContext(context: AgentContext): AvailableSpriteCharacter[] {
+  const sprites = context.memory._availableSprites;
+  return Array.isArray(sprites) ? (sprites as AvailableSpriteCharacter[]) : [];
 }
 
 function gameAssetBackgrounds(manifest: GameAssetManifest | null): GameAssetManifestEntry[] {
@@ -1245,12 +1262,14 @@ export async function createGenerationAgentRuntime(
       preInjections: overrideInjections,
       preResults,
       agentData,
+      availableSprites: [],
       runParallel: async () => [],
       runPost: async () => [],
     };
   }
 
   const context = await buildAgentContext(deps, input, agents);
+  const availableSprites = availableSpritesFromContext(context);
   const pipelineAgents = agents.filter((agent) => !KNOWLEDGE_AGENT_TYPES.has(agent.type));
   const pipeline = createAgentPipeline(pipelineAgents, context, (result) => {
     const text = resultText(result);
@@ -1263,6 +1282,7 @@ export async function createGenerationAgentRuntime(
       preInjections: overrideInjections,
       preResults,
       agentData,
+      availableSprites,
       runParallel: async () => pipeline.runParallel(),
       runPost: async (mainResponse) => pipeline.postGenerate(mainResponse, { preGenInjections: overrideInjections }),
     };
@@ -1291,6 +1311,7 @@ export async function createGenerationAgentRuntime(
     preInjections,
     preResults,
     agentData,
+    availableSprites,
     runParallel: async () => pipeline.runParallel(),
     runPost: async (mainResponse) => pipeline.postGenerate(mainResponse, { preGenInjections: preInjections }),
   };

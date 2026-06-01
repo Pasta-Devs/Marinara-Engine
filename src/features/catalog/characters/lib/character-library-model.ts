@@ -14,6 +14,7 @@ type CharacterData = CharacterSearchData & {
   post_history_instructions?: string;
   tags?: string[];
   alternate_greetings?: string[];
+  character_book?: unknown;
 };
 
 export type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";

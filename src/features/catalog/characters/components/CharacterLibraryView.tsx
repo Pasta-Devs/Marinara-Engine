@@ -52,10 +52,21 @@ function characterSummaryToRow(character: CharacterSummary): CharacterRow {
     id: character.id,
     data: {
       name: getText(data.name) || undefined,
+      description: getText(data.description) || undefined,
+      personality: getText(data.personality) || undefined,
+      scenario: getText(data.scenario) || undefined,
+      first_mes: getText(data.first_mes) || undefined,
+      mes_example: getText(data.mes_example) || undefined,
       creator: getText(data.creator) || undefined,
       creator_notes: getText(data.creator_notes) || undefined,
       character_version: getText(data.character_version) || undefined,
+      system_prompt: getText(data.system_prompt) || undefined,
+      post_history_instructions: getText(data.post_history_instructions) || undefined,
       tags: Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+      alternate_greetings: Array.isArray(data.alternate_greetings)
+        ? data.alternate_greetings.filter((greeting): greeting is string => typeof greeting === "string")
+        : undefined,
+      character_book: data.character_book,
       extensions:
         data.extensions && typeof data.extensions === "object" && !Array.isArray(data.extensions)
           ? data.extensions

@@ -5,6 +5,12 @@ use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use zip::write::SimpleFileOptions;
 
+#[derive(Clone, Copy)]
+enum SpriteExportOwnerKind {
+    Character,
+    Persona,
+}
+
 pub(crate) fn export_record(
     state: &AppState,
     kind: &str,
@@ -319,7 +325,7 @@ fn character_export_envelope(state: &AppState, character: &Value) -> AppResult<V
     if let Some(avatar) = avatar_data_url(state, character) {
         exported.insert("avatar".to_string(), Value::String(avatar));
     }
-    let sprites = sprites_for_id(state, id)?;
+    let sprites = sprites_for_owner(state, id, SpriteExportOwnerKind::Character)?;
     if !sprites.is_empty() {
         exported.insert("sprites".to_string(), Value::Array(sprites));
     }
@@ -358,7 +364,7 @@ fn persona_export_envelope(state: &AppState, persona: &Value) -> AppResult<Value
         data.insert("avatar".to_string(), Value::String(avatar));
     }
     if !id.is_empty() {
-        let sprites = sprites_for_id(state, id)?;
+        let sprites = sprites_for_owner(state, id, SpriteExportOwnerKind::Persona)?;
         if !sprites.is_empty() {
             data.insert("sprites".to_string(), Value::Array(sprites));
         }
@@ -683,30 +689,40 @@ fn data_url_from_current_file(state: &AppState, path: &str) -> Option<String> {
     ))
 }
 
-fn sprites_for_id(state: &AppState, id: &str) -> AppResult<Vec<Value>> {
+fn sprites_for_owner(
+    state: &AppState,
+    id: &str,
+    owner_kind: SpriteExportOwnerKind,
+) -> AppResult<Vec<Value>> {
     if id.contains('/') || id.contains('\\') {
         return Ok(Vec::new());
     }
-    let dir = state.data_dir.join("sprites").join(id);
-    if !dir.is_dir() {
-        return Ok(Vec::new());
-    }
+    let dirs = sprite_dirs_for_owner(state, id, owner_kind);
     let mut sprites = Vec::new();
-    for entry in fs::read_dir(&dir)? {
-        let path = entry?.path();
-        if !path.is_file() || !is_export_image_file(&path) {
+    let mut seen_filenames = std::collections::HashSet::new();
+    for dir in dirs {
+        if !dir.is_dir() {
             continue;
         }
-        let Some(filename) = path.file_name().and_then(|value| value.to_str()) else {
-            continue;
-        };
-        let Some(data) = data_url_from_file(&path) else {
-            continue;
-        };
-        sprites.push(json!({
-            "filename": filename,
-            "data": data
-        }));
+        for entry in fs::read_dir(&dir)? {
+            let path = entry?.path();
+            if !path.is_file() || !is_export_image_file(&path) {
+                continue;
+            }
+            let Some(filename) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            if !seen_filenames.insert(filename.to_ascii_lowercase()) {
+                continue;
+            }
+            let Some(data) = data_url_from_file(&path) else {
+                continue;
+            };
+            sprites.push(json!({
+                "filename": filename,
+                "data": data
+            }));
+        }
     }
     sprites.sort_by(|a, b| {
         a.get("filename")
@@ -715,6 +731,23 @@ fn sprites_for_id(state: &AppState, id: &str) -> AppResult<Vec<Value>> {
             .cmp(b.get("filename").and_then(Value::as_str).unwrap_or(""))
     });
     Ok(sprites)
+}
+
+fn sprite_dirs_for_owner(
+    state: &AppState,
+    id: &str,
+    owner_kind: SpriteExportOwnerKind,
+) -> Vec<PathBuf> {
+    match owner_kind {
+        SpriteExportOwnerKind::Character => vec![state.data_dir.join("sprites").join(id)],
+        SpriteExportOwnerKind::Persona => {
+            let mut dirs = vec![state.data_dir.join("sprites").join("personas").join(id)];
+            if id != "personas" {
+                dirs.push(state.data_dir.join("sprites").join(id));
+            }
+            dirs
+        }
+    }
 }
 
 fn gallery_for_character(state: &AppState, character_id: &str) -> AppResult<Vec<Value>> {

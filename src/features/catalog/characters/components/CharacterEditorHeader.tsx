@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Camera,
   Copy,
+  Hash,
   ImageOff,
   Loader2,
   MessageCircle,
@@ -17,6 +18,7 @@ import {
 
 import type { CharacterData } from "../../../../engine/contracts/types/character";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../shared/lib/utils";
+import { estimateCharacterCardTokens, formatEstimatedTokens } from "../lib/character-token-count";
 
 export function CharacterEditorHeader({
   characterId,
@@ -69,6 +71,7 @@ export function CharacterEditorHeader({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveDisabled = !dirty || saving || avatarUploading;
+  const tokenEstimate = estimateCharacterCardTokens(formData);
   const headerActionButtonClass =
     "rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] max-md:rounded-lg max-md:p-1.5";
 
@@ -222,7 +225,8 @@ export function CharacterEditorHeader({
             placeholder="Title / comment (e.g. 'Modern AU version')"
           />
           <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-            {formData.creator ? `by ${formData.creator}` : "No creator"} · v{formData.character_version || "1.0"}
+            {formData.creator ? `by ${formData.creator}` : "No creator"} · v{formData.character_version || "1.0"} ·{" "}
+            <Hash size="0.625rem" className="inline align-[-0.1em]" /> {formatEstimatedTokens(tokenEstimate)}
           </p>
         </div>
       </div>

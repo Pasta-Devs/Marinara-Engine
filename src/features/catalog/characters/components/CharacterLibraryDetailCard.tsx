@@ -1,6 +1,7 @@
-import { MessageCircle, Pencil, Star, User } from "lucide-react";
+import { Hash, MessageCircle, Pencil, Star, User } from "lucide-react";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
+import { estimateCharacterCardTokens, formatEstimatedTokens } from "../lib/character-token-count";
 import {
   getCharacterMeta,
   getCharacterSections,
@@ -33,6 +34,7 @@ export function CharacterLibraryDetailCard({
   const creatorNotes = getText(character.parsed.creator_notes);
   const sections = getCharacterSections(character);
   const avatarUrl = characterAvatarUrl(character);
+  const tokenEstimate = estimateCharacterCardTokens(character.parsed);
   const startDisabled = isStartingChat || fullRecordLoading || fullRecordError;
 
   return (
@@ -68,11 +70,20 @@ export function CharacterLibraryDetailCard({
                   </p>
                 )}
               </div>
-              {Boolean(character.parsed.extensions?.fav) && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[0.6875rem] font-medium text-amber-300">
-                  <Star size="0.75rem" className="fill-current" /> Favorite
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+                  title="Estimated from character card text fields; actual tokenizer counts vary by model."
+                >
+                  <Hash size="0.75rem" />
+                  {formatEstimatedTokens(tokenEstimate)}
                 </span>
-              )}
+                {Boolean(character.parsed.extensions?.fav) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[0.6875rem] font-medium text-amber-300">
+                    <Star size="0.75rem" className="fill-current" /> Favorite
+                  </span>
+                )}
+              </div>
             </div>
 
             {creatorNotes && (
