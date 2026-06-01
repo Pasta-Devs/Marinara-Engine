@@ -752,12 +752,32 @@ def short_ref(value):
     return value[:24]
 
 
+def commit_subject(head_sha):
+    if not head_sha:
+        return ""
+    result = run(["git", "log", "-1", "--format=%s", head_sha], timeout=30)
+    if result.returncode != 0:
+        return ""
+    return " ".join(result.stdout.split())
+
+
+def commit_line(head_sha, message=None):
+    subject = " ".join(str(message or "").split()) or commit_subject(head_sha)
+    ref = short_ref(head_sha)
+    if subject:
+        return f"Commit: {ref} - {subject}"
+    return f"Commit: {ref}"
+
+
 def render_review_metadata(review_obj, head_sha):
     mode = review_obj.get("mode") or "unknown"
     base = review_obj.get("review_base") or review_obj.get("base_ref") or "unknown"
+    commit_message = review_obj.get("head_commit_message") or review_obj.get(
+        "commit_message"
+    )
     parts = [
         f"Mode: `{mode}`",
-        f"Head: `{short_ref(head_sha)}`",
+        commit_line(head_sha, commit_message),
         f"Base: `{short_ref(base)}`",
     ]
     return "_Review update: " + " · ".join(parts) + "._"
@@ -1108,6 +1128,7 @@ def produce_review(args):
         triage_content = triage_for_packet(review_packet, "Review the full current diff.")
         review_obj = three_pass_review(client, skill, triage_content, stats)
     review_obj.setdefault("head_sha", head_sha)
+    review_obj.setdefault("head_commit_message", commit_subject(head_sha))
     review_obj.setdefault("review_base", base)
     review_obj.setdefault("base_ref", base_ref)
     review_obj.setdefault("mode", effective_mode)
@@ -1202,7 +1223,7 @@ def patch_command_status_running(pr_num, head_sha, mode):
             "## Bunny Review Running",
             "",
             f"Mode: `{mode or 'unknown'}`",
-            f"Head: `{short_ref(head_sha)}`",
+            commit_line(head_sha),
             "Status: Reviewer workflow is running. The specimen is under observation.",
         ]
     )
@@ -1215,7 +1236,7 @@ def patch_command_status_complete(pr_num, head_sha):
             COMMAND_STATUS_MARKER,
             "## Bunny Review Completed",
             "",
-            f"Head: `{short_ref(head_sha)}`",
+            commit_line(head_sha),
             "Status: Review posted. The specimen has been returned to the table.",
         ]
     )
