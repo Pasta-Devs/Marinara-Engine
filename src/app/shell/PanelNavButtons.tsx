@@ -1,10 +1,18 @@
-import { BookOpen, Bot, FileText, Link, Settings, Sparkles, User, Users } from "lucide-react";
+import { BookOpen, Bot, Compass, FileText, Link, Settings, Sparkles, User, Users } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useAgentStore } from "../../shared/stores/agent.store";
 import { useUIStore } from "../../shared/stores/ui.store";
 import { cn } from "../../shared/lib/utils";
 
 export const RIGHT_PANEL_BUTTONS = [
+  {
+    panel: "discover" as const,
+    icon: Compass,
+    label: "Discover",
+    activeClass: "text-teal-500",
+    hoverClass: "hover:text-teal-300",
+    underlineClass: "from-teal-500 to-cyan-500",
+  },
   {
     panel: "bot-browser" as const,
     icon: Bot,

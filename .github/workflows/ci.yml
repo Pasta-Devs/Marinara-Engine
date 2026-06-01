@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -27,6 +29,10 @@ jobs:
       - run: pnpm build
       - run: pnpm perf:size
       - run: pnpm check:docs
+      - run: pnpm check:discovery
+      - name: Discovery metadata PR gate
+        if: github.event_name == 'pull_request'
+        run: pnpm check:discovery -- --pr-aware
       - name: Unused code check
         run: pnpm check:unused
 

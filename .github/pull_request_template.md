@@ -70,6 +70,7 @@ Pressure points touched:
 - [ ] Updated `CONTRIBUTING.md`
 - [ ] Updated `docs/developer/`
 - [ ] Updated repo skills or `AGENTS.md`
+- [ ] Updated Feature Discoverability / marked N/A in notes
 - [ ] Confirmed this PR does not restore old staging/package-workspace/release claims
 
 ## UI evidence

@@ -5,6 +5,7 @@ import { ChatSidebar, type ChatSidebarTab } from "./ChatSidebar";
 import { AppFindOverlay } from "./AppFindOverlay";
 import { TopBar } from "./TopBar";
 import { WindowTitleBar } from "./WindowTitleBar";
+import { DISCOVERY_APP_EVENT, type DiscoveryAppEventDetail } from "../../features/shell/discovery/discovery-events";
 import {
   getTrackerPanelWidthForProfile,
   RIGHT_PANEL_WIDTH_MAX,
@@ -363,6 +364,30 @@ export function AppShell() {
   useEffect(() => {
     if (activeChatId) setProfessorMariOpen(false);
   }, [activeChatId]);
+
+  useEffect(() => {
+    const handleDiscoveryAction = (event: Event) => {
+      const detail = (event as CustomEvent<DiscoveryAppEventDetail>).detail;
+      if (detail?.type === "open-professor-mari") {
+        useChatStore.getState().setActiveChatId(null);
+        useUIStore.getState().closeAllDetails();
+        closeRightPanel();
+        setSidebarOpen(false);
+        setTrackerPanelOpen(false);
+        setProfessorMariOpen(true);
+        return;
+      }
+
+      if (detail?.type === "go-home") {
+        setProfessorMariOpen(false);
+        setSidebarOpen(false);
+        setTrackerPanelOpen(false);
+      }
+    };
+
+    window.addEventListener(DISCOVERY_APP_EVENT, handleDiscoveryAction);
+    return () => window.removeEventListener(DISCOVERY_APP_EVENT, handleDiscoveryAction);
+  }, [closeRightPanel, setSidebarOpen, setTrackerPanelOpen]);
 
   useEffect(() => {
     if (!activeChatId || isClearingAutonomousUnread) return;

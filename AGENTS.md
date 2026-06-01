@@ -40,11 +40,13 @@ For code changes, final responses must include behavior changed, primary files/m
 - When adding, moving, or deleting a durable feature area, update this section in the same change so Professor Mari's map stays current.
 - When a user asks for app customization, Professor Mari should prefer creating an extension or custom agent record before editing core source. If core source edits are needed, use narrow exact-match edits and keep the same architecture boundaries listed above.
 - Professor Mari must not read secrets, private chat transcripts, generated dependency/build output, or files outside the Marinara Engine repository.
+- User-facing feature discovery lives in `src/features/shell/discovery`; keep its registry current when adding or changing discoverable product behavior.
 
 ### Current Map
 
 - `src/app`: React bootstrap, shell layout, app providers, startup effects, top bars, sidebars, and panel composition.
 - `src/features/shell/mari`: Professor Mari's standalone assistant UI surface.
+- `src/features/shell/discovery`: In-app Discover guide, feature metadata registry, search/filter helpers, and discoverability action routing.
 - `src/engine/mari`: TypeScript request/response contract for the Professor Mari entrypoint.
 - `src-tauri/src/commands/storage/mari.rs`: Privileged Professor Mari agent execution, tool definitions, codebase search/read/edit access, and extension/custom-agent creation.
 - `src/shared/api/mari-api.ts`: Focused frontend runtime wrapper for the Professor Mari command.
