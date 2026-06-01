@@ -9,6 +9,11 @@ import { DiscoverPanel } from "./DiscoverPanel";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+function changeInput(input: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 describe("DiscoverPanel", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -17,7 +22,7 @@ describe("DiscoverPanel", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    useUIStore.setState({ rightPanelOpen: false, rightPanel: "chat", settingsTab: "general" });
+    useUIStore.setState({ rightPanelOpen: false, rightPanel: "settings", settingsTab: "general" });
   });
 
   afterEach(() => {
@@ -44,8 +49,7 @@ describe("DiscoverPanel", () => {
 
     const input = container.querySelector("input") as HTMLInputElement;
     act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "zzzz-no-feature");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      changeInput(input, "zzzz-no-feature");
     });
 
     expect(container.textContent).toContain("No matching features");

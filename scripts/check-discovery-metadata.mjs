@@ -49,7 +49,9 @@ function validateAction(action, entryId, index) {
   const path = `${entryId}.actions[${index}]`;
   const errors = [];
   if (!action || typeof action !== "object" || Array.isArray(action)) return [`${path} must be an object.`];
-  if (!hasText(action.label)) errors.push(`${path}.label must be non-empty.`);
+  if (action.label !== undefined && action.label !== null && !hasText(action.label)) {
+    errors.push(`${path}.label must be non-empty.`);
+  }
 
   switch (action.type) {
     case "open-panel":

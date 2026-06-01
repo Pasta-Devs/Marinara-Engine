@@ -56,7 +56,9 @@ function validateDiscoveryAction(action: unknown, entryId: string, index: number
   const panel = action.panel;
   const tab = action.tab;
   const errors: string[] = [];
-  if (!hasText(action.label)) errors.push(`${path}.label must be non-empty.`);
+  if (action.label !== undefined && action.label !== null && !hasText(action.label)) {
+    errors.push(`${path}.label must be non-empty.`);
+  }
 
   switch (type) {
     case "open-panel":
