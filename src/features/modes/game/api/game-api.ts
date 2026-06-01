@@ -92,7 +92,7 @@ import {
   advanceTime as advanceGameTime,
   type GameTime,
 } from "../../../../engine/modes/game/world/time.service";
-import { generateWeather, inferBiome, type WeatherState } from "../../../../engine/modes/game/world/weather.service";
+import { generateWeather, inferBiome, type Season, type WeatherState } from "../../../../engine/modes/game/world/weather.service";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
 
 export interface CreateGameResponse {
@@ -1045,7 +1045,15 @@ function playerAttributes(meta: Record<string, unknown>): Partial<RPGAttributes>
   const cards = Array.isArray(meta.gameCharacterCards) ? meta.gameCharacterCards : [];
   const first = asRecord(cards[0]);
   const rpgStats = asRecord(first.rpgStats);
-  return mapSheetAttributesToRPG(Array.isArray(rpgStats.attributes) ? (rpgStats.attributes as any[]) : undefined);
+  return mapSheetAttributesToRPG(
+    Array.isArray(rpgStats.attributes)
+      ? (rpgStats.attributes as ReadonlyArray<{ name: string; value: number }>)
+      : undefined,
+  );
+}
+
+function isWeatherSeason(value: unknown): value is Season {
+  return value === "spring" || value === "summer" || value === "autumn" || value === "winter";
 }
 
 function replaceFirstUnresolvedSkillCheckTag(content: string, resolvedTag: string): string {
@@ -1886,13 +1894,13 @@ export const gameApi = {
     mechanics?: CombatMechanic[];
     elementPreset?: string;
   }) {
-    const combatants = data.combatants.map((combatant) => ({ ...combatant })) as any[];
+    const combatants: Array<Omit<Combatant, "sprite">> = data.combatants.map((combatant) => ({ ...combatant }));
     const result = resolveCombatRound(
       combatants,
       data.round,
       "normal",
       data.elementPreset,
-      data.playerAction as any,
+      data.playerAction,
       data.mechanics,
     );
     return { result, combatants: combatants as Combatant[] };
@@ -1958,7 +1966,7 @@ export const gameApi = {
     const chat = await getChat(data.chatId);
     const forced = data.type
       ? ({ type: data.type, temperature: 20, description: "", wind: "calm", visibility: "clear" } as WeatherState)
-      : generateWeather(inferBiome(data.location ?? ""), (data.season as any) ?? "summer");
+      : generateWeather(inferBiome(data.location ?? ""), isWeatherSeason(data.season) ? data.season : "summer");
     const changed =
       Boolean(data.type) ||
       Math.random() <

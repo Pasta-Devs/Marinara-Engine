@@ -207,6 +207,8 @@ type GameAssetGenerationOptions = {
   showSuccessToast?: boolean;
 };
 
+type GameAssetManifestMap = Record<string, { path: string; absolutePath?: string }> | null;
+
 type GameSpotifyCandidatesResponse = {
   enabled: boolean;
   tracks: SceneSpotifyTrackCandidate[];
@@ -3955,7 +3957,11 @@ export function GameSurface({
     runSceneAnalysis(sceneContext);
   };
 
-  function applyInlineTags(gmTags: ReturnType<typeof parseGmTags>, assetMap: any, msg: { id: string }) {
+  function applyInlineTags(
+    gmTags: ReturnType<typeof parseGmTags>,
+    assetMap: GameAssetManifestMap,
+    msg: { id: string },
+  ) {
     const sceneAnalysisState: GameActiveState =
       gmTags.combatEncounter || gmTags.stateChange === "combat"
         ? "combat"

@@ -24,6 +24,7 @@ import type {
   GameSetupConfig,
   Combatant,
   CombatPlayerAction,
+  GameNpc,
   HudWidget,
   GameBlueprint,
 } from "../../../../engine/contracts/types/game";
@@ -488,6 +489,9 @@ function finiteNumber(value: unknown): number | null {
   return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 }
 
+type LegacyInventoryItem = { name: string; slot?: string | number; quantity?: number };
+type LegacyInventoryConfig = Omit<HudWidget["config"], "items"> & { items?: LegacyInventoryItem[] };
+
 function normalizeHudWidgets(widgets: readonly HudWidget[]): HudWidget[] {
   return widgets.map((w) => {
     if (isNumericHudWidgetType(w.type)) {
@@ -508,8 +512,9 @@ function normalizeHudWidgets(widgets: readonly HudWidget[]): HudWidget[] {
       }
     }
 
-    if (w.type === "inventory_grid" && !w.config.contents && Array.isArray((w.config as any).items)) {
-      const items = (w.config as any).items as Array<{ name: string; slot?: string | number; quantity?: number }>;
+    const inventoryConfig = w.config as LegacyInventoryConfig;
+    if (w.type === "inventory_grid" && !w.config.contents && Array.isArray(inventoryConfig.items)) {
+      const items = inventoryConfig.items;
       return {
         ...w,
         config: {
@@ -565,7 +570,7 @@ export function useSyncGameState(activeChatId: string, chatMeta: Record<string, 
       useGameModeStore.getState().setCurrentMap(chatMeta.gameMap as GameMap);
     }
     if (Array.isArray(chatMeta.gameNpcs)) {
-      useGameModeStore.getState().setNpcs(chatMeta.gameNpcs as any[]);
+      useGameModeStore.getState().setNpcs(chatMeta.gameNpcs as GameNpc[]);
     }
     if (chatMeta.gameSessionNumber) {
       useGameModeStore.getState().setSessionNumber(chatMeta.gameSessionNumber as number);
@@ -675,7 +680,7 @@ export function useUpdateReputation() {
     mutationFn: (data: { chatId: string; actions: Array<{ npcId: string; action: string; modifier?: number }> }) =>
       gameApi.updateReputation(data),
     onSuccess: (res, variables) => {
-      store.getState().setNpcs(res.npcs as any[]);
+      store.getState().setNpcs(res.npcs as GameNpc[]);
       publishSessionChat(qc, res.sessionChat);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: [...gameKeys.all, "journal", variables.chatId] });
