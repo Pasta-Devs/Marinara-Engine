@@ -723,15 +723,18 @@ def validate_findings(review_obj, base):
 
 
 def render_finding_body(finding):
+    meta = severity_meta(finding.severity)
     parts = [
         finding_marker(finding),
-        f"**[{finding.severity}] {finding.title}**",
+        f"### {meta['icon']} {meta['label']}: {finding.title}",
         "",
-        finding.body,
+        f"**Location:** `{finding.path}:{finding.line}`",
+        "",
+        blockquote(finding.body),
     ]
     if finding.fix_hint:
-        parts.extend(["", f"Suggested fix: {finding.fix_hint}"])
-    parts.extend(["", render_agent_prompt_details([finding], "Prompt for AI Agents")])
+        parts.extend([""] + alert_block("TIP", [f"**Suggested fix:** {finding.fix_hint}"]))
+    parts.extend(["", render_agent_prompt_details([finding], "🤖 Prompt for AI Agents")])
     return "\n".join(parts).strip()
 
 
@@ -769,18 +772,111 @@ def commit_line(head_sha, message=None):
     return f"Commit: {ref}"
 
 
+def md_cell(value):
+    return str(value or "").replace("|", "\\|").replace("\n", "<br>").strip()
+
+
+def blockquote(text):
+    lines = str(text or "").strip().splitlines() or [""]
+    return "\n".join(f"> {line}" if line else ">" for line in lines)
+
+
+def alert_block(kind, lines):
+    body = [f"> [!{kind}]"]
+    for line in lines:
+        body.extend(blockquote(line).splitlines())
+    return body
+
+
+def severity_meta(severity):
+    return {
+        "blocking": {"icon": "🚫", "label": "BLOCKING", "rank": 0},
+        "high": {"icon": "🔥", "label": "HIGH", "rank": 1},
+        "medium": {"icon": "⚠️", "label": "MEDIUM", "rank": 2},
+        "low": {"icon": "ℹ️", "label": "LOW", "rank": 3},
+        "nitpick": {"icon": "🧹", "label": "NITPICK", "rank": 4},
+    }.get(str(severity or "").lower(), {"icon": "❔", "label": "UNKNOWN", "rank": 9})
+
+
+def status_meta(status):
+    normalized = str(status or "").lower()
+    if normalized in {"fail", "failure", "failed", "cancelled"}:
+        return {"icon": "❌", "label": "FAIL"}
+    if normalized in {"warn", "warning", "pending", "unknown"}:
+        return {"icon": "⚠️", "label": normalized.upper() or "WARN"}
+    if normalized in {"pass", "success", "passed", "skipped"}:
+        return {"icon": "✅", "label": "PASS"}
+    return {"icon": "❔", "label": normalized.upper() or "UNKNOWN"}
+
+
+def finding_summary(findings):
+    if not findings:
+        return "No actionable findings."
+    counts = {}
+    for finding in findings:
+        severity = str(finding.severity or "unknown").lower()
+        counts[severity] = counts.get(severity, 0) + 1
+    pieces = []
+    for severity in ("blocking", "high", "medium", "low", "nitpick", "unknown"):
+        count = counts.get(severity, 0)
+        if not count:
+            continue
+        meta = severity_meta(severity)
+        pieces.append(f"{meta['icon']} {count} {severity}")
+    return f"{len(findings)} finding(s): " + ", ".join(pieces)
+
+
+def review_callout(findings, pre_merge):
+    has_blocking = any(
+        severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
+        for finding in findings
+    )
+    has_failed_check = any(
+        status_meta(item.get("status"))["label"] == "FAIL" for item in pre_merge
+    )
+    has_warn_check = any(
+        status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
+        for item in pre_merge
+    )
+    summary = finding_summary(findings)
+    if has_blocking or has_failed_check:
+        return "\n".join(
+            [
+                "> [!CAUTION]",
+                f"> **Action required.** {summary}",
+                "> Review blocking/high findings and failed checks before merging.",
+            ]
+        )
+    if findings or has_warn_check:
+        return "\n".join(
+            [
+                "> [!WARNING]",
+                f"> **Needs review.** {summary}",
+                "> Check the findings and any warning rows before merging.",
+            ]
+        )
+    return "\n".join(
+        [
+            "> [!TIP]",
+            "> **No actionable findings.** Bunny did not find merge-blocking review items.",
+        ]
+    )
+
+
 def render_review_metadata(review_obj, head_sha):
     mode = review_obj.get("mode") or "unknown"
     base = review_obj.get("review_base") or review_obj.get("base_ref") or "unknown"
     commit_message = review_obj.get("head_commit_message") or review_obj.get(
         "commit_message"
     )
-    parts = [
-        f"Mode: `{mode}`",
-        commit_line(head_sha, commit_message),
-        f"Base: `{short_ref(base)}`",
-    ]
-    return "_Review update: " + " · ".join(parts) + "._"
+    return "\n".join(
+        [
+            "> [!NOTE]",
+            f"> Mode: `{mode}`  ",
+            f"> {commit_line(head_sha, commit_message)}  ",
+            f"> Base: `{short_ref(base)}`",
+        ]
+    )
 
 
 def code_block_text(text):
@@ -913,44 +1009,76 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         pre_merge = [item for item in pre_merge if not is_stale_ci_check(item)]
         checked = [item for item in checked if not is_stale_ci_text(str(item))]
         pre_merge = ci_status_to_pre_merge_checks(normalized_ci_status) + pre_merge
-    finding_lines = (
-        [f"- [{f.severity}] `{f.path}:{f.line}` - {f.title}" for f in findings]
-        or ["No actionable findings."]
-    )
     body = [
         BUNNY_MARKER,
         f"<!-- bunny-review:last-reviewed-sha={head_sha} -->",
-        "## Bunny Review",
+        "## 🐰 Bunny Review",
+        "",
+        review_callout(findings, pre_merge),
         "",
         render_review_metadata(review_obj, head_sha),
         "",
-        "### Change Summary",
+        "### 🧭 Change Summary",
     ]
     body.extend([f"- {line}" for line in summary[:3]] or ["- No change summary produced."])
-    body.extend(["", "### Findings", *finding_lines])
+    body.extend(["", "### 🔎 Findings"])
+    if findings:
+        body.extend(
+            [
+                "| Severity | Location | Finding |",
+                "| --- | --- | --- |",
+            ]
+        )
+        for finding in findings:
+            meta = severity_meta(finding.severity)
+            body.append(
+                "| "
+                f"{meta['icon']} **{meta['label']}** | "
+                f"`{md_cell(finding.path)}:{finding.line}` | "
+                f"{md_cell(finding.title)} |"
+            )
+    else:
+        body.extend(["", "> [!TIP]", "> No actionable findings."])
     agent_prompt = render_agent_prompt_details(
-        findings, "Prompt for all Bunny findings with AI agents"
+        findings, "🤖 Prompt for all Bunny findings with AI agents"
     )
     if agent_prompt:
         body.extend(["", agent_prompt])
     if pre_merge:
-        body.extend(["", "### Pre-Merge Checks"])
+        body.extend(
+            [
+                "",
+                "### ✅ Pre-Merge Checks",
+                "| Status | Check | Detail |",
+                "| --- | --- | --- |",
+            ]
+        )
         for item in pre_merge[:8]:
             name = item.get("name", "check")
             status = item.get("status", "unknown")
             detail = item.get("detail", "")
-            body.append(f"- {name}: {status}. {detail}".strip())
-    body.extend(["", "### Open Questions"])
+            meta = status_meta(status)
+            body.append(
+                "| "
+                f"{meta['icon']} **{meta['label']}** | "
+                f"{md_cell(name)} | "
+                f"{md_cell(detail)} |"
+            )
+    body.extend(["", "### ❓ Open Questions"])
     body.extend([f"- {line}" for line in questions[:2]] or ["- None."])
-    body.extend(["", "### What I Checked"])
+    body.extend(["", "### 🧪 What I Checked"])
     body.extend([f"- {line}" for line in checked[:6]] or ["- Review packet and diff context."])
     if invalid_findings:
-        body.extend(["", "### Reviewer Notes"])
-        body.append(
-            f"- Skipped {len(invalid_findings)} model finding(s) because Bunny could not validate their diff locations."
+        body.extend(
+            [
+                "",
+                "### 📝 Reviewer Notes",
+                "> [!WARNING]",
+                f"> Skipped {len(invalid_findings)} model finding(s) because Bunny could not validate their diff locations.",
+            ]
         )
     if normalized_ci_status:
-        body.extend(["", "### CI Status", normalized_ci_status])
+        body.extend(["", "### 🧰 CI Status", normalized_ci_status])
     return "\n".join(body).strip() + "\n"
 
 
@@ -1220,11 +1348,13 @@ def patch_command_status_running(pr_num, head_sha, mode):
     body = "\n".join(
         [
             COMMAND_STATUS_MARKER,
-            "## Bunny Review Running",
+            "## 🐰 Bunny Review Running",
             "",
-            f"Mode: `{mode or 'unknown'}`",
-            commit_line(head_sha),
-            "Status: Reviewer workflow is running. The specimen is under observation.",
+            "> [!NOTE]",
+            "> Reviewer workflow is running. The specimen is under observation.",
+            "",
+            f"- **Mode:** `{mode or 'unknown'}`",
+            f"- **{commit_line(head_sha)}**",
         ]
     )
     patch_or_create_command_status(pr_num, body)
@@ -1234,10 +1364,12 @@ def patch_command_status_complete(pr_num, head_sha):
     body = "\n".join(
         [
             COMMAND_STATUS_MARKER,
-            "## Bunny Review Completed",
+            "## ✅ Bunny Review Completed",
             "",
-            commit_line(head_sha),
-            "Status: Review posted. The specimen has been returned to the table.",
+            "> [!TIP]",
+            "> Review posted. The specimen has been returned to the table.",
+            "",
+            f"- **{commit_line(head_sha)}**",
         ]
     )
     patch_or_create_command_status(pr_num, body)
