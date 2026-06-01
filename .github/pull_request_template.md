@@ -47,20 +47,12 @@ Pressure points touched:
 <!-- Do not submit *.test.ts or *.test.tsx files as PR proof; cite existing checks, command output, app/browser/Tauri verification, or manual notes instead. -->
 
 - [ ] Matching validation command passes locally (for example `pnpm typecheck`, `pnpm build`, `pnpm check:architecture`, `pnpm check:docs`, or full `pnpm check` when warranted)
-- [ ] `pnpm check` passes locally before PR push/handoff, including the unused-code check
-- [ ] `pnpm typecheck` passes locally
-- [ ] `pnpm build` passes locally
-- [ ] `pnpm check:architecture` passes locally
-- [ ] `pnpm check:docs` passes locally
-- [ ] `cargo check --manifest-path src-tauri/Cargo.toml --workspace` passes locally
-- [ ] Rust clippy/tests were run for Rust behavior changes
-- [ ] Browser or Tauri app manual verification completed
-- [ ] Browser screenshot/recording evidence added when UI/browser state is the claim
-- [ ] Remote runtime smoke checked when relevant
+- [ ] Full `pnpm check` passes before PR push/handoff
+- [ ] Human/manual validation completed by contributor or reviewer
 
 ### Manual verification notes
 
-<!-- Describe exactly what you tested in a real browser/app/runtime, step by step. If an AI agent filled this out, verify it yourself before ticking boxes. -->
+<!-- Describe exact commands and manual steps, including typecheck/build/docs/architecture/Rust/browser/remote-runtime checks when they apply. If an AI agent filled this out, verify it yourself before ticking boxes. -->
 
 -
 

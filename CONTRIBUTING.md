@@ -87,7 +87,9 @@ Known pressure points:
 
 ## Validation
 
-Run checks that match the change. `pnpm check` is the baseline combined check.
+Run focused checks that match the change while developing. `pnpm check` is the
+baseline combined check for PR push or handoff, not a replacement for targeted
+proof.
 
 ```sh
 pnpm typecheck
@@ -123,9 +125,10 @@ Every PR should include:
 
 Before opening or updating a PR after the final diff, run `pnpm check`.
 This is the general pre-PR gate for line endings, architecture, TypeScript,
-Rust compile, docs, and unused-code checks. Run additional targeted proof when
-the change needs it, such as focused tests, lint, build, size checks, clippy,
-Rust tests, native Tauri QA, or browser checks.
+Rust compile, docs, discovery metadata, agent workflow, and unused-code checks.
+It does not replace targeted proof when the change needs it, such as focused
+tests, lint, build, size checks, clippy, Rust tests, native Tauri QA, or browser
+checks.
 Do not submit `*.test.ts` or `*.test.tsx` files in a PR as proof; validation
 belongs in existing checks, command output, local-only scratch harnesses,
 app/browser/Tauri verification, or manual verification notes.
