@@ -71,7 +71,8 @@ jobs:
             fi
           }
 
-          upsert_status "Queued" "Command accepted; dispatching the trusted reviewer workflow."
+          upsert_status "Queued" "Command accepted; dispatching the trusted reviewer workflow." \
+            || echo "::warning::Unable to write Bunny command status before dispatch."
 
           set +e
           DISPATCH_OUTPUT="$(gh workflow run bunny-review.yml \
@@ -85,9 +86,11 @@ jobs:
           set -e
 
           if [ "$DISPATCH_RC" -ne 0 ]; then
-            upsert_status "Failed To Dispatch" "GitHub rejected the reviewer dispatch. Inspect the Bunny Review Command run log."
+            upsert_status "Failed To Dispatch" "GitHub rejected the reviewer dispatch. Inspect the Bunny Review Command run log." \
+              || echo "::warning::Unable to write Bunny command dispatch failure status."
             echo "$DISPATCH_OUTPUT"
             exit "$DISPATCH_RC"
           fi
 
-          upsert_status "Dispatched" "Reviewer workflow dispatched; waiting for Bunny Review to post results."
+          upsert_status "Dispatched" "Reviewer workflow dispatched; waiting for Bunny Review to post results." \
+            || echo "::warning::Unable to write Bunny command dispatched status."

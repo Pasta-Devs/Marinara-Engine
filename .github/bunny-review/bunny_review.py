@@ -1047,6 +1047,7 @@ def produce_review(args):
     pr_num = os.environ.get("PR_NUM", "")
     requested_mode = args.mode or parse_command_mode()
     base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
+    patch_command_status_running(pr_num, head_sha, effective_mode)
     ci_status = os.environ.get("CI_STATUS", "")
     files = changed_files(base)
     chunks = chunk_changed_files(base, files)
@@ -1194,10 +1195,21 @@ def find_command_status_comment(pr_num):
     return None
 
 
+def patch_command_status_running(pr_num, head_sha, mode):
+    body = "\n".join(
+        [
+            COMMAND_STATUS_MARKER,
+            "## Bunny Review Running",
+            "",
+            f"Mode: `{mode or 'unknown'}`",
+            f"Head: `{short_ref(head_sha)}`",
+            "Status: Reviewer workflow is running. The specimen is under observation.",
+        ]
+    )
+    patch_or_create_command_status(pr_num, body)
+
+
 def patch_command_status_complete(pr_num, head_sha):
-    comment_id = find_command_status_comment(pr_num)
-    if not comment_id:
-        return
     body = "\n".join(
         [
             COMMAND_STATUS_MARKER,
@@ -1207,12 +1219,31 @@ def patch_command_status_complete(pr_num, head_sha):
             "Status: Review posted. The specimen has been returned to the table.",
         ]
     )
+    patch_or_create_command_status(pr_num, body)
+
+
+def patch_or_create_command_status(pr_num, body):
+    comment_id = find_command_status_comment(pr_num)
+    if comment_id:
+        run_gh(
+            [
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/comments/{comment_id}",
+                "--input",
+                "-",
+            ],
+            input_text=json.dumps({"body": body}),
+            check=True,
+        )
+        return
     run_gh(
         [
             "api",
             "--method",
-            "PATCH",
-            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/comments/{comment_id}",
+            "POST",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments",
             "--input",
             "-",
         ],
