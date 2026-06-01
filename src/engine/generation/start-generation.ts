@@ -1328,6 +1328,24 @@ async function evictStalePromptSnapshotsSafely(storage: StorageGateway, chatId: 
   }
 }
 
+function shouldRefreshMemoryRecall(chat: JsonRecord): boolean {
+  const meta = parseRecord(chat.metadata);
+  if (typeof meta.enableMemoryRecall === "boolean") return meta.enableMemoryRecall;
+  const mode = readString(chat.mode || chat.chatMode);
+  return mode === "conversation" || meta.sceneStatus === "active";
+}
+
+async function refreshMemoryRecallSafely(storage: StorageGateway, chat: JsonRecord): Promise<void> {
+  if (!storage.refreshChatMemories || !shouldRefreshMemoryRecall(chat)) return;
+  const chatId = readString(chat.id).trim();
+  if (!chatId) return;
+  try {
+    await storage.refreshChatMemories(chatId);
+  } catch (error) {
+    console.warn("[generation] memory recall refresh failed", error);
+  }
+}
+
 async function persistLorebookTimingStatesSafely(
   storage: StorageGateway,
   chatId: string,
@@ -2497,6 +2515,9 @@ export async function* startGeneration(
         yield { type: "agent_result", data: result };
       }
     }
+    if (saved && input.impersonate !== true) {
+      await refreshMemoryRecallSafely(deps.storage, chat);
+    }
     yield { type: "done", data: { transcript: visibleTranscript(generationMessages) } };
     return;
   }
@@ -2610,6 +2631,9 @@ export async function* startGeneration(
     for (const result of autoLorebookResults) {
       yield { type: "agent_result", data: result };
     }
+  }
+  if (saved && input.impersonate !== true) {
+    await refreshMemoryRecallSafely(deps.storage, chat);
   }
   yield { type: "done" };
 }

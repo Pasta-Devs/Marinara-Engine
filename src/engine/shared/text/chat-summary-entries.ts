@@ -6,7 +6,7 @@ import type {
 } from "../../contracts/types/chat.js";
 
 const VALID_KINDS = new Set<ChatSummaryEntryKind>(["rolling"]);
-const VALID_ORIGINS = new Set<ChatSummaryEntryOrigin>(["manual", "automated"]);
+const VALID_ORIGINS = new Set<ChatSummaryEntryOrigin>(["manual", "automated", "legacy"]);
 const VALID_SOURCES = new Set<ChatSummaryEntrySource>(["last", "range", "agent"]);
 
 const COMPILED_CHAT_SUMMARY_MAX_BYTES = 64 * 1024;
@@ -110,6 +110,7 @@ function estimateChatSummaryTokens(content: string): number {
 function generateChatSummaryEntryTitle(
   entry: Pick<ChatSummaryEntry, "origin" | "sourceMode" | "messageCount" | "rangeStartIndex" | "rangeEndIndex">,
 ): string {
+  if (entry.origin === "legacy") return "Legacy summary";
   if (entry.origin === "automated") return "Automated summary";
   if (entry.sourceMode === "range" && entry.rangeStartIndex && entry.rangeEndIndex) {
     return `Summary messages ${entry.rangeStartIndex}-${entry.rangeEndIndex}`;
@@ -191,6 +192,8 @@ function sortChatSummaryEntries(entries: ChatSummaryEntry[]): ChatSummaryEntry[]
   return entries
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
+      if (a.entry.origin === "legacy" && b.entry.origin !== "legacy") return -1;
+      if (a.entry.origin !== "legacy" && b.entry.origin === "legacy") return 1;
       const aRange = a.entry.rangeStartIndex ?? Number.MAX_SAFE_INTEGER;
       const bRange = b.entry.rangeStartIndex ?? Number.MAX_SAFE_INTEGER;
       if (aRange !== bRange) return aRange - bRange;
@@ -222,7 +225,7 @@ function normalizeChatSummaryEntries(
   return sortChatSummaryEntries(entries);
 }
 
-function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string | null {
+export function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string | null {
   const compiled = sortChatSummaryEntries(entries)
     .filter((entry) => entry.enabled)
     .map((entry) => entry.content.trim())
@@ -233,12 +236,47 @@ function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string | null {
   return trimToUtf8Bytes(compiled, COMPILED_CHAT_SUMMARY_MAX_BYTES, true).trim() || null;
 }
 
+function legacySummaryEntry(
+  summary: string,
+  entries: ChatSummaryEntry[],
+  options: ChatSummaryEntryNormalizeOptions = {},
+): ChatSummaryEntry | null {
+  const content = trimString(summary);
+  if (!content) return null;
+  const compiledEntries = compileChatSummaryEntries(entries);
+  if (compiledEntries === content) return null;
+  if (entries.some((entry) => entry.content.trim() === content)) return null;
+  return createChatSummaryEntry(
+    {
+      id: "summary-legacy",
+      content,
+      origin: "legacy",
+      sourceMode: "last",
+      title: "Legacy summary",
+    },
+    options,
+  );
+}
+
+export function normalizeChatSummaryMetadata(
+  metadata: Record<string, unknown>,
+  options: ChatSummaryEntryNormalizeOptions = {},
+): { entries: ChatSummaryEntry[]; summary: string | null } {
+  const entries = normalizeChatSummaryEntries(metadata.summaryEntries, options);
+  const legacy = legacySummaryEntry(trimString(metadata.summary), entries, options);
+  const nextEntries = legacy ? sortChatSummaryEntries([legacy, ...entries]) : entries;
+  return {
+    entries: nextEntries,
+    summary: compileChatSummaryEntries(nextEntries),
+  };
+}
+
 export function appendChatSummaryEntryToMetadata(
   metadata: Record<string, unknown>,
   input: ChatSummaryEntryInput,
   options: ChatSummaryEntryNormalizeOptions = {},
 ): { entry: ChatSummaryEntry; entries: ChatSummaryEntry[]; summary: string | null } {
-  const entries = normalizeChatSummaryEntries(metadata.summaryEntries, options);
+  const entries = normalizeChatSummaryMetadata(metadata, options).entries;
   const entry = createChatSummaryEntry(input, options);
   const nextEntries = sortChatSummaryEntries([...entries, entry]);
   return {

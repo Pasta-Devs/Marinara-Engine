@@ -88,6 +88,7 @@ export interface StorageGateway {
   patchChatMetadata<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   patchChatSummaries<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   listChatMemories<T = unknown>(chatId: string): Promise<T[]>;
+  refreshChatMemories?<T = unknown>(chatId: string): Promise<T>;
   getWorldState<T = unknown>(chatId: string): Promise<T | null>;
   saveTrackerSnapshot<T = unknown>(chatId: string, snapshot: Record<string, unknown>): Promise<T>;
   listLorebookEntries<T = unknown>(lorebookId: string): Promise<T[]>;

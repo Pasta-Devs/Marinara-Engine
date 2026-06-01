@@ -90,8 +90,8 @@ export interface ChatSummaryPromptTemplate {
 /** Rolling summary entry category. Extensible beyond rolling summaries later. */
 export type ChatSummaryEntryKind = "rolling";
 
-/** Whether a rolling summary entry was user-created or agent-created. */
-export type ChatSummaryEntryOrigin = "manual" | "automated";
+/** Whether a rolling summary entry was user-created, agent-created, or preserved from legacy metadata. */
+export type ChatSummaryEntryOrigin = "manual" | "automated" | "legacy";
 
 /** Source selector used to create a rolling summary entry. */
 export type ChatSummaryEntrySource = "last" | "range" | "agent";

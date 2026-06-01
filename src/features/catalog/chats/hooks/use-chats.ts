@@ -16,6 +16,7 @@ import {
   type PromptPreviewResult,
 } from "../../../../engine/generation/prompt-preview";
 import { createMessageSchema, summariesPatchSchema } from "../../../../engine/contracts/schemas/chat.schema";
+import { getDefaultAgentPrompt } from "../../../../engine/contracts/constants/agent-prompts";
 import { boolish } from "../../../../engine/generation/runtime-records";
 import { backfillConversationSummaries } from "../../../../engine/modes/chat/core/summaries/auto-summary.service";
 import { appendChatSummaryEntryToMetadata } from "../../../../engine/shared/text/chat-summary-entries";
@@ -34,17 +35,13 @@ import { downloadTextFile } from "../lib/download";
 import { sanitizeTimelineMessage, timelineMessageProjection } from "../lib/timeline-message";
 import { lorebookKeys } from "../../lorebooks/query-keys";
 import { CHAT_SUMMARY_FIELDS } from "./use-chat-summaries";
-import {
-  applyChatFieldPatch,
-  cancelChatCacheQueries,
-  setChatCacheRecord,
-  type ChatCacheRecord,
-} from "./chat-cache";
+import { applyChatFieldPatch, cancelChatCacheQueries, setChatCacheRecord, type ChatCacheRecord } from "./chat-cache";
 import type {
   Chat,
   ChatMemoryChunk,
   ConversationNote,
   Message,
+  ChatSummaryPromptTemplate,
   DaySummaryEntry,
   WeekSummaryEntry,
 } from "../../../../engine/contracts/types/chat";
@@ -780,6 +777,7 @@ export type GenerateSummaryInput = {
   contextSize?: number;
   rangeStartIndex?: number;
   rangeEndIndex?: number;
+  promptTemplateId?: string | null;
 };
 
 export type GenerateSummaryResult = {
@@ -797,18 +795,29 @@ function compactTranscript(messages: Message[]) {
 }
 
 async function resolveSummaryConnectionId(chat: Chat): Promise<string> {
+  const [agents, connections] = await Promise.all([
+    storageApi.list<Record<string, unknown>>("agents").catch(() => []),
+    storageApi.list<Record<string, unknown>>("connections"),
+  ]);
+  const summaryAgent = agents.find(
+    (agent) => readString(agent.id).trim() === "chat-summary" || readString(agent.type).trim() === "chat-summary",
+  );
+  const summaryConnectionId = readString(summaryAgent?.connectionId).trim();
+  if (summaryConnectionId) return summaryConnectionId;
+  const agentDefault = connections.find((connection) => boolish(connection.defaultForAgents, false));
+  const agentDefaultId = readString(agentDefault?.id).trim();
+  if (agentDefaultId) return agentDefaultId;
   if (typeof chat.connectionId === "string" && chat.connectionId.trim()) return chat.connectionId.trim();
-  const connections = await storageApi.list<Record<string, unknown>>("connections");
   const selected =
     connections.find((connection) => boolish(connection.isDefault, false) || boolish(connection.default, false)) ??
     connections[0];
-  const connectionId = typeof selected?.id === "string" ? selected.id.trim() : "";
+  const connectionId = readString(selected?.id).trim();
   if (!connectionId) throw new Error("No API connection configured for summary generation.");
   return connectionId;
 }
 
 async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<GenerateSummaryResult> {
-  const { chatId, contextSize, rangeStartIndex, rangeEndIndex } = input;
+  const { chatId, contextSize, rangeStartIndex, rangeEndIndex, promptTemplateId } = input;
   const [chat, allMessages] = await Promise.all([
     storageApi.get<Chat>("chats", chatId),
     storageApi.listChatMessages<Message>(chatId),
@@ -837,18 +846,25 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
   if (selected.length === 0) throw new Error("No non-hidden messages available for the requested summary.");
 
   const connectionId = await resolveSummaryConnectionId(chat);
+  const metadata = parseRecord(chat.metadata);
+  const promptTemplate = resolveSummaryPromptTemplate(metadata, promptTemplateId);
   const transcript = compactTranscript(selected);
   const rawSummary = await llmApi.complete({
     connectionId,
     messages: [
       {
         role: "system",
-        content:
-          "Summarize the provided chat transcript for future roleplay/conversation context. Preserve durable facts, relationships, goals, decisions, unresolved threads, and emotional state. Do not add new events.",
+        content: promptTemplate.prompt,
       },
       {
         role: "user",
-        content: `Create a concise but useful memory summary from this transcript:\n\n${transcript}`,
+        content: [
+          "Existing summary:",
+          readString(metadata.summary).trim() || "(none)",
+          "",
+          "Transcript to summarize:",
+          transcript,
+        ].join("\n"),
       },
     ],
     parameters: { temperature: 0.2, maxTokens: 700 },
@@ -856,7 +872,6 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
   const content = rawSummary.trim();
   if (!content) throw new Error("Summary generation returned an empty response.");
 
-  const metadata = parseRecord(chat.metadata);
   const now = new Date().toISOString();
   const appended = appendChatSummaryEntryToMetadata(
     metadata,
@@ -869,6 +884,7 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
       rangeStartIndex: rangeLow ?? undefined,
       rangeEndIndex: rangeHigh ?? undefined,
       messageIds: selected.map((message) => message.id),
+      promptTemplateId: promptTemplate.id,
     },
     {
       now,
@@ -883,6 +899,39 @@ async function generateLlmChatSummary(input: GenerateSummaryInput): Promise<Gene
     summaryContextSize: limit,
   });
   return { summary: appended.summary ?? content, messageIds: selected.map((message) => message.id) };
+}
+
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function summaryPromptTemplates(value: unknown): ChatSummaryPromptTemplate[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((template): template is ChatSummaryPromptTemplate => {
+      if (!template || typeof template !== "object" || Array.isArray(template)) return false;
+      const record = template as Record<string, unknown>;
+      return !!readString(record.id).trim() && !!readString(record.name).trim() && !!readString(record.prompt).trim();
+    })
+    .map((template) => ({
+      id: template.id.trim(),
+      name: template.name.trim(),
+      prompt: template.prompt.trim(),
+    }));
+}
+
+function resolveSummaryPromptTemplate(
+  metadata: Record<string, unknown>,
+  requestedTemplateId?: string | null,
+): { id: string | null; prompt: string } {
+  const templates = summaryPromptTemplates(metadata.summaryPromptTemplates);
+  const selectedId =
+    readString(requestedTemplateId).trim() || readString(metadata.activeSummaryPromptTemplateId).trim();
+  const selected = templates.find((template) => template.id === selectedId);
+  return {
+    id: selected?.id ?? null,
+    prompt: selected?.prompt ?? getDefaultAgentPrompt("chat-summary"),
+  };
 }
 
 /** Peek at the assembled prompt for a chat */

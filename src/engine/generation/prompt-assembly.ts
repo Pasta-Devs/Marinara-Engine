@@ -9,6 +9,7 @@ import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generatio
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { stripConversationPromptTimestamps } from "../modes/chat/core/summaries/transcript-sanitize";
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
+import { normalizeChatSummaryMetadata } from "../shared/text/chat-summary-entries";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { cleanPromptText, stripPromptComments } from "../shared/text/prompt-comments";
 import { normalizeUserTimeZone } from "../shared/time/timezone";
@@ -1246,11 +1247,12 @@ export function chatSummaryForGeneration(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
   const mode = readString(chat.mode || chat.chatMode, "conversation");
   const includeSceneSummary = mode !== "conversation" || meta.crossChatAwareness !== false;
+  const rollingSummary = normalizeChatSummaryMetadata(meta).summary;
   const parts = [
     meta.conversationSummary,
-    meta.summary,
-    meta.daySummaries,
-    meta.weekSummaries,
+    rollingSummary,
+    formatSummaryMap("Day", meta.daySummaries),
+    formatSummaryMap("Week", meta.weekSummaries),
     includeSceneSummary ? meta.lastRoleplaySceneSummary : null,
   ]
     .map((value) =>
@@ -1258,6 +1260,73 @@ export function chatSummaryForGeneration(chat: JsonRecord): string | null {
     )
     .filter((value) => value.trim().length > 0);
   return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+function formatSummaryEntry(label: string, key: string, value: unknown): string {
+  const entry = parseRecord(value);
+  const summary = readString(entry.summary).trim();
+  const keyDetails = stringArray(entry.keyDetails);
+  if (!summary && keyDetails.length === 0) return "";
+  const parts = [`${label} summary ${key}`];
+  if (summary) parts.push(summary);
+  if (keyDetails.length > 0) {
+    parts.push(["Key details:", ...keyDetails.map((detail) => `- ${detail}`)].join("\n"));
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
+function formatSummaryMap(label: "Day" | "Week", value: unknown): string {
+  const entries = Object.entries(parseRecord(value))
+    .map(([key, entry]) => ({ key, text: formatSummaryEntry(label, key, entry) }))
+    .filter((entry) => entry.text.trim().length > 0)
+    .sort((a, b) => compareSummaryKeys(a.key, b.key));
+  return entries.map((entry) => entry.text).join("\n\n");
+}
+
+function summaryKeyTimestamp(key: string): number | null {
+  const dotted = key.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dotted) {
+    const [, day, month, year] = dotted;
+    return Date.UTC(Number(year), Number(month) - 1, Number(day));
+  }
+  const parsed = Date.parse(key);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function compareSummaryKeys(a: string, b: string): number {
+  const aTime = summaryKeyTimestamp(a);
+  const bTime = summaryKeyTimestamp(b);
+  if (aTime !== null && bTime !== null && aTime !== bTime) return aTime - bTime;
+  return a.localeCompare(b);
+}
+
+function hasConversationSummaryCompaction(meta: JsonRecord): boolean {
+  return !!formatSummaryMap("Day", meta.daySummaries).trim() || !!formatSummaryMap("Week", meta.weekSummaries).trim();
+}
+
+function presetCanInsertChatSummary(preset: SelectedPromptPreset | null, summary: string | null): boolean {
+  if (!preset || !summary?.trim()) return false;
+  return preset.sections.some(
+    (section) => boolish(section.enabled, true) && markerConfig(section)?.type === "chat_summary",
+  );
+}
+
+function shouldCompactHistoryForSummary(
+  chat: JsonRecord,
+  selectedPreset: SelectedPromptPreset | null,
+  summary: string | null,
+): boolean {
+  if (!summary?.trim()) return false;
+  const meta = parseRecord(chat.metadata);
+  if (!hasConversationSummaryCompaction(meta)) return false;
+  if (!selectedPreset) return true;
+  return presetCanInsertChatSummary(selectedPreset, summary) || shouldForceRoleplaySummaryIntoSystem(chat);
+}
+
+function compactedHistoryLimit(meta: JsonRecord, fallbackLimit: number, shouldCompact: boolean): number {
+  if (!shouldCompact) return fallbackLimit;
+  const tail = Math.max(0, Math.min(50, Math.floor(readNumber(meta.summaryTailMessages, 10))));
+  return Math.min(fallbackLimit, tail);
 }
 
 const MEMORY_EMBEDDING_DIMS = 256;
@@ -1530,6 +1599,7 @@ function historyMessageContent(message: JsonRecord, includePastReasoning: boolea
 }
 
 function historyMessages(storedMessages: JsonRecord[], limit: number, includePastReasoning = false): ChatMLMessage[] {
+  if (limit <= 0) return [];
   return storedMessages
     .filter((message) => !hiddenFromAi(message))
     .slice(-limit)
@@ -1896,7 +1966,11 @@ export async function assembleGenerationPrompt(
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
   const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
   const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
-  const history = historyMessages(input.storedMessages, historyLimit, chatMeta.excludePastReasoning === false);
+  const history = historyMessages(
+    input.storedMessages,
+    compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
+    chatMeta.excludePastReasoning === false,
+  );
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,

@@ -238,6 +238,7 @@ export const storageApi: StorageGateway = {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
     return asArray(chat?.memories);
   },
+  refreshChatMemories: (chatId) => invokeTauri("chat_memories_refresh", { chatId }),
   getWorldState: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
     return (chat?.gameState as never) ?? null;

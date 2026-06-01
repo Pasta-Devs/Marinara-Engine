@@ -6,12 +6,19 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   useBulkSetMessagesHiddenFromAI,
+  useChat,
   useGenerateSummary,
   useUpdateChatMetadata,
 } from "../../../../catalog/chats/index";
 import { Check, Info, Loader2, Save, ScrollText, Settings2, Sparkles, X } from "lucide-react";
 import { cn } from "../../../../../shared/lib/utils";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
+import {
+  appendChatSummaryEntryToMetadata,
+  compileChatSummaryEntries,
+  normalizeChatSummaryMetadata,
+} from "../../../../../engine/shared/text/chat-summary-entries";
+import type { ChatSummaryEntry } from "../../../../../engine/contracts/types/chat";
 import type { SummaryPopoverSourceMode } from "../../../../../shared/stores/ui.store";
 
 interface SummaryPopoverProps {
@@ -44,11 +51,13 @@ export function SummaryPopover({
   onClose,
 }: SummaryPopoverProps) {
   const [editing, setEditing] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [draft, setDraft] = useState(summary ?? "");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const summaryPopoverSettings = useUIStore((s) => s.summaryPopoverSettings);
   const setSummaryPopoverSettings = useUIStore((s) => s.setSummaryPopoverSettings);
+  const chatQuery = useChat(chatId);
   const persistedContextSize = clampSummaryCount(summaryPopoverSettings.contextSize ?? contextSize ?? 50);
   const [localSize, setLocalSize] = useState(String(persistedContextSize));
   const [rangeStart, setRangeStart] = useState(String(summaryPopoverSettings.rangeStart ?? 1));
@@ -147,6 +156,20 @@ export function SummaryPopover({
       : totalMessageCount > 0
         ? `Last ${Math.min(normalizedLastSize, totalMessageCount)} of ${totalMessageCount} messages`
         : "No messages yet";
+  const chatMetadata: Record<string, unknown> =
+    chatQuery.data?.metadata && typeof chatQuery.data.metadata === "object" ? chatQuery.data.metadata : {};
+  const promptTemplates = Array.isArray(chatMetadata.summaryPromptTemplates)
+    ? chatMetadata.summaryPromptTemplates.filter(
+        (template: unknown): template is { id: string; name: string; prompt: string } => {
+          if (!template || typeof template !== "object" || Array.isArray(template)) return false;
+          const record = template as Record<string, unknown>;
+          return typeof record.id === "string" && typeof record.name === "string" && typeof record.prompt === "string";
+        },
+      )
+    : [];
+  const activeSummaryPromptTemplateId =
+    typeof chatMetadata.activeSummaryPromptTemplateId === "string" ? chatMetadata.activeSummaryPromptTemplateId : "";
+  const summaryEntries = normalizeChatSummaryMetadata(chatMetadata).entries;
 
   const maybeHideSummarizedMessages = useCallback(
     (messageIds: string[]) => {
@@ -158,6 +181,7 @@ export function SummaryPopover({
 
   const handleGenerate = useCallback(() => {
     setErrorText(null);
+    setEditingEntryId(null);
     if (summaryPopoverSettings.sourceMode === "range") {
       if (totalMessageCount === 0) {
         setErrorText("No messages available for summary generation.");
@@ -169,10 +193,17 @@ export function SummaryPopover({
       }
       setSummaryPopoverSettings({ rangeStart: rangeLow, rangeEnd: rangeHigh });
       generateSummary.mutate(
-        { chatId, contextSize: normalizedLastSize, rangeStartIndex: rangeLow, rangeEndIndex: rangeHigh },
+        {
+          chatId,
+          contextSize: normalizedLastSize,
+          rangeStartIndex: rangeLow,
+          rangeEndIndex: rangeHigh,
+          promptTemplateId: activeSummaryPromptTemplateId || null,
+        },
         {
           onSuccess: (data) => {
             setDraft(data.summary);
+            setEditingEntryId(null);
             setEditing(false);
             maybeHideSummarizedMessages(data.messageIds);
           },
@@ -184,10 +215,11 @@ export function SummaryPopover({
 
     persistContextSize(normalizedLastSize);
     generateSummary.mutate(
-      { chatId, contextSize: normalizedLastSize },
+      { chatId, contextSize: normalizedLastSize, promptTemplateId: activeSummaryPromptTemplateId || null },
       {
         onSuccess: (data) => {
           setDraft(data.summary);
+          setEditingEntryId(null);
           setEditing(false);
           maybeHideSummarizedMessages(data.messageIds);
         },
@@ -204,14 +236,67 @@ export function SummaryPopover({
     rangeLow,
     rangeTooLarge,
     setSummaryPopoverSettings,
+    activeSummaryPromptTemplateId,
     summaryPopoverSettings.sourceMode,
     totalMessageCount,
   ]);
 
+  const patchSummaryEntries = useCallback(
+    (entries: ChatSummaryEntry[]) => {
+      updateMeta.mutate({ id: chatId, summary: compileChatSummaryEntries(entries), summaryEntries: entries });
+    },
+    [chatId, updateMeta],
+  );
+
   const handleSave = useCallback(() => {
-    updateMeta.mutate({ id: chatId, summary: draft || null });
+    const content = draft.trim();
+    if (editingEntryId) {
+      const now = new Date().toISOString();
+      const nextEntries = content
+        ? summaryEntries.map((entry) =>
+            entry.id === editingEntryId
+              ? { ...entry, content, tokenEstimate: Math.max(1, Math.ceil(content.length / 4)), updatedAt: now }
+              : entry,
+          )
+        : summaryEntries.filter((entry) => entry.id !== editingEntryId);
+      patchSummaryEntries(nextEntries);
+      setEditingEntryId(null);
+      setEditing(false);
+      return;
+    }
+    if (!content) {
+      updateMeta.mutate({ id: chatId, summary: null, summaryEntries: [] });
+      setEditing(false);
+      return;
+    }
+    const appended = appendChatSummaryEntryToMetadata(chatMetadata, {
+      content,
+      origin: "manual",
+      sourceMode: "last",
+      title: "Manual summary",
+    });
+    updateMeta.mutate({ id: chatId, summary: appended.summary, summaryEntries: appended.entries });
+    setEditingEntryId(null);
     setEditing(false);
-  }, [chatId, draft, updateMeta]);
+  }, [chatId, chatMetadata, draft, editingEntryId, patchSummaryEntries, summaryEntries, updateMeta]);
+
+  const toggleEntry = useCallback(
+    (entryId: string) => {
+      patchSummaryEntries(
+        summaryEntries.map((entry) =>
+          entry.id === entryId ? { ...entry, enabled: !entry.enabled, updatedAt: new Date().toISOString() } : entry,
+        ),
+      );
+    },
+    [patchSummaryEntries, summaryEntries],
+  );
+
+  const deleteEntry = useCallback(
+    (entryId: string) => {
+      patchSummaryEntries(summaryEntries.filter((entry) => entry.id !== entryId));
+    },
+    [patchSummaryEntries, summaryEntries],
+  );
 
   const isGenerating = generateSummary.isPending;
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
@@ -351,6 +436,23 @@ export function SummaryPopover({
             )}
 
             <div className="space-y-2">
+              <label className="block space-y-1">
+                <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Prompt</span>
+                <select
+                  value={activeSummaryPromptTemplateId}
+                  onChange={(e) =>
+                    updateMeta.mutate({ id: chatId, activeSummaryPromptTemplateId: e.target.value || null })
+                  }
+                  className="w-full rounded-md bg-[var(--secondary)] px-2 py-1 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                >
+                  <option value="">Default chat-summary prompt</option>
+                  {promptTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--foreground)]/80">
                 <input
                   type="checkbox"
@@ -402,6 +504,7 @@ export function SummaryPopover({
                   type="button"
                   onClick={() => {
                     setDraft(summary ?? "");
+                    setEditingEntryId(null);
                     setEditing(false);
                   }}
                   className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
@@ -421,6 +524,52 @@ export function SummaryPopover({
             </div>
           ) : (
             <div>
+              {summaryEntries.length > 0 && (
+                <div className="mb-2 space-y-1.5">
+                  {summaryEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-2 py-1.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleEntry(entry.id)}
+                          className={cn(
+                            "h-3 w-3 rounded-sm border",
+                            entry.enabled
+                              ? "border-amber-400 bg-amber-400"
+                              : "border-[var(--muted-foreground)] bg-transparent",
+                          )}
+                          title={entry.enabled ? "Disable summary entry" : "Enable summary entry"}
+                          aria-label={entry.enabled ? "Disable summary entry" : "Enable summary entry"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDraft(entry.content);
+                            setEditingEntryId(entry.id);
+                            setEditing(true);
+                          }}
+                          className="min-w-0 flex-1 truncate text-left text-[0.6875rem] font-medium text-[var(--foreground)]/85 hover:underline"
+                          title="Edit summary entry"
+                        >
+                          {entry.title}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteEntry(entry.id)}
+                          className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          title="Delete summary entry"
+                          aria-label="Delete summary entry"
+                        >
+                          <X size="0.6875rem" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {draft ? (
                 <div
                   className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-[var(--accent)]"
