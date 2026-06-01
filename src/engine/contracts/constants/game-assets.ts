@@ -21,9 +21,13 @@ export const AUDIO_EXTS: ReadonlySet<string> = new Set([
 export const TEXT_EXTS: ReadonlySet<string> = new Set([
   ".txt",
   ".md",
+  ".markdown",
   ".json",
+  ".jsonl",
   ".yaml",
   ".yml",
+  ".csv",
+  ".log",
   ".js",
   ".ts",
   ".tsx",

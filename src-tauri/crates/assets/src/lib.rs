@@ -15,7 +15,8 @@ const SPRITE_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", 
 const AUDIO_EXTENSIONS: &[&str] =
     &["mp3", "ogg", "wav", "flac", "m4a", "aac", "opus", "webm"];
 const TEXT_EXTENSIONS: &[&str] = &[
-    "txt", "md", "markdown", "json", "jsonl", "yaml", "yml", "csv", "log",
+    "txt", "md", "markdown", "json", "jsonl", "yaml", "yml", "csv", "log", "js", "ts", "tsx",
+    "css", "html",
 ];
 
 #[derive(Clone)]
@@ -89,6 +90,27 @@ impl AssetService {
         }))
     }
 
+    pub fn manifest_with_backgrounds(&self, backgrounds: &AssetService) -> AppResult<Value> {
+        let mut assets = Map::new();
+        let mut by_category: Map<String, Value> = Map::new();
+        let mut count = 0usize;
+        self.collect_manifest_entries(&self.root, &mut assets, &mut by_category, &mut count)?;
+        backgrounds.collect_user_background_entries(
+            backgrounds.root(),
+            &mut assets,
+            &mut by_category,
+            &mut count,
+        )?;
+        Ok(json!({
+            "scannedAt": now_iso(),
+            "count": count,
+            "root": self.root.to_string_lossy(),
+            "backgroundRoot": backgrounds.root().to_string_lossy(),
+            "assets": assets,
+            "byCategory": by_category
+        }))
+    }
+
     pub fn set_folder_description(&self, path: &str, description: &str) -> AppResult<Value> {
         let folder = self.absolute_path(path)?;
         if !folder.exists() {
@@ -144,6 +166,7 @@ impl AssetService {
     }
 
     pub fn remove(&self, path: &str, recursive: bool) -> AppResult<()> {
+        ensure_removable_asset_path(path)?;
         let path = self.absolute_path(path)?;
         if path.is_dir() {
             if recursive {
@@ -398,7 +421,7 @@ impl AssetService {
                 .map(|(stem, _)| stem)
                 .unwrap_or(rel.as_str())
                 .to_string();
-            let tag = stem_path.replace('/', ":");
+            let tag = manifest_tag_for_asset(&segments, &stem_path);
             let ext = path
                 .extension()
                 .map(|ext| format!(".{}", ext.to_string_lossy().to_ascii_lowercase()))
@@ -423,6 +446,73 @@ impl AssetService {
             });
             by_category
                 .entry(category.to_string())
+                .or_insert_with(|| Value::Array(Vec::new()))
+                .as_array_mut()
+                .expect("by_category entry is always an array")
+                .push(value.clone());
+            assets.insert(tag, value);
+            *count += 1;
+        }
+        Ok(())
+    }
+
+    fn collect_user_background_entries(
+        &self,
+        path: &Path,
+        assets: &mut Map<String, Value>,
+        by_category: &mut Map<String, Value>,
+        count: &mut usize,
+    ) -> AppResult<()> {
+        if !path.exists() {
+            return Ok(());
+        }
+        for entry in fs::read_dir(path)? {
+            let path = entry?.path();
+            if should_skip_asset_entry(&path) {
+                continue;
+            }
+            if path.is_dir() {
+                self.collect_user_background_entries(&path, assets, by_category, count)?;
+                continue;
+            }
+            if !RASTER_IMAGE_EXTENSIONS.contains(&path_extension(&path).as_str()) {
+                continue;
+            }
+            let rel = self.relative_string(&path);
+            let stem_path = rel
+                .rsplit_once('.')
+                .map(|(stem, _)| stem)
+                .unwrap_or(rel.as_str());
+            let tag = format!("backgrounds:user:{}", stem_path.replace('/', ":"));
+            if assets.contains_key(&tag) {
+                continue;
+            }
+            let ext = path
+                .extension()
+                .map(|ext| format!(".{}", ext.to_string_lossy().to_ascii_lowercase()))
+                .unwrap_or_default();
+            let segments: Vec<&str> = rel.split('/').collect();
+            let subcategory = if segments.len() > 1 {
+                format!("user/{}", segments[..segments.len() - 1].join("/"))
+            } else {
+                "user".to_string()
+            };
+            let name = path
+                .file_stem()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| tag.clone());
+            let value = json!({
+                "tag": tag,
+                "category": "backgrounds",
+                "subcategory": subcategory,
+                "name": name,
+                "path": format!("__user_bg__/{rel}"),
+                "absolutePath": path.to_string_lossy(),
+                "ext": ext,
+                "managedSource": "backgrounds"
+            });
+            by_category
+                .entry("backgrounds".to_string())
                 .or_insert_with(|| Value::Array(Vec::new()))
                 .as_array_mut()
                 .expect("by_category entry is always an array")
@@ -466,6 +556,45 @@ fn ensure_text_asset_path(path: &Path) -> AppResult<()> {
         Err(AppError::invalid_input(
             "Only text asset files can be edited as text",
         ))
+    }
+}
+
+fn ensure_removable_asset_path(path: &str) -> AppResult<()> {
+    let normalized = path
+        .trim()
+        .trim_matches(|ch| ch == '/' || ch == '\\')
+        .replace('\\', "/");
+    if normalized.is_empty() {
+        return Err(AppError::invalid_input(
+            "Game asset root folder cannot be deleted",
+        ));
+    }
+    if is_native_asset_folder(&normalized) {
+        return Err(AppError::invalid_input(
+            "Managed game asset category folders cannot be deleted",
+        ));
+    }
+    Ok(())
+}
+
+fn manifest_tag_for_asset(segments: &[&str], stem_path: &str) -> String {
+    if segments.first().copied() == Some("music") && segments.len() == 3 {
+        let state = segments[1];
+        if let Some(intensity) = default_music_intensity_for_state(state) {
+            let name = stem_path.rsplit('/').next().unwrap_or(stem_path);
+            return format!("music:{state}:custom:{intensity}:{name}");
+        }
+    }
+    stem_path.replace('/', ":")
+}
+
+fn default_music_intensity_for_state(state: &str) -> Option<&'static str> {
+    match state {
+        "exploration" => Some("tense"),
+        "dialogue" => Some("calm"),
+        "combat" => Some("intense"),
+        "travel_rest" => Some("calm"),
+        _ => None,
     }
 }
 
@@ -728,5 +857,138 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("Can't upload .svg files to backgrounds"));
+    }
+
+    #[test]
+    fn accepts_client_advertised_text_asset_extensions() {
+        let root = temp_root("text-extension-parity");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        for extension in [
+            "txt", "md", "markdown", "json", "jsonl", "yaml", "yml", "csv", "log", "js", "ts",
+            "tsx", "css", "html",
+        ] {
+            let path = format!("notes/file.{extension}");
+            service
+                .write_text(&path, "editable")
+                .unwrap_or_else(|error| panic!("{path} should be editable: {}", error.message));
+            assert_eq!(
+                service
+                    .read_text(&path)
+                    .unwrap_or_else(|error| panic!("{path} should be readable: {}", error.message)),
+                "editable"
+            );
+        }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn manifest_infers_structured_tags_for_shallow_music_files() {
+        let root = temp_root("shallow-music-tags");
+        fs::create_dir_all(root.join("music/combat")).expect("create music folder");
+        fs::write(root.join("music/combat/battle-epic.mp3"), b"").expect("write music asset");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let manifest = service.manifest().expect("read manifest");
+        let assets = manifest
+            .get("assets")
+            .and_then(serde_json::Value::as_object)
+            .expect("manifest assets");
+
+        assert!(assets.contains_key("music:combat:custom:intense:battle-epic"));
+        assert!(!assets.contains_key("music:combat:battle-epic"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn manifest_bridges_managed_backgrounds_as_user_background_tags() {
+        let sandbox = temp_root("managed-background-bridge");
+        let game_root = sandbox.join("game-assets");
+        let background_root = sandbox.join("backgrounds");
+        fs::create_dir_all(&game_root).expect("create game asset root");
+        fs::create_dir_all(&background_root).expect("create background root");
+        fs::write(background_root.join("moonlit_lake.jpg"), b"").expect("write background");
+        let game_assets = AssetService::new(&game_root).expect("create game assets");
+        let backgrounds = AssetService::new(&background_root).expect("create backgrounds");
+
+        let plain_manifest = game_assets.manifest().expect("read plain manifest");
+        assert!(plain_manifest
+            .get("assets")
+            .and_then(serde_json::Value::as_object)
+            .expect("plain assets")
+            .get("backgrounds:user:moonlit_lake")
+            .is_none());
+
+        let merged_manifest = game_assets
+            .manifest_with_backgrounds(&backgrounds)
+            .expect("read merged manifest");
+        let entry = merged_manifest
+            .get("assets")
+            .and_then(|assets| assets.get("backgrounds:user:moonlit_lake"))
+            .expect("bridged background entry");
+
+        assert_eq!(entry.get("path").and_then(serde_json::Value::as_str), Some("__user_bg__/moonlit_lake.jpg"));
+        assert_eq!(entry.get("category").and_then(serde_json::Value::as_str), Some("backgrounds"));
+        assert_eq!(entry.get("managedSource").and_then(serde_json::Value::as_str), Some("backgrounds"));
+
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn managed_background_bridge_does_not_overwrite_explicit_game_asset_tags() {
+        let sandbox = temp_root("managed-background-bridge-collision");
+        let game_root = sandbox.join("game-assets");
+        let background_root = sandbox.join("backgrounds");
+        fs::create_dir_all(game_root.join("backgrounds/user")).expect("create game background folder");
+        fs::create_dir_all(&background_root).expect("create background root");
+        fs::write(game_root.join("backgrounds/user/moonlit_lake.jpg"), b"")
+            .expect("write game background");
+        fs::write(background_root.join("moonlit_lake.jpg"), b"").expect("write managed background");
+        let game_assets = AssetService::new(&game_root).expect("create game assets");
+        let backgrounds = AssetService::new(&background_root).expect("create backgrounds");
+
+        let merged_manifest = game_assets
+            .manifest_with_backgrounds(&backgrounds)
+            .expect("read merged manifest");
+        let entry = merged_manifest
+            .get("assets")
+            .and_then(|assets| assets.get("backgrounds:user:moonlit_lake"))
+            .expect("background entry");
+
+        assert_eq!(
+            entry.get("path").and_then(serde_json::Value::as_str),
+            Some("backgrounds/user/moonlit_lake.jpg")
+        );
+
+        let _ = fs::remove_dir_all(sandbox);
+    }
+
+    #[test]
+    fn rejects_root_and_native_category_folder_deletion() {
+        let root = temp_root("delete-guards");
+        fs::create_dir_all(root.join("music")).expect("create music folder");
+        fs::write(root.join("music/theme.mp3"), b"").expect("write music asset");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let root_error = service
+            .remove("", true)
+            .expect_err("root folder deletion should be rejected");
+        assert_eq!(root_error.code, "invalid_input");
+        assert!(root.exists());
+
+        let category_error = service
+            .remove("music", true)
+            .expect_err("native category deletion should be rejected");
+        assert_eq!(category_error.code, "invalid_input");
+        assert!(root.join("music/theme.mp3").exists());
+
+        service
+            .remove("music/theme.mp3", false)
+            .expect("files inside managed categories remain deletable");
+        assert!(!root.join("music/theme.mp3").exists());
+
+        let _ = fs::remove_dir_all(root);
     }
 }

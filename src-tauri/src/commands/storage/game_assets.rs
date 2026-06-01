@@ -1,7 +1,9 @@
 use super::*;
 
 pub(crate) fn game_assets_manifest(state: &AppState) -> AppResult<Value> {
-    state.game_assets.manifest()
+    state
+        .game_assets
+        .manifest_with_backgrounds(&state.backgrounds)
 }
 
 pub(crate) fn game_assets_tree(state: &AppState) -> AppResult<Value> {
@@ -9,7 +11,9 @@ pub(crate) fn game_assets_tree(state: &AppState) -> AppResult<Value> {
 }
 
 pub(crate) fn game_assets_rescan(state: &AppState) -> AppResult<Value> {
-    let manifest = state.game_assets.manifest()?;
+    let manifest = state
+        .game_assets
+        .manifest_with_backgrounds(&state.backgrounds)?;
     Ok(json!({ "ok": true, "manifest": manifest }))
 }
 
