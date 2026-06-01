@@ -45,7 +45,7 @@ const STEPS: TourStep[] = [
   {
     target: "panel-buttons",
     title: "Tab Buttons",
-    body: "These buttons (from left to right) open panels for:\n- **Browser:** browse for downloadable cards and more,\n- **Characters:** view and manage all your character cards,\n- **Lorebooks:** lorebooks with all the information you want,\n- **Presets:** section for prompts,\n- **Connections:** Set up your API connection here,\n- **Agents:** Think of them as extensions to your chats, each agent does something atop your main conversation, e.g., tracks details, creates images, etc.,\n- **Persona:** personas you play as,\n- **Settings:** settings for the entire application.\n\nCheck them all out!",
+    body: "These buttons (from left to right) open panels for:\n- **Browser:** browse for downloadable cards and more,\n- **Characters:** view and manage all your character cards,\n- **Lorebooks:** lorebooks with all the information you want,\n- **Presets:** manage prompts and prompt sections,\n- **Connections:** set up your model connections here,\n- **Agents:** manage chat helpers that can track details, create images, and more,\n- **Personas:** personas you play as,\n- **Settings:** settings for the entire application.\n\nCheck them all out!",
     side: "bottom",
     sprite: { src: "/sprites/mari/Mari_point_up_left.png", flip: true },
   },
@@ -65,7 +65,7 @@ const STEPS: TourStep[] = [
   {
     target: null,
     title: "Meet Professor Mari!",
-    body: "That's Professor Mari. She lives in her own screen now, separate from chats and modes. Use the Mari button in the title bar whenever you want to open that assistant space.",
+    body: "That's Professor Mari. She lives in her own screen now, separate from chats and modes. She can inspect your creative library, search and read app source, make narrow exact-match source edits, and create extension or custom agent records when you ask. Use the Mari button in the title bar whenever you want that assistant space, and review any write-capable changes before keeping them.",
     sprite: { src: "/sprites/mari/Mari_greet.png" },
   },
   {
