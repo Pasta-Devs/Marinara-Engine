@@ -3897,24 +3897,22 @@ function ChatSettingsDrawerInner({
           </Section>
 
           {/* Scoped Regex Scripts */}
-          {scopedRegexCount > 0 && (
-            <Section
-              label="Scoped Regex Scripts"
-              icon={<Code2 size="0.875rem" />}
-              count={scopedRegexCount}
-              help="Character-scoped regex scripts imported from ST cards. Control how they interact with global regex scripts."
-            >
-              <ScopedRegexModeSelector
-                mode={(metadata.scopedRegexMode as "disabled" | "exclusive" | "chat" | undefined) ?? "chat"}
-                onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
-              />
-              <ScopedRegexCharacterGroups
-                scripts={scopedRegexScripts}
-                charInfoMap={charInfoMap}
-                onToggle={(id, enabled) => updateRegexScript.mutate({ id, enabled })}
-              />
-            </Section>
-          )}
+          <Section
+            label="Scoped Regex Scripts"
+            icon={<Code2 size="0.875rem" />}
+            count={scopedRegexCount}
+            help="Character-scoped regex scripts imported from ST cards. Control how they interact with global regex scripts."
+          >
+            <ScopedRegexModeSelector
+              mode={(metadata.scopedRegexMode as "disabled" | "exclusive" | "chat" | undefined) ?? "chat"}
+              onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
+            />
+            <ScopedRegexCharacterGroups
+              scripts={scopedRegexScripts}
+              charInfoMap={charInfoMap}
+              onToggle={(id, enabled) => updateRegexScript.mutate({ id, enabled })}
+            />
+          </Section>
 
           {/* Card Theming — creator-notes CSS mode selector */}
           {cardCssCharacters.length > 0 && (
@@ -7478,6 +7476,14 @@ function ScopedRegexCharacterGroups({
     }
     return map;
   }, [scripts]);
+
+  if (grouped.size === 0) {
+    return (
+      <p className="mt-2 rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        No character-scoped regex scripts are loaded for this chat.
+      </p>
+    );
+  }
 
   return (
     <div className="mt-2 space-y-2">

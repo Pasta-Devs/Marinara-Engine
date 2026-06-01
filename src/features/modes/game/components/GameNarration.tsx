@@ -34,7 +34,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import { findNamedMapValue } from "../lib/game-character-name-match";
+import { findNamedEntry, findNamedMapValue } from "../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../lib/game-segment-edits";
 import { parseGmTags, stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import { audioManager } from "../lib/game-audio";
@@ -1015,6 +1015,13 @@ export function GameNarration({
     const allowedIds = new Set(activeCharacterIds);
     return Array.from(characterMap).filter(([id]) => allowedIds.has(id));
   }, [activeCharacterIds, characterMap]);
+  const resolveSegmentCharacterId = useCallback(
+    (speaker: string | null | undefined) => {
+      if (!speaker?.trim()) return null;
+      return findNamedEntry(activeCharacterEntries, speaker, ([, character]) => character.name)?.[0] ?? null;
+    },
+    [activeCharacterEntries],
+  );
 
   const speakerColors = useMemo(() => {
     const byName = new Map<string, string>();
@@ -1318,6 +1325,7 @@ export function GameNarration({
   const applyOutputRegexForSource = useCallback(
     (
       text: string,
+      speaker: string | null | undefined,
       sourceMessageId: string | null | undefined,
       sourceRole: Message["role"] | null | undefined,
       resolveMacrosForText: (value: string) => string,
@@ -1328,10 +1336,10 @@ export function GameNarration({
         depth: sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
         resolveMacros: resolveMacrosForText,
         scopedMode: scopedRegexMode,
-        characterId: sourceMsg?.characterId ?? null,
+        characterId: resolveSegmentCharacterId(speaker) ?? sourceMsg?.characterId ?? null,
       });
     },
-    [applyToAIOutput, messageDepthById, scopedRegexMode, sourceMessagesById],
+    [applyToAIOutput, messageDepthById, resolveSegmentCharacterId, scopedRegexMode, sourceMessagesById],
   );
 
   const prepareSegmentText = useCallback(
@@ -1348,7 +1356,7 @@ export function GameNarration({
         characters: macroCharacters,
       };
       const resolveMacrosForText = createMessageMacroResolver(macroContext);
-      const regexApplied = applyOutputRegexForSource(text, sourceMessageId, sourceRole, resolveMacrosForText);
+      const regexApplied = applyOutputRegexForSource(text, speaker, sourceMessageId, sourceRole, resolveMacrosForText);
       return resolveMacrosForText(regexApplied);
     },
     [applyOutputRegexForSource, macroCharacters, personaInfo, resolveMacroCharacter],

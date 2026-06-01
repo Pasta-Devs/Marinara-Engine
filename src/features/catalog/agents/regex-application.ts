@@ -84,10 +84,11 @@ function filterForMode(
   mode: ScopedRegexMode | undefined,
   characterId: string | null | undefined,
 ): ParsedRegexScript[] {
-  if (!mode || mode === "disabled") {
+  const normalizedMode = mode ?? "chat";
+  if (normalizedMode === "disabled") {
     return scripts.filter((s) => !s.characterId);
   }
-  if (mode === "exclusive") {
+  if (normalizedMode === "exclusive") {
     if (!characterId) return [];
     return scripts.filter((s) => !!s.characterId && s.characterId === characterId);
   }

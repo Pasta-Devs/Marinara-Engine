@@ -81,7 +81,13 @@ describe("useApplyRegex applies enabled boolean scripts (#1555)", () => {
   });
 });
 
-function ScopedProbe({ mode, characterId }: { mode: "disabled" | "exclusive" | "chat"; characterId?: string | null }) {
+function ScopedProbe({
+  mode,
+  characterId,
+}: {
+  mode?: "disabled" | "exclusive" | "chat";
+  characterId?: string | null;
+}) {
   const { applyToUserInput } = useApplyRegex(["char-a", "char-b"]);
   return <span data-testid="result">{applyToUserInput("global alpha beta", { scopedMode: mode, characterId })}</span>;
 }
@@ -125,6 +131,13 @@ describe("useApplyRegex scopes character regex scripts", () => {
   it("runs every script loaded for the chat in chat mode, including user input without a character id", async () => {
     await act(async () => {
       root.render(<ScopedProbe mode="chat" />);
+    });
+    expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("GLOBAL ALPHA BETA");
+  });
+
+  it("defaults missing scoped mode to chat mode", async () => {
+    await act(async () => {
+      root.render(<ScopedProbe />);
     });
     expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("GLOBAL ALPHA BETA");
   });

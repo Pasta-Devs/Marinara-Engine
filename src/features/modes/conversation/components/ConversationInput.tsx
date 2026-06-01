@@ -868,10 +868,13 @@ export function ConversationInput({
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
     const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-    const chatMeta3 = parseChatMetadata(activeChatData?.metadata);
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: chatMeta3.scopedRegexMode });
+    const postOnlyMeta = parseChatMetadata(activeChatData?.metadata);
+    let message = applyToUserInput(raw, {
+      resolveMacros: resolveInputMacros,
+      scopedMode: postOnlyMeta.scopedRegexMode,
+    });
 
-    if (chatMeta3.translateInput && message.trim()) {
+    if (postOnlyMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../shared/lib/translate-text");
         const translated = await translateText(message);

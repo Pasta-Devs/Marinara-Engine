@@ -35,6 +35,22 @@ type PendingLorebookChoice = {
   previews: EmbeddedLorebookImportPreview[];
 };
 
+type RegexImportSource = Parameters<typeof importRegexScriptsForCharacter>[0];
+
+async function importRegexScriptsSafely(source: RegexImportSource): Promise<{ count: number; failed: boolean }> {
+  try {
+    return { count: await importRegexScriptsForCharacter(source), failed: false };
+  } catch (error) {
+    console.warn("[character-import] Failed to import embedded regex scripts.", error);
+    return { count: 0, failed: true };
+  }
+}
+
+function formatRegexImportSuffix(result: { count: number; failed: boolean }): string {
+  if (result.count > 0) return ` (${result.count} regex scripts)`;
+  return result.failed ? " (regex scripts skipped)" : "";
+}
+
 export function useCharacterImportFlow(open: boolean) {
   const { data: rawCharacters } = useCharacterSummaries(open);
   const updateCharacter = useUpdateCharacter();
@@ -227,24 +243,22 @@ export function useCharacterImportFlow(open: boolean) {
               });
               const updateResult = nextResults[beforeUpdateResults];
               if (updateResult?.success && result.character && targetCharacterId) {
-                const regexCount = await importRegexScriptsForCharacter({
+                const regexImport = await importRegexScriptsSafely({
                   characterId: targetCharacterId,
                   character: result.character as { data?: Record<string, unknown> },
                 });
-                if (regexCount > 0) {
-                  updateResult.message = `${updateResult.message} (${regexCount} regex scripts)`;
-                }
+                updateResult.message = `${updateResult.message}${formatRegexImportSuffix(regexImport)}`;
               }
               continue;
             } else {
               cacheCharacterListRecordFromResult(qc, result);
             }
           }
-          let regexCount = 0;
+          let regexImport = { count: 0, failed: false };
           if (result.success && result.character) {
             const charRecord = result.character as { id?: string; data?: Record<string, unknown> };
             if (charRecord.id && charRecord.data) {
-              regexCount = await importRegexScriptsForCharacter({
+              regexImport = await importRegexScriptsSafely({
                 characterId: charRecord.id,
                 character: charRecord,
               });
@@ -260,7 +274,7 @@ export function useCharacterImportFlow(open: boolean) {
                     : result.lorebook?.lorebookId
                       ? " with its embedded lorebook"
                       : ""
-                }${regexCount > 0 ? ` (${regexCount} regex scripts)` : ""}`
+                }${formatRegexImportSuffix(regexImport)}`
               : (result.error ?? "Import failed"),
           });
         }

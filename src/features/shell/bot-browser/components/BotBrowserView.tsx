@@ -1478,7 +1478,9 @@ export function BotBrowserView() {
           if (data.character) {
             const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
             if (charRecord.id && charRecord.data) {
-              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord });
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord }).catch(
+                (error) => console.warn("[bot-browser] Failed to import embedded regex scripts.", error),
+              );
             }
           }
         } else throw new Error(data.error ?? "Import failed");
@@ -1533,7 +1535,9 @@ export function BotBrowserView() {
           if (data.character) {
             const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
             if (charRecord.id && charRecord.data) {
-              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord });
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord }).catch(
+                (error) => console.warn("[bot-browser] Failed to import embedded regex scripts.", error),
+              );
             }
           }
         } else throw new Error(data.error ?? "Import failed");
