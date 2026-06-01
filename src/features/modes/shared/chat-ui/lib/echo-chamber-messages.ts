@@ -37,7 +37,7 @@ export function normalizeEchoMessages(rows: unknown[]): EchoMessage[] {
       continue;
     }
 
-    const resultData = readEchoRecord(record.result_data ?? record.resultData);
+    const resultData = readEchoRecord(record.resultData ?? record.result_data);
     const reactions = Array.isArray(resultData.reactions) ? resultData.reactions : [];
     for (const item of reactions) {
       const reactionRecord = readEchoRecord(item);

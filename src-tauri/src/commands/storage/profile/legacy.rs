@@ -883,6 +883,8 @@ mod tests {
                 {
                     "id": "agent-run-1",
                     "agent_config_id": "custom-agent-1",
+                    "agentType": "stale-agent-type",
+                    "agent_name": "Stale Agent Name",
                     "chat_id": "chat-1",
                     "message_id": "message-1",
                     "result_type": "context_injection",
@@ -890,7 +892,7 @@ mod tests {
                     "tokens_used": "42",
                     "duration_ms": "1200",
                     "success": "true",
-                    "created_at": "2026-05-20T00:01:00Z"
+                    "created_at": "2026-05-20T00:01:00-04:00"
                 }
             ]),
         );
@@ -913,7 +915,7 @@ mod tests {
         assert_eq!(run["tokensUsed"], 42);
         assert_eq!(run["durationMs"], 1200);
         assert_eq!(run["success"], true);
-        assert_eq!(run["createdAt"], "2026-05-20T00:01:00Z");
+        assert_eq!(run["createdAt"], "2026-05-20T04:01:00+00:00");
         assert!(!run.as_object().unwrap().contains_key("agent_config_id"));
     }
 

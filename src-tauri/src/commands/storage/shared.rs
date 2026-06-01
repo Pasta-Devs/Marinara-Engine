@@ -1990,6 +1990,8 @@ pub(crate) struct AgentRunConfigInfo {
 
 const AGENT_RUN_FIELD_ALIASES: &[(&str, &str)] = &[
     ("agentConfigId", "agent_config_id"),
+    ("agentType", "agent_type"),
+    ("agentName", "agent_name"),
     ("chatId", "chat_id"),
     ("messageId", "message_id"),
     ("resultType", "result_type"),
@@ -2047,31 +2049,54 @@ pub(crate) fn normalize_agent_run_row_fields(
 
     let agent_config_id = trimmed_record_string(object.get("agentConfigId"));
     let config = agent_config_id.as_ref().and_then(|id| configs.get(id));
-    let agent_type = trimmed_record_string(object.get("agentType"))
-        .or_else(|| config.map(|config| config.agent_type.clone()))
-        .or_else(|| {
-            agent_config_id
-                .as_deref()
-                .and_then(builtin_agent_type_from_config_id)
-        });
+    if let Some(config) = config {
+        object.insert(
+            "agentType".to_string(),
+            Value::String(config.agent_type.clone()),
+        );
+        object.insert(
+            "agentName".to_string(),
+            Value::String(config.agent_name.clone()),
+        );
+        return;
+    }
+
+    let agent_type = trimmed_record_string(object.get("agentType")).or_else(|| {
+        agent_config_id
+            .as_deref()
+            .and_then(builtin_agent_type_from_config_id)
+    });
     if let Some(agent_type) = agent_type {
         object.insert("agentType".to_string(), Value::String(agent_type.clone()));
         if trimmed_record_string(object.get("agentName")).is_none() {
-            let name = config
-                .map(|config| config.agent_name.clone())
-                .unwrap_or(agent_type);
-            object.insert("agentName".to_string(), Value::String(name));
+            object.insert("agentName".to_string(), Value::String(agent_type));
         }
     }
 }
 
 fn move_record_alias(object: &mut Map<String, Value>, target: &str, legacy: &str) {
     let legacy_value = object.remove(legacy);
-    if let Some(value) = legacy_value {
-        if target == "createdAt" || !object.contains_key(target) {
+    if target == "createdAt" {
+        if let Some(created_at) = normalized_record_timestamp(legacy_value.as_ref()) {
+            object.insert(target.to_string(), Value::String(created_at));
+        }
+        return;
+    }
+    if !object.contains_key(target) {
+        if let Some(value) = legacy_value {
             object.insert(target.to_string(), value);
         }
     }
+}
+
+fn normalized_record_timestamp(value: Option<&Value>) -> Option<String> {
+    let raw = value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    chrono::DateTime::parse_from_rfc3339(raw)
+        .ok()
+        .map(|time| time.with_timezone(&chrono::Utc).to_rfc3339())
 }
 
 fn trimmed_record_string(value: Option<&Value>) -> Option<String> {
