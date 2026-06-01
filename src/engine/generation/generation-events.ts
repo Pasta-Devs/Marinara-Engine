@@ -4,6 +4,10 @@ export type GenerationEvent =
   | { type: "token"; data: string }
   | { type: "tool_call"; data: { id?: string; name: string; arguments: string } }
   | { type: "tool_result"; data: { toolCallId?: string; name: string; result: string; success: boolean } }
+  | { type: "typing"; characters: string[] }
+  | { type: "delayed"; characters: string[]; status: string; delayMs: number }
+  | { type: "offline"; characters: string[] }
+  | { type: "group_turn"; data: { characterId: string; characterName: string; index: number } }
   | { type: "user_message"; data: unknown }
   | { type: "assistant_message"; data: unknown }
   | { type: "agent_injection_review"; data: unknown }
