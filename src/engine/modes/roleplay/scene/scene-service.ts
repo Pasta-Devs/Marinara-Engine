@@ -5,7 +5,6 @@ import { boolish } from "../../../generation/runtime-records";
 import { parseGameJsonish } from "../../../shared/parsing-jsonish";
 import { readString as stringValue } from "../../../shared/value-readers";
 import type {
-  SceneAnalysis,
   SceneCreateRequest,
   SceneCreateResponse,
   SceneForkRequest,
@@ -315,39 +314,6 @@ export async function forkRoleplayScene(storage: StorageGateway, input: SceneFor
   return { chatId: forkChatId, originChatId, mode: input.mode };
 }
 
-export async function analyzeScene(
-  capabilities: RoleplaySceneCapabilities,
-  input: { chatId?: string; connectionId?: string | null; narration: string; context?: JsonRecord },
-): Promise<SceneAnalysis> {
-  let connectionId: string | null = null;
-  try {
-    const chat = input.chatId ? await capabilities.storage.get<JsonRecord>("chats", input.chatId) : null;
-    connectionId = chat
-      ? await resolveConnectionId(capabilities.storage, chat, input.connectionId ?? null)
-      : await resolveConnectionId(capabilities.storage, {}, input.connectionId ?? null);
-  } catch {
-    return defaultSceneAnalysis();
-  }
-
-  const prompt = [
-    "Analyze this roleplay scene narration and return only compact JSON with optional keys background, music, ambient, weather, timeOfDay, musicGenre, musicIntensity, locationKind, spotifyTrack, reputationChanges, segmentEffects, directions, illustration.",
-    "Narration:",
-    "",
-    input.narration,
-  ].join("\n");
-
-  try {
-    const raw = await capabilities.llm.complete({
-      connectionId,
-      messages: [{ role: "user", content: prompt }],
-      parameters: { maxTokens: 800, temperature: 0.2 },
-    });
-    return sanitizeSceneAnalysis(parseObject(raw));
-  } catch {
-    return defaultSceneAnalysis();
-  }
-}
-
 async function summarizeScene(
   capabilities: RoleplaySceneCapabilities,
   sceneChatId: string,
@@ -640,47 +606,6 @@ async function resolveConnectionId(
   const id = stringValue(selected?.id);
   if (!id) throw new Error("No connection configured");
   return id;
-}
-
-function defaultSceneAnalysis(): SceneAnalysis {
-  return {
-    background: null,
-    music: null,
-    ambient: null,
-    weather: null,
-    timeOfDay: null,
-    musicGenre: null,
-    musicIntensity: null,
-    locationKind: null,
-    spotifyTrack: null,
-    reputationChanges: [],
-    segmentEffects: [],
-    directions: [],
-    illustration: null,
-    generatedIllustration: null,
-    generatedNpcAvatars: [],
-  } as SceneAnalysis;
-}
-
-function sanitizeSceneAnalysis(parsed: JsonRecord): SceneAnalysis {
-  return {
-    ...defaultSceneAnalysis(),
-    ...copyOptional(parsed, [
-      "background",
-      "music",
-      "ambient",
-      "weather",
-      "timeOfDay",
-      "musicGenre",
-      "musicIntensity",
-      "locationKind",
-      "spotifyTrack",
-      "illustration",
-    ]),
-    reputationChanges: Array.isArray(parsed.reputationChanges) ? parsed.reputationChanges : [],
-    segmentEffects: Array.isArray(parsed.segmentEffects) ? parsed.segmentEffects : [],
-    directions: Array.isArray(parsed.directions) ? parsed.directions : [],
-  } as SceneAnalysis;
 }
 
 function copyOptional(source: JsonRecord, keys: string[]): JsonRecord {

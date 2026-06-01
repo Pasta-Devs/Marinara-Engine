@@ -6,7 +6,9 @@
         "description": "Enter the host and port where marinara-server is running (default: localhost:8787).",
         "data": {
           "host": "Host",
-          "port": "Port"
+          "port": "Port",
+          "username": "Username",
+          "password": "Password"
         }
       }
     },

@@ -93,7 +93,7 @@ const SOCIAL_HINTS: Array<{ dc: number; text: (npcName: string) => string }> = [
 /**
  * Compute passive perception: 10 + perception modifier + wisdom modifier.
  */
-export function passivePerception(perceptionMod: number, wisdomScore: number): number {
+function passivePerception(perceptionMod: number, wisdomScore: number): number {
   const wisMod = Math.floor((wisdomScore - 10) / 2);
   return 10 + perceptionMod + wisMod;
 }

@@ -1,7 +1,7 @@
 import { parseRecord, readString, stringArray, type JsonRecord } from "./runtime-records";
 
 /** Character IDs muted for this chat. They remain attached to the chat, but are excluded from generation. */
-export function inactiveCharacterIds(chat: JsonRecord): Set<string> {
+function inactiveCharacterIds(chat: JsonRecord): Set<string> {
   return new Set(
     stringArray(parseRecord(chat.metadata).inactiveCharacterIds)
       .map((id) => id.trim())

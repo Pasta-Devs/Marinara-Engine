@@ -5,7 +5,7 @@ import type { EventGateway } from "../capabilities/events";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
-import type { VisualAssetGateway } from "../capabilities/visual-assets";
+import type { SpriteOwnerType, VisualAssetGateway } from "../capabilities/visual-assets";
 import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
@@ -411,13 +411,13 @@ type IllustrationImageSettings = {
 type IllustrationReferenceSubject = {
   id: string;
   name: string;
-  appearance: string;
   avatar: string;
+  spriteOwnerType: SpriteOwnerType;
 };
 
 type IllustrationReferenceData = {
   referenceImages: string[];
-  appearanceNotes: string[];
+  referenceSubjectNames: string[];
 };
 
 function promptContainsTag(prompt: string, tag: string): boolean {
@@ -464,25 +464,9 @@ function usableReferenceImage(value: unknown): string {
   return "";
 }
 
-function compactAppearance(value: unknown, limit = 360): string {
-  const text = collapseExcessBlankLines(readString(value)).replace(/\s+/g, " ").trim();
-  return text.length > limit ? `${text.slice(0, limit - 3).trimEnd()}...` : text;
-}
-
 function recordName(record: JsonRecord): string {
   const data = parseRecord(record.data);
   return readString(data.name).trim() || readString(record.name).trim();
-}
-
-function recordAppearance(record: JsonRecord): string {
-  const data = parseRecord(record.data);
-  const extensions = parseRecord(data.extensions);
-  return compactAppearance(
-    readString(extensions.appearance).trim() ||
-      readString(data.appearance).trim() ||
-      readString(data.description).trim() ||
-      readString(record.description).trim(),
-  );
 }
 
 function recordAvatar(record: JsonRecord): string {
@@ -559,7 +543,9 @@ async function illustrationImageSettings(args: {
       readString(meta.selfieNegativePrompt).trim(),
     ]),
     useAvatarReferences:
-      boolish(settings.useAvatarReferences, false) || boolish(meta.illustrationUseAvatarReferences, false),
+      (settings.useAvatarReferences === undefined || settings.useAvatarReferences === null
+        ? true
+        : boolish(settings.useAvatarReferences, false)) || boolish(meta.illustrationUseAvatarReferences, false),
   };
 }
 
@@ -570,11 +556,11 @@ async function loadIllustrationReferenceSubjects(
   const characterRows = await Promise.all(
     activeCharacterIds(chat).map((id) => storage.get<JsonRecord>("characters", id).catch(() => null)),
   );
-  const subjects = characterRows.filter(isRecord).map((row) => ({
+  const subjects: IllustrationReferenceSubject[] = characterRows.filter(isRecord).map((row) => ({
     id: readString(row.id).trim(),
     name: recordName(row),
-    appearance: recordAppearance(row),
     avatar: recordAvatar(row),
+    spriteOwnerType: "character",
   }));
   const personaId = readString(chat.personaId).trim();
   const persona = personaId ? await storage.get<JsonRecord>("personas", personaId).catch(() => null) : null;
@@ -582,8 +568,8 @@ async function loadIllustrationReferenceSubjects(
     subjects.push({
       id: personaId || readString(persona.id).trim(),
       name: recordName(persona),
-      appearance: recordAppearance(persona),
       avatar: recordAvatar(persona),
+      spriteOwnerType: "persona",
     });
   }
   return subjects.filter((subject) => subject.id && subject.name);
@@ -594,30 +580,46 @@ async function illustrationReferenceData(args: {
   visuals?: VisualAssetGateway;
   chat: JsonRecord;
   item: IllustrationPromptData;
-  includeAppearances: boolean;
   useAvatarReferences: boolean;
 }): Promise<IllustrationReferenceData> {
-  const subjects = (await loadIllustrationReferenceSubjects(args.storage, args.chat)).filter((subject) =>
-    matchesIllustrationSubject(subject, args.item),
-  );
+  const subjects = await loadIllustrationReferenceSubjects(args.storage, args.chat);
   const referenceImages: string[] = [];
-  const appearanceNotes: string[] = [];
-  for (const subject of subjects) {
-    if (args.includeAppearances && subject.appearance) {
-      appearanceNotes.push(`${subject.name}: ${subject.appearance}`);
-    }
+  const referenceSubjectNames: string[] = [];
+  const referenceSubjects = subjects.filter((subject) => matchesIllustrationSubject(subject, args.item));
+  for (const subject of referenceSubjects) {
     if (!args.useAvatarReferences) continue;
-    const sprites = args.visuals ? await args.visuals.listSprites(subject.id).catch(() => []) : [];
+    const sprites = args.visuals
+      ? await args.visuals.listSprites(subject.id, subject.spriteOwnerType).catch(() => [])
+      : [];
     const spriteReference = fullBodySpriteReference(sprites as Array<Record<string, unknown>>);
     const reference = spriteReference || subject.avatar;
-    if (reference) referenceImages.push(reference);
+    if (reference && !referenceImages.includes(reference)) referenceImages.push(reference);
+    if (reference && !referenceSubjectNames.includes(subject.name)) referenceSubjectNames.push(subject.name);
   }
-  return { referenceImages, appearanceNotes };
+  return { referenceImages, referenceSubjectNames };
 }
 
-function appendAppearanceNotes(prompt: string, notes: string[]): string {
-  if (notes.length === 0) return prompt.trim();
-  return `${prompt.trim()}\n\nVisible character appearance notes:\n${notes.map((note) => `- ${note}`).join("\n")}`;
+function promptAlreadyMentionsReferences(prompt: string): boolean {
+  const text = prompt.toLowerCase();
+  return (
+    /\bconsult\b[\s\S]{0,80}\breference/.test(text) ||
+    /\b(attached|provided|included)\s+reference/.test(text) ||
+    /\breference\s+image/.test(text)
+  );
+}
+
+function appendReferenceGuidance(prompt: string, subjectNames: string[]): string {
+  const names = subjectNames.map((name) => name.trim()).filter(Boolean);
+  if (names.length === 0) return prompt.trim();
+  if (promptAlreadyMentionsReferences(prompt)) return prompt.trim();
+  const label =
+    names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return [
+    prompt.trim(),
+    `Reference guidance: Consult the attached reference image(s) for ${label} to preserve identity, face, hair, body proportions, and distinctive visible features. Follow the scene prompt for the current outfit, pose, expression, injuries, lighting, and other moment-specific details; scene-specific appearance overrides default reference clothing.`,
+  ].join("\n\n");
 }
 
 function illustratorPromptData(result: AgentResult): IllustrationPromptData | null {
@@ -640,7 +642,6 @@ async function generateIllustrationAttachments(args: {
   deps: GenerationEngineDeps;
   chat: JsonRecord;
   results: AgentResult[];
-  imagePromptSettings?: StartGenerationInput["imagePromptSettings"];
   signal?: AbortSignal;
 }): Promise<{ attachments: JsonRecord[]; events: GenerationEvent[] }> {
   const attachments: JsonRecord[] = [];
@@ -655,7 +656,6 @@ async function generateIllustrationAttachments(args: {
   }
 
   const size = illustrationSize(meta.illustrationResolution ?? meta.selfieResolution);
-  const includeAppearances = args.imagePromptSettings?.includeAppearances !== false;
   for (let index = 0; index < prompts.length; index += 1) {
     throwIfAborted(args.signal);
     const item = prompts[index]!;
@@ -673,12 +673,11 @@ async function generateIllustrationAttachments(args: {
         visuals: args.deps.visuals,
         chat: args.chat,
         item,
-        includeAppearances,
         useAvatarReferences: settings.useAvatarReferences,
       });
-      const prompt = appendAppearanceNotes(
+      const prompt = appendReferenceGuidance(
         appendMissingPositiveTags(item.prompt, settings.positivePrompt),
-        referenceData.appearanceNotes,
+        referenceData.referenceSubjectNames,
       );
       const image = await args.deps.integrations.image.generate<{
         base64?: string;
@@ -715,7 +714,8 @@ async function generateIllustrationAttachments(args: {
         width: size.width,
         height: size.height,
         kind: "illustration",
-        characters: item.characterNames,
+        characters:
+          referenceData.referenceSubjectNames.length > 0 ? referenceData.referenceSubjectNames : item.characterNames,
         referenceImageCount: referenceData.referenceImages.length,
       });
       const attachment = {
@@ -837,6 +837,13 @@ function withImageAttachments(messages: LlmMessage[], images: string[]): LlmMess
   return next;
 }
 
+function impersonatePromptTemplate(input: StartGenerationInput, chat: JsonRecord): string | null {
+  const requestPrompt = readString(input.impersonatePromptTemplate).trim();
+  if (requestPrompt) return requestPrompt;
+  const chatPrompt = readString(parseRecord(chat.metadata).impersonatePrompt).trim();
+  return chatPrompt || null;
+}
+
 function directiveMessages(
   input: StartGenerationInput,
   chat: JsonRecord,
@@ -851,7 +858,7 @@ function directiveMessages(
     messages.push({
       role: "user",
       content: buildImpersonateInstruction({
-        customPrompt: input.impersonatePromptTemplate,
+        customPrompt: impersonatePromptTemplate(input, chat),
         direction: prepared.content,
         personaName,
         personaDescription: persona?.description,
@@ -912,6 +919,17 @@ function roleplayIndividualGroupCharacterIds(chat: JsonRecord): string[] {
   return readString(parseRecord(chat.metadata).groupChatMode, "merged") === "individual" ? ids : [];
 }
 
+function conversationGroupCharacterIds(chat: JsonRecord): string[] {
+  if (readString(chat.mode || chat.chatMode) !== "conversation") return [];
+  const ids = activeCharacterIds(chat);
+  return ids.length > 1 ? ids : [];
+}
+
+function targetedGroupCharacterIds(chat: JsonRecord): string[] {
+  const roleplayIds = roleplayIndividualGroupCharacterIds(chat);
+  return roleplayIds.length > 0 ? roleplayIds : conversationGroupCharacterIds(chat);
+}
+
 function lastVisibleAssistantCharacterId(messages: JsonRecord[], activeIds: string[]): string | null {
   const active = new Set(activeIds);
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -924,7 +942,7 @@ function lastVisibleAssistantCharacterId(messages: JsonRecord[], activeIds: stri
   return null;
 }
 
-function sequentialRoleplayGroupTarget(messages: JsonRecord[], activeIds: string[]): string | null {
+function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): string | null {
   if (activeIds.length === 0) return null;
   const lastCharacterId = lastVisibleAssistantCharacterId(messages, activeIds);
   if (!lastCharacterId) return activeIds[0] ?? null;
@@ -932,7 +950,7 @@ function sequentialRoleplayGroupTarget(messages: JsonRecord[], activeIds: string
   return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
 }
 
-function explicitRoleplayGroupTarget(
+function explicitGroupTarget(
   input: StartGenerationInput,
   storedMessages: JsonRecord[],
   activeIds: string[],
@@ -948,7 +966,7 @@ function explicitRoleplayGroupTarget(
   return active.has(targetCharacterId) ? targetCharacterId : null;
 }
 
-function continuationRoleplayGroupTarget(args: {
+function continuationGroupTarget(args: {
   input: StartGenerationInput;
   latestUserInput: string;
   storedMessages: JsonRecord[];
@@ -1067,11 +1085,13 @@ async function smartRoleplayGroupTarget(args: {
     mentionedNames: args.mentionedNames,
   });
   if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
-  if (candidates.length === 0) return sequentialRoleplayGroupTarget(args.storedMessages, args.activeIds);
+  if (candidates.length === 0) return sequentialGroupTarget(args.storedMessages, args.activeIds);
 
   const personaId = readString(args.chat.personaId).trim();
   const persona = personaId ? await args.deps.storage.get<JsonRecord>("personas", personaId).catch(() => null) : null;
   const personaData = isRecord(persona) ? characterDataRecord(persona) : {};
+  const chatMode = readString(args.chat.mode || args.chat.chatMode, "conversation");
+  const chatKind = chatMode === "conversation" ? "conversation group chat" : "individual-mode roleplay group chat";
   const candidateLines = candidates
     .map((candidate) =>
       JSON.stringify({
@@ -1094,8 +1114,7 @@ async function smartRoleplayGroupTarget(args: {
         messages: [
           {
             role: "system",
-            content:
-              'You are a hidden response orchestrator for an individual-mode roleplay group chat. Choose which character should respond next based on the latest message, direct address, narrative momentum, and talkativeness. Usually choose exactly one character. Return only JSON: {"characterIds":["character-id"],"reason":"short"}.',
+            content: `You are a hidden response orchestrator for a ${chatKind}. Choose which character should respond next based on the latest message, direct address, conversation momentum, and talkativeness. Usually choose exactly one character. Return only JSON: {"characterIds":["character-id"],"reason":"short"}.`,
           },
           {
             role: "user",
@@ -1114,12 +1133,11 @@ async function smartRoleplayGroupTarget(args: {
     if (isRecord(error) && readString(error.name) === "AbortError") throw error;
   }
   return (
-    parseSmartGroupSelectionIds(raw, args.activeIds)[0] ??
-    sequentialRoleplayGroupTarget(args.storedMessages, args.activeIds)
+    parseSmartGroupSelectionIds(raw, args.activeIds)[0] ?? sequentialGroupTarget(args.storedMessages, args.activeIds)
   );
 }
 
-async function resolveRoleplayGroupTargetForGeneration(args: {
+async function resolveGroupTargetForGeneration(args: {
   deps: GenerationEngineDeps;
   input: StartGenerationInput;
   chat: JsonRecord;
@@ -1130,11 +1148,20 @@ async function resolveRoleplayGroupTargetForGeneration(args: {
   signal?: AbortSignal;
 }): Promise<string | null> {
   if (args.input.impersonate === true) return null;
-  const activeIds = roleplayIndividualGroupCharacterIds(args.chat);
+  const activeIds = targetedGroupCharacterIds(args.chat);
   if (activeIds.length === 0) return null;
-  const explicit = explicitRoleplayGroupTarget(args.input, args.storedMessages, activeIds);
+  const explicit = explicitGroupTarget(args.input, args.storedMessages, activeIds);
   if (explicit) return explicit;
-  const continuation = continuationRoleplayGroupTarget({
+
+  const candidates = await loadSmartResponderCandidates(args.deps.storage, activeIds);
+  const mentionedIds = mentionedSmartResponderIds({
+    candidates,
+    latestUserInput: args.latestUserInput,
+    mentionedNames: args.mentionedNames,
+  });
+  if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
+
+  const continuation = continuationGroupTarget({
     input: args.input,
     latestUserInput: args.latestUserInput,
     storedMessages: args.storedMessages,
@@ -1147,7 +1174,27 @@ async function resolveRoleplayGroupTargetForGeneration(args: {
   if (order === "smart") {
     return smartRoleplayGroupTarget({ ...args, activeIds });
   }
-  return sequentialRoleplayGroupTarget(args.storedMessages, activeIds);
+  return sequentialGroupTarget(args.storedMessages, activeIds);
+}
+
+function sequentialGroupTargetCharacterId(
+  chat: JsonRecord,
+  input: StartGenerationInput,
+  messages: JsonRecord[],
+): string | null {
+  if (input.impersonate === true) return null;
+  if (readString(input.forCharacterId).trim()) return null;
+  const metadata = parseRecord(chat.metadata);
+  if (readString(chat.mode || chat.chatMode).trim() !== "roleplay") return null;
+  if (readString(metadata.groupChatMode, "merged") !== "individual") return null;
+  if (readString(metadata.groupResponseOrder, "smart") !== "sequential") return null;
+  const activeIds = activeCharacterIds(chat);
+  if (activeIds.length <= 1) return null;
+
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (regenerateMessageId) return explicitGroupTarget(input, messages, activeIds);
+
+  return sequentialGroupTarget(messages, activeIds);
 }
 
 function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
@@ -1757,6 +1804,10 @@ async function persistAgentMessageExtraForTarget(
     existingExtra: target?.extra,
     mergeContextInjectionUpdates: true,
   });
+  const spriteExpressions = spriteExpressionsFromAgentResults(results);
+  if (spriteExpressions && Object.keys(spriteExpressions).length > 0) {
+    extraPatch.spriteExpressions = spriteExpressions;
+  }
   if (Object.keys(extraPatch).length === 0) return;
   await storage.patchChatMessageExtra(messageId, extraPatch);
 }
@@ -2002,7 +2053,6 @@ async function runGenerationAgentsForTarget(args: {
       deps,
       chat: chatForAgents,
       results: finalResults,
-      imagePromptSettings: input.imagePromptSettings,
       signal,
     });
     events.push(...illustration.events);
@@ -2123,6 +2173,10 @@ export async function* startGeneration(
     storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   }
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
+  const sequentialGroupTargetId = sequentialGroupTargetCharacterId(chat, input, storedMessages);
+  if (sequentialGroupTargetId) {
+    input = { ...input, forCharacterId: sequentialGroupTargetId };
+  }
   const generationTrackerBaseline = await selectGenerationTrackerBaseline(
     deps.storage,
     chatId,
@@ -2132,7 +2186,7 @@ export async function* startGeneration(
   );
   const chatForGeneration = generationTrackerBaseline ? { ...chat, gameState: generationTrackerBaseline } : chat;
   const latestUserInput = preparedUserInput.content || inputUserMessage(input);
-  const resolvedRoleplayGroupTarget = await resolveRoleplayGroupTargetForGeneration({
+  const resolvedGroupTarget = await resolveGroupTargetForGeneration({
     deps,
     input,
     chat: chatForGeneration,
@@ -2143,8 +2197,8 @@ export async function* startGeneration(
     signal,
   });
   throwIfAborted(signal);
-  if (resolvedRoleplayGroupTarget && readString(input.forCharacterId).trim() !== resolvedRoleplayGroupTarget) {
-    input = { ...input, forCharacterId: resolvedRoleplayGroupTarget };
+  if (resolvedGroupTarget && readString(input.forCharacterId).trim() !== resolvedGroupTarget) {
+    input = { ...input, forCharacterId: resolvedGroupTarget };
   }
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];
@@ -2355,7 +2409,6 @@ export async function* startGeneration(
         deps,
         chat,
         results: emittedAgentResults,
-        imagePromptSettings: input.imagePromptSettings,
         signal,
       });
       throwIfAborted(signal);
@@ -2539,6 +2592,10 @@ function runtimeLlmParameters(
  */
 const MAX_MAIN_TOOL_ITERATIONS = 8;
 
+function llmChunkText(chunk: { text?: unknown; data?: unknown }): string {
+  return typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+}
+
 /**
  * Multi-turn main-character streaming loop.
  *
@@ -2629,11 +2686,15 @@ async function* streamMainGenerationLoop(args: {
       signal,
     )) {
       throwIfAborted(signal);
-      if (chunk.type === "token" && chunk.text) {
-        yield* emitInlineParts(chunk.text);
-      } else if (chunk.type === "thinking" && chunk.text) {
-        thinking += chunk.text;
-        yield { type: "thinking", data: chunk.text };
+      if (chunk.type === "token") {
+        const text = llmChunkText(chunk);
+        if (text) yield* emitInlineParts(text);
+      } else if (chunk.type === "thinking") {
+        const text = llmChunkText(chunk);
+        if (text) {
+          thinking += text;
+          yield { type: "thinking", data: text };
+        }
       } else if (chunk.type === "tool_call") {
         const normalized = normalizeToolCall(chunk.data);
         if (normalized) pendingToolCalls.push(normalized);

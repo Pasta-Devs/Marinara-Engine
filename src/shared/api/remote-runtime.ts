@@ -39,7 +39,6 @@ const REMOTE_COMMANDS = new Set([
   "game_assets_create_folder",
   "game_assets_delete_folder",
   "game_assets_delete_file",
-  "game_assets_file_path",
   "game_assets_read_text",
   "game_assets_write_text",
   "game_assets_rename",
@@ -51,8 +50,6 @@ const REMOTE_COMMANDS = new Set([
   "game_assets_file_info",
   "game_assets_folder_description",
   "game_assets_upload",
-  "background_file_path",
-  "lorebook_image_file_path",
   "gif_search",
   "tts_config",
   "tts_update_config",
@@ -194,6 +191,18 @@ export type RemoteRuntimeHealthCheck =
   | { status: "unreachable"; message: string; health?: RemoteRuntimeHealthPayload }
   | { status: "not-writable"; message: string; health: RemoteRuntimeHealthPayload };
 
+function hasEmbeddedTauriRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const runtimeWindow = window as unknown as { __TAURI__?: unknown; __TAURI_INTERNALS__?: unknown };
+  return Boolean(runtimeWindow.__TAURI__ || runtimeWindow.__TAURI_INTERNALS__);
+}
+
+export function unconfiguredRemoteRuntimeHealth(): RemoteRuntimeHealthCheck {
+  return hasEmbeddedTauriRuntime()
+    ? { status: "unconfigured", message: "Embedded Tauri runtime in use." }
+    : { status: "unconfigured", message: "Remote Runtime URL is required in web-shell mode." };
+}
+
 function encodeBasicAuth(username: string, password: string): string {
   return `Basic ${btoa(`${decodeURIComponent(username)}:${decodeURIComponent(password)}`)}`;
 }
@@ -229,7 +238,7 @@ export function isRemoteCommand(command: string): boolean {
   return REMOTE_COMMANDS.has(command);
 }
 
-function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit {
+export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit {
   return {
     ...(target.authorization ? { Authorization: target.authorization } : {}),
     ...extra,
@@ -258,7 +267,7 @@ export async function checkRemoteRuntimeHealth(
   options: { signal?: AbortSignal } = {},
 ): Promise<RemoteRuntimeHealthCheck> {
   if (!rawUrl.trim()) {
-    return { status: "unconfigured", message: "Embedded Tauri runtime in use." };
+    return unconfiguredRemoteRuntimeHealth();
   }
 
   let target: RuntimeTarget | null;
@@ -269,7 +278,7 @@ export async function checkRemoteRuntimeHealth(
   }
 
   if (!target) {
-    return { status: "unconfigured", message: "Embedded Tauri runtime in use." };
+    return unconfiguredRemoteRuntimeHealth();
   }
 
   try {
@@ -292,6 +301,27 @@ export async function checkRemoteRuntimeHealth(
       return {
         status: "not-writable",
         message: "Remote runtime is reachable, but its data storage is not writable.",
+        health: body,
+      };
+    }
+
+    const invokeReady = await fetch(`${target.baseUrl}/api/invoke`, {
+      method: "POST",
+      headers: remoteHeaders(target, { "content-type": "application/json" }),
+      body: JSON.stringify({
+        command: "storage_list",
+        args: {
+          entity: "chats",
+          options: { fields: ["id"], limit: 1 },
+        },
+      }),
+      signal: options.signal,
+    });
+
+    if (!invokeReady.ok) {
+      return {
+        status: "unreachable",
+        message: `Remote runtime health is reachable, but API invoke returned ${invokeReady.status}.`,
         health: body,
       };
     }
@@ -339,6 +369,11 @@ function remoteStreamError(event: LlmChunk): ApiError {
     ...(code ? { code } : {}),
     event,
   });
+}
+
+function normalizeRemoteLlmChunk(event: LlmChunk): LlmChunk {
+  const text = typeof event.text === "string" ? event.text : typeof event.data === "string" ? event.data : undefined;
+  return text === undefined ? event : { ...event, text };
 }
 
 export async function invokeRemote<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -395,7 +430,7 @@ export async function* streamRemoteLlm(
       const parsed = parseSseData(buffer);
       buffer = parsed.rest;
       for (const data of parsed.events) {
-        const event = JSON.parse(data) as LlmChunk;
+        const event = normalizeRemoteLlmChunk(JSON.parse(data) as LlmChunk);
         if (event.type === "error") throw remoteStreamError(event);
         yield event;
       }

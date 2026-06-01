@@ -66,8 +66,44 @@ import { reviewPromptPreset } from "../../../../engine/generation/prompt-reviewe
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useAgentConfigs, type AgentConfigRow } from "../../agents/index";
-import type { WrapFormat, MarkerType } from "../../../../engine/contracts/types/prompt";
+import type {
+  ChoiceBlock,
+  ChoiceOption,
+  GenerationParameters,
+  MarkerConfig,
+  WrapFormat,
+  MarkerType,
+  PromptGroup,
+  PromptSection,
+} from "../../../../engine/contracts/types/prompt";
 import { SUPPORTED_MACROS } from "../../../../engine/shared/macros/macro-engine";
+
+type PromptSectionRow = Omit<PromptSection, "enabled" | "isMarker" | "forbidOverrides" | "markerConfig"> & {
+  enabled: boolean | string;
+  isMarker: boolean | string;
+  forbidOverrides: boolean | string;
+  markerConfig: MarkerConfigRow | string | null;
+};
+
+type ChoiceBlockRow = Omit<ChoiceBlock, "multiSelect" | "randomPick"> & {
+  variable_name?: string | null;
+  multiSelect: boolean | string;
+  randomPick: boolean | string;
+};
+
+type MarkerConfigRow = Omit<MarkerConfig, "type"> & { type: MarkerType | string };
+
+type CreateSectionMutation = ReturnType<typeof useCreateSection>;
+type UpdateSectionMutation = ReturnType<typeof useUpdateSection>;
+type DeleteSectionMutation = ReturnType<typeof useDeleteSection>;
+type ReorderSectionsMutation = ReturnType<typeof useReorderSections>;
+type CreateGroupMutation = ReturnType<typeof useCreateGroup>;
+type UpdateGroupMutation = ReturnType<typeof useUpdateGroup>;
+type DeleteGroupMutation = ReturnType<typeof useDeleteGroup>;
+type CreateVariableMutation = ReturnType<typeof useCreateVariable>;
+type UpdateVariableMutation = ReturnType<typeof useUpdateVariable>;
+type DeleteVariableMutation = ReturnType<typeof useDeleteVariable>;
+type ReorderVariablesMutation = ReturnType<typeof useReorderVariables>;
 
 /** Intercept Tab in a textarea to insert 2 spaces instead of changing focus. */
 function handleTextareaTab(e: React.KeyboardEvent<HTMLTextAreaElement>, value: string, setValue: (v: string) => void) {
@@ -135,14 +171,27 @@ function readBoolFlag(value: unknown): boolean {
   return value === true || value === "true";
 }
 
-function readMarkerConfig(value: unknown) {
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readMarkerConfig(value: unknown): MarkerConfigRow | null {
   if (!value) return null;
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
   }
+  const config = readRecord(parsed);
+  if (typeof config.type !== "string") return null;
+  return config as MarkerConfigRow;
+}
+
+function markerLabel(type: string): string {
+  return type in MARKER_LABELS ? MARKER_LABELS[type as MarkerType] : "Unknown";
 }
 
 // ═══════════════════════════════════════════════
@@ -178,21 +227,22 @@ export function PresetEditor() {
   }, [dirty, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Local editable state
   const [localName, setLocalName] = useState("");
   const [localDescription, setLocalDescription] = useState("");
   const [localWrapFormat, setLocalWrapFormat] = useState<WrapFormat>("xml");
   const [localAuthor, setLocalAuthor] = useState("");
-  const [localParams, setLocalParams] = useState<Record<string, unknown>>({});
+  const [localParams, setLocalParams] = useState<Partial<GenerationParameters>>({});
 
   // Populate local state when data loads
   useEffect(() => {
     if (!data) return;
-    const p = data.preset as any;
+    const p = data.preset;
     setLocalName(p.name ?? "");
     setLocalDescription(p.description ?? "");
-    setLocalWrapFormat((p.wrapFormat ?? "xml") as WrapFormat);
+    setLocalWrapFormat(p.wrapFormat ?? "xml");
     setLocalAuthor(p.author ?? "");
     setLocalParams(p.parameters ?? {});
   }, [data]);
@@ -205,25 +255,26 @@ export function PresetEditor() {
     closePresetDetail();
   }, [dirty, closePresetDetail]);
 
-  const handleSave = useCallback(() => {
-    if (!presetDetailId) return;
-    updatePreset.mutate(
-      {
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!presetDetailId) return false;
+    setSaveError(null);
+    try {
+      await updatePreset.mutateAsync({
         id: presetDetailId,
         name: localName,
         description: localDescription,
         wrapFormat: localWrapFormat,
         author: localAuthor,
         parameters: localParams,
-      },
-      {
-        onSuccess: () => {
-          setDirty(false);
-          setShowSaved(true);
-          setTimeout(() => setShowSaved(false), 1500);
-        },
-      },
-    );
+      });
+      setDirty(false);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 1500);
+      return true;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save preset");
+      return false;
+    }
   }, [presetDetailId, localName, localDescription, localWrapFormat, localAuthor, localParams, updatePreset]);
 
   const handleDelete = useCallback(async () => {
@@ -246,21 +297,20 @@ export function PresetEditor() {
   // Parse sections in order
   const sectionOrder = useMemo(() => {
     if (!data?.preset) return [];
-    const p = data.preset as any;
-    return Array.isArray(p.sectionOrder) ? p.sectionOrder : [];
+    return Array.isArray(data.preset.sectionOrder) ? data.preset.sectionOrder : [];
   }, [data]);
 
-  const orderedSections = useMemo(() => {
+  const orderedSections = useMemo<PromptSectionRow[]>(() => {
     if (!data?.sections) return [];
-    const map = new Map((data.sections as any[]).map((s) => [s.id, s]));
-    return sectionOrder.map((id: string) => map.get(id)).filter(Boolean) as any[];
+    const map = new Map<string, PromptSectionRow>(data.sections.map((section) => [section.id, section]));
+    return sectionOrder.map((id) => map.get(id)).filter((section): section is PromptSectionRow => Boolean(section));
   }, [data?.sections, sectionOrder]);
 
   const sectionHasLorebookMarker = useMemo(() => {
-    return orderedSections.some((section: any) => {
-      if (section.enabled !== "true" && section.enabled !== true) return false;
-      if (section.isMarker !== "true" && section.isMarker !== true) return false;
-      const config = section.markerConfig;
+    return orderedSections.some((section) => {
+      if (!readBoolFlag(section.enabled)) return false;
+      if (!readBoolFlag(section.isMarker)) return false;
+      const config = readMarkerConfig(section.markerConfig);
       return config?.type === "lorebook" || config?.type === "world_info_before" || config?.type === "world_info_after";
     });
   }, [orderedSections]);
@@ -268,8 +318,8 @@ export function PresetEditor() {
     try {
       const metadata =
         typeof activeChat?.metadata === "string"
-          ? JSON.parse(activeChat.metadata)
-          : ((activeChat?.metadata ?? {}) as any);
+          ? readRecord(JSON.parse(activeChat.metadata))
+          : readRecord(activeChat?.metadata);
       return Array.isArray(metadata.activeLorebookIds) && metadata.activeLorebookIds.length > 0;
     } catch {
       return false;
@@ -277,13 +327,13 @@ export function PresetEditor() {
   }, [activeChat?.metadata]);
 
   const groupMap = useMemo(() => {
-    if (!data?.groups) return new Map<string, any>();
-    return new Map((data.groups as any[]).map((g) => [g.id, g]));
+    if (!data?.groups) return new Map<string, PromptGroup>();
+    return new Map(data.groups.map((group) => [group.id, group]));
   }, [data?.groups]);
 
-  const choiceBlocks = useMemo(() => {
-    if (!data?.choiceBlocks) return [] as any[];
-    return data.choiceBlocks as any[];
+  const choiceBlocks = useMemo<ChoiceBlockRow[]>(() => {
+    if (!data?.choiceBlocks) return [];
+    return data.choiceBlocks;
   }, [data?.choiceBlocks]);
 
   if (!presetDetailId) return null;
@@ -397,15 +447,30 @@ export function PresetEditor() {
               Discard
             </button>
             <button
-              onClick={() => {
-                handleSave();
-                closePresetDetail();
+              onClick={async () => {
+                const saved = await handleSave();
+                if (saved) closePresetDetail();
               }}
+              disabled={updatePreset.isPending}
               className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
             >
               Save & close
             </button>
           </div>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
+          <AlertTriangle size="0.8125rem" />
+          <span className="flex-1">{saveError}</span>
+          <button
+            onClick={() => setSaveError(null)}
+            className="rounded-lg px-2 py-0.5 hover:bg-red-500/20"
+            aria-label="Dismiss save error"
+          >
+            <X size="0.75rem" aria-hidden="true" />
+          </button>
         </div>
       )}
 
@@ -627,21 +692,21 @@ function SectionsTab({
   parentChatHasLorebook,
 }: {
   presetId: string;
-  sections: any[];
-  groupMap: Map<string, any>;
-  choiceBlocks: any[];
+  sections: PromptSectionRow[];
+  groupMap: Map<string, PromptGroup>;
+  choiceBlocks: ChoiceBlockRow[];
   wrapFormat: WrapFormat;
-  onCreateSection: any;
-  onUpdateSection: any;
-  onDeleteSection: any;
-  onReorderSections: any;
-  onCreateGroup: any;
-  onUpdateGroup: any;
-  onDeleteGroup: any;
-  onCreateVariable: any;
-  onUpdateVariable: any;
-  onDeleteVariable: any;
-  onReorderVariables: any;
+  onCreateSection: CreateSectionMutation;
+  onUpdateSection: UpdateSectionMutation;
+  onDeleteSection: DeleteSectionMutation;
+  onReorderSections: ReorderSectionsMutation;
+  onCreateGroup: CreateGroupMutation;
+  onUpdateGroup: UpdateGroupMutation;
+  onDeleteGroup: DeleteGroupMutation;
+  onCreateVariable: CreateVariableMutation;
+  onUpdateVariable: UpdateVariableMutation;
+  onDeleteVariable: DeleteVariableMutation;
+  onReorderVariables: ReorderVariablesMutation;
   hasLorebookMarker: boolean;
   parentChatHasLorebook: boolean;
 }) {
@@ -801,7 +866,7 @@ function SectionsTab({
     if (sourceIdx < insertAt) insertAt--;
     if (sourceIdx === insertAt) return;
 
-    const ids = sections.map((s: any) => s.id);
+    const ids = sections.map((section) => section.id);
     const [moved] = ids.splice(sourceIdx, 1);
     ids.splice(insertAt, 0, moved);
     onReorderSections.mutate({ presetId, sectionIds: ids });
@@ -818,7 +883,7 @@ function SectionsTab({
     onReorderSections.mutate({ presetId, sectionIds });
   };
 
-  const duplicateSection = async (section: any, idx: number) => {
+  const duplicateSection = async (section: PromptSectionRow, idx: number) => {
     try {
       const created = await onCreateSection.mutateAsync({
         presetId,
@@ -836,7 +901,7 @@ function SectionsTab({
         forbidOverrides: readBoolFlag(section.forbidOverrides),
       });
       if (created?.id) {
-        const sectionIds = sections.map((s: any) => s.id);
+        const sectionIds = sections.map((existingSection) => existingSection.id);
         sectionIds.splice(idx + 1, 0, created.id);
         await onReorderSections.mutateAsync({ presetId, sectionIds });
         setExpandedSections((prev) => new Set(prev).add(created.id));
@@ -956,7 +1021,7 @@ function SectionsTab({
             </p>
           ) : (
             <div className="space-y-1">
-              {[...groupMap.values()].map((g: any) => (
+              {[...groupMap.values()].map((g) => (
                 <div
                   key={g.id}
                   className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 ring-1 ring-[var(--border)]"
@@ -991,7 +1056,7 @@ function SectionsTab({
                     </span>
                   )}
                   <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                    {sections.filter((s: any) => s.groupId === g.id).length} sections
+                    {sections.filter((section) => section.groupId === g.id).length} sections
                   </span>
                   <button
                     onClick={async () => {
@@ -1025,13 +1090,14 @@ function SectionsTab({
             <p className="text-xs text-[var(--muted-foreground)]">No sections yet. Add one to get started.</p>
           </div>
         ) : (
-          sections.map((section: any, idx: number) => {
+          sections.map((section, idx) => {
             const isExpanded = expandedSections.has(section.id);
-            const isEnabled = section.enabled === "true" || section.enabled === true;
-            const isMarker = section.isMarker === "true" || section.isMarker === true;
-            const role = (section.role ?? "system") as string;
+            const isEnabled = readBoolFlag(section.enabled);
+            const isMarker = readBoolFlag(section.isMarker);
+            const role = section.role ?? "system";
             const group = section.groupId ? groupMap.get(section.groupId) : null;
             const RoleIcon = ROLE_ICONS[role] ?? Settings2;
+            const markerConfig = readMarkerConfig(section.markerConfig);
             // Show drop indicator line above this card when dropIdx matches
             const showDropBefore =
               dropIdx === idx && draggingIdx !== null && draggingIdx !== idx && draggingIdx !== idx - 1;
@@ -1214,9 +1280,9 @@ function SectionsTab({
 
                       {/* Marker config */}
                       {isMarker &&
-                        section.markerConfig &&
+                        markerConfig &&
                         (() => {
-                          const mc = section.markerConfig;
+                          const mc = markerConfig;
                           const isAgentMarker = mc.type === "agent_data";
                           return isAgentMarker ? (
                             <div className="space-y-2">
@@ -1245,7 +1311,7 @@ function SectionsTab({
                             </div>
                           ) : (
                             <div className="rounded-lg bg-violet-400/5 p-3 text-xs text-violet-300">
-                              Marker type: <strong>{MARKER_LABELS[mc.type as MarkerType] ?? "Unknown"}</strong>
+                              Marker type: <strong>{markerLabel(mc.type)}</strong>
                               <p className="mt-1 text-[var(--muted-foreground)]">
                                 Content is auto-generated at assembly time from your characters, lorebooks, etc.
                               </p>
@@ -1311,7 +1377,7 @@ function SectionsTab({
                           className="rounded-lg bg-[var(--secondary)] px-2 py-1 text-xs ring-1 ring-[var(--border)]"
                         >
                           <option value="">No group</option>
-                          {[...groupMap.values()].map((g: any) => (
+                          {[...groupMap.values()].map((g) => (
                             <option key={g.id} value={g.id}>
                               {g.name}
                             </option>
@@ -1363,11 +1429,11 @@ function PresetVariablesEditor({
   onReorderVariables,
 }: {
   presetId: string;
-  variables: any[];
-  onCreateVariable: any;
-  onUpdateVariable: any;
-  onDeleteVariable: any;
-  onReorderVariables: any;
+  variables: ChoiceBlockRow[];
+  onCreateVariable: CreateVariableMutation;
+  onUpdateVariable: UpdateVariableMutation;
+  onDeleteVariable: DeleteVariableMutation;
+  onReorderVariables: ReorderVariablesMutation;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -1412,7 +1478,7 @@ function PresetVariablesEditor({
     let insertAt = target;
     if (sourceIdx < insertAt) insertAt--;
     if (sourceIdx === insertAt) return;
-    const ids = variables.map((v: any) => v.id);
+    const ids = variables.map((variable) => variable.id);
     const [moved] = ids.splice(sourceIdx, 1);
     ids.splice(insertAt, 0, moved);
     onReorderVariables.mutate({ presetId, variableIds: ids });
@@ -1472,7 +1538,7 @@ function PresetVariablesEditor({
         </div>
       ) : (
         <div className="space-y-2" onDragOver={handleContainerDragOver} onDrop={commitDrop}>
-          {variables.map((variable: any, idx: number) => {
+          {variables.map((variable, idx) => {
             const showDropBefore =
               dropIdx === idx && draggingIdx !== null && draggingIdx !== idx && draggingIdx !== idx - 1;
             const showDropAfter =
@@ -1544,11 +1610,11 @@ function VariableCard({
   isReordering,
 }: {
   presetId: string;
-  variable: any;
+  variable: ChoiceBlockRow;
   isExpanded: boolean;
   onToggle: () => void;
-  onUpdateVariable: any;
-  onDeleteVariable: any;
+  onUpdateVariable: UpdateVariableMutation;
+  onDeleteVariable: DeleteVariableMutation;
   onGripDown: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -1556,14 +1622,12 @@ function VariableCard({
   canMoveDown: boolean;
   isReordering: boolean;
 }) {
-  const opts: Array<{ id: string; label: string; value: string }> = Array.isArray(variable.options)
-    ? variable.options
-    : [];
+  const opts: ChoiceOption[] = Array.isArray(variable.options) ? variable.options : [];
 
   const varName = variable.variableName ?? variable.variable_name ?? "";
   const question = variable.question ?? "";
-  const isMultiSelect = variable.multiSelect === "true" || variable.multiSelect === true;
-  const isRandomPick = variable.randomPick === "true" || variable.randomPick === true;
+  const isMultiSelect = readBoolFlag(variable.multiSelect);
+  const isRandomPick = readBoolFlag(variable.randomPick);
   const separatorValue = variable.separator ?? ", ";
 
   // Track which option is expanded in the big editor (index or null)

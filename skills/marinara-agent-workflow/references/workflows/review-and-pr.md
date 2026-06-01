@@ -18,10 +18,20 @@ Before push or PR creation:
 2. Read `CONTRIBUTING.md` and verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
 3. Confirm only intentional files will ship.
 4. Verify evidence exists for the PR claim.
-5. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
-6. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
-7. If the work came from or references a GitHub issue, put a GitHub closing keyword in the linked-issue field, such as `Closes #123`, so GitHub links the PR to the issue and automatically closes the issue when the PR merges. Do not use only a bare issue reference such as `#123` when merge-time auto-close is intended.
-8. Draft external text exactly.
+5. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
+   If it cannot run, record the exact blocker and why the PR is still being handed off.
+6. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
+7. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
+8. If the work came from or references a GitHub issue, put a GitHub closing keyword in the linked-issue field, such as `Closes #123`, so GitHub links the PR to the issue and automatically closes the issue when the PR merges.
+9. Draft external text exactly.
+
+`pnpm check` is the general pre-PR gate. It does not replace targeted proof
+such as focused tests, lint, build, size checks, clippy, native Tauri QA, or
+browser checks when the change needs them.
+
+If `pnpm check` fails, do not push or mark the PR ready. Classify the failure as
+in-scope or pre-existing/unrelated, fix in-scope failures, and report unrelated
+failures clearly instead of letting CI be the first place they appear.
 
 Open new PRs as draft unless the user or target workflow says it should be ready for review. Never push directly to protected branches or force-push without explicit approval.
 

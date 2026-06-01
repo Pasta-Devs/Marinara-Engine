@@ -5,13 +5,13 @@ import { z } from "zod";
 
 export const lorebookCategorySchema = z.enum(["world", "character", "npc", "spellbook", "game", "uncategorized"]);
 
-export const lorebookGeneratedBySchema = z.enum(["user", "agent", "import", "lorebook-maker", "game-session"]);
+const lorebookGeneratedBySchema = z.enum(["user", "agent", "import", "lorebook-maker", "game-session"]);
 
-export const selectiveLogicSchema = z.enum(["and", "or", "not"]);
+const selectiveLogicSchema = z.enum(["and", "or", "not"]);
 
-export const lorebookFilterModeSchema = z.enum(["any", "include", "exclude"]);
+const lorebookFilterModeSchema = z.enum(["any", "include", "exclude"]);
 
-export const lorebookMatchingSourceSchema = z.enum([
+const lorebookMatchingSourceSchema = z.enum([
   "character_name",
   "character_description",
   "character_personality",
@@ -21,13 +21,13 @@ export const lorebookMatchingSourceSchema = z.enum([
   "persona_tags",
 ]);
 
-export const activationConditionSchema = z.object({
+const activationConditionSchema = z.object({
   field: z.string(),
   operator: z.enum(["equals", "not_equals", "contains", "not_contains", "gt", "lt"]),
   value: z.string(),
 });
 
-export const lorebookScheduleSchema = z.object({
+const lorebookScheduleSchema = z.object({
   activeTimes: z.array(z.string()).default([]),
   activeDates: z.array(z.string()).default([]),
   activeLocations: z.array(z.string()).default([]),

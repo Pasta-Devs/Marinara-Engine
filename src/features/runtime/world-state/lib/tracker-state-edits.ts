@@ -3,13 +3,17 @@ import type {
   CustomTrackerField,
   InventoryItem,
   PresentCharacter,
+  QuestObjective,
   QuestProgress,
 } from "../../../../engine/contracts/types/game-state";
+import { makeManualTrackerRowId } from "../../../../engine/shared/game-state/tracker-row-ids";
 
 type TrackerItemMerger<T extends object> = (previous: T | undefined, latest: T | undefined, next: T) => T;
 type TrackerItemKeyGetter<T> = (item: T | undefined) => string | null | undefined;
 type NamedTrackerItem = { name?: string | null };
-type QuestObjective = QuestProgress["objectives"][number];
+type StatTrackerItem = { statId?: string | null; name?: string | null };
+type InventoryTrackerItem = { inventoryItemId?: string | null; name?: string | null };
+type CustomTrackerItem = { customFieldId?: string | null; name?: string | null };
 
 export function replaceTrackerListItem<T>(items: readonly T[], index: number, item: T): T[] {
   if (index < 0 || index >= items.length) return [...items];
@@ -32,18 +36,6 @@ function mergeChangedTrackerFields<T extends object>(previous: T | undefined, la
     }
   }
   return merged;
-}
-
-export function mergeTrackerListItemUpdate<T extends object>(
-  previousItems: readonly T[],
-  latestItems: readonly T[],
-  index: number,
-  nextItem: T,
-  mergeItem: TrackerItemMerger<T> = mergeChangedTrackerFields,
-): T[] {
-  const latestItem = latestItems[index];
-  if (!latestItem && index >= latestItems.length) return [...latestItems];
-  return replaceTrackerListItem(latestItems, index, mergeItem(previousItems[index], latestItem, nextItem));
 }
 
 function getLatestListIndexByKey<T>(
@@ -134,7 +126,7 @@ function getAppendedListItem<T>(
   return nextItems[nextItems.length - 1];
 }
 
-export function mergeTrackerListUpdate<T extends object>(
+function mergeTrackerListUpdate<T extends object>(
   previousItems: readonly T[],
   latestItems: readonly T[],
   nextItems: readonly T[],
@@ -166,25 +158,82 @@ function namedTrackerItemKey(item: NamedTrackerItem | undefined) {
   return item?.name?.trim() || null;
 }
 
+function trackerIdKey(value: string | null | undefined) {
+  return value?.trim() || null;
+}
+
+function trackerKeyWithLegacyFallback(id: string | null | undefined, legacyKey: string | null | undefined) {
+  const durableId = trackerIdKey(id);
+  if (durableId) return `id:${durableId}`;
+  return legacyKey ? `legacy:${legacyKey}` : null;
+}
+
+function statTrackerItemKey(item: StatTrackerItem | undefined) {
+  return trackerKeyWithLegacyFallback(item?.statId, namedTrackerItemKey(item));
+}
+
+function inventoryTrackerItemKey(item: InventoryTrackerItem | undefined) {
+  return trackerKeyWithLegacyFallback(item?.inventoryItemId, namedTrackerItemKey(item));
+}
+
+function customTrackerItemKey(item: CustomTrackerItem | undefined) {
+  return trackerKeyWithLegacyFallback(item?.customFieldId, namedTrackerItemKey(item));
+}
+
 function questObjectiveKey(item: QuestObjective | undefined) {
-  return item?.text?.trim() || null;
+  return trackerKeyWithLegacyFallback(item?.objectiveId, item?.text?.trim() || null);
 }
 
 function makeManualTrackerId() {
-  const id =
-    typeof globalThis.crypto?.randomUUID === "function"
-      ? globalThis.crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
-  return `manual-${id}`;
+  return makeManualTrackerRowId();
 }
 
-export function mergeNamedTrackerListUpdate<T extends NamedTrackerItem & object>(
-  previousItems: readonly T[],
-  latestItems: readonly T[],
-  nextItems: readonly T[],
-  mergeItem: TrackerItemMerger<T> = mergeChangedTrackerFields,
-): T[] {
-  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergeItem, namedTrackerItemKey);
+export function mergeCharacterStatListUpdate(
+  previousItems: readonly CharacterStat[],
+  latestItems: readonly CharacterStat[],
+  nextItems: readonly CharacterStat[],
+): CharacterStat[] {
+  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergeChangedTrackerFields, statTrackerItemKey);
+}
+
+export function mergeInventoryItemListUpdate(
+  previousItems: readonly InventoryItem[],
+  latestItems: readonly InventoryItem[],
+  nextItems: readonly InventoryItem[],
+): InventoryItem[] {
+  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergeChangedTrackerFields, inventoryTrackerItemKey);
+}
+
+export function mergeInventoryItemListItemUpdate(
+  previousItems: readonly InventoryItem[],
+  latestItems: readonly InventoryItem[],
+  index: number,
+  nextItem: InventoryItem,
+): InventoryItem[] {
+  return mergeKeyedTrackerListItemUpdate(
+    previousItems,
+    latestItems,
+    index,
+    nextItem,
+    inventoryTrackerItemKey,
+    mergeChangedTrackerFields,
+  );
+}
+
+export function removeInventoryItemListItem(
+  previousItems: readonly InventoryItem[],
+  latestItems: readonly InventoryItem[],
+  index: number,
+): InventoryItem[] {
+  return removeKeyedTrackerListItem(previousItems, latestItems, index, inventoryTrackerItemKey);
+}
+
+export function mergeCustomTrackerFieldListUpdate(
+  previousItems: readonly CustomTrackerField[],
+  latestItems: readonly CustomTrackerField[],
+  nextItems: readonly CustomTrackerField[],
+): CustomTrackerField[] {
+  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergeChangedTrackerFields, customTrackerItemKey);
 }
 
 function mergeTrackerRecordUpdate<T>(
@@ -213,7 +262,7 @@ function mergePresentCharacterUpdate(
   if (!previous) return merged;
 
   if (!Object.is(previous.stats, next.stats)) {
-    merged.stats = mergeNamedTrackerListUpdate(previous.stats ?? [], latest?.stats ?? [], next.stats ?? []);
+    merged.stats = mergeCharacterStatListUpdate(previous.stats ?? [], latest?.stats ?? [], next.stats ?? []);
   }
 
   if (!Object.is(previous.customFields, next.customFields)) {
@@ -362,6 +411,7 @@ export function createManualPresentCharacter(options: Partial<PresentCharacter> 
 
 export function createManualInventoryItem(options: Partial<InventoryItem> = {}): InventoryItem {
   return {
+    inventoryItemId: options.inventoryItemId ?? makeManualTrackerId(),
     name: options.name ?? "New Item",
     description: options.description ?? "",
     quantity: options.quantity ?? 1,
@@ -371,6 +421,7 @@ export function createManualInventoryItem(options: Partial<InventoryItem> = {}):
 
 function createManualQuestObjective(options: Partial<QuestProgress["objectives"][number]> = {}) {
   return {
+    objectiveId: options.objectiveId ?? makeManualTrackerId(),
     text: options.text ?? "New objective",
     completed: options.completed ?? false,
   };
@@ -388,6 +439,7 @@ export function createManualQuest(options: Partial<QuestProgress> = {}): QuestPr
 
 export function createManualCustomTrackerField(options: Partial<CustomTrackerField> = {}): CustomTrackerField {
   return {
+    customFieldId: options.customFieldId ?? makeManualTrackerId(),
     name: options.name ?? "New Field",
     value: options.value ?? "",
   };
@@ -395,6 +447,7 @@ export function createManualCustomTrackerField(options: Partial<CustomTrackerFie
 
 export function createManualCharacterStat(options: Partial<CharacterStat> = {}): CharacterStat {
   return {
+    statId: options.statId ?? makeManualTrackerId(),
     name: options.name ?? "New Stat",
     value: options.value ?? 0,
     max: options.max ?? 100,

@@ -24,7 +24,9 @@ If owner, impact, callers, or contract shape cannot be named clearly, resolve th
 
 ## Small
 
-Restate, read the relevant code, build the smallest complete version, verify with browser, focused command, or manual proof, then run the matching baseline validation.
+Restate, read the relevant code, build the smallest complete version, verify with
+the cheapest proof that exercises the claim, then run the matching validation.
+Use browser proof only when browser state is the claim.
 
 ## Medium
 
@@ -42,7 +44,12 @@ For UI work, classify UX risk:
 - Medium: new panel, modal, settings section, empty/error/loading state, or workflow inside an existing surface.
 - High: onboarding, first-run setup, destructive action, import/export, mobile-heavy flow, or advanced feature exposed to nontechnical users.
 
-For medium/high UX risk, define the primary user path, required states, mobile/theme proof, and whether an Impeccable critique/polish pass is useful. Prefer scripted Playwright proof for repeatable UI claims; use manual instructions when automation cannot cover the full path.
+For medium/high UX risk, define the primary user path, required states,
+mobile/theme proof, and whether an Impeccable critique/polish pass is useful.
+Prefer targeted tests, scratch harnesses, route/module repros, or jsdom/component
+proof when they cover the claim; use scripted Playwright proof for repeatable
+browser-dependent UI claims; use manual instructions when automation cannot cover
+the full path.
 
 ## Code Smell Guard
 

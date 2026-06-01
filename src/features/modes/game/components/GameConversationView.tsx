@@ -11,6 +11,7 @@ import {
   useSpriteMetadataState,
 } from "../../shared/chat-ui/index";
 import { GameSurface } from "./GameSurface";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 interface GameConversationViewProps {
   activeChatId: string;
@@ -94,8 +95,20 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
     return <GameChatHydrationState status="loading" />;
   }
 
+  const cardCssMode = (() => {
+    const mode = data.chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
+
   return (
     <>
+      <CreatorNotesCssInjector
+        allCharacters={data.allCharacters}
+        characterIds={data.chatCharIds}
+        mode={cardCssMode}
+        chatMode="game"
+      />
       <GameSurface
         activeChatId={activeChatId}
         chat={data.chat as unknown as EngineChat}

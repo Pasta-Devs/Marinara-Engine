@@ -184,9 +184,9 @@ pub(super) fn resolve_import_folder(body: &Value) -> AppResult<PathBuf> {
     Ok(resolved)
 }
 
-pub(super) fn directory_listing(path: PathBuf, picker_selected: bool) -> AppResult<Value> {
+pub(super) fn directory_listing(path: PathBuf, _picker_selected: bool) -> AppResult<Value> {
     let path = canonical_directory(&path)?;
-    if !picker_selected && !is_home_contained(&path) && !is_allowed_import_root(&path) {
+    if !is_home_contained(&path) && !is_allowed_import_root(&path) {
         return Ok(json!({
             "success": false,
             "error": "Access denied: path outside home directory"
@@ -212,4 +212,26 @@ pub(super) fn directory_listing(path: PathBuf, picker_selected: bool) -> AppResu
         "folderToken": folder_token,
         "folders": folders
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn directory_listing_does_not_treat_picker_selected_as_unrestricted_access() {
+        let path = std::env::current_dir().expect("current dir should be available");
+        if is_home_contained(&path) || is_allowed_import_root(&path) {
+            return;
+        }
+
+        let result = directory_listing(path, true).expect("directory listing should return JSON");
+
+        assert_eq!(result["success"], false);
+        assert_eq!(
+            result["error"],
+            "Access denied: path outside home directory"
+        );
+        assert!(result.get("folderToken").is_none());
+    }
 }

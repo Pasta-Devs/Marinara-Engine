@@ -543,8 +543,11 @@ export function GameInput({
           }
           disabled={disabled}
           rows={1}
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="sentences"
           className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 disabled:opacity-50"
-          style={{ minHeight: 36, maxHeight: 120 }}
+          style={{ minHeight: 40, maxHeight: 120 }}
         />
 
         {queuedDice && (

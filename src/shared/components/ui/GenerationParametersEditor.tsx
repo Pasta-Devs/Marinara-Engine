@@ -12,7 +12,6 @@ export type EditableGenerationParameters = Pick<
   | "frequencyPenalty"
   | "presencePenalty"
   | "reasoningEffort"
-  | "showThoughts"
   | "verbosity"
   | "serviceTier"
   | "assistantPrefill"
@@ -33,7 +32,6 @@ export const EDITABLE_GENERATION_PARAMETER_KEYS = [
   "frequencyPenalty",
   "presencePenalty",
   "reasoningEffort",
-  "showThoughts",
   "verbosity",
   "serviceTier",
   "assistantPrefill",
@@ -48,7 +46,6 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "xhigh",
-  showThoughts: true,
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
@@ -63,7 +60,6 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "xhigh",
-  showThoughts: true,
   verbosity: "high",
   serviceTier: null,
   assistantPrefill: "",
@@ -104,9 +100,6 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
     source.reasoningEffort === "maximum"
   ) {
     next.reasoningEffort = source.reasoningEffort;
-  }
-  if (typeof source.showThoughts === "boolean") {
-    next.showThoughts = source.showThoughts;
   }
   if (
     source.verbosity === null ||
@@ -362,40 +355,6 @@ export function GenerationParametersFields({
               </button>
             ))}
           </div>
-        </div>
-        <div>
-          <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            Show Thoughts
-            <HelpTooltip
-              text="Requests provider-visible thinking summaries when reasoning is enabled. On Claude Opus 4.8 and 4.7, this sends display: summarized instead of letting Anthropic omit thinking text."
-              size="0.625rem"
-            />
-          </span>
-          <button
-            type="button"
-            onClick={() => set("showThoughts", !value.showThoughts)}
-            className={cn(
-              "mt-1 inline-flex h-7 w-full items-center justify-between rounded-lg px-2 text-[0.625rem] font-medium transition-all",
-              value.showThoughts
-                ? "bg-emerald-400/15 text-emerald-400 ring-1 ring-emerald-400/30"
-                : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-            )}
-          >
-            <span>{value.showThoughts ? "Summaries On" : "Summaries Off"}</span>
-            <span
-              className={cn(
-                "relative h-3.5 w-7 rounded-full transition-colors",
-                value.showThoughts ? "bg-emerald-400/70" : "bg-[var(--muted-foreground)]/40",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-transform",
-                  value.showThoughts ? "translate-x-3.5" : "translate-x-0.5",
-                )}
-              />
-            </span>
-          </button>
         </div>
         <div>
           <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">

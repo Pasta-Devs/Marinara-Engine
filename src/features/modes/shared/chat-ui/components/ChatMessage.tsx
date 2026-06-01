@@ -49,13 +49,14 @@ import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys } from "../../../../catalog/chats/index";
 import { useShallow } from "zustand/react/shallow";
+import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { createMessageMacroResolver } from "../../../../../shared/lib/chat-macros";
 import { useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useTranslate } from "../../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { ttsService } from "../../../../../shared/lib/tts-service";
-import { useTTSConfig } from "../../../../../shared/hooks/use-tts";
+import { useCachedTTSConfig } from "../../../../../shared/hooks/use-tts";
 import { isStreamingTTSActive, stopStreamingTTS, subscribeStreamingTTSActive } from "../hooks/use-streaming-tts";
 import { buildTTSVoiceRequests, clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import {
@@ -75,13 +76,15 @@ import type {
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import { readStoredThinking } from "../lib/message-thinking";
+import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
 const MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR =
   "button, a, textarea, input, select, label, [role='button'], [contenteditable='true'], .mari-message-actions";
 
-export function formatEditableMessageText(value: string, quoteFormat: QuoteFormat): string {
+function formatEditableMessageText(value: string, quoteFormat: QuoteFormat): string {
   return formatTextQuotes(value, quoteFormat);
 }
 
@@ -130,7 +133,7 @@ function firstGenerationNumber(records: readonly GenerationLabelRecord[], keys: 
   return null;
 }
 
-export function formatGenerationLabelForMessage(
+function formatGenerationLabelForMessage(
   message: Message,
   showModelName: boolean,
   showTokenUsage: boolean,
@@ -182,7 +185,9 @@ export function formatGenerationLabelForMessage(
     const durationMs = firstGenerationNumber(records, ["durationMs", "duration_ms"]);
 
     if (tokensPrompt != null || tokensCompletion != null) {
-      parts.push(tokensPrompt != null ? `${tokensPrompt}\u2192${tokensCompletion ?? "?"} tok` : `${tokensCompletion} tok`);
+      parts.push(
+        tokensPrompt != null ? `${tokensPrompt}\u2192${tokensCompletion ?? "?"} tok` : `${tokensCompletion} tok`,
+      );
     }
     if ((tokensCachedPrompt ?? 0) > 0) parts.push(`cache hit ${tokensCachedPrompt!.toLocaleString()}`);
     if ((tokensCacheWritePrompt ?? 0) > 0) parts.push(`cache write ${tokensCacheWritePrompt!.toLocaleString()}`);
@@ -674,7 +679,7 @@ function isRunawaySizeValue(value: string): boolean {
   return CHAT_CSS_VIEWPORT_UNIT_RE.test(value) || CHAT_CSS_RUNAWAY_PX_RE.test(value);
 }
 
-export function sanitizeChatStyleDeclarations(style: string): string {
+function sanitizeChatStyleDeclarations(style: string): string {
   return style
     .split(";")
     .map((declaration) => {
@@ -733,7 +738,7 @@ function extractChatStyleBlocks(html: string): { html: string; css: string } {
   return { html: withoutStyles, css: cssBlocks.join("\n") };
 }
 
-export function sanitizeChatCss(css: string): string {
+function sanitizeChatCss(css: string): string {
   return sanitizeChatCssDeclarationBlocks(
     css
       .replace(/<\/?style\b[^>]*>/gi, "")
@@ -925,7 +930,6 @@ export const ChatMessage = memo(function ChatMessage({
   onBranch,
   onCloneSceneFromHere,
   isCloneSceneFromHereDisabled,
-  isLastAssistantMessage,
   characterMap,
   chatMode,
   isGrouped,
@@ -1053,7 +1057,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isTranslating = !!translating[message.id];
 
   // TTS
-  const { data: ttsConfig } = useTTSConfig();
+  const { data: ttsConfig } = useCachedTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
   const ttsSpeakerName = message.characterId ? characterMap?.get(message.characterId)?.name : undefined;
   const ttsVoiceRequests = useMemo(
@@ -1137,18 +1141,9 @@ export const ChatMessage = memo(function ChatMessage({
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
-  const thinking = extra.thinking as string | undefined;
+  const thinking = readStoredThinking(extra);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
-  const promptSnapshotsBySwipe =
-    extra.generationPromptSnapshotsBySwipe &&
-    typeof extra.generationPromptSnapshotsBySwipe === "object" &&
-    !Array.isArray(extra.generationPromptSnapshotsBySwipe)
-      ? (extra.generationPromptSnapshotsBySwipe as Record<string, Message["extra"]["generationPromptSnapshot"]>)
-      : {};
-  const activePromptSnapshot =
-    promptSnapshotsBySwipe[String(message.activeSwipeIndex ?? 0)] ??
-    (extra.generationPromptSnapshot as Message["extra"]["generationPromptSnapshot"] | undefined) ??
-    null;
+  const activePromptSnapshot = resolvePromptSnapshotFromExtra(extra, message.activeSwipeIndex);
   const isHiddenExpanded =
     isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
   const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
@@ -1295,7 +1290,15 @@ export const ChatMessage = memo(function ChatMessage({
   }, []);
 
   // Apply regex scripts to AI output (assistant/narrator roles)
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(chatCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    return (meta as Record<string, unknown> | undefined)?.scopedRegexMode as
+      | "disabled"
+      | "exclusive"
+      | "chat"
+      | undefined;
+  });
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;
@@ -1353,7 +1356,12 @@ export const ChatMessage = memo(function ChatMessage({
     const text =
       isUser || isSystem
         ? message.content
-        : applyToAIOutput(message.content, { depth: messageDepth, resolveMacros: resolveDisplayMacros });
+        : applyToAIOutput(message.content, {
+            depth: messageDepth,
+            resolveMacros: resolveDisplayMacros,
+            scopedMode: scopedRegexMode,
+            characterId: message.characterId,
+          });
     return resolveDisplayMacros(text);
   }, [
     applyToAIOutput,
@@ -1362,6 +1370,7 @@ export const ChatMessage = memo(function ChatMessage({
     isUser,
     macroCharacters,
     message.content,
+    message.characterId,
     messageDepth,
     personaAppearance,
     personaBackstory,
@@ -1369,6 +1378,7 @@ export const ChatMessage = memo(function ChatMessage({
     personaPersonality,
     personaScenario,
     primaryCharInfo,
+    scopedRegexMode,
     userName,
   ]);
 
@@ -1707,6 +1717,7 @@ export const ChatMessage = memo(function ChatMessage({
             "mari-message mari-message-narrator rpg-narrator-msg group mb-4 px-2",
             multiSelectMode && isSelected && "rounded-lg bg-[var(--destructive)]/5 ring-2 ring-[var(--destructive)]/50",
           )}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleMessageDoubleClick}
         >
@@ -1784,6 +1795,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
           data-message-id={message.id}
           data-message-role={message.role}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleMessageDoubleClick}
           style={roleplayAvatarScaleStyle}
@@ -2151,7 +2163,7 @@ export const ChatMessage = memo(function ChatMessage({
                   dark
                 />
               )}
-              {isLastAssistantMessage && !isUser && (
+              {!isUser && (
                 <ActionBtn
                   icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
                   onClick={() =>
@@ -2325,6 +2337,7 @@ export const ChatMessage = memo(function ChatMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-card-css={message.characterId ?? undefined}
       onClick={handleMobileTap}
       onDoubleClick={handleMessageDoubleClick}
     >
@@ -2588,7 +2601,7 @@ export const ChatMessage = memo(function ChatMessage({
                 className={isConversationStart ? "text-amber-500" : undefined}
               />
             )}
-            {isLastAssistantMessage && !isUser && (
+            {!isUser && (
               <ActionBtn
                 icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() =>

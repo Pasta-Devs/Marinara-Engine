@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { ChatFolder } from "../../../../engine/contracts/types/chat";
-import { chatKeys } from "./use-chats";
+import { chatKeys } from "../query-keys";
 
 const folderKeys = {
   all: ["chat-folders"] as const,

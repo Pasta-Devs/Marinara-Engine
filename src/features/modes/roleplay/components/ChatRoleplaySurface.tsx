@@ -91,6 +91,8 @@ const PANEL_BACKDROP =
   "fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]";
 const TRACKER_FOREGROUND_AVOIDANCE_CLASS =
   "pl-[var(--tracker-chat-avoid-left)] pr-[var(--tracker-chat-avoid-right)] transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
+const TRACKER_SCROLL_AVOIDANCE_CLASS =
+  "transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
 const PANEL_CONTAINER =
   "relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in";
 
@@ -164,14 +166,14 @@ function CrossfadeBackground({
     <>
       <div
         className={cn(
-          "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
+          "mari-background pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
           className,
         )}
         style={{ ...blurStyle, backgroundImage: bgA ? `url(${bgA})` : "none", opacity: aActive ? 1 : 0 }}
       />
       <div
         className={cn(
-          "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
+          "mari-background pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
           className,
         )}
         style={{ ...blurStyle, backgroundImage: bgB ? `url(${bgB})` : "none", opacity: aActive ? 0 : 1 }}
@@ -757,11 +759,11 @@ export function ChatRoleplaySurface({
   }, [activeChatId]);
 
   return (
-    <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
-      <div className="rpg-chat-area mari-chat-area relative flex flex-1 flex-col overflow-hidden">
+    <div data-component="ChatArea.Roleplay" className="flex h-full min-h-0 flex-1 basis-0 overflow-hidden">
+      <div className="rpg-chat-area mari-chat-area mari-card-css relative isolate flex h-full min-h-0 flex-1 basis-0 flex-col overflow-hidden" data-chat-mode="roleplay">
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
-        <div className="rpg-overlay absolute inset-0" />
-        <div className="rpg-vignette pointer-events-none absolute inset-0" />
+        <div className="rpg-overlay pointer-events-none absolute inset-0 z-0" />
+        <div className="rpg-vignette pointer-events-none absolute inset-0 z-0" />
         {weatherEffects && addonsReady && <WeatherEffectsConnected chatId={activeChatId} />}
         {showSpriteOverlay && addonsReady && (
           <Suspense fallback={null}>
@@ -781,8 +783,8 @@ export function ChatRoleplaySurface({
           </Suspense>
         )}
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="relative z-20 flex h-full min-h-0 flex-1 basis-0 overflow-hidden">
+          <div className="flex h-full min-h-0 flex-1 basis-0 flex-col overflow-hidden">
             <>
               <div
                 data-tracker-panel-anchor="roleplay-hud"
@@ -970,7 +972,13 @@ export function ChatRoleplaySurface({
               </Suspense>
             )}
 
-            <div className={cn("relative z-10 flex-1 overflow-hidden", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
+            <div
+              className={cn("relative z-10 min-h-0 flex-1 basis-0 overflow-hidden", TRACKER_SCROLL_AVOIDANCE_CLASS)}
+              style={{
+                paddingLeft: "var(--tracker-chat-scroll-avoid-left)",
+                paddingRight: "var(--tracker-chat-scroll-avoid-right)",
+              }}
+            >
               <div
                 ref={scrollRef}
                 data-chat-scroll
@@ -1095,7 +1103,7 @@ export function ChatRoleplaySurface({
               </div>
             </div>
 
-            <div className={cn("relative z-20", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
+            <div className={cn("relative z-30 shrink-0", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
               <div className={cn("relative", centerCompact ? "px-3" : "px-3 md:px-[12%]")}>
                 {chatMeta.sceneStatus === "active" && (
                   <EndSceneBar

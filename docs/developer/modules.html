@@ -93,7 +93,7 @@
             <tr>
               <td><code>features/catalog/characters</code></td>
               <td>
-                Character library data, editors, import/create flows, maker flows, card updates, and sprite query keys.
+                Character library data, editors, import/create flows, maker flows, and card updates.
               </td>
               <td>Storage API, avatar API, character contracts, generation helpers.</td>
             </tr>
@@ -103,6 +103,14 @@
               <td>
                 Storage API, avatar API, persona contracts. Shared persona data hooks are exported from
                 <code>features/catalog/personas/index.ts</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/sprites</code></td>
+              <td>Shared sprite query keys, types, and React Query hooks for character and persona sprite owners.</td>
+              <td>
+                Image generation API sprite commands, character and persona editors, runtime tracker, game, and chat
+                settings consumers.
               </td>
             </tr>
             <tr>
@@ -424,7 +432,9 @@ flowchart LR
             </tr>
             <tr>
               <td><code>image-generation-api.ts</code></td>
-              <td>Image generation, sprites, gallery, and avatar generation commands.</td>
+              <td>
+                Image generation, owner-typed character/persona sprite commands, gallery, and avatar generation commands.
+              </td>
             </tr>
             <tr>
               <td><code>import-api.ts</code></td>

@@ -17,6 +17,12 @@ const OPENAI_CHATGPT_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
 const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const APP_VERSION: &str = "1.6.1";
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SseBlockStatus {
+    Continue,
+    Complete,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LlmMessage {
     pub role: String,
@@ -253,6 +259,26 @@ fn param_string(parameters: &Value, keys: &[&str]) -> Option<String> {
     })
 }
 
+fn param_boolish(parameters: &Value, keys: &[&str], fallback: bool) -> Option<bool> {
+    keys.iter().find_map(|key| {
+        let value = parameters.get(*key)?;
+        match value {
+            Value::Bool(value) => Some(*value),
+            Value::Number(value) => value.as_i64().map(|value| value != 0),
+            Value::String(value) => {
+                let normalized = value.trim().to_ascii_lowercase();
+                match normalized.as_str() {
+                    "" => Some(fallback),
+                    "false" | "0" | "no" | "off" => Some(false),
+                    "true" | "1" | "yes" | "on" => Some(true),
+                    _ => Some(fallback),
+                }
+            }
+            _ => Some(fallback),
+        }
+    })
+}
+
 fn stop_sequences(parameters: &Value) -> Option<Vec<String>> {
     let value = parameters
         .get("stop")
@@ -398,7 +424,7 @@ fn is_claude_opus_adaptive_only_model(model: &str) -> bool {
 }
 
 fn supports_anthropic_adaptive_thinking(model: &str) -> bool {
-    is_claude_opus_adaptive_only_model(model) || claude_version_at_least(model, "sonnet", 4, 5)
+    claude_version_at_least(model, "opus", 4, 6) || claude_version_at_least(model, "sonnet", 4, 6)
 }
 
 fn should_send_openai_sampling_parameters(request: &LlmRequest) -> bool {
@@ -468,13 +494,15 @@ fn google_thinking_config(model: &str, parameters: &Value) -> Option<Value> {
     None
 }
 
-fn anthropic_thinking_effort(parameters: &Value) -> Option<&'static str> {
+fn anthropic_thinking_effort(model: &str, parameters: &Value) -> Option<&'static str> {
     let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
     match effort.as_str() {
         "low" => Some("low"),
         "medium" => Some("medium"),
         "high" => Some("high"),
-        "maximum" | "xhigh" => Some("xhigh"),
+        "xhigh" if is_claude_opus_adaptive_only_model(model) => Some("xhigh"),
+        "xhigh" => Some("high"),
+        "maximum" | "max" => Some("max"),
         _ => None,
     }
 }
@@ -485,6 +513,24 @@ fn anthropic_thinking_budget_tokens(effort: &str) -> u64 {
         "medium" => 8192,
         _ => 24576,
     }
+}
+
+fn should_use_anthropic_adaptive_thinking(
+    model: &str,
+    parameters: &Value,
+    effort: Option<&str>,
+) -> bool {
+    if !supports_anthropic_adaptive_thinking(model) {
+        return false;
+    }
+    if is_claude_opus_adaptive_only_model(model) {
+        return true;
+    }
+    if effort.is_some() {
+        return true;
+    }
+    param_boolish(parameters, &["showThoughts", "show_thoughts"], false)
+        .unwrap_or(false)
 }
 
 fn should_send_top_k(request: &LlmRequest) -> bool {
@@ -551,14 +597,6 @@ fn request_messages(request: &LlmRequest) -> Vec<LlmMessage> {
         });
     }
     messages
-}
-
-fn should_show_thoughts(parameters: &Value) -> bool {
-    parameters
-        .get("showThoughts")
-        .or_else(|| parameters.get("show_thoughts"))
-        .and_then(Value::as_bool)
-        .unwrap_or(true)
 }
 
 #[derive(Debug, Clone)]
@@ -847,16 +885,23 @@ async fn stream_openai_compatible(
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
     let mut tool_calls = OpenAiToolCallAccumulator::default();
+    let mut completed = false;
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| {
             AppError::new("llm_stream_error", provider_transport_error_message(error))
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            process_openai_sse_block(&block, emit, &mut tool_calls)?;
+            if process_openai_sse_block(&block, emit, &mut tool_calls)? == SseBlockStatus::Complete {
+                completed = true;
+                break;
+            }
+        }
+        if completed {
+            break;
         }
     }
-    if !buffer.trim().is_empty() {
+    if !completed && !buffer.trim().is_empty() {
         process_openai_sse_block(&buffer, emit, &mut tool_calls)?;
     }
     for tool_call in tool_calls.into_tool_calls() {
@@ -1060,16 +1105,23 @@ async fn stream_openai_responses(
     }
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut completed = false;
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| {
             AppError::new("llm_stream_error", provider_transport_error_message(error))
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            process_openai_responses_sse_block(&block, emit)?;
+            if process_openai_responses_sse_block(&block, emit)? == SseBlockStatus::Complete {
+                completed = true;
+                break;
+            }
+        }
+        if completed {
+            break;
         }
     }
-    if !buffer.trim().is_empty() {
+    if !completed && !buffer.trim().is_empty() {
         process_openai_responses_sse_block(&buffer, emit)?;
     }
     Ok(())
@@ -1078,7 +1130,7 @@ async fn stream_openai_responses(
 fn process_openai_responses_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
-) -> AppResult<()> {
+) -> AppResult<SseBlockStatus> {
     let event_name = block
         .lines()
         .find_map(|line| line.trim_start().strip_prefix("event:"))
@@ -1090,8 +1142,11 @@ fn process_openai_responses_sse_block(
         .map(str::trim)
         .collect::<Vec<_>>()
         .join("\n");
-    if payload.is_empty() || payload == "[DONE]" {
-        return Ok(());
+    if payload.is_empty() {
+        return Ok(SseBlockStatus::Continue);
+    }
+    if payload == "[DONE]" {
+        return Ok(SseBlockStatus::Complete);
     }
     let value: Value = serde_json::from_str(&payload)
         .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
@@ -1128,6 +1183,7 @@ fn process_openai_responses_sse_block(
             {
                 emit(json!({ "type": "usage", "data": usage }))?;
             }
+            return Ok(SseBlockStatus::Complete);
         }
         "response.failed" | "response.incomplete" | "error" => {
             return Err(AppError::with_details(
@@ -1138,7 +1194,7 @@ fn process_openai_responses_sse_block(
         }
         _ => {}
     }
-    Ok(())
+    Ok(SseBlockStatus::Continue)
 }
 
 #[derive(Default)]
@@ -1218,15 +1274,18 @@ fn process_openai_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
     tool_calls: &mut OpenAiToolCallAccumulator,
-) -> AppResult<()> {
+) -> AppResult<SseBlockStatus> {
     let payload = block
         .lines()
         .filter_map(|line| line.trim_start().strip_prefix("data:"))
         .map(str::trim)
         .collect::<Vec<_>>()
         .join("\n");
-    if payload.is_empty() || payload == "[DONE]" {
-        return Ok(());
+    if payload.is_empty() {
+        return Ok(SseBlockStatus::Continue);
+    }
+    if payload == "[DONE]" {
+        return Ok(SseBlockStatus::Complete);
     }
     let value: Value = serde_json::from_str(&payload)
         .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
@@ -1234,7 +1293,7 @@ fn process_openai_sse_block(
         emit(json!({ "type": "usage", "data": usage }))?;
     }
     let Some(choices) = value.get("choices").and_then(Value::as_array) else {
-        return Ok(());
+        return Ok(SseBlockStatus::Continue);
     };
     for choice in choices {
         let delta = choice.get("delta").unwrap_or(choice);
@@ -1251,8 +1310,16 @@ fn process_openai_sse_block(
                 emit(json!({ "type": "token", "text": content, "data": content }))?;
             }
         }
+        if choice
+            .get("finish_reason")
+            .and_then(Value::as_str)
+            .filter(|reason| !reason.is_empty())
+            .is_some()
+        {
+            return Ok(SseBlockStatus::Complete);
+        }
     }
-    Ok(())
+    Ok(SseBlockStatus::Continue)
 }
 
 fn openai_message(message: &LlmMessage) -> Value {
@@ -2003,9 +2070,12 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
         body["system"] = json!(system.join("\n\n"));
     }
     let adaptive_only = is_claude_opus_adaptive_only_model(&request.connection.model);
-    let thinking_effort = anthropic_thinking_effort(&request.parameters);
-    let adaptive_thinking = thinking_effort.is_some()
-        && supports_anthropic_adaptive_thinking(&request.connection.model);
+    let thinking_effort = anthropic_thinking_effort(&request.connection.model, &request.parameters);
+    let adaptive_thinking = should_use_anthropic_adaptive_thinking(
+        &request.connection.model,
+        &request.parameters,
+        thinking_effort,
+    );
     if !adaptive_only && !adaptive_thinking {
         if let Some(temp) = temperature(&request.parameters) {
             body["temperature"] = json!(temp);
@@ -2016,19 +2086,15 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
             body["top_k"] = json!(top_k);
         }
     }
-    if let Some(effort) = thinking_effort {
-        if adaptive_thinking {
-            let mut thinking = json!({ "type": "adaptive" });
-            if should_show_thoughts(&request.parameters) {
-                thinking["display"] = json!("summarized");
-            }
-            body["thinking"] = thinking;
+    if adaptive_thinking {
+        body["thinking"] = json!({ "type": "adaptive", "display": "summarized" });
+        if let Some(effort) = thinking_effort {
             body["output_config"] = json!({ "effort": effort });
-        } else {
-            let budget_tokens = anthropic_thinking_budget_tokens(effort);
-            body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
-            body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
         }
+    } else if let Some(effort) = thinking_effort {
+        let budget_tokens = anthropic_thinking_budget_tokens(effort);
+        body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
+        body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
     }
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["stop_sequences"] = json!(stop);
@@ -2086,16 +2152,23 @@ async fn stream_anthropic(
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut completed = false;
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| {
             AppError::new("llm_stream_error", provider_transport_error_message(error))
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            process_anthropic_sse_block(&block, emit)?;
+            if process_anthropic_sse_block(&block, emit)? == SseBlockStatus::Complete {
+                completed = true;
+                break;
+            }
+        }
+        if completed {
+            break;
         }
     }
-    if !buffer.trim().is_empty() {
+    if !completed && !buffer.trim().is_empty() {
         process_anthropic_sse_block(&buffer, emit)?;
     }
     Ok(())
@@ -2115,10 +2188,30 @@ fn emit_anthropic_usage(
     Ok(())
 }
 
+fn emit_anthropic_token(
+    text: &str,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    if !text.is_empty() {
+        emit(json!({ "type": "token", "text": text, "data": text }))?;
+    }
+    Ok(())
+}
+
+fn emit_anthropic_thinking(
+    thinking: &str,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    if !thinking.is_empty() {
+        emit(json!({ "type": "thinking", "text": thinking, "data": thinking }))?;
+    }
+    Ok(())
+}
+
 fn process_anthropic_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
-) -> AppResult<()> {
+) -> AppResult<SseBlockStatus> {
     let event_name = block
         .lines()
         .find_map(|line| line.trim_start().strip_prefix("event:"))
@@ -2130,8 +2223,11 @@ fn process_anthropic_sse_block(
         .map(str::trim)
         .collect::<Vec<_>>()
         .join("\n");
-    if payload.is_empty() || payload == "[DONE]" {
-        return Ok(());
+    if payload.is_empty() {
+        return Ok(SseBlockStatus::Continue);
+    }
+    if payload == "[DONE]" {
+        return Ok(SseBlockStatus::Complete);
     }
     let value: Value = serde_json::from_str(&payload)
         .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
@@ -2148,18 +2244,12 @@ fn process_anthropic_sse_block(
                 match block.get("type").and_then(Value::as_str) {
                     Some("text") => {
                         if let Some(text) = block.get("text").and_then(Value::as_str) {
-                            if !text.is_empty() {
-                                emit(json!({ "type": "token", "text": text, "data": text }))?;
-                            }
+                            emit_anthropic_token(text, emit)?;
                         }
                     }
                     Some("thinking") => {
                         if let Some(thinking) = block.get("thinking").and_then(Value::as_str) {
-                            if !thinking.is_empty() {
-                                emit(
-                                    json!({ "type": "thinking", "text": thinking, "data": thinking }),
-                                )?;
-                            }
+                            emit_anthropic_thinking(thinking, emit)?;
                         }
                     }
                     _ => {}
@@ -2171,21 +2261,23 @@ fn process_anthropic_sse_block(
                 match delta.get("type").and_then(Value::as_str) {
                     Some("text_delta") => {
                         if let Some(text) = delta.get("text").and_then(Value::as_str) {
-                            if !text.is_empty() {
-                                emit(json!({ "type": "token", "text": text, "data": text }))?;
-                            }
+                            emit_anthropic_token(text, emit)?;
                         }
                     }
                     Some("thinking_delta") => {
-                        if let Some(thinking) = delta.get("thinking").and_then(Value::as_str) {
-                            if !thinking.is_empty() {
-                                emit(
-                                    json!({ "type": "thinking", "text": thinking, "data": thinking }),
-                                )?;
-                            }
+                        if let Some(thinking) = delta
+                            .get("thinking")
+                            .or_else(|| delta.get("text"))
+                            .and_then(Value::as_str)
+                        {
+                            emit_anthropic_thinking(thinking, emit)?;
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if let Some(thinking) = delta.get("thinking").and_then(Value::as_str) {
+                            emit_anthropic_thinking(thinking, emit)?;
+                        }
+                    }
                 }
             }
         }
@@ -2197,9 +2289,10 @@ fn process_anthropic_sse_block(
                 redact_sensitive_json(error),
             ));
         }
+        "message_stop" => return Ok(SseBlockStatus::Complete),
         _ => {}
     }
-    Ok(())
+    Ok(SseBlockStatus::Continue)
 }
 
 fn anthropic_endpoint(base: &str, path: &str) -> String {
@@ -2408,16 +2501,23 @@ async fn stream_google(
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut completed = false;
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| {
             AppError::new("llm_stream_error", provider_transport_error_message(error))
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            process_google_sse_block(&block, emit)?;
+            if process_google_sse_block(&block, emit)? == SseBlockStatus::Complete {
+                completed = true;
+                break;
+            }
+        }
+        if completed {
+            break;
         }
     }
-    if !buffer.trim().is_empty() {
+    if !completed && !buffer.trim().is_empty() {
         process_google_sse_block(&buffer, emit)?;
     }
     Ok(())
@@ -2426,15 +2526,18 @@ async fn stream_google(
 fn process_google_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
-) -> AppResult<()> {
+) -> AppResult<SseBlockStatus> {
     let payload = block
         .lines()
         .filter_map(|line| line.trim_start().strip_prefix("data:"))
         .map(str::trim)
         .collect::<Vec<_>>()
         .join("\n");
-    if payload.is_empty() || payload == "[DONE]" {
-        return Ok(());
+    if payload.is_empty() {
+        return Ok(SseBlockStatus::Continue);
+    }
+    if payload == "[DONE]" {
+        return Ok(SseBlockStatus::Complete);
     }
     let value: Value = serde_json::from_str(&payload)
         .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
@@ -2449,36 +2552,43 @@ fn process_google_sse_block(
         emit(json!({ "type": "usage", "data": usage }))?;
     }
     let Some(candidates) = value.get("candidates").and_then(Value::as_array) else {
-        return Ok(());
+        return Ok(SseBlockStatus::Continue);
     };
     for candidate in candidates {
-        let Some(parts) = candidate
+        if let Some(parts) = candidate
             .get("content")
             .and_then(|content| content.get("parts"))
             .and_then(Value::as_array)
-        else {
-            continue;
-        };
-        for part in parts {
-            let Some(text) = part
-                .get("text")
-                .and_then(Value::as_str)
-                .filter(|text| !text.is_empty())
-            else {
-                continue;
-            };
-            if part
-                .get("thought")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-            {
-                emit(json!({ "type": "thinking", "text": text, "data": text }))?;
-            } else {
-                emit(json!({ "type": "token", "text": text, "data": text }))?;
+        {
+            for part in parts {
+                let Some(text) = part
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .filter(|text| !text.is_empty())
+                else {
+                    continue;
+                };
+                if part
+                    .get("thought")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
+                    emit(json!({ "type": "thinking", "text": text, "data": text }))?;
+                } else {
+                    emit(json!({ "type": "token", "text": text, "data": text }))?;
+                }
             }
         }
+        if candidate
+            .get("finishReason")
+            .and_then(Value::as_str)
+            .filter(|reason| !reason.is_empty())
+            .is_some()
+        {
+            return Ok(SseBlockStatus::Complete);
+        }
     }
-    Ok(())
+    Ok(SseBlockStatus::Continue)
 }
 
 async fn read_error_response_details(response: reqwest::Response) -> AppResult<Value> {
@@ -2749,13 +2859,13 @@ mod tests {
             Ok(())
         };
 
-        process_openai_sse_block(
+        let first_status = process_openai_sse_block(
             r#"data: {"choices":[{"delta":{"content":"Rolling...","tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"roll_dice","arguments":"{\"notation\""}}]}}]}"#,
             &mut emit,
             &mut tool_calls,
         )
         .expect("first chunk should parse");
-        process_openai_sse_block(
+        let status = process_openai_sse_block(
             r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"1d20\"}"}}]}}]}"#,
             &mut emit,
             &mut tool_calls,
@@ -2769,6 +2879,66 @@ mod tests {
         assert_eq!(calls[0]["id"], "call_1");
         assert_eq!(calls[0]["function"]["name"], "roll_dice");
         assert_eq!(calls[0]["function"]["arguments"], r#"{"notation":"1d20"}"#);
+        assert_eq!(first_status, SseBlockStatus::Continue);
+        assert_eq!(status, SseBlockStatus::Continue);
+    }
+
+    #[test]
+    fn openai_chat_stream_done_block_is_terminal() {
+        let mut emitted = Vec::new();
+        let mut tool_calls = OpenAiToolCallAccumulator::default();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_openai_sse_block("data: [DONE]", &mut emit, &mut tool_calls)
+            .expect("DONE chunk should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert!(emitted.is_empty());
+    }
+
+    #[test]
+    fn openai_chat_stream_finish_reason_is_terminal() {
+        let mut emitted = Vec::new();
+        let mut tool_calls = OpenAiToolCallAccumulator::default();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_openai_sse_block(
+            r#"data: {"choices":[{"delta":{"content":"done"},"finish_reason":"stop"}]}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("finish_reason chunk should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert_eq!(
+            emitted[0],
+            json!({ "type": "token", "text": "done", "data": "done" })
+        );
+    }
+
+    #[test]
+    fn openai_responses_completed_event_is_terminal() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_openai_responses_sse_block(
+            r#"event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2}}}"#,
+            &mut emit,
+        )
+        .expect("response.completed should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert_eq!(emitted[0]["type"], json!("usage"));
     }
 
     #[test]
@@ -2940,7 +3110,7 @@ mod tests {
             Ok(())
         };
 
-        process_google_sse_block(
+        let status = process_google_sse_block(
             r#"data: {"candidates":[{"content":{"parts":[{"text":"pondering","thought":true},{"text":"hello"}]}}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":2,"totalTokenCount":3}}"#,
             &mut emit,
         )
@@ -2955,6 +3125,46 @@ mod tests {
             emitted[2],
             json!({ "type": "token", "text": "hello", "data": "hello" })
         );
+        assert_eq!(status, SseBlockStatus::Continue);
+    }
+
+    #[test]
+    fn google_stream_finish_reason_is_terminal_after_tokens() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_google_sse_block(
+            r#"data: {"candidates":[{"content":{"parts":[{"text":"hello"}]},"finishReason":"STOP"}]}"#,
+            &mut emit,
+        )
+        .expect("Gemini terminal block should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert_eq!(
+            emitted[0],
+            json!({ "type": "token", "text": "hello", "data": "hello" })
+        );
+    }
+
+    #[test]
+    fn google_stream_finish_reason_is_terminal_without_parts() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_google_sse_block(
+            r#"data: {"candidates":[{"finishReason":"STOP"}],"usageMetadata":{"totalTokenCount":3}}"#,
+            &mut emit,
+        )
+        .expect("Gemini terminal metadata block should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert_eq!(emitted[0], json!({ "type": "usage", "data": { "totalTokenCount": 3 } }));
     }
 
     #[test]
@@ -3002,15 +3212,17 @@ mod tests {
     fn anthropic_adaptive_thinking_model_detection_matches_main_branch_rules() {
         assert!(supports_anthropic_adaptive_thinking("claude-opus-4-8"));
         assert!(supports_anthropic_adaptive_thinking("claude-opus-4-7"));
+        assert!(supports_anthropic_adaptive_thinking("claude-opus-4-6"));
         assert!(supports_anthropic_adaptive_thinking("claude-opus-5-6"));
-        assert!(supports_anthropic_adaptive_thinking("claude-sonnet-4-5"));
+        assert!(supports_anthropic_adaptive_thinking("claude-sonnet-4-6"));
+        assert!(!supports_anthropic_adaptive_thinking("claude-sonnet-4-5"));
         assert!(!supports_anthropic_adaptive_thinking(
             "claude-opus-4-20250514"
         ));
     }
 
     #[test]
-    fn anthropic_opus_48_body_uses_adaptive_xhigh_and_strips_sampling() {
+    fn anthropic_opus_48_body_uses_adaptive_maximum_and_strips_sampling() {
         let request = request_for(
             "anthropic",
             "claude-opus-4-8",
@@ -3031,10 +3243,48 @@ mod tests {
             body["thinking"],
             json!({ "type": "adaptive", "display": "summarized" })
         );
-        assert_eq!(body["output_config"]["effort"], json!("xhigh"));
+        assert_eq!(body["output_config"]["effort"], json!("max"));
         assert!(body.get("temperature").is_none());
         assert!(body.get("top_p").is_none());
         assert!(body.get("top_k").is_none());
+    }
+
+    #[test]
+    fn anthropic_opus_48_body_requests_adaptive_thinking_without_effort() {
+        let request = request_for(
+            "anthropic",
+            "claude-opus-4-8",
+            json!({
+                "maxTokens": 16000
+            }),
+        );
+        let body = build_anthropic_body(&request, false);
+
+        assert_eq!(body["max_tokens"], json!(16000));
+        assert_eq!(
+            body["thinking"],
+            json!({ "type": "adaptive", "display": "summarized" })
+        );
+        assert!(body.get("output_config").is_none());
+    }
+
+    #[test]
+    fn anthropic_opus_48_body_ignores_stale_show_thoughts_false() {
+        let request = request_for(
+            "anthropic",
+            "claude-opus-4-8",
+            json!({
+                "maxTokens": 16000,
+                "showThoughts": false
+            }),
+        );
+        let body = build_anthropic_body(&request, false);
+
+        assert_eq!(
+            body["thinking"],
+            json!({ "type": "adaptive", "display": "summarized" })
+        );
+        assert!(body.get("output_config").is_none());
     }
 
     #[test]
@@ -3050,7 +3300,10 @@ mod tests {
         let body = build_anthropic_body(&request, true);
 
         assert_eq!(body["stream"], json!(true));
-        assert_eq!(body["thinking"], json!({ "type": "adaptive" }));
+        assert_eq!(
+            body["thinking"],
+            json!({ "type": "adaptive", "display": "summarized" })
+        );
         assert_eq!(body["output_config"]["effort"], json!("xhigh"));
     }
 
@@ -3091,7 +3344,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","
             &mut emit,
         )
         .expect("thinking delta should parse");
-        process_anthropic_sse_block(
+        let status = process_anthropic_sse_block(
             r#"event: content_block_delta
 data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"hello"}}"#,
             &mut emit,
@@ -3107,6 +3360,26 @@ data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text
             emitted[2],
             json!({ "type": "token", "text": "hello", "data": "hello" })
         );
+        assert_eq!(status, SseBlockStatus::Continue);
+    }
+
+    #[test]
+    fn anthropic_stream_message_stop_is_terminal() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_anthropic_sse_block(
+            r#"event: message_stop
+data: {"type":"message_stop"}"#,
+            &mut emit,
+        )
+        .expect("message_stop should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert!(emitted.is_empty());
     }
 
     #[test]
@@ -3150,6 +3423,36 @@ data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text
         assert_eq!(
             emitted[1],
             json!({ "type": "token", "text": "answer", "data": "answer" })
+        );
+    }
+
+    #[test]
+    fn anthropic_stream_sse_emits_thinking_when_delta_text_shape_varies() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        process_anthropic_sse_block(
+            r#"event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","text":"summary fallback"}}"#,
+            &mut emit,
+        )
+        .expect("thinking delta text fallback should parse");
+        process_anthropic_sse_block(
+            r#"event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary without type"}}"#,
+            &mut emit,
+        )
+        .expect("thinking field without delta type should parse");
+
+        assert_eq!(
+            emitted,
+            vec![
+                json!({ "type": "thinking", "text": "summary fallback", "data": "summary fallback" }),
+                json!({ "type": "thinking", "text": "summary without type", "data": "summary without type" })
+            ]
         );
     }
 

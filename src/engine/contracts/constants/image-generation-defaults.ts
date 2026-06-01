@@ -7,11 +7,11 @@ import type {
 } from "../types/image-generation-defaults.js";
 
 export const IMAGE_DEFAULTS_STORAGE_KEY = "imageGeneration";
-export const IMAGE_GENERATION_DEFAULTS_VERSION = 1 as const;
+const IMAGE_GENERATION_DEFAULTS_VERSION = 1 as const;
 
-export const IMAGE_DEFAULTS_SERVICES: ImageDefaultsService[] = ["automatic1111", "comfyui", "novelai"];
+const IMAGE_DEFAULTS_SERVICES: ImageDefaultsService[] = ["automatic1111", "comfyui", "novelai"];
 
-export const DEFAULT_AUTOMATIC1111_DEFAULTS: Automatic1111Defaults = {
+const DEFAULT_AUTOMATIC1111_DEFAULTS: Automatic1111Defaults = {
   promptPrefix: "",
   negativePromptPrefix: "",
   sampler: "Euler a",
@@ -23,7 +23,7 @@ export const DEFAULT_AUTOMATIC1111_DEFAULTS: Automatic1111Defaults = {
   denoisingStrength: 0.6,
 };
 
-export const DEFAULT_COMFYUI_DEFAULTS: ComfyUiDefaults = {
+const DEFAULT_COMFYUI_DEFAULTS: ComfyUiDefaults = {
   promptPrefix: "",
   negativePromptPrefix: "",
   sampler: "euler_ancestral",
@@ -34,7 +34,7 @@ export const DEFAULT_COMFYUI_DEFAULTS: ComfyUiDefaults = {
   clipSkip: null,
 };
 
-export const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
+const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
   promptPrefix: "",
   negativePromptPrefix: "",
   sampler: "k_euler_ancestral",
@@ -123,7 +123,7 @@ export function imageSourceToDefaultsService(value: unknown): ImageDefaultsServi
   return isImageDefaultsService(normalized) ? normalized : null;
 }
 
-export function isImageDefaultsService(value: unknown): value is ImageDefaultsService {
+function isImageDefaultsService(value: unknown): value is ImageDefaultsService {
   return typeof value === "string" && (IMAGE_DEFAULTS_SERVICES as string[]).includes(value);
 }
 
@@ -167,22 +167,6 @@ export function sanitizeImageGenerationProfile(
   service: ImageDefaultsService,
 ): ImageGenerationDefaultsProfile {
   return normalizeImageGenerationProfile(profile, service).profile;
-}
-
-export function mergePromptPrefix(prefix: string, prompt: string): string {
-  const trimmedPrefix = prefix.trim();
-  const trimmedPrompt = prompt.trim();
-  if (!trimmedPrefix) return trimmedPrompt;
-  if (!trimmedPrompt) return trimmedPrefix;
-  return `${trimmedPrefix}, ${trimmedPrompt}`;
-}
-
-export function mergeNegativePrompt(prefix: string, prompt?: string): string {
-  const trimmedPrefix = prefix.trim();
-  const trimmedPrompt = (prompt ?? "").trim();
-  if (!trimmedPrefix) return trimmedPrompt;
-  if (!trimmedPrompt) return trimmedPrefix;
-  return `${trimmedPrefix}, ${trimmedPrompt}`;
 }
 
 function normalizeAutomatic1111Defaults(rawDefaults: unknown): Automatic1111Defaults {

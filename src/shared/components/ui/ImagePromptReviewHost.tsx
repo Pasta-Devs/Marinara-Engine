@@ -1,5 +1,10 @@
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
-import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
+import type { ImagePromptOverride, ImagePromptReviewItem } from "./ImagePromptReviewModal";
+
+const ImagePromptReviewModal = lazy(() =>
+  import("./ImagePromptReviewModal").then((module) => ({ default: module.ImagePromptReviewModal })),
+);
 
 type PromptReviewRequest = {
   id: string;
@@ -32,20 +37,55 @@ export function requestImagePromptReview(items: ImagePromptReviewItem[]): Promis
 export function ImagePromptReviewHost() {
   const request = useImagePromptReviewStore((state) => state.request);
   const setRequest = useImagePromptReviewStore((state) => state.setRequest);
+  const [displayRequest, setDisplayRequest] = useState<PromptReviewRequest | null>(null);
+  const [open, setOpen] = useState(false);
+  const pendingCloseRef = useRef<{
+    request: PromptReviewRequest;
+    overrides: ImagePromptOverride[] | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!request) return;
+    pendingCloseRef.current = null;
+    setDisplayRequest(request);
+    setOpen(true);
+  }, [request]);
 
   const close = (overrides: ImagePromptOverride[] | null) => {
     const current = useImagePromptReviewStore.getState().request;
     if (!current) return;
-    setRequest(null);
-    current.resolve(overrides);
+    pendingCloseRef.current = { request: current, overrides };
+    setOpen(false);
   };
 
+  const handleExited = () => {
+    const pendingClose = pendingCloseRef.current;
+    if (pendingClose) {
+      pendingCloseRef.current = null;
+      if (useImagePromptReviewStore.getState().request?.id === pendingClose.request.id) {
+        setRequest(null);
+        setDisplayRequest(null);
+        pendingClose.request.resolve(pendingClose.overrides);
+        return;
+      }
+    }
+
+    if (!useImagePromptReviewStore.getState().request) {
+      setDisplayRequest(null);
+    }
+  };
+
+  if (!displayRequest) return null;
+
   return (
-    <ImagePromptReviewModal
-      open={request !== null}
-      items={request?.items ?? []}
-      onCancel={() => close(null)}
-      onConfirm={(overrides) => close(overrides)}
-    />
+    <Suspense fallback={null}>
+      <ImagePromptReviewModal
+        open={open}
+        items={displayRequest.items}
+        onCancel={() => close(null)}
+        onConfirm={(overrides) => close(overrides)}
+        onExited={handleExited}
+      />
+    </Suspense>
   );
 }

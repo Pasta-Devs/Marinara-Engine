@@ -45,7 +45,8 @@ Pressure points touched:
 
 <!-- Check only what you personally ran or manually verified. Treat unchecked items as explicit TODOs. -->
 
-- [ ] `pnpm check` passes locally
+- [ ] Matching validation command passes locally (for example `pnpm typecheck`, `pnpm build`, `pnpm check:architecture`, `pnpm check:docs`, or full `pnpm check` when warranted)
+- [ ] `pnpm check` passes locally before PR push/handoff, including the unused-code check
 - [ ] `pnpm typecheck` passes locally
 - [ ] `pnpm build` passes locally
 - [ ] `pnpm check:architecture` passes locally
@@ -53,12 +54,23 @@ Pressure points touched:
 - [ ] `cargo check --manifest-path src-tauri/Cargo.toml --workspace` passes locally
 - [ ] Rust clippy/tests were run for Rust behavior changes
 - [ ] Browser or Tauri app manual verification completed
-- [ ] Playwright, screenshot, or recording evidence added for UI changes
+- [ ] Browser screenshot/recording evidence added when UI/browser state is the claim
 - [ ] Remote runtime smoke checked when relevant
 
 ### Manual verification notes
 
 <!-- Describe exactly what you tested in a real browser/app/runtime, step by step. If an AI agent filled this out, verify it yourself before ticking boxes. -->
+
+-
+
+## Feature Discoverability
+
+Check exactly one:
+
+- [ ] Updated `src/features/shell/discovery/` because this PR adds or materially changes a user-discoverable feature, workflow, setting, mode, panel, import path, agent, media capability, or advanced tool.
+- [ ] N/A because this PR is only a bugfix, refactor, test, docs, internal wiring, visual polish, copy edit, or compatibility fix and does not add a new thing users need to find.
+
+Reason:
 
 -
 

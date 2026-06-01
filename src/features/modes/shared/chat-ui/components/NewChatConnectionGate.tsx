@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { BookOpen, Loader2, MessageCircle, Plug, Settings, X } from "lucide-react";
 import { useCreateChat } from "../../../../catalog/chats/index";
 import { findUserStarredChatPreset, useApplyChatPreset, useChatPresets } from "../../../../catalog/chat-presets/index";
@@ -29,6 +29,8 @@ interface NewChatConnectionGateProps {
 }
 
 export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGateProps) {
+  const dialogTitleId = useId();
+  const dialogDescriptionId = useId();
   const { data: connections, isLoading } = useConnections();
   const createChat = useCreateChat();
   const { data: chatPresetsData } = useChatPresets();
@@ -102,15 +104,23 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onClose} />
+      <div aria-hidden="true" className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
-        <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,38rem)]">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={dialogTitleId}
+          aria-describedby={dialogDescriptionId}
+          className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,38rem)]"
+        >
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="text-[var(--primary)]">{MODE_META[mode].icon}</span>
               <div>
-                <h3 className="text-sm font-semibold">Set Up {MODE_META[mode].label}</h3>
-                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                <h3 id={dialogTitleId} className="text-sm font-semibold">
+                  Set Up {MODE_META[mode].label}
+                </h3>
+                <p id={dialogDescriptionId} className="text-[0.6875rem] text-[var(--muted-foreground)]">
                   Choose a connection before we create the chat.
                 </p>
               </div>

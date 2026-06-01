@@ -16,7 +16,9 @@ import { useChat } from "../../../catalog/chats/index";
 import { useTrackerStateController } from "../../../runtime/world-state/index";
 import { discardPendingGameStatePatch } from "../../../runtime/world-state/index";
 import {
-  mergeNamedTrackerListUpdate,
+  mergeCharacterStatListUpdate,
+  mergeCustomTrackerFieldListUpdate,
+  mergeInventoryItemListUpdate,
   mergePresentCharacterListUpdate,
   mergeQuestProgressListUpdate,
 } from "../../../runtime/world-state/index";
@@ -212,7 +214,7 @@ export function RoleplayHUD({
   const personaStatus = playerStats?.status ?? "";
   const updatePersonaStats = useCallback(
     (bars: CharacterStat[]) => {
-      patchField("personaStats", mergeNamedTrackerListUpdate(personaStatBars, getSnapshot().personaStats, bars));
+      patchField("personaStats", mergeCharacterStatListUpdate(personaStatBars, getSnapshot().personaStats, bars));
     },
     [getSnapshot, patchField, personaStatBars],
   );
@@ -227,7 +229,7 @@ export function RoleplayHUD({
   );
   const updateInventory = useCallback(
     (items: InventoryItem[]) => {
-      patchPlayerStats("inventory", mergeNamedTrackerListUpdate(inventory, getSnapshot().inventory, items));
+      patchPlayerStats("inventory", mergeInventoryItemListUpdate(inventory, getSnapshot().inventory, items));
     },
     [getSnapshot, inventory, patchPlayerStats],
   );
@@ -241,7 +243,7 @@ export function RoleplayHUD({
     (fields: CustomTrackerField[]) => {
       patchPlayerStats(
         "customTrackerFields",
-        mergeNamedTrackerListUpdate(customTrackerFields, getSnapshot().customTrackerFields, fields),
+        mergeCustomTrackerFieldListUpdate(customTrackerFields, getSnapshot().customTrackerFields, fields),
       );
     },
     [customTrackerFields, getSnapshot, patchPlayerStats],

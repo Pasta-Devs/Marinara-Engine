@@ -83,6 +83,7 @@ export function useAutonomousMessaging(
         produced = await generate({
           chatId,
           connectionId: null,
+          forCharacterId: characterId,
         });
         if (produced) {
           recordAssistantActivityState(chatId, characterId);

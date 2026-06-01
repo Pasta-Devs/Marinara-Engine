@@ -40,7 +40,9 @@ import {
   type GameStateForScanning,
 } from "../generation-core/lorebooks/keyword-scanner";
 import { resolveGameLorebookScopeExclusions } from "../generation-core/lorebooks/game-lorebook-scope";
+import { resolveLorebookKeeperTarget } from "../generation-core/lorebooks/lorebook-keeper-target";
 import { buildSpriteExpressionChoices } from "../modes/game/prompts/sprite.service";
+import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { llmParameters } from "./context";
 import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
 import {
@@ -556,8 +558,16 @@ function chatActiveToolIds(input: GenerationAgentRuntimeInput): Set<string> {
   return stringSet(chatMetadata(input).activeToolIds);
 }
 
+function promptVisibleStoredMessages(
+  input: GenerationAgentRuntimeInput,
+  chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay"),
+  chatMeta = parseRecord(input.chat.metadata),
+): JsonRecord[] {
+  return chatMode === "game" ? applyAllSegmentEdits(input.storedMessages, chatMeta) : input.storedMessages;
+}
+
 function activationScanMessages(input: GenerationAgentRuntimeInput): ActivationScanMessage[] {
-  return input.storedMessages
+  return promptVisibleStoredMessages(input)
     .filter((message) => !hiddenFromAi(message))
     .map((message) => ({ content: readString(message.content) }));
 }
@@ -781,9 +791,39 @@ function skippedDanglingConnectionResult(agent: JsonRecord, connectionId: string
   };
 }
 
+function skippedLorebookKeeperTargetResult(agent: JsonRecord): AgentResult {
+  const name = readString(agent.name) || "Lorebook Keeper";
+  return {
+    agentId: readString(agent.id) || "lorebook-keeper",
+    agentType: "lorebook-keeper",
+    type: "lorebook_update",
+    data: {
+      code: "missing_lorebook_keeper_target",
+      agentName: name,
+    },
+    tokensUsed: 0,
+    durationMs: 0,
+    success: false,
+    error:
+      "Lorebook Keeper needs a target lorebook. Choose a Target Lorebook in Chat Settings or activate a chat, character, or persona lorebook for this chat.",
+  };
+}
+
 function suppressAgentForTurn(input: GenerationAgentRuntimeInput, type: string): boolean {
   const isRegeneration = !!readString(input.regenerateMessageId).trim();
   return isRegeneration && type === "echo-chamber";
+}
+
+async function resolveLorebookKeeperRuntimeTarget(
+  storage: StorageGateway,
+  input: GenerationAgentRuntimeInput,
+): Promise<ReturnType<typeof resolveLorebookKeeperTarget>> {
+  const lorebooks = await storage.list<JsonRecord>("lorebooks");
+  return resolveLorebookKeeperTarget(lorebooks, {
+    chat: input.chat,
+    characters: input.characters.map((character) => ({ id: character.id })),
+    persona: readString(input.chat.personaId) ? { id: input.chat.personaId } : null,
+  });
 }
 
 async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput): Promise<ResolvedAgentsResult> {
@@ -825,6 +865,10 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     if (suppressAgentForTurn(input, type)) continue;
     const id = readString(agent.id) || type;
     const settings = agentSettings(agent);
+    if (type === "lorebook-keeper" && !(await resolveLorebookKeeperRuntimeTarget(deps.storage, input))) {
+      skippedResults.push(skippedLorebookKeeperTargetResult(agent));
+      continue;
+    }
     const builtInAgent = isBuiltInAgent(agent);
     if (!input.bypassCustomAgentActivation && !builtInAgent) {
       const activation = matchCustomAgentActivation(settings, activationMessages);
@@ -925,21 +969,12 @@ function lorebookKeeperActiveForContext(input: GenerationAgentRuntimeInput): boo
 
 async function loadLorebookKeeperEntries(
   storage: StorageGateway,
-  chatMeta: JsonRecord,
+  input: GenerationAgentRuntimeInput,
 ): Promise<Array<{ id: string; name: string; content: string; keys: string[]; locked: boolean }> | null> {
-  const configuredLorebookId = readString(chatMeta.lorebookKeeperTargetLorebookId).trim();
-  const activeLorebookIds = stringSet(chatMeta.activeLorebookIds);
-  let lorebookId = configuredLorebookId || [...activeLorebookIds][0] || "";
+  const target = await resolveLorebookKeeperRuntimeTarget(storage, input);
 
-  if (!lorebookId) {
-    const lorebook = (await storage.list<JsonRecord>("lorebooks").catch(() => [])).find((row) =>
-      boolish(row.enabled, true),
-    );
-    lorebookId = readString(lorebook?.id).trim();
-  }
-
-  if (!lorebookId) return null;
-  const entries = await storage.list<JsonRecord>("lorebook-entries", { filters: { lorebookId } }).catch(() => []);
+  if (!target) return null;
+  const entries = await storage.listLorebookEntries<JsonRecord>(target.id).catch(() => []);
   return entries.map((entry) => ({
     id: readString(entry.id).trim(),
     name: readString(entry.name).trim() || "Unnamed",
@@ -973,7 +1008,7 @@ async function loadAgentAvailableSprites(
 
   const personaId = readString(input.chat.personaId).trim();
   if (personaId && input.persona && (!restrictToSelectedSprites || selectedSpriteIds.has(personaId))) {
-    const sprites = await visuals.listSprites(personaId).catch(() => []);
+    const sprites = await visuals.listSprites(personaId, "persona").catch(() => []);
     const spritePersona = buildAvailableSpriteCharacter(personaId, input.persona.name, sprites, spriteDisplayModes);
     if (spritePersona) perCharacter.push(spritePersona);
   }
@@ -1091,6 +1126,7 @@ async function buildAgentContext(
   const chatId = readString(input.chat.id);
   const chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay");
   const chatMeta = parseRecord(input.chat.metadata);
+  const recentSourceMessages = promptVisibleStoredMessages(input, chatMode, chatMeta);
   const memoryRows = await Promise.all(
     (await deps.storage.list<JsonRecord>("agents"))
       .filter((agent) => readString(agent.id).trim())
@@ -1101,13 +1137,13 @@ async function buildAgentContext(
   if (secretPlotState) memory._secretPlotState = secretPlotState;
   memory._spotifyDjConstraints = buildSpotifyDjConstraints(chatMode, chatMeta);
   if (lorebookKeeperActiveForContext(input)) {
-    const existingLorebookEntries = await loadLorebookKeeperEntries(deps.storage, chatMeta);
+    const existingLorebookEntries = await loadLorebookKeeperEntries(deps.storage, input);
     if (existingLorebookEntries) memory._existingLorebookEntries = existingLorebookEntries;
   }
   const context: AgentContext = {
     chatId,
     chatMode,
-    recentMessages: input.storedMessages
+    recentMessages: recentSourceMessages
       .filter((message) => !hiddenFromAi(message))
       .slice(-60)
       .map((message) => ({

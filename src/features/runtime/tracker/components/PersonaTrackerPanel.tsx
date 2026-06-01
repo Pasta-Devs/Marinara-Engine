@@ -4,7 +4,7 @@ import { HeartPulse, Package, Sparkles } from "lucide-react";
 import type { CharacterStat, InventoryItem } from "../../../../engine/contracts/types/game-state";
 import type { Persona } from "../../../../engine/contracts/types/persona";
 import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../shared/stores/ui.store";
-import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { usePersonaSprites, type SpriteInfo } from "../../../catalog/sprites/index";
 import { personaKeys, useUpdatePersona } from "../../../catalog/personas/index";
 import {
   getTrackerCardPortraitView,
@@ -144,7 +144,7 @@ export function PersonaInventoryPanel({
   const personaName = visibleText(persona?.name, "Persona");
   const personaExpression = spriteExpression?.trim() ?? "";
   const spritePersonaId = personaExpression && persona?.id ? persona.id : null;
-  const { data: personaSprites } = useCharacterSprites(spritePersonaId);
+  const { data: personaSprites } = usePersonaSprites(spritePersonaId);
   const personaSpriteUrl = personaExpression
     ? resolveSpriteUrl(personaSprites as SpriteInfo[] | undefined, personaExpression)
     : null;
@@ -267,7 +267,7 @@ export function PersonaInventoryPanel({
         ) : (
           inventory.map((item, index) => (
             <PersonaInventoryRow
-              key={`${item.name}-${index}`}
+              key={item.inventoryItemId || `${item.name}-${index}`}
               item={item}
               onUpdate={(updated) => onUpdateInventoryItem(index, updated)}
               onRemove={() => onRemoveInventoryItem(index)}

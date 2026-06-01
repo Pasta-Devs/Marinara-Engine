@@ -42,6 +42,7 @@ export type PeekPromptOptions = {
 
 export type MessageWithSwipes = Message & {
   swipes?: Array<Pick<MessageSwipe, "content" | "extra"> & { id?: string }>;
+  swipePreviews?: Array<Pick<MessageSwipe, "content"> & { id?: string }>;
 };
 
 export type ExpressionAvatarResolver = (message: MessageWithSwipes, characterId: string) => string | null;

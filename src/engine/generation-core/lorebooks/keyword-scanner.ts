@@ -74,7 +74,7 @@ export interface GameStateForScanning {
 /**
  * Evaluate activation conditions against game state.
  */
-export function evaluateConditions(conditions: ActivationCondition[], gameState: GameStateForScanning | null): boolean {
+function evaluateConditions(conditions: ActivationCondition[], gameState: GameStateForScanning | null): boolean {
   if (conditions.length === 0) return true;
   if (!gameState) return false;
 

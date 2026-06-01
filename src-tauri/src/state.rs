@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use tokio::sync::watch;
 
@@ -29,8 +30,10 @@ pub struct AppState {
 #[derive(Default)]
 struct LlmStreamCancellations {
     active: HashMap<String, watch::Sender<bool>>,
-    pending: HashSet<String>,
+    pending: HashMap<String, Instant>,
 }
+
+const LLM_STREAM_PENDING_CANCEL_TTL: Duration = Duration::from_secs(60);
 
 impl AppState {
     pub fn new(app: &AppHandle) -> AppResult<Self> {
@@ -123,7 +126,8 @@ impl AppState {
                 "LLM stream cancellation registry is unavailable",
             )
         })?;
-        let starts_cancelled = cancellations.pending.remove(stream_id);
+        prune_expired_llm_stream_cancellations(&mut cancellations);
+        let starts_cancelled = cancellations.pending.remove(stream_id).is_some();
         let (tx, rx) = watch::channel(starts_cancelled);
         cancellations.active.insert(stream_id.to_string(), tx);
         Ok(rx)
@@ -137,27 +141,36 @@ impl AppState {
     }
 
     pub fn cancel_llm_stream(&self, stream_id: &str) -> AppResult<bool> {
-        let cancellations = self.llm_stream_cancellations.lock().map_err(|_| {
+        let mut cancellations = self.llm_stream_cancellations.lock().map_err(|_| {
             AppError::new(
                 "llm_stream_cancel_error",
                 "LLM stream cancellation registry is unavailable",
             )
         })?;
+        prune_expired_llm_stream_cancellations(&mut cancellations);
         if let Some(tx) = cancellations.active.get(stream_id) {
             let _ = tx.send(true);
             Ok(true)
         } else {
-            drop(cancellations);
-            let mut cancellations = self.llm_stream_cancellations.lock().map_err(|_| {
-                AppError::new(
-                    "llm_stream_cancel_error",
-                    "LLM stream cancellation registry is unavailable",
-                )
-            })?;
-            cancellations.pending.insert(stream_id.to_string());
+            cancellations
+                .pending
+                .insert(stream_id.to_string(), Instant::now());
             Ok(false)
         }
     }
+}
+
+fn prune_expired_llm_stream_cancellations(cancellations: &mut LlmStreamCancellations) {
+    prune_expired_llm_stream_cancellations_with_now(cancellations, Instant::now());
+}
+
+fn prune_expired_llm_stream_cancellations_with_now(
+    cancellations: &mut LlmStreamCancellations,
+    now: Instant,
+) {
+    cancellations.pending.retain(|_, created_at| {
+        now.saturating_duration_since(*created_at) < LLM_STREAM_PENDING_CANCEL_TTL
+    });
 }
 
 fn migrate_storage_json_fields(storage: &FileStorage) -> AppResult<()> {
@@ -680,6 +693,64 @@ mod tests {
             .expect("clock should be after epoch")
             .as_nanos();
         TempRoot(std::env::temp_dir().join(format!("marinara-state-{test_name}-{suffix}")))
+    }
+
+    #[test]
+    fn llm_stream_pending_cancellations_inside_ttl_are_retained() {
+        let now = Instant::now();
+        let mut cancellations = LlmStreamCancellations::default();
+        cancellations.pending.insert(
+            "recent".to_string(),
+            now - LLM_STREAM_PENDING_CANCEL_TTL + Duration::from_millis(1),
+        );
+
+        prune_expired_llm_stream_cancellations_with_now(&mut cancellations, now);
+
+        assert!(cancellations.pending.contains_key("recent"));
+    }
+
+    #[test]
+    fn llm_stream_pending_cancellations_older_than_ttl_are_pruned() {
+        let now = Instant::now();
+        let mut cancellations = LlmStreamCancellations::default();
+        cancellations.pending.insert(
+            "expired".to_string(),
+            now - LLM_STREAM_PENDING_CANCEL_TTL - Duration::from_millis(1),
+        );
+
+        prune_expired_llm_stream_cancellations_with_now(&mut cancellations, now);
+
+        assert!(!cancellations.pending.contains_key("expired"));
+    }
+
+    #[test]
+    fn llm_stream_pending_cancellations_with_future_timestamps_do_not_panic() {
+        let now = Instant::now();
+        let mut cancellations = LlmStreamCancellations::default();
+        cancellations
+            .pending
+            .insert("future".to_string(), now + Duration::from_secs(1));
+
+        prune_expired_llm_stream_cancellations_with_now(&mut cancellations, now);
+
+        assert!(cancellations.pending.contains_key("future"));
+    }
+
+    #[test]
+    fn register_llm_stream_starts_cancelled_for_recent_pending_entry() {
+        let root = temp_root("llm-stream-pending-cancel");
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+
+        assert!(!state
+            .cancel_llm_stream("stream-1")
+            .expect("cancel should register pending"));
+
+        let cancellation = state
+            .register_llm_stream("stream-1")
+            .expect("stream should register");
+
+        assert!(*cancellation.borrow());
+        state.unregister_llm_stream("stream-1");
     }
 
     #[test]

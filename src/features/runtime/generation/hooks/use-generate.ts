@@ -50,7 +50,12 @@ import {
   type GenerationReplay,
 } from "../../../../engine/generation/generation-replay";
 import { readNonNegativeInteger } from "../../../../engine/generation/runtime-records";
-import { applyQuestUpdatesToPlayerStats } from "../../../../engine/shared/game-state/player-stats";
+import {
+  applyQuestUpdatesToPlayerStats,
+  parseCustomTrackerField,
+  parseInventoryItem,
+  parseStat,
+} from "../../../../engine/shared/game-state/player-stats";
 import type { AgentDebugEntry } from "../../../../engine/contracts/types/agent";
 import type { IntegrationGateway } from "../../../../engine/capabilities/integrations";
 
@@ -69,6 +74,7 @@ type AgentResultEffectOptions = {
 };
 const HAPTIC_COMMAND_INTERVAL_MS = 225;
 const TYPEWRITER_MAX_FRAME_MS = 120;
+const STREAM_BUFFER_COMMIT_INTERVAL_MS = 45;
 const AGENT_DEBUG_FLUSH_DELAY_MS = 80;
 const AGENT_DEBUG_FLUSH_CHUNK_SIZE = 8;
 const AGENT_DEBUG_FLUSH_CONTINUE_DELAY_MS = 16;
@@ -103,6 +109,10 @@ function readString(value: unknown, fallback = ""): string {
 
 function readPositiveNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function toolEventName(data: unknown): string {
+  return readString(parseMaybeRecord(data).name).trim();
 }
 
 function resolveUserTimeZone(): string {
@@ -643,15 +653,6 @@ function readNullableString(value: unknown): string | null {
   return null;
 }
 
-function readNumber(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
 function trackerTargetFromMessagePayload(value: unknown): WorldStateTarget | null {
   const record = parseMaybeRecord(value);
   const messageId = readString(record.id).trim();
@@ -690,28 +691,6 @@ async function refreshGameStateFromStorage(chatId: string, target?: WorldStateTa
   }
 }
 
-function parseStat(value: unknown): CharacterStat | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  const max = Math.max(1, readNumber(record.max, 100));
-  const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
-  const color = readString(record.color).trim() || "#8b5cf6";
-  return { name, value: valueNumber, max, color };
-}
-
-function parseInventoryItem(value: unknown): InventoryItem | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  return {
-    name,
-    description: readString(record.description).trim(),
-    quantity: Math.max(0, readNumber(record.quantity, 1)),
-    location: readString(record.location).trim() || "on_person",
-  };
-}
-
 function parsePresentCharacter(value: unknown): PresentCharacter | null {
   const record = parseMaybeRecord(value);
   const name = readString(record.name).trim();
@@ -738,13 +717,6 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
       : [],
     thoughts: readNullableString(record.thoughts),
   };
-}
-
-function parseCustomTrackerField(value: unknown): CustomTrackerField | null {
-  const record = parseMaybeRecord(value);
-  const name = readString(record.name).trim();
-  if (!name) return null;
-  return { name, value: readString(record.value).trim() };
 }
 
 function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {
@@ -973,6 +945,11 @@ export async function runGenerationWithUi(
   let received = "";
   let receivedThinking = false;
   let visibleStreamText = "";
+  let committedStreamText = "";
+  let lastStreamBufferCommitAt = 0;
+  let thinkingText = "";
+  let committedThinkingText = "";
+  let lastThinkingBufferCommitAt: number | null = null;
   let pendingReveal = "";
   let typewriterFrame: number | null = null;
   let typewriterActive = false;
@@ -999,11 +976,41 @@ export async function runGenerationWithUi(
     revealWaiters.clear();
   };
 
+  const commitVisibleStreamBuffer = (force = false, now = performance.now()) => {
+    if (visibleStreamText === committedStreamText) return;
+    if (!force && lastStreamBufferCommitAt > 0 && now - lastStreamBufferCommitAt < STREAM_BUFFER_COMMIT_INTERVAL_MS) {
+      return;
+    }
+    committedStreamText = visibleStreamText;
+    lastStreamBufferCommitAt = now;
+    useChatStore.getState().setStreamBuffer(visibleStreamText, chatId);
+  };
+
   const appendVisibleStreamText = (text: string) => {
     if (!text) return;
     visibleStreamText += text;
-    useChatStore.getState().setStreamBuffer(visibleStreamText, chatId);
+    commitVisibleStreamBuffer();
     useChatStore.getState().setMariPhase(chatId, "thinking");
+  };
+
+  const commitThinkingBuffer = (force = false, now = performance.now()) => {
+    if (thinkingText === committedThinkingText) return;
+    if (
+      !force &&
+      lastThinkingBufferCommitAt !== null &&
+      now - lastThinkingBufferCommitAt < STREAM_BUFFER_COMMIT_INTERVAL_MS
+    ) {
+      return;
+    }
+    committedThinkingText = thinkingText;
+    lastThinkingBufferCommitAt = now;
+    useChatStore.getState().setThinkingBuffer(thinkingText, chatId);
+  };
+
+  const appendThinkingText = (text: string) => {
+    if (!text) return;
+    thinkingText += text;
+    commitThinkingBuffer();
   };
 
   const typewriterCharsPerSecond = () => {
@@ -1054,6 +1061,7 @@ export async function runGenerationWithUi(
     typewriterActive = false;
     lastTypewriterPaintAt = 0;
     typewriterRemainder = 0;
+    commitVisibleStreamBuffer(true, now);
     resolveRevealWaiters();
   };
 
@@ -1082,7 +1090,7 @@ export async function runGenerationWithUi(
       pendingReveal = "";
       typewriterActive = false;
       visibleStreamText = received;
-      useChatStore.getState().setStreamBuffer(visibleStreamText, chatId);
+      commitVisibleStreamBuffer(true);
       if (visibleStreamText) useChatStore.getState().setMariPhase(chatId, "thinking");
       resolveAllRevealWaiters();
       return;
@@ -1092,6 +1100,11 @@ export async function runGenerationWithUi(
       revealWaiters.add(resolve);
       scheduleStreamReveal();
     });
+  };
+
+  const flushLiveGenerationBuffers = async () => {
+    commitThinkingBuffer(true);
+    await flushVisibleStreamText();
   };
 
   const ownsChatController = () => useChatStore.getState().abortControllers.get(chatId) === controller;
@@ -1142,6 +1155,7 @@ export async function runGenerationWithUi(
     cancelTypewriterFrame();
     pendingReveal = "";
     typewriterActive = false;
+    commitThinkingBuffer(true);
     resolveAllRevealWaiters();
     releaseForegroundGenerationUi();
   };
@@ -1169,7 +1183,7 @@ export async function runGenerationWithUi(
               state.setGenerationPhase("Thinking...");
               state.setMariPhase(chatId, "thinking");
             }
-            useChatStore.getState().appendThinkingBuffer(event.data, chatId);
+            appendThinkingText(event.data);
           }
           break;
         case "token":
@@ -1182,7 +1196,7 @@ export async function runGenerationWithUi(
         case "message":
         case "user_message":
           if (event.data && typeof event.data === "object") {
-            if (event.type === "user_message") await flushVisibleStreamText();
+            if (event.type === "user_message") await flushLiveGenerationBuffers();
             upsertCachedMessage(queryClient, chatId, event.data);
             scheduleChatQueryRefresh(queryClient, chatId);
             releaseForegroundGenerationUi();
@@ -1191,7 +1205,7 @@ export async function runGenerationWithUi(
           break;
         case "assistant_message":
           if (event.data && typeof event.data === "object") {
-            await flushVisibleStreamText();
+            await flushLiveGenerationBuffers();
             upsertCachedMessage(queryClient, chatId, event.data, { replaceMessageId: regenerateMessageId });
             scheduleChatQueryRefresh(queryClient, chatId);
             const trackerTarget = trackerTargetFromMessagePayload(event.data);
@@ -1203,6 +1217,22 @@ export async function runGenerationWithUi(
         case "agent_result":
           queueAgentResultEffect(event.data);
           break;
+        case "tool_call": {
+          const name = toolEventName(event.data);
+          useChatStore.getState().setGenerationPhase(name ? `Running tool: ${name}...` : "Running tool...");
+          break;
+        }
+        case "tool_result": {
+          const data = parseMaybeRecord(event.data);
+          const name = toolEventName(data);
+          const success = data.success !== false;
+          useChatStore
+            .getState()
+            .setGenerationPhase(
+              name ? `Tool ${success ? "finished" : "failed"}: ${name}.` : `Tool ${success ? "finished" : "failed"}.`,
+            );
+          break;
+        }
         case "agent_injection_review": {
           const data = parseMaybeRecord(event.data);
           const reviewChatId = readString(data.chatId).trim();
@@ -1278,11 +1308,11 @@ export async function runGenerationWithUi(
           break;
         }
         case "done":
-          await flushVisibleStreamText();
+          await flushLiveGenerationBuffers();
           break;
       }
     }
-    await flushVisibleStreamText();
+    await flushLiveGenerationBuffers();
     scheduleChatQueryRefresh(queryClient, chatId);
     return received.length > 0;
   } catch (error) {

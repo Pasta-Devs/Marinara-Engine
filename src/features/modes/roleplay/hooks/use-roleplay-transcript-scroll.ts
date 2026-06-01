@@ -7,7 +7,6 @@ type UseRoleplayTranscriptScrollOptions = {
   activeChatId: string;
   messages: MessageWithSwipes[] | undefined;
   pageCount: number;
-  msgData: { pages: MessageWithSwipes[][] } | undefined;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
@@ -21,7 +20,6 @@ export function useRoleplayTranscriptScroll({
   activeChatId,
   messages,
   pageCount,
-  msgData,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
@@ -38,6 +36,8 @@ export function useRoleplayTranscriptScroll({
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
   const userScrolledAtRef = useRef(0);
+  const streamBuffer = useChatStore((state) => state.streamBuffers.get(activeChatId) ?? state.streamBuffer);
+  const thinkingBuffer = useChatStore((state) => state.thinkingBuffers.get(activeChatId) ?? state.thinkingBuffer);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -78,28 +78,17 @@ export function useRoleplayTranscriptScroll({
     if (!isStreaming) userScrolledAwayRef.current = false;
   }, [isStreaming]);
 
-  const newestMsgId = msgData?.pages[0]?.[msgData.pages[0].length - 1]?.id;
-  const newestMsgSwipeIndex = msgData?.pages[0]?.[msgData.pages[0].length - 1]?.activeSwipeIndex;
+  const newestMsgId = messages?.[messages.length - 1]?.id;
+  const newestMsgSwipeIndex = messages?.[messages.length - 1]?.activeSwipeIndex;
+  const newestMsgRole = messages?.[messages.length - 1]?.role;
   const isOptimistic = newestMsgId?.startsWith("__optimistic_");
+  const forceScrollToNewest = isOptimistic || (isStreaming && newestMsgRole === "user");
   useEffect(() => {
     if (isLoadingMoreRef.current) return;
-    if (isOptimistic || (isNearBottomRef.current && !userScrolledAwayRef.current)) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (forceScrollToNewest || (isNearBottomRef.current && !userScrolledAwayRef.current)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
     }
-  }, [newestMsgId, newestMsgSwipeIndex, isStreaming, isOptimistic]);
-
-  useEffect(() => {
-    let previous = useChatStore.getState().streamBuffer;
-    const unsubscribe = useChatStore.subscribe((state) => {
-      if (state.streamBuffer !== previous) {
-        previous = state.streamBuffer;
-        if (!isLoadingMoreRef.current && isNearBottomRef.current && !userScrolledAwayRef.current) {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }
-      }
-    });
-    return unsubscribe;
-  }, []);
+  }, [newestMsgId, newestMsgSwipeIndex, streamBuffer, thinkingBuffer, isStreaming, forceScrollToNewest]);
 
   useLayoutEffect(() => {
     if (isLoadingMoreRef.current && scrollRef.current && !isFetchingNextPage) {

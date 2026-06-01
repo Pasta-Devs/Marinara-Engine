@@ -30,26 +30,26 @@
 
 import { stripConversationPromptTimestamps } from "../core/summaries/transcript-sanitize.js";
 
-export interface ScheduleUpdateCommand {
+interface ScheduleUpdateCommand {
   type: "schedule_update";
   status?: "online" | "idle" | "dnd" | "offline";
   activity?: string;
   duration?: string;
 }
 
-export interface CrossPostCommand {
+interface CrossPostCommand {
   type: "cross_post";
   /** "group" to post in a group chat, or a character/chat name for DM */
   target: string;
 }
 
-export interface SelfieCommand {
+interface SelfieCommand {
   type: "selfie";
   /** Optional context hint from the character about the selfie */
   context?: string;
 }
 
-export interface MemoryCommand {
+interface MemoryCommand {
   type: "memory";
   /** Target character name */
   target: string;
@@ -57,7 +57,7 @@ export interface MemoryCommand {
   summary: string;
 }
 
-export interface SceneCommand {
+interface SceneCommand {
   type: "scene";
   /** Description of the scene/scenario the character wants to play out */
   scenario: string;
@@ -67,13 +67,13 @@ export interface SceneCommand {
   plan?: string;
 }
 
-export interface InfluenceCommand {
+interface InfluenceCommand {
   type: "influence";
   /** The OOC influence text to inject into the connected roleplay */
   content: string;
 }
 
-export interface NoteCommand {
+interface NoteCommand {
   type: "note";
   /** The durable note text to persist in the connected roleplay's prompt until cleared */
   content: string;
@@ -87,7 +87,7 @@ export interface DirectMessageCommand {
   message: string;
 }
 
-export interface HapticCommand {
+interface HapticCommand {
   type: "haptic";
   /** Device action */
   action: "vibrate" | "oscillate" | "rotate" | "position" | "stop";
@@ -97,7 +97,7 @@ export interface HapticCommand {
   duration?: number;
 }
 
-export interface SpotifyCommand {
+interface SpotifyCommand {
   type: "spotify";
   /** Exact song title to play */
   title: string;
@@ -175,7 +175,7 @@ export interface UpdatePersonaCommand {
   backstory?: string;
 }
 
-export interface CreateLorebookEntryCommand {
+interface CreateLorebookEntryCommand {
   name: string;
   content?: string;
   description?: string;
@@ -186,7 +186,7 @@ export interface CreateLorebookEntryCommand {
   selective?: boolean;
 }
 
-export interface UpdateLorebookEntryCommand extends CreateLorebookEntryCommand {
+interface UpdateLorebookEntryCommand extends CreateLorebookEntryCommand {
   /** Existing entry name to match when renaming or disambiguating. Defaults to name. */
   matchName?: string;
 }
@@ -212,19 +212,19 @@ export interface UpdateLorebookCommand {
   entries?: UpdateLorebookEntryCommand[];
 }
 
-export interface CreateChatCommand {
+interface CreateChatCommand {
   type: "create_chat";
   character: string;
   mode?: "conversation" | "roleplay";
 }
 
-export interface NavigateCommand {
+interface NavigateCommand {
   type: "navigate";
   panel: string;
   tab?: string;
 }
 
-export interface FetchCommand {
+interface FetchCommand {
   type: "fetch";
   /** What kind of item to fetch */
   fetchType: "character" | "persona" | "lorebook" | "chat" | "preset";
@@ -232,7 +232,7 @@ export interface FetchCommand {
   name: string;
 }
 
-export type AssistantCommand =
+type AssistantCommand =
   | CreatePersonaCommand
   | CreateCharacterCommand
   | UpdateCharacterCommand
@@ -822,19 +822,4 @@ export function parseDirectMessageCommands(content: string): {
     .trim();
 
   return { cleanContent, commands, invalidCommands };
-}
-
-/**
- * Parse a duration string like "2h", "30m", "1h30m" into minutes.
- * Returns null if unparseable.
- */
-export function parseDuration(duration: string): number | null {
-  const hourMatch = duration.match(/(\d+)\s*h/i);
-  const minMatch = duration.match(/(\d+)\s*m/i);
-
-  let total = 0;
-  if (hourMatch) total += parseInt(hourMatch[1]!) * 60;
-  if (minMatch) total += parseInt(minMatch[1]!);
-
-  return total > 0 ? total : null;
 }

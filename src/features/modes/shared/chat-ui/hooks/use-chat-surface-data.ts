@@ -353,5 +353,6 @@ export function useChatSurfaceData({
     connectedChatName,
     pageCount,
     gameCharacters,
+    allCharacters: characterRows as Array<{ id: string; data: string; avatarPath: string | null }> | undefined,
   };
 }

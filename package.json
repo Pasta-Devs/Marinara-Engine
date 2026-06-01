@@ -26,9 +26,10 @@
     "check:rust:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check --config deny.toml",
     "check:rust:deps": "cargo machete src-tauri",
     "check:docs": "node scripts/check-docs.mjs",
+    "check:discovery": "node scripts/check-discovery-metadata.mjs",
     "check:line-endings": "node scripts/check-line-endings.mjs",
-    "check:unused": "knip --files --no-config-hints",
-    "check": "pnpm check:line-endings && pnpm check:architecture && pnpm check:frontend && pnpm check:rust && pnpm check:docs",
+    "check:unused": "knip --no-config-hints",
+    "check": "pnpm check:line-endings && pnpm check:architecture && pnpm check:frontend && pnpm check:rust && pnpm check:docs && pnpm check:discovery && pnpm check:unused",
     "test": "vitest run",
     "test:allow-empty": "vitest run --passWithNoTests",
     "test:ui": "pnpm build && playwright test",
@@ -87,22 +88,16 @@
     "vite": "^7.3.2",
     "vitest": "^4.1.7"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ],
-    "ignoredBuiltDependencies": [
-      "unrs-resolver"
-    ]
-  },
   "size-limit": [
     {
       "path": "dist/assets/*.js",
-      "limit": "1.7 MB"
+      "limit": "1.7 MB",
+      "running": false
     },
     {
       "path": "dist/assets/*.css",
-      "limit": "250 KB"
+      "limit": "250 KB",
+      "running": false
     }
   ]
 }

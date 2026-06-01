@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronUp, CircleUser, FileText, Link, Plus, Send, X } from "lucide-react";
-import { runProfessorMariEntry, type MariMessage } from "../../../../engine/mari/mari-entry";
+import { runProfessorMariEntry, type MariAttachment, type MariMessage } from "../../../../engine/mari/mari-entry";
 import {
   compactProfessorMariHistory,
   EMPTY_MARI_COMPACTION,
+  PROFESSOR_MARI_CHAT_ID,
   isMariResetCommand,
   mariContextMessages,
   type MariCompactionState,
@@ -32,13 +33,7 @@ const MARI_INPUT_PLACEHOLDER = "Message @Professor Mari, /reset to reset the con
 const MARI_ATTACHMENT_CLIENT_TEXT_BYTES = 64 * 1024;
 const MARI_IMAGE_ATTACHMENT_EXTENSIONS = new Set(["avif", "gif", "jpeg", "jpg", "png", "webp"]);
 
-type MariAttachment = {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  content: string;
-};
+type ClientMariAttachment = MariAttachment & { id: string };
 
 type MariConnection = {
   id: string;
@@ -90,7 +85,7 @@ function getDayKey(value: string) {
 function toConversationMessage(message: MariMessage): Message {
   return {
     id: message.id,
-    chatId: "professor-mari",
+    chatId: PROFESSOR_MARI_CHAT_ID,
     role: message.role,
     characterId: message.role === "assistant" ? MARI_CHARACTER_ID : null,
     content: message.content,
@@ -116,7 +111,7 @@ export function ProfessorMariSurface() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [compaction, setCompaction] = useState<MariCompactionState>(EMPTY_MARI_COMPACTION);
   const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<MariAttachment[]>([]);
+  const [attachments, setAttachments] = useState<ClientMariAttachment[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
@@ -300,7 +295,7 @@ export function ProfessorMariSurface() {
     const nextAttachments = await Promise.all(
       Array.from(files).map(
         (file) =>
-          new Promise<MariAttachment>((resolve, reject) => {
+          new Promise<ClientMariAttachment>((resolve, reject) => {
             const finish = (content: string) =>
               resolve({
                 id: newId("mari-file"),

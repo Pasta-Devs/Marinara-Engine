@@ -708,7 +708,12 @@ mod tests {
                 },
                 {
                     "key": "game.background",
-                    "template": "Background ${location}",
+                    "template": "Background ${defaultPrompt}",
+                    "enabled": "true"
+                },
+                {
+                    "key": "game.unknown",
+                    "template": "Unknown ${defaultPrompt}",
                     "enabled": "true"
                 }
             ]),
@@ -722,14 +727,17 @@ mod tests {
             .storage
             .list("prompt-overrides")
             .expect("prompt overrides should be readable");
-        assert_eq!(rows.len(), 1);
+        assert_eq!(rows.len(), 2);
         assert_eq!(rows[0]["id"], "conversation.selfie");
         assert_eq!(rows[0]["key"], "conversation.selfie");
         assert_eq!(rows[0]["template"], "Selfie ${charName}");
         assert_eq!(rows[0]["enabled"], true);
+        assert_eq!(rows[1]["id"], "game.background");
+        assert_eq!(rows[1]["key"], "game.background");
+        assert_eq!(rows[1]["template"], "Background ${defaultPrompt}");
         assert!(state
             .storage
-            .get("prompt-overrides", "game.background")
+            .get("prompt-overrides", "game.unknown")
             .expect("unsupported prompt override lookup should not fail")
             .is_none());
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 2);

@@ -138,6 +138,24 @@ async function patchChatObjectField<T>(chatId: string, field: string, patch: Rec
   return storageApi.update<T>("chats", chatId, { [field]: { ...current, ...patch } });
 }
 
+// Day/week summary maps live inside chat metadata, but callers send only the
+// entries they changed (a delta), not the whole map. A plain metadata patch
+// would replace `metadata.daySummaries` with just the delta and drop every
+// other summary, so merge each map at the entry level instead.
+const SUMMARY_MAP_FIELDS = ["daySummaries", "weekSummaries"] as const;
+
+async function patchChatSummariesField<T>(chatId: string, patch: Record<string, unknown>): Promise<T> {
+  const chat = await storageApi.get<Record<string, unknown>>("chats", chatId, { fields: ["metadata"] });
+  if (!chat) throw new ApiError(`Chat ${chatId} was not found`, 404);
+  const current = asRecord(chat.metadata);
+  const metadata: Record<string, unknown> = { ...current };
+  for (const field of SUMMARY_MAP_FIELDS) {
+    if (patch[field] === undefined) continue;
+    metadata[field] = { ...asRecord(current[field]), ...asRecord(patch[field]) };
+  }
+  return storageApi.update<T>("chats", chatId, { metadata });
+}
+
 export const storageApi: StorageGateway = {
   list: async (entity: string, options?: StorageListOptions) =>
     normalizeStorageReadResult(
@@ -213,7 +231,7 @@ export const storageApi: StorageGateway = {
       body: chatMessageSwipeBody(content, options),
     }),
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
-  patchChatSummaries: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
+  patchChatSummaries: (chatId, patch) => patchChatSummariesField(chatId, patch),
   listChatMemories: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
     return asArray(chat?.memories);

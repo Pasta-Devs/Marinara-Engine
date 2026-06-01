@@ -1,5 +1,6 @@
 use super::*;
 use crate::state::AppState;
+use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn test_state(label: &str) -> AppState {
@@ -26,6 +27,21 @@ fn test_string<'a>(record: &'a Value, field: &str) -> &'a str {
         .get(field)
         .and_then(Value::as_str)
         .expect("expected record field to be a string")
+}
+
+fn block_collection_writes(state: &AppState, collection: &str) {
+    let collection_path = state
+        .storage
+        .root()
+        .join("collections")
+        .join(format!("{collection}.json"));
+    if let Some(parent) = collection_path.parent() {
+        fs::create_dir_all(parent).expect("collection parent should be created");
+    }
+    if collection_path.is_file() {
+        fs::remove_file(&collection_path).expect("seeded collection file should be removable");
+    }
+    fs::create_dir(collection_path).expect("collection path should block file writes");
 }
 
 #[test]
@@ -86,6 +102,72 @@ fn parented_record_import_rolls_back_created_records_on_failure() {
         .filter(|group| group.get("presetId").and_then(Value::as_str) == Some(owner_id))
         .collect::<Vec<_>>();
     assert!(remaining.is_empty());
+}
+
+#[test]
+fn generic_marinara_lorebook_import_rolls_back_outer_records_on_entry_failure() {
+    let state = test_state("generic-lorebook-outer-rollback");
+    block_collection_writes(&state, "lorebook-entries");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_lorebook",
+            "version": 1,
+            "data": {
+                "lorebook": { "id": "old-book", "name": "Rollback Lorebook" },
+                "folders": [
+                    { "id": "old-root", "name": "Root", "lorebookId": "old-book" }
+                ],
+                "entries": [
+                    { "id": "old-entry", "name": "Entry", "content": "body", "keys": ["rollback"] }
+                ]
+            }
+        }),
+    )
+    .expect_err("entry storage failure should reject lorebook import");
+
+    assert_eq!(error.code, "io_error");
+    assert!(state.storage.list("lorebooks").unwrap().is_empty());
+    assert!(state.storage.list("lorebook-folders").unwrap().is_empty());
+}
+
+#[test]
+fn generic_marinara_preset_import_rolls_back_outer_records_on_section_failure() {
+    let state = test_state("generic-preset-outer-rollback");
+    block_collection_writes(&state, "prompt-sections");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_preset",
+            "version": 1,
+            "data": {
+                "preset": { "id": "old-preset", "name": "Rollback Preset" },
+                "groups": [
+                    { "id": "old-root", "name": "Root", "presetId": "old-preset" }
+                ],
+                "sections": [
+                    { "id": "old-section", "name": "Section", "content": "hello", "presetId": "old-preset" }
+                ]
+            }
+        }),
+    )
+    .expect_err("section storage failure should reject preset import");
+
+    assert_eq!(error.code, "io_error");
+    assert!(state
+        .storage
+        .list("prompts")
+        .unwrap()
+        .iter()
+        .all(|prompt| prompt.get("name").and_then(Value::as_str) != Some("Rollback Preset")));
+    assert!(state
+        .storage
+        .list("prompt-groups")
+        .unwrap()
+        .iter()
+        .all(|group| group.get("name").and_then(Value::as_str) != Some("Root")));
 }
 
 #[test]

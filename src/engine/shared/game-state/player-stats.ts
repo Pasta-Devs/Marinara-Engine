@@ -3,6 +3,7 @@ import type {
   CustomTrackerField,
   InventoryItem,
   PlayerStats,
+  QuestObjective,
   QuestProgress,
   RPGAttributes,
 } from "../../contracts/types/game-state";
@@ -15,10 +16,9 @@ import {
   readString,
 } from "../../generation/runtime-records";
 
-export type QuestObjective = QuestProgress["objectives"][number];
-export type QuestUpdateAction = "create" | "update" | "complete" | "fail";
+type QuestUpdateAction = "create" | "update" | "complete" | "fail";
 
-export interface NormalizedQuestUpdate {
+interface NormalizedQuestUpdate {
   action: QuestUpdateAction;
   questName: string;
   objectives?: QuestObjective[];
@@ -35,10 +35,10 @@ const RPG_ATTRIBUTE_KEYS: RpgAttributeKey[] = ["str", "dex", "con", "int", "wis"
  */
 const NESTED_QUEST_KEYS = ["quests", "activeQuests", "groups", "items", "children"] as const;
 
-export function parseQuestObjective(value: unknown): { text: string; completed: boolean } | null {
+function parseQuestObjective(value: unknown): QuestObjective | null {
   if (typeof value === "string") {
     const text = value.trim();
-    return text ? { text, completed: false } : null;
+    return text ? { objectiveId: "", text, completed: false } : null;
   }
   const record = parseRecord(value);
   const text = firstString(record.text, record.description, record.objective, record.name, record.title);
@@ -47,12 +47,13 @@ export function parseQuestObjective(value: unknown): { text: string; completed: 
     .trim()
     .toLowerCase();
   return {
+    objectiveId: readString(record.objectiveId).trim(),
     text,
     completed: boolish(record.completed, status === "complete" || status === "completed" || status === "done"),
   };
 }
 
-export function firstString(...values: unknown[]): string | undefined {
+function firstString(...values: unknown[]): string | undefined {
   for (const value of values) {
     const text = readString(value).trim();
     if (text) return text;
@@ -72,7 +73,7 @@ function looksLikeQuestRecord(record: Record<string, unknown>): boolean {
   );
 }
 
-export function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null {
+function parseQuest(value: unknown, fallbackName?: string): QuestProgress | null {
   const record = parseRecord(value);
   let name = readString(record.name).trim() || readString(record.questName).trim();
   if (!name && looksLikeQuestRecord(record)) {
@@ -100,7 +101,7 @@ export function parseQuest(value: unknown, fallbackName?: string): QuestProgress
  * agents produce: plain arrays, keyed quest maps (`{ questId: quest }`), grouped
  * containers (`{ quests: [...] }`, `{ groups: [...] }`), and nested collections.
  */
-export function normalizeActiveQuestCollection(value: unknown, depth = 0): QuestProgress[] {
+function normalizeActiveQuestCollection(value: unknown, depth = 0): QuestProgress[] {
   if (value == null || depth > 5) return [];
   if (Array.isArray(value)) {
     return value.flatMap((entry) => normalizeActiveQuestCollection(entry, depth + 1));
@@ -139,7 +140,7 @@ export function parseStat(value: unknown): CharacterStat | null {
   const max = Math.max(1, readNumber(record.max, 100));
   const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
   const color = readString(record.color).trim() || "#8b5cf6";
-  return { name, value: valueNumber, max, color };
+  return { statId: readString(record.statId).trim(), name, value: valueNumber, max, color };
 }
 
 export function parseInventoryItem(value: unknown): InventoryItem | null {
@@ -147,6 +148,7 @@ export function parseInventoryItem(value: unknown): InventoryItem | null {
   const name = readString(record.name).trim();
   if (!name) return null;
   return {
+    inventoryItemId: readString(record.inventoryItemId).trim(),
     name,
     description: readString(record.description).trim(),
     quantity: Math.max(0, readNumber(record.quantity, 1)),
@@ -158,7 +160,7 @@ export function parseCustomTrackerField(value: unknown): CustomTrackerField | nu
   const record = parseRecord(value);
   const name = readString(record.name).trim();
   if (!name) return null;
-  return { name, value: readString(record.value).trim() };
+  return { customFieldId: readString(record.customFieldId).trim(), name, value: readString(record.value).trim() };
 }
 
 function parseRpgAttributes(value: unknown): RPGAttributes | null {
@@ -202,7 +204,7 @@ export function clonePlayerStats(value: unknown): PlayerStats {
   };
 }
 
-export function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
+function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
   const normalized = readString(value).trim().toLowerCase();
   if (normalized === "completed") return "complete";
   if (normalized === "failed") return "fail";
@@ -211,7 +213,7 @@ export function normalizeQuestAction(value: unknown): QuestUpdateAction | null {
     : null;
 }
 
-export function collectQuestObjectives(value: unknown, depth = 0): QuestObjective[] {
+function collectQuestObjectives(value: unknown, depth = 0): QuestObjective[] {
   if (value == null || depth > 5) return [];
   if (Array.isArray(value)) return value.flatMap((entry) => collectQuestObjectives(entry, depth + 1));
   const direct = parseQuestObjective(value);
@@ -226,7 +228,7 @@ export function collectQuestObjectives(value: unknown, depth = 0): QuestObjectiv
   return Object.values(record).flatMap((entry) => collectQuestObjectives(entry, depth + 1));
 }
 
-export function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | null {
+function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | null {
   const record = parseRecord(value);
   const action = normalizeQuestAction(record.action);
   const questName = firstString(record.questName, record.name, record.title, record.questEntryId);
@@ -239,7 +241,7 @@ export function normalizeQuestUpdate(value: unknown): NormalizedQuestUpdate | nu
   };
 }
 
-export function cloneQuest(quest: QuestProgress): QuestProgress {
+function cloneQuest(quest: QuestProgress): QuestProgress {
   return {
     ...quest,
     objectives: quest.objectives.map((objective) => ({ ...objective })),

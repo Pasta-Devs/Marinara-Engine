@@ -8,6 +8,7 @@ import {
   createAgentConfigSchema,
   updateAgentConfigSchema,
 } from "../../../../engine/contracts/schemas/agent.schema";
+import { agentCreditLabel } from "../hooks/use-agents";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useConnections } from "../../connections/index";
 import { Loader2, Sparkles, Save } from "lucide-react";
@@ -18,6 +19,7 @@ export interface AgentData {
   type: string;
   name: string;
   description: string;
+  credit?: string;
   phase: AgentPhase;
   enabled?: string | boolean;
   connectionId?: string | null;
@@ -44,6 +46,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
   const [form, setForm] = useState({
     name: "",
     description: "",
+    credit: "",
     phase: "post_processing" as AgentPhase,
     connectionId: "" as string,
     promptTemplate: "",
@@ -58,6 +61,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
       setForm({
         name: agent.name ?? "",
         description: agent.description ?? "",
+        credit: agentCreditLabel(agent.credit),
         phase: (agent.phase as AgentPhase) ?? "post_processing",
         connectionId: agent.connectionId ?? "",
         promptTemplate: agent.promptTemplate ?? "",
@@ -92,6 +96,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
     const payload = {
       name: form.name,
       description: form.description,
+      credit: agentCreditLabel(form.credit),
       phase: form.phase,
       connectionId: form.connectionId || null,
       promptTemplate: form.promptTemplate,
@@ -147,6 +152,14 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
             placeholder="What does this agent do..."
             className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
           />
+        </label>
+
+        {/* Credit */}
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-[var(--muted-foreground)]">Credit</span>
+          <div className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] ring-1 ring-transparent">
+            {agentCreditLabel(form.credit)}
+          </div>
         </label>
 
         {/* Phase */}

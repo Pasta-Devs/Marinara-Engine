@@ -16,6 +16,7 @@ import {
   parseInventoryItem,
   parseStat,
 } from "../shared/game-state/player-stats";
+import { normalizeGameStateTrackerRows } from "../shared/game-state/tracker-row-ids";
 
 export interface TrackerSnapshotTurnTarget {
   messageId: string;
@@ -116,7 +117,7 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
 
 function normalizeGameState(value: unknown, chatId: string, target: TrackerSnapshotTurnTarget): GameState {
   const record = parseRecord(value);
-  return {
+  return normalizeGameStateTrackerRows({
     id: readString(record.id),
     chatId,
     messageId: target.messageId,
@@ -141,7 +142,7 @@ function normalizeGameState(value: unknown, chatId: string, target: TrackerSnaps
     committed: record.committed === undefined ? undefined : boolish(record.committed, false),
     manualOverrides: parseManualOverrides(record.manualOverrides),
     createdAt: readString(record.createdAt) || nowIso(),
-  };
+  });
 }
 
 function trackerSnapshotTargetFromRecord(value: unknown): TrackerSnapshotTurnTarget | null {

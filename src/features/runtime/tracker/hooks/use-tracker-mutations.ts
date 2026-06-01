@@ -14,13 +14,14 @@ import {
   createManualInventoryItem,
   createManualPresentCharacter,
   createManualQuest,
+  mergeCharacterStatListUpdate,
+  mergeCustomTrackerFieldListUpdate,
+  mergeInventoryItemListItemUpdate,
   mergePresentCharacterListItemUpdate,
   mergeQuestProgressListItemUpdate,
-  mergeTrackerListItemUpdate,
-  mergeTrackerListUpdate,
+  removeInventoryItemListItem,
   removePresentCharacterListItem,
   removeQuestProgressListItem,
-  removeTrackerListItem,
 } from "../../world-state/index";
 import { getCharacterFeatureKey } from "../components/tracker-character.helpers";
 
@@ -32,6 +33,7 @@ export function useTrackerMutations({
   activeChatId,
   agentConfigLookupEnabled,
   getSnapshot,
+  customTrackerFields,
   inventory,
   personaStats,
   presentCharacters,
@@ -43,6 +45,7 @@ export function useTrackerMutations({
   activeChatId: string | null;
   agentConfigLookupEnabled: boolean;
   getSnapshot: TrackerStateController["getSnapshot"];
+  customTrackerFields: TrackerStateController["customTrackerFields"];
   inventory: InventoryItem[];
   personaStats: TrackerStateController["personaStats"];
   presentCharacters: PresentCharacter[];
@@ -60,6 +63,7 @@ export function useTrackerMutations({
   const getLatestPresentCharacters = useCallback(() => getSnapshot().presentCharacters, [getSnapshot]);
   const getLatestInventory = useCallback(() => getSnapshot().inventory, [getSnapshot]);
   const getLatestPersonaStats = useCallback(() => getSnapshot().personaStats, [getSnapshot]);
+  const getLatestCustomTrackerFields = useCallback(() => getSnapshot().customTrackerFields, [getSnapshot]);
   const getLatestQuests = useCallback(() => getSnapshot().quests, [getSnapshot]);
   const {
     autoGenerateCharacterAvatars,
@@ -122,16 +126,16 @@ export function useTrackerMutations({
 
   const updateInventoryItem = useCallback(
     (index: number, item: InventoryItem) => {
-      updateInventory(mergeTrackerListItemUpdate(inventory, getLatestInventory(), index, item));
+      updateInventory(mergeInventoryItemListItemUpdate(inventory, getLatestInventory(), index, item));
     },
     [getLatestInventory, inventory, updateInventory],
   );
 
   const removeInventoryItem = useCallback(
     (index: number) => {
-      updateInventory(removeTrackerListItem(getLatestInventory(), index));
+      updateInventory(removeInventoryItemListItem(inventory, getLatestInventory(), index));
     },
-    [getLatestInventory, updateInventory],
+    [getLatestInventory, inventory, updateInventory],
   );
 
   const addInventoryItem = useCallback(() => {
@@ -181,7 +185,7 @@ export function useTrackerMutations({
 
   const updatePersonaStats = useCallback(
     (stats: CharacterStat[]) => {
-      patchField("personaStats", mergeTrackerListUpdate(personaStats, getLatestPersonaStats(), stats));
+      patchField("personaStats", mergeCharacterStatListUpdate(personaStats, getLatestPersonaStats(), stats));
     },
     [getLatestPersonaStats, patchField, personaStats],
   );
@@ -203,7 +207,10 @@ export function useTrackerMutations({
     toggleAutoGenerateCharacterAvatars,
     updateCharacter,
     updateCustomFields: (fields: TrackerStateController["customTrackerFields"]) =>
-      patchPlayerStats("customTrackerFields", fields),
+      patchPlayerStats(
+        "customTrackerFields",
+        mergeCustomTrackerFieldListUpdate(customTrackerFields, getLatestCustomTrackerFields(), fields),
+      ),
     updateInventoryItem,
     updatePersonaStats,
     updateQuest,

@@ -200,7 +200,8 @@ fn preserve_active_swipe_extra(swipes: &mut [Value], active_index: usize, extra:
     let Some(Value::Object(swipe)) = swipes.get_mut(active_index) else {
         return;
     };
-    swipe.entry("extra".to_string()).or_insert(extra);
+    let merged = merge_active_swipe_extra(swipe.get("extra"), extra);
+    swipe.insert("extra".to_string(), merged);
 }
 
 fn should_activate_new_swipe(body: &Value) -> bool {
@@ -1396,6 +1397,68 @@ mod tests {
         assert_eq!(
             persisted["extra"]["reasoning_content"],
             json!("first reasoning")
+        );
+    }
+
+    #[test]
+    fn message_swipes_merge_late_active_attachments_into_existing_swipe_extra() {
+        let state = test_state("swipe-late-attachments");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "extra": {
+                        "hiddenFromAI": true,
+                        "generationInfo": { "model": "first-model" },
+                        "attachments": [{ "type": "image", "galleryId": "gallery-1" }]
+                    },
+                    "swipes": [
+                        {
+                            "content": "first",
+                            "extra": {
+                                "generationInfo": { "model": "first-model" }
+                            }
+                        },
+                        {
+                            "content": "second",
+                            "extra": {
+                                "generationInfo": { "model": "second-model" }
+                            }
+                        }
+                    ]
+                }),
+            )
+            .expect("message should be created");
+
+        set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 1 }))
+            .expect("swipe should switch away");
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should succeed")
+            .expect("message should exist");
+        assert_eq!(
+            persisted["swipes"][0]["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
+        );
+        assert_eq!(
+            persisted["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+
+        let restored = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 0 }))
+            .expect("swipe should switch back");
+
+        assert_eq!(restored["content"], json!("first"));
+        assert_eq!(
+            restored["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
         );
     }
 

@@ -3,7 +3,13 @@ import type { Message, SpriteSide } from "../../../../engine/contracts/types/cha
 import { ConversationView } from "./ConversationView";
 import { AgentThoughtBubbles } from "../../../catalog/agents/activity";
 import { ChatCommonOverlays } from "../../shared/chat-ui/index";
-import type { CharacterMap, MessageSelectionToggle, PeekPromptData, PersonaInfo } from "../../shared/chat-ui/types";
+import type {
+  CharacterMap,
+  MessageSelectionToggle,
+  PeekPromptData,
+  PeekPromptOptions,
+  PersonaInfo,
+} from "../../shared/chat-ui/types";
 
 type SceneInfo =
   | {
@@ -52,7 +58,7 @@ type ConversationSurfaceProps = {
   onRegenerate: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void | Promise<void>;
   onSetActiveSwipe: (messageId: string, index: number) => void;
-  onPeekPrompt: () => void;
+  onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onToggleSelectMessage: (toggle: MessageSelectionToggle) => void;
   onSwitchChat?: () => void;

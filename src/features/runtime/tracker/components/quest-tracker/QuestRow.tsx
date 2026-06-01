@@ -133,7 +133,7 @@ export function QuestRow({
           />
           {quest.objectives.map((objective, index) => (
             <QuestObjectiveRow
-              key={`${objective.text}-${index}`}
+              key={objective.objectiveId || `${objective.text}-${index}`}
               objective={objective}
               objectiveGridColumns={objectiveGridColumns}
               onToggle={onUpdate ? () => toggleObjective(index) : undefined}

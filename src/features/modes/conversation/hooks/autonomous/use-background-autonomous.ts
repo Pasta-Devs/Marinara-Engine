@@ -10,7 +10,6 @@ import type { Chat } from "../../../../../engine/contracts/types/chat";
 import type { AvatarCropValue } from "../../../../../shared/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { startGeneration } from "../../../../../engine/generation/start-generation";
 import {
   checkConversationAutonomous,
   getConversationBusyDelay,
@@ -132,11 +131,13 @@ export function useBackgroundAutonomousPolling() {
                 }
 
                 // Drain the TS generation engine; tokens aren't displayed for background chats.
+                const { startGeneration } = await import("../../../../../engine/generation/start-generation");
                 for await (const _event of startGeneration(
                   { storage: storageApi, llm: llmApi, integrations: integrationGateway },
                   {
                     chatId: chat.id,
                     connectionId: null,
+                    forCharacterId: characterId,
                     streaming: useUIStore.getState().enableStreaming,
                     hideAutomatedSummarySourceMessages:
                       useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,

@@ -55,7 +55,7 @@ The refactor branch is layered by ownership:
 - `src/features/shell` owns settings, imports, onboarding, Professor Mari, and integrations surfaces.
 - `src/features/modes` owns chat, roleplay, game, shared transcript UI, and the mode router.
 - `src/features/runtime` owns shared runtime systems such as generation, world-state, visuals, tracker, and haptics.
-- `src/features/catalog` owns resource-library UI and hooks for chats, characters, personas, lorebooks, presets, connections, agents, gallery, and knowledge sources.
+- `src/features/catalog` owns resource-library UI and hooks for chats, characters, personas, sprites, lorebooks, presets, connections, agents, gallery, and knowledge sources.
 - `src/shared` owns feature-neutral frontend components, hooks, stores, types, and browser helpers.
 - `src/shared/api` owns typed adapters for embedded Tauri commands and the optional remote Rust runtime.
 - `src/engine` owns React-free product behavior, contracts, generation, agents, capability ports, and mode engines.
@@ -120,6 +120,12 @@ Every PR should include:
 - Manual verification notes for user-facing behavior.
 - Screenshots or recordings for visible UI changes.
 - Any remaining risk, follow-up work, or proof gaps.
+
+Before opening or updating a PR after the final diff, run `pnpm check`.
+This is the general pre-PR gate for line endings, architecture, TypeScript,
+Rust compile, docs, and unused-code checks. Run additional targeted proof when
+the change needs it, such as focused tests, lint, build, size checks, clippy,
+Rust tests, native Tauri QA, or browser checks.
 
 Leave PR template checkboxes unchecked until a human has actually verified each item. If an AI agent drafts a PR body, treat the checkboxes as a to-do list, not as proof.
 

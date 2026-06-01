@@ -1,6 +1,6 @@
 import type { GameNpc } from "../../../contracts/types/game";
 
-export const BUILT_IN_MARI_AVATAR = "/sprites/mari/Mari_profile.png";
+const BUILT_IN_MARI_AVATAR = "/sprites/mari/Mari_profile.png";
 
 function normalizeNpcName(name: string): string {
   return name
@@ -19,7 +19,7 @@ function isMariNpcName(name: unknown): boolean {
   return normalized === "mari" || normalized === "professor mari";
 }
 
-export function isInvalidBuiltInMariNpcAvatar(npc: Pick<GameNpc, "name" | "avatarUrl">): boolean {
+function isInvalidBuiltInMariNpcAvatar(npc: Pick<GameNpc, "name" | "avatarUrl">): boolean {
   const avatarPath = typeof npc.avatarUrl === "string" ? npc.avatarUrl.split("?")[0] : "";
   return avatarPath === BUILT_IN_MARI_AVATAR && !isMariNpcName(npc.name);
 }

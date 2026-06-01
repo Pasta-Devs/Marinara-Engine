@@ -13,15 +13,17 @@ interface ModalProps {
   children: ReactNode;
   /** Width class, e.g. "max-w-md", "max-w-lg" */
   width?: string;
+  onExited?: () => void;
 }
 
-export function Modal({ open, onClose, title, children, width = "max-w-md" }: ModalProps) {
+export function Modal({ open, onClose, title, children, width = "max-w-md", onExited }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
   // before actually removing the DOM nodes.
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState<"enter" | "exit" | null>(null);
   const enterRafRef = useRef<number | null>(null);
+  const exitHandledRef = useRef(false);
 
   useEffect(() => {
     if (enterRafRef.current !== null) {
@@ -31,11 +33,13 @@ export function Modal({ open, onClose, title, children, width = "max-w-md" }: Mo
 
     if (open) {
       setMounted(true);
+      exitHandledRef.current = false;
       // Start enter animation on next frame so the DOM is present
       enterRafRef.current = requestAnimationFrame(() => {
         setAnimating("enter");
       });
     } else if (mounted) {
+      exitHandledRef.current = false;
       setAnimating("exit");
     }
 
@@ -59,9 +63,11 @@ export function Modal({ open, onClose, title, children, width = "max-w-md" }: Mo
 
   // Remove from DOM after exit animation completes
   const handleAnimationEnd = () => {
-    if (animating === "exit") {
+    if (animating === "exit" && !exitHandledRef.current) {
+      exitHandledRef.current = true;
       setMounted(false);
       setAnimating(null);
+      onExited?.();
     }
   };
 

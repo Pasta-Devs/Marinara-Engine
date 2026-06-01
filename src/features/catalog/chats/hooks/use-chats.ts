@@ -15,13 +15,8 @@ import {
   type PromptPreviewInput,
   type PromptPreviewResult,
 } from "../../../../engine/generation/prompt-preview";
-import {
-  createChatSchema,
-  createMessageSchema,
-  summariesPatchSchema,
-} from "../../../../engine/contracts/schemas/chat.schema";
+import { createMessageSchema, summariesPatchSchema } from "../../../../engine/contracts/schemas/chat.schema";
 import { boolish } from "../../../../engine/generation/runtime-records";
-import { clearChatActivity } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { backfillConversationSummaries } from "../../../../engine/modes/chat/core/summaries/auto-summary.service";
 import { appendChatSummaryEntryToMetadata } from "../../../../engine/shared/text/chat-summary-entries";
 import { chatCommandApi } from "../../../../shared/api/chat-command-api";
@@ -29,18 +24,22 @@ import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ApiError } from "../../../../shared/api/api-errors";
-import { apiQueryRetryDelay, shouldRetryApiQuery } from "../../../../shared/api/query-retry";
-import { createStoredZip } from "../../../../shared/lib/zip";
 import {
-  buildChatTranscriptZipFiles,
   chatExportFilename,
   formatChatJsonl,
   formatChatText,
-  type BulkChatExportFormat,
   type ChatTranscriptExportFormat,
 } from "../lib/chat-transcript-export";
+import { downloadTextFile } from "../lib/download";
 import { sanitizeTimelineMessage, timelineMessageProjection } from "../lib/timeline-message";
 import { lorebookKeys } from "../../lorebooks/query-keys";
+import { CHAT_SUMMARY_FIELDS } from "./use-chat-summaries";
+import {
+  applyChatFieldPatch,
+  cancelChatCacheQueries,
+  setChatCacheRecord,
+  type ChatCacheRecord,
+} from "./chat-cache";
 import type {
   Chat,
   ChatMemoryChunk,
@@ -52,7 +51,10 @@ import type {
 import type { ChatMemoryRecallImportResult } from "../../../../engine/contracts/types/export";
 
 export { chatKeys } from "../query-keys";
-export type { BulkChatExportFormat, ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
+export { useCreateChat, useDeleteChat, useDeleteChatGroup, useUpdateChatMetadata } from "./use-chat-lifecycle";
+export { useChatSummaries, useRecentChatSummaries } from "./use-chat-summaries";
+export type { ChatListItem } from "./use-chat-summaries";
+export type { ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
 
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 20;
@@ -152,173 +154,11 @@ export function preserveRecentMessageContentEdit(chatId: string, message: Messag
   return { ...message, content: edit.content };
 }
 
-const CHAT_SUMMARY_FIELDS = [
-  "id",
-  "name",
-  "mode",
-  "characterIds",
-  "groupId",
-  "personaId",
-  "promptPresetId",
-  "connectionId",
-  "folderId",
-  "sortOrder",
-  "connectedChatId",
-  "createdAt",
-  "updatedAt",
-  "metadata",
-];
-
-const CHAT_SUMMARY_METADATA_FIELDS = [
-  "autonomousUnreadAt",
-  "autonomousUnreadCharacterIds",
-  "autonomousUnreadCount",
-  "branchName",
-  "gameId",
-  "pinned",
-  "tags",
-];
-
-export type ChatListItem = Pick<
-  Chat,
-  | "id"
-  | "name"
-  | "mode"
-  | "characterIds"
-  | "groupId"
-  | "personaId"
-  | "promptPresetId"
-  | "connectionId"
-  | "folderId"
-  | "sortOrder"
-  | "connectedChatId"
-  | "createdAt"
-  | "updatedAt"
-> & {
-  metadata: Partial<
-    Pick<
-      Chat["metadata"],
-      | "autonomousUnreadAt"
-      | "autonomousUnreadCharacterIds"
-      | "autonomousUnreadCount"
-      | "branchName"
-      | "gameId"
-      | "pinned"
-      | "tags"
-    >
-  >;
-};
-
-type ChatCacheRecord = Record<string, unknown> & { id?: string; metadata?: unknown };
-
-function updateCachedChatRows<T extends ChatCacheRecord>(
-  rows: T[] | undefined,
-  id: string,
-  updater: (row: T) => T,
-): T[] | undefined {
-  if (!Array.isArray(rows)) return rows;
-  let changed = false;
-  const next = rows.map((row) => {
-    if (!row || row.id !== id) return row;
-    changed = true;
-    return updater(row);
-  });
-  return changed ? next : rows;
-}
-
-function applyChatFieldPatch<T extends ChatCacheRecord>(chat: T, patch: Record<string, unknown>): T {
-  return { ...chat, ...patch };
-}
-
-function applyChatMetadataPatch<T extends ChatCacheRecord>(chat: T, patch: Record<string, unknown>): T {
-  return {
-    ...chat,
-    metadata: {
-      ...parseRecord(chat.metadata),
-      ...patch,
-    },
-  };
-}
-
-function setChatCacheRecord(
-  qc: Pick<QueryClient, "setQueryData" | "setQueriesData">,
-  id: string,
-  updater: (chat: ChatCacheRecord) => ChatCacheRecord,
-) {
-  qc.setQueryData<ChatCacheRecord | undefined>(chatKeys.detail(id), (current) =>
-    current ? updater(current) : current,
-  );
-  qc.setQueriesData<ChatCacheRecord[]>({ queryKey: chatKeys.list() }, (rows) =>
-    updateCachedChatRows(rows, id, updater),
-  );
-  qc.setQueriesData<ChatCacheRecord[]>({ queryKey: [...chatKeys.all, "group"] }, (rows) =>
-    updateCachedChatRows(rows, id, updater),
-  );
-
-  const activeChat = useChatStore.getState().activeChat as ChatCacheRecord | null;
-  if (activeChat?.id === id) {
-    useChatStore.getState().setActiveChat(updater(activeChat) as unknown as Chat);
-  }
-}
-
-function cancelChatCacheQueries(qc: QueryClient, id: string) {
-  // Tauri-backed reads are not abortable, so awaiting broad cache cancellation
-  // can make optimistic chat-setting toggles wait behind large startup loads.
-  void qc.cancelQueries({ queryKey: chatKeys.detail(id) }).catch(() => undefined);
-  void qc.cancelQueries({ queryKey: chatKeys.list() }).catch(() => undefined);
-  void qc.cancelQueries({ queryKey: [...chatKeys.all, "group"] }).catch(() => undefined);
-}
-
-function patchAffectsActiveLorebooks(patch: Record<string, unknown>): boolean {
-  return [
-    "activeLorebookIds",
-    "lorebookTokenBudget",
-    "lorebookKeeperTargetLorebookId",
-    "gameLorebookKeeperEnabled",
-    "gameLorebookKeeperLorebookId",
-  ].some((key) => Object.prototype.hasOwnProperty.call(patch, key));
-}
-
-export function useChatSummaries() {
-  return useQuery({
-    queryKey: chatKeys.summaries(),
-    queryFn: () =>
-      storageApi.list<ChatListItem>("chats", {
-        fields: CHAT_SUMMARY_FIELDS,
-        fieldSelections: { metadata: CHAT_SUMMARY_METADATA_FIELDS },
-      }),
-    staleTime: 10_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    retry: (failureCount, error) => shouldRetryApiQuery(failureCount, error, { maxRetries: 10 }),
-    retryDelay: (attempt, error) => apiQueryRetryDelay(attempt, error, { baseDelayMs: 750, maxDelayMs: 5_000 }),
-  });
-}
-
-export function useRecentChatSummaries(limit = 3) {
-  return useQuery({
-    queryKey: chatKeys.recentSummaries(limit),
-    queryFn: () =>
-      storageApi.list<ChatListItem>("chats", {
-        fields: CHAT_SUMMARY_FIELDS,
-        fieldSelections: { metadata: CHAT_SUMMARY_METADATA_FIELDS },
-        orderBy: "updatedAt",
-        descending: true,
-        limit,
-      }),
-    staleTime: 10_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-  });
-}
-
 export function useChat(id: string | null) {
   return useQuery({
     queryKey: chatKeys.detail(id ?? ""),
     queryFn: () =>
-      storageApi.get<Chat>("chats", id!, { fields: CHAT_SUMMARY_FIELDS }).then((chat) => {
+      storageApi.get<Chat>("chats", id!, { fields: [...CHAT_SUMMARY_FIELDS] }).then((chat) => {
         if (!chat) throw new ApiError("Chat not found", 404);
         return chat;
       }),
@@ -480,142 +320,6 @@ export function useChatGroup(groupId: string | null) {
   });
 }
 
-type DeleteChatInput = string | { id: string; groupId?: string | null };
-
-interface DeleteChatResult {
-  deleted: boolean;
-  deletedChatIds?: string[];
-}
-
-function getDeleteChatId(input: DeleteChatInput) {
-  return typeof input === "string" ? input : input.id;
-}
-
-function getDeleteChatGroupId(input: DeleteChatInput) {
-  return typeof input === "string" ? null : (input.groupId ?? null);
-}
-
-function uniqueIds(ids: Array<string | null | undefined>) {
-  return Array.from(new Set(ids.filter((id): id is string => typeof id === "string" && id.length > 0)));
-}
-
-export function useCreateChat() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      name: string;
-      mode: string;
-      characterIds?: string[];
-      groupId?: string | null;
-      connectionId?: string | null;
-      personaId?: string | null;
-      promptPresetId?: string | null;
-    }) => storageApi.create<Chat>("chats", createChatSchema.parse(data)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
-      qc.invalidateQueries({ queryKey: chatKeys.summaries() });
-    },
-  });
-}
-
-export function useDeleteChat() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: DeleteChatInput): Promise<DeleteChatResult> =>
-      (await storageApi.delete("chats", getDeleteChatId(input))) as DeleteChatResult,
-    onMutate: async (input) => {
-      const id = getDeleteChatId(input);
-      const providedGroupId = getDeleteChatGroupId(input);
-      await qc.cancelQueries({ queryKey: chatKeys.list() });
-      if (providedGroupId) {
-        await qc.cancelQueries({ queryKey: chatKeys.group(providedGroupId) });
-      }
-      await qc.cancelQueries({ queryKey: chatKeys.summaries() });
-      const previous = qc.getQueryData<Chat[]>(chatKeys.list());
-      const previousSummaries = qc.getQueriesData<ChatListItem[]>({ queryKey: chatKeys.summaries() });
-      const previousGroup = providedGroupId ? qc.getQueryData<Chat[]>(chatKeys.group(providedGroupId)) : undefined;
-      const deletedChat =
-        previous?.find((c) => c.id === id) ??
-        previousGroup?.find((c) => c.id === id) ??
-        previousSummaries.flatMap(([, rows]) => rows ?? []).find((c) => c.id === id) ??
-        null;
-      const groupId = deletedChat?.groupId ?? providedGroupId;
-
-      qc.setQueryData<Chat[]>(chatKeys.list(), (old) => old?.filter((c) => c.id !== id));
-      qc.setQueriesData<ChatListItem[]>({ queryKey: chatKeys.summaries() }, (old) => old?.filter((c) => c.id !== id));
-
-      if (groupId) {
-        qc.setQueryData<Chat[]>(chatKeys.group(groupId), (old) => old?.filter((c) => c.id !== id));
-      }
-
-      return { previous, previousSummaries, previousGroup, groupId };
-    },
-    onSuccess: (data, input) => {
-      for (const chatId of uniqueIds([getDeleteChatId(input), ...(data.deletedChatIds ?? [])])) {
-        clearChatActivity(chatId);
-      }
-    },
-    onError: (_err, _id, context) => {
-      if (context?.previous) {
-        qc.setQueryData(chatKeys.list(), context.previous);
-      } else {
-        qc.invalidateQueries({ queryKey: chatKeys.list() });
-      }
-      for (const [queryKey, data] of context?.previousSummaries ?? []) {
-        qc.setQueryData(queryKey, data);
-      }
-      if (context?.groupId) {
-        if (context.previousGroup) {
-          qc.setQueryData(chatKeys.group(context.groupId), context.previousGroup);
-        } else {
-          qc.invalidateQueries({ queryKey: chatKeys.group(context.groupId) });
-        }
-      }
-    },
-    onSettled: (_data, _err, input, context) => {
-      const groupId = context?.groupId ?? getDeleteChatGroupId(input);
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
-      qc.invalidateQueries({ queryKey: chatKeys.summaries() });
-      if (groupId) {
-        qc.invalidateQueries({ queryKey: chatKeys.group(groupId) });
-      }
-    },
-  });
-}
-
-export function useDeleteChatGroup() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (groupId: string) => chatCommandApi.groupDelete(groupId),
-    onMutate: async (groupId) => {
-      await qc.cancelQueries({ queryKey: chatKeys.list() });
-      const previous = qc.getQueryData<Chat[]>(chatKeys.list());
-
-      qc.setQueryData<Chat[]>(chatKeys.list(), (old) => old?.filter((c) => c.groupId !== groupId));
-      qc.setQueryData<Chat[]>(chatKeys.group(groupId), []);
-
-      return { previous, groupId };
-    },
-    onSuccess: (data) => {
-      for (const chatId of uniqueIds(data.deletedChatIds ?? [])) {
-        clearChatActivity(chatId);
-      }
-    },
-    onError: (_err, _groupId, context) => {
-      if (context?.previous) qc.setQueryData(chatKeys.list(), context.previous);
-      if (context?.groupId) {
-        qc.invalidateQueries({ queryKey: chatKeys.group(context.groupId) });
-      }
-    },
-    onSettled: (_data, _err, _groupId, context) => {
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
-      if (context?.groupId) {
-        qc.invalidateQueries({ queryKey: chatKeys.group(context.groupId) });
-      }
-    },
-  });
-}
-
 export function useUpdateChat() {
   const qc = useQueryClient();
   return useMutation({
@@ -666,60 +370,6 @@ export function useUpdateChat() {
       if ("characterIds" in vars || "personaId" in vars || "promptPresetId" in vars || "connectionId" in vars) {
         qc.invalidateQueries({ queryKey: lorebookKeys.active(vars.id) });
       }
-    },
-  });
-}
-
-export function useUpdateChatMetadata() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...metadata }: { id: string; [key: string]: unknown }) =>
-      storageApi.patchChatMetadata<Chat>(id, metadata),
-    onMutate: ({ id, ...metadata }) => {
-      cancelChatCacheQueries(qc, id);
-      const previousDetail = qc.getQueryData<ChatCacheRecord>(chatKeys.detail(id));
-      const previousListQueries = qc.getQueriesData<ChatCacheRecord[]>({ queryKey: chatKeys.list() });
-      const previousGroupQueries = qc.getQueriesData<ChatCacheRecord[]>({ queryKey: [...chatKeys.all, "group"] });
-      const previousActiveChat = useChatStore.getState().activeChat;
-
-      setChatCacheRecord(qc, id, (chat) => applyChatMetadataPatch(chat, metadata));
-
-      return { previousDetail, previousListQueries, previousGroupQueries, previousActiveChat };
-    },
-    onError: (_error, vars, context) => {
-      if (context?.previousDetail) qc.setQueryData(chatKeys.detail(vars.id), context.previousDetail);
-      for (const [queryKey, data] of context?.previousListQueries ?? []) qc.setQueryData(queryKey, data);
-      for (const [queryKey, data] of context?.previousGroupQueries ?? []) qc.setQueryData(queryKey, data);
-      if (context?.previousActiveChat) useChatStore.getState().setActiveChat(context.previousActiveChat);
-    },
-    onSuccess: (data, vars) => {
-      const { id, ...metadata } = vars;
-      // Write the saved response straight into the detail cache. Plain
-      // invalidation alone leaves stale data in place when no observer is
-      // mounted to trigger a refetch (e.g. user navigated away after firing
-      // the mutation), causing later renders to re-read the pre-mutation
-      // value — which is what made cleared chat backgrounds reappear after
-      // a chat switch round-trip.
-      if (data) {
-        qc.setQueryData(chatKeys.detail(id), data);
-      } else {
-        qc.invalidateQueries({ queryKey: chatKeys.detail(id) });
-      }
-      setChatCacheRecord(qc, id, (chat) => applyChatMetadataPatch(chat, metadata));
-      if (patchAffectsActiveLorebooks(metadata)) qc.invalidateQueries({ queryKey: lorebookKeys.active(id) });
-    },
-  });
-}
-
-export function useClearAutonomousUnread() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (chatId: string) => chatCommandApi.clearAutonomousUnread<Chat>(chatId),
-    onSuccess: (data, chatId) => {
-      if (data) {
-        qc.setQueryData(chatKeys.detail(chatId), data);
-      }
-      qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }
@@ -1021,7 +671,8 @@ function replaceCachedMessage(
 }
 
 function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: number): Message {
-  const rawSwipes = (message as Message & { swipes?: unknown }).swipes;
+  const previewSource = message as Message & { swipePreviews?: unknown; swipes?: unknown };
+  const rawSwipes = Array.isArray(previewSource.swipes) ? previewSource.swipes : previewSource.swipePreviews;
   const swipes = Array.isArray(rawSwipes) ? rawSwipes : [];
   const swipeCount =
     typeof message.swipeCount === "number" && Number.isFinite(message.swipeCount) && message.swipeCount > 0
@@ -1085,20 +736,6 @@ function extraForActiveSwipe(baseExtra: unknown, swipeExtra: Record<string, unkn
     }
   }
   return next;
-}
-
-function downloadTextFile(contents: string, filename: string, type: string) {
-  const blob = new Blob([contents], { type });
-  downloadBlobFile(blob, filename);
-}
-
-function downloadBlobFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {
@@ -1255,64 +892,6 @@ export function useExportChat() {
       } else {
         downloadTextFile(formatChatJsonl(messages), filename, "application/x-ndjson;charset=utf-8");
       }
-    },
-  });
-}
-
-async function loadChatsForExport(chatIds: string[]) {
-  const ids = Array.from(new Set(chatIds.map((id) => id.trim()).filter(Boolean)));
-  if (ids.length === 0) throw new Error("Choose at least one chat to export.");
-  return Promise.all(
-    ids.map(async (chatId) => {
-      const [chat, messages] = await Promise.all([
-        storageApi.get<Chat>("chats", chatId).then((chat) => {
-          if (!chat) throw new Error("Chat was not found.");
-          return chat;
-        }),
-        storageApi.listChatMessages<Message>(chatId),
-      ]);
-      return { chat, messages };
-    }),
-  );
-}
-
-/** Export selected chats as native JSON or a ZIP of JSONL/text transcripts. */
-export function useBulkExportChats() {
-  return useMutation({
-    mutationFn: async ({
-      chatIds,
-      format = "native",
-      scope = "selected",
-    }: {
-      chatIds?: string[];
-      format?: BulkChatExportFormat;
-      scope?: "selected" | "all";
-    }) => {
-      const exportIds =
-        scope === "all" ? (await storageApi.list<Chat>("chats")).map((chat) => chat.id) : (chatIds ?? []);
-      const chats = await loadChatsForExport(exportIds);
-      const exportedAt = new Date().toISOString();
-      if (format === "jsonl" || format === "text") {
-        const files = buildChatTranscriptZipFiles(chats, format);
-        downloadBlobFile(createStoredZip(files), `chat-transcripts-${format}-${exportedAt.slice(0, 10)}.zip`);
-        return;
-      }
-
-      downloadTextFile(
-        JSON.stringify(
-          {
-            format: "marinara-chat-bulk",
-            version: 1,
-            exportedAt,
-            count: chats.length,
-            chats,
-          },
-          null,
-          2,
-        ),
-        `marinara-chats-${exportedAt.slice(0, 10)}.json`,
-        "application/json;charset=utf-8",
-      );
     },
   });
 }

@@ -9,7 +9,7 @@ import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
 import { cropSpriteDataUrl, type SpriteFrameAdjustments } from "../../lib/sprite-frame-crop";
 import { useUIStore } from "../../stores/ui.store";
-import { spriteApi } from "../../api/image-generation-api";
+import { spriteApi, type SpriteOwnerType } from "../../api/image-generation-api";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import type { ImageGenerationConnectionOption } from "../../types/image-generation";
 import type { SpriteCapabilities } from "../../types/sprite-capabilities";
@@ -21,6 +21,7 @@ interface SpriteGenerationModalProps {
   onClose: () => void;
   /** Entity ID — character or persona */
   entityId: string;
+  entityKind?: SpriteOwnerType;
   /** Optional initial mode shown when opening */
   initialSpriteType?: "expressions" | "full-body";
   /** Existing portrait expression names that full-body generation can mirror */
@@ -443,6 +444,7 @@ export function SpriteGenerationModal({
   open,
   onClose,
   entityId,
+  entityKind = "character",
   initialSpriteType = "expressions",
   existingExpressionNames = [],
   defaultAppearance,
@@ -595,7 +597,7 @@ export function SpriteGenerationModal({
     setMatchExistingExpressions(false);
   }, [open, initialSpriteType]);
 
-  // Reset reference image & appearance when the target character changes
+  // Reset reference image & appearance when the target sprite owner changes
   useEffect(() => {
     setAppearance(defaultAppearance ?? "");
     setReferenceImages([]);
@@ -612,7 +614,7 @@ export function SpriteGenerationModal({
     setFramePreviewUrl(null);
     setMatchExistingExpressions(false);
     setError(null);
-  }, [entityId, defaultAvatarUrl, defaultAppearance]);
+  }, [entityId, entityKind, defaultAvatarUrl, defaultAppearance]);
 
   useEffect(() => {
     if (activeFrameIndex !== null && activeFrameIndex >= cells.length) {
@@ -1189,10 +1191,14 @@ export function SpriteGenerationModal({
               ? cleaned
               : `full_${cleaned}`
             : cleaned.replace(/^full_/, "");
-        await spriteApi.upload(entityId, {
-          expression,
-          image: cell.dataUrl,
-        });
+        await spriteApi.upload(
+          entityId,
+          {
+            expression,
+            image: cell.dataUrl,
+          },
+          { ownerType: entityKind },
+        );
       }
       onSpritesGenerated?.();
       onClose();
@@ -1209,7 +1215,7 @@ export function SpriteGenerationModal({
     } finally {
       setSaving(false);
     }
-  }, [cells, entityId, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
+  }, [cells, entityId, entityKind, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
 
   const handleReset = useCallback(() => {
     setStep(0);

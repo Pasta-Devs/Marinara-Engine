@@ -88,6 +88,7 @@ export function TrackerSectionList({
   } = useTrackerMutations({
     activeChatId,
     agentConfigLookupEnabled,
+    customTrackerFields,
     inventory,
     personaStats,
     presentCharacters,

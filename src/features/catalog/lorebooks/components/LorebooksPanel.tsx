@@ -32,10 +32,13 @@ import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookIm
 import { useCharacterSummariesByIds } from "../../characters/index";
 import { usePersonaSummaries } from "../../personas/index";
 import type { Lorebook, LorebookCategory } from "../../../../engine/contracts/types/lorebook";
+import { resolveActiveLorebookScopeReasons } from "../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import { resolveGameLorebookScopeExclusions } from "../../../../engine/generation-core/lorebooks/game-lorebook-scope";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
 import { exportApi } from "../../../../shared/api/export-api";
 import { getChatCharacterIds } from "../../../../shared/lib/chat-macros";
+import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
 import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
 
@@ -75,19 +78,16 @@ export function LorebooksPanel() {
 
   // Active chat context for the "Active" filter
   const activeChat = useChatStore((s) => s.activeChat);
-  const activeChatMetadata = activeChat?.metadata;
-  const activeLorebookIds: string[] = useMemo(() => {
-    if (!activeChatMetadata) return [];
-    try {
-      const meta = typeof activeChatMetadata === "string" ? JSON.parse(activeChatMetadata) : activeChatMetadata;
-      return Array.isArray(meta.activeLorebookIds) ? meta.activeLorebookIds : [];
-    } catch {
-      return [];
-    }
-  }, [activeChatMetadata]);
   const activeCharacterIds = useMemo(() => getChatCharacterIds(activeChat), [activeChat]);
-  const activePersonaId = activeChat?.personaId ?? null;
-  const activeChatId = activeChat?.id ?? null;
+  const activeLorebookScopeContext = useMemo(
+    () => ({
+      chat: activeChat,
+      characters: activeCharacterIds.map((id) => ({ id })),
+      persona: activeChat?.personaId ? { id: activeChat.personaId } : null,
+      scopeExclusions: resolveGameLorebookScopeExclusions(activeChat?.mode, parseChatMetadata(activeChat?.metadata)),
+    }),
+    [activeChat, activeCharacterIds],
+  );
 
   // When "active" category is selected, fetch all lorebooks (no category filter) — we filter client-side
   const { data: lorebooks, isLoading } = useLorebooks(
@@ -206,19 +206,8 @@ export function LorebooksPanel() {
     if (!lorebooks) return [];
     let list = lorebooks as Lorebook[];
     // "Active" filter: show lorebooks active in the current chat
-    // Mirrors native lorebook filtering: global + pinned + character-linked + persona-linked + chat-scoped.
     if (activeCategory === "active") {
-      list = list.filter(
-        (lb) =>
-          lb.enabled &&
-          (lb.isGlobal ||
-            activeLorebookIds.includes(lb.id) ||
-            (Array.isArray(lb.characterIds) && lb.characterIds.some((id) => activeCharacterIds.includes(id))) ||
-            (lb.characterId && activeCharacterIds.includes(lb.characterId)) ||
-            (Array.isArray(lb.personaIds) && lb.personaIds.includes(activePersonaId ?? "")) ||
-            (lb.personaId && lb.personaId === activePersonaId) ||
-            (lb.chatId && lb.chatId === activeChatId)),
-      );
+      list = list.filter((lb) => resolveActiveLorebookScopeReasons(lb, activeLorebookScopeContext).length > 0);
     }
     if (activeTag) {
       list = list.filter((lb) => parseTags(lb).includes(activeTag));
@@ -236,10 +225,7 @@ export function LorebooksPanel() {
   }, [
     lorebooks,
     activeCategory,
-    activeLorebookIds,
-    activeCharacterIds,
-    activePersonaId,
-    activeChatId,
+    activeLorebookScopeContext,
     searchQuery,
     activeTag,
     getCharacterNames,

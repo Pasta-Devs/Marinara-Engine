@@ -77,7 +77,7 @@ function writeConsole(level: ConsoleLevel, args: unknown[]) {
   if (typeof target === "function") target.apply(console, args);
 }
 
-export function isAgentRuntimeDebugEnabled(context: Pick<AgentContext, "debugMode">): boolean {
+function isAgentRuntimeDebugEnabled(context: Pick<AgentContext, "debugMode">): boolean {
   return context.debugMode === true;
 }
 

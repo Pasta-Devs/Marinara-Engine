@@ -5,7 +5,7 @@
 // tables per biome and season. No LLM needed.
 // ──────────────────────────────────────────────
 
-export type WeatherType =
+type WeatherType =
   | "clear"
   | "cloudy"
   | "overcast"
@@ -176,22 +176,6 @@ export function generateWeather(biome: Biome, season: Season = "summer"): Weathe
     wind: pick(WEATHER_WIND[weatherType] ?? ["calm"]),
     visibility: pick(WEATHER_VIS[weatherType] ?? ["clear"]),
   };
-}
-
-/**
- * Decide if weather should change. Call this per action/move.
- * Weather changes ~20% of the time on exploration actions,
- * less often during dialogue or combat.
- */
-export function shouldWeatherChange(action: string): boolean {
-  const chances: Record<string, number> = {
-    explore: 0.2,
-    travel: 0.35,
-    rest_long: 0.6,
-    rest_short: 0.15,
-    default: 0.08,
-  };
-  return Math.random() < (chances[action] ?? chances.default!);
 }
 
 /** Infer biome from location string (heuristic). */

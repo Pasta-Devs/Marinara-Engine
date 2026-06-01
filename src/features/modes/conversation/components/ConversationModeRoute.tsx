@@ -14,6 +14,7 @@ import {
 } from "../../shared/chat-ui/index";
 import { useDeleteChat } from "../../../catalog/chats/index";
 import { ChatConversationSurface } from "./ChatConversationSurface";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 type ConversationModeRouteProps = {
   activeChatId: string;
@@ -115,8 +116,20 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
       });
   }, [activeChatId, deleteChat, overlays, setActiveChatId]);
 
+  const cardCssMode = (() => {
+    const mode = data.chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
+
   return (
     <>
+      <CreatorNotesCssInjector
+        allCharacters={data.allCharacters}
+        characterIds={data.chatCharIds}
+        mode={cardCssMode}
+        chatMode="conversation"
+      />
       <ChatConversationSurface
         activeChatId={activeChatId}
         chat={data.chat}

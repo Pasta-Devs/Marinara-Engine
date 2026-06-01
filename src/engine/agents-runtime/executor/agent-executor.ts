@@ -67,7 +67,7 @@ export interface AgentToolContext {
   executeToolCall: (call: LLMToolCall) => Promise<string>;
 }
 
-export function normalizeAgentContextSize(value: unknown, fallback = DEFAULT_AGENT_CONTEXT_SIZE): number {
+function normalizeAgentContextSize(value: unknown, fallback = DEFAULT_AGENT_CONTEXT_SIZE): number {
   const parsed =
     typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : fallback;
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
@@ -94,7 +94,7 @@ function redactSensitiveValue(value: unknown): unknown {
   return redacted;
 }
 
-export function formatToolPayloadForLog(payload: string, maxLength = 400): string {
+function formatToolPayloadForLog(payload: string, maxLength = 400): string {
   const truncate = (value: string) => (value.length > maxLength ? `${value.slice(0, maxLength)}...` : value);
   const scrubSensitiveText = (value: string) =>
     value
@@ -115,7 +115,7 @@ export function formatToolPayloadForLog(payload: string, maxLength = 400): strin
   }
 }
 
-export function normalizeAgentMaxTokens(value: unknown, fallback = DEFAULT_AGENT_MAX_TOKENS): number {
+function normalizeAgentMaxTokens(value: unknown, fallback = DEFAULT_AGENT_MAX_TOKENS): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(MIN_AGENT_MAX_TOKENS, Math.min(MAX_AGENT_MAX_TOKENS, Math.trunc(value)));
 }
@@ -847,14 +847,6 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize);
 }
 
-export function buildKnowledgeRetrievalAgentMessagesForTest(
-  config: AgentExecConfig,
-  template: string,
-  context: AgentContext,
-): ChatMessage[] {
-  return buildKnowledgeRetrievalAgentMessages(config, template, context);
-}
-
 function buildKnowledgeRetrievalAgentMessages(
   config: AgentExecConfig,
   template: string,
@@ -1045,7 +1037,7 @@ function buildExpressionAgentMessages(template: string, context: AgentContext): 
 }
 
 /** Extract a useful message from fetch/network errors (preserves err.cause). */
-export function extractErrorMessage(err: unknown, fallback = "Agent execution failed"): string {
+function extractErrorMessage(err: unknown, fallback = "Agent execution failed"): string {
   if (!(err instanceof Error)) return fallback;
   const cause = (err as { cause?: unknown }).cause;
   if (cause instanceof Error) {
@@ -1494,7 +1486,7 @@ const AGENT_RESULT_TYPES = new Set<AgentResultType>([
 
 const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event"]);
 
-export function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "settings">): AgentResultType {
+function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "settings">): AgentResultType {
   const configured = config.settings?.resultType;
   if (typeof configured === "string" && AGENT_RESULT_TYPES.has(configured as AgentResultType)) {
     return configured as AgentResultType;

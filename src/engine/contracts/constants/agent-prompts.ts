@@ -208,14 +208,17 @@ Output format:
   "negativePrompt": "string — what to avoid in generation",
   "style": "string — art style suggestion (fantasy painting, anime, watercolor, etc.)",
   "aspectRatio": "landscape|portrait|square",
-  "characters": ["string — names of characters (and/or the user's persona) visible in this image, used to attach their avatar as a visual reference to the image model"]
+  "characters": ["string — exact names of active characters and/or the user's persona who are visibly present in this image, used to attach their full-body sprite/avatar as visual references"]
 }
 Prompt quality rules:
 1. Be specific about composition, lighting, mood, and camera angle.
-2. Include only visual physical traits for visible characters and the user's persona: hair color, eye color, build, skin tone, clothing, and distinguishing visible features. Do not paste full character/persona descriptions, personality, backstory, scenario, or relationship prose into the prompt. If avatar/reference images are attached, keep character wording concise and let the references carry exact likeness.
-3. Describe the environment and atmosphere with enough detail that an artist could paint it.
-4. Use art-style keywords for quality (e.g., "detailed", "dramatic lighting", "cinematic", "depth of field").
-5. NEVER include meta-instructions in the prompt (no "make it look good"). Only describe the image itself.`,
+2. First identify which active characters/persona are actually visible in the image. Put only those names in "characters"; omit absent, off-screen, merely mentioned, or background-only names.
+3. In the "prompt", describe the exact scene-specific appearance of each visible character: face, hair, eyes, build, skin tone, current outfit, expression, pose, injuries, props, and distinguishing visible features. Use the recent scene and main response for current clothing and condition. If Dottore is wearing a suit in this scene, describe the suit; do not fall back to his default outfit.
+4. Do not paste full character/persona descriptions, personality, backstory, scenario, or relationship prose into the prompt. Only include visual details that belong in this exact image.
+5. Mention in the prompt that provided/attached character references should be consulted for identity, facial likeness, hair, proportions, and distinctive features, while the prompt's current-scene outfit/details should take priority over reference clothing when they differ.
+6. Describe the environment and atmosphere with enough detail that an artist could paint it.
+7. Use art-style keywords for quality (e.g., "detailed", "dramatic lighting", "cinematic", "depth of field").
+8. Do not include generic meta-instructions like "make it look good"; write a concrete image prompt only.`,
 
   /* ────────────────────────────────────────── */
   "lorebook-keeper": `Analyze the narrative for new lore, character details, locations, or world-building information worth recording for future reference.

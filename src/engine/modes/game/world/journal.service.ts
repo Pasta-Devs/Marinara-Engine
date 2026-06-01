@@ -12,7 +12,7 @@ export interface JournalEntry {
   sourceSegmentIndex?: number;
 }
 
-export interface QuestEntry {
+interface QuestEntry {
   id: string;
   name: string;
   status: "active" | "completed" | "failed";
@@ -87,42 +87,6 @@ export function addLocationEntry(journal: Journal, location: string, description
   };
 }
 
-/** Add an NPC interaction to the journal. */
-export function addNpcEntry(journal: Journal, npc: GameNpc, interaction: string): Journal {
-  const normalizedInteraction = interaction.trim();
-  if (!normalizedInteraction) return journal;
-
-  const existing = journal.npcLog.find((n) => n.npcName === npc.name);
-  const updatedLog = existing
-    ? journal.npcLog.map((n) =>
-        n.npcName === npc.name && !n.interactions.includes(normalizedInteraction)
-          ? { ...n, interactions: [...n.interactions, normalizedInteraction] }
-          : n,
-      )
-    : [...journal.npcLog, { npcName: npc.name, interactions: [normalizedInteraction] }];
-
-  const hasEntry = journal.entries.some(
-    (entry) =>
-      entry.type === "npc" && entry.title === `${npc.emoji} ${npc.name}` && entry.content === normalizedInteraction,
-  );
-
-  return {
-    ...journal,
-    npcLog: updatedLog,
-    entries: hasEntry
-      ? journal.entries
-      : [
-          ...journal.entries,
-          {
-            timestamp: new Date().toISOString(),
-            type: "npc",
-            title: `${npc.emoji} ${npc.name}`,
-            content: normalizedInteraction,
-          },
-        ],
-  };
-}
-
 /** Add a combat event to the journal. */
 export function addCombatEntry(journal: Journal, description: string, outcome: "victory" | "defeat" | "fled"): Journal {
   return {
@@ -134,49 +98,6 @@ export function addCombatEntry(journal: Journal, description: string, outcome: "
         type: "combat",
         title: `Combat: ${outcome}`,
         content: description,
-      },
-    ],
-  };
-}
-
-/** Add or update a quest in the journal. */
-export function upsertQuest(
-  journal: Journal,
-  quest: Omit<QuestEntry, "discoveredAt"> & { discoveredAt?: string },
-): Journal {
-  const existing = journal.quests.find((q) => q.id === quest.id);
-
-  if (existing) {
-    const updated = journal.quests.map((q) =>
-      q.id === quest.id
-        ? {
-            ...q,
-            name: quest.name || q.name,
-            status: quest.status,
-            description: quest.description || q.description,
-            objectives: quest.objectives.length > 0 ? quest.objectives : q.objectives,
-            completedAt: quest.status === "completed" ? new Date().toISOString() : q.completedAt,
-          }
-        : q,
-    );
-    return { ...journal, quests: updated };
-  }
-
-  const newQuest: QuestEntry = {
-    ...quest,
-    discoveredAt: quest.discoveredAt ?? new Date().toISOString(),
-  };
-
-  return {
-    ...journal,
-    quests: [...journal.quests, newQuest],
-    entries: [
-      ...journal.entries,
-      {
-        timestamp: new Date().toISOString(),
-        type: "quest",
-        title: `Quest: ${quest.name}`,
-        content: quest.description,
       },
     ],
   };

@@ -34,10 +34,15 @@ import { triggerDownload } from "../../../../shared/api/download-payload";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../../../shared/lib/backgrounds";
 import {
   backgroundFileUrlFromPath,
+  resolveBackgroundFileUrl,
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
-import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../shared/api/remote-runtime";
+import {
+  checkRemoteRuntimeHealth,
+  unconfiguredRemoteRuntimeHealth,
+  type RemoteRuntimeHealthCheck,
+} from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { AUDIO_MIME_MAP, IMAGE_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
@@ -96,7 +101,6 @@ import { TrackerPanelIcon } from "../../../../shared/components/ui/TrackerPanelI
 import { TrackerSizeTierIcon } from "../../../../shared/components/ui/TrackerSizeTierIcon";
 import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploadDropzone";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
-import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
@@ -694,7 +698,6 @@ function TrackerPanelAppearanceDrawer({
           </button>
         </div>
         <TrackerPanelCardOrderSetting />
-        <TrackerCardColorSettings />
       </fieldset>
     </section>
   );
@@ -2149,11 +2152,20 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
   const [src, setSrc] = useState(() => (filename ? backgroundFileUrlFromPath(filename, item.absolutePath) : ""));
 
   useEffect(() => {
+    let cancelled = false;
     if (filename) {
       setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
-      return;
+      resolveBackgroundFileUrl(filename)
+        .then((url) => {
+          if (!cancelled) setSrc(url || backgroundFileUrlFromPath(filename, item.absolutePath));
+        })
+        .catch(() => {
+          if (!cancelled) setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-    let cancelled = false;
     resolveManagedLocalAssetUrl(item.url)
       .then((url) => {
         if (!cancelled) setSrc(url ?? "");
@@ -3253,7 +3265,7 @@ function AdvancedSettings() {
   const [remoteRuntimeHealth, setRemoteRuntimeHealth] = useState<RemoteRuntimeHealthView>(() =>
     remoteRuntimeUrl.trim()
       ? { status: "idle", message: "Status checks when this section is visible." }
-      : { status: "unconfigured", message: "Embedded Tauri runtime in use." },
+      : unconfiguredRemoteRuntimeHealth(),
   );
   const queryClient = useQueryClient();
 
@@ -3262,7 +3274,7 @@ function AdvancedSettings() {
     remoteRuntimeHealthAbortRef.current?.abort();
 
     if (!url) {
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 
@@ -3296,7 +3308,7 @@ function AdvancedSettings() {
   useEffect(() => {
     if (!remoteRuntimeUrl.trim()) {
       remoteRuntimeHealthAbortRef.current?.abort();
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 

@@ -52,8 +52,12 @@ pub(crate) mod lorebook_images;
 pub(crate) mod mari;
 #[path = "storage/media_uploads.rs"]
 pub(crate) mod media_uploads;
+#[path = "storage/personas.rs"]
+pub(crate) mod personas;
 #[path = "storage/profile.rs"]
 pub(crate) mod profile;
+#[path = "storage/prompt_overrides.rs"]
+pub(crate) mod prompt_overrides;
 #[path = "storage/prompts.rs"]
 pub(crate) mod prompts;
 #[path = "storage/shared.rs"]

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // Script tools execute in the TypeScript runtime; Rust preserves the row shape
 // and handles static/webhook tools.
-export const toolExecutionTypeSchema = z.enum(["webhook", "static", "script"]);
+const toolExecutionTypeSchema = z.enum(["webhook", "static", "script"]);
 
 export const createCustomToolSchema = z.object({
   name: z

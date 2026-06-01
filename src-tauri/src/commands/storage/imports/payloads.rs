@@ -230,6 +230,56 @@ fn extract_charx(bytes: &[u8]) -> AppResult<Value> {
     Ok(card)
 }
 
+fn has_object_entries(value: &Value, key: &str) -> bool {
+    matches!(
+        value.get(key),
+        Some(Value::Array(_)) | Some(Value::Object(_))
+    )
+}
+
+fn has_character_specific_fields(value: &Value) -> bool {
+    [
+        "personality",
+        "scenario",
+        "first_mes",
+        "mes_example",
+        "char_persona",
+        "char_greeting",
+        "example_dialogue",
+        "system_prompt",
+        "post_history_instructions",
+        "alternate_greetings",
+        "character_book",
+    ]
+    .iter()
+    .any(|key| value.get(*key).is_some())
+}
+
+fn is_explicit_character_payload(payload: &Value) -> bool {
+    matches!(
+        payload.get("spec").and_then(Value::as_str),
+        Some("chara_card_v2" | "chara_card_v3")
+    ) || payload.get("type").and_then(Value::as_str) == Some("character")
+}
+
+fn looks_like_top_level_lorebook(payload: &Value) -> bool {
+    has_object_entries(payload, "entries")
+        && !is_explicit_character_payload(payload)
+        && !has_character_specific_fields(payload)
+        && !payload
+            .get("data")
+            .is_some_and(has_character_specific_fields)
+}
+
+fn validate_character_json_payload(payload: Value) -> AppResult<Value> {
+    if looks_like_top_level_lorebook(&payload) {
+        return Err(AppError::invalid_input(
+            "Invalid file format. Expected a JSON character card, PNG with embedded character data, or .charx file.",
+        ));
+    }
+    Ok(payload)
+}
+
 pub(super) fn parse_character_file(filename: &str, bytes: &[u8]) -> AppResult<Value> {
     let lower = filename.to_ascii_lowercase();
     if lower.ends_with(".png") {
@@ -249,9 +299,11 @@ pub(super) fn parse_character_file(filename: &str, bytes: &[u8]) -> AppResult<Va
     if lower.ends_with(".charx") {
         return extract_charx(bytes);
     }
-    parse_object(bytes).map_err(|_| {
-        AppError::invalid_input("Invalid file format. Expected a JSON character card, PNG with embedded character data, or .charx file.")
-    })
+    parse_object(bytes)
+        .map_err(|_| {
+            AppError::invalid_input("Invalid file format. Expected a JSON character card, PNG with embedded character data, or .charx file.")
+        })
+        .and_then(validate_character_json_payload)
 }
 
 pub(super) fn parse_character_file_from_path(

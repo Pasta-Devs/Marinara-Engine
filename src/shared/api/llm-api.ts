@@ -11,6 +11,13 @@ function createStreamId(): string {
 
 const activeTauriStreamIds = new Set<string>();
 let unloadCancellationInstalled = false;
+export const TAURI_STREAM_TERMINAL_CLEANUP_GRACE_MS = 250;
+
+function wait(ms: number): Promise<false> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(() => resolve(false), ms);
+  });
+}
 
 function cancelActiveTauriStreams() {
   for (const streamId of activeTauriStreamIds) {
@@ -54,7 +61,10 @@ export const llmApi: LlmGateway = {
       if (signal?.aborted) abort();
       signal?.addEventListener("abort", abort, { once: true });
       try {
-        yield* streamRemoteLlm(streamId, request, remoteTarget, signal);
+        for await (const event of streamRemoteLlm(streamId, request, remoteTarget, signal)) {
+          if (event.type === "done") continue;
+          yield event;
+        }
       } finally {
         signal?.removeEventListener("abort", abort);
       }
@@ -66,14 +76,22 @@ export const llmApi: LlmGateway = {
     let completed = false;
     let failure: unknown = null;
     let wake: (() => void) | null = null;
+    let commandSettled = false;
+    let cancelRequested = false;
+    let terminalEventReceived = false;
 
     const notify = () => {
       wake?.();
       wake = null;
     };
+    const cancelNativeStream = () => {
+      if (cancelRequested || commandSettled) return;
+      cancelRequested = true;
+      void ignoreLlmStreamCancelFailure("tauri", streamId, invokeTauri("llm_stream_cancel", { streamId }));
+    };
     const abort = () => {
       failure = new DOMException("The operation was aborted.", "AbortError");
-      void ignoreLlmStreamCancelFailure("tauri", streamId, invokeTauri("llm_stream_cancel", { streamId }));
+      cancelNativeStream();
       notify();
     };
 
@@ -84,7 +102,10 @@ export const llmApi: LlmGateway = {
       const text =
         typeof event.text === "string" ? event.text : typeof event.data === "string" ? event.data : undefined;
       const normalized = text === undefined ? event : { ...event, text };
-      if (normalized.type === "done" || normalized.type === "error") completed = true;
+      if (normalized.type === "done" || normalized.type === "error") {
+        terminalEventReceived = true;
+        completed = true;
+      }
       queue.push(normalized);
       notify();
     });
@@ -93,11 +114,18 @@ export const llmApi: LlmGateway = {
       streamId,
       request,
       onEvent,
-    }).catch((error) => {
-      failure = error;
-      completed = true;
-      notify();
-    });
+    }).then(
+      () => {
+        commandSettled = true;
+      },
+      (error) => {
+        // A native command rejection is fatal; prefer surfacing it over yielding already-buffered partial tokens.
+        commandSettled = true;
+        failure = error;
+        completed = true;
+        notify();
+      },
+    );
 
     try {
       while (!completed || queue.length > 0) {
@@ -110,12 +138,22 @@ export const llmApi: LlmGateway = {
         }
         const event = queue.shift()!;
         if (event.type === "error") throw new Error(String(event.text ?? event.data ?? "LLM stream failed"));
+        if (event.type === "done") continue;
         yield event;
       }
-      await command;
+      if (commandSettled) {
+        await command;
+      } else if (terminalEventReceived) {
+        // command handles native success and rejection, so this race only distinguishes settled cleanup from timeout.
+        const cleanedUp = await Promise.race([command.then(() => true), wait(TAURI_STREAM_TERMINAL_CLEANUP_GRACE_MS)]);
+        if (!cleanedUp) cancelNativeStream();
+      } else {
+        cancelNativeStream();
+      }
       if (failure) throw failure;
     } finally {
       signal?.removeEventListener("abort", abort);
+      cancelNativeStream();
       activeTauriStreamIds.delete(streamId);
     }
   },

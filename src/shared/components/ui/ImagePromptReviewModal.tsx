@@ -27,6 +27,7 @@ type ImagePromptReviewModalProps = {
   isSubmitting?: boolean;
   onCancel: () => void;
   onConfirm: (overrides: ImagePromptOverride[]) => void;
+  onExited?: () => void;
 };
 
 export function ImagePromptReviewModal({
@@ -35,6 +36,7 @@ export function ImagePromptReviewModal({
   isSubmitting = false,
   onCancel,
   onConfirm,
+  onExited,
 }: ImagePromptReviewModalProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [negativeDrafts, setNegativeDrafts] = useState<Record<string, string>>({});
@@ -63,6 +65,7 @@ export function ImagePromptReviewModal({
       onClose={isSubmitting ? () => {} : onCancel}
       title={items.length === 1 ? "Review Image Prompt" : "Review Image Prompts"}
       width="max-w-4xl"
+      onExited={onExited}
     >
       <div className="flex max-h-[72vh] flex-col gap-4">
         <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">

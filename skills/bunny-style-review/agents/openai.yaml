@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bunny Style Review"
+  short_description: "Branch and PR reviews with failure-path lenses."
+  default_prompt: "Use $bunny-style-review to review this branch, PR, or local change for bugs, regressions, edge cases, and actionable nitpicks."

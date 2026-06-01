@@ -8,6 +8,8 @@ SCAN_INTERVAL = 30  # seconds
 
 CONF_HOST = "host"
 CONF_PORT = "port"
+CONF_USERNAME = "username"
+CONF_PASSWORD = "password"
 CONF_WEBHOOK_ID = "webhook_id"
 CONF_PRIMARY_CHAT_ID = "primary_chat_id"
 CONF_ENABLED_CATEGORIES = "enabled_categories"

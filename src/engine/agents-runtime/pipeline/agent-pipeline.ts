@@ -267,7 +267,7 @@ async function executePhase(
  * Run pre-generation agents (batched per provider+model).
  * Returns text snippets to inject into the main prompt.
  */
-export async function runPreGenerationAgents(
+async function runPreGenerationAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -296,7 +296,7 @@ export async function runPreGenerationAgents(
  * Run post-processing agents (batched per provider+model).
  * Returns all results for the caller to apply.
  */
-export async function runPostProcessingAgents(
+async function runPostProcessingAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -307,7 +307,7 @@ export async function runPostProcessingAgents(
 /**
  * Run parallel-phase agents (batched per provider+model).
  */
-export async function runParallelAgents(
+async function runParallelAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -318,13 +318,6 @@ export async function runParallelAgents(
 // ──────────────────────────────────────────────
 // Full Pipeline (convenience wrapper)
 // ──────────────────────────────────────────────
-
-export interface AgentPipelineResult {
-  /** Text snippets injected before generation (from pre-gen agents) */
-  contextInjections: string[];
-  /** All agent results from every phase */
-  allResults: AgentResult[];
-}
 
 /**
  * Run ALL enabled agents across the full pipeline.

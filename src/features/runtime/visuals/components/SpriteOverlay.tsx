@@ -5,17 +5,18 @@
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { motion, AnimatePresence, type TargetAndTransition } from "framer-motion";
 import type { SpritePlacement, SpriteSide } from "../../../../engine/contracts/types/chat";
-import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { useSprites, type SpriteInfo } from "../../../catalog/sprites/index";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
 import {
   isFullBodySpriteExpression,
   normalizeSpriteDisplayModes,
   type SpriteDisplayMode,
 } from "../sprite-display-modes";
+import { getCharacterIdFromSpriteOwnerKey, getSpriteOwnerId, getSpriteOwnerKind } from "../sprite-owner-keys";
 import { clampSpritePlacement, getDefaultSpritePlacement, type SpritePlacementMap } from "../sprite-placement";
 
 interface SpriteOverlayProps {
-  /** IDs of characters with sprites enabled in this chat */
+  /** Character IDs or sprite owner keys enabled in this chat */
   characterIds: string[];
   /** The last N messages to detect expressions from */
   messages: Array<{ role: string; characterId?: string | null; content: string }>;
@@ -23,9 +24,9 @@ interface SpriteOverlayProps {
   side: SpriteSide | "center";
   /** Which sprite file families roleplay mode should resolve against. */
   spriteDisplayModes?: SpriteDisplayMode[];
-  /** Saved expressions per character (from chat metadata) */
+  /** Saved expressions per sprite owner (from chat metadata) */
   spriteExpressions?: Record<string, string>;
-  /** Saved freeform placements per character (from chat metadata) */
+  /** Saved freeform placements per sprite owner (from chat metadata) */
   spritePlacements?: SpritePlacementMap;
   /** Whether the overlay is currently in drag-to-arrange mode */
   editing?: boolean;
@@ -98,14 +99,30 @@ export function SpriteOverlay({
   const expressionResult = useAgentStore((s) => s.lastResults.get("expression"));
   // Track which agent result we already applied so we don't re-fire for stale results
   const appliedResultRef = useRef<unknown>(null);
+  const spriteOwnerKeyByCharacterId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ownerKey of characterIds) {
+      const characterId = getCharacterIdFromSpriteOwnerKey(ownerKey);
+      if (characterId) map.set(characterId, ownerKey);
+    }
+    return map;
+  }, [characterIds]);
+  const savedSpriteExpressionStates = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (!spriteExpressions) return next;
+    for (const ownerKey of characterIds) {
+      const characterId = getCharacterIdFromSpriteOwnerKey(ownerKey);
+      const expression = spriteExpressions[ownerKey] ?? (characterId ? spriteExpressions[characterId] : undefined);
+      if (expression) next[ownerKey] = expression;
+    }
+    return next;
+  }, [characterIds, spriteExpressions]);
 
   // Track current expression + transition per character
   const [states, setStates] = useState<Record<string, CharacterExpressionState>>(() => {
     const initial: Record<string, CharacterExpressionState> = {};
-    if (spriteExpressions) {
-      for (const [id, expr] of Object.entries(spriteExpressions)) {
-        initial[id] = { expression: expr, transition: "none" };
-      }
+    for (const [id, expr] of Object.entries(savedSpriteExpressionStates)) {
+      initial[id] = { expression: expr, transition: "none" };
     }
     return initial;
   });
@@ -122,13 +139,16 @@ export function SpriteOverlay({
         appliedResultRef.current = expressionResult;
         const updates: Array<{ characterId: string; expression: string; transition: Transition }> = [];
         for (const e of data.expressions) {
+          const ownerKey = spriteOwnerKeyByCharacterId.get(e.characterId);
+          if (!ownerKey) continue;
           const t = (["crossfade", "bounce", "shake", "hop", "none"] as Transition[]).includes(
             e.transition as Transition,
           )
             ? (e.transition as Transition)
             : "crossfade";
-          updates.push({ characterId: e.characterId, expression: e.expression, transition: t });
+          updates.push({ characterId: ownerKey, expression: e.expression, transition: t });
         }
+        if (updates.length === 0) return;
         setStates((prev) => {
           const next = { ...prev };
           for (const u of updates) {
@@ -143,18 +163,18 @@ export function SpriteOverlay({
         return;
       }
     }
-  }, [expressionResult, onExpressionChange, fullBodyOnly]);
+  }, [expressionResult, onExpressionChange, fullBodyOnly, spriteOwnerKeyByCharacterId]);
 
   // Apply saved per-swipe expressions whenever the prop changes (e.g. user swipes).
   // This runs independently of the agent store so swiping always updates the sprite.
-  const prevSpriteExpressionsRef = useRef(spriteExpressions);
+  const prevSpriteExpressionsRef = useRef(savedSpriteExpressionStates);
   useEffect(() => {
-    if (spriteExpressions === prevSpriteExpressionsRef.current) return;
-    prevSpriteExpressionsRef.current = spriteExpressions;
-    if (!spriteExpressions || Object.keys(spriteExpressions).length === 0) return;
+    if (savedSpriteExpressionStates === prevSpriteExpressionsRef.current) return;
+    prevSpriteExpressionsRef.current = savedSpriteExpressionStates;
+    if (Object.keys(savedSpriteExpressionStates).length === 0) return;
     setStates((prev) => {
       const next = { ...prev };
-      for (const [id, expr] of Object.entries(spriteExpressions)) {
+      for (const [id, expr] of Object.entries(savedSpriteExpressionStates)) {
         // Only update if the expression actually changed to avoid unnecessary re-renders
         if (next[id]?.expression !== expr) {
           next[id] = { expression: expr, transition: "crossfade" };
@@ -162,7 +182,7 @@ export function SpriteOverlay({
       }
       return next;
     });
-  }, [spriteExpressions]);
+  }, [savedSpriteExpressionStates]);
 
   // Fallback: keyword-based detection when no agent result.
   useEffect(() => {
@@ -175,7 +195,7 @@ export function SpriteOverlay({
     const newStates: Record<string, CharacterExpressionState> = {};
 
     for (const id of characterIds) {
-      const saved = spriteExpressions?.[id];
+      const saved = savedSpriteExpressionStates[id];
       if (saved) {
         newStates[id] = { expression: saved, transition: "none" };
       }
@@ -183,20 +203,24 @@ export function SpriteOverlay({
 
     const recentAssistant = messages.filter((m) => m.role === "assistant").slice(-5);
     for (const msg of recentAssistant) {
-      if (msg.characterId && !newStates[msg.characterId]) {
+      const ownerKey = msg.characterId ? spriteOwnerKeyByCharacterId.get(msg.characterId) : null;
+      if (ownerKey && !newStates[ownerKey]) {
         const expr = detectExpression(msg.content);
-        newStates[msg.characterId] = { expression: expr, transition: "crossfade" };
+        newStates[ownerKey] = { expression: expr, transition: "crossfade" };
       }
     }
 
     for (const id of characterIds) {
       if (!newStates[id]) {
+        const characterId = getCharacterIdFromSpriteOwnerKey(id);
         let lastMsg: (typeof messages)[number] | undefined;
-        for (let index = messages.length - 1; index >= 0; index -= 1) {
-          const message = messages[index];
-          if (message?.characterId === id && message.role === "assistant") {
-            lastMsg = message;
-            break;
+        if (characterId) {
+          for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const message = messages[index];
+            if (message?.characterId === characterId && message.role === "assistant") {
+              lastMsg = message;
+              break;
+            }
           }
         }
         const expr = lastMsg ? detectExpression(lastMsg.content) : "neutral";
@@ -218,7 +242,14 @@ export function SpriteOverlay({
       }
       return prev;
     });
-  }, [messages, characterIds, expressionResult, spriteExpressions, fullBodyOnly]);
+  }, [
+    messages,
+    characterIds,
+    expressionResult,
+    savedSpriteExpressionStates,
+    fullBodyOnly,
+    spriteOwnerKeyByCharacterId,
+  ]);
 
   const visibleChars = useMemo(() => characterIds.slice(0, 3), [characterIds]);
   const resolvedPlacements = useMemo(() => {
@@ -343,7 +374,9 @@ function CharacterSprite({
   spriteScale?: number;
   spriteOpacity?: number;
 }) {
-  const { data: sprites } = useCharacterSprites(characterId);
+  const ownerKind = getSpriteOwnerKind(characterId);
+  const ownerId = getSpriteOwnerId(characterId);
+  const { data: sprites } = useSprites(ownerId, ownerKind);
   const prevExpressionRef = useRef(expression);
   const dragRef = useRef<{
     pointerId: number;

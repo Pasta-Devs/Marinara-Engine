@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Modal } from "../../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { personaKeys } from "../query-keys";
+import { invalidatePersonaCollectionQueries } from "../hooks/use-personas";
 import { importApi } from "../../../../shared/api/import-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 
@@ -126,7 +126,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
     setResults(nextResults);
     setStatus("done");
     if (nextResults.some((result) => result.success)) {
-      qc.invalidateQueries({ queryKey: personaKeys.list });
+      invalidatePersonaCollectionQueries(qc);
     }
   };
 

@@ -189,6 +189,61 @@ function characterMatchesSearch(
   return terms.every((term) => values.some((value) => value.includes(term)));
 }
 
+function characterPickerEmptyText({
+  hasError,
+  isPending,
+  hasCharacters,
+  hasUnselectedCharacters,
+  noCharactersText,
+  allAddedText,
+}: {
+  hasError: boolean;
+  isPending: boolean;
+  hasCharacters: boolean;
+  hasUnselectedCharacters: boolean;
+  noCharactersText: string;
+  allAddedText: string;
+}): string {
+  if (hasError) return "Characters could not be loaded.";
+  if (isPending) return "Loading characters...";
+  if (!hasCharacters) return noCharactersText;
+  if (!hasUnselectedCharacters) return allAddedText;
+  return "No matches.";
+}
+
+function deriveCharacterPickerEmptyState({
+  hasSearch,
+  characters,
+  unfilteredCharacters,
+  searchPending,
+  baseError,
+  unfilteredFetching,
+  unfilteredError,
+  selectedCharacterIds,
+}: {
+  hasSearch: boolean;
+  characters: CharacterSetupOption[];
+  unfilteredCharacters: CharacterSetupOption[] | undefined;
+  searchPending: boolean;
+  baseError: boolean;
+  unfilteredFetching: boolean;
+  unfilteredError: boolean;
+  selectedCharacterIds: string[];
+}): {
+  characters: CharacterSetupOption[];
+  isPending: boolean;
+  hasError: boolean;
+  hasUnselectedCharacters: boolean;
+} {
+  const charactersForEmptyState = hasSearch ? (unfilteredCharacters ?? []) : characters;
+  return {
+    characters: charactersForEmptyState,
+    isPending: searchPending || (hasSearch && unfilteredFetching),
+    hasError: baseError || (hasSearch && unfilteredError),
+    hasUnselectedCharacters: charactersForEmptyState.some((character) => !selectedCharacterIds.includes(character.id)),
+  };
+}
+
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
   const title = persona.comment?.trim();
   return title ? title : null;
@@ -386,6 +441,13 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
     isFetching: allCharactersFetching,
     isError: allCharactersError,
   } = useCharacterSummaries(true, debouncedSearch);
+  const hasCharacterSearch = search.trim().length > 0;
+  // Keep this query unfiltered so search misses can distinguish "No matches" from an empty library.
+  const {
+    data: unfilteredCharactersForEmptyState,
+    isFetching: unfilteredCharactersForEmptyStateFetching,
+    isError: unfilteredCharactersForEmptyStateError,
+  } = useCharacterSummaries(hasCharacterSearch, "");
   const { data: selectedCharacters } = useCharacterSummariesByIds(chatCharIds, chatCharIds.length > 0);
   const { data: allPersonas } = usePersonaSummaries();
   const updateChat = useUpdateChat();
@@ -529,6 +591,16 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
   const available = characters.filter((c) => {
     if (chatCharIds.includes(c.id)) return false;
     return characterMatchesSearch(c, search);
+  });
+  const characterEmptyState = deriveCharacterPickerEmptyState({
+    hasSearch: hasCharacterSearch,
+    characters,
+    unfilteredCharacters: unfilteredCharactersForEmptyState as CharacterSetupOption[] | undefined,
+    searchPending: characterSearchPending,
+    baseError: allCharactersError,
+    unfilteredFetching: unfilteredCharactersForEmptyStateFetching,
+    unfilteredError: unfilteredCharactersForEmptyStateError,
+    selectedCharacterIds: chatCharIds,
   });
 
   const hasConnection = !!chat.connectionId;
@@ -772,13 +844,14 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                   })}
                   {available.length === 0 && (
                     <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {allCharactersError
-                        ? "Characters could not be loaded."
-                        : characterSearchPending
-                          ? "Loading characters..."
-                          : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                            ? "All characters added."
-                            : "No matches."}
+                      {characterPickerEmptyText({
+                        hasError: characterEmptyState.hasError,
+                        isPending: characterEmptyState.isPending,
+                        hasCharacters: characterEmptyState.characters.length > 0,
+                        hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                        noCharactersText: "No characters yet. Create or import one before starting a conversation.",
+                        allAddedText: "All characters added.",
+                      })}
                     </p>
                   )}
                 </div>
@@ -949,6 +1022,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     isFetching: searchedCharactersFetching,
     isError: searchedCharactersError,
   } = useCharacterSummaries(currentStep.key === "characters" || shortcutMode, debouncedCharSearch);
+  const hasCharacterSearch = charSearch.trim().length > 0;
+  const shouldLoadCharacters = currentStep.key === "characters" || shortcutMode;
+  // Keep this query unfiltered so search misses can distinguish "No matches" from an empty library.
+  const {
+    data: unfilteredCharactersForEmptyState,
+    isFetching: unfilteredCharactersForEmptyStateFetching,
+    isError: unfilteredCharactersForEmptyStateError,
+  } = useCharacterSummaries(shouldLoadCharacters && hasCharacterSearch, "");
   const { data: lorebooks } = useLorebooks();
 
   // Chat-settings presets for the shortcut view
@@ -1008,6 +1089,16 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     [searchedCharacters, selectedCharacters],
   );
   const characterSearchPending = searchedCharactersFetching || charSearch.trim() !== debouncedCharSearch.trim();
+  const characterEmptyState = deriveCharacterPickerEmptyState({
+    hasSearch: hasCharacterSearch,
+    characters,
+    unfilteredCharacters: unfilteredCharactersForEmptyState as CharacterSetupOption[] | undefined,
+    searchPending: characterSearchPending,
+    baseError: searchedCharactersError,
+    unfilteredFetching: unfilteredCharactersForEmptyStateFetching,
+    unfilteredError: unfilteredCharactersForEmptyStateError,
+    selectedCharacterIds: chatCharIds,
+  });
 
   const activeLorebookIds: string[] = useMemo(() => metadata.activeLorebookIds ?? [], [metadata.activeLorebookIds]);
 
@@ -1379,13 +1470,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             })}
             {available.length === 0 && (
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {searchedCharactersError
-                  ? "Characters could not be loaded."
-                  : characterSearchPending
-                    ? "Loading characters..."
-                    : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                      ? "All characters already added."
-                      : "No matches."}
+                {characterPickerEmptyText({
+                  hasError: characterEmptyState.hasError,
+                  isPending: characterEmptyState.isPending,
+                  hasCharacters: characterEmptyState.characters.length > 0,
+                  hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                  noCharactersText: "No characters yet. Create or import one before adding them to this roleplay.",
+                  allAddedText: "All characters already added.",
+                })}
               </p>
             )}
           </div>
@@ -1665,13 +1757,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                         return characterMatchesSearch(c, charSearch);
                       }).length === 0 && (
                         <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                          {searchedCharactersError
-                            ? "Characters could not be loaded."
-                            : characterSearchPending
-                              ? "Loading characters..."
-                              : characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                                ? "All characters added."
-                                : "No matches."}
+                          {characterPickerEmptyText({
+                            hasError: characterEmptyState.hasError,
+                            isPending: characterEmptyState.isPending,
+                            hasCharacters: characterEmptyState.characters.length > 0,
+                            hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                            noCharactersText: "No characters yet. Create or import one before applying setup.",
+                            allAddedText: "All characters added.",
+                          })}
                         </p>
                       )}
                     </div>

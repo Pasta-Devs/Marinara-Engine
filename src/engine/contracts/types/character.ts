@@ -122,6 +122,8 @@ export interface CharacterCardVersion {
   data: CharacterData;
   comment: string;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   version: string;
   source: "manual" | "agent" | "command" | "restore" | string;
   reason: string;

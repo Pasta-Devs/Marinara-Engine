@@ -1,101 +1,23 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  ArrowLeft,
-  ArrowUpDown,
-  Download,
-  MessageCircle,
-  Pencil,
-  Plus,
-  Search,
-  Sparkles,
-  Star,
-  User,
-} from "lucide-react";
 import { useCharacter, useCharacterSummaries, type CharacterSummary } from "../hooks/use-characters";
-import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
-import { characterAvatarUrl } from "../lib/character-avatar-url";
+import { characterHasAnyExcludedTag, parseCharacterSearchQuery } from "../lib/character-search";
 import {
-  characterHasAnyExcludedTag,
-  getCharacterTagsFromData,
-  parseCharacterSearchQuery,
-  type CharacterSearchData,
-} from "../lib/character-search";
-import { getCharacterTitle } from "../../../../shared/lib/character-display";
-import { cn } from "../../../../shared/lib/utils";
+  getText,
+  gridColumnCount,
+  isSortOption,
+  parseCharacterRow,
+  readSessionSort,
+  writeSessionSort,
+  type CharacterRow,
+  type ParsedCharacterRow,
+  type SortOption,
+} from "../lib/character-library-model";
 import { useUIStore } from "../../../../shared/stores/ui.store";
-import { CharacterAvatarImage } from "./CharacterAvatarImage";
-
-type CharacterData = CharacterSearchData & {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  first_mes?: string;
-  mes_example?: string;
-  creator_notes?: string;
-  creator?: string;
-  character_version?: string;
-  system_prompt?: string;
-  post_history_instructions?: string;
-  tags?: string[];
-  alternate_greetings?: string[];
-};
-
-type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";
-const CHARACTER_LIBRARY_SORT_SESSION_KEY = "marinara:character-library-sort";
-const SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const satisfies SortOption[];
-
-type CharacterRow = {
-  id: string;
-  data: Partial<CharacterData>;
-  comment?: string | null;
-  avatarPath?: string | null;
-  avatarFilePath?: string | null;
-  avatarFilename?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type ParsedCharacterRow = CharacterRow & {
-  parsed: Partial<CharacterData> & {
-    extensions?: Record<string, unknown>;
-  };
-};
-
-function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
-  return { ...char, parsed: (char.data as ParsedCharacterRow["parsed"]) ?? {} };
-}
-
-function getText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getCharacterSummary(char: ParsedCharacterRow) {
-  const creatorNotes = getText(char.parsed.creator_notes);
-  if (creatorNotes) return creatorNotes;
-
-  const comment = getText(char.comment);
-  if (comment) return comment;
-
-  return "No creator notes yet.";
-}
-
-function getCharacterMeta(char: ParsedCharacterRow): string | null {
-  const parts: string[] = [];
-  const creator = getText(char.parsed.creator);
-  const version = getText(char.parsed.character_version);
-
-  if (creator) parts.push(creator);
-  if (version) parts.push(`v${version}`);
-
-  return parts.join(" · ") || null;
-}
-
-function truncateText(content: string, maxLength: number) {
-  if (content.length <= maxLength) return content;
-  return `${content.slice(0, maxLength - 3).trimEnd()}...`;
-}
+import { CharacterLibraryCard } from "./CharacterLibraryCard";
+import { CharacterLibraryDetailCard } from "./CharacterLibraryDetailCard";
+import { CharacterLibraryEmptyState } from "./CharacterLibraryEmptyState";
+import { CharacterLibraryToolbar } from "./CharacterLibraryToolbar";
 
 function useDebouncedValue(value: string, delayMs: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -124,172 +46,28 @@ function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   return width;
 }
 
-function gridColumnCount(width: number): number {
-  if (width >= 1440) return 4;
-  if (width >= 1024) return 3;
-  if (width >= 640) return 2;
-  return 1;
-}
-
-function isSortOption(value: string | null): value is SortOption {
-  return SORT_OPTIONS.includes(value as SortOption);
-}
-
-function readSessionSort(): SortOption {
-  if (typeof window === "undefined") return "name-asc";
-  try {
-    const storedSort = window.sessionStorage.getItem(CHARACTER_LIBRARY_SORT_SESSION_KEY);
-    return isSortOption(storedSort) ? storedSort : "name-asc";
-  } catch {
-    return "name-asc";
-  }
-}
-
-function writeSessionSort(sort: SortOption): void {
-  try {
-    window.sessionStorage.setItem(CHARACTER_LIBRARY_SORT_SESSION_KEY, sort);
-  } catch {
-    // Session storage may be unavailable; the mounted control still works.
-  }
-}
-
-function getCharacterSections(char: ParsedCharacterRow) {
-  return [
-    { title: "Description", content: getText(char.parsed.description) },
-    { title: "Personality", content: getText(char.parsed.personality) },
-    { title: "Scenario", content: getText(char.parsed.scenario) },
-    { title: "Opening Message", content: getText(char.parsed.first_mes) },
-  ].filter((section) => section.content);
-}
-
-function CharacterLibraryDetailCard({
-  character,
-  onEdit,
-  fullRecordLoading = false,
-  fullRecordError = false,
-  onRetryFullRecord,
-}: {
-  character: ParsedCharacterRow;
-  onEdit: (id: string) => void;
-  fullRecordLoading?: boolean;
-  fullRecordError?: boolean;
-  onRetryFullRecord?: () => void;
-}) {
-  const { startChatFromCharacter, isStartingChat } = useStartChatFromCharacter();
-  const characterName = getText(character.parsed.name) || "Unnamed";
-  const characterTitle = getCharacterTitle({ name: characterName, comment: character.comment });
-  const characterMeta = getCharacterMeta(character);
-  const creatorNotes = getText(character.parsed.creator_notes);
-  const sections = getCharacterSections(character);
-  const avatarUrl = characterAvatarUrl(character);
-  const startDisabled = isStartingChat || fullRecordLoading || fullRecordError;
-
-  return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--background)]/70 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.95)] sm:rounded-[2rem]">
-        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15">
-          {avatarUrl ? (
-            <CharacterAvatarImage
-              src={avatarUrl}
-              avatarFilePath={character.avatarFilePath}
-              avatarFilename={character.avatarFilename}
-              alt={characterName || "Selected character"}
-              crop={character.parsed.extensions?.avatarCrop}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-white/85">
-              <User size="2.5rem" />
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4 p-5">
-          <div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-xl font-semibold text-[var(--foreground)] sm:text-2xl">{characterName}</h2>
-                {characterTitle && (
-                  <p className="mt-1 truncate text-sm italic text-[var(--muted-foreground)]">{characterTitle}</p>
-                )}
-                {characterMeta && (
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-foreground)]">
-                    {characterMeta}
-                  </p>
-                )}
-              </div>
-              {Boolean(character.parsed.extensions?.fav) && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[0.6875rem] font-medium text-amber-300">
-                  <Star size="0.75rem" className="fill-current" /> Favorite
-                </span>
-              )}
-            </div>
-
-            {creatorNotes && (
-              <p className="mt-4 rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--secondary)]/70 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
-                {creatorNotes}
-              </p>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  startChatFromCharacter({
-                    characterId: character.id,
-                    characterName,
-                    mode: "roleplay",
-                    firstMessage: getText(character.parsed.first_mes),
-                    alternateGreetings: Array.isArray(character.parsed.alternate_greetings)
-                      ? character.parsed.alternate_greetings
-                      : [],
-                  })
-                }
-                disabled={startDisabled}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--primary-foreground)] shadow-lg shadow-pink-500/15 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <MessageCircle size="0.875rem" />
-                {fullRecordLoading ? "Loading..." : "Start New Chat"}
-              </button>
-              <button
-                onClick={() => onEdit(character.id)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25"
-              >
-                <Pencil size="0.875rem" />
-                Edit Character
-              </button>
-            </div>
-            {fullRecordError && (
-              <button
-                type="button"
-                onClick={onRetryFullRecord}
-                className="mt-3 text-xs font-medium text-[var(--destructive)] transition-colors hover:opacity-80"
-              >
-                Character details could not be loaded. Retry
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {sections.length > 0 && (
-        <div className="space-y-3">
-          {sections.map((section) => (
-            <section
-              key={section.title}
-              className="rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--background)]/65 p-4"
-            >
-              <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-                {section.title}
-              </h3>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--foreground)]/88">
-                {truncateText(section.content, section.title === "Opening Message" ? 420 : 620)}
-              </p>
-            </section>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function characterSummaryToRow(character: CharacterSummary): CharacterRow {
+  const data = character.data ?? {};
+  return {
+    id: character.id,
+    data: {
+      name: getText(data.name) || undefined,
+      creator: getText(data.creator) || undefined,
+      creator_notes: getText(data.creator_notes) || undefined,
+      character_version: getText(data.character_version) || undefined,
+      tags: Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+      extensions:
+        data.extensions && typeof data.extensions === "object" && !Array.isArray(data.extensions)
+          ? data.extensions
+          : undefined,
+    },
+    comment: character.comment,
+    avatarPath: character.avatarPath,
+    avatarFilePath: character.avatarFilePath,
+    avatarFilename: character.avatarFilename,
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+  };
 }
 
 export function CharacterLibraryView() {
@@ -311,7 +89,7 @@ export function CharacterLibraryView() {
 
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
-    return (characters as CharacterSummary[] as CharacterRow[]).map(parseCharacterRow);
+    return characters.map((character) => parseCharacterRow(characterSummaryToRow(character)));
   }, [characters]);
 
   const filteredCharacters = useMemo(() => {
@@ -390,104 +168,21 @@ export function CharacterLibraryView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)]">
-      <div className="sticky top-0 z-10 border-b border-[var(--border)]/40 bg-[var(--card)]/85 backdrop-blur-xl">
-        <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              onClick={closeCharacterLibrary}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)]/35 hover:text-[var(--primary)] md:h-10 md:w-10"
-              title="Close library"
-            >
-              <ArrowLeft size="0.95rem" />
-            </button>
-            <div className="min-w-0">
-              <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--muted-foreground)]">
-                Character Library
-              </p>
-              <h1 className="truncate text-base font-semibold text-[var(--foreground)] md:text-2xl">
-                Browse your characters
-              </h1>
-              <p className="text-xs text-[var(--muted-foreground)] md:text-sm">
-                {filteredCharacters.length} out of {parsedCharacters.length} card
-                {parsedCharacters.length === 1 ? "" : "s"}
-                {isFetching && !isLoading ? " · updating" : ""}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-1.5 pb-1 sm:gap-2 sm:pb-0 lg:w-auto lg:justify-end">
-            <button
-              onClick={() => openModal("create-character")}
-              className="inline-flex min-w-[5.25rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
-            >
-              <Plus size="0.8125rem" />
-              <span className="truncate">New</span>
-            </button>
-            <button
-              onClick={() => openModal("import-character")}
-              className="inline-flex min-w-[5.25rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
-            >
-              <Download size="0.8125rem" />
-              <span className="truncate">Import</span>
-            </button>
-            <button
-              onClick={() => openModal("character-maker")}
-              className="inline-flex min-w-[6rem] flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-2.5 py-1.5 text-[0.8125rem] font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25 sm:min-w-[8rem] sm:flex-none sm:px-3 sm:py-2 sm:text-sm"
-            >
-              <Sparkles size="0.8125rem" />
-              <span className="truncate">AI Maker</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5 border-t border-[var(--border)]/30 px-3 py-2 md:px-6 md:py-3 sm:gap-3">
-          <div className="relative min-w-0 flex-1 sm:min-w-[16rem]">
-            <Search
-              size="0.8125rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder='Search names, tags, descriptions, or -tag:"tag name"'
-              className="w-full rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-8.5 pr-3 text-[0.8125rem] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-9 md:text-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 sm:flex-wrap">
-            <button
-              onClick={() => setFavoritesOnly((current) => !current)}
-              className={cn(
-                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 py-1.5 text-[0.8125rem] font-medium transition-all sm:flex-none sm:px-3.5 sm:py-2 sm:text-sm",
-                favoritesOnly
-                  ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
-                  : "bg-[var(--secondary)]/80 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60 hover:text-[var(--foreground)]",
-              )}
-            >
-              <Star size="0.8125rem" className={favoritesOnly ? "fill-current" : ""} />
-              Favorites
-            </button>
-
-            <div className="relative min-w-0 flex-1 sm:w-auto sm:flex-none">
-              <select
-                value={sort}
-                onChange={(event) => handleSortChange(event.target.value)}
-                className="w-full appearance-none rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-3 pr-8 text-[0.8125rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-3.5 md:pr-9 md:text-sm"
-              >
-                <option value="name-asc">Name A-Z</option>
-                <option value="name-desc">Name Z-A</option>
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="favorites">Favorites first</option>
-              </select>
-              <ArrowUpDown
-                size="0.6875rem"
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <CharacterLibraryToolbar
+        filteredCount={filteredCharacters.length}
+        totalCount={parsedCharacters.length}
+        updating={isFetching && !isLoading}
+        search={search}
+        onSearchChange={setSearch}
+        favoritesOnly={favoritesOnly}
+        onToggleFavorites={() => setFavoritesOnly((current) => !current)}
+        sort={sort}
+        onSortChange={handleSortChange}
+        onClose={closeCharacterLibrary}
+        onCreate={() => openModal("create-character")}
+        onImport={() => openModal("import-character")}
+        onOpenMaker={() => openModal("character-maker")}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-0 xl:grid-cols-[minmax(0,1.1fr)_28rem]">
         <section ref={listScrollRef} className="min-h-0 overflow-y-auto px-4 py-4 md:px-6">
@@ -500,30 +195,18 @@ export function CharacterLibraryView() {
           )}
 
           {!isLoading && isError && (
-            <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-6 text-center">
-              <h2 className="text-lg font-semibold text-[var(--foreground)]">Characters could not be loaded</h2>
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="rounded-2xl bg-[var(--secondary)] px-4 py-2 text-sm font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
-              >
-                Retry
-              </button>
-            </div>
+            <CharacterLibraryEmptyState
+              title="Characters could not be loaded"
+              tone="error"
+              action={{ label: "Retry", onClick: () => void refetch() }}
+            />
           )}
 
           {!isLoading && !isError && sortedCharacters.length === 0 && (
-            <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--card)]/50 p-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">
-                <User size="1.5rem" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--foreground)]">No matching characters</h2>
-                <p className="mt-1 max-w-md text-sm text-[var(--muted-foreground)]">
-                  Try a different search, turn off favorites-only, or import a new card into the library.
-                </p>
-              </div>
-            </div>
+            <CharacterLibraryEmptyState
+              title="No matching characters"
+              description="Try a different search, turn off favorites-only, or import a new card into the library."
+            />
           )}
 
           {!isLoading && !isError && sortedCharacters.length > 0 && (
@@ -538,89 +221,11 @@ export function CharacterLibraryView() {
                 >
                   <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}>
                     {(virtualRows[virtualRow.index] ?? []).map((char) => {
-                      const charName = getText(char.parsed.name) || "Unnamed";
-                      const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
-                      const cardSummary = truncateText(getCharacterSummary(char), 180);
-                      const cardMeta = getCharacterMeta(char);
-                      const isFavorite = !!char.parsed.extensions?.fav;
-                      const tags = getCharacterTagsFromData(char.parsed);
                       const isActive = selectedCharacterId === char.id;
-                      const avatarUrl = characterAvatarUrl(char);
 
                       return (
                         <Fragment key={char.id}>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCharacterId(char.id)}
-                            className={cn(
-                              "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--primary)]/35 hover:shadow-[0_24px_60px_-32px_rgba(244,114,182,0.45)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
-                              isActive
-                                ? "border-[var(--primary)]/45 ring-1 ring-[var(--primary)]/25"
-                                : "border-[var(--border)]/50",
-                            )}
-                          >
-                            <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15 sm:h-auto sm:w-full sm:aspect-[4/3]">
-                              {avatarUrl ? (
-                                <CharacterAvatarImage
-                                  src={avatarUrl}
-                                  avatarFilePath={char.avatarFilePath}
-                                  avatarFilename={char.avatarFilename}
-                                  alt={charName}
-                                  crop={char.parsed.extensions?.avatarCrop}
-                                  className="transition-transform duration-300 group-hover:scale-[1.03]"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-white/85">
-                                  <User size="1.5rem" className="sm:h-8 sm:w-8" />
-                                </div>
-                              )}
-
-                              {isFavorite && (
-                                <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[0.5625rem] font-medium text-amber-200 backdrop-blur-sm sm:right-3 sm:top-3 sm:text-[0.625rem]">
-                                  <Star size="0.625rem" className="fill-current sm:h-[0.6875rem] sm:w-[0.6875rem]" />{" "}
-                                  Favorite
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-[var(--foreground)] sm:text-base">
-                                  {charName}
-                                </div>
-                                {charTitle && (
-                                  <div className="mt-0.5 truncate text-[0.625rem] italic text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.6875rem]">
-                                    {charTitle}
-                                  </div>
-                                )}
-                                {cardMeta && (
-                                  <div className="mt-0.5 truncate text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:mt-1 sm:text-[0.625rem] sm:tracking-[0.18em]">
-                                    {cardMeta}
-                                  </div>
-                                )}
-                              </div>
-
-                              <p className="line-clamp-3 text-[0.6875rem] leading-4 text-[var(--muted-foreground)] sm:line-clamp-4 sm:text-xs sm:leading-5">
-                                {cardSummary}
-                              </p>
-
-                              <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
-                                {tags.slice(0, 2).map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="rounded-full bg-[var(--primary)]/8 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]/85 sm:px-2 sm:py-1 sm:text-[0.625rem]"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                                {tags.length > 2 && (
-                                  <span className="rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] sm:px-2 sm:py-1 sm:text-[0.625rem]">
-                                    +{tags.length - 2}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
+                          <CharacterLibraryCard character={char} active={isActive} onSelect={setSelectedCharacterId} />
 
                           {isActive && (
                             <div className="col-span-full lg:hidden">
@@ -658,17 +263,10 @@ export function CharacterLibraryView() {
                 onRetryFullRecord={() => void selectedCharacterQuery.refetch()}
               />
             ) : (
-              <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--background)]/65 p-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">
-                  <User size="1.5rem" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-[var(--foreground)]">Select a card</h2>
-                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                    Pick a character from the grid to see a larger overview before editing.
-                  </p>
-                </div>
-              </div>
+              <CharacterLibraryEmptyState
+                title="Select a card"
+                description="Pick a character from the grid to see a larger overview before editing."
+              />
             )}
           </div>
         </aside>

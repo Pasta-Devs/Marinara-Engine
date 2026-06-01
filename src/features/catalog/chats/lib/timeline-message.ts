@@ -1,7 +1,7 @@
 import type { StorageListOptions } from "../../../../engine/capabilities/storage";
 import type { Message } from "../../../../engine/contracts/types/chat";
 
-export const CHAT_MESSAGE_TIMELINE_FIELDS = [
+const CHAT_MESSAGE_TIMELINE_FIELDS = [
   "id",
   "chatId",
   "role",
@@ -12,12 +12,13 @@ export const CHAT_MESSAGE_TIMELINE_FIELDS = [
   "characterName",
   "activeSwipeIndex",
   "swipeCount",
+  "swipePreviews",
   "rowid",
   "extra",
   "createdAt",
 ];
 
-export const CHAT_MESSAGE_TIMELINE_EXTRA_FIELDS = [
+const CHAT_MESSAGE_TIMELINE_EXTRA_FIELDS = [
   "displayText",
   "isGenerated",
   "tokenCount",

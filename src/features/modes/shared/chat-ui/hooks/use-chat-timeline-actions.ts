@@ -20,6 +20,7 @@ import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import type { MessageSelectionToggle, MessageWithSwipes, PeekPromptData, PeekPromptOptions } from "../types";
+import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 
 const TRACKER_AGENT_IDS = new Set(
   BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
@@ -73,16 +74,8 @@ function promptSnapshotToPeekPromptData(value: unknown): PeekPromptData | null {
 
 function promptSnapshotForMessage(message: MessageWithSwipes | undefined): PeekPromptData | null {
   if (!message) return null;
-  const extra = readMessageExtra(message);
-  const bySwipe = readRecord(extra.generationPromptSnapshotsBySwipe);
-  const activeSwipeIndex =
-    typeof message.activeSwipeIndex === "number" && Number.isFinite(message.activeSwipeIndex)
-      ? Math.max(0, Math.trunc(message.activeSwipeIndex))
-      : 0;
-  return (
-    promptSnapshotToPeekPromptData(bySwipe[String(activeSwipeIndex)]) ??
-    promptSnapshotToPeekPromptData(extra.generationPromptSnapshot)
-  );
+  const snapshot = resolvePromptSnapshotFromExtra(readMessageExtra(message), message.activeSwipeIndex);
+  return promptSnapshotToPeekPromptData(snapshot);
 }
 
 function useLatestRef<T>(value: T) {

@@ -13,10 +13,18 @@ import { useApplyRegex } from "./regex-application";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const regexScriptsMock = vi.hoisted(() => ({
+  data: [] as Array<Record<string, unknown>>,
+}));
+
 vi.mock("./hooks/use-regex-scripts", () => {
-  // enabled / promptOnly are real booleans, matching the storage shape.
-  const script = {
+  return { useRegexScripts: () => ({ data: regexScriptsMock.data }) };
+});
+
+function regexScript(overrides: Record<string, unknown>) {
+  return {
     id: "rx1",
+    characterId: null,
     name: "FooBar",
     enabled: true,
     promptOnly: false,
@@ -30,9 +38,9 @@ vi.mock("./hooks/use-regex-scripts", () => {
     maxDepth: null,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
   };
-  return { useRegexScripts: () => ({ data: [script] }) };
-});
+}
 
 function Probe() {
   const { applyToAIOutput, applyToUserInput } = useApplyRegex();
@@ -49,6 +57,7 @@ describe("useApplyRegex applies enabled boolean scripts (#1555)", () => {
   let root: Root;
 
   beforeEach(() => {
+    regexScriptsMock.data = [regexScript({})];
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -69,5 +78,67 @@ describe("useApplyRegex applies enabled boolean scripts (#1555)", () => {
     // (enabledBool=false) and the text passed through unchanged ("foo baz").
     expect(container.querySelector('[data-testid="ai"]')?.textContent).toBe("bar baz");
     expect(container.querySelector('[data-testid="user"]')?.textContent).toBe("bar baz");
+  });
+});
+
+function ScopedProbe({
+  mode,
+  characterId,
+}: {
+  mode?: "disabled" | "exclusive" | "chat";
+  characterId?: string | null;
+}) {
+  const { applyToUserInput } = useApplyRegex(["char-a", "char-b"]);
+  return <span data-testid="result">{applyToUserInput("global alpha beta", { scopedMode: mode, characterId })}</span>;
+}
+
+describe("useApplyRegex scopes character regex scripts", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    regexScriptsMock.data = [
+      regexScript({ id: "global", characterId: null, findRegex: "global", replaceString: "GLOBAL" }),
+      regexScript({ id: "char-a", characterId: "char-a", findRegex: "alpha", replaceString: "ALPHA" }),
+      regexScript({ id: "char-b", characterId: "char-b", findRegex: "beta", replaceString: "BETA" }),
+    ];
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("keeps disabled mode global-only", async () => {
+    await act(async () => {
+      root.render(<ScopedProbe mode="disabled" characterId="char-a" />);
+    });
+    expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("GLOBAL alpha beta");
+  });
+
+  it("keeps exclusive mode on the target character only", async () => {
+    await act(async () => {
+      root.render(<ScopedProbe mode="exclusive" characterId="char-a" />);
+    });
+    expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("global ALPHA beta");
+  });
+
+  it("runs every script loaded for the chat in chat mode, including user input without a character id", async () => {
+    await act(async () => {
+      root.render(<ScopedProbe mode="chat" />);
+    });
+    expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("GLOBAL ALPHA BETA");
+  });
+
+  it("defaults missing scoped mode to chat mode", async () => {
+    await act(async () => {
+      root.render(<ScopedProbe />);
+    });
+    expect(container.querySelector('[data-testid="result"]')?.textContent).toBe("GLOBAL ALPHA BETA");
   });
 });

@@ -1,5 +1,5 @@
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
-import type { SpriteInfo } from "../../../catalog/characters/index";
+import type { SpriteInfo } from "../../../catalog/sprites/index";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();

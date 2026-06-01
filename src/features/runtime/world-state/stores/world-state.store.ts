@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import type { GameState } from "../../../../engine/contracts/types/game-state";
 import { coerceGameStateTextFields } from "../../../../engine/shared/game-state/game-state-text";
+import { normalizeGameStateTrackerRows } from "../../../../engine/shared/game-state/tracker-row-ids";
 
 interface GameStateStore {
   current: GameState | null;
@@ -28,7 +29,10 @@ const flushPatchCallbacks = new Map<string, () => Promise<void>>();
 
 function normalizeGameState(state: GameState | null): GameState | null {
   if (!state) return null;
-  return { ...state, ...coerceGameStateTextFields(state as unknown as Record<string, unknown>) };
+  return normalizeGameStateTrackerRows({
+    ...state,
+    ...coerceGameStateTextFields(state as unknown as Record<string, unknown>),
+  });
 }
 
 function buildFlushPatch() {

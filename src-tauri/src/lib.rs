@@ -53,6 +53,9 @@ fn open_main_window_devtools_if_requested(app: &tauri::App) {
 pub fn run() {
     let builder = tauri::Builder::default();
 
+    #[cfg(feature = "devtools")]
+    let builder = builder.plugin(tauri_plugin_devtools::init());
+
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder.plugin(
         tauri_plugin_window_state::Builder::new()

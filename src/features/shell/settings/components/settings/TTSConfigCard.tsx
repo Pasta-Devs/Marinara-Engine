@@ -299,6 +299,7 @@ export function TTSConfigCard() {
   const [enabled, setEnabled] = useState(false);
   const [source, setSource] = useState<TTSSource>("openai");
   const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
+  const [voicesPath, setVoicesPath] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("tts-1");
   const [voice, setVoice] = useState("alloy");
@@ -335,6 +336,7 @@ export function TTSConfigCard() {
   } = useTTSVoices(
     savedSource,
     savedConfig?.baseUrl ?? TTS_SOURCE_DEFAULTS[savedSource].baseUrl,
+    savedConfig?.voicesPath ?? "",
     savedConfig?.enabled ?? false,
   );
 
@@ -344,6 +346,7 @@ export function TTSConfigCard() {
     setEnabled(savedConfig.enabled);
     setSource(savedConfig.source ?? "openai");
     setBaseUrl(savedConfig.baseUrl);
+    setVoicesPath(savedConfig.voicesPath ?? "");
     setApiKey(savedConfig.apiKey); // masked value from server
     setModel(savedConfig.model);
     setVoice(savedConfig.voice);
@@ -390,6 +393,7 @@ export function TTSConfigCard() {
     enabled,
     source,
     baseUrl,
+    voicesPath,
     apiKey: apiKey === TTS_API_KEY_MASK ? TTS_API_KEY_MASK : apiKey,
     model,
     voice,
@@ -452,6 +456,7 @@ export function TTSConfigCard() {
 
     setSource(nextSource);
     setBaseUrl(defaults.baseUrl);
+    setVoicesPath("");
     setApiKey(nextApiKey);
     setModel(defaults.model);
     setVoice(defaults.voice);
@@ -467,6 +472,7 @@ export function TTSConfigCard() {
     mark({
       source: nextSource,
       baseUrl: defaults.baseUrl,
+      voicesPath: "",
       apiKey: nextApiKey,
       model: defaults.model,
       voice: defaults.voice,
@@ -766,6 +772,23 @@ export function TTSConfigCard() {
               />
             </div>
           </FieldRow>
+
+          {source === "openai" && (
+            <FieldRow
+              label="Voice Lookup Path"
+              help="Optional path used to fetch provider voices. Leave blank for the default /audio/voices route."
+            >
+              <input
+                value={voicesPath}
+                onChange={(e) => {
+                  setVoicesPath(e.target.value);
+                  mark({ voicesPath: e.target.value });
+                }}
+                className={cn(INPUT_CLS, "font-mono")}
+                placeholder="/audio/voices"
+              />
+            </FieldRow>
+          )}
 
           {/* API Key */}
           <FieldRow

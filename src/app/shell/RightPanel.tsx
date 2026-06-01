@@ -2,7 +2,7 @@
 // Layout: Right Panel (polished with panel transitions)
 // ──────────────────────────────────────────────
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
-import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, User, Bot } from "lucide-react";
+import { X, Users, BookOpen, Compass, FileText, Link, Sparkles, Settings, User, Bot } from "lucide-react";
 import { useUIStore } from "../../shared/stores/ui.store";
 
 const CharactersPanel = lazy(() =>
@@ -29,8 +29,12 @@ const SettingsPanel = lazy(() =>
 const BotBrowserPanel = lazy(() =>
   import("../../features/shell/bot-browser/shell").then((module) => ({ default: module.BotBrowserPanel })),
 );
+const DiscoverPanel = lazy(() =>
+  import("../../features/shell/discovery/shell").then((module) => ({ default: module.DiscoverPanel })),
+);
 
 const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient: string }> = {
+  discover: { title: "Discover", icon: <Compass size="0.875rem" />, gradient: "from-teal-400 to-cyan-500" },
   "bot-browser": { title: "Browser", icon: <Bot size="0.875rem" />, gradient: "from-cyan-400 to-blue-500" },
   characters: { title: "Characters", icon: <Users size="0.875rem" />, gradient: "from-pink-400 to-rose-500" },
   lorebooks: { title: "Lorebooks", icon: <BookOpen size="0.875rem" />, gradient: "from-amber-400 to-orange-500" },
@@ -42,6 +46,7 @@ const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient: s
 };
 
 const PANELS: Record<string, LazyExoticComponent<ComponentType>> = {
+  discover: DiscoverPanel,
   "bot-browser": BotBrowserPanel,
   characters: CharactersPanel,
   lorebooks: LorebooksPanel,

@@ -53,8 +53,6 @@ const PROFILE_COLLECTIONS: &[&str] = &[
     "game-checkpoints",
 ];
 
-const SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS: &[&str] = &["conversation.selfie"];
-
 pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
     Ok(json!({
         "type": "marinara_profile",
@@ -155,6 +153,7 @@ fn import_profile_collections(
     data: &Map<String, Value>,
     collections: &Map<String, Value>,
 ) -> AppResult<Value> {
+    validate_native_profile_import(data, collections)?;
     let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
     let restored_count = restored_assets.restored();
     let result =
@@ -162,6 +161,41 @@ fn import_profile_collections(
             restored_assets.install()
         });
     finish_profile_import_assets(restored_assets, result)
+}
+
+pub(super) fn validate_native_profile_import(
+    data: &Map<String, Value>,
+    collections: &Map<String, Value>,
+) -> AppResult<()> {
+    match data.get("assets") {
+        Some(Value::Array(_)) => {}
+        Some(_) => {
+            return Err(AppError::invalid_input(
+                "Profile export data.assets must be a JSON array",
+            ));
+        }
+        None => {
+            return Err(AppError::invalid_input(
+                "Native profile export is missing data.assets",
+            ));
+        }
+    }
+    for collection in PROFILE_COLLECTIONS {
+        match collections.get(*collection) {
+            Some(Value::Array(_)) => {}
+            Some(_) => {
+                return Err(AppError::invalid_input(format!(
+                    "Profile collection `{collection}` must be a JSON array"
+                )));
+            }
+            None => {
+                return Err(AppError::invalid_input(format!(
+                    "Native profile export is missing collection `{collection}`"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn import_profile_collections_with_restored_assets<F>(
@@ -195,10 +229,7 @@ where
                 "Profile collection `{collection}` must be a JSON array"
             )));
         }
-        let mut rows = collection_value
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
+        let mut rows = collection_value.as_array().cloned().unwrap_or_default();
         if *collection == "prompt-overrides" {
             unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
         }
@@ -259,7 +290,7 @@ pub(super) fn normalize_profile_prompt_overrides(rows: &mut Vec<Value>) -> usize
         let Some(key) = key else {
             continue;
         };
-        if !SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
+        if !prompt_overrides::is_supported_prompt_override_key(&key) {
             unsupported += 1;
             log::trace!("skipping unsupported prompt override key={key}");
             continue;
@@ -377,6 +408,104 @@ mod tests {
     }
 
     #[test]
+    fn native_profile_import_rejects_missing_assets_without_wiping_existing_assets() {
+        let state = test_state("missing-assets-no-wipe");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+        let collections = complete_empty_profile_collections();
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections
+                }
+            }),
+        )
+        .expect_err("native profile missing data.assets should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    #[test]
+    fn native_profile_import_rejects_missing_collection_without_wiping_existing_rows() {
+        let state = test_state("missing-collection-no-wipe");
+        state
+            .storage
+            .upsert_with_id(
+                "characters",
+                "char-1",
+                json!({ "name": "Keep Me", "data": { "name": "Keep Me" } }),
+            )
+            .expect("seeded character should write");
+        let mut collections = complete_empty_profile_collections();
+        collections.remove("characters");
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect_err("native profile missing a collection should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .is_some());
+    }
+
+    #[test]
+    fn legacy_profile_import_without_files_preserves_existing_assets() {
+        let state = test_state("legacy-missing-files-preserves-assets");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "chats": []
+                        }
+                    }
+                }
+            }),
+        )
+        .expect("legacy profile without files should import partial tables");
+
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    fn complete_empty_profile_collections() -> Map<String, Value> {
+        PROFILE_COLLECTIONS
+            .iter()
+            .map(|collection| ((*collection).to_string(), json!([])))
+            .collect()
+    }
+
+    #[test]
     fn profile_import_collections_normalizes_prompt_overrides() {
         let state = test_state("prompt-overrides-normalize");
         let mut collections = Map::new();
@@ -404,7 +533,19 @@ mod tests {
                 {
                     "id": "game.background",
                     "key": "game.background",
-                    "template": "Background ${location}",
+                    "template": "Background ${defaultPrompt}",
+                    "enabled": "true"
+                },
+                {
+                    "id": "sprite.portraitSingle",
+                    "key": "sprite.portraitSingle",
+                    "template": "Sprite ${defaultPrompt}",
+                    "enabled": "true"
+                },
+                {
+                    "id": "game.unknown",
+                    "key": "game.unknown",
+                    "template": "Unknown ${defaultPrompt}",
                     "enabled": "true"
                 }
             ]),
@@ -418,12 +559,19 @@ mod tests {
             .storage
             .list("prompt-overrides")
             .expect("prompt overrides should be readable");
-        assert_eq!(rows.len(), 1);
+        assert_eq!(rows.len(), 3);
         assert_eq!(rows[0]["id"], "conversation.selfie");
         assert_eq!(rows[0]["key"], "conversation.selfie");
         assert_eq!(rows[0]["template"], "Selfie ${charName}");
         assert_eq!(rows[0]["enabled"], true);
-        assert_eq!(result["imported"]["prompt-overrides"], 1);
+        assert_eq!(rows[1]["id"], "game.background");
+        assert_eq!(rows[1]["key"], "game.background");
+        assert_eq!(rows[1]["template"], "Background ${defaultPrompt}");
+        assert_eq!(rows[2]["id"], "sprite.portraitSingle");
+        assert_eq!(rows[2]["key"], "sprite.portraitSingle");
+        assert_eq!(rows[2]["template"], "Sprite ${defaultPrompt}");
+        assert_eq!(rows[2]["enabled"], true);
+        assert_eq!(result["imported"]["prompt-overrides"], 3);
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
     }
 

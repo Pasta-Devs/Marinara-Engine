@@ -38,7 +38,7 @@ import { usePageActivity } from "../../../../shared/hooks/use-page-activity";
 import { invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
 import { getConversationStatus } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { storageApi } from "../../../../shared/api/storage-api";
-import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "../../shared/chat-ui/types";
+import type { CharacterMap, MessageSelectionToggle, PeekPromptOptions, PersonaInfo } from "../../shared/chat-ui/types";
 import type { Message } from "../../../../engine/contracts/types/chat";
 
 const ConversationAutonomousEffects = lazy(async () => {
@@ -66,7 +66,7 @@ interface ConversationViewProps {
   onRegenerate: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void | Promise<void>;
   onSetActiveSwipe: (messageId: string, index: number) => void;
-  onPeekPrompt: () => void;
+  onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
   lastAssistantMessageId: string | null;
   onOpenSettings: () => void;
@@ -805,7 +805,7 @@ export function ConversationView({
   }, [hiddenCount]);
 
   return (
-    <div className="mari-chat-area relative flex flex-1 flex-col overflow-hidden" style={gradientStyle}>
+    <div className="mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden" data-chat-mode="conversation" style={{ ...gradientStyle, isolation: "isolate" }}>
       {/* ── Messages scroll area ── */}
       <div ref={scrollRef} className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
         {/* Floating header — character info + action buttons */}
@@ -1190,7 +1190,7 @@ function SplitMessageGroup({
   onRegenerate: (id: string) => void;
   onEdit: (id: string, content: string) => void;
   onSetActiveSwipe: (id: string, index: number) => void;
-  onPeekPrompt: () => void;
+  onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
 }) {
   const [showActions, setShowActions] = useState(false);

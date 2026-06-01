@@ -94,6 +94,7 @@ import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/
 // state is independent across books.
 // ──────────────────────────────────────────────
 const FOLDER_COLLAPSE_KEY_PREFIX = "lorebook-folder-collapsed:";
+const LEGACY_LOCAL_SIDECAR_CONNECTION_ID = "__local_sidecar__";
 
 function readCollapsedFolderIds(lorebookId: string | null): Set<string> {
   if (!lorebookId || typeof window === "undefined") return new Set();
@@ -2171,7 +2172,10 @@ function VectorizeSection({
   const unvectorizeEntries = useBulkUnvectorizeLorebookEntries();
   const { data: rawConnections } = useConnections();
   const connections = (rawConnections ?? []) as Array<{ id: string; name: string; embeddingModel?: string }>;
-  const embeddingConnections = connections.filter((c) => c.embeddingModel);
+  const embeddingConnections = connections.filter(
+    (c) =>
+      c.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID && typeof c.embeddingModel === "string" && c.embeddingModel.trim(),
+  );
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizing, setVectorizing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);

@@ -72,14 +72,23 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     let Some(object) = message.as_object_mut() else {
         return;
     };
-    let Some((swipe_count, active_index, active_content, active_extra)) = object
+    let Some((swipe_count, active_index, active_content, active_extra, swipe_previews)) = object
         .get("swipes")
         .and_then(Value::as_array)
         .map(|swipes| {
             let swipe_count = swipes.len();
             if swipe_count == 0 {
-                return (0, 0, None, None);
+                return (0, 0, None, None, Vec::new());
             }
+
+            let swipe_previews = swipes
+                .iter()
+                .map(|swipe| {
+                    json!({
+                        "content": swipe.get("content").and_then(Value::as_str).unwrap_or("")
+                    })
+                })
+                .collect::<Vec<_>>();
 
             let requested_index = object
                 .get("activeSwipeIndex")
@@ -93,11 +102,18 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
             let active_extra = json_object_value(active_swipe.and_then(|swipe| swipe.get("extra")));
-            (swipe_count, active_index, active_content, active_extra)
+            (
+                swipe_count,
+                active_index,
+                active_content,
+                active_extra,
+                swipe_previews,
+            )
         })
     else {
         return;
     };
+    object.insert("swipePreviews".to_string(), Value::Array(swipe_previews));
     object.insert("swipeCount".to_string(), json!(swipe_count));
     if swipe_count == 0 {
         object.insert("activeSwipeIndex".to_string(), json!(0));
@@ -116,7 +132,7 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     }
 }
 
-const TIMELINE_MESSAGE_FIELDS: [&str; 13] = [
+const TIMELINE_MESSAGE_FIELDS: [&str; 14] = [
     "id",
     "chatId",
     "role",
@@ -127,6 +143,7 @@ const TIMELINE_MESSAGE_FIELDS: [&str; 13] = [
     "characterName",
     "activeSwipeIndex",
     "swipeCount",
+    "swipePreviews",
     "rowid",
     "extra",
     "createdAt",
@@ -158,6 +175,7 @@ const TIMELINE_MESSAGE_EXTRA_FIELDS: [&str; 21] = [
 
 pub(crate) fn project_timeline_message(mut message: Value) -> Value {
     materialize_message_swipe_fields(&mut message);
+    synthesize_legacy_prompt_snapshot(&mut message);
     let options = json!({
         "fields": TIMELINE_MESSAGE_FIELDS,
         "fieldSelections": {
@@ -165,6 +183,72 @@ pub(crate) fn project_timeline_message(mut message: Value) -> Value {
         },
     });
     project_record(message, Some(&options))
+}
+
+/// Surface v1.6.1-era prompts to the prompt inspector.
+///
+/// Pre-refactor builds stored the exact prompt that was sent under
+/// `extra.cachedPrompt` (with parameters in `extra.generationInfo`); the refactor
+/// reads `extra.generationPromptSnapshot` instead and never migrated the old
+/// field. When a message carries a legacy `cachedPrompt` but no native snapshot,
+/// synthesize a `generationPromptSnapshot` view so imported chats keep inspector
+/// fidelity.
+///
+/// Non-destructive: this only shapes the projected timeline payload. Stored
+/// records keep their original `cachedPrompt`, and a native snapshot is never
+/// overwritten. Runs after swipe materialization, so it sees the active swipe's
+/// merged `cachedPrompt`. Called from both the single-message mutation
+/// projection and the timeline list load.
+pub(crate) fn synthesize_legacy_prompt_snapshot(message: &mut Value) {
+    let Some(mut extra) = message
+        .get("extra")
+        .and_then(|value| json_object_value(Some(value)))
+        .and_then(|value| value.as_object().cloned())
+    else {
+        return;
+    };
+
+    // Never overwrite a native snapshot.
+    if extra
+        .get("generationPromptSnapshot")
+        .is_some_and(|value| !value.is_null())
+    {
+        return;
+    }
+
+    // Require a cached prompt that is a non-empty array of {role, content} rows.
+    let Some(cached) = extra.get("cachedPrompt").and_then(Value::as_array) else {
+        return;
+    };
+    let messages: Vec<Value> = cached
+        .iter()
+        .filter(|entry| {
+            entry.get("role").and_then(Value::as_str).is_some()
+                && entry.get("content").and_then(Value::as_str).is_some()
+        })
+        .cloned()
+        .collect();
+    if messages.is_empty() {
+        return;
+    }
+
+    let generation_info = extra
+        .get("generationInfo")
+        .filter(|value| value.is_object())
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    extra.insert(
+        "generationPromptSnapshot".to_string(),
+        json!({
+            "messages": messages,
+            "parameters": {},
+            "generationInfo": generation_info,
+        }),
+    );
+    if let Some(object) = message.as_object_mut() {
+        object.insert("extra".to_string(), Value::Object(extra));
+    }
 }
 
 const SWIPE_SCOPED_EXTRA_KEYS: [&str; 15] = [
@@ -808,6 +892,9 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
             object
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
+            object
+                .entry("credit".to_string())
+                .or_insert_with(|| Value::String("Marinara Dev Team".to_string()));
         }
         _ => {}
     }
@@ -1162,6 +1249,10 @@ mod tests {
         materialize_message_swipe_fields(&mut message);
 
         assert_eq!(message["content"], json!("second"));
+        assert_eq!(
+            message["swipePreviews"],
+            json!([{ "content": "first" }, { "content": "second" }])
+        );
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(
             message["extra"]["generationInfo"]["model"],
@@ -1207,6 +1298,81 @@ mod tests {
             message["extra"]["cachedPrompt"][0]["content"],
             json!("old prompt")
         );
+    }
+
+    #[test]
+    fn project_timeline_message_synthesizes_snapshot_from_legacy_cached_prompt() {
+        // Legacy v1.6.1 message: extra stored as a JSON string with cachedPrompt
+        // and generationInfo, but no native generationPromptSnapshot.
+        let message = json!({
+            "id": "m1",
+            "role": "assistant",
+            "content": "hello",
+            "extra": "{\"cachedPrompt\":[{\"role\":\"system\",\"content\":\"sys prompt\"},{\"role\":\"user\",\"content\":\"hi\"}],\"generationInfo\":{\"model\":\"legacy-model\"}}"
+        });
+
+        let projected = project_timeline_message(message);
+
+        // The inspector reads generationPromptSnapshot — it should now exist.
+        assert_eq!(
+            projected["extra"]["generationPromptSnapshot"]["messages"][0]["content"],
+            json!("sys prompt")
+        );
+        assert_eq!(
+            projected["extra"]["generationPromptSnapshot"]["messages"][1]["role"],
+            json!("user")
+        );
+        assert_eq!(
+            projected["extra"]["generationPromptSnapshot"]["generationInfo"]["model"],
+            json!("legacy-model")
+        );
+        // cachedPrompt is not in the timeline whitelist; it must not leak.
+        assert!(projected["extra"]["cachedPrompt"].is_null());
+    }
+
+    #[test]
+    fn project_timeline_message_does_not_overwrite_native_snapshot() {
+        let message = json!({
+            "id": "m2",
+            "role": "assistant",
+            "content": "hello",
+            "extra": {
+                "generationPromptSnapshot": { "messages": [{ "role": "system", "content": "native" }] },
+                "cachedPrompt": [{ "role": "system", "content": "legacy" }]
+            }
+        });
+
+        let projected = project_timeline_message(message);
+
+        assert_eq!(
+            projected["extra"]["generationPromptSnapshot"]["messages"][0]["content"],
+            json!("native")
+        );
+    }
+
+    #[test]
+    fn project_timeline_message_skips_empty_or_malformed_cached_prompt() {
+        // Empty array, plus rows missing role/content — none should synthesize.
+        let message = json!({
+            "id": "m3",
+            "role": "assistant",
+            "content": "hello",
+            "extra": {
+                "cachedPrompt": [{ "role": "system" }, { "content": "no role" }, "not-an-object"]
+            }
+        });
+
+        let projected = project_timeline_message(message);
+        assert!(projected["extra"]["generationPromptSnapshot"].is_null());
+
+        let empty = json!({
+            "id": "m4",
+            "role": "assistant",
+            "content": "hello",
+            "extra": { "cachedPrompt": [] }
+        });
+        let projected_empty = project_timeline_message(empty);
+        assert!(projected_empty["extra"]["generationPromptSnapshot"].is_null());
     }
 
     #[test]
