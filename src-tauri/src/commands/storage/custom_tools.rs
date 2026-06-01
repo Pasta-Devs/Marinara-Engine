@@ -6,7 +6,7 @@ pub(crate) fn custom_tool_capabilities() -> Value {
     json!({
         "staticResults": true,
         "webhooks": true,
-        "scriptExecutionEnabled": true
+        "scriptExecutionEnabled": false
     })
 }
 
@@ -42,7 +42,7 @@ pub(crate) async fn execute_custom_tool(state: &AppState, body: Value) -> AppRes
         "script" => Err(AppError::with_details(
             "custom_tool_script_unsupported",
             format!(
-                "Custom tool '{tool_name}' uses the script executionType. Script custom tools run in the Tauri TypeScript generation runtime; native custom_tool_execute only supports static results and webhooks. Use this tool during generation, or convert it to a Webhook or Static result for direct native execution."
+                "Custom tool '{tool_name}' uses the script executionType. Script custom tools are disabled in this runtime. Convert it to a Webhook or Static result."
             ),
             json!({ "executionType": "script", "migration": "convert-to-webhook-or-static" }),
         )),
@@ -136,6 +136,17 @@ mod tests {
             .expect("storage create should succeed");
     }
 
+    #[test]
+    fn capabilities_report_script_execution_disabled() {
+        let capabilities = custom_tool_capabilities();
+        assert_eq!(
+            capabilities
+                .get("scriptExecutionEnabled")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+    }
+
     #[tokio::test]
     async fn script_execution_type_returns_actionable_error() {
         let state = test_state("script-unsupported");
@@ -157,8 +168,7 @@ mod tests {
             error.message
         );
         assert!(
-            error.message.contains("legacy script")
-                || error.message.contains("script executionType"),
+            error.message.contains("disabled") || error.message.contains("script executionType"),
             "error should identify the legacy script issue, got: {}",
             error.message
         );

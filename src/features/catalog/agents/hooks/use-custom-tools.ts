@@ -17,7 +17,6 @@ export interface CustomToolRow {
   executionType: string;
   webhookUrl: string | null;
   staticResult: string | null;
-  scriptBody: string | null;
   enabled: string;
   createdAt: string;
   updatedAt: string;
@@ -34,8 +33,6 @@ export function isCustomToolSelectable(tool: CustomToolRow, _capabilities?: Cust
   if (!enabled) return false;
   if (tool.executionType === "static") return !!tool.staticResult?.trim();
   if (tool.executionType === "webhook") return !!tool.webhookUrl?.trim();
-  if (tool.executionType === "script")
-    return _capabilities?.scriptExecutionEnabled === true && !!tool.scriptBody?.trim();
   return false;
 }
 

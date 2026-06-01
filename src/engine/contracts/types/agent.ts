@@ -694,10 +694,9 @@ export interface CustomTool {
   name: string;
   description: string;
   parametersSchema: ToolParameterSchema;
-  executionType: "webhook" | "static" | "script";
+  executionType: "webhook" | "static";
   webhookUrl: string | null;
   staticResult: string | null;
-  scriptBody: string | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;

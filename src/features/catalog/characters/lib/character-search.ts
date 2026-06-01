@@ -2,7 +2,7 @@ export type CharacterSearchData = Record<string, unknown> & {
   tags?: unknown;
 };
 
-export type CharacterSearchScope = "name" | "title" | "tag" | "description" | "personality";
+type CharacterSearchScope = "name" | "title" | "tag" | "description" | "personality";
 
 export type CharacterScopedSearchTerm = {
   scope: CharacterSearchScope;

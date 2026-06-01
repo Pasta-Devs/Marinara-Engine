@@ -32,10 +32,9 @@ import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
   { value: "webhook", label: "Webhook", icon: Globe, description: "Sends a POST request to an external URL." },
-  { value: "script", label: "Script", icon: Code2, description: "Runs a local JavaScript function body." },
 ] as const;
 
-type ExecType = "static" | "webhook" | "script";
+type ExecType = "static" | "webhook";
 
 // ═══════════════════════════════════════════════
 //  Main Editor
@@ -55,6 +54,7 @@ export function ToolEditor() {
   }, [toolDetailId, allTools]);
 
   const isNew = toolDetailId === "__new__";
+  const isUnsupportedScriptTool = dbTool?.executionType === "script";
 
   // ── Local state ──
   const [localName, setLocalName] = useState("");
@@ -62,7 +62,6 @@ export function ToolEditor() {
   const [localExecType, setLocalExecType] = useState<ExecType>("static");
   const [localWebhookUrl, setLocalWebhookUrl] = useState("");
   const [localStaticResult, setLocalStaticResult] = useState("");
-  const [localScriptBody, setLocalScriptBody] = useState("");
   const [localParams, setLocalParams] = useState<ParamDef[]>([]);
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
@@ -77,12 +76,10 @@ export function ToolEditor() {
     if (dbTool) {
       setLocalName(dbTool.name);
       setLocalDesc(dbTool.description);
-      const execType: ExecType =
-        dbTool.executionType === "webhook" ? "webhook" : dbTool.executionType === "script" ? "script" : "static";
+      const execType: ExecType = dbTool.executionType === "webhook" ? "webhook" : "static";
       setLocalExecType(execType);
       setLocalWebhookUrl(dbTool.webhookUrl ?? "");
       setLocalStaticResult(dbTool.staticResult ?? "");
-      setLocalScriptBody(dbTool.scriptBody ?? "");
       const schema = dbTool.parametersSchema ?? {};
       const props = (schema.properties as Record<string, unknown> | undefined) ?? {};
       const req: string[] = Array.isArray(schema.required)
@@ -105,7 +102,6 @@ export function ToolEditor() {
       setLocalExecType("static");
       setLocalWebhookUrl("");
       setLocalStaticResult("");
-      setLocalScriptBody("");
       setLocalParams([]);
     }
     setDirty(false);
@@ -162,10 +158,6 @@ export function ToolEditor() {
       setSaveError("Webhook URL is required for a webhook custom tool.");
       return false;
     }
-    if (localExecType === "script" && !localScriptBody.trim()) {
-      setSaveError("Script body is required for a script custom tool.");
-      return false;
-    }
     const payload = {
       name: localName,
       description: localDesc,
@@ -173,7 +165,6 @@ export function ToolEditor() {
       executionType: localExecType,
       webhookUrl: localExecType === "webhook" ? localWebhookUrl || null : null,
       staticResult: localExecType === "static" ? localStaticResult || null : null,
-      scriptBody: localExecType === "script" ? localScriptBody || null : null,
       enabled: true,
     };
 
@@ -199,7 +190,6 @@ export function ToolEditor() {
     localExecType,
     localWebhookUrl,
     localStaticResult,
-    localScriptBody,
     dbTool,
     createTool,
     updateTool,
@@ -339,6 +329,12 @@ export function ToolEditor() {
             <code className="rounded bg-[var(--secondary)] px-1">check_weather</code>). This is the identifier the AI
             will use to call this function.
           </p>
+          {isUnsupportedScriptTool && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              Script custom tools are disabled in this runtime. Convert this tool to a static result or webhook before
+              saving.
+            </div>
+          )}
 
           {/* ── Description ── */}
           <FieldGroup
@@ -453,7 +449,7 @@ export function ToolEditor() {
 
           {/* ── Execution Type ── */}
           <FieldGroup label="Execution Type" icon={<Wrench size="0.875rem" className="text-[var(--primary)]" />}>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {EXEC_TYPES.map((et) => {
                 const isActive = localExecType === et.value;
                 const Icon = et.icon;
@@ -521,26 +517,6 @@ export function ToolEditor() {
             </FieldGroup>
           )}
 
-          {localExecType === "script" && (
-            <FieldGroup label="Script Body" icon={<Code2 size="0.875rem" className="text-[var(--primary)]" />}>
-              <textarea
-                value={localScriptBody}
-                onChange={(e) => {
-                  setLocalScriptBody(e.target.value);
-                  markDirty();
-                }}
-                rows={10}
-                placeholder={`const name = args.name ?? "there";\nreturn { result: \`Hello, \${name}.\` };`}
-                className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              />
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Runs locally in the Tauri app with <code className="rounded bg-[var(--secondary)] px-1">args</code>,{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">JSON</code>,{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">Math</code>, and{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">Date</code>. Return a JSON-serializable value.
-              </p>
-            </FieldGroup>
-          )}
         </div>
       </div>
     </div>

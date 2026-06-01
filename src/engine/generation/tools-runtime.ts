@@ -44,7 +44,6 @@ export interface CustomToolRecord extends JsonRecord {
   executionType: string;
   webhookUrl: string | null;
   staticResult: string | null;
-  scriptBody?: string | null;
   enabled: string | boolean;
 }
 
@@ -87,7 +86,7 @@ function customToolRecord(row: JsonRecord): CustomToolRecord | null {
   const name = readString(row.name).trim();
   if (!name || !boolish(row.enabled, false)) return null;
   const executionType = readString(row.executionType, "static");
-  if (executionType !== "static" && executionType !== "webhook" && executionType !== "script") return null;
+  if (executionType !== "static" && executionType !== "webhook") return null;
   return {
     ...row,
     name,
@@ -96,7 +95,6 @@ function customToolRecord(row: JsonRecord): CustomToolRecord | null {
     executionType,
     webhookUrl: readString(row.webhookUrl).trim() || null,
     staticResult: readString(row.staticResult),
-    scriptBody: readString(row.scriptBody),
     enabled: row.enabled as string | boolean,
   };
 }
@@ -475,81 +473,13 @@ export async function customToolExecutor(
   tool?: CustomToolRecord | null,
 ): Promise<string> {
   const name = call.function?.name || call.name;
-  if (tool?.executionType === "script") {
-    return stringifyToolResult(await executeScriptCustomTool(tool, toolArguments(call)));
-  }
+  if (!tool) return stringifyToolResult({ error: `Tool not enabled for this context: ${name}` });
   return stringifyToolResult(
     await integrations.customTools.execute({
       toolName: name,
       arguments: toolArguments(call),
     }),
   );
-}
-
-async function executeScriptCustomTool(tool: CustomToolRecord, args: JsonRecord): Promise<unknown> {
-  const scriptBody = tool.scriptBody?.trim();
-  if (!scriptBody) return { error: `No script body configured for custom tool: ${tool.name}` };
-  try {
-    // Sloppy mode lets us shadow eval/Function as parameters and mirror args onto
-    // the legacy `arguments.foo` shape used by older imported script tools.
-    const runner = new Function(
-      "args",
-      "JSON",
-      "Math",
-      "String",
-      "Number",
-      "Date",
-      "Array",
-      "parseInt",
-      "parseFloat",
-      "isNaN",
-      "isFinite",
-      "console",
-      "fetch",
-      "window",
-      "document",
-      "localStorage",
-      "sessionStorage",
-      "Function",
-      "eval",
-      `const __marinaraToolArgs = args && typeof args === "object" ? args : {};
-for (const __marinaraToolKey of Object.keys(__marinaraToolArgs)) {
-  if (__marinaraToolKey !== "length" && __marinaraToolKey !== "callee") {
-    Object.defineProperty(arguments, __marinaraToolKey, {
-      value: __marinaraToolArgs[__marinaraToolKey],
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
-  }
-}
-${scriptBody}`,
-    );
-    const result = runner(
-      args,
-      JSON,
-      Math,
-      String,
-      Number,
-      Date,
-      Array,
-      parseInt,
-      parseFloat,
-      isNaN,
-      isFinite,
-      { log: () => undefined, warn: () => undefined, error: () => undefined },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    );
-    return result instanceof Promise ? await result : (result ?? { result: "OK" });
-  } catch (error) {
-    return { error: `Script error: ${error instanceof Error ? error.message : "unknown"}` };
-  }
 }
 
 // ──────────────────────────────────────────────
