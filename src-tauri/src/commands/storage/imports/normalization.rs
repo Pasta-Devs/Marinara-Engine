@@ -7,7 +7,6 @@ pub(super) fn string_field(value: &Value, key: &str) -> String {
         .unwrap_or("")
         .to_string()
 }
-
 pub(super) fn string_array(value: Option<&Value>) -> Vec<String> {
     match value {
         Some(Value::Array(items)) => items
@@ -21,7 +20,6 @@ pub(super) fn string_array(value: Option<&Value>) -> Vec<String> {
         _ => Vec::new(),
     }
 }
-
 pub(super) fn first_string(values: Vec<Option<&Value>>) -> String {
     values
         .into_iter()
@@ -32,7 +30,6 @@ pub(super) fn first_string(values: Vec<Option<&Value>>) -> String {
         .unwrap_or("")
         .to_string()
 }
-
 pub(super) fn source_character_data(payload: &Value) -> Value {
     if matches!(
         payload.get("spec").and_then(Value::as_str),
@@ -53,7 +50,6 @@ pub(super) fn source_character_data(payload: &Value) -> Value {
     }
     payload.clone()
 }
-
 pub(super) fn embedded_lorebook(payload: &Value) -> Option<Value> {
     let wrapped = source_character_data(payload);
     let mut candidates = Vec::new();
@@ -111,7 +107,10 @@ pub(super) fn character_import_extensions(
     extensions
         .entry("altDescriptions".to_string())
         .or_insert_with(|| alt_descriptions(data));
-
+    let bot_browser_source = string_field(payload, "_botBrowserSource");
+    if !bot_browser_source.trim().is_empty() {
+        extensions.insert("botBrowserSource".to_string(), json!(bot_browser_source));
+    }
     let import_metadata = extensions
         .entry("importMetadata".to_string())
         .or_insert_with(|| json!({}));

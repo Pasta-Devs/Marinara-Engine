@@ -3,6 +3,7 @@ import { importApi } from "../../../../shared/api/import-api";
 import { loadUrlBlob } from "../../../../shared/lib/url-blob";
 
 const TAURI_ASSET_PREFIX = "tauri-api:";
+const JANNY_SEARCH_URL = "https://search.jannyai.com/multi-search";
 
 export interface ImportCharacterResult {
   success?: boolean;
@@ -70,6 +71,48 @@ export async function botBrowserGet<T = unknown>(path: string, init?: RequestIni
 export async function botBrowserPost<T = unknown>(path: string, body?: unknown, init?: RequestInit): Promise<T> {
   if (init?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
   return botBrowserCommandApi.post<T>(normalizeBotBrowserPath(path), body);
+}
+
+function errorCode(error: unknown): string {
+  const details = error && typeof error === "object" ? (error as { details?: unknown }).details : null;
+  if (details && typeof details === "object" && typeof (details as { code?: unknown }).code === "string") {
+    return (details as { code: string }).code;
+  }
+  return "";
+}
+
+function isJannyCloudflareBlock(error: unknown): boolean {
+  return errorCode(error) === "upstream_blocked" || String(error).toLowerCase().includes("cloudflare");
+}
+
+async function jannyBrowserSearch<T>(payload: unknown, forceToken: boolean): Promise<T> {
+  const tokenResponse = await botBrowserGet<{ token?: string }>(`janny/token${forceToken ? "?force=true" : ""}`);
+  const token = tokenResponse.token?.trim();
+  if (!token) throw new Error("JannyAI search token is unavailable");
+
+  const response = await fetch(JANNY_SEARCH_URL, {
+    method: "POST",
+    headers: {
+      Accept: "*/*",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "x-meilisearch-client": "Meilisearch instant-meilisearch (v0.19.0) ; Meilisearch JavaScript (v0.41.0)",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`JannyAI browser fallback returned ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function jannySearchWithBrowserFallback<T = unknown>(payload: unknown): Promise<T> {
+  try {
+    return await botBrowserPost<T>("janny/search", { payload });
+  } catch (error) {
+    if (!isJannyCloudflareBlock(error)) throw error;
+    return jannyBrowserSearch<T>(payload, true);
+  }
 }
 
 export async function botBrowserBlob(path: string, fallbackMimeType = "image/png", init?: RequestInit): Promise<Blob> {

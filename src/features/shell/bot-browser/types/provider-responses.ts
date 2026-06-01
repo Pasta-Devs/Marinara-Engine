@@ -26,6 +26,10 @@ interface ChubDefinition {
   example_dialogs?: string;
   alternate_greetings?: string[];
   description?: string;
+  system_prompt?: string;
+  post_history_instructions?: string;
+  character_version?: string;
+  extensions?: Record<string, unknown>;
   embedded_lorebook?: unknown;
 }
 

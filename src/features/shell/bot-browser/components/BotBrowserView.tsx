@@ -50,8 +50,10 @@ import {
   botBrowserPost,
   fetchBotBrowserAssetBlob,
   importStCharacter,
+  jannySearchWithBrowserFallback,
   resolveBotBrowserAssetUrl,
 } from "../api/bot-browser-api";
+import { mergeCharacterDetailIntoCharacterJson } from "../lib/character-detail-merge";
 import type {
   ChartavernDetailResponse,
   ChartavernSearchResponse,
@@ -164,6 +166,10 @@ interface CardDetail {
   exampleDialogs?: string;
   alternateGreetings?: string[];
   creatorNotes?: string;
+  systemPrompt?: string;
+  postHistoryInstructions?: string;
+  characterVersion?: string;
+  providerExtensions?: Record<string, unknown>;
   hasLorebook?: boolean;
   embeddedLorebook?: unknown;
   extra?: { title: string; content: string }[];
@@ -187,28 +193,6 @@ const STAT_ICONS = {
   message: MessageSquare,
   hash: Hash,
 };
-
-function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, embeddedLorebook: unknown) {
-  if (!hasLorebookEntries(embeddedLorebook)) return raw;
-
-  const cloned: Record<string, unknown> = { ...raw };
-  const target =
-    (cloned.spec === "chara_card_v2" || cloned.spec === "chara_card_v3") &&
-    cloned.data &&
-    typeof cloned.data === "object"
-      ? { ...(cloned.data as Record<string, unknown>) }
-      : cloned;
-
-  if (!target.character_book) {
-    target.character_book = embeddedLorebook;
-  }
-
-  if (target !== cloned) {
-    cloned.data = target;
-  }
-
-  return cloned;
-}
 
 function isDatacatTagRecord(tag: DatacatCharacterTag): tag is DatacatTagRecord {
   return typeof tag === "object" && tag !== null;
@@ -465,6 +449,10 @@ const chubProvider: ProviderConfig = {
       exampleDialogs: def.example_dialogs || undefined,
       alternateGreetings: def.alternate_greetings || [],
       creatorNotes: def.description || undefined,
+      systemPrompt: def.system_prompt || undefined,
+      postHistoryInstructions: def.post_history_instructions || undefined,
+      characterVersion: def.character_version || undefined,
+      providerExtensions: def.extensions,
       hasLorebook: !!def.embedded_lorebook,
       embeddedLorebook: def.embedded_lorebook,
     };
@@ -551,7 +539,7 @@ const jannyProvider: ProviderConfig = {
         ],
       };
 
-      const raw = await botBrowserPost<JannySearchResponse>("janny/search", { payload: body });
+      const raw = await jannySearchWithBrowserFallback<JannySearchResponse>(body);
       return raw?.results?.[0];
     };
 
@@ -1455,10 +1443,7 @@ export function BotBrowserView() {
         // abort the import (the detail-view path surfaces failures; this one degrades).
         const cardDetail =
           sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card).catch(() => null))) : detail;
-        const importJson = attachEmbeddedLorebookToCharacterJson(
-          json as Record<string, unknown>,
-          cardDetail?.embeddedLorebook,
-        );
+        const importJson = mergeCharacterDetailIntoCharacterJson(json as Record<string, unknown>, cardDetail);
         const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
           card.name,
           cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
@@ -1501,10 +1486,13 @@ export function BotBrowserView() {
           first_mes: cardDetail?.firstMessage || "",
           mes_example: cardDetail?.exampleDialogs || "",
           creator_notes: cardDetail?.creatorNotes || "",
+          system_prompt: cardDetail?.systemPrompt || "",
+          post_history_instructions: cardDetail?.postHistoryInstructions || "",
           tags: card.tags,
           creator: card.creator,
+          character_version: cardDetail?.characterVersion || "",
           alternate_greetings: cardDetail?.alternateGreetings || [],
-          extensions: { [`${sourceId}`]: { id: card.id } },
+          extensions: { ...cardDetail?.providerExtensions, [`${sourceId}`]: { id: card.id } },
           _botBrowserSource: `${sourceId}:${card.id}`,
           tagImportMode,
           importEmbeddedLorebook,
@@ -2688,10 +2676,13 @@ function DetailView({
         first_mes: d?.firstMessage || "",
         mes_example: d?.exampleDialogs || "",
         creator_notes: d?.creatorNotes || "",
+        system_prompt: d?.systemPrompt || "",
+        post_history_instructions: d?.postHistoryInstructions || "",
         tags: card.tags || [],
         creator: card.creator || "",
+        character_version: d?.characterVersion || "",
         alternate_greetings: d?.alternateGreetings || [],
-        extensions: { [`${provider.id}`]: { id: card.id } },
+        extensions: { ...d?.providerExtensions, [`${provider.id}`]: { id: card.id } },
       };
       if (hasLorebookEntries(d?.embeddedLorebook)) {
         charData.character_book = d?.embeddedLorebook;
@@ -2959,11 +2950,11 @@ async function buildCharacterCardPng(avatarUrl: string, charData: Record<string,
       first_mes: charData.first_mes || "",
       mes_example: charData.mes_example || "",
       creator_notes: charData.creator_notes || "",
-      system_prompt: "",
-      post_history_instructions: "",
+      system_prompt: charData.system_prompt || "",
+      post_history_instructions: charData.post_history_instructions || "",
       tags: charData.tags || [],
       creator: charData.creator || "",
-      character_version: "",
+      character_version: charData.character_version || "",
       alternate_greetings: charData.alternate_greetings || [],
       extensions: charData.extensions || {},
     },
