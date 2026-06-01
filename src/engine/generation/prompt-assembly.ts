@@ -122,6 +122,7 @@ export interface PromptAssemblyInput {
   latestUserInput: string;
   agentData?: Record<string, string>;
   embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
+  persistPromptVariables?: boolean;
 }
 
 type PromptSectionRecord = JsonRecord & {
@@ -223,6 +224,13 @@ function promptChoiceVariables(
     if (normalized !== null) variables[name] = normalized;
   }
   return variables;
+}
+
+function chatPromptVariables(chat: JsonRecord): Record<string, string> {
+  return {
+    ...stringRecord(chat.variableValues),
+    ...stringRecord(chat.promptVariables),
+  };
 }
 
 function loadCharacterContext(record: JsonRecord): GenerationCharacterContext {
@@ -802,7 +810,7 @@ async function loadSelectedPromptPreset(
         .filter(([name]) => name.length > 0),
     );
     const metadata = parseRecord(input.chat.metadata);
-    const explicitVariables = stringRecord(input.chat.promptVariables ?? input.chat.variableValues);
+    const explicitVariables = chatPromptVariables(input.chat);
     const chatPresetId = readString(input.chat.promptPresetId).trim();
     const chatChoices = chatPresetId === presetId ? (metadata.presetChoices ?? input.chat.presetChoices) : null;
     const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
@@ -962,7 +970,7 @@ function macroContext(input: {
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
     })),
-    variables: input.variables ?? stringRecord(input.chat.promptVariables ?? input.chat.variableValues),
+    variables: input.variables ?? chatPromptVariables(input.chat),
     lastInput: input.latestUserInput,
     chatId: readString(input.chat.id),
     model: readString(input.connection.model),
@@ -1930,6 +1938,67 @@ function historyMessages(storedMessages: JsonRecord[], limit: number, includePas
     .filter((message) => message.content.length > 0);
 }
 
+function leadingGreetingContents(storedMessages: JsonRecord[]): string[] {
+  const contents: string[] = [];
+  for (const message of storedMessages) {
+    const role = normalizeRole(message.role);
+    if (role === "user") break;
+    if (role !== "assistant" || hiddenFromAi(message)) continue;
+    const content = historyMessageContent(message, false).trim();
+    if (content) contents.push(content);
+  }
+  return contents;
+}
+
+async function seedPromptVariablesFromGreeting(
+  storage: StorageGateway,
+  input: PromptAssemblyInput,
+  macros: MacroContext,
+): Promise<Record<string, string>> {
+  const greetingContents = leadingGreetingContents(input.storedMessages);
+  if (greetingContents.length === 0) return {};
+
+  const persistedVariables = chatPromptVariables(input.chat);
+  const before = { ...macros.variables };
+  for (const content of greetingContents) {
+    resolveMacros(content, macros, { trimResult: false });
+  }
+
+  for (const [name, value] of Object.entries(persistedVariables)) {
+    macros.variables[name] = value;
+  }
+
+  const discovered: Record<string, string> = {};
+  for (const [name, value] of Object.entries(macros.variables)) {
+    if (persistedVariables[name] !== undefined) continue;
+    if (before[name] === value) continue;
+    discovered[name] = value;
+  }
+
+  if (!input.persistPromptVariables || Object.keys(discovered).length === 0) return discovered;
+
+  const chatId = readString(input.chat.id).trim();
+  if (!chatId) return discovered;
+
+  const promptVariables = {
+    ...stringRecord(input.chat.promptVariables),
+    ...discovered,
+  };
+  const variableValues = {
+    ...stringRecord(input.chat.variableValues),
+    ...discovered,
+  };
+
+  await storage.update("chats", chatId, {
+    promptVariables,
+    variableValues,
+  });
+  input.chat.promptVariables = promptVariables;
+  input.chat.variableValues = variableValues;
+
+  return discovered;
+}
+
 function shouldMergeSameRolePromptMessage(
   previous: ChatMLMessage | undefined,
   _message: ChatMLMessage,
@@ -2271,6 +2340,7 @@ export async function assembleGenerationPrompt(
     variables: selectedPreset?.variables,
     request: input.request,
   });
+  await seedPromptVariablesFromGreeting(storage, input, macros);
   const loreScan = await scanActiveLorebooks({
     storage,
     chat: input.chat,

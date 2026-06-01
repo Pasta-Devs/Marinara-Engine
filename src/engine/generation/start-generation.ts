@@ -2274,6 +2274,7 @@ async function runGenerationAgentsForTarget(args: {
     request: input,
     latestUserInput: "",
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    persistPromptVariables: true,
   });
   const results: AgentResult[] = [];
   const runtime = await createGenerationAgentRuntime(
@@ -2547,6 +2548,7 @@ export async function* startGeneration(
     request: input,
     latestUserInput,
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    persistPromptVariables: true,
   });
   throwIfAborted(signal);
   mirrorSavedUserMessageToDiscord({ deps, chat, input, prepared: preparedUserInput, persona: assembly.persona });
@@ -2606,6 +2608,7 @@ export async function* startGeneration(
       latestUserInput,
       agentData: runtime?.agentData,
       embeddingSource: generationEmbeddingSource(deps.llm, connection),
+      persistPromptVariables: true,
     });
     throwIfAborted(signal);
     await consumePendingConnectedInfluences(deps.storage, chatForGeneration);

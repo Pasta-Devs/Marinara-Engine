@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { StorageGateway } from "../capabilities/storage";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import type { JsonRecord } from "./runtime-records";
@@ -7,17 +7,29 @@ function createStorage(args: {
   chats?: JsonRecord[];
   characters?: JsonRecord[];
   personas?: JsonRecord[];
+  prompts?: JsonRecord[];
+  promptSections?: JsonRecord[];
+  promptGroups?: JsonRecord[];
+  promptVariables?: JsonRecord[];
   messages?: Record<string, JsonRecord[]>;
 }): StorageGateway {
   const chats = args.chats ?? [];
   const characters = args.characters ?? [];
   const personas = args.personas ?? [];
+  const prompts = args.prompts ?? [];
+  const promptSections = args.promptSections ?? [];
+  const promptGroups = args.promptGroups ?? [];
+  const promptVariables = args.promptVariables ?? [];
   const messages = args.messages ?? {};
 
   const byEntity: Record<string, JsonRecord[]> = {
     chats,
     characters,
     personas,
+    prompts,
+    "prompt-sections": promptSections,
+    "prompt-groups": promptGroups,
+    "prompt-variables": promptVariables,
     "regex-scripts": [],
     lorebooks: [],
     agents: [],
@@ -33,7 +45,10 @@ function createStorage(args: {
     async create<T = unknown>(_entity: string, value: Record<string, unknown>): Promise<T> {
       return value as T;
     },
-    async update<T = unknown>(_entity: string, _id: string, patch: Record<string, unknown>): Promise<T> {
+    async update<T = unknown>(entity: string, id: string, patch: Record<string, unknown>): Promise<T> {
+      const rows = byEntity[entity];
+      const existing = rows?.find((row) => row.id === id);
+      if (existing) Object.assign(existing, patch);
       return patch as T;
     },
     async delete(_entity?: unknown, _id?: unknown) {
@@ -92,6 +107,15 @@ const alice = {
 const bob = {
   id: "bob",
   data: { name: "Bob", description: "A curious friend." },
+};
+
+const coatCharacter = {
+  id: "coat-character",
+  data: {
+    name: "Coat Guy",
+    description: "A character with a stable outfit.",
+    appearance: "He is wearing {{getvar::coat}}.",
+  },
 };
 
 const persona = {
@@ -398,5 +422,164 @@ describe("assembleGenerationPrompt conversation parity", () => {
     expect(text).not.toContain("<character_schedules>");
     expect(text).not.toContain("<cross_chat_awareness>");
     expect(text).not.toContain("<conversation_commands>");
+  });
+});
+
+describe("assembleGenerationPrompt greeting macro variables", () => {
+  const roleplayPreset = {
+    id: "roleplay-preset",
+    wrapFormat: "none",
+    variableValues: {},
+  };
+  const roleplaySections = [
+    {
+      id: "characters",
+      presetId: "roleplay-preset",
+      enabled: true,
+      sortOrder: 0,
+      role: "system",
+      name: "Characters",
+      markerConfig: { type: "character" },
+    },
+    {
+      id: "history",
+      presetId: "roleplay-preset",
+      enabled: true,
+      sortOrder: 1,
+      role: "user",
+      name: "Chat History",
+      markerConfig: { type: "chat_history" },
+    },
+  ];
+
+  it("seeds character field macros from leading greeting setvar side effects", async () => {
+    const chat = {
+      id: "chat-greeting-vars",
+      mode: "roleplay",
+      characterIds: ["coat-character"],
+      promptPresetId: "roleplay-preset",
+      metadata: {},
+    };
+    const storage = createStorage({
+      chats: [chat],
+      characters: [coatCharacter],
+      prompts: [roleplayPreset],
+      promptSections: roleplaySections,
+    });
+
+    const result = await assembleGenerationPrompt(storage, {
+      chat,
+      storedMessages: [
+        {
+          id: "greeting",
+          chatId: chat.id,
+          role: "assistant",
+          characterId: coatCharacter.id,
+          content: "{{setvar::coat::blue coat}}Hello there.",
+        },
+        { id: "user-1", chatId: chat.id, role: "user", content: "What now?" },
+      ],
+      connection,
+      request: {},
+      latestUserInput: "What now?",
+      persistPromptVariables: true,
+    });
+    const text = result.previewMessages.map((message) => message.content).join("\n\n");
+    const updatedChat = await storage.get<JsonRecord>("chats", chat.id);
+
+    expect(text).toContain("Appearance: He is wearing blue coat.");
+    expect(updatedChat?.promptVariables).toEqual({ coat: "blue coat" });
+    expect(updatedChat?.variableValues).toEqual({ coat: "blue coat" });
+  });
+
+  it("keeps persisted greeting variables stable on later prompt assemblies", async () => {
+    const chat = {
+      id: "chat-stable-greeting-vars",
+      mode: "roleplay",
+      characterIds: ["coat-character"],
+      promptPresetId: "roleplay-preset",
+      promptVariables: { coat: "red coat" },
+      variableValues: { coat: "red coat" },
+      metadata: {},
+    };
+    const storage = createStorage({
+      chats: [chat],
+      characters: [coatCharacter],
+      prompts: [roleplayPreset],
+      promptSections: roleplaySections,
+    });
+
+    const result = await assembleGenerationPrompt(storage, {
+      chat,
+      storedMessages: [
+        {
+          id: "greeting",
+          chatId: chat.id,
+          role: "assistant",
+          characterId: coatCharacter.id,
+          content: "{{setvar::coat::blue coat}}Hello there.",
+        },
+        { id: "user-1", chatId: chat.id, role: "user", content: "What now?" },
+      ],
+      connection,
+      request: {},
+      latestUserInput: "What now?",
+      persistPromptVariables: true,
+    });
+    const text = result.previewMessages.map((message) => message.content).join("\n\n");
+    const updatedChat = await storage.get<JsonRecord>("chats", chat.id);
+
+    expect(text).toContain("Appearance: He is wearing red coat.");
+    expect(updatedChat?.promptVariables).toEqual({ coat: "red coat" });
+    expect(updatedChat?.variableValues).toEqual({ coat: "red coat" });
+  });
+
+  it("reuses newly persisted greeting variables across repeated assemblies for the same chat object", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValueOnce(0.99);
+    try {
+      const chat = {
+        id: "chat-repeated-greeting-vars",
+        mode: "roleplay",
+        characterIds: ["coat-character"],
+        promptPresetId: "roleplay-preset",
+        metadata: {},
+      };
+      const storage = createStorage({
+        chats: [chat],
+        characters: [coatCharacter],
+        prompts: [roleplayPreset],
+        promptSections: roleplaySections,
+      });
+      const input = {
+        chat,
+        storedMessages: [
+          {
+            id: "greeting",
+            chatId: chat.id,
+            role: "assistant",
+            characterId: coatCharacter.id,
+            content: "{{setvar::coat::{{random::red coat::blue coat}}}}Hello there.",
+          },
+          { id: "user-1", chatId: chat.id, role: "user", content: "What now?" },
+        ],
+        connection,
+        request: {},
+        latestUserInput: "What now?",
+        persistPromptVariables: true,
+      };
+
+      const first = await assembleGenerationPrompt(storage, input);
+      const second = await assembleGenerationPrompt(storage, input);
+      const firstText = first.previewMessages.map((message) => message.content).join("\n\n");
+      const secondText = second.previewMessages.map((message) => message.content).join("\n\n");
+      const updatedChat = await storage.get<JsonRecord>("chats", chat.id);
+
+      expect(firstText).toContain("Appearance: He is wearing red coat.");
+      expect(secondText).toContain("Appearance: He is wearing red coat.");
+      expect(updatedChat?.promptVariables).toEqual({ coat: "red coat" });
+      expect(updatedChat?.variableValues).toEqual({ coat: "red coat" });
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });
