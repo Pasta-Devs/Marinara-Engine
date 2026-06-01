@@ -42,7 +42,7 @@ Each model pass has a different job:
 - Skeptical specialist review: independently search for data-flow invariant drift, filter/write-loop mismatches, parent/child persistence inconsistency, rollback or partial-write failures, contract drift, and edge cases hidden by happy-path tests.
 - Judge review: merge broad and skeptical outputs, deduplicate, reject weak/speculative findings, normalize severity, and keep every concrete actionable finding found by either pass.
 
-Report every actionable risk you find, not only blockers. Use severity labels to distinguish impact: `blocking`, `high`, `medium`, or `low`. A low-severity finding is still appropriate when it identifies a concrete maintainability, test coverage, edge-case, or follow-up risk tied to the diff. Do not report style-only feedback unless it can cause real maintenance or behavior risk. Do not invent issues from naming alone.
+Report every actionable risk you find, not only blockers. Use severity labels to distinguish impact: `blocking`, `high`, `medium`, `low`, or `nitpick`. A low-severity finding is still appropriate when it identifies a concrete maintainability, test coverage, edge-case, or follow-up risk tied to the diff. Use `nitpick` only for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, or local consistency. Do not invent issues from naming alone.
 
 Every finding must cite a concrete changed file and an added/changed line from the current diff. If a real concern is outside the changed lines, describe it in `open_questions` or `pre_merge_checks` instead of making it a finding.
 
@@ -76,7 +76,7 @@ Use this exact schema:
   ],
   "findings": [
     {
-      "severity": "blocking|high|medium|low",
+      "severity": "blocking|high|medium|low|nitpick",
       "path": "changed/file.ts",
       "line": 123,
       "title": "Short finding title",

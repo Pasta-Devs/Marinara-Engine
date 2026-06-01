@@ -683,7 +683,7 @@ def validate_findings(review_obj, base):
     allowed = touched_lines(base)
     valid = []
     invalid = []
-    severities = {"blocking", "high", "medium", "low"}
+    severities = {"blocking", "high", "medium", "low", "nitpick"}
     for item in review_obj.get("findings", []):
         try:
             finding = Finding(
@@ -714,6 +714,8 @@ def validate_findings(review_obj, base):
             invalid.append(f"{finding.path}:{finding.line}: missing title/body")
             continue
         valid.append(finding)
+    severity_rank = {"blocking": 0, "high": 1, "medium": 2, "low": 3, "nitpick": 4}
+    valid.sort(key=lambda finding: severity_rank.get(finding.severity, 2))
     return valid, invalid
 
 

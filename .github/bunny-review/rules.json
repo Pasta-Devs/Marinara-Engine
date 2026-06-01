@@ -13,7 +13,8 @@
     "blocking": "The PR should not merge because the changed behavior is broken, unsafe, or violates a hard architecture boundary.",
     "high": "A likely production or data-loss regression, security/privacy issue, or serious cross-mode/remote-runtime contract risk.",
     "medium": "A concrete bug, edge case, maintainability trap, or missing test tied directly to changed behavior.",
-    "low": "A small but actionable review note tied to the diff, such as localized coverage, clarity, or follow-up risk."
+    "low": "A small but actionable review note tied to the diff, such as localized coverage, clarity, or follow-up risk.",
+    "nitpick": "Optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, or local consistency."
   },
   "path_instructions": [
     {
