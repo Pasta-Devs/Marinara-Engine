@@ -182,3 +182,20 @@ test("active world info keeps keyword matches when semantic search is unavailabl
   });
   expect(activePanelScan.entries.map((entry) => entry.name)).toEqual(["Gordon keyword"]);
 });
+
+test("active world info does not activate unrelated semantic matches", async () => {
+  const unrelatedStorage: StorageGateway = {
+    ...storage,
+    async listChatMessages<T = unknown>(): Promise<T[]> {
+      return [{ id: "message-1", chatId: "chat-1", role: "user", content: "Tell me about Alice" } as T];
+    },
+  };
+
+  const activePanelScan = await scanActiveLorebookEntries(unrelatedStorage, "chat-1", { embeddingSource });
+
+  expect(activePanelScan.semanticStatus).toEqual({
+    state: "ready",
+    vectorizedEntryCount: 1,
+  });
+  expect(activePanelScan.entries).toEqual([]);
+});
