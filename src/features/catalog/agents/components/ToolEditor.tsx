@@ -34,6 +34,7 @@ const EXEC_TYPES = [
   { value: "webhook", label: "Webhook", icon: Globe, description: "Sends a POST request to an external URL." },
 ] as const;
 
+// Script custom tools are intentionally excluded: script execution is disabled in this runtime.
 type ExecType = "static" | "webhook";
 
 // ═══════════════════════════════════════════════

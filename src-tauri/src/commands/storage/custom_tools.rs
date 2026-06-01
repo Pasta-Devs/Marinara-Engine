@@ -168,7 +168,7 @@ mod tests {
             error.message
         );
         assert!(
-            error.message.contains("disabled") || error.message.contains("script executionType"),
+            error.message.contains("script executionType") && error.message.contains("disabled"),
             "error should identify the legacy script issue, got: {}",
             error.message
         );
