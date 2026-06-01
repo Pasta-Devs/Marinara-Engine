@@ -33,7 +33,7 @@ import {
   Pause,
   Play,
 } from "lucide-react";
-import type { Message, MessageSwipe } from "../../../../../engine/contracts/types/chat";
+import type { Message, MessageExtra, MessageSwipe } from "../../../../../engine/contracts/types/chat";
 import {
   memo,
   useState,
@@ -77,12 +77,20 @@ import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./Gene
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { readStoredThinking } from "../lib/message-thinking";
+import {
+  isImageMessageAttachment,
+  messageAttachmentImageAlt,
+  messageAttachmentImageSource,
+  messageAttachmentsFromExtra,
+} from "../lib/message-attachments";
 import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
 const MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR =
   "button, a, textarea, input, select, label, [role='button'], [contenteditable='true'], .mari-message-actions";
+type ChatMessageExtra = Partial<MessageExtra> & { hiddenFromAi?: unknown };
+const EMPTY_CHAT_MESSAGE_EXTRA: ChatMessageExtra = {};
 
 function formatEditableMessageText(value: string, quoteFormat: QuoteFormat): string {
   return formatTextQuotes(value, quoteFormat);
@@ -1136,9 +1144,12 @@ export const ChatMessage = memo(function ChatMessage({
   }, [showActions]);
 
   // Parse message extra for conversation start flag
-  const extra = useMemo<Record<string, any>>(() => {
-    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra) ? message.extra : {};
+  const extra = useMemo<ChatMessageExtra>(() => {
+    return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
+      ? (message.extra as ChatMessageExtra)
+      : EMPTY_CHAT_MESSAGE_EXTRA;
   }, [message.extra]);
+  const attachments = useMemo(() => messageAttachmentsFromExtra(extra), [extra]);
   const isConversationStart = !!extra.isConversationStart;
   const isHiddenFromAI = extra.hiddenFromAI === true || extra.hiddenFromAi === true;
   const thinking = readStoredThinking(extra);
@@ -1172,8 +1183,7 @@ export const ChatMessage = memo(function ChatMessage({
   const qc = useQueryClient();
   const handleRemoveAttachment = useCallback(
     async (index: number) => {
-      const current = (extra.attachments as any[]) ?? [];
-      const updated = current.filter((_: any, i: number) => i !== index);
+      const updated = attachments.filter((_, i) => i !== index);
       // Optimistic: update the infinite query cache immediately so the image disappears
       const msgKey = chatKeys.messages(message.chatId);
       qc.setQueryData<InfiniteData<Message[]>>(msgKey, (old) => {
@@ -1194,7 +1204,7 @@ export const ChatMessage = memo(function ChatMessage({
       });
       qc.invalidateQueries({ queryKey: msgKey });
     },
-    [extra.attachments, message.chatId, message.id, qc],
+    [attachments, message.chatId, message.id, qc],
   );
 
   const genLabel = useMemo(
@@ -1409,9 +1419,9 @@ export const ChatMessage = memo(function ChatMessage({
         }
       : personaInfo
     : charInfo;
-  const dialogueColor = msgColors?.dialogueColor;
-  const boxBgColor = msgColors?.boxColor;
-  const msgNameColor = msgColors?.nameColor;
+  const dialogueColor = msgColors?.dialogueColor ?? undefined;
+  const boxBgColor = msgColors?.boxColor ?? undefined;
+  const msgNameColor = msgColors?.nameColor ?? undefined;
   const roleplayBubbleBg = boxBgColor ? boxBgColor : isUser ? userBubbleBg : assistantBubbleBg;
 
   // Build speaker → dialogueColor map for group chat speaker tag coloring
@@ -2058,21 +2068,22 @@ export const ChatMessage = memo(function ChatMessage({
             </div>
 
             {/* Image attachments (illustrations, selfies) */}
-            {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
+            {!editing && attachments.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
               <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
-                {extra.attachments.map((att: any, i: number) =>
-                  att.type === "image" || att.type?.startsWith("image/") ? (
+                {attachments.map((att, i) => {
+                  const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
+                  return imageSource ? (
                     <div key={i} className="group/att relative inline-block">
                       <button
                         type="button"
-                        onClick={() => openImageLightbox(att.url || att.data, att.prompt)}
+                        onClick={() => openImageLightbox(imageSource, att.prompt)}
                         className="block"
                         title="Open image"
-                        aria-label={`Open ${att.filename || att.name || "image"}`}
+                        aria-label={`Open ${messageAttachmentImageAlt(att)}`}
                       >
                         <img
-                          src={att.url || att.data}
-                          alt={att.filename || att.name || "image"}
+                          src={imageSource}
+                          alt={messageAttachmentImageAlt(att)}
                           className="max-h-80 max-w-full rounded-lg"
                           loading="lazy"
                           decoding="async"
@@ -2088,8 +2099,8 @@ export const ChatMessage = memo(function ChatMessage({
                         <X size="0.875rem" />
                       </button>
                     </div>
-                  ) : null,
-                )}
+                  ) : null;
+                })}
               </div>
             )}
 
@@ -2498,21 +2509,22 @@ export const ChatMessage = memo(function ChatMessage({
           </div>
 
           {/* Image attachments (illustrations, selfies) */}
-          {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
+          {!editing && attachments.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
             <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
-              {extra.attachments.map((att: any, i: number) =>
-                att.type === "image" || att.type?.startsWith("image/") ? (
+              {attachments.map((att, i) => {
+                const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
+                return imageSource ? (
                   <div key={i} className="group/att relative inline-block">
                     <button
                       type="button"
-                      onClick={() => openImageLightbox(att.url || att.data, att.prompt)}
+                      onClick={() => openImageLightbox(imageSource, att.prompt)}
                       className="block"
                       title="Open image"
-                      aria-label={`Open ${att.filename || att.name || "image"}`}
+                      aria-label={`Open ${messageAttachmentImageAlt(att)}`}
                     >
                       <img
-                        src={att.url || att.data}
-                        alt={att.filename || att.name || "image"}
+                        src={imageSource}
+                        alt={messageAttachmentImageAlt(att)}
                         className="max-h-80 max-w-full rounded-lg"
                         loading="lazy"
                         decoding="async"
@@ -2528,8 +2540,8 @@ export const ChatMessage = memo(function ChatMessage({
                       <X size="0.875rem" />
                     </button>
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
           )}
 

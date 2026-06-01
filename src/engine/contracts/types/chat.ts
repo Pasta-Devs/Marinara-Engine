@@ -378,6 +378,18 @@ export interface Message {
   extra: MessageExtra;
 }
 
+/** Persisted attachment rendered with a message or carried into generation. */
+export interface MessageAttachment {
+  type?: string | null;
+  url?: string | null;
+  data?: string | null;
+  filename?: string | null;
+  name?: string | null;
+  prompt?: string | null;
+  galleryId?: string | null;
+  [key: string]: unknown;
+}
+
 /** Additional data attached to a message. */
 export interface MessageExtra {
   /** Display-formatted text (may differ from raw content) */
@@ -396,6 +408,8 @@ export interface MessageExtra {
   reasoning?: string | null;
   /** Provider-shaped reasoning content from OpenAI-compatible streaming deltas. */
   reasoning_content?: string | null;
+  /** User-provided or generated attachments rendered with the message. */
+  attachments?: MessageAttachment[] | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
   spriteExpressions?: Record<string, string> | null;
   /** Per-swipe CYOA choices from the CYOA Choices agent */
@@ -404,6 +418,11 @@ export interface MessageExtra {
   personaSnapshot?: {
     personaId: string;
     name: string;
+    description?: string | null;
+    personality?: string | null;
+    backstory?: string | null;
+    appearance?: string | null;
+    scenario?: string | null;
     avatarUrl?: string | null;
     /** JSON-encoded AvatarCrop captured at send time so re-edits don't restyle past messages. */
     avatarCrop?: string | null;

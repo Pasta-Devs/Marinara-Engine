@@ -30,6 +30,10 @@ import type { CharacterMap, MessageSelectionToggle, PeekPromptOptions, PersonaIn
 import {
   GenerationReplayDetailsModal,
   hasGenerationReplayDetails,
+  isImageMessageAttachment,
+  messageAttachmentImageAlt,
+  messageAttachmentImageSource,
+  messageAttachmentsFromExtra,
   readStoredThinking,
   resolvePromptSnapshotFromExtra,
 } from "../../shared/chat-ui/index";
@@ -58,6 +62,8 @@ function nameColorStyle(color?: string): CSSProperties | undefined {
 const IMAGE_URL_RE = /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?[^\s]*)?$/i;
 const MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR =
   "button, a, textarea, input, select, label, [role='button'], [contenteditable='true'], .mari-message-actions";
+type ConversationMessageExtra = Partial<MessageExtra> & { hiddenFromAi?: unknown };
+const EMPTY_MESSAGE_EXTRA: ConversationMessageExtra = {};
 
 function HiddenFromAIConversationButton({
   canCollapse,
@@ -260,21 +266,7 @@ interface MessageData {
   content: string;
   activeSwipeIndex: number;
   swipeCount?: number;
-  extra: {
-    displayText: string | null;
-    isGenerated: boolean;
-    tokenCount: number | null;
-    generationInfo: {
-      model?: string;
-      tokensIn?: number;
-      tokensOut?: number;
-      duration?: number;
-    } | null;
-    isConversationStart?: boolean;
-    thinking?: string | null;
-    generationReplay?: MessageExtra["generationReplay"];
-    attachments?: Array<{ type: string; url: string; filename?: string; prompt?: string; galleryId?: string }>;
-  };
+  extra: ConversationMessageExtra | string;
   createdAt: string;
 }
 
@@ -363,9 +355,10 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   // Parse extra early so we can access persona snapshot
   const extra = useMemo(() => {
-    if (!message.extra) return {} as Record<string, any>;
-    return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
+    if (!message.extra) return EMPTY_MESSAGE_EXTRA;
+    return typeof message.extra === "string" ? (JSON.parse(message.extra) as ConversationMessageExtra) : message.extra;
   }, [message.extra]);
+  const attachments = useMemo(() => messageAttachmentsFromExtra(extra), [extra]);
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const activePromptSnapshot = useMemo(
     () => resolvePromptSnapshotFromExtra(extra, message.activeSwipeIndex),
@@ -471,8 +464,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const qc = useQueryClient();
   const handleRemoveAttachment = useCallback(
     async (index: number) => {
-      const current = (extra.attachments as any[]) ?? [];
-      const updated = current.filter((_: any, i: number) => i !== index);
+      const updated = attachments.filter((_, i) => i !== index);
       // Optimistic: update the infinite query cache immediately so the image disappears
       const msgKey = chatKeys.messages(message.chatId);
       qc.setQueryData<InfiniteData<Message[]>>(msgKey, (old) => {
@@ -493,7 +485,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       });
       qc.invalidateQueries({ queryKey: msgKey });
     },
-    [extra.attachments, message.chatId, message.id, qc],
+    [attachments, message.chatId, message.id, qc],
   );
 
   // Build name→character lookup for speaker tag resolution.
@@ -885,25 +877,25 @@ export const ConversationMessage = memo(function ConversationMessage({
 
         {/* Image attachments (selfies, illustrations) */}
         {!isHiddenCollapsed &&
-          extra.attachments &&
-          extra.attachments.length > 0 &&
+          attachments.length > 0 &&
           !IMAGE_URL_RE.test(renderedContent.trim()) && (
             <div className="ml-14 mt-1.5 flex flex-col items-start gap-2">
-              {extra.attachments.map((att: any, i: number) =>
-                att.type === "image" || att.type?.startsWith("image/") ? (
+              {attachments.map((att, i) => {
+                const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
+                return imageSource ? (
                   <div key={i} className="group/att relative inline-block">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
+                        setImageLightbox({ url: imageSource, prompt: att.prompt });
                       }}
                       className="block cursor-zoom-in rounded-lg text-left"
                       title="Open image"
                     >
                       <img
-                        src={att.url || att.data}
-                        alt={att.filename || att.name || "image"}
+                        src={imageSource}
+                        alt={messageAttachmentImageAlt(att)}
                         className="max-h-80 max-w-full rounded-lg"
                         loading="lazy"
                       />
@@ -916,8 +908,8 @@ export const ConversationMessage = memo(function ConversationMessage({
                       <X size="0.875rem" />
                     </button>
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
           )}
 
@@ -1203,25 +1195,25 @@ export const ConversationMessage = memo(function ConversationMessage({
 
         {/* Image attachments (selfies, illustrations) — skip when content is already an image URL */}
         {!isHiddenCollapsed &&
-          extra.attachments &&
-          extra.attachments.length > 0 &&
+          attachments.length > 0 &&
           !IMAGE_URL_RE.test(renderedContent.trim()) && (
             <div className="mt-1.5 flex flex-col items-center gap-2">
-              {extra.attachments.map((att: any, i: number) =>
-                att.type === "image" || att.type?.startsWith("image/") ? (
+              {attachments.map((att, i) => {
+                const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
+                return imageSource ? (
                   <div key={i} className="group/att relative inline-block">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
+                        setImageLightbox({ url: imageSource, prompt: att.prompt });
                       }}
                       className="block cursor-zoom-in rounded-lg text-left"
                       title="Open image"
                     >
                       <img
-                        src={att.url || att.data}
-                        alt={att.filename || att.name || "image"}
+                        src={imageSource}
+                        alt={messageAttachmentImageAlt(att)}
                         className="max-h-80 max-w-full rounded-lg"
                         loading="lazy"
                       />
@@ -1234,8 +1226,8 @@ export const ConversationMessage = memo(function ConversationMessage({
                       <X size="0.875rem" />
                     </button>
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
           )}
 
