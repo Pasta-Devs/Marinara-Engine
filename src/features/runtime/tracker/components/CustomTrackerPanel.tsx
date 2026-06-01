@@ -46,7 +46,6 @@ function CustomFieldList({
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
 }) {
   if (fields.length === 0 && !onUpdate) return <EmptySection>No custom fields tracked.</EmptySection>;
-  const readableValues = trackerPanelSizeProfile !== "compact";
   const useFieldColumns = shouldUseCustomFieldColumns(fields, trackerPanelSizeProfile);
   const updateField = (index: number, updated: CustomTrackerField) => {
     if (!onUpdate) return;
@@ -70,7 +69,7 @@ function CustomFieldList({
           )}
         >
           {fields.map((field, index) => {
-            const allowWrap = readableValues && isLongCustomField(field);
+            const allowWrap = isLongCustomField(field);
             const valueText = visibleText(field.value, "");
             const valueIsLong = valueText.length > 18 || valueText.includes(" ");
             const valueAlignment = allowWrap && valueIsLong ? "text-left" : "text-right tabular-nums";

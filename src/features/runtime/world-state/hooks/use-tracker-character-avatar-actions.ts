@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
+import { makeManualTrackerRowId } from "../../../../engine/shared/game-state/tracker-row-ids";
 import { npcAvatarApi } from "../../../../shared/api/avatar-api";
 import { useAgentConfigs, useUpdateAgent, type AgentConfigRow } from "../../../catalog/agents/index";
 import { replaceTrackerListItem } from "../lib/tracker-state-edits";
@@ -83,9 +84,16 @@ export function useTrackerCharacterAvatarActions({
       const character = currentCharacters[index] ?? characters[index];
       if (!character) return;
 
-      const targetCharacterId = character.characterId;
-      const fallbackIndex = index;
-      const uploadKey = `${chatId}:${targetCharacterId || `${fallbackIndex}:${character.name}`}`;
+      const existingCharacterId = character.characterId?.trim();
+      const targetCharacterId = existingCharacterId || makeManualTrackerRowId();
+      const uploadCharacter = existingCharacterId ? character : { ...character, characterId: targetCharacterId };
+      const currentCharactersForUpload = existingCharacterId
+        ? currentCharacters
+        : replaceTrackerListItem(currentCharacters, index, uploadCharacter);
+      if (!existingCharacterId) {
+        onUpdateCharacters(currentCharactersForUpload);
+      }
+      const uploadKey = `${chatId}:${targetCharacterId}`;
       const uploadToken = avatarUploadSerialRef.current + 1;
       avatarUploadSerialRef.current = uploadToken;
       avatarUploadTokenByCharacterRef.current.set(uploadKey, uploadToken);
@@ -99,16 +107,12 @@ export function useTrackerCharacterAvatarActions({
       try {
         const dataUrl = await readFileAsDataUrl(file);
         if (!isLatestUpload()) return;
-        const response = await npcAvatarApi.upload(chatId, character.name, dataUrl);
+        const response = await npcAvatarApi.upload(chatId, uploadCharacter.name, dataUrl);
         if (!isLatestUpload()) return;
         const latestState = useGameStateStore.getState().current;
         const latestCharacters =
-          latestState?.chatId === chatId ? (latestState.presentCharacters ?? []) : currentCharacters;
-        const targetIndex = targetCharacterId
-          ? latestCharacters.findIndex((candidate) => candidate.characterId === targetCharacterId)
-          : latestCharacters[fallbackIndex]?.name === character.name
-            ? fallbackIndex
-            : -1;
+          latestState?.chatId === chatId ? (latestState.presentCharacters ?? []) : currentCharactersForUpload;
+        const targetIndex = latestCharacters.findIndex((candidate) => candidate.characterId === targetCharacterId);
         const latestCharacter = latestCharacters[targetIndex];
         if (!latestCharacter) return;
 
