@@ -34,7 +34,9 @@ pub(crate) fn is_supported_prompt_override_key(key: &str) -> bool {
 }
 
 fn definition_for_key(key: &str) -> Option<&'static PromptOverrideDefinition> {
-    definitions().iter().find(|definition| definition.key == key)
+    definitions()
+        .iter()
+        .find(|definition| definition.key == key)
 }
 
 fn template_variables(template: &str, declared: &HashSet<&str>) -> Vec<String> {
@@ -57,14 +59,12 @@ fn template_variables(template: &str, declared: &HashSet<&str>) -> Vec<String> {
         };
         let end = name_start + end_relative;
         let name = &template[name_start..end];
-        let valid_name = name
+        let valid_name = name.chars().enumerate().all(|(index, ch)| {
+            ch == '_' || ch.is_ascii_alphabetic() || (index > 0 && ch.is_ascii_digit())
+        }) && name
             .chars()
-            .enumerate()
-            .all(|(index, ch)| ch == '_' || ch.is_ascii_alphabetic() || (index > 0 && ch.is_ascii_digit()))
-            && name
-                .chars()
-                .next()
-                .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic());
+            .next()
+            .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic());
         let reported = if name.is_empty() { "<empty>" } else { name };
         if (!valid_name || !declared.contains(name)) && seen.insert(reported.to_string()) {
             unknown.push(reported.to_string());
@@ -72,6 +72,37 @@ fn template_variables(template: &str, declared: &HashSet<&str>) -> Vec<String> {
         search_index = end + 1;
     }
     unknown
+}
+
+fn referenced_declared_variables(template: &str, declared: &HashSet<&str>) -> Vec<String> {
+    let mut referenced = Vec::new();
+    let mut seen = HashSet::new();
+    let mut search_index = 0usize;
+    while search_index < template.len() {
+        let Some(start_relative) = template[search_index..].find("${") else {
+            break;
+        };
+        let start = search_index + start_relative;
+        let name_start = start + 2;
+        let Some(end_relative) = template[name_start..].find('}') else {
+            break;
+        };
+        let end = name_start + end_relative;
+        let name = &template[name_start..end];
+        if declared.contains(name) && seen.insert(name.to_string()) {
+            referenced.push(name.to_string());
+        }
+        search_index = end + 1;
+    }
+    referenced
+}
+
+fn is_missing_context_value(value: Option<&Value>) -> bool {
+    match value {
+        None | Some(Value::Null) => true,
+        Some(Value::String(value)) => value.trim().is_empty(),
+        _ => false,
+    }
 }
 
 fn context_value(context: &Map<String, Value>, name: &str) -> String {
@@ -84,7 +115,11 @@ fn context_value(context: &Map<String, Value>, name: &str) -> String {
     }
 }
 
-fn render_template(template: &str, context: &Map<String, Value>, declared: &HashSet<&str>) -> String {
+fn render_template(
+    template: &str,
+    context: &Map<String, Value>,
+    declared: &HashSet<&str>,
+) -> String {
     let mut rendered = String::with_capacity(template.len());
     let mut search_index = 0usize;
     while search_index < template.len() {
@@ -114,9 +149,10 @@ fn render_template(template: &str, context: &Map<String, Value>, declared: &Hash
 fn row_enabled(row: &Map<String, Value>) -> bool {
     match row.get("enabled") {
         Some(Value::Bool(value)) => *value,
-        Some(Value::String(value)) => {
-            !matches!(value.trim().to_ascii_lowercase().as_str(), "false" | "0" | "no" | "off")
-        }
+        Some(Value::String(value)) => !matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "false" | "0" | "no" | "off"
+        ),
         _ => true,
     }
 }
@@ -181,6 +217,17 @@ pub(crate) fn resolve_registered_prompt_override(
         );
         return default_prompt;
     }
+    let missing = referenced_declared_variables(template, &declared)
+        .into_iter()
+        .filter(|name| is_missing_context_value(context.get(name)))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        log::warn!(
+            "[prompt-overrides] Falling back to default for {key}; missing context values: {}",
+            missing.join(", ")
+        );
+        return default_prompt;
+    }
     render_template(template, context, &declared)
 }
 
@@ -212,7 +259,10 @@ mod tests {
             "game.illustration",
             "game.portrait",
         ] {
-            assert!(is_supported_prompt_override_key(key), "{key} should be registered");
+            assert!(
+                is_supported_prompt_override_key(key),
+                "{key} should be registered"
+            );
         }
     }
 
@@ -237,6 +287,50 @@ mod tests {
                 &context(),
             ),
             Some("Custom built-in prompt for silver hair happy".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_registered_prompt_override_falls_back_when_referenced_context_is_missing() {
+        use crate::state::AppState;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-prompt-override-missing-{nonce}"));
+        let state =
+            AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize");
+        state
+            .storage
+            .upsert_with_id(
+                PROMPT_OVERRIDE_COLLECTION,
+                "game.background",
+                json!({
+                    "id": "game.background",
+                    "key": "game.background",
+                    "template": "Custom ${label}: ${defaultPrompt}",
+                    "enabled": true
+                }),
+            )
+            .expect("prompt override should write");
+
+        let sparse_context = HashMap::from([(
+            "defaultPrompt".to_string(),
+            json!("built-in background prompt"),
+        )])
+        .into_iter()
+        .collect();
+
+        assert_eq!(
+            resolve_registered_prompt_override(
+                &state,
+                "game.background",
+                &sparse_context,
+                "built-in background prompt".to_string(),
+            ),
+            "built-in background prompt"
         );
     }
 }

@@ -114,7 +114,8 @@ pub(crate) async fn generate_sprite_sheet_preview(
             .expressions
             .iter()
             .map(|expression| {
-                let prompt_id = sprite_prompt_review_id("expression", &plan.sprite_type, expression);
+                let prompt_id =
+                    sprite_prompt_review_id("expression", &plan.sprite_type, expression);
                 let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| {
                     let default_prompt = single_sprite_prompt(
                         &plan.sprite_type,
@@ -2249,6 +2250,17 @@ mod sprite_prompt_override_tests {
                 }),
             )
             .expect("image connection should write");
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "image-conn-gpt",
+                json!({
+                    "provider": "image_generation",
+                    "model": "gpt-image-1"
+                }),
+            )
+            .expect("gpt image connection should write");
         (state, root)
     }
 
@@ -2318,16 +2330,20 @@ mod sprite_prompt_override_tests {
                 SPRITE_FULL_BODY_SHEET_PROMPT_KEY,
                 base_body("full-body", vec!["idle", "attack"], 2, 1),
             ),
-            (
-                SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY,
-                {
-                    let mut body = base_body("full-body", vec!["neutral", "happy"], 2, 1);
-                    body.as_object_mut()
-                        .expect("body should be object")
-                        .insert("fullBodyExpressionMode".to_string(), json!(true));
-                    body
-                },
-            ),
+            (SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY, {
+                let mut body = base_body("full-body", vec!["neutral", "happy"], 2, 1);
+                body.as_object_mut()
+                    .expect("body should be object")
+                    .insert("fullBodyExpressionMode".to_string(), json!(true));
+                body
+            }),
+            (SPRITE_PORTRAIT_SINGLE_PROMPT_KEY, {
+                let mut body = base_body("expressions", vec!["neutral", "happy"], 2, 1);
+                body.as_object_mut()
+                    .expect("body should be object")
+                    .insert("connectionId".to_string(), json!("image-conn-gpt"));
+                body
+            }),
         ];
 
         for (key, body) in cases {
@@ -2404,13 +2420,28 @@ mod sprite_prompt_override_tests {
 
         let mut body = base_body("expressions", vec!["neutral", "happy"], 2, 1);
         let prompt_id = sprite_prompt_review_id("sheet", "expressions", "2x1-neutral,happy");
-        body.as_object_mut()
-            .expect("body should be object")
-            .insert("promptOverrides".to_string(), json!([{ "id": prompt_id, "prompt": "TRANSIENT PROMPT" }]));
+        body.as_object_mut().expect("body should be object").insert(
+            "promptOverrides".to_string(),
+            json!([{ "id": prompt_id, "prompt": "TRANSIENT PROMPT" }]),
+        );
 
         let prompt = preview_prompt(&state, body).await;
 
         assert_eq!(prompt, "TRANSIENT PROMPT");
+
+        let mut body = base_body("expressions", vec!["neutral", "happy"], 2, 1);
+        let prompt_id = sprite_prompt_review_id("expression", "expressions", "neutral");
+        body.as_object_mut()
+            .expect("body should be object")
+            .insert("connectionId".to_string(), json!("image-conn-gpt"));
+        body.as_object_mut().expect("body should be object").insert(
+            "promptOverrides".to_string(),
+            json!([{ "id": prompt_id, "prompt": "GPT TRANSIENT PROMPT" }]),
+        );
+
+        let prompt = preview_prompt(&state, body).await;
+
+        assert_eq!(prompt, "GPT TRANSIENT PROMPT");
 
         let _ = fs::remove_dir_all(root);
     }

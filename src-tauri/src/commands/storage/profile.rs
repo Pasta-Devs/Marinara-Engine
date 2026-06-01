@@ -229,10 +229,7 @@ where
                 "Profile collection `{collection}` must be a JSON array"
             )));
         }
-        let mut rows = collection_value
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
+        let mut rows = collection_value.as_array().cloned().unwrap_or_default();
         if *collection == "prompt-overrides" {
             unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
         }
@@ -540,6 +537,12 @@ mod tests {
                     "enabled": "true"
                 },
                 {
+                    "id": "sprite.portraitSingle",
+                    "key": "sprite.portraitSingle",
+                    "template": "Sprite ${defaultPrompt}",
+                    "enabled": "true"
+                },
+                {
                     "id": "game.unknown",
                     "key": "game.unknown",
                     "template": "Unknown ${defaultPrompt}",
@@ -556,7 +559,7 @@ mod tests {
             .storage
             .list("prompt-overrides")
             .expect("prompt overrides should be readable");
-        assert_eq!(rows.len(), 2);
+        assert_eq!(rows.len(), 3);
         assert_eq!(rows[0]["id"], "conversation.selfie");
         assert_eq!(rows[0]["key"], "conversation.selfie");
         assert_eq!(rows[0]["template"], "Selfie ${charName}");
@@ -564,7 +567,11 @@ mod tests {
         assert_eq!(rows[1]["id"], "game.background");
         assert_eq!(rows[1]["key"], "game.background");
         assert_eq!(rows[1]["template"], "Background ${defaultPrompt}");
-        assert_eq!(result["imported"]["prompt-overrides"], 2);
+        assert_eq!(rows[2]["id"], "sprite.portraitSingle");
+        assert_eq!(rows[2]["key"], "sprite.portraitSingle");
+        assert_eq!(rows[2]["template"], "Sprite ${defaultPrompt}");
+        assert_eq!(rows[2]["enabled"], true);
+        assert_eq!(result["imported"]["prompt-overrides"], 3);
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
     }
 
