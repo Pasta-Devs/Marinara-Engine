@@ -1,0 +1,166 @@
+# .github/workflows/bunny-review.yml
+name: Bunny Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review.
+        required: true
+      comment_body:
+        description: Slash command body that requested the review.
+        required: false
+        default: ""
+      review_mode:
+        description: Review mode for the requested pass.
+        required: false
+        type: choice
+        options:
+          - auto
+          - full
+          - incremental
+        default: auto
+      requested_by:
+        description: GitHub login that requested the dispatch.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read # needed to read CI status
+
+concurrency:
+  group: bunny-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    env:
+      PR_NUM: ${{ github.event.pull_request.number || inputs.pr_number }}
+      BUNNY_COMMENT_BODY: ${{ inputs.comment_body || '' }}
+      BUNNY_REVIEW_MODE: ${{ inputs.review_mode || 'auto' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve PR refs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE=$(gh pr view "$PR_NUM" --json baseRefName -q .baseRefName)
+          echo "PR_BASE_REF=$BASE" >> "$GITHUB_ENV"
+          git fetch --force origin "$BASE:refs/remotes/origin/$BASE"
+
+      - name: Preserve review tooling from base branch
+        run: |
+          mkdir -p /tmp/bunny-review-tool/.github/bunny-review
+          if git cat-file -e "origin/$PR_BASE_REF:.github/bunny-review/bunny_review.py"; then
+            git show "origin/$PR_BASE_REF:.github/bunny-review/bunny_review.py" > /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py
+            git show "origin/$PR_BASE_REF:.github/bunny-review/requirements.txt" > /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
+            git show "origin/$PR_BASE_REF:.github/bunny-review/reviewer-prompt.md" > /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+            git show "origin/$PR_BASE_REF:.github/bunny-review/rules.json" > /tmp/bunny-review-tool/.github/bunny-review/rules.json || true
+          else
+            git show "origin/$PR_BASE_REF:scripts/bunny_review.py" > /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py
+            git show "origin/$PR_BASE_REF:scripts/requirements.txt" > /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
+            git show "origin/$PR_BASE_REF:skills/bunny-review/SKILL.md" > /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+            git show "origin/$PR_BASE_REF:skills/bunny-review/rules.json" > /tmp/bunny-review-tool/.github/bunny-review/rules.json || true
+          fi
+          cp /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
+
+      - name: Fetch PR and checkout head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git status
+          git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
+          git checkout "pr-$PR_NUM"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r /tmp/bunny-review-tool/.github/bunny-review/requirements.txt
+
+      - name: Run review while CI completes
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: gpt-5.5
+          CI_STATUS: CI checks are still running; final CI results will be appended before posting.
+          BUNNY_REVIEW_PROMPT_PATH: /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
+          BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py produce &
+          BUNNY_PID=$!
+
+          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+          TARGET_CHECKS='Frontend|Rust|Smoke'
+          FOUND_ANY=0
+          MISSING_CHECK_ATTEMPTS=18
+          MAX_CHECK_ATTEMPTS=90
+          for attempt in $(seq 1 "$MAX_CHECK_ATTEMPTS"); do
+            FOUND=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+              --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | .name" | wc -l)
+            PENDING=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+              --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status != \"completed\") | .name" | wc -l)
+            if [ "${FOUND:-0}" -gt 0 ]; then
+              FOUND_ANY=1
+            fi
+            if [ "$FOUND_ANY" -eq 0 ] && [ "$attempt" -ge "$MISSING_CHECK_ATTEMPTS" ]; then
+              break
+            fi
+            if [ "${FOUND:-0}" -ge 3 ] && [ "${PENDING:-0}" -eq 0 ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          {
+            echo ""
+            echo "### CI Status"
+            FINAL_CHECKS=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+              --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | \"- \(.name): \(.conclusion // .status)\"")
+            if [ -z "$FINAL_CHECKS" ]; then
+              echo "- warning: no Frontend, Rust, or Smoke checks appeared after 3 minutes; do not merge until required CI runs."
+            else
+              echo "$FINAL_CHECKS"
+              FOUND=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | .name" | wc -l)
+              PENDING=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status != \"completed\") | .name" | wc -l)
+              COMPLETED=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status == \"completed\") | .name" | wc -l)
+              FAILURES=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status == \"completed\" and (.conclusion != \"success\" and .conclusion != \"skipped\")) | .name" | wc -l)
+              if [ "${FOUND:-0}" -lt 3 ]; then
+                echo "- warning: only ${FOUND:-0}/3 expected CI check groups appeared before Bunny posted."
+              fi
+              if [ "${PENDING:-0}" -gt 0 ]; then
+                echo "- warning: ${PENDING:-0} expected CI check group(s) were still running when Bunny posted."
+              fi
+              if [ "${COMPLETED:-0}" -gt 0 ] && [ "${FAILURES:-0}" -gt 0 ]; then
+                echo "- failure: ${FAILURES:-0} expected CI check group(s) failed; do not merge until CI is repaired."
+              fi
+            fi
+          } > bunny-ci-status.md
+
+          wait "$BUNNY_PID"
+
+      - name: Render review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py render
+
+      - name: Post the review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py post
