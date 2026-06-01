@@ -61,7 +61,7 @@ export function boolish(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
-export function orderValue(record: JsonRecord): number {
+function orderValue(record: JsonRecord): number {
   return readNumber(record.sortOrder ?? record.order ?? record.injectionOrder, 0);
 }
 

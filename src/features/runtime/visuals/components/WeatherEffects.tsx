@@ -39,6 +39,27 @@ interface Particle {
   color: string;
 }
 
+const MAX_CANVAS_SIDE = 4096;
+const MAX_CANVAS_PIXELS = 16_777_216;
+
+function clampCanvasDimension(value: number, viewportValue: number): number {
+  const size = Number.isFinite(value) ? value : 0;
+  const viewportSize = Number.isFinite(viewportValue) && viewportValue > 0 ? viewportValue : size;
+  return Math.max(1, Math.min(size, viewportSize, MAX_CANVAS_SIDE));
+}
+
+function boundedCanvasSize(rect: DOMRect, dpr: number): { width: number; height: number } {
+  let width = Math.ceil(clampCanvasDimension(rect.width, window.innerWidth) * dpr);
+  let height = Math.ceil(clampCanvasDimension(rect.height, window.innerHeight) * dpr);
+  const area = width * height;
+  if (area > MAX_CANVAS_PIXELS) {
+    const scale = Math.sqrt(MAX_CANVAS_PIXELS / area);
+    width = Math.max(1, Math.floor(width * scale));
+    height = Math.max(1, Math.floor(height * scale));
+  }
+  return { width, height };
+}
+
 // ── Map weather string → effect config ──
 function parseWeather(weather?: string | null): {
   type: Particle["type"];
@@ -721,10 +742,11 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true }: Wea
     const dpr = window.devicePixelRatio || 1;
 
     const resize = () => {
-      const rect = canvas.parentElement?.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       if (!rect) return;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      const size = boundedCanvasSize(rect, dpr);
+      canvas.width = size.width;
+      canvas.height = size.height;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
@@ -859,5 +881,5 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true }: Wea
 
   if (!shouldRender) return null;
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-0 h-full w-full" />;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute -inset-px z-0" />;
 }

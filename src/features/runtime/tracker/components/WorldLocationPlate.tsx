@@ -29,7 +29,10 @@ export function WorldLocationPlate({
       >
         <div className="relative flex h-full min-h-[1.625rem] w-full items-center justify-center overflow-hidden rounded-[3px] bg-[color-mix(in_srgb,var(--background)_34%,transparent)] ring-1 ring-[var(--border)]/24 @min-[380px]:min-h-[1.8rem]">
           <div className="pointer-events-none absolute inset-0 opacity-[0.17] [background-image:radial-gradient(circle,color-mix(in_srgb,var(--foreground)_44%,transparent)_0.75px,transparent_1px)] [background-size:4px_4px]" />
-          <MapPin size="0.8125rem" className={cn("relative z-[1] shrink-0 drop-shadow-sm", getLocationPinColor(value))} />
+          <MapPin
+            size="0.8125rem"
+            className={cn("relative z-[1] shrink-0 drop-shadow-sm", getLocationPinColor(value))}
+          />
         </div>
         <span
           className={cn(

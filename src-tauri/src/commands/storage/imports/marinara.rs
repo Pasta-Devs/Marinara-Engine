@@ -1,5 +1,13 @@
 use super::*;
 
+#[path = "marinara_assets.rs"]
+mod marinara_assets;
+#[path = "marinara_rollback.rs"]
+mod marinara_rollback;
+
+use marinara_assets::*;
+use marinara_rollback::*;
+
 const PROFILE_IMPORT_GUIDANCE: &str =
     "Full profile exports must be imported with Import Profile in Settings -> Import. Use Import Profile (JSON/ZIP) instead.";
 
@@ -179,208 +187,6 @@ fn array_from_envelope(data: &Value, envelope: &Map<String, Value>, key: &str) -
         .unwrap_or_default()
 }
 
-fn import_parented_records(
-    state: &AppState,
-    items: Vec<Value>,
-    collection: &str,
-    owner_field: &str,
-    owner_id: &str,
-    parent_field: &str,
-    label: &str,
-) -> AppResult<HashMap<String, String>> {
-    let mut created_ids = Vec::new();
-    let result = (|| -> AppResult<HashMap<String, String>> {
-        let mut id_map = HashMap::new();
-        let mut pending_parents = Vec::new();
-        for item in items {
-            let old_id = item
-                .get("id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned);
-            let old_parent_id = item
-                .get(parent_field)
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned);
-            let mut record = ensure_object(item)?;
-            record.remove("id");
-            record.remove(owner_field);
-            record.insert(owner_field.to_string(), Value::String(owner_id.to_string()));
-            if old_parent_id.is_some() {
-                record.insert(parent_field.to_string(), Value::Null);
-            }
-            let created = state.storage.create(collection, Value::Object(record))?;
-            let new_id = created_record_id(&created, label)?;
-            created_ids.push(new_id.clone());
-            if let Some(old_id) = old_id {
-                id_map.insert(old_id, new_id.clone());
-            }
-            if let Some(old_parent_id) = old_parent_id {
-                pending_parents.push((new_id, old_parent_id));
-            }
-        }
-        for (record_id, old_parent_id) in pending_parents {
-            if let Some(new_parent_id) = id_map.get(&old_parent_id) {
-                let mut patch = Map::new();
-                patch.insert(
-                    parent_field.to_string(),
-                    Value::String(new_parent_id.clone()),
-                );
-                state
-                    .storage
-                    .patch(collection, &record_id, Value::Object(patch))?;
-            }
-        }
-        Ok(id_map)
-    })();
-
-    result.map_err(|error| rollback_created_records(state, collection, &created_ids, error))
-}
-
-fn rollback_created_records(
-    state: &AppState,
-    collection: &str,
-    record_ids: &[String],
-    error: AppError,
-) -> AppError {
-    let mut rollback_errors = Vec::new();
-    for record_id in record_ids.iter().rev() {
-        if let Err(rollback_error) = state.storage.delete(collection, record_id) {
-            rollback_errors.push(format!("{record_id}: {rollback_error}"));
-        }
-    }
-    if rollback_errors.is_empty() {
-        error
-    } else {
-        AppError::new(
-            "storage_rollback_failed",
-            format!(
-                "{error}; additionally failed to roll back imported {collection} records: {}",
-                rollback_errors.join("; ")
-            ),
-        )
-    }
-}
-
-fn extension_from_filename(filename: &str) -> Option<&'static str> {
-    match Path::new(filename)
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "jpg" | "jpeg" => Some("jpg"),
-        "webp" => Some("webp"),
-        "gif" => Some("gif"),
-        "avif" => Some("avif"),
-        "png" => Some("png"),
-        "svg" => Some("svg"),
-        _ => None,
-    }
-}
-
-fn import_image_filename(raw: Option<&str>, fallback: &str, ext: &str) -> String {
-    let mut filename = raw
-        .filter(|value| !value.trim().is_empty())
-        .map(safe_filename)
-        .unwrap_or_else(|| format!("{}.{}", safe_filename(fallback), ext));
-    if Path::new(&filename).extension().is_none() {
-        filename.push('.');
-        filename.push_str(ext);
-    }
-    filename
-}
-
-fn restore_sprites(state: &AppState, target_id: &str, sprites: Option<&Value>) -> AppResult<usize> {
-    let Some(items) = sprites.and_then(Value::as_array) else {
-        return Ok(0);
-    };
-    if items.is_empty() || target_id.contains('/') || target_id.contains('\\') {
-        return Ok(0);
-    }
-    let dir = state.data_dir.join("sprites").join(target_id);
-    fs::create_dir_all(&dir)?;
-    let mut imported = 0usize;
-    for (index, sprite) in items.iter().enumerate() {
-        let Some(image) = sprite
-            .get("data")
-            .or_else(|| sprite.get("url"))
-            .and_then(Value::as_str)
-            .filter(|value| value.starts_with("data:image/"))
-        else {
-            continue;
-        };
-        let (mime, bytes) = decode_image_payload(image, "sprite")?;
-        let ext = extension_for_image_mime(&mime)
-            .or_else(|| {
-                sprite
-                    .get("filename")
-                    .and_then(Value::as_str)
-                    .and_then(extension_from_filename)
-            })
-            .unwrap_or("png");
-        let fallback = sprite
-            .get("expression")
-            .and_then(Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| format!("sprite-{}", index + 1));
-        let filename = import_image_filename(
-            sprite.get("filename").and_then(Value::as_str),
-            &fallback,
-            ext,
-        );
-        let target = unique_file_path(&dir.join(filename))?;
-        fs::write(target, bytes)?;
-        imported += 1;
-    }
-    Ok(imported)
-}
-
-fn restore_character_gallery(
-    state: &AppState,
-    character_id: &str,
-    gallery: Option<&Value>,
-) -> AppResult<usize> {
-    let Some(items) = gallery.and_then(Value::as_array) else {
-        return Ok(0);
-    };
-    let mut imported = 0usize;
-    for (index, item) in items.iter().enumerate() {
-        let Some(data_url) = item
-            .get("data")
-            .or_else(|| item.get("url"))
-            .and_then(Value::as_str)
-            .filter(|value| value.starts_with("data:image/"))
-        else {
-            continue;
-        };
-        let (mime, _) = decode_image_payload(data_url, "gallery image")?;
-        let ext = extension_for_image_mime(&mime).unwrap_or("png");
-        let filename = import_image_filename(
-            item.get("filename").and_then(Value::as_str),
-            &format!("gallery-{}", index + 1),
-            ext,
-        );
-        state.storage.create(
-            "character-gallery",
-            json!({
-                "characterId": character_id,
-                "filePath": filename,
-                "filename": filename,
-                "url": data_url,
-                "prompt": item.get("prompt").cloned().unwrap_or_else(|| json!("")),
-                "provider": item.get("provider").cloned().unwrap_or_else(|| json!("")),
-                "model": item.get("model").cloned().unwrap_or_else(|| json!("")),
-                "width": item.get("width").cloned().unwrap_or(Value::Null),
-                "height": item.get("height").cloned().unwrap_or(Value::Null)
-            }),
-        )?;
-        imported += 1;
-    }
-    Ok(imported)
-}
-
 fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> {
     if data.get("spec").is_some() && data.get("data").is_some_and(Value::is_object) {
         let mut character_data = data.get("data").cloned().unwrap_or_else(|| json!({}));
@@ -401,26 +207,50 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
             }
         }
         apply_import_timestamps(&mut record, &data);
-        let character = state.storage.create("characters", record)?;
-        let character_id = created_record_id(&character, "character")?;
-        let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
-        let gallery_imported =
-            restore_character_gallery(state, &character_id, data.get("gallery"))?;
         let name = character_data
             .get("name")
             .and_then(Value::as_str)
             .unwrap_or("Imported Character")
             .to_string();
-        return Ok(json!({
-            "success": true,
-            "type": "marinara_character",
-            "id": character_id,
-            "characterId": character_id,
-            "name": name,
-            "character": character,
-            "spritesImported": sprites_imported,
-            "galleryImported": gallery_imported
-        }));
+        let mut created_character_id = None;
+        let result = (|| -> AppResult<Value> {
+            let character = state.storage.create("characters", record)?;
+            let character_id = created_record_id(&character, "character")?;
+            created_character_id = Some(character_id.clone());
+            let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
+            let gallery_imported =
+                restore_character_gallery(state, &character_id, data.get("gallery"))?;
+            Ok(json!({
+                "success": true,
+                "type": "marinara_character",
+                "id": character_id,
+                "characterId": character_id,
+                "name": name,
+                "character": character,
+                "spritesImported": sprites_imported,
+                "galleryImported": gallery_imported
+            }))
+        })();
+        return result.map_err(|error| {
+            let mut rollback_errors = Vec::new();
+            if let Some(character_id) = created_character_id.as_deref() {
+                rollback_records_by_field_collect(
+                    state,
+                    "character-gallery",
+                    "characterId",
+                    character_id,
+                    &mut rollback_errors,
+                );
+                rollback_managed_child_dir(state, "sprites", character_id, &mut rollback_errors);
+                rollback_created_records_collect(
+                    state,
+                    "characters",
+                    &[character_id.to_string()],
+                    &mut rollback_errors,
+                );
+            }
+            append_marinara_rollback_errors(error, "character import", rollback_errors)
+        });
     }
 
     let looks_like_storage_record = data.get("data").is_some()
@@ -449,28 +279,53 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
         }
     }
     apply_import_timestamps(&mut record_value, &data);
-    let record = state.storage.create("characters", record_value)?;
-    let character_id = created_record_id(&record, "character")?;
-    let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
-    let gallery_imported = restore_character_gallery(state, &character_id, data.get("gallery"))?;
-    let name = data_string_name(&record)
-        .or_else(|| {
-            record
-                .get("name")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned)
-        })
-        .unwrap_or_else(|| "Imported Character".to_string());
-    Ok(json!({
-        "success": true,
-        "type": "marinara_character",
-        "id": record.get("id").cloned().unwrap_or(Value::Null),
-        "characterId": record.get("id").cloned().unwrap_or(Value::Null),
-        "name": name,
-        "character": record,
-        "spritesImported": sprites_imported,
-        "galleryImported": gallery_imported
-    }))
+    let mut created_character_id = None;
+    let result = (|| -> AppResult<Value> {
+        let record = state.storage.create("characters", record_value)?;
+        let character_id = created_record_id(&record, "character")?;
+        created_character_id = Some(character_id.clone());
+        let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
+        let gallery_imported =
+            restore_character_gallery(state, &character_id, data.get("gallery"))?;
+        let name = data_string_name(&record)
+            .or_else(|| {
+                record
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            })
+            .unwrap_or_else(|| "Imported Character".to_string());
+        Ok(json!({
+            "success": true,
+            "type": "marinara_character",
+            "id": record.get("id").cloned().unwrap_or(Value::Null),
+            "characterId": record.get("id").cloned().unwrap_or(Value::Null),
+            "name": name,
+            "character": record,
+            "spritesImported": sprites_imported,
+            "galleryImported": gallery_imported
+        }))
+    })();
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        if let Some(character_id) = created_character_id.as_deref() {
+            rollback_records_by_field_collect(
+                state,
+                "character-gallery",
+                "characterId",
+                character_id,
+                &mut rollback_errors,
+            );
+            rollback_managed_child_dir(state, "sprites", character_id, &mut rollback_errors);
+            rollback_created_records_collect(
+                state,
+                "characters",
+                &[character_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        append_marinara_rollback_errors(error, "character import", rollback_errors)
+    })
 }
 
 fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
@@ -484,16 +339,33 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
         }
     }
     apply_import_timestamps(&mut record_value, &data);
-    let record = state.storage.create("personas", record_value)?;
-    let persona_id = created_record_id(&record, "persona")?;
-    let sprites_imported = restore_sprites(state, &persona_id, data.get("sprites"))?;
-    Ok(json!({
-        "success": true,
-        "type": "marinara_persona",
-        "id": record.get("id").cloned().unwrap_or(Value::Null),
-        "name": record.get("name").cloned().unwrap_or(Value::Null),
-        "spritesImported": sprites_imported
-    }))
+    let mut created_persona_id = None;
+    let result = (|| -> AppResult<Value> {
+        let record = state.storage.create("personas", record_value)?;
+        let persona_id = created_record_id(&record, "persona")?;
+        created_persona_id = Some(persona_id.clone());
+        let sprites_imported = restore_sprites(state, &persona_id, data.get("sprites"))?;
+        Ok(json!({
+            "success": true,
+            "type": "marinara_persona",
+            "id": record.get("id").cloned().unwrap_or(Value::Null),
+            "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "spritesImported": sprites_imported
+        }))
+    })();
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        if let Some(persona_id) = created_persona_id.as_deref() {
+            rollback_managed_child_dir(state, "sprites", persona_id, &mut rollback_errors);
+            rollback_created_records_collect(
+                state,
+                "personas",
+                &[persona_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        append_marinara_rollback_errors(error, "persona import", rollback_errors)
+    })
 }
 
 fn import_marinara_lorebook(
@@ -533,48 +405,81 @@ fn import_marinara_lorebook(
         }
     }
     apply_import_timestamps(&mut lorebook, &lorebook_data);
-    let record = state.storage.create("lorebooks", lorebook)?;
-    let lorebook_id = created_record_id(&record, "lorebook")?;
-    let folder_id_map = import_parented_records(
-        state,
-        array_from_envelope(&data, envelope, "folders"),
-        "lorebook-folders",
-        "lorebookId",
-        &lorebook_id,
-        "parentFolderId",
-        "lorebook folder",
-    )?;
+    let mut created_lorebook_id = None;
+    let mut created_folder_ids = Vec::new();
+    let mut created_entry_ids = Vec::new();
+    let result = (|| -> AppResult<Value> {
+        let record = state.storage.create("lorebooks", lorebook)?;
+        let lorebook_id = created_record_id(&record, "lorebook")?;
+        created_lorebook_id = Some(lorebook_id.clone());
+        let folder_id_map = import_parented_records(
+            state,
+            array_from_envelope(&data, envelope, "folders"),
+            "lorebook-folders",
+            "lorebookId",
+            &lorebook_id,
+            "parentFolderId",
+            "lorebook folder",
+        )?;
+        created_folder_ids.extend(folder_id_map.values().cloned());
 
-    let mut exported_entries = array_from_envelope(&data, envelope, "entries");
-    if exported_entries.is_empty() {
-        exported_entries = lorebook_entries(&data);
-    }
-    for (index, entry) in exported_entries.iter().enumerate() {
-        let mut normalized = normalize_imported_lorebook_entry(&lorebook_id, entry, index);
-        if let Some(old_folder_id) = entry.get("folderId").and_then(Value::as_str) {
-            if let Some(object) = normalized.as_object_mut() {
-                object.insert(
-                    "folderId".to_string(),
-                    folder_id_map
-                        .get(old_folder_id)
-                        .map(|id| Value::String(id.clone()))
-                        .unwrap_or(Value::Null),
-                );
-            }
+        let mut exported_entries = array_from_envelope(&data, envelope, "entries");
+        if exported_entries.is_empty() {
+            exported_entries = lorebook_entries(&data);
         }
-        state.storage.create("lorebook-entries", normalized)?;
-    }
+        for (index, entry) in exported_entries.iter().enumerate() {
+            let mut normalized = normalize_imported_lorebook_entry(&lorebook_id, entry, index);
+            if let Some(old_folder_id) = entry.get("folderId").and_then(Value::as_str) {
+                if let Some(object) = normalized.as_object_mut() {
+                    object.insert(
+                        "folderId".to_string(),
+                        folder_id_map
+                            .get(old_folder_id)
+                            .map(|id| Value::String(id.clone()))
+                            .unwrap_or(Value::Null),
+                    );
+                }
+            }
+            let entry_record = state.storage.create("lorebook-entries", normalized)?;
+            created_entry_ids.push(created_record_id(&entry_record, "lorebook entry")?);
+        }
 
-    Ok(json!({
-        "success": true,
-        "type": "marinara_lorebook",
-        "id": lorebook_id,
-        "lorebookId": lorebook_id,
-        "name": record.get("name").cloned().unwrap_or(Value::Null),
-        "entriesImported": exported_entries.len(),
-        "foldersImported": folder_id_map.len(),
-        "lorebook": record
-    }))
+        Ok(json!({
+            "success": true,
+            "type": "marinara_lorebook",
+            "id": lorebook_id,
+            "lorebookId": lorebook_id,
+            "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "entriesImported": exported_entries.len(),
+            "foldersImported": folder_id_map.len(),
+            "lorebook": record
+        }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_created_records_collect(
+            state,
+            "lorebook-entries",
+            &created_entry_ids,
+            &mut rollback_errors,
+        );
+        rollback_created_records_collect(
+            state,
+            "lorebook-folders",
+            &created_folder_ids,
+            &mut rollback_errors,
+        );
+        if let Some(lorebook_id) = created_lorebook_id.as_deref() {
+            rollback_created_records_collect(
+                state,
+                "lorebooks",
+                &[lorebook_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        append_marinara_rollback_errors(error, "lorebook import", rollback_errors)
+    })
 }
 
 fn import_marinara_preset(
@@ -590,65 +495,106 @@ fn import_marinara_preset(
     );
     let mut record_value = with_entity_defaults("prompts", preset_data.clone())?;
     apply_import_timestamps(&mut record_value, &preset_data);
-    let record = state.storage.create("prompts", record_value)?;
-    let preset_id = created_record_id(&record, "preset")?;
-    let group_id_map = import_parented_records(
-        state,
-        array_from_envelope(&data, envelope, "groups"),
-        "prompt-groups",
-        "presetId",
-        &preset_id,
-        "parentGroupId",
-        "prompt group",
-    )?;
+    let mut created_preset_id = None;
+    let mut created_group_ids = Vec::new();
+    let mut created_section_ids = Vec::new();
+    let mut created_variable_ids = Vec::new();
+    let result = (|| -> AppResult<Value> {
+        let record = state.storage.create("prompts", record_value)?;
+        let preset_id = created_record_id(&record, "preset")?;
+        created_preset_id = Some(preset_id.clone());
+        let group_id_map = import_parented_records(
+            state,
+            array_from_envelope(&data, envelope, "groups"),
+            "prompt-groups",
+            "presetId",
+            &preset_id,
+            "parentGroupId",
+            "prompt group",
+        )?;
+        created_group_ids.extend(group_id_map.values().cloned());
 
-    let mut sections_imported = 0usize;
-    for section in array_from_envelope(&data, envelope, "sections") {
-        let mut section_record = ensure_object(section)?;
-        section_record.remove("id");
-        section_record.remove("presetId");
-        section_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
-        if section_record.contains_key("groupId") {
-            let group_id = section_record
-                .get("groupId")
-                .and_then(Value::as_str)
-                .and_then(|old_group_id| group_id_map.get(old_group_id))
-                .map(|id| Value::String(id.clone()))
-                .unwrap_or(Value::Null);
-            section_record.insert("groupId".to_string(), group_id);
+        let mut sections_imported = 0usize;
+        for section in array_from_envelope(&data, envelope, "sections") {
+            let mut section_record = ensure_object(section)?;
+            section_record.remove("id");
+            section_record.remove("presetId");
+            section_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
+            if section_record.contains_key("groupId") {
+                let group_id = section_record
+                    .get("groupId")
+                    .and_then(Value::as_str)
+                    .and_then(|old_group_id| group_id_map.get(old_group_id))
+                    .map(|id| Value::String(id.clone()))
+                    .unwrap_or(Value::Null);
+                section_record.insert("groupId".to_string(), group_id);
+            }
+            let section = state
+                .storage
+                .create("prompt-sections", Value::Object(section_record))?;
+            created_section_ids.push(created_record_id(&section, "prompt section")?);
+            sections_imported += 1;
         }
-        state
-            .storage
-            .create("prompt-sections", Value::Object(section_record))?;
-        sections_imported += 1;
-    }
 
-    let mut variables_imported = 0usize;
-    let mut variables = array_from_envelope(&data, envelope, "choiceBlocks");
-    if variables.is_empty() {
-        variables = array_from_envelope(&data, envelope, "variables");
-    }
-    for variable in variables {
-        let mut variable_record = ensure_object(variable)?;
-        variable_record.remove("id");
-        variable_record.remove("presetId");
-        variable_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
-        state
-            .storage
-            .create("prompt-variables", Value::Object(variable_record))?;
-        variables_imported += 1;
-    }
+        let mut variables_imported = 0usize;
+        let mut variables = array_from_envelope(&data, envelope, "choiceBlocks");
+        if variables.is_empty() {
+            variables = array_from_envelope(&data, envelope, "variables");
+        }
+        for variable in variables {
+            let mut variable_record = ensure_object(variable)?;
+            variable_record.remove("id");
+            variable_record.remove("presetId");
+            variable_record.insert("presetId".to_string(), Value::String(preset_id.clone()));
+            let variable = state
+                .storage
+                .create("prompt-variables", Value::Object(variable_record))?;
+            created_variable_ids.push(created_record_id(&variable, "prompt variable")?);
+            variables_imported += 1;
+        }
 
-    Ok(json!({
-        "success": true,
-        "type": "marinara_preset",
-        "id": preset_id,
-        "name": record.get("name").cloned().unwrap_or(Value::Null),
-        "preset": record,
-        "groupsImported": group_id_map.len(),
-        "sectionsImported": sections_imported,
-        "variablesImported": variables_imported
-    }))
+        Ok(json!({
+            "success": true,
+            "type": "marinara_preset",
+            "id": preset_id,
+            "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "preset": record,
+            "groupsImported": group_id_map.len(),
+            "sectionsImported": sections_imported,
+            "variablesImported": variables_imported
+        }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_created_records_collect(
+            state,
+            "prompt-variables",
+            &created_variable_ids,
+            &mut rollback_errors,
+        );
+        rollback_created_records_collect(
+            state,
+            "prompt-sections",
+            &created_section_ids,
+            &mut rollback_errors,
+        );
+        rollback_created_records_collect(
+            state,
+            "prompt-groups",
+            &created_group_ids,
+            &mut rollback_errors,
+        );
+        if let Some(preset_id) = created_preset_id.as_deref() {
+            rollback_created_records_collect(
+                state,
+                "prompts",
+                &[preset_id.to_string()],
+                &mut rollback_errors,
+            );
+        }
+        append_marinara_rollback_errors(error, "preset import", rollback_errors)
+    })
 }
 
 pub(super) fn import_marinara_envelope(state: &AppState, envelope: Value) -> AppResult<Value> {

@@ -11,7 +11,7 @@ export const integrationGateway: IntegrationGateway = {
       spotifyApi.playlists({
         agentId: input.agentId,
         limit: input.limit ?? undefined,
-    }),
+      }),
     playlistTracks: (input) => spotifyApi.playlistTracks(input),
     searchTracks: (input) => spotifyApi.searchTracks(input),
     playTrack: <T = unknown>(input: Record<string, unknown>) => spotifyApi.playTrack(input) as Promise<T>,

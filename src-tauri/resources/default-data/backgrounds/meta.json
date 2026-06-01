@@ -1,118 +1,41 @@
 {
   "ancient_library.jpg": {
-    "tags": [
-      "interior",
-      "library",
-      "fantasy",
-      "cozy"
-    ]
+    "tags": ["interior", "library", "fantasy", "cozy"]
   },
   "castle_cliff.jpg": {
-    "tags": [
-      "castle",
-      "cliff",
-      "fantasy",
-      "medieval",
-      "dramatic"
-    ]
+    "tags": ["castle", "cliff", "fantasy", "medieval", "dramatic"]
   },
   "city_night.jpg": {
-    "tags": [
-      "city",
-      "night",
-      "urban",
-      "modern",
-      "neon"
-    ]
+    "tags": ["city", "night", "urban", "modern", "neon"]
   },
   "dark_forest.jpg": {
-    "tags": [
-      "forest",
-      "dark",
-      "nature",
-      "mysterious",
-      "night"
-    ]
+    "tags": ["forest", "dark", "nature", "mysterious", "night"]
   },
   "enchanted_forest.jpg": {
-    "tags": [
-      "forest",
-      "nature",
-      "green",
-      "fantasy",
-      "peaceful"
-    ]
+    "tags": ["forest", "nature", "green", "fantasy", "peaceful"]
   },
   "foggy_valley.jpg": {
-    "tags": [
-      "valley",
-      "fog",
-      "mountains",
-      "nature",
-      "mysterious"
-    ]
+    "tags": ["valley", "fog", "mountains", "nature", "mysterious"]
   },
   "misty_mountains.jpg": {
-    "tags": [
-      "mountains",
-      "dramatic",
-      "nature",
-      "epic",
-      "landscape"
-    ]
+    "tags": ["mountains", "dramatic", "nature", "epic", "landscape"]
   },
   "moonlit_lake.jpg": {
-    "tags": [
-      "lake",
-      "night",
-      "moon",
-      "water",
-      "peaceful"
-    ]
+    "tags": ["lake", "night", "moon", "water", "peaceful"]
   },
   "mountain_lake.jpg": {
-    "tags": [
-      "mountains",
-      "lake",
-      "nature",
-      "landscape",
-      "peaceful"
-    ]
+    "tags": ["mountains", "lake", "nature", "landscape", "peaceful"]
   },
   "ocean_sunset.jpg": {
-    "tags": [
-      "ocean",
-      "sunset",
-      "beach",
-      "water",
-      "romantic"
-    ]
+    "tags": ["ocean", "sunset", "beach", "water", "romantic"]
   },
   "starry_mountains.jpg": {
-    "tags": [
-      "mountains",
-      "night",
-      "stars",
-      "space",
-      "epic"
-    ]
+    "tags": ["mountains", "night", "stars", "space", "epic"]
   },
   "tropical_beach.jpg": {
-    "tags": [
-      "beach",
-      "tropical",
-      "ocean",
-      "day",
-      "paradise"
-    ]
+    "tags": ["beach", "tropical", "ocean", "day", "paradise"]
   },
   "winter_mountains.jpg": {
-    "tags": [
-      "winter",
-      "snow",
-      "mountains",
-      "cold",
-      "landscape"
-    ]
+    "tags": ["winter", "snow", "mountains", "cold", "landscape"]
   }
 }

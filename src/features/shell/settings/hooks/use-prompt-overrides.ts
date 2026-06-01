@@ -1,22 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { promptOverridesApi } from "../api/prompt-overrides-api";
-import type {
-  PromptOverrideDefault,
-  PromptOverrideDetail,
-  PromptOverrideRow,
-  PromptOverrideSummary,
-  PromptOverrideVariable,
-} from "../../../../engine/generation/prompt-overrides";
+import type { PromptOverrideDetail, PromptOverrideSummary } from "../../../../engine/generation/prompt-overrides";
 
-export type {
-  PromptOverrideDefault,
-  PromptOverrideDetail,
-  PromptOverrideRow,
-  PromptOverrideSummary,
-  PromptOverrideVariable,
-};
+export type { PromptOverrideDetail, PromptOverrideSummary };
 
-export const promptOverrideKeys = {
+const promptOverrideKeys = {
   all: ["prompt-overrides"] as const,
   list: () => [...promptOverrideKeys.all, "list"] as const,
   detail: (key: string) => [...promptOverrideKeys.all, "detail", key] as const,

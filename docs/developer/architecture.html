@@ -27,13 +27,11 @@
         <p class="eyebrow">Architecture</p>
         <h1>The current tree is layered by ownership, not by convenience.</h1>
         <p class="lead">
-          Marinara is a Tauri desktop app with a React feature tree, a
-          React-free TypeScript product engine, typed frontend runtime adapters,
-          embedded Tauri commands, a hostable Rust HTTP runtime, and focused
-          Rust capability crates. The current
-          feature tree is physically split into <code>catalog</code>,
-          <code>runtime</code>, <code>modes</code>, and <code>shell</code>,
-          with dependency direction enforced by <code>.dependency-cruiser.cjs</code>.
+          Marinara is a Tauri desktop app with a React feature tree, a React-free TypeScript product engine, typed
+          frontend runtime adapters, embedded Tauri commands, a hostable Rust HTTP runtime, and focused Rust capability
+          crates. The current feature tree is physically split into <code>catalog</code>, <code>runtime</code>,
+          <code>modes</code>, and <code>shell</code>, with dependency direction enforced by
+          <code>.dependency-cruiser.cjs</code>.
         </p>
 
         <h2>Current Source Shape</h2>
@@ -52,7 +50,7 @@ flowchart TB
     ShellLayer[shell<br/>settings, connections UI, Mari,<br/>imports, bot browser, onboarding,<br/>notifications, Spotify]
     ModesLayer[modes<br/>router, shared chat UI, shared scene UI,<br/>conversation, roleplay, game, game-assets]
     RuntimeLayer[runtime<br/>generation, world-state,<br/>visuals, tracker, haptics]
-    CatalogLayer[catalog<br/>chats, characters, personas,<br/>lorebooks, presets, chat-presets,<br/>connections data, agents, gallery, knowledge]
+    CatalogLayer[catalog<br/>chats, characters, personas, sprites,<br/>lorebooks, presets, chat-presets,<br/>connections data, agents, gallery, knowledge]
   end
 
   subgraph Shared[src/shared]
@@ -169,35 +167,50 @@ flowchart TB
           <tbody>
             <tr>
               <td><code>features/catalog</code></td>
-              <td><code>agents</code>, <code>characters</code>, <code>chat-presets</code>, <code>chats</code>, <code>connections</code>, <code>gallery</code>, <code>knowledge</code>, <code>lorebooks</code>, <code>personas</code>, <code>presets</code>.</td>
+              <td>
+                <code>agents</code>, <code>characters</code>, <code>chat-presets</code>, <code>chats</code>,
+                <code>connections</code>, <code>gallery</code>, <code>knowledge</code>, <code>lorebooks</code>,
+                <code>personas</code>, <code>presets</code>, <code>sprites</code>.
+              </td>
               <td>Own resource hooks, storage-facing types, query keys, and library/editor surfaces.</td>
               <td>Import runtime systems, mode UI, or shell tools.</td>
             </tr>
             <tr>
               <td><code>features/runtime</code></td>
-              <td><code>generation</code>, <code>haptics</code>, <code>tracker</code>, <code>visuals</code>, <code>world-state</code>.</td>
+              <td>
+                <code>generation</code>, <code>haptics</code>, <code>tracker</code>, <code>visuals</code>,
+                <code>world-state</code>.
+              </td>
               <td>Own shared runtime systems used by modes and shell.</td>
               <td>Import concrete modes or app-shell workflows.</td>
             </tr>
             <tr>
               <td><code>features/modes</code></td>
-              <td><code>conversation</code>, <code>roleplay</code>, <code>game</code>, <code>game-assets</code>, <code>router</code>, <code>shared/chat-ui</code>, <code>shared/scene-ui</code>.</td>
+              <td>
+                <code>conversation</code>, <code>roleplay</code>, <code>game</code>, <code>game-assets</code>,
+                <code>router</code>, <code>shared/chat-ui</code>, <code>shared/scene-ui</code>.
+              </td>
               <td>Own concrete user modes, shared mode UI, and the mode composition point.</td>
               <td>Import shell tools, or import sibling concrete modes outside <code>modes/router</code>.</td>
             </tr>
             <tr>
               <td><code>features/shell</code></td>
-              <td><code>bot-browser</code>, <code>connections</code>, <code>imports</code>, <code>mari</code>, <code>notifications</code>, <code>onboarding</code>, <code>settings</code>, <code>spotify</code>.</td>
-              <td>Own app-level panels, modals, native integration UI, top-level reset/import workflows, and standalone Mari.</td>
+              <td>
+                <code>bot-browser</code>, <code>connections</code>, <code>imports</code>, <code>mari</code>,
+                <code>notifications</code>, <code>onboarding</code>, <code>settings</code>, <code>spotify</code>.
+              </td>
+              <td>
+                Own app-level panels, modals, native integration UI, top-level reset/import workflows, and standalone
+                Mari.
+              </td>
               <td>Own mode product rules or duplicate engine orchestration.</td>
             </tr>
           </tbody>
         </table>
 
         <div class="callout">
-          The enforced direction is <code>shell -&gt; modes -&gt; runtime -&gt; catalog</code>.
-          Same-layer callers should still use public owner files instead of
-          reaching into another package's private folders.
+          The enforced direction is <code>shell -&gt; modes -&gt; runtime -&gt; catalog</code>. Same-layer callers
+          should still use public owner files instead of reaching into another package's private folders.
         </div>
 
         <h2>Public Entrypoints And Private Folders</h2>
@@ -211,7 +224,10 @@ flowchart TB
           <tbody>
             <tr>
               <td><code>index.ts</code></td>
-              <td>Primary public API for hooks, components, types, and mode/runtime consumers. Not every package has one yet.</td>
+              <td>
+                Primary public API for hooks, components, types, and mode/runtime consumers. Not every package has one
+                yet.
+              </td>
             </tr>
             <tr>
               <td><code>shell.ts</code></td>
@@ -226,16 +242,26 @@ flowchart TB
               <td>Shared view-model or DTO types owned by the package.</td>
             </tr>
             <tr>
-              <td><code>components</code>, <code>hooks</code>, <code>stores</code>, <code>state</code>, <code>lib</code>, <code>api</code>, <code>encounter</code></td>
-              <td>Private implementation folders. The dependency guard blocks cross-package imports into these folders.</td>
+              <td>
+                <code>components</code>, <code>hooks</code>, <code>stores</code>, <code>state</code>, <code>lib</code>,
+                <code>api</code>, <code>encounter</code>
+              </td>
+              <td>
+                Private implementation folders. The dependency guard blocks cross-package imports into these folders.
+              </td>
             </tr>
             <tr>
               <td><code>features/modes/router/shell.ts</code></td>
-              <td>The only current React entrypoint allowed to compose concrete conversation, roleplay, and game packages.</td>
+              <td>
+                The only current React entrypoint allowed to compose concrete conversation, roleplay, and game packages.
+              </td>
             </tr>
             <tr>
               <td><code>features/modes/shared/scene-ui/SceneBanner.tsx</code></td>
-              <td>Current shared scene UI file used by conversation and roleplay. Add a public <code>index.ts</code> before widening this package further.</td>
+              <td>
+                Current shared scene UI file used by conversation and roleplay. Add a public
+                <code>index.ts</code> before widening this package further.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -252,18 +278,34 @@ flowchart TB
           <tbody>
             <tr>
               <td><code>catalog/chats</code></td>
-              <td>Chat records, messages, folders, notes, memories, branches, swipes, prompt preview hooks, and chat query keys.</td>
+              <td>
+                Chat records, messages, folders, notes, memories, branches, swipes, prompt preview hooks, and chat query
+                keys.
+              </td>
               <td>It is a data owner. Shared chat rendering lives under <code>modes/shared/chat-ui</code>.</td>
             </tr>
             <tr>
               <td><code>catalog/characters</code></td>
-              <td>Character library hooks, groups, sprites, start-chat helpers, and character shell surfaces.</td>
-              <td>Current public callers also use this package for persona data hooks and persona groups.</td>
+              <td>Character library hooks, groups, start-chat helpers, and character shell surfaces.</td>
+              <td>
+                Shared character/persona sprite hooks and query keys live behind <code>catalog/sprites</code>.
+              </td>
             </tr>
             <tr>
               <td><code>catalog/personas</code></td>
-              <td>Persona panel/editor/modals and persona query-key file.</td>
-              <td>This package currently has no <code>index.ts</code>; most shared persona hook consumers import from <code>catalog/characters/index.ts</code>.</td>
+              <td>Persona panel/editor/modals, persona data hooks, persona groups, and persona query keys.</td>
+              <td>
+                Public persona data callers import from <code>catalog/personas/index.ts</code>. App-shell lazy UI
+                entrypoints keep using <code>catalog/personas/shell.ts</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>catalog/sprites</code></td>
+              <td>Shared sprite query keys, types, and React Query hooks for character and persona sprite owners.</td>
+              <td>
+                Runtime and mode callers import the public sprite API instead of reaching into character or persona
+                editor internals.
+              </td>
             </tr>
             <tr>
               <td><code>catalog/connections</code></td>
@@ -271,54 +313,99 @@ flowchart TB
               <td>Connection panel/editor UI belongs to <code>features/shell/connections</code>.</td>
             </tr>
             <tr>
-              <td><code>catalog/agents</code>, <code>gallery</code>, <code>knowledge</code>, <code>lorebooks</code>, <code>presets</code>, <code>chat-presets</code></td>
-              <td>Agent/tool records, image gallery hooks, knowledge source hooks, lorebook data/editors, prompt presets, and chat preset selection.</td>
-              <td>Catalog code may call shared APIs and engine contracts/services, but not runtime or mode internals.</td>
+              <td>
+                <code>catalog/agents</code>, <code>gallery</code>, <code>knowledge</code>, <code>lorebooks</code>,
+                <code>presets</code>, <code>chat-presets</code>
+              </td>
+              <td>
+                Agent/tool records, image gallery hooks, knowledge source hooks, lorebook data/editors, prompt presets,
+                and chat preset selection.
+              </td>
+              <td>
+                Catalog code may call shared APIs and engine contracts/services, but not runtime or mode internals.
+              </td>
             </tr>
             <tr>
               <td><code>runtime/generation</code></td>
-              <td><code>useGenerate</code>, which binds React state, storage/LLM/integration adapters, and engine generation services.</td>
+              <td>
+                <code>useGenerate</code>, which binds React state, storage/LLM/integration adapters, and engine
+                generation services.
+              </td>
               <td>This is the main UI-to-engine generation adapter layer.</td>
             </tr>
             <tr>
               <td><code>runtime/world-state</code></td>
-              <td>World-state API, tracker snapshot bridge, controller hooks, display helpers, patching helpers, and the world-state store.</td>
+              <td>
+                World-state API, tracker snapshot bridge, controller hooks, display helpers, patching helpers, and the
+                world-state store.
+              </td>
               <td>Used by mode surfaces and tracker UI; do not move game turn rules here.</td>
             </tr>
             <tr>
               <td><code>runtime/visuals</code></td>
-              <td>Sprite overlay, pinned image overlay, weather effects, world info display, sprite placement, sprite display modes, and shared visual types.</td>
+              <td>
+                Sprite overlay, pinned image overlay, weather effects, world info display, sprite placement, sprite
+                display modes, and shared visual types.
+              </td>
               <td>Visual display contracts are shared here instead of copied across modes.</td>
             </tr>
             <tr>
               <td><code>runtime/tracker</code> and <code>runtime/haptics</code></td>
               <td>Tracker sidebar/panels/model hooks and the haptic capability hook.</td>
-              <td>Tracker is runtime UI over world-state data; haptics calls integration commands through shared API transport.</td>
+              <td>
+                Tracker is runtime UI over world-state data; haptics calls integration commands through shared API
+                transport.
+              </td>
             </tr>
             <tr>
               <td><code>modes/shared/chat-ui</code></td>
-              <td>Shared transcript, input, settings drawer, overlays, gallery/files drawers, prompt peek, quick switchers, summaries, swipes, and setup wizard UI.</td>
-              <td>It is shared mode UI, not generic app UI. It may use mode-neutral lower layers and catalog/runtime public APIs, but must not import concrete mode packages.</td>
+              <td>
+                Shared transcript, input, settings drawer, overlays, gallery/files drawers, prompt peek, quick
+                switchers, summaries, swipes, and setup wizard UI.
+              </td>
+              <td>
+                It is shared mode UI, not generic app UI. It may use mode-neutral lower layers and catalog/runtime
+                public APIs, but must not import concrete mode packages.
+              </td>
             </tr>
             <tr>
               <td><code>modes/conversation</code></td>
-              <td>Conversation surface, view/input/message components, recent chats, connection gate, home FAQ, and autonomous conversation hooks.</td>
-              <td>Conversation can call <code>engine/modes/chat</code> services; it must not import roleplay or game internals.</td>
+              <td>
+                Conversation surface, view/input/message components, recent chats, connection gate, home FAQ, and
+                autonomous conversation hooks.
+              </td>
+              <td>
+                Conversation can call <code>engine/modes/chat</code> services; it must not import roleplay or game
+                internals.
+              </td>
             </tr>
             <tr>
               <td><code>modes/roleplay</code></td>
-              <td>Roleplay surface, scene hook, encounter hook, CYOA choices, context injection, HUD panels, roleplay tracker UI, and roleplay tracker API.</td>
+              <td>
+                Roleplay surface, scene hook, encounter hook, CYOA choices, context injection, HUD panels, roleplay
+                tracker UI, and roleplay tracker API.
+              </td>
               <td>Roleplay scene and encounter behavior call <code>engine/modes/roleplay</code> services.</td>
             </tr>
             <tr>
               <td><code>modes/game</code></td>
-              <td>Game surface, setup, party turns, generation, scene analysis, game API facade, stores, parser/display helpers, maps, combat, inventory, journal, checkpoints, and audio.</td>
-              <td>Game product rules stay under <code>engine/modes/game</code>; the feature package binds those services to UI and shared APIs.</td>
+              <td>
+                Game surface, setup, party turns, generation, scene analysis, game API facade, stores, parser/display
+                helpers, maps, combat, inventory, journal, checkpoints, and audio.
+              </td>
+              <td>
+                Game product rules stay under <code>engine/modes/game</code>; the feature package binds those services
+                to UI and shared APIs.
+              </td>
             </tr>
             <tr>
               <td><code>modes/router</code></td>
               <td><code>ModeSurface</code>, the active mode composition point.</td>
-              <td>This file is currently broad: it also handles active chat loading, pagination, swipes, overlays, shared generation actions, background/visual state, TTS hooks, and mode switching. New product behavior should move to the owning mode/runtime/catalog module instead of making the router broader.</td>
+              <td>
+                This file is currently broad: it also handles active chat loading, pagination, swipes, overlays, shared
+                generation actions, background/visual state, TTS hooks, and mode switching. New product behavior should
+                move to the owning mode/runtime/catalog module instead of making the router broader.
+              </td>
             </tr>
             <tr>
               <td><code>modes/game-assets</code></td>
@@ -327,8 +414,14 @@ flowchart TB
             </tr>
             <tr>
               <td><code>features/shell/*</code></td>
-              <td>Settings, provider connection management UI, admin data reset, Mari, SillyTavern imports, bot browser, onboarding, notification bubbles, and Spotify controls.</td>
-              <td>Shell may coordinate top-level workflows, but storage formats, prompt behavior, provider transport, and native IO still belong lower.</td>
+              <td>
+                Settings, provider connection management UI, admin data reset, Mari, SillyTavern imports, bot browser,
+                onboarding, notification bubbles, and Spotify controls.
+              </td>
+              <td>
+                Shell may coordinate top-level workflows, but storage formats, prompt behavior, provider transport, and
+                native IO still belong lower.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -380,18 +473,25 @@ flowchart TB
             </tr>
             <tr>
               <td><code>engine/modes/roleplay</code></td>
-              <td>Scenes, scene planning/forking/conclusion, roleplay encounters, scene memory, and roleplay sprites.</td>
+              <td>
+                Scenes, scene planning/forking/conclusion, roleplay encounters, scene memory, and roleplay sprites.
+              </td>
               <td>Shared transcript or visual primitives belong below concrete modes.</td>
             </tr>
             <tr>
               <td><code>engine/modes/game</code></td>
-              <td>Game turns, prompts, mechanics, combat, maps, world state, sessions, time, weather, loot, and game assets.</td>
+              <td>
+                Game turns, prompts, mechanics, combat, maps, world state, sessions, time, weather, loot, and game
+                assets.
+              </td>
               <td>Game rules do not move into chat or roleplay UI for reuse.</td>
             </tr>
             <tr>
               <td><code>features/modes/router</code></td>
               <td>Current React composition point for concrete modes and shared active-chat workflow.</td>
-              <td>It may import concrete mode public entries. Other concrete mode packages may not import each other.</td>
+              <td>
+                It may import concrete mode public entries. Other concrete mode packages may not import each other.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -435,15 +535,55 @@ flowchart TB
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>contracts</code> and <code>core</code></td><td>Types, schemas, constants, IDs, result helpers, time/JSON primitives.</td><td>Features, shared API adapters, React, Zustand, or Tauri runtime.</td></tr>
-            <tr><td><code>capabilities</code></td><td>TypeScript ports for storage, LLM, assets, events, integrations, and local capabilities.</td><td>Concrete <code>src/shared/api</code> implementations.</td></tr>
-            <tr><td><code>shared</code></td><td>Pure deterministic helpers for text, regex, scoring, macros, and game-state text.</td><td>UI stores, runtime adapters, storage writes, or provider calls.</td></tr>
-            <tr><td><code>repositories</code></td><td>Capability-backed data access wrappers.</td><td>React Query, Zustand, Tauri invoke calls.</td></tr>
-            <tr><td><code>generation-core</code></td><td>Provider-neutral generation building blocks: prompt assembly, lorebook scanning, regex, and LLM DTOs.</td><td>Concrete mode turn/scene/autonomous ownership.</td></tr>
-            <tr><td><code>agents-runtime</code></td><td>Agent executor, tools, knowledge, and pipeline behavior.</td><td>React UI or shell panels.</td></tr>
-            <tr><td><code>generation</code></td><td>Generation lifecycle, replay records, makers, active lorebooks, prompt preview, and prompt review.</td><td>Concrete runtime adapters or native IO.</td></tr>
-            <tr><td><code>mari</code></td><td>Professor Mari request/response entry contract.</td><td>Rust tool execution or UI rendering.</td></tr>
-            <tr><td><code>modes</code></td><td>Mode-owned product behavior for chat, roleplay, and game.</td><td>Sibling mode internals.</td></tr>
+            <tr>
+              <td><code>contracts</code> and <code>core</code></td>
+              <td>Types, schemas, constants, IDs, result helpers, time/JSON primitives.</td>
+              <td>Features, shared API adapters, React, Zustand, or Tauri runtime.</td>
+            </tr>
+            <tr>
+              <td><code>capabilities</code></td>
+              <td>TypeScript ports for storage, LLM, assets, events, integrations, and local capabilities.</td>
+              <td>Concrete <code>src/shared/api</code> implementations.</td>
+            </tr>
+            <tr>
+              <td><code>shared</code></td>
+              <td>Pure deterministic helpers for text, regex, scoring, macros, and game-state text.</td>
+              <td>UI stores, runtime adapters, storage writes, or provider calls.</td>
+            </tr>
+            <tr>
+              <td><code>repositories</code></td>
+              <td>Capability-backed data access wrappers.</td>
+              <td>React Query, Zustand, Tauri invoke calls.</td>
+            </tr>
+            <tr>
+              <td><code>generation-core</code></td>
+              <td>
+                Provider-neutral generation building blocks: prompt assembly, lorebook scanning, regex, and LLM DTOs.
+              </td>
+              <td>Concrete mode turn/scene/autonomous ownership.</td>
+            </tr>
+            <tr>
+              <td><code>agents-runtime</code></td>
+              <td>Agent executor, tools, knowledge, and pipeline behavior.</td>
+              <td>React UI or shell panels.</td>
+            </tr>
+            <tr>
+              <td><code>generation</code></td>
+              <td>
+                Generation lifecycle, replay records, makers, active lorebooks, prompt preview, and prompt review.
+              </td>
+              <td>Concrete runtime adapters or native IO.</td>
+            </tr>
+            <tr>
+              <td><code>mari</code></td>
+              <td>Professor Mari request/response entry contract.</td>
+              <td>Rust tool execution or UI rendering.</td>
+            </tr>
+            <tr>
+              <td><code>modes</code></td>
+              <td>Mode-owned product behavior for chat, roleplay, and game.</td>
+              <td>Sibling mode internals.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -486,33 +626,77 @@ flowchart TB
           <tbody>
             <tr>
               <td>Frontend adapters</td>
-              <td><code>assets-api.ts</code>, <code>avatar-api.ts</code>, <code>export-api.ts</code>, <code>image-generation-api.ts</code>, <code>import-api.ts</code>, <code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>llm-api.ts</code>, <code>local-file-api.ts</code>, <code>mari-api.ts</code>, <code>profile-api.ts</code>, <code>settings-assets-api.ts</code>, <code>storage-api.ts</code>, <code>tracker-snapshot-api.ts</code>, <code>translation-api.ts</code>, <code>tts-api.ts</code>, <code>remote-runtime.ts</code>, <code>tauri-client.ts</code>, and helpers.</td>
-              <td>Keep them typed and narrow. Product decisions belong in features or engine services. New feature code should call these wrappers, not <code>tauri-client.ts</code> directly. Remote-capable commands must be allowlisted in <code>remote-runtime.ts</code>.</td>
+              <td>
+                <code>assets-api.ts</code>, <code>avatar-api.ts</code>, <code>export-api.ts</code>,
+                <code>image-generation-api.ts</code>, <code>import-api.ts</code>, <code>integration-gateway.ts</code>,
+                <code>integration-utility-api.ts</code>, <code>llm-api.ts</code>, <code>local-file-api.ts</code>,
+                <code>mari-api.ts</code>, <code>profile-api.ts</code>, <code>settings-assets-api.ts</code>,
+                <code>storage-api.ts</code>, <code>tracker-snapshot-api.ts</code>, <code>translation-api.ts</code>,
+                <code>tts-api.ts</code>, <code>remote-runtime.ts</code>, <code>tauri-client.ts</code>, and helpers.
+              </td>
+              <td>
+                Keep them typed and narrow. Product decisions belong in features or engine services. New feature code
+                should call these wrappers, not <code>tauri-client.ts</code> directly. Remote-capable commands must be
+                allowlisted in <code>remote-runtime.ts</code>.
+              </td>
             </tr>
             <tr>
               <td>Tauri host</td>
-              <td><code>src-tauri/src/lib.rs</code>, <code>app.rs</code>, <code>state.rs</code>, builtins/default seed modules, and the command registration list.</td>
+              <td>
+                <code>src-tauri/src/lib.rs</code>, <code>app.rs</code>, <code>state.rs</code>, builtins/default seed
+                modules, and the command registration list.
+              </td>
               <td>Register host state and commands; do not add product workflows here.</td>
             </tr>
             <tr>
               <td>Hostable HTTP runtime</td>
-              <td><code>src-tauri/src/bin/marinara-server.rs</code>, <code>http_server.rs</code>, and <code>http_dispatch.rs</code>.</td>
-              <td>Expose supported JSON commands through <code>/api/invoke</code> and streaming through dedicated routes such as <code>/api/llm/stream</code>. Reuse focused command/capability modules instead of adding parallel product behavior.</td>
+              <td>
+                <code>src-tauri/src/bin/marinara-server.rs</code>, <code>http_server.rs</code>, and
+                <code>http_dispatch.rs</code>.
+              </td>
+              <td>
+                Expose supported JSON commands through <code>/api/invoke</code> and streaming through dedicated routes
+                such as <code>/api/llm/stream</code>. Reuse focused command/capability modules instead of adding
+                parallel product behavior.
+              </td>
             </tr>
             <tr>
               <td>Command facades</td>
-              <td><code>src-tauri/src/commands/storage.rs</code> maps public groups such as <code>agent_commands</code>, <code>asset_commands</code>, <code>bot_browser_commands</code>, <code>chat_commands</code>, <code>entity_commands</code>, <code>game_state_snapshot_commands</code>, <code>import_commands</code>, <code>integration_commands</code>, <code>mari_commands</code>, <code>media_commands</code>, and <code>profile_commands</code>.</td>
+              <td>
+                <code>src-tauri/src/commands/storage.rs</code> maps public groups such as <code>agent_commands</code>,
+                <code>asset_commands</code>, <code>bot_browser_commands</code>, <code>chat_commands</code>,
+                <code>entity_commands</code>, <code>game_state_snapshot_commands</code>, <code>import_commands</code>,
+                <code>integration_commands</code>, <code>mari_commands</code>, <code>media_commands</code>, and
+                <code>profile_commands</code>.
+              </td>
               <td>Validate inputs, call focused implementations, and return DTOs/events.</td>
             </tr>
             <tr>
               <td>Command implementations</td>
-              <td><code>storage/admin.rs</code>, <code>agents.rs</code>, <code>avatars.rs</code>, <code>backgrounds.rs</code>, <code>bot_browser.rs</code>, <code>characters.rs</code>, <code>chats.rs</code>, <code>custom_tools.rs</code>, <code>exports.rs</code>, <code>fonts.rs</code>, <code>game_assets.rs</code>, <code>game_state_snapshots.rs</code>, <code>generation.rs</code>, <code>http.rs</code>, <code>images.rs</code>, <code>imports</code>, <code>integrations</code>, <code>knowledge.rs</code>, <code>llm.rs</code>, <code>mari.rs</code>, <code>media_uploads.rs</code>, <code>profile</code>, <code>prompts.rs</code>, <code>sprites.rs</code>, and <code>translation.rs</code>.</td>
-              <td>Keep implementation modules focused by capability. Split parsing, normalization, service coordination, and filesystem work when they grow.</td>
+              <td>
+                <code>storage/admin.rs</code>, <code>agents.rs</code>, <code>avatars.rs</code>,
+                <code>backgrounds.rs</code>, <code>bot_browser.rs</code>, <code>characters.rs</code>,
+                <code>chats.rs</code>, <code>custom_tools.rs</code>, <code>exports.rs</code>, <code>fonts.rs</code>,
+                <code>game_assets.rs</code>, <code>game_state_snapshots.rs</code>, <code>generation.rs</code>,
+                <code>http.rs</code>, <code>images.rs</code>, <code>imports</code>, <code>integrations</code>,
+                <code>knowledge.rs</code>, <code>llm.rs</code>, <code>mari.rs</code>, <code>media_uploads.rs</code>,
+                <code>profile</code>, <code>prompts.rs</code>, <code>sprites.rs</code>, and <code>translation.rs</code>.
+              </td>
+              <td>
+                Keep implementation modules focused by capability. Split parsing, normalization, service coordination,
+                and filesystem work when they grow.
+              </td>
             </tr>
             <tr>
               <td>Rust crates</td>
-              <td><code>core</code>, <code>security</code>, <code>storage</code>, <code>assets</code>, <code>llm</code>, <code>integrations</code>.</td>
-              <td>Rust owns privileged local capability execution: path safety, atomic writes, managed files, provider transport, secrets, safe fetch, and native integrations.</td>
+              <td>
+                <code>core</code>, <code>security</code>, <code>storage</code>, <code>assets</code>, <code>llm</code>,
+                <code>integrations</code>.
+              </td>
+              <td>
+                Rust owns privileged local capability execution: path safety, atomic writes, managed files, provider
+                transport, secrets, safe fetch, and native integrations.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -526,24 +710,58 @@ flowchart TB
             </tr>
           </thead>
           <tbody>
-            <tr><td>No circular dependencies</td><td>Module graphs must remain acyclic.</td></tr>
-            <tr><td>Shared stays lower</td><td><code>src/shared</code> cannot import <code>src/features</code> or <code>src/app</code>.</td></tr>
-            <tr><td>Engine stays framework and host independent</td><td><code>src/engine</code> cannot import React, Zustand, <code>@tauri-apps/api</code>, or <code>src/shared/api</code>.</td></tr>
-            <tr><td>Feature layers only flow downward</td><td><code>catalog</code> cannot import higher feature layers; <code>runtime</code> cannot import modes or shell; <code>modes</code> cannot import shell.</td></tr>
-            <tr><td>Concrete modes are separated</td><td>Conversation/chat, roleplay, and game cannot import each other's concrete UI or engine mode internals. <code>features/modes/router</code> is the composition exception for React surfaces.</td></tr>
-            <tr><td>Shared mode UI stays lower than concrete modes</td><td><code>features/modes/shared</code> cannot import concrete conversation, roleplay, or game packages.</td></tr>
-            <tr><td>Feature internals are private</td><td>Cross-package imports into another package's <code>components</code>, <code>hooks</code>, <code>stores</code>, <code>state</code>, <code>lib</code>, <code>api</code>, or <code>encounter</code> folders are blocked.</td></tr>
+            <tr>
+              <td>No circular dependencies</td>
+              <td>Module graphs must remain acyclic.</td>
+            </tr>
+            <tr>
+              <td>Shared stays lower</td>
+              <td><code>src/shared</code> cannot import <code>src/features</code> or <code>src/app</code>.</td>
+            </tr>
+            <tr>
+              <td>Engine stays framework and host independent</td>
+              <td>
+                <code>src/engine</code> cannot import React, Zustand, <code>@tauri-apps/api</code>, or
+                <code>src/shared/api</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Feature layers only flow downward</td>
+              <td>
+                <code>catalog</code> cannot import higher feature layers; <code>runtime</code> cannot import modes or
+                shell; <code>modes</code> cannot import shell.
+              </td>
+            </tr>
+            <tr>
+              <td>Concrete modes are separated</td>
+              <td>
+                Conversation/chat, roleplay, and game cannot import each other's concrete UI or engine mode internals.
+                <code>features/modes/router</code> is the composition exception for React surfaces.
+              </td>
+            </tr>
+            <tr>
+              <td>Shared mode UI stays lower than concrete modes</td>
+              <td>
+                <code>features/modes/shared</code> cannot import concrete conversation, roleplay, or game packages.
+              </td>
+            </tr>
+            <tr>
+              <td>Feature internals are private</td>
+              <td>
+                Cross-package imports into another package's <code>components</code>, <code>hooks</code>,
+                <code>stores</code>, <code>state</code>, <code>lib</code>, <code>api</code>, or
+                <code>encounter</code> folders are blocked.
+              </td>
+            </tr>
           </tbody>
         </table>
 
         <h2>Runtime Host Scope</h2>
         <p>
-          The implemented hosts are the embedded Tauri desktop runtime and the
-          hostable <code>marinara-server</code> Rust runtime. The shared API layer
-          owns the transport decision: when <code>remoteRuntimeUrl</code> is set,
-          supported storage/import/connection/LLM calls route through HTTP;
-          unsupported desktop-native actions stay on embedded Tauri and must not
-          grow silent browser fallbacks.
+          The implemented hosts are the embedded Tauri desktop runtime and the hostable
+          <code>marinara-server</code> Rust runtime. The shared API layer owns the transport decision: when
+          <code>remoteRuntimeUrl</code> is set, supported storage/import/connection/LLM calls route through HTTP;
+          unsupported desktop-native actions stay on embedded Tauri and must not grow silent browser fallbacks.
         </p>
         <pre class="mermaid">
 flowchart LR
@@ -564,19 +782,34 @@ flowchart LR
 
         <h2>When Adding Or Moving Code</h2>
         <ol>
-          <li>Start with the owner: catalog data, runtime system, concrete mode, shell workflow, shared UI/helper, engine service, shared API adapter, embedded Tauri command, hostable HTTP dispatch, or Rust capability.</li>
+          <li>
+            Start with the owner: catalog data, runtime system, concrete mode, shell workflow, shared UI/helper, engine
+            service, shared API adapter, embedded Tauri command, hostable HTTP dispatch, or Rust capability.
+          </li>
           <li>Use a package public entrypoint when crossing feature package boundaries.</li>
-          <li>Move reusable mode UI to <code>features/modes/shared</code>; move reusable runtime systems to <code>features/runtime</code>; move generic UI to <code>src/shared/components</code>.</li>
+          <li>
+            Move reusable mode UI to <code>features/modes/shared</code>; move reusable runtime systems to
+            <code>features/runtime</code>; move generic UI to <code>src/shared/components</code>.
+          </li>
           <li>Move product behavior to the owning engine mode or generation layer, not into React components.</li>
           <li>Move privileged local work to Rust commands/crates and expose a narrow shared API wrapper.</li>
-          <li>For hostable runtime support, add the focused shared API wrapper first, then route only supported commands through <code>remote-runtime.ts</code>, <code>http_server.rs</code>, and <code>http_dispatch.rs</code>.</li>
-          <li>Implement engine capability ports at the feature/app edge with shared API wrappers; do not import shared API adapters into engine modules.</li>
-          <li>Run <code>pnpm check:architecture</code> when imports or package structure change, and <code>pnpm check:docs</code> when these docs change.</li>
+          <li>
+            For hostable runtime support, add the focused shared API wrapper first, then route only supported commands
+            through <code>remote-runtime.ts</code>, <code>http_server.rs</code>, and <code>http_dispatch.rs</code>.
+          </li>
+          <li>
+            Implement engine capability ports at the feature/app edge with shared API wrappers; do not import shared API
+            adapters into engine modules.
+          </li>
+          <li>
+            Run <code>pnpm check:architecture</code> when imports or package structure change, and
+            <code>pnpm check:docs</code> when these docs change.
+          </li>
         </ol>
 
         <p class="footer">
-          If a convenient import crosses ownership, add or adjust a public
-          owner contract instead of reaching into a private folder.
+          If a convenient import crosses ownership, add or adjust a public owner contract instead of reaching into a
+          private folder.
         </p>
       </main>
     </div>

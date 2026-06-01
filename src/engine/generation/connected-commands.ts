@@ -3,6 +3,7 @@ import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway } from "../capabilities/llm";
 import {
   parseCharacterCommands,
+  parseDirectMessageCommands,
   type CharacterCommand,
   type CreateCharacterCommand,
   type CreateLorebookCommand,
@@ -25,12 +26,13 @@ import {
   type JsonRecord,
 } from "./runtime-records";
 
-export type ConnectedCommandEvent =
+type ConnectedCommandEvent =
   | { type: "cross_post"; data: JsonRecord }
   | { type: "assistant_action"; data: JsonRecord }
   | { type: "ooc_posted"; data: JsonRecord }
   | { type: "selfie"; data: JsonRecord }
   | { type: "selfie_error"; data: JsonRecord }
+  | { type: "command_error"; data: JsonRecord }
   | { type: "scene_created"; data: JsonRecord };
 
 export interface ConnectedCommandResult {
@@ -92,6 +94,48 @@ async function findConversationChatByTarget(
   );
 }
 
+function roleplayDirectMessageCommandsEnabled(chat: JsonRecord): boolean {
+  const mode = readString(chat.mode || chat.chatMode);
+  return mode === "roleplay" && boolish(parseRecord(chat.metadata).roleplayDmCommandsEnabled, false);
+}
+
+function parseConnectedCommands(chat: JsonRecord, content: string): {
+  cleanContent: string;
+  commands: CharacterCommand[];
+  parseEvents: ConnectedCommandEvent[];
+  strippedHiddenContent: boolean;
+} {
+  if (!roleplayDirectMessageCommandsEnabled(chat)) {
+    const parsed = parseCharacterCommands(content);
+    return {
+      ...parsed,
+      parseEvents: [],
+      strippedHiddenContent: parsed.cleanContent !== content,
+    };
+  }
+
+  const directMessages = parseDirectMessageCommands(content);
+  const parsed = parseCharacterCommands(directMessages.cleanContent);
+  const parseEvents: ConnectedCommandEvent[] =
+    directMessages.invalidCommands > 0
+      ? [
+          {
+            type: "command_error",
+            data: {
+              command: "dm",
+              error: "Direct-message command must include both character and message.",
+            },
+          },
+        ]
+      : [];
+  return {
+    cleanContent: parsed.cleanContent,
+    commands: [...parsed.commands, ...directMessages.commands],
+    parseEvents,
+    strippedHiddenContent: directMessages.cleanContent !== content || parsed.cleanContent !== directMessages.cleanContent,
+  };
+}
+
 function messageDefaults(chatId: string, value: Record<string, unknown>): Record<string, unknown> {
   const content = readString(value.content);
   return {
@@ -104,17 +148,16 @@ function messageDefaults(chatId: string, value: Record<string, unknown>): Record
   };
 }
 
-async function connectedNoteStorageChatId(
-  storage: StorageGateway,
-  chat: JsonRecord,
-): Promise<string> {
+async function connectedNoteStorageChatId(storage: StorageGateway, chat: JsonRecord): Promise<string> {
   const sourceChatId = readString(chat.id);
   const connectedChatId = readString(chat.connectedChatId).trim();
   const mode = readString(chat.mode || chat.chatMode);
   if (!sourceChatId || !connectedChatId || mode !== "conversation") return sourceChatId;
   const target = await storage.get<JsonRecord>("chats", connectedChatId).catch(() => null);
   const targetMode = readString(target?.mode || target?.chatMode);
-  return target && (targetMode === "roleplay" || targetMode === "game") ? readString(target.id) || connectedChatId : sourceChatId;
+  return target && (targetMode === "roleplay" || targetMode === "game")
+    ? readString(target.id) || connectedChatId
+    : sourceChatId;
 }
 
 async function persistNoteWrites(
@@ -270,9 +313,7 @@ async function buildSelfiePrompt(args: {
       readString(data.description).trim()
     : "";
   const metadata = parseRecord(args.chat.metadata);
-  const positive =
-    readString(metadata.selfiePositivePrompt).trim() ||
-    stringArray(metadata.selfieTags).join(", ");
+  const positive = readString(metadata.selfiePositivePrompt).trim() || stringArray(metadata.selfieTags).join(", ");
   const template = readString(metadata.selfiePrompt).trim();
   const systemPrompt = await resolveConversationSelfieSystemPrompt({
     storage: args.storage,
@@ -417,13 +458,21 @@ async function generateSelfie(args: {
     });
     return true;
   } catch (error) {
-    eventsPushSelfieError(args.events, characterId, error instanceof Error ? error.message : "Image generation failed.");
+    eventsPushSelfieError(
+      args.events,
+      characterId,
+      error instanceof Error ? error.message : "Image generation failed.",
+    );
     return false;
   }
 }
 
 function eventsPushSelfieError(events: ConnectedCommandEvent[], characterId: string | null, error: string): void {
   events.push({ type: "selfie_error", data: { characterId, error } });
+}
+
+function eventsPushCommandError(events: ConnectedCommandEvent[], command: string, error: string): void {
+  events.push({ type: "command_error", data: { command, error } });
 }
 
 async function createSceneFromCommand(args: {
@@ -571,7 +620,11 @@ function personaPatch(command: CreatePersonaCommand | UpdatePersonaCommand): Jso
   };
 }
 
-async function createLorebookEntries(storage: StorageGateway, lorebookId: string, command: CreateLorebookCommand | UpdateLorebookCommand) {
+async function createLorebookEntries(
+  storage: StorageGateway,
+  lorebookId: string,
+  command: CreateLorebookCommand | UpdateLorebookCommand,
+) {
   if (!command.entries?.length) return;
   for (const entry of command.entries) {
     await storage.create("lorebook-entries", {
@@ -644,6 +697,7 @@ async function executeCommand(
         });
         return { name: "haptic" };
       }
+      eventsPushCommandError(events, command.type, "Haptic integration is not connected.");
       return null;
     case "spotify":
       if (integrations) {
@@ -655,6 +709,7 @@ async function executeCommand(
         if (track) await integrations.spotify.playTrack({ track });
         return { name: "spotify" };
       }
+      eventsPushCommandError(events, command.type, "Spotify integration is not connected.");
       return null;
     case "create_persona":
       await storage.create("personas", personaPatch(command));
@@ -761,24 +816,50 @@ async function executeCommand(
     }
     case "dm": {
       const character = await findByName(storage, "characters", command.character);
-      const targetChat = character?.id
-        ? (await storage.list<JsonRecord>("chats")).find((candidate) => {
-            const ids = stringArray(candidate.characterIds);
-            return readString(candidate.mode) === "conversation" && ids.includes(readString(character.id));
-          })
-        : null;
-      const targetChatId = readString(targetChat?.id);
-      if (!targetChatId) return null;
+      const characterId = readString(character?.id);
+      if (!character || !characterId) {
+        eventsPushCommandError(
+          events,
+          command.type,
+          `No character named "${command.character}" was found for the direct-message command.`,
+        );
+        return null;
+      }
+      let targetChat =
+        (await storage.list<JsonRecord>("chats")).find((candidate) => {
+          const ids = stringArray(candidate.characterIds);
+          return readString(candidate.mode) === "conversation" && ids.includes(characterId);
+        }) ?? null;
+      const createdChat = !targetChat;
+      if (!targetChat) {
+        const characterName = nameOf(character) || command.character;
+        targetChat = await storage.create<JsonRecord>("chats", {
+          name: characterName,
+          mode: "conversation",
+          characterIds: [characterId],
+          folderId: chat.folderId ?? null,
+          metadata: {},
+        });
+      }
+      const targetChatId = readString(targetChat.id);
+      if (!targetChatId) {
+        eventsPushCommandError(events, command.type, "Could not resolve a conversation for the direct-message command.");
+        return null;
+      }
+      const targetChatName = readString(targetChat.name) || nameOf(character) || command.character;
       await storage.createChatMessage(
         targetChatId,
         messageDefaults(targetChatId, {
           role: "assistant",
-          characterId: readString(character?.id) || null,
+          characterId,
           content: command.message,
         }),
       );
-      events.push({ type: "ooc_posted", data: { chatId: targetChatId, count: 1 } });
-      return { name: "dm" };
+      events.push({
+        type: "ooc_posted",
+        data: { chatId: targetChatId, chatName: targetChatName, count: 1, createdChat },
+      });
+      return { name: "dm", suppressSourceMessage: !visibleContent.trim() };
     }
     case "schedule_update":
       return (await applyScheduleUpdate(storage, chat, command)) ? { name: "schedule_update" } : null;
@@ -814,30 +895,38 @@ export async function persistConnectedCommandTags(
 ): Promise<ConnectedCommandResult> {
   const createdNotes: JsonRecord[] = [];
   const pendingNoteWrites: Array<{ chatId: string; note: JsonRecord }> = [];
-  const parsed = parseCharacterCommands(content);
+  const parsed = parseConnectedCommands(chat, content);
   const executedCommands: string[] = [];
-  const events: ConnectedCommandEvent[] = [];
+  const events: ConnectedCommandEvent[] = [...parsed.parseEvents];
   const assistantAttachments: JsonRecord[] = [];
   let suppressAssistantMessage = false;
 
   for (const command of parsed.commands) {
-    const executed = await executeCommand(
-      storage,
-      integrations,
-      llm,
-      llmConnectionId,
-      chat,
-      command,
-      createdNotes,
-      pendingNoteWrites,
-      events,
-      assistantAttachments,
-      parsed.cleanContent,
-      imagePromptSettings,
-    ).catch(() => null);
-    if (executed) {
-      executedCommands.push(executed.name);
-      suppressAssistantMessage = suppressAssistantMessage || executed.suppressSourceMessage === true;
+    try {
+      const executed = await executeCommand(
+        storage,
+        integrations,
+        llm,
+        llmConnectionId,
+        chat,
+        command,
+        createdNotes,
+        pendingNoteWrites,
+        events,
+        assistantAttachments,
+        parsed.cleanContent,
+        imagePromptSettings,
+      );
+      if (executed) {
+        executedCommands.push(executed.name);
+        suppressAssistantMessage = suppressAssistantMessage || executed.suppressSourceMessage === true;
+      }
+    } catch (error) {
+      eventsPushCommandError(
+        events,
+        command.type,
+        error instanceof Error ? error.message : "Command execution failed.",
+      );
     }
   }
 
@@ -845,12 +934,16 @@ export async function persistConnectedCommandTags(
     await persistNoteWrites(storage, chat, pendingNoteWrites);
   }
 
+  const hasVisibleSourceOutput = parsed.cleanContent.trim().length > 0 || assistantAttachments.length > 0;
+  const suppressEmptyHiddenCommandSource =
+    !hasVisibleSourceOutput && parsed.strippedHiddenContent && content.trim().length > 0;
+
   return {
     displayContent: parsed.cleanContent,
     createdNotes,
     executedCommands,
     events,
     assistantAttachments,
-    suppressAssistantMessage,
+    suppressAssistantMessage: suppressAssistantMessage || suppressEmptyHiddenCommandSource,
   };
 }

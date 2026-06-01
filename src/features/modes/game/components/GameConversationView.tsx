@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { RefreshCw } from "lucide-react";
 import type { Chat as EngineChat } from "../../../../engine/contracts/types/chat";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
@@ -10,9 +11,50 @@ import {
   useSpriteMetadataState,
 } from "../../shared/chat-ui/index";
 import { GameSurface } from "./GameSurface";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 interface GameConversationViewProps {
   activeChatId: string;
+}
+
+function GameChatHydrationState({
+  status,
+  onRetry,
+}: {
+  status: "loading" | "error";
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex flex-1 items-center justify-center overflow-hidden bg-[var(--background)] px-4 dark:bg-black/90">
+      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+        {status === "loading" ? (
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
+        ) : (
+          <RefreshCw size="1.25rem" className="text-[var(--muted-foreground)]" />
+        )}
+        <div>
+          <p className="text-sm font-semibold text-[var(--foreground)]">
+            {status === "loading" ? "Loading game chat..." : "Game chat could not load"}
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+            {status === "loading"
+              ? "Restoring the saved game surface."
+              : "Retry loading the chat before leaving the game surface."}
+          </p>
+        </div>
+        {status === "error" && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/35"
+          >
+            <RefreshCw size="0.75rem" />
+            Retry
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function GameConversationView({ activeChatId }: GameConversationViewProps) {
@@ -37,24 +79,36 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
     messageIdByOrderIndex: data.messageIdByOrderIndex,
     refreshWorldStateOnTimelineChange: true,
   });
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount } = data;
 
   useEffect(() => {
-    if (data.loadedMessageCount <= 0) return;
-    if (data.totalMessageCount <= data.loadedMessageCount) return;
-    if (!data.hasNextPage || data.isFetchingNextPage) return;
-    void data.fetchNextPage();
-  }, [
-    data.fetchNextPage,
-    data.hasNextPage,
-    data.isFetchingNextPage,
-    data.loadedMessageCount,
-    data.totalMessageCount,
-  ]);
+    if (loadedMessageCount <= 0) return;
+    if (totalMessageCount <= loadedMessageCount) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount]);
 
-  if (!data.chat) return <div className="flex flex-1 overflow-hidden" />;
+  if (!data.chat) {
+    if (data.chatError) {
+      return <GameChatHydrationState status="error" onRetry={() => void data.refetchChat()} />;
+    }
+    return <GameChatHydrationState status="loading" />;
+  }
+
+  const cardCssMode = (() => {
+    const mode = data.chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
 
   return (
     <>
+      <CreatorNotesCssInjector
+        allCharacters={data.allCharacters}
+        characterIds={data.chatCharIds}
+        mode={cardCssMode}
+        chatMode="game"
+      />
       <GameSurface
         activeChatId={activeChatId}
         chat={data.chat as unknown as EngineChat}

@@ -4,9 +4,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { ChatFolder } from "../../../../engine/contracts/types/chat";
-import { chatKeys } from "./use-chats";
+import { chatKeys } from "../query-keys";
 
-export const folderKeys = {
+const folderKeys = {
   all: ["chat-folders"] as const,
   list: () => [...folderKeys.all, "list"] as const,
 };
@@ -73,20 +73,6 @@ export function useMoveChat() {
   return useMutation({
     mutationFn: (data: { chatId: string; folderId: string | null }) =>
       storageApi.update("chats", data.chatId, { folderId: data.folderId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.list() }),
-  });
-}
-
-export function useReorderChats() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: { orderedChatIds: string[]; folderId: string | null }) => {
-      await Promise.all(
-        data.orderedChatIds.map((id, index) =>
-          storageApi.update("chats", id, { sortOrder: index, order: index, folderId: data.folderId }),
-        ),
-      );
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.list() }),
   });
 }

@@ -51,9 +51,12 @@ import {
   RotateCcw,
   Music2,
   Loader2,
+  Code2,
+  Paintbrush,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
+import { extractCreatorNotesCss } from "../../../../../shared/lib/creator-notes-css";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../../../../shared/lib/app-dialogs";
 import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
 import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTextarea";
@@ -78,11 +81,13 @@ import {
   SpriteRangeSlider,
 } from "./settings/ChatSettingsSections";
 import {
+  characterAvatarUrl,
   useCharacterSummaries,
-  usePersonaSummaries,
+  useCharacterSummariesByIds,
   useCharacterGroups,
-  type SpriteInfo,
 } from "../../../../catalog/characters/index";
+import { spriteKeys, type SpriteInfo } from "../../../../catalog/sprites/index";
+import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { usePresetFull, usePresetSummaries } from "../../../../catalog/presets/index";
 import { useConnections, useSaveConnectionDefaults } from "../../../../catalog/connections/index";
@@ -136,7 +141,15 @@ import {
 import type { AgentPhase } from "../../../../../engine/contracts/types/agent";
 import type { Chat, ChatMode, ChatMemoryChunk, ConversationNote } from "../../../../../engine/contracts/types/chat";
 import type { ChatPreset, ChatPresetSettings } from "../../../../../engine/contracts/types/chat-preset";
-import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../../../catalog/agents/index";
+import {
+  useAgentConfigs,
+  useCreateAgent,
+  useRegexScripts,
+  useUpdateAgent,
+  useUpdateRegexScript,
+  type AgentConfigRow,
+  type RegexScriptRow,
+} from "../../../../catalog/agents/index";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { DEFAULT_AGENT_PROMPTS } from "../../../../../engine/contracts/constants/agent-prompts";
 import { LIMITS } from "../../../../../engine/contracts/constants/defaults";
@@ -160,6 +173,12 @@ import { boolish as isEnabledFlag } from "../../../../../engine/generation/runti
 import type { CharacterGroup } from "../../../../../engine/contracts/types/character";
 import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
 import {
+  activeLorebookScopeReasonLabels,
+  resolveActiveLorebookScopeReasons,
+  type ActiveLorebookScopeReasonLabel,
+} from "../../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import { resolveGameLorebookScopeExclusions } from "../../../../../engine/generation-core/lorebooks/game-lorebook-scope";
+import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
   useCustomTools,
@@ -167,6 +186,12 @@ import {
 } from "../../../../catalog/agents/index";
 import { HapticConnectionPanel } from "./settings/HapticConnectionPanel";
 import { normalizeSpritePlacements } from "../../../../runtime/visuals/sprite-placement";
+import {
+  getCharacterIdFromSpriteOwnerKey,
+  getSpriteOwnerKeysForCharacterId,
+  getSpriteOwnerKind,
+  makeSpriteOwnerKey,
+} from "../../../../runtime/visuals/sprite-owner-keys";
 import {
   DEFAULT_SPRITE_DISPLAY_MODES,
   hasSpriteDisplayMode,
@@ -229,7 +254,7 @@ type AvailableAgent = {
   builtIn: boolean;
 };
 
-type LorebookActiveReason = "Global" | "Character" | "Persona" | "Chat";
+type LorebookActiveReason = ActiveLorebookScopeReasonLabel;
 
 type ActiveLorebookView = Lorebook & {
   activeReasons: LorebookActiveReason[];
@@ -257,7 +282,66 @@ type DrawerCharacter = {
   data?: unknown;
   comment?: string | null;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
+
+type ChatSpriteSubject =
+  | { kind: "character"; id: string; ownerKey: string; character: DrawerCharacter }
+  | { kind: "persona"; id: string; ownerKey: string; persona: DrawerPersona };
+
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
+}
+
+function mergeDrawerCharacters(
+  ...sources: Array<Array<DrawerCharacter | undefined> | null | undefined>
+): DrawerCharacter[] {
+  const byId = new Map<string, DrawerCharacter>();
+  for (const source of sources) {
+    for (const character of source ?? []) {
+      if (!character?.id) continue;
+      byId.set(character.id, {
+        ...character,
+        avatarPath: characterAvatarUrl(character),
+      });
+    }
+  }
+  return Array.from(byId.values());
+}
+
+function characterSearchValues(character: { id?: string; data?: unknown; comment?: string | null }): string[] {
+  const info = parseCharacterDisplayData({ data: character.data, comment: character.comment });
+  const data = character.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return [
+    character.id,
+    info.name,
+    info.comment,
+    data.creator,
+    data.creator_notes,
+    data.character_version,
+    ...tags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  return terms.every((term) => values.some((value) => value.includes(term)));
+}
 
 function useDeferredDrawerContent(open: boolean, contentKey: string): boolean {
   const [ready, setReady] = useState(false);
@@ -403,7 +487,19 @@ function ChatSettingsDrawerInner({
   const setScheduleGenerationPreferences = useUIStore((s) => s.setScheduleGenerationPreferences);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
 
-  const { data: allCharacters } = useCharacterSummaries();
+  const [showCharPicker, setShowCharPicker] = useState(false);
+  const [charSearch, setCharSearch] = useState("");
+  const debouncedCharSearch = useDebouncedValue(charSearch, 180);
+  const chatCharIds: string[] = useMemo(() => chat.characterIds ?? [], [chat.characterIds]);
+  const { data: selectedCharacters, isLoading: selectedCharactersLoading } = useCharacterSummariesByIds(
+    chatCharIds,
+    chatCharIds.length > 0,
+  );
+  const {
+    data: searchedCharacters,
+    isFetching: searchedCharactersFetching,
+    isError: searchedCharactersError,
+  } = useCharacterSummaries(showCharPicker, debouncedCharSearch);
   const { data: characterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
   const { data: presets, isLoading: presetsLoading } = usePresetSummaries();
@@ -462,8 +558,6 @@ function ChatSettingsDrawerInner({
   const { data: allChats } = useChatSummaries();
   const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
 
-  const chatCharIds: string[] = useMemo(() => chat.characterIds ?? [], [chat.characterIds]);
-
   const metadata = useMemo<Record<string, any>>(
     () => (chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {}),
     [chat.metadata],
@@ -483,52 +577,27 @@ function ChatSettingsDrawerInner({
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
   const gameLorebookKeeperLorebookId =
     typeof metadata.gameLorebookKeeperLorebookId === "string" ? metadata.gameLorebookKeeperLorebookId : null;
+  const activeLorebookScopeContext = useMemo(
+    () => ({
+      chat,
+      characters: chatCharIds.map((id) => ({ id })),
+      persona: chat.personaId ? { id: chat.personaId } : null,
+      scopeExclusions: resolveGameLorebookScopeExclusions(chatMode, metadata),
+    }),
+    [chat, chatCharIds, chatMode, metadata],
+  );
   const activeLorebooks = useMemo<ActiveLorebookView[]>(() => {
-    const pinnedIds = new Set(activeLorebookIds);
     const lorebookList = (lorebooks ?? []) as Lorebook[];
 
     return lorebookList.flatMap((lorebook) => {
-      if (
-        isGame &&
-        !gameLorebookKeeperEnabled &&
-        (lorebook.id === gameLorebookKeeperLorebookId || lorebook.sourceAgentId === "game-lorebook-keeper")
-      ) {
-        return [];
-      }
-
-      const reasons: LorebookActiveReason[] = [];
-      const isPinned = pinnedIds.has(lorebook.id);
-
-      if (lorebook.enabled !== false) {
-        if (isPinned) reasons.push("Chat");
-        if (lorebook.isGlobal) reasons.push("Global");
-        if (
-          lorebook.characterIds?.some((id) => chatCharIds.includes(id)) ||
-          (lorebook.characterId && chatCharIds.includes(lorebook.characterId))
-        ) {
-          reasons.push("Character");
-        }
-        if (
-          chat.personaId &&
-          (lorebook.personaIds?.includes(chat.personaId) || lorebook.personaId === chat.personaId)
-        ) {
-          reasons.push("Persona");
-        }
-        if (lorebook.chatId === chat.id && !reasons.includes("Chat")) reasons.push("Chat");
-      }
+      const reasons = activeLorebookScopeReasonLabels(
+        resolveActiveLorebookScopeReasons(lorebook, activeLorebookScopeContext),
+      );
+      const isPinned = activeLorebookIds.includes(lorebook.id);
 
       return reasons.length > 0 ? [{ ...lorebook, activeReasons: reasons, isPinned }] : [];
     });
-  }, [
-    activeLorebookIds,
-    chat.id,
-    chat.personaId,
-    chatCharIds,
-    gameLorebookKeeperEnabled,
-    gameLorebookKeeperLorebookId,
-    isGame,
-    lorebooks,
-  ]);
+  }, [activeLorebookIds, activeLorebookScopeContext, lorebooks]);
   const activeLorebookIdSet = useMemo(() => new Set(activeLorebooks.map((lorebook) => lorebook.id)), [activeLorebooks]);
   const lorebookTokenBudget =
     typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
@@ -550,6 +619,13 @@ function ChatSettingsDrawerInner({
     [chatCharIds, inactiveCharacterIdSet],
   );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
+  const { data: allRegexScripts } = useRegexScripts(chatCharIds);
+  const updateRegexScript = useUpdateRegexScript();
+  const scopedRegexScripts = useMemo(
+    () => (allRegexScripts ?? []).filter((s) => !!s.characterId),
+    [allRegexScripts],
+  );
+  const scopedRegexCount = scopedRegexScripts.length;
   const spotifyActive = activeAgentIds.includes("spotify");
   const hapticAgentActive = activeAgentIds.includes(HAPTIC_AGENT_ID);
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
@@ -708,7 +784,37 @@ function ChatSettingsDrawerInner({
   }, [customToolCapabilities, customTools]);
 
   // ── Helpers ──
-  const characters = useMemo<DrawerCharacter[]>(() => (allCharacters ?? []) as DrawerCharacter[], [allCharacters]);
+  const characters = useMemo<DrawerCharacter[]>(
+    () =>
+      mergeDrawerCharacters(
+        selectedCharacters as DrawerCharacter[] | undefined,
+        searchedCharacters as DrawerCharacter[] | undefined,
+      ),
+    [searchedCharacters, selectedCharacters],
+  );
+  const characterSearchPending =
+    showCharPicker && (searchedCharactersFetching || charSearch.trim() !== debouncedCharSearch.trim());
+  const characterSearchFailed = showCharPicker && searchedCharactersError;
+  const availableCharacters = useMemo(() => {
+    const selectedIds = new Set(chatCharIds);
+    return characters.filter((character) => !selectedIds.has(character.id));
+  }, [characters, chatCharIds]);
+  const availableCharacterSearchEntries = useMemo(
+    () =>
+      availableCharacters.map((character) => ({
+        character,
+        searchValues: characterSearchValues(character).map((value) => value.toLowerCase()),
+      })),
+    [availableCharacters],
+  );
+  const characterSearchTerms = useMemo(() => splitSearchTerms(charSearch), [charSearch]);
+  const filteredAvailableCharacters = useMemo(
+    () =>
+      availableCharacterSearchEntries
+        .filter(({ searchValues }) => searchValuesMatchTerms(searchValues, characterSearchTerms))
+        .map(({ character }) => character),
+    [availableCharacterSearchEntries, characterSearchTerms],
+  );
 
   const chatCharacters = useMemo(
     () =>
@@ -722,19 +828,56 @@ function ChatSettingsDrawerInner({
     () => (chat.personaId ? (personas.find((persona) => persona.id === chat.personaId) ?? null) : null),
     [chat.personaId, personas],
   );
+  const activePersonaOwnerKey = chat.personaId ? makeSpriteOwnerKey("persona", chat.personaId) : null;
 
-  const chatSpriteSubjects = useMemo(
+  const chatSpriteSubjects = useMemo<ChatSpriteSubject[]>(
     () => [
-      ...chatCharacters.map((character) => ({ kind: "character" as const, id: character.id, character })),
-      ...(activePersona ? [{ kind: "persona" as const, id: activePersona.id, persona: activePersona }] : []),
+      ...chatCharacters.map((character) => ({
+        kind: "character" as const,
+        id: character.id,
+        ownerKey: makeSpriteOwnerKey("character", character.id),
+        character,
+      })),
+      ...(activePersona
+        ? [
+            {
+              kind: "persona" as const,
+              id: activePersona.id,
+              ownerKey: makeSpriteOwnerKey("persona", activePersona.id),
+              persona: activePersona,
+            },
+          ]
+        : []),
     ],
     [activePersona, chatCharacters],
   );
 
+  useEffect(() => {
+    const isStalePersonaOwnerKey = (ownerKey: string) =>
+      getSpriteOwnerKind(ownerKey) === "persona" && ownerKey !== activePersonaOwnerKey;
+    const nextSpriteCharacterIds = spriteCharacterIds.filter((ownerKey) => !isStalePersonaOwnerKey(ownerKey));
+    const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+    let changed = nextSpriteCharacterIds.length !== spriteCharacterIds.length;
+
+    for (const ownerKey of Object.keys(nextSpritePlacements)) {
+      if (isStalePersonaOwnerKey(ownerKey)) {
+        delete nextSpritePlacements[ownerKey];
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+    updateMeta.mutate({
+      id: chat.id,
+      spriteCharacterIds: nextSpriteCharacterIds,
+      spritePlacements: nextSpritePlacements,
+    });
+  }, [activePersonaOwnerKey, chat.id, metadata.spritePlacements, spriteCharacterIds, updateMeta]);
+
   const chatSpriteQueries = useQueries({
     queries: chatSpriteSubjects.map((subject) => ({
-      queryKey: ["sprites", subject.id],
-      queryFn: () => spriteApi.list<SpriteInfo[]>(subject.id),
+      queryKey: spriteKeys.list(subject.id, subject.kind),
+      queryFn: () => spriteApi.list<SpriteInfo[]>(subject.id, { ownerType: subject.kind }),
       enabled: !!subject.id,
       staleTime: 5 * 60_000,
     })),
@@ -745,7 +888,7 @@ function ChatSettingsDrawerInner({
     return Array.isArray(sprites) && sprites.length > 0;
   });
   const chatSpriteSubjectsLoading =
-    (chatCharIds.length > 0 && allCharacters == null) || (!!chat.personaId && allPersonas == null);
+    (chatCharIds.length > 0 && selectedCharactersLoading) || (!!chat.personaId && allPersonas == null);
   const chatSpriteChoicesLoading =
     chatSpriteSubjects.length > 0 &&
     chatSpriteSubjectsWithSprites.length === 0 &&
@@ -767,6 +910,28 @@ function ChatSettingsDrawerInner({
     }
     return map;
   }, [charInfoMap]);
+
+  const cardCssCharacters = useMemo(() => {
+    const result: Array<{ id: string; name: string }> = [];
+    for (const id of chatCharIds) {
+      const char = characters.find((c) => c.id === id);
+      if (!char) continue;
+      try {
+        const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
+        const notes: string = parsed?.creator_notes ?? "";
+        if (!notes) continue;
+        const { css } = extractCreatorNotesCss(notes);
+        if (css.trim()) result.push({ id, name: charNameMap.get(id) ?? "Unknown" });
+      } catch { /* skip */ }
+    }
+    return result;
+  }, [chatCharIds, characters, charNameMap]);
+
+  const cardCssMode = useMemo(() => {
+    const mode = metadata.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat";
+  }, [metadata.cardCssMode]);
 
   const getCharacterInfo = useCallback(
     (c: { id?: string; data?: unknown; comment?: string | null }) => {
@@ -858,12 +1023,16 @@ function ChatSettingsDrawerInner({
       if (nextInactiveCharacterIds.length !== inactiveCharacterIds.length) {
         updateMeta.mutate({ id: chat.id, inactiveCharacterIds: nextInactiveCharacterIds });
       }
-      if (spriteCharacterIds.includes(charId)) {
+      const removedSpriteOwnerKeys = new Set(getSpriteOwnerKeysForCharacterId(charId));
+      const nextSpriteCharacterIds = spriteCharacterIds.filter((id) => !removedSpriteOwnerKeys.has(id));
+      if (nextSpriteCharacterIds.length !== spriteCharacterIds.length) {
         const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
-        delete nextSpritePlacements[charId];
+        for (const ownerKey of removedSpriteOwnerKeys) {
+          delete nextSpritePlacements[ownerKey];
+        }
         updateMeta.mutate({
           id: chat.id,
-          spriteCharacterIds: spriteCharacterIds.filter((id) => id !== charId),
+          spriteCharacterIds: nextSpriteCharacterIds,
           spritePlacements: nextSpritePlacements,
         });
       }
@@ -910,15 +1079,40 @@ function ChatSettingsDrawerInner({
     updateMeta.mutate({ id: chat.id, inactiveCharacterIds: next });
   };
 
-  const toggleSprite = (charId: string) => {
+  const isSpriteSubjectActive = useCallback(
+    (subject: ChatSpriteSubject) => {
+      if (subject.kind === "persona") return spriteCharacterIds.includes(subject.ownerKey);
+      return spriteCharacterIds.some((ownerKey) => getCharacterIdFromSpriteOwnerKey(ownerKey) === subject.id);
+    },
+    [spriteCharacterIds],
+  );
+
+  const toggleSprite = (subject: ChatSpriteSubject) => {
     const current = [...spriteCharacterIds];
-    const idx = current.indexOf(charId);
-    if (idx >= 0) {
-      current.splice(idx, 1);
+    if (subject.kind === "character") {
+      const ownerKeys = new Set(getSpriteOwnerKeysForCharacterId(subject.id));
+      const next = current.filter((ownerKey) => !ownerKeys.has(ownerKey));
+      if (next.length !== current.length) {
+        const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+        for (const ownerKey of ownerKeys) {
+          delete nextSpritePlacements[ownerKey];
+        }
+        updateMeta.mutate({ id: chat.id, spriteCharacterIds: next, spritePlacements: nextSpritePlacements });
+        return;
+      }
     } else {
-      if (current.length >= 3) return; // max 3
-      current.push(charId);
+      const idx = current.indexOf(subject.ownerKey);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+        const nextSpritePlacements = { ...normalizeSpritePlacements(metadata.spritePlacements) };
+        delete nextSpritePlacements[subject.ownerKey];
+        updateMeta.mutate({ id: chat.id, spriteCharacterIds: current, spritePlacements: nextSpritePlacements });
+        return;
+      }
     }
+
+    if (current.length >= 3) return; // max 3
+    current.push(subject.ownerKey);
     updateMeta.mutate({ id: chat.id, spriteCharacterIds: current });
   };
 
@@ -1149,47 +1343,8 @@ function ChatSettingsDrawerInner({
       }
     });
   }, [currentPromptPresetFull?.sections]);
-  const hasScopedOrGlobalLorebooks = useMemo(() => {
-    return (
-      (lorebooks ?? []) as Array<{
-        id: string;
-        enabled?: boolean;
-        isGlobal?: boolean;
-        characterId?: string | null;
-        characterIds?: string[];
-        personaId?: string | null;
-        personaIds?: string[];
-        chatId?: string | null;
-        sourceAgentId?: string | null;
-      }>
-    ).some(
-      (lorebook) =>
-        lorebook.enabled !== false &&
-        !(
-          isGame &&
-          !gameLorebookKeeperEnabled &&
-          (lorebook.id === gameLorebookKeeperLorebookId || lorebook.sourceAgentId === "game-lorebook-keeper")
-        ) &&
-        (lorebook.isGlobal ||
-          activeLorebookIds.includes(lorebook.id) ||
-          lorebook.characterIds?.some((id) => chatCharIds.includes(id)) ||
-          (lorebook.characterId && chatCharIds.includes(lorebook.characterId)) ||
-          (chat.personaId && lorebook.personaIds?.includes(chat.personaId)) ||
-          (lorebook.personaId && lorebook.personaId === chat.personaId) ||
-          (lorebook.chatId && lorebook.chatId === chat.id)),
-    );
-  }, [
-    activeLorebookIds,
-    chat.id,
-    chat.personaId,
-    chatCharIds,
-    gameLorebookKeeperEnabled,
-    gameLorebookKeeperLorebookId,
-    isGame,
-    lorebooks,
-  ]);
   const showLorebookMarkerWarning =
-    !!chat.promptPresetId && hasScopedOrGlobalLorebooks && !currentPromptPresetHasLorebookMarker;
+    !!chat.promptPresetId && activeLorebooks.length > 0 && !currentPromptPresetHasLorebookMarker;
 
   const setPreset = (presetId: string | null) => {
     updateChat.mutate(
@@ -1222,7 +1377,6 @@ function ChatSettingsDrawerInner({
 
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(chat.name);
-  const [showCharPicker, setShowCharPicker] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showLbPicker, setShowLbPicker] = useState(false);
   const [showToolPicker, setShowToolPicker] = useState(false);
@@ -1241,7 +1395,6 @@ function ChatSettingsDrawerInner({
   const [connectionSearch, setConnectionSearch] = useState("");
   const [personaSearch, setPersonaSearch] = useState("");
   const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
-  const [charSearch, setCharSearch] = useState("");
   const [lbSearch, setLbSearch] = useState("");
   const [toolSearch, setToolSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
@@ -1314,8 +1467,13 @@ function ChatSettingsDrawerInner({
       const match = presetList.find((p) => p.id === appliedPresetId);
       if (match) return match;
     }
-    return presetList.find((p) => p.isDefault) ?? null;
+    return presetList.find((p) => isEnabledFlag(p.isDefault ?? p.default, false)) ?? null;
   }, [presetList, appliedPresetId]);
+  const selectedChatPresetIsDefault = isEnabledFlag(
+    selectedChatPreset?.isDefault ?? selectedChatPreset?.default,
+    false,
+  );
+  const selectedChatPresetIsActive = isEnabledFlag(selectedChatPreset?.isActive ?? selectedChatPreset?.active, false);
   const [renamingPreset, setRenamingPreset] = useState(false);
   const [renamePresetVal, setRenamePresetVal] = useState("");
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1523,23 +1681,23 @@ function ChatSettingsDrawerInner({
   };
 
   const handleToggleDefaultPreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isActive) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isActive ?? selectedChatPreset.active, false)) return;
     setActiveChatPreset.mutate(selectedChatPreset.id);
   };
 
   const handleSaveIntoPreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     saveChatPreset.mutate({ id: selectedChatPreset.id, settings: snapshotCurrentPresetSettings() });
   };
 
   const handleStartRenamePreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     setRenamePresetVal(selectedChatPreset.name);
     setRenamingPreset(true);
   };
 
   const handleCommitRenamePreset = () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) {
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) {
       setRenamingPreset(false);
       return;
     }
@@ -1579,7 +1737,7 @@ function ChatSettingsDrawerInner({
   };
 
   const handleDeletePreset = async () => {
-    if (!selectedChatPreset || selectedChatPreset.isDefault) return;
+    if (!selectedChatPreset || isEnabledFlag(selectedChatPreset.isDefault ?? selectedChatPreset.default, false)) return;
     const ok = await showConfirmDialog({
       title: "Delete Preset",
       message: `Delete preset "${selectedChatPreset.name}"? This cannot be undone.`,
@@ -1588,7 +1746,7 @@ function ChatSettingsDrawerInner({
     });
     if (!ok) return;
     const wasApplied = selectedChatPreset.id === appliedPresetId;
-    const defaultPreset = presetList.find((p) => p.isDefault);
+    const defaultPreset = presetList.find((p) => isEnabledFlag(p.isDefault ?? p.default, false));
     deleteChatPreset.mutate(selectedChatPreset.id, {
       onSuccess: () => {
         // If the chat was using the preset we just deleted, fall back to the
@@ -1740,34 +1898,34 @@ function ChatSettingsDrawerInner({
                   {presetList.length === 0 && <option value="">Loading…</option>}
                   {presetList.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.isDefault ? "Default" : p.name}
+                      {isEnabledFlag(p.isDefault ?? p.default, false) ? "Default" : p.name}
                     </option>
                   ))}
                 </select>
               )}
               <button
                 onClick={handleToggleDefaultPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
+                disabled={!selectedChatPreset || selectedChatPresetIsActive || setActiveChatPreset.isPending}
                 title={
                   !selectedChatPreset
                     ? "Select a preset to mark it as default"
-                    : selectedChatPreset.isActive
+                    : selectedChatPresetIsActive
                       ? "This preset is the default for new chats in this mode"
                       : "Mark this preset as default for new chats in this mode"
                 }
-                aria-pressed={!!selectedChatPreset?.isActive}
-                aria-label={selectedChatPreset?.isActive ? "Default preset" : "Mark as default preset"}
+                aria-pressed={selectedChatPresetIsActive}
+                aria-label={selectedChatPresetIsActive ? "Default preset" : "Mark as default preset"}
                 className={cn(
                   "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
-                  selectedChatPreset?.isActive
+                  selectedChatPresetIsActive
                     ? "text-yellow-400 disabled:opacity-100"
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
                 )}
               >
                 <Star
                   size="0.875rem"
-                  fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
-                  strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
+                  fill={selectedChatPresetIsActive ? "currentColor" : "none"}
+                  strokeWidth={selectedChatPresetIsActive ? 1.5 : 2}
                 />
               </button>
               <HelpTooltip
@@ -1783,9 +1941,9 @@ function ChatSettingsDrawerInner({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleSaveIntoPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
                 title={
-                  selectedChatPreset?.isDefault
+                  selectedChatPresetIsDefault
                     ? "Cannot save into the Default preset"
                     : "Save current chat settings into this preset"
                 }
@@ -1795,8 +1953,8 @@ function ChatSettingsDrawerInner({
               </button>
               <button
                 onClick={handleStartRenamePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot rename the Default preset" : "Rename preset"}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
+                title={selectedChatPresetIsDefault ? "Cannot rename the Default preset" : "Rename preset"}
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Pencil size="0.875rem" />
@@ -1827,8 +1985,8 @@ function ChatSettingsDrawerInner({
               </button>
               <button
                 onClick={handleDeletePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot delete the Default preset" : "Delete preset"}
+                disabled={!selectedChatPreset || selectedChatPresetIsDefault}
+                title={selectedChatPresetIsDefault ? "Cannot delete the Default preset" : "Delete preset"}
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Trash2 size="0.875rem" />
@@ -2302,37 +2460,41 @@ function ChatSettingsDrawerInner({
                   onClose={() => setShowCharPicker(false)}
                   placeholder="Search characters…"
                 >
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    })
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
-                          </div>
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
+                  {filteredAvailableCharacters.map((c) => {
+                    const name = charName(c);
+                    const title = charTitle(c);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          toggleCharacter(c.id);
+                          setShowCharPicker(false);
+                        }}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-xs">{name}</span>
+                          {title && (
+                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                              {title}
+                            </span>
+                          )}
+                        </div>
+                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                    );
+                  })}
+                  {filteredAvailableCharacters.length === 0 && (
+                    <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {characterSearchFailed
+                        ? "Characters could not be loaded."
+                        : characterSearchPending
+                          ? "Loading characters..."
+                          : availableCharacters.length === 0
+                            ? "All characters already added."
+                            : "No matches."}
+                    </p>
+                  )}
                 </PickerDropdown>
               )}
             </Section>
@@ -2623,63 +2785,54 @@ function ChatSettingsDrawerInner({
                   onClose={() => setShowCharPicker(false)}
                   placeholder="Search characters…"
                 >
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    })
-                    .map((c) => {
-                      const name = charName(c);
-                      const title = charTitle(c);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            toggleCharacter(c.id);
-                            setShowCharPicker(false);
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                        >
-                          {c.avatarPath ? (
-                            <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
-                              <img
-                                src={c.avatarPath}
-                                alt={name}
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(charAvatarCrop(c))}
-                              />
-                            </span>
-                          ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
-                              {name[0]}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{name}</span>
-                            {title && (
-                              <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                {title}
-                              </span>
-                            )}
+                  {filteredAvailableCharacters.map((c) => {
+                    const name = charName(c);
+                    const title = charTitle(c);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          toggleCharacter(c.id);
+                          setShowCharPicker(false);
+                        }}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                      >
+                        {c.avatarPath ? (
+                          <span className="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full">
+                            <img
+                              src={c.avatarPath}
+                              alt={name}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                              style={getAvatarCropStyle(charAvatarCrop(c))}
+                            />
+                          </span>
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
+                            {name[0]}
                           </div>
-                          <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                        </button>
-                      );
-                    })}
-                  {characters
-                    .filter((c) => !chatCharIds.includes(c.id))
-                    .filter((c) => {
-                      const query = charSearch.toLowerCase();
-                      const title = charTitle(c)?.toLowerCase() ?? "";
-                      return charName(c).toLowerCase().includes(query) || title.includes(query);
-                    }).length === 0 && (
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-xs">{name}</span>
+                          {title && (
+                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                              {title}
+                            </span>
+                          )}
+                        </div>
+                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </button>
+                    );
+                  })}
+                  {filteredAvailableCharacters.length === 0 && (
                     <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                        ? "All characters already added."
-                        : "No matches."}
+                      {characterSearchFailed
+                        ? "Characters could not be loaded."
+                        : characterSearchPending
+                          ? "Loading characters..."
+                          : availableCharacters.length === 0
+                            ? "All characters already added."
+                            : "No matches."}
                     </p>
                   )}
                 </PickerDropdown>
@@ -3743,6 +3896,58 @@ function ChatSettingsDrawerInner({
             )}
           </Section>
 
+          {/* Scoped Regex Scripts */}
+          <Section
+            label="Scoped Regex Scripts"
+            icon={<Code2 size="0.875rem" />}
+            count={scopedRegexCount}
+            help="Character-scoped regex scripts imported from ST cards. Control how they interact with global regex scripts."
+          >
+            <ScopedRegexModeSelector
+              mode={(metadata.scopedRegexMode as "disabled" | "exclusive" | "chat" | undefined) ?? "chat"}
+              onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
+            />
+            <ScopedRegexCharacterGroups
+              scripts={scopedRegexScripts}
+              charInfoMap={charInfoMap}
+              onToggle={(id, enabled) => updateRegexScript.mutate({ id, enabled })}
+            />
+          </Section>
+
+          {/* Card Theming — creator-notes CSS mode selector */}
+          {cardCssCharacters.length > 0 && (
+            <Section
+              label="Card Theming"
+              icon={<Paintbrush size="0.875rem" />}
+              count={cardCssMode !== "disabled" ? cardCssCharacters.length : 0}
+              help="Characters can embed custom CSS in their creator notes to theme the chat. Choose how broadly their styles are applied."
+            >
+              <div className="space-y-1.5">
+                <CardCssModeSelector
+                  mode={cardCssMode}
+                  onChange={(mode) => updateMeta.mutate({ id: chat.id, cardCssMode: mode })}
+                />
+                <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {cardCssMode === "disabled"
+                    ? "Card CSS is disabled — no character styling is applied."
+                    : cardCssMode === "exclusive"
+                      ? "Each character's CSS only affects their own messages."
+                      : "All card CSS affects the entire chat area, including UI elements."}
+                </p>
+                {cardCssMode !== "disabled" && (
+                  <div className="space-y-1">
+                    <span className="block px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">Characters with CSS:</span>
+                    {cardCssCharacters.map((char) => (
+                      <div key={char.id} className="flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]">
+                        <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">{char.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           {/* Agents — hidden for conversation mode */}
           {!isConversation && (
             <Section
@@ -4028,8 +4233,8 @@ function ChatSettingsDrawerInner({
                           <span>Lorebook Keeper</span>
                         </div>
                         <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Pick a chat-specific target lorebook and optionally keep Lorebook Keeper a few assistant
-                          replies behind the latest canon before it writes.
+                          Pick a chat-specific target lorebook. If blank, Keeper uses a scoped active lorebook and skips
+                          writing when none is available.
                         </p>
                       </div>
                       <button
@@ -4060,7 +4265,7 @@ function ChatSettingsDrawerInner({
                           }
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                         >
-                          <option value="">Auto-select first writable lorebook</option>
+                          <option value="">Use scoped active lorebook</option>
                           {((lorebooks ?? []) as Array<{ id: string; name: string }>).map((lorebook) => (
                             <option key={lorebook.id} value={lorebook.id}>
                               {lorebook.name}
@@ -4201,7 +4406,7 @@ function ChatSettingsDrawerInner({
                           const title = isPersona ? subject.persona.comment || "Persona" : charTitle(subject.character);
                           const avatarPath = isPersona ? subject.persona.avatarPath : subject.character.avatarPath;
                           const avatarCrop = isPersona ? null : charAvatarCrop(subject.character);
-                          const spriteActive = spriteCharacterIds.includes(subject.id);
+                          const spriteActive = isSpriteSubjectActive(subject);
 
                           return (
                             <div
@@ -4251,7 +4456,7 @@ function ChatSettingsDrawerInner({
                               <SpriteToggleButton
                                 active={spriteActive}
                                 disabled={!spriteActive && spriteCharacterIds.length >= 3}
-                                onToggle={() => toggleSprite(subject.id)}
+                                onToggle={() => toggleSprite(subject)}
                               />
                             </div>
                           );
@@ -4263,7 +4468,8 @@ function ChatSettingsDrawerInner({
                       </p>
                     ) : (
                       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        None of the added characters have uploaded sprites yet. Open a character card to add them first.
+                        None of the added characters or the active persona have uploaded sprites yet. Open their card to
+                        add sprites first.
                       </p>
                     )}
 
@@ -6639,6 +6845,7 @@ function SpriteToggleButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onToggle}
       disabled={disabled}
       className={cn(
@@ -7208,5 +7415,171 @@ function ConversationNotesSection({ chatId }: { chatId: string }) {
         )}
       </div>
     </Section>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Scoped Regex Scripts Components
+// ──────────────────────────────────────────────
+
+function ScopedRegexModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: "disabled" | "exclusive" | "chat";
+  onChange: (mode: "disabled" | "exclusive" | "chat") => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Scoped Mode</label>
+      <div className="flex gap-1">
+        {(["disabled", "exclusive", "chat"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => onChange(m)}
+            className={cn(
+              "flex-1 rounded-md px-2 py-1.5 text-[0.625rem] font-medium capitalize transition-all",
+              mode === m
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+        {mode === "disabled" && "Only global regex scripts run. Character-scoped scripts are ignored."}
+        {mode === "chat" && "Global + all character-scoped scripts in this chat run together."}
+        {mode === "exclusive" && "Only character-scoped scripts run. Global scripts are skipped."}
+      </p>
+    </div>
+  );
+}
+
+function ScopedRegexCharacterGroups({
+  scripts,
+  charInfoMap,
+  onToggle,
+}: {
+  scripts: RegexScriptRow[];
+  charInfoMap: Map<string, { name: string; comment?: string | null }>;
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, RegexScriptRow[]>();
+    for (const s of scripts) {
+      if (!s.characterId) continue;
+      const arr = map.get(s.characterId) ?? [];
+      arr.push(s);
+      map.set(s.characterId, arr);
+    }
+    return map;
+  }, [scripts]);
+
+  if (grouped.size === 0) {
+    return (
+      <p className="mt-2 rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        No character-scoped regex scripts are loaded for this chat.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {Array.from(grouped.entries()).map(([charId, charScripts]) => {
+        const info = charInfoMap.get(charId);
+        return (
+          <ScopedRegexCharacterGroup
+            key={charId}
+            characterName={info?.name ?? "Unknown"}
+            scripts={charScripts}
+            onToggle={onToggle}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ScopedRegexCharacterGroup({
+  characterName,
+  scripts,
+  onToggle,
+}: {
+  characterName: string;
+  scripts: RegexScriptRow[];
+  onToggle: (id: string, enabled: boolean) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--muted)] text-[0.5rem] font-bold">
+          {characterName[0]}
+        </div>
+        <span className="text-[0.6875rem] font-medium">{characterName}</span>
+        <span className="ml-auto text-[0.5625rem] text-[var(--muted-foreground)]">{scripts.length} scripts</span>
+      </div>
+      <div className="space-y-1">
+        {scripts.map((s) => {
+          const isEnabled = s.enabled === true || s.enabled === "true";
+          return (
+            <button
+              key={s.id}
+              onClick={() => onToggle(s.id, !isEnabled)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-all",
+                isEnabled ? "bg-[var(--primary)]/5" : "opacity-50",
+              )}
+            >
+              <div
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full",
+                  isEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/40",
+                )}
+              />
+              <span className="truncate text-[0.625rem]">{s.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CardCssModeSelector({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
+  const options = [
+    { id: "disabled", label: "Disabled", tooltip: "No card CSS is applied" },
+    { id: "exclusive", label: "Exclusive", tooltip: "Each character's CSS only affects their own messages" },
+    { id: "chat", label: "Chat", tooltip: "All card CSS affects the entire chat area" },
+  ];
+  return (
+    <div className="space-y-1.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">CSS Mode</span>
+      </div>
+      <div className="grid grid-cols-3 overflow-hidden rounded-md ring-1 ring-[var(--border)]">
+        {options.map((option, index) => {
+          const active = mode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(option.id)}
+              className={cn(
+                "min-w-0 px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
+                index > 0 && "border-l border-[var(--border)]",
+                active
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              title={option.tooltip}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

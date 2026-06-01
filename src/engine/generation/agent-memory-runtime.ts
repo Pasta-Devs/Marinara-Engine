@@ -48,7 +48,9 @@ export async function persistSecretPlotAgentMemory(
   if (data.sceneDirections !== undefined) {
     const allDirections = normalizeSecretPlotSceneDirections(data.sceneDirections);
     const active = allDirections.filter((direction) => !direction.fulfilled);
-    const justFulfilled = allDirections.filter((direction) => direction.fulfilled).map((direction) => direction.direction);
+    const justFulfilled = allDirections
+      .filter((direction) => direction.fulfilled)
+      .map((direction) => direction.direction);
     await setAgentMemoryValue(storage, agentConfigId, chatId, "sceneDirections", active);
     if (justFulfilled.length > 0) {
       const memory = await loadAgentMemory(storage, agentConfigId, chatId);

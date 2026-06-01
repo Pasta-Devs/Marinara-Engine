@@ -14,6 +14,7 @@
     "lint": "pnpm lint:eslint",
     "lint:all": "pnpm lint:eslint && pnpm format:check && pnpm lint:design",
     "lint:eslint": "eslint .",
+    "lint:eslint:full-report": "node scripts/eslint-full-report.mjs",
     "lint:design": "impeccable detect --fast src",
     "lint:design:report": "pnpm lint:design || test $? -eq 2",
     "check:architecture": "depcruise src --config .dependency-cruiser.cjs && node scripts/check-rust-structure.mjs",
@@ -25,8 +26,9 @@
     "check:rust:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check --config deny.toml",
     "check:rust:deps": "cargo machete src-tauri",
     "check:docs": "node scripts/check-docs.mjs",
-    "check:unused": "knip --files --no-config-hints",
-    "check": "pnpm check:architecture && pnpm check:frontend && pnpm check:rust && pnpm check:docs",
+    "check:line-endings": "node scripts/check-line-endings.mjs",
+    "check:unused": "knip --no-config-hints",
+    "check": "pnpm check:line-endings && pnpm check:architecture && pnpm check:frontend && pnpm check:rust && pnpm check:docs && pnpm check:unused",
     "test": "vitest run",
     "test:allow-empty": "vitest run --passWithNoTests",
     "test:ui": "pnpm build && playwright test",
@@ -41,6 +43,7 @@
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
     "@tanstack/react-query": "^5.100.9",
+    "@tanstack/react-virtual": "^3.13.26",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-notification": "^2.3.3",
@@ -57,6 +60,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "@size-limit/preset-app": "^12.1.0",
@@ -83,22 +87,16 @@
     "vite": "^7.3.2",
     "vitest": "^4.1.7"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ],
-    "ignoredBuiltDependencies": [
-      "unrs-resolver"
-    ]
-  },
   "size-limit": [
     {
       "path": "dist/assets/*.js",
-      "limit": "1.7 MB"
+      "limit": "1.7 MB",
+      "running": false
     },
     {
       "path": "dist/assets/*.css",
-      "limit": "250 KB"
+      "limit": "250 KB",
+      "running": false
     }
   ]
 }

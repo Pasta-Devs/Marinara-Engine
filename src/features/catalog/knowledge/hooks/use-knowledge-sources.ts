@@ -13,7 +13,6 @@ export interface KnowledgeSource {
   uploadedAt: string;
 }
 
-
 export function useKnowledgeSources() {
   return useQuery({
     queryKey: knowledgeSourceKeys.list(),

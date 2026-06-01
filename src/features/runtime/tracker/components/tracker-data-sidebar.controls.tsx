@@ -569,13 +569,7 @@ export function TrackerPortraitStageBackdrop({ media, className }: { media?: str
       <div className="tracker-portrait-backdrop-base" />
       <div className="tracker-portrait-backdrop-box-layer" />
       {media ? (
-        <img
-          src={media}
-          alt=""
-          aria-hidden="true"
-          className="tracker-portrait-backdrop-media"
-          draggable={false}
-        />
+        <img src={media} alt="" aria-hidden="true" className="tracker-portrait-backdrop-media" draggable={false} />
       ) : null}
       <div className="tracker-portrait-backdrop-light" />
       <div className="tracker-portrait-backdrop-veil" />

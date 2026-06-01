@@ -5,7 +5,7 @@ import type { EventGateway } from "../capabilities/events";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
-import type { VisualAssetGateway } from "../capabilities/visual-assets";
+import type { SpriteOwnerType, VisualAssetGateway } from "../capabilities/visual-assets";
 import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
@@ -48,6 +48,7 @@ import {
 } from "./generation-replay";
 import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-assembly";
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
+import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
 import {
   boolish,
@@ -102,6 +103,7 @@ export interface StartGenerationInput extends JsonRecord {
   };
   debugMode?: boolean;
   debugSink?: AgentContext["debugSink"];
+  hideAutomatedSummarySourceMessages?: boolean;
   agentInjectionOverrides?: AgentInjectionOverride[];
 }
 
@@ -117,6 +119,8 @@ export interface RetryAgentsInput extends JsonRecord {
   chatId: string;
   connectionId?: string | null;
   agentTypes?: string[];
+  hideAutomatedSummarySourceMessages?: boolean;
+  imagePromptSettings?: StartGenerationInput["imagePromptSettings"];
   options?: Record<string, unknown>;
 }
 
@@ -389,7 +393,236 @@ function illustrationSize(value: unknown): { width: number; height: number } {
   };
 }
 
-function illustratorPromptData(result: AgentResult): { prompt: string; reason: string } | null {
+type IllustrationPromptData = {
+  agentId: string;
+  prompt: string;
+  reason: string;
+  negativePrompt: string;
+  characterNames: string[];
+};
+
+type IllustrationImageSettings = {
+  connectionId: string;
+  positivePrompt: string;
+  negativePrompt: string;
+  useAvatarReferences: boolean;
+};
+
+type IllustrationReferenceSubject = {
+  id: string;
+  name: string;
+  avatar: string;
+  spriteOwnerType: SpriteOwnerType;
+};
+
+type IllustrationReferenceData = {
+  referenceImages: string[];
+  referenceSubjectNames: string[];
+};
+
+function promptContainsTag(prompt: string, tag: string): boolean {
+  const normalizedPrompt = prompt.toLowerCase();
+  const normalizedTag = tag.toLowerCase();
+  if (!normalizedTag) return true;
+  if (normalizedPrompt.includes(normalizedTag)) return true;
+  const compactTag = normalizedTag.replace(/\s+/g, " ");
+  const compactPrompt = normalizedPrompt.replace(/[{}()[\]"']/g, " ").replace(/\s+/g, " ");
+  return compactPrompt.includes(compactTag);
+}
+
+function appendMissingPositiveTags(prompt: string, positive: string): string {
+  const basePrompt = prompt.trim();
+  const tags = positive
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  if (!basePrompt || tags.length === 0) return basePrompt;
+
+  const missing = tags.filter((tag) => !promptContainsTag(basePrompt, tag));
+  return missing.length > 0 ? `${basePrompt}, ${missing.join(", ")}` : basePrompt;
+}
+
+function combinedPromptParts(parts: string[]): string {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const part of parts) {
+    const text = part.trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
+  }
+  return result.join(", ");
+}
+
+function usableReferenceImage(value: unknown): string {
+  const text = readString(value).trim();
+  if (!text) return "";
+  if (text.startsWith("data:image/")) return text;
+  if (/^[A-Za-z0-9+/=\s]+$/.test(text) && text.replace(/\s+/g, "").length > 80) return text;
+  return "";
+}
+
+function recordName(record: JsonRecord): string {
+  const data = parseRecord(record.data);
+  return readString(data.name).trim() || readString(record.name).trim();
+}
+
+function recordAvatar(record: JsonRecord): string {
+  const data = parseRecord(record.data);
+  return usableReferenceImage(
+    record.avatarPath ?? record.avatar ?? record.avatarUrl ?? data.avatarPath ?? data.avatar ?? data.avatarUrl,
+  );
+}
+
+function matchesIllustrationSubject(subject: IllustrationReferenceSubject, item: IllustrationPromptData): boolean {
+  const name = subject.name.trim().toLowerCase();
+  if (!name) return false;
+  const requestedNames = item.characterNames.map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+  if (requestedNames.length > 0) {
+    return requestedNames.some(
+      (requested) => requested === name || requested.includes(name) || name.includes(requested),
+    );
+  }
+  const prompt = item.prompt.toLowerCase();
+  if (prompt.includes(name)) return true;
+  return name
+    .split(/\s+/)
+    .filter((part) => part.length > 2)
+    .some((part) => prompt.includes(part));
+}
+
+function fullBodySpriteReference(sprites: Array<Record<string, unknown>>): string {
+  const fullBody = sprites.filter((sprite) => readString(sprite.expression).trim().toLowerCase().startsWith("full_"));
+  const preferred =
+    fullBody.find((sprite) =>
+      ["full_idle", "full_neutral", "full_default"].includes(readString(sprite.expression).trim().toLowerCase()),
+    ) ?? fullBody[0];
+  return usableReferenceImage(preferred?.url ?? preferred?.image ?? preferred?.base64);
+}
+
+async function defaultIllustratorImageConnectionId(storage: StorageGateway): Promise<string> {
+  const connections = await storage.list<JsonRecord>("connections").catch(() => []);
+  const connection = connections.find(
+    (item) => readString(item.provider).trim() === "image_generation" && boolish(item.defaultForAgents, false),
+  );
+  return readString(connection?.id).trim();
+}
+
+async function illustratorAgentSettings(storage: StorageGateway, agentId: string): Promise<JsonRecord> {
+  const direct = agentId ? await storage.get<JsonRecord>("agents", agentId).catch(() => null) : null;
+  if (isRecord(direct)) return parseRecord(direct.settings);
+  const agents = await storage.list<JsonRecord>("agents").catch(() => []);
+  const agent = agents.find(
+    (item) => readString(item.id).trim() === agentId || readString(item.type).trim() === "illustrator",
+  );
+  return isRecord(agent) ? parseRecord(agent.settings) : {};
+}
+
+async function illustrationImageSettings(args: {
+  storage: StorageGateway;
+  chat: JsonRecord;
+  item: IllustrationPromptData;
+}): Promise<IllustrationImageSettings> {
+  const meta = parseRecord(args.chat.metadata);
+  const settings = await illustratorAgentSettings(args.storage, args.item.agentId);
+  const connectionId =
+    readString(settings.imageConnectionId).trim() ||
+    readString(meta.illustrationImageConnectionId).trim() ||
+    readString(meta.imageGenConnectionId).trim() ||
+    (await defaultIllustratorImageConnectionId(args.storage));
+  return {
+    connectionId,
+    positivePrompt:
+      readString(settings.imagePositivePrompt).trim() || readString(meta.illustrationPositivePrompt).trim(),
+    negativePrompt: combinedPromptParts([
+      args.item.negativePrompt,
+      readString(settings.imageNegativePrompt).trim(),
+      readString(meta.illustrationNegativePrompt).trim(),
+      readString(meta.selfieNegativePrompt).trim(),
+    ]),
+    useAvatarReferences:
+      (settings.useAvatarReferences === undefined || settings.useAvatarReferences === null
+        ? true
+        : boolish(settings.useAvatarReferences, false)) || boolish(meta.illustrationUseAvatarReferences, false),
+  };
+}
+
+async function loadIllustrationReferenceSubjects(
+  storage: StorageGateway,
+  chat: JsonRecord,
+): Promise<IllustrationReferenceSubject[]> {
+  const characterRows = await Promise.all(
+    activeCharacterIds(chat).map((id) => storage.get<JsonRecord>("characters", id).catch(() => null)),
+  );
+  const subjects: IllustrationReferenceSubject[] = characterRows.filter(isRecord).map((row) => ({
+    id: readString(row.id).trim(),
+    name: recordName(row),
+    avatar: recordAvatar(row),
+    spriteOwnerType: "character",
+  }));
+  const personaId = readString(chat.personaId).trim();
+  const persona = personaId ? await storage.get<JsonRecord>("personas", personaId).catch(() => null) : null;
+  if (isRecord(persona)) {
+    subjects.push({
+      id: personaId || readString(persona.id).trim(),
+      name: recordName(persona),
+      avatar: recordAvatar(persona),
+      spriteOwnerType: "persona",
+    });
+  }
+  return subjects.filter((subject) => subject.id && subject.name);
+}
+
+async function illustrationReferenceData(args: {
+  storage: StorageGateway;
+  visuals?: VisualAssetGateway;
+  chat: JsonRecord;
+  item: IllustrationPromptData;
+  useAvatarReferences: boolean;
+}): Promise<IllustrationReferenceData> {
+  const subjects = await loadIllustrationReferenceSubjects(args.storage, args.chat);
+  const referenceImages: string[] = [];
+  const referenceSubjectNames: string[] = [];
+  const referenceSubjects = subjects.filter((subject) => matchesIllustrationSubject(subject, args.item));
+  for (const subject of referenceSubjects) {
+    if (!args.useAvatarReferences) continue;
+    const sprites = args.visuals
+      ? await args.visuals.listSprites(subject.id, subject.spriteOwnerType).catch(() => [])
+      : [];
+    const spriteReference = fullBodySpriteReference(sprites as Array<Record<string, unknown>>);
+    const reference = spriteReference || subject.avatar;
+    if (reference && !referenceImages.includes(reference)) referenceImages.push(reference);
+    if (reference && !referenceSubjectNames.includes(subject.name)) referenceSubjectNames.push(subject.name);
+  }
+  return { referenceImages, referenceSubjectNames };
+}
+
+function promptAlreadyMentionsReferences(prompt: string): boolean {
+  const text = prompt.toLowerCase();
+  return (
+    /\bconsult\b[\s\S]{0,80}\breference/.test(text) ||
+    /\b(attached|provided|included)\s+reference/.test(text) ||
+    /\breference\s+image/.test(text)
+  );
+}
+
+function appendReferenceGuidance(prompt: string, subjectNames: string[]): string {
+  const names = subjectNames.map((name) => name.trim()).filter(Boolean);
+  if (names.length === 0) return prompt.trim();
+  if (promptAlreadyMentionsReferences(prompt)) return prompt.trim();
+  const label =
+    names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return [
+    prompt.trim(),
+    `Reference guidance: Consult the attached reference image(s) for ${label} to preserve identity, face, hair, body proportions, and distinctive visible features. Follow the scene prompt for the current outfit, pose, expression, injuries, lighting, and other moment-specific details; scene-specific appearance overrides default reference clothing.`,
+  ].join("\n\n");
+}
+
+function illustratorPromptData(result: AgentResult): IllustrationPromptData | null {
   if (result.agentType !== "illustrator" && result.type !== "image_prompt") return null;
   if (!result.success) return null;
   const data = parseRecord(result.data);
@@ -397,8 +630,11 @@ function illustratorPromptData(result: AgentResult): { prompt: string; reason: s
   const prompt = readString(data.prompt ?? data.imagePrompt ?? data.positivePrompt).trim();
   if (!prompt) return null;
   return {
+    agentId: result.agentId,
     prompt,
     reason: readString(data.reason).trim(),
+    negativePrompt: readString(data.negativePrompt ?? data.negative_prompt).trim(),
+    characterNames: stringArray(data.characters ?? data.characterNames ?? data.visibleCharacters),
   };
 }
 
@@ -411,30 +647,38 @@ async function generateIllustrationAttachments(args: {
   const attachments: JsonRecord[] = [];
   const events: GenerationEvent[] = [];
   const meta = parseRecord(args.chat.metadata);
-  const connectionId = readString(meta.imageGenConnectionId).trim();
-  const prompts = args.results
-    .map(illustratorPromptData)
-    .filter((value): value is { prompt: string; reason: string } => !!value);
+  const prompts = args.results.map(illustratorPromptData).filter((value): value is IllustrationPromptData => !!value);
   if (prompts.length === 0) return { attachments, events };
 
-  if (!connectionId) {
-    events.push({
-      type: "illustration_error",
-      data: { error: "No image generation connection configured for this chat." },
-    });
-    return { attachments, events };
-  }
   if (!args.deps.integrations?.image) {
     events.push({ type: "illustration_error", data: { error: "Image generation is not available." } });
     return { attachments, events };
   }
 
   const size = illustrationSize(meta.illustrationResolution ?? meta.selfieResolution);
-  const negativePrompt = readString(meta.illustrationNegativePrompt ?? meta.selfieNegativePrompt).trim();
   for (let index = 0; index < prompts.length; index += 1) {
     throwIfAborted(args.signal);
     const item = prompts[index]!;
     try {
+      const settings = await illustrationImageSettings({ storage: args.deps.storage, chat: args.chat, item });
+      if (!settings.connectionId) {
+        events.push({
+          type: "illustration_error",
+          data: { error: "No image generation connection configured for the Illustrator agent." },
+        });
+        continue;
+      }
+      const referenceData = await illustrationReferenceData({
+        storage: args.deps.storage,
+        visuals: args.deps.visuals,
+        chat: args.chat,
+        item,
+        useAvatarReferences: settings.useAvatarReferences,
+      });
+      const prompt = appendReferenceGuidance(
+        appendMissingPositiveTags(item.prompt, settings.positivePrompt),
+        referenceData.referenceSubjectNames,
+      );
       const image = await args.deps.integrations.image.generate<{
         base64?: string;
         mimeType?: string;
@@ -442,14 +686,15 @@ async function generateIllustrationAttachments(args: {
         provider?: string;
         model?: string;
       }>({
-        connectionId,
+        connectionId: settings.connectionId,
         kind: "illustration",
         reviewId: `illustration:${readString(args.chat.id)}:${index}`,
         reviewTitle: "Scene illustration",
-        prompt: item.prompt,
-        negativePrompt: negativePrompt || undefined,
+        prompt,
+        negativePrompt: settings.negativePrompt || undefined,
         width: size.width,
         height: size.height,
+        ...(referenceData.referenceImages.length > 0 ? { referenceImages: referenceData.referenceImages } : {}),
       });
       throwIfAborted(args.signal);
       const mimeType = image.mimeType || "image/png";
@@ -463,17 +708,21 @@ async function generateIllustrationAttachments(args: {
         filePath: filename,
         filename,
         url: imageUrl,
-        prompt: item.prompt,
+        prompt,
         provider: image.provider ?? "image_generation",
         model: image.model ?? null,
         width: size.width,
         height: size.height,
+        kind: "illustration",
+        characters:
+          referenceData.referenceSubjectNames.length > 0 ? referenceData.referenceSubjectNames : item.characterNames,
+        referenceImageCount: referenceData.referenceImages.length,
       });
       const attachment = {
         type: "image",
         url: imageUrl,
         filename,
-        prompt: item.prompt,
+        prompt,
         galleryId: readString(gallery.id) || null,
       };
       attachments.push(attachment);
@@ -481,7 +730,7 @@ async function generateIllustrationAttachments(args: {
         type: "illustration",
         data: {
           imageUrl,
-          prompt: item.prompt,
+          prompt,
           reason: item.reason,
           galleryId: readString(gallery.id) || null,
         },
@@ -588,6 +837,13 @@ function withImageAttachments(messages: LlmMessage[], images: string[]): LlmMess
   return next;
 }
 
+function impersonatePromptTemplate(input: StartGenerationInput, chat: JsonRecord): string | null {
+  const requestPrompt = readString(input.impersonatePromptTemplate).trim();
+  if (requestPrompt) return requestPrompt;
+  const chatPrompt = readString(parseRecord(chat.metadata).impersonatePrompt).trim();
+  return chatPrompt || null;
+}
+
 function directiveMessages(
   input: StartGenerationInput,
   chat: JsonRecord,
@@ -602,7 +858,7 @@ function directiveMessages(
     messages.push({
       role: "user",
       content: buildImpersonateInstruction({
-        customPrompt: input.impersonatePromptTemplate,
+        customPrompt: impersonatePromptTemplate(input, chat),
         direction: prepared.content,
         personaName,
         personaDescription: persona?.description,
@@ -612,10 +868,8 @@ function directiveMessages(
   }
 
   const forCharacterId = readString(input.forCharacterId).trim();
-  const isNonConversationGroup =
-    readString(chat.mode || chat.chatMode) !== "conversation" && stringArray(chat.characterIds).length > 1;
-  const addGroupTurnPrompt = !isNonConversationGroup || parseRecord(chat.metadata).groupTurnPromptEnabled !== false;
-  if (forCharacterId && addGroupTurnPrompt) {
+  const chatMode = readString(chat.mode || chat.chatMode);
+  if (forCharacterId && chatMode === "conversation") {
     const character = characters.find((candidate) => candidate.id === forCharacterId);
     messages.push({
       role: "user",
@@ -656,6 +910,291 @@ function messagesBeforeRegenerationTarget(
   if (!targetId) return storedMessages;
   const targetIndex = storedMessages.findIndex((message) => readString(message.id) === targetId);
   return targetIndex >= 0 ? storedMessages.slice(0, targetIndex) : storedMessages;
+}
+
+function roleplayIndividualGroupCharacterIds(chat: JsonRecord): string[] {
+  if (readString(chat.mode || chat.chatMode) !== "roleplay") return [];
+  const ids = activeCharacterIds(chat);
+  if (ids.length <= 1) return [];
+  return readString(parseRecord(chat.metadata).groupChatMode, "merged") === "individual" ? ids : [];
+}
+
+function conversationGroupCharacterIds(chat: JsonRecord): string[] {
+  if (readString(chat.mode || chat.chatMode) !== "conversation") return [];
+  const ids = activeCharacterIds(chat);
+  return ids.length > 1 ? ids : [];
+}
+
+function targetedGroupCharacterIds(chat: JsonRecord): string[] {
+  const roleplayIds = roleplayIndividualGroupCharacterIds(chat);
+  return roleplayIds.length > 0 ? roleplayIds : conversationGroupCharacterIds(chat);
+}
+
+function lastVisibleAssistantCharacterId(messages: JsonRecord[], activeIds: string[]): string | null {
+  const active = new Set(activeIds);
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || hiddenFromAi(message)) continue;
+    if (readString(message.role) !== "assistant") continue;
+    const characterId = readString(message.characterId).trim();
+    if (active.has(characterId)) return characterId;
+  }
+  return null;
+}
+
+function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): string | null {
+  if (activeIds.length === 0) return null;
+  const lastCharacterId = lastVisibleAssistantCharacterId(messages, activeIds);
+  if (!lastCharacterId) return activeIds[0] ?? null;
+  const index = activeIds.indexOf(lastCharacterId);
+  return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
+}
+
+function explicitGroupTarget(
+  input: StartGenerationInput,
+  storedMessages: JsonRecord[],
+  activeIds: string[],
+): string | null {
+  const active = new Set(activeIds);
+  const requestedCharacterId = readString(input.forCharacterId).trim();
+  if (requestedCharacterId && active.has(requestedCharacterId)) return requestedCharacterId;
+
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (!regenerateMessageId) return null;
+  const target = storedMessages.find((message) => readString(message.id) === regenerateMessageId);
+  const targetCharacterId = readString(target?.characterId).trim();
+  return active.has(targetCharacterId) ? targetCharacterId : null;
+}
+
+function continuationGroupTarget(args: {
+  input: StartGenerationInput;
+  latestUserInput: string;
+  storedMessages: JsonRecord[];
+  activeIds: string[];
+}): string | null {
+  if (readString(args.input.regenerateMessageId).trim()) return null;
+  if (args.latestUserInput.trim()) return null;
+  return lastVisibleAssistantCharacterId(args.storedMessages, args.activeIds);
+}
+
+type SmartResponderCandidate = {
+  id: string;
+  name: string;
+  description: string;
+  personality: string;
+  talkativeness: number | null;
+};
+
+function compactPromptLine(value: unknown, limit = 260): string {
+  const text = collapseExcessBlankLines(readString(value)).replace(/\s+/g, " ").trim();
+  return text.length > limit ? `${text.slice(0, limit - 3).trimEnd()}...` : text;
+}
+
+function characterDataRecord(record: JsonRecord): JsonRecord {
+  const data = parseRecord(record.data);
+  return Object.keys(data).length > 0 ? data : record;
+}
+
+async function loadSmartResponderCandidates(
+  storage: StorageGateway,
+  activeIds: string[],
+): Promise<SmartResponderCandidate[]> {
+  const rows = await Promise.all(activeIds.map((id) => storage.get<JsonRecord>("characters", id).catch(() => null)));
+  return rows
+    .map((row, index): SmartResponderCandidate | null => {
+      if (!isRecord(row)) return null;
+      const data = characterDataRecord(row);
+      const name = readString(data.name).trim() || readString(row.name).trim() || `Character ${index + 1}`;
+      return {
+        id: activeIds[index]!,
+        name,
+        description: compactPromptLine(data.description),
+        personality: compactPromptLine(data.personality),
+        talkativeness: data.talkativeness == null ? null : readNumber(data.talkativeness, 0),
+      };
+    })
+    .filter((candidate): candidate is SmartResponderCandidate => candidate !== null);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function mentionedSmartResponderIds(args: {
+  candidates: SmartResponderCandidate[];
+  latestUserInput: string;
+  mentionedNames: string[];
+}): string[] {
+  const mentioned = new Set(args.mentionedNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
+  const latest = args.latestUserInput;
+  const ids: string[] = [];
+  for (const candidate of args.candidates) {
+    const lowerName = candidate.name.toLowerCase();
+    const explicitlyMentioned = mentioned.has(lowerName);
+    const atMentioned = new RegExp(`(^|\\s)@${escapeRegExp(candidate.name)}(?=\\s|$|[,.!?;:])`, "i").test(latest);
+    if (explicitlyMentioned || atMentioned) ids.push(candidate.id);
+  }
+  return ids;
+}
+
+function smartSelectorTranscript(messages: JsonRecord[]): string {
+  return messages
+    .filter((message) => !hiddenFromAi(message))
+    .slice(-12)
+    .map((message) => {
+      const role = readString(message.role, "message");
+      const name = readString(message.displayName || message.name || message.characterName).trim();
+      const prefix = name ? `${role} (${name})` : role;
+      return `${prefix}: ${compactPromptLine(message.content, 500)}`;
+    })
+    .join("\n");
+}
+
+function parseSmartGroupSelectionIds(raw: string, validIds: string[]): string[] {
+  const valid = new Set(validIds);
+  let text = raw.trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) text = fenced[1].trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) text = text.slice(start, end + 1);
+  try {
+    const parsed = JSON.parse(text) as JsonRecord;
+    const ids = stringArray(parsed.characterIds ?? parsed.character_ids ?? parsed.characters);
+    return [...new Set(ids.filter((id) => valid.has(id)))];
+  } catch {
+    return validIds.filter((id) => raw.includes(id)).slice(0, 3);
+  }
+}
+
+async function smartRoleplayGroupTarget(args: {
+  deps: GenerationEngineDeps;
+  input: StartGenerationInput;
+  chat: JsonRecord;
+  connection: JsonRecord;
+  storedMessages: JsonRecord[];
+  latestUserInput: string;
+  mentionedNames: string[];
+  activeIds: string[];
+  signal?: AbortSignal;
+}): Promise<string | null> {
+  const candidates = await loadSmartResponderCandidates(args.deps.storage, args.activeIds);
+  const mentionedIds = mentionedSmartResponderIds({
+    candidates,
+    latestUserInput: args.latestUserInput,
+    mentionedNames: args.mentionedNames,
+  });
+  if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
+  if (candidates.length === 0) return sequentialGroupTarget(args.storedMessages, args.activeIds);
+
+  const personaId = readString(args.chat.personaId).trim();
+  const persona = personaId ? await args.deps.storage.get<JsonRecord>("personas", personaId).catch(() => null) : null;
+  const personaData = isRecord(persona) ? characterDataRecord(persona) : {};
+  const chatMode = readString(args.chat.mode || args.chat.chatMode, "conversation");
+  const chatKind = chatMode === "conversation" ? "conversation group chat" : "individual-mode roleplay group chat";
+  const candidateLines = candidates
+    .map((candidate) =>
+      JSON.stringify({
+        id: candidate.id,
+        name: candidate.name,
+        talkativeness: candidate.talkativeness,
+        personality: candidate.personality,
+        description: candidate.description,
+      }),
+    )
+    .join("\n");
+  let raw = "";
+  try {
+    raw = await args.deps.llm.complete(
+      {
+        connectionId: readString(args.connection.id).trim() || args.input.connectionId || null,
+        provider: readString(args.connection.provider).trim() || null,
+        model: readString(args.connection.model).trim() || null,
+        parameters: { maxTokens: 256 },
+        messages: [
+          {
+            role: "system",
+            content: `You are a hidden response orchestrator for a ${chatKind}. Choose which character should respond next based on the latest message, direct address, conversation momentum, and talkativeness. Usually choose exactly one character. Return only JSON: {"characterIds":["character-id"],"reason":"short"}.`,
+          },
+          {
+            role: "user",
+            content: [
+              `<persona>${compactPromptLine(readString(personaData.name || persona?.name), 120)}</persona>`,
+              `<candidates>\n${candidateLines}\n</candidates>`,
+              `<recent_transcript>\n${smartSelectorTranscript(args.storedMessages)}\n</recent_transcript>`,
+              `<latest_user_message>\n${compactPromptLine(args.latestUserInput, 1200)}\n</latest_user_message>`,
+            ].join("\n\n"),
+          },
+        ],
+      },
+      args.signal,
+    );
+  } catch (error) {
+    if (isRecord(error) && readString(error.name) === "AbortError") throw error;
+  }
+  return (
+    parseSmartGroupSelectionIds(raw, args.activeIds)[0] ?? sequentialGroupTarget(args.storedMessages, args.activeIds)
+  );
+}
+
+async function resolveGroupTargetForGeneration(args: {
+  deps: GenerationEngineDeps;
+  input: StartGenerationInput;
+  chat: JsonRecord;
+  connection: JsonRecord;
+  storedMessages: JsonRecord[];
+  latestUserInput: string;
+  mentionedNames: string[];
+  signal?: AbortSignal;
+}): Promise<string | null> {
+  if (args.input.impersonate === true) return null;
+  const activeIds = targetedGroupCharacterIds(args.chat);
+  if (activeIds.length === 0) return null;
+  const explicit = explicitGroupTarget(args.input, args.storedMessages, activeIds);
+  if (explicit) return explicit;
+
+  const candidates = await loadSmartResponderCandidates(args.deps.storage, activeIds);
+  const mentionedIds = mentionedSmartResponderIds({
+    candidates,
+    latestUserInput: args.latestUserInput,
+    mentionedNames: args.mentionedNames,
+  });
+  if (mentionedIds.length > 0) return mentionedIds[0] ?? null;
+
+  const continuation = continuationGroupTarget({
+    input: args.input,
+    latestUserInput: args.latestUserInput,
+    storedMessages: args.storedMessages,
+    activeIds,
+  });
+  if (continuation) return continuation;
+
+  const order = readString(parseRecord(args.chat.metadata).groupResponseOrder, "sequential");
+  if (order === "manual") return null;
+  if (order === "smart") {
+    return smartRoleplayGroupTarget({ ...args, activeIds });
+  }
+  return sequentialGroupTarget(args.storedMessages, activeIds);
+}
+
+function sequentialGroupTargetCharacterId(
+  chat: JsonRecord,
+  input: StartGenerationInput,
+  messages: JsonRecord[],
+): string | null {
+  if (input.impersonate === true) return null;
+  if (readString(input.forCharacterId).trim()) return null;
+  const metadata = parseRecord(chat.metadata);
+  if (readString(chat.mode || chat.chatMode).trim() !== "roleplay") return null;
+  if (readString(metadata.groupChatMode, "merged") !== "individual") return null;
+  if (readString(metadata.groupResponseOrder, "smart") !== "sequential") return null;
+  const activeIds = activeCharacterIds(chat);
+  if (activeIds.length <= 1) return null;
+
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (regenerateMessageId) return explicitGroupTarget(input, messages, activeIds);
+
+  return sequentialGroupTarget(messages, activeIds);
 }
 
 function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
@@ -771,6 +1310,19 @@ async function persistTrackerSnapshotSafely(
   }
 }
 
+async function persistLorebookTimingStatesSafely(
+  storage: StorageGateway,
+  chatId: string,
+  timingStates: Record<string, unknown> | null,
+): Promise<void> {
+  if (!timingStates) return;
+  try {
+    await storage.patchChatMetadata(chatId, { entryTimingStates: timingStates });
+  } catch (error) {
+    console.warn("[generation] lorebook timing state persist failed", error);
+  }
+}
+
 function cloneSerializableValue<T>(value: T): T {
   try {
     return JSON.parse(JSON.stringify(value)) as T;
@@ -812,42 +1364,26 @@ function buildSavedGenerationPromptSnapshot(args: {
   if (!args.promptSnapshot?.messages?.length) return null;
   const parameters = cloneSerializableValue(args.promptSnapshot.parameters ?? {});
   const tools = Array.isArray(args.promptSnapshot.tools) ? cloneSerializableValue(args.promptSnapshot.tools) : null;
+  const generationInfo = generationInfoFromVisibleParameters(args.connection, isRecord(parameters) ? parameters : {});
   return {
     messages: args.promptSnapshot.messages.map(clonePromptMessage),
     parameters: isRecord(parameters) ? parameters : {},
     ...(tools?.length ? { tools } : {}),
     promptPresetId: args.promptSnapshot.promptPresetId ?? null,
     generationInfo: {
-      model: readString(args.connection.model) || undefined,
-      provider: readString(args.connection.provider) || undefined,
-      temperature: nullableNumber(args.promptSnapshot.parameters.temperature),
-      maxTokens: nullableNumber(args.promptSnapshot.parameters.maxTokens ?? args.promptSnapshot.parameters.max_tokens),
-      topP: nullableNumber(args.promptSnapshot.parameters.topP ?? args.promptSnapshot.parameters.top_p),
-      topK: nullableNumber(args.promptSnapshot.parameters.topK ?? args.promptSnapshot.parameters.top_k),
-      frequencyPenalty: nullableNumber(
-        args.promptSnapshot.parameters.frequencyPenalty ?? args.promptSnapshot.parameters.frequency_penalty,
-      ),
-      presencePenalty: nullableNumber(
-        args.promptSnapshot.parameters.presencePenalty ?? args.promptSnapshot.parameters.presence_penalty,
-      ),
-      showThoughts:
-        typeof args.promptSnapshot.parameters.showThoughts === "boolean"
-          ? args.promptSnapshot.parameters.showThoughts
-          : null,
-      reasoningEffort:
-        typeof args.promptSnapshot.parameters.reasoningEffort === "string"
-          ? args.promptSnapshot.parameters.reasoningEffort
-          : null,
-      verbosity:
-        typeof args.promptSnapshot.parameters.verbosity === "string" ? args.promptSnapshot.parameters.verbosity : null,
-      serviceTier:
-        typeof args.promptSnapshot.parameters.serviceTier === "string"
-          ? args.promptSnapshot.parameters.serviceTier
-          : null,
-      assistantPrefill:
-        typeof args.promptSnapshot.parameters.assistantPrefill === "string"
-          ? args.promptSnapshot.parameters.assistantPrefill
-          : null,
+      model: generationInfo.model,
+      provider: generationInfo.provider,
+      temperature: generationInfo.temperature ?? null,
+      maxTokens: generationInfo.maxTokens ?? null,
+      topP: generationInfo.topP ?? null,
+      topK: generationInfo.topK ?? null,
+      frequencyPenalty: generationInfo.frequencyPenalty ?? null,
+      presencePenalty: generationInfo.presencePenalty ?? null,
+      showThoughts: generationInfo.showThoughts ?? null,
+      reasoningEffort: generationInfo.reasoningEffort ?? null,
+      verbosity: generationInfo.verbosity ?? null,
+      serviceTier: generationInfo.serviceTier ?? null,
+      assistantPrefill: generationInfo.assistantPrefill ?? null,
       tokensPrompt: usageNumber(args.usage, ["promptTokens", "prompt_tokens", "inputTokens", "input_tokens"]),
       tokensCompletion: usageNumber(args.usage, [
         "completionTokens",
@@ -1197,8 +1733,61 @@ function savedGenerationEventType(input: StartGenerationInput): "assistant_messa
   return input.impersonate === true ? "user_message" : "assistant_message";
 }
 
+function savedGenerationEventData(saved: unknown): unknown {
+  if (!isRecord(saved)) return saved;
+  const { swipes: _swipes, ...withoutSwipes } = saved;
+  const extra = parseRecord(withoutSwipes.extra);
+  const { generationPromptSnapshotsBySwipe: _generationPromptSnapshotsBySwipe, ...timelineExtra } = extra;
+  return { ...withoutSwipes, extra: timelineExtra };
+}
+
 function messageId(saved: unknown): string | null {
   return isRecord(saved) ? readString(saved.id) || null : null;
+}
+
+function savedMessageExtra(saved: unknown): JsonRecord {
+  return isRecord(saved) ? parseRecord(saved.extra) : {};
+}
+
+function savedMessageAttachments(saved: unknown): JsonRecord[] {
+  const attachments = savedMessageExtra(saved).attachments;
+  if (!Array.isArray(attachments)) return [];
+  return attachments.filter((attachment): attachment is JsonRecord => isRecord(attachment));
+}
+
+async function patchSavedMessageAgentExtra(args: {
+  storage: StorageGateway;
+  saved: unknown;
+  results: AgentResult[];
+  contextInjections?: AgentInjectionOverride[] | null;
+  spriteExpressions?: Record<string, string> | null;
+}): Promise<unknown | null> {
+  const id = messageId(args.saved);
+  if (!id) return null;
+  const existingExtra = savedMessageExtra(args.saved);
+  const extraPatch = agentExtraFromResults({
+    results: args.results,
+    contextInjections: args.contextInjections,
+    existingExtra,
+    mergeContextInjectionUpdates: true,
+  });
+  if (args.spriteExpressions && Object.keys(args.spriteExpressions).length > 0) {
+    extraPatch.spriteExpressions = args.spriteExpressions;
+  }
+  if (Object.keys(extraPatch).length === 0) return null;
+  return args.storage.patchChatMessageExtra(id, extraPatch);
+}
+
+async function appendSavedMessageAttachments(args: {
+  storage: StorageGateway;
+  saved: unknown;
+  attachments: JsonRecord[];
+}): Promise<unknown | null> {
+  const id = messageId(args.saved);
+  if (!id || args.attachments.length === 0) return null;
+  return args.storage.patchChatMessageExtra(id, {
+    attachments: [...savedMessageAttachments(args.saved), ...args.attachments],
+  });
 }
 
 async function persistAgentMessageExtraForTarget(
@@ -1215,6 +1804,10 @@ async function persistAgentMessageExtraForTarget(
     existingExtra: target?.extra,
     mergeContextInjectionUpdates: true,
   });
+  const spriteExpressions = spriteExpressionsFromAgentResults(results);
+  if (spriteExpressions && Object.keys(spriteExpressions).length > 0) {
+    extraPatch.spriteExpressions = spriteExpressions;
+  }
   if (Object.keys(extraPatch).length === 0) return;
   await storage.patchChatMessageExtra(messageId, extraPatch);
 }
@@ -1384,7 +1977,7 @@ async function runGenerationAgentsForTarget(args: {
   target: JsonRecord | null;
   agentTypes: Set<string>;
   signal?: AbortSignal;
-}): Promise<AgentResult[]> {
+}): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const { deps, input, chat, connection, storedMessages, target, agentTypes, signal } = args;
   const chatId = readString(input.chatId).trim();
   const targetTrackerTarget = trackerSnapshotTargetFromMessage(target);
@@ -1431,6 +2024,7 @@ async function runGenerationAgentsForTarget(args: {
       chatSummary: assembly.chatSummary,
       agentTypes,
       bypassCustomAgentActivation: retryBypassesCustomAgentActivation(input),
+      hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
       signal,
       regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
     },
@@ -1451,7 +2045,25 @@ async function runGenerationAgentsForTarget(args: {
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
-  return finalResults;
+
+  const events: GenerationEvent[] = [];
+  const hasIllustrationRequest = finalResults.some((result) => illustratorPromptData(result) !== null);
+  if (target && hasIllustrationRequest) {
+    const illustration = await generateIllustrationAttachments({
+      deps,
+      chat: chatForAgents,
+      results: finalResults,
+      signal,
+    });
+    events.push(...illustration.events);
+    await appendSavedMessageAttachments({
+      storage: deps.storage,
+      saved: target,
+      attachments: illustration.attachments,
+    });
+  }
+
+  return { results: finalResults, events };
 }
 
 async function runLorebookKeeperBackfill(
@@ -1479,16 +2091,18 @@ async function runLorebookKeeperBackfill(
 
   for (const target of targets) {
     allResults.push(
-      ...(await runGenerationAgentsForTarget({
-        deps,
-        input,
-        chat: args.chat,
-        connection: args.connection,
-        storedMessages,
-        target: target.message,
-        agentTypes,
-        signal: args.signal,
-      })),
+      ...(
+        await runGenerationAgentsForTarget({
+          deps,
+          input,
+          chat: args.chat,
+          connection: args.connection,
+          storedMessages,
+          target: target.message,
+          agentTypes,
+          signal: args.signal,
+        })
+      ).results,
     );
   }
 
@@ -1499,7 +2113,7 @@ export async function retryGenerationAgents(
   deps: GenerationEngineDeps,
   input: RetryAgentsInput,
   signal?: AbortSignal,
-): Promise<AgentResult[]> {
+): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const chatId = readString(input.chatId).trim();
   if (!chatId) throw new Error("chatId is required");
   const agentTypes = Array.isArray(input.agentTypes)
@@ -1510,7 +2124,10 @@ export async function retryGenerationAgents(
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   if (isLorebookKeeperBackfill(input)) {
-    return runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal });
+    return {
+      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal }),
+      events: [],
+    };
   }
   const target = targetAssistantMessage(storedMessages, input.options);
   return runGenerationAgentsForTarget({ deps, input, chat, connection, storedMessages, target, agentTypes, signal });
@@ -1544,7 +2161,7 @@ export async function* startGeneration(
   }
   const savedUserMessage = await saveUserMessage(deps.storage, input, preparedUserInput);
   throwIfAborted(signal);
-  if (savedUserMessage) yield { type: "user_message", data: savedUserMessage };
+  if (savedUserMessage) yield { type: "user_message", data: savedGenerationEventData(savedUserMessage) };
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   throwIfAborted(signal);
   if (savesUserMessage) {
@@ -1556,6 +2173,10 @@ export async function* startGeneration(
     storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   }
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
+  const sequentialGroupTargetId = sequentialGroupTargetCharacterId(chat, input, storedMessages);
+  if (sequentialGroupTargetId) {
+    input = { ...input, forCharacterId: sequentialGroupTargetId };
+  }
   const generationTrackerBaseline = await selectGenerationTrackerBaseline(
     deps.storage,
     chatId,
@@ -1564,6 +2185,21 @@ export async function* startGeneration(
     storedMessages,
   );
   const chatForGeneration = generationTrackerBaseline ? { ...chat, gameState: generationTrackerBaseline } : chat;
+  const latestUserInput = preparedUserInput.content || inputUserMessage(input);
+  const resolvedGroupTarget = await resolveGroupTargetForGeneration({
+    deps,
+    input,
+    chat: chatForGeneration,
+    connection,
+    storedMessages: generationMessages,
+    latestUserInput,
+    mentionedNames: preparedUserInput.mentionedCharacterNames,
+    signal,
+  });
+  throwIfAborted(signal);
+  if (resolvedGroupTarget && readString(input.forCharacterId).trim() !== resolvedGroupTarget) {
+    input = { ...input, forCharacterId: resolvedGroupTarget };
+  }
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];
   const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, generationMessages);
@@ -1576,7 +2212,7 @@ export async function* startGeneration(
     storedMessages: generationMessages,
     connection,
     request: input,
-    latestUserInput: preparedUserInput.content || inputUserMessage(input),
+    latestUserInput,
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
   });
   throwIfAborted(signal);
@@ -1599,6 +2235,7 @@ export async function* startGeneration(
             chatSummary: assembly.chatSummary,
             debugMode: input.debugMode === true,
             debugSink: input.debugSink,
+            hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
             signal,
             regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
             agentInjectionOverrides,
@@ -1633,7 +2270,7 @@ export async function* startGeneration(
       storedMessages: generationMessages,
       connection,
       request: input,
-      latestUserInput: preparedUserInput.content || inputUserMessage(input),
+      latestUserInput,
       agentData: runtime?.agentData,
       embeddingSource: generationEmbeddingSource(deps.llm, connection),
     });
@@ -1659,8 +2296,12 @@ export async function* startGeneration(
     });
     const toolRuntimeInput: ToolRuntimeInput = {
       chat: chatForGeneration,
+      storedMessages: generationMessages,
       activatedLorebookEntries: assembly.activatedLorebookEntries,
+      characters: assembly.characters,
+      persona: assembly.persona,
       chatSummary: assembly.chatSummary,
+      hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
     };
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input)].filter(
       (message): message is LlmMessage => !!message,
@@ -1685,27 +2326,8 @@ export async function* startGeneration(
     throwIfAborted(signal);
     let content = streamedContent;
 
-    const parallelResults = await parallelAgents;
-    throwIfAborted(signal);
-    const postResults = runtime ? await runtime.runPost(content) : [];
-    throwIfAborted(signal);
-    const emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
-    for (const result of emittedAgentResults) {
-      yield { type: "agent_result", data: result };
-    }
-    agentEvents.length = 0;
-    const allAgentResults = uniqueAgentResults([...(runtime?.preResults ?? []), ...emittedAgentResults]);
-    const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults);
-    const hasIllustrationRequest = emittedAgentResults.some((result) => illustratorPromptData(result) !== null);
-    if (hasIllustrationRequest) yield { type: "phase", data: "Generating illustration..." };
-    const illustration = await generateIllustrationAttachments({
-      deps,
-      chat,
-      results: emittedAgentResults,
-      signal,
-    });
-    throwIfAborted(signal);
-    for (const event of illustration.events) yield event;
+    const preSaveAgentResults = uniqueAgentResults(runtime?.preResults ?? []);
+    const preSaveSpriteExpressions = spriteExpressionsFromAgentResults(preSaveAgentResults);
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     throwIfAborted(signal);
     const connected = await persistConnectedCommandTags(
@@ -1728,15 +2350,20 @@ export async function* startGeneration(
           connection,
           content: connected.displayContent,
           thinking: streamedThinking,
-          agentResults: allAgentResults,
+          agentResults: preSaveAgentResults,
           noteCount: connected.createdNotes.length + connected.executedCommands.length,
           chatSummaryFingerprint: assembly.chatSummaryFingerprint,
-          attachments: [...connected.assistantAttachments, ...illustration.attachments],
+          attachments: connected.assistantAttachments,
           usage,
           promptSnapshot,
-          spriteExpressions,
+          spriteExpressions: preSaveSpriteExpressions,
           contextInjections: runtime?.preInjections ?? null,
         });
+    let latestSaved = saved;
+    if (saved) {
+      await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+    }
+    throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
       await mirrorSavedAssistantMessageToDiscord({
         deps,
@@ -1746,13 +2373,64 @@ export async function* startGeneration(
         content: connected.displayContent,
         characters: assembly.characters,
       });
-      await persistTrackerSnapshotSafely(deps.storage, chatId, saved, allAgentResults, generationTrackerBaseline);
     }
-    if (saved) yield { type: savedGenerationEventType(input), data: saved };
+    if (saved) yield { type: savedGenerationEventType(input), data: savedGenerationEventData(saved) };
+    throwIfAborted(signal);
+
+    const parallelResults = await parallelAgents;
+    throwIfAborted(signal);
+    const postResults = runtime ? await runtime.runPost(content) : [];
+    throwIfAborted(signal);
+    const emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+    for (const result of emittedAgentResults) {
+      yield { type: "agent_result", data: result };
+    }
+    agentEvents.length = 0;
+    const allAgentResults = uniqueAgentResults([...preSaveAgentResults, ...emittedAgentResults]);
+    const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults);
+    if (saved) {
+      const patched = await patchSavedMessageAgentExtra({
+        storage: deps.storage,
+        saved: latestSaved,
+        results: allAgentResults,
+        contextInjections: runtime?.preInjections ?? null,
+        spriteExpressions,
+      });
+      if (patched) {
+        latestSaved = patched;
+        yield { type: savedGenerationEventType(input), data: savedGenerationEventData(patched) };
+      }
+    }
+
+    const hasIllustrationRequest = emittedAgentResults.some((result) => illustratorPromptData(result) !== null);
+    if (saved && hasIllustrationRequest) {
+      yield { type: "phase", data: "Generating illustration..." };
+      const illustration = await generateIllustrationAttachments({
+        deps,
+        chat,
+        results: emittedAgentResults,
+        signal,
+      });
+      throwIfAborted(signal);
+      for (const event of illustration.events) yield event;
+      const patched = await appendSavedMessageAttachments({
+        storage: deps.storage,
+        saved: latestSaved,
+        attachments: illustration.attachments,
+      });
+      if (patched) {
+        latestSaved = patched;
+        yield { type: savedGenerationEventType(input), data: savedGenerationEventData(patched) };
+      }
+    }
+    throwIfAborted(signal);
+    if (saved && input.impersonate !== true) {
+      await persistTrackerSnapshotSafely(deps.storage, chatId, latestSaved, allAgentResults, generationTrackerBaseline);
+    }
     throwIfAborted(signal);
     await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
     throwIfAborted(signal);
-    await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
+    await persistAgentResults(deps.storage, chatId, messageId(latestSaved), allAgentResults);
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
       const autoLorebookResults = await runLorebookKeeperBackfill(
@@ -1790,8 +2468,12 @@ export async function* startGeneration(
   });
   const toolRuntimeInputDirect: ToolRuntimeInput = {
     chat: chatForGeneration,
+    storedMessages: generationMessages,
     activatedLorebookEntries: assembly.activatedLorebookEntries,
+    characters: assembly.characters,
+    persona: assembly.persona,
     chatSummary: assembly.chatSummary,
+    hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
   };
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,
@@ -1844,6 +2526,10 @@ export async function* startGeneration(
         usage,
         promptSnapshot: promptSnapshotDirect,
       });
+  if (saved) {
+    await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+  }
+  throwIfAborted(signal);
   if (saved && input.impersonate !== true) {
     await mirrorSavedAssistantMessageToDiscord({
       deps,
@@ -1854,7 +2540,7 @@ export async function* startGeneration(
       characters: assembly.characters,
     });
   }
-  if (saved) yield { type: savedGenerationEventType(input), data: saved };
+  if (saved) yield { type: savedGenerationEventType(input), data: savedGenerationEventData(saved) };
   throwIfAborted(signal);
   if (saved && input.impersonate !== true) {
     const autoLorebookResults = await runLorebookKeeperBackfill(
@@ -1905,6 +2591,10 @@ function runtimeLlmParameters(
  * from broken models that always emit a tool call.
  */
 const MAX_MAIN_TOOL_ITERATIONS = 8;
+
+function llmChunkText(chunk: { text?: unknown; data?: unknown }): string {
+  return typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+}
 
 /**
  * Multi-turn main-character streaming loop.
@@ -1976,10 +2666,11 @@ async function* streamMainGenerationLoop(args: {
 
     const requestMessages = fitMessagesToContextWindow(conversation, parameters);
     const requestParameters = runtimeLlmParameters(connection, input, chat, parameters);
+    const visibleRequestParameters = providerVisibleLlmParameters(connection, requestParameters, { stream: true });
     const requestTools = mainTools?.toolDefs;
     promptSnapshot = {
       messages: requestMessages.map(clonePromptMessage),
-      parameters: cloneSerializableValue(requestParameters),
+      parameters: cloneSerializableValue(visibleRequestParameters),
       promptPresetId: promptPresetId ?? null,
       ...(requestTools?.length ? { tools: cloneSerializableValue(requestTools) } : {}),
     };
@@ -1995,11 +2686,15 @@ async function* streamMainGenerationLoop(args: {
       signal,
     )) {
       throwIfAborted(signal);
-      if (chunk.type === "token" && chunk.text) {
-        yield* emitInlineParts(chunk.text);
-      } else if (chunk.type === "thinking" && chunk.text) {
-        thinking += chunk.text;
-        yield { type: "thinking", data: chunk.text };
+      if (chunk.type === "token") {
+        const text = llmChunkText(chunk);
+        if (text) yield* emitInlineParts(text);
+      } else if (chunk.type === "thinking") {
+        const text = llmChunkText(chunk);
+        if (text) {
+          thinking += text;
+          yield { type: "thinking", data: text };
+        }
       } else if (chunk.type === "tool_call") {
         const normalized = normalizeToolCall(chunk.data);
         if (normalized) pendingToolCalls.push(normalized);

@@ -18,17 +18,29 @@ export const exportApi = {
   promptsBulk: (ids: string[]): Promise<DownloadPayload> =>
     exportDownload("prompts_export_bulk", { ids }, "marinara-presets.zip"),
   character: (id: string, format?: ExportFormat): Promise<DownloadPayload> =>
-    exportDownload("character_export", { id, format: format ?? null }, format === "compatible" ? "character.json" : "character.marinara.json"),
+    exportDownload(
+      "character_export",
+      { id, format: format ?? null },
+      format === "compatible" ? "character.json" : "character.marinara.json",
+    ),
   characterPng: (id: string): Promise<DownloadPayload> =>
     exportDownload("character_export_png", { id }, "character.png"),
   charactersBulk: (ids: string[], format?: ExportFormat): Promise<DownloadPayload> =>
     exportDownload("characters_export_bulk", { ids, format: format ?? null }, "marinara-characters.zip"),
   persona: (id: string, format?: ExportFormat): Promise<DownloadPayload> =>
-    exportDownload("persona_export", { id, format: format ?? null }, format === "compatible" ? "persona.json" : "persona.marinara.json"),
+    exportDownload(
+      "persona_export",
+      { id, format: format ?? null },
+      format === "compatible" ? "persona.json" : "persona.marinara.json",
+    ),
   personasBulk: (ids: string[], format?: ExportFormat): Promise<DownloadPayload> =>
     exportDownload("personas_export_bulk", { ids, format: format ?? null }, "marinara-personas.zip"),
   lorebook: (id: string, format?: ExportFormat): Promise<DownloadPayload> =>
-    exportDownload("lorebook_export", { id, format: format ?? null }, format === "compatible" ? "lorebook.json" : "lorebook.marinara.json"),
+    exportDownload(
+      "lorebook_export",
+      { id, format: format ?? null },
+      format === "compatible" ? "lorebook.json" : "lorebook.marinara.json",
+    ),
   lorebooksBulk: (ids: string[], format?: ExportFormat): Promise<DownloadPayload> =>
     exportDownload("lorebooks_export_bulk", { ids, format: format ?? null }, "marinara-lorebooks.zip"),
   download,

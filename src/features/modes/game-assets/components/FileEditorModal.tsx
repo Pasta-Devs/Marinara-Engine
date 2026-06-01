@@ -32,11 +32,7 @@ export interface FileEditorModalProps {
  *
  * @param props - See {@link FileEditorModalProps}
  */
-export function FileEditorModal({
-  node,
-  onClose,
-  initialMode = "edit",
-}: FileEditorModalProps) {
+export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEditorModalProps) {
   const { data, isLoading } = useGameAssetFileContent(node.path);
   const saveFile = useSaveGameAssetFile();
   const [content, setContent] = useState("");
@@ -57,10 +53,7 @@ export function FileEditorModal({
   }, [data]);
 
   const lines = useMemo(() => content.split("\n").length, [content]);
-  const lineNumbers = useMemo(
-    () => Array.from({ length: Math.max(lines, 1) }, (_, i) => i + 1).join("\n"),
-    [lines],
-  );
+  const lineNumbers = useMemo(() => Array.from({ length: Math.max(lines, 1) }, (_, i) => i + 1).join("\n"), [lines]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLTextAreaElement>) => {
     if (lineNumbersRef.current) {
@@ -210,9 +203,7 @@ export function FileEditorModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--border)]/40 px-4 py-3">
-          <span className="text-xs text-[var(--muted-foreground)]">
-            {content.length.toLocaleString()} chars
-          </span>
+          <span className="text-xs text-[var(--muted-foreground)]">{content.length.toLocaleString()} chars</span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleRequestClose}

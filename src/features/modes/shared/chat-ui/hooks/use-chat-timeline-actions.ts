@@ -15,6 +15,7 @@ import { useGameStateStore, worldStateApi, type WorldStateTarget } from "../../.
 import { BUILT_IN_AGENTS } from "../../../../../engine/contracts/types/agent";
 import { buildGuidedGenerationInstructionMessage } from "../../../../../engine/shared/text/generation-guide";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { formatTextQuotes } from "../../../../../shared/lib/dialogue-quotes";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
@@ -100,6 +101,7 @@ export function useChatTimelineActions({
   refreshWorldStateOnTimelineChange = false,
 }: UseChatTimelineActionsOptions) {
   const guideGenerations = useUIStore((state) => state.guideGenerations);
+  const quoteFormat = useUIStore((state) => state.quoteFormat);
   const isStreamingGlobal = useChatStore((state) => state.isStreaming);
   const streamingChatId = useChatStore((state) => state.streamingChatId);
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
@@ -481,8 +483,9 @@ export function useChatTimelineActions({
 
   const handleEdit = useCallback(
     (messageId: string, content: string) => {
+      const formattedContent = formatTextQuotes(content, quoteFormat);
       updateMessageRef.current.mutate(
-        { messageId, content },
+        { messageId, content: formattedContent },
         {
           onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Could not save edit.");
@@ -491,7 +494,7 @@ export function useChatTimelineActions({
       );
       return Promise.resolve();
     },
-    [updateMessageRef],
+    [quoteFormat, updateMessageRef],
   );
 
   const handleToggleConversationStart = useCallback(

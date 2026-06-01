@@ -30,7 +30,9 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 function entryEmbedding(entry: LorebookEntry): number[] | null {
   if (!Array.isArray(entry.embedding) || entry.embedding.length === 0) return null;
-  const embedding = entry.embedding.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const embedding = entry.embedding.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
   return embedding.length > 0 ? embedding : null;
 }
 

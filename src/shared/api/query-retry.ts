@@ -9,11 +9,7 @@ interface ApiQueryRetryDelayOptions {
   maxDelayMs?: number;
 }
 
-export function shouldRetryApiQuery(
-  failureCount: number,
-  error: unknown,
-  options: ApiQueryRetryOptions = {},
-): boolean {
+export function shouldRetryApiQuery(failureCount: number, error: unknown, options: ApiQueryRetryOptions = {}): boolean {
   const maxRetries = options.maxRetries ?? 1;
   const status = error instanceof ApiError ? error.status : 0;
 

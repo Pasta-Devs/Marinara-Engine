@@ -34,8 +34,9 @@ export function useTranslate() {
       if (translations[messageId]) {
         removeTranslation(messageId);
         if (chatId) {
-          patchMessageExtra(messageId, { translation: null })
-            .catch((error) => console.warn("[translation] Failed to clear persisted translation", error));
+          patchMessageExtra(messageId, { translation: null }).catch((error) =>
+            console.warn("[translation] Failed to clear persisted translation", error),
+          );
         }
         return;
       }
@@ -51,8 +52,9 @@ export function useTranslate() {
         });
         setTranslation(messageId, result.translatedText);
         if (chatId) {
-          await patchMessageExtra(messageId, { translation: result.translatedText })
-            .catch((error) => console.warn("[translation] Failed to persist translation", error));
+          await patchMessageExtra(messageId, { translation: result.translatedText }).catch((error) =>
+            console.warn("[translation] Failed to persist translation", error),
+          );
         }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to translate message");

@@ -49,18 +49,9 @@ export function CompactCharacterField({
   const toneClasses = COMPACT_CHARACTER_FIELD_TONE_CLASSES[tone];
 
   return (
-    <div
-      className={cn(
-        "tracker-compact-character-field",
-        readable && "items-start pb-px pt-0.5",
-        className,
-      )}
-    >
+    <div className={cn("tracker-compact-character-field", readable && "items-start pb-px pt-0.5", className)}>
       <span
-        className={cn(
-          "tracker-compact-character-field__icon",
-          toneClasses.icon,
-        )}
+        className={cn("tracker-compact-character-field__icon", toneClasses.icon)}
         aria-label={accessibleLabel}
         title={accessibleLabel}
       >

@@ -6,7 +6,7 @@ import type { SelectiveLogic } from "../../contracts/types/lorebook.js";
 import { isPatternSafe } from "./regex-safety.js";
 
 /** Pluggable executor for compiled regex test calls. Runtime-specific callers can add extra guards. */
-export type RegexExecutor = (regex: RegExp, text: string) => boolean;
+type RegexExecutor = (regex: RegExp, text: string) => boolean;
 
 const defaultRegexExecutor: RegexExecutor = (regex, text) => regex.test(text);
 
@@ -27,7 +27,7 @@ function literalMatch(keyword: string, text: string, options: KeywordMatchOption
 }
 
 /** Test whether a single keyword would match the given text under the given options. */
-export function testKeyword(keyword: string, text: string, options: KeywordMatchOptions): boolean {
+function testKeyword(keyword: string, text: string, options: KeywordMatchOptions): boolean {
   if (!keyword) return false;
 
   try {

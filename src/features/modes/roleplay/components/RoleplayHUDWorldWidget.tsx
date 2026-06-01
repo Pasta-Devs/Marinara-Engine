@@ -210,13 +210,7 @@ export function CombinedWorldWidget({
         )}
       </button>
 
-      <WidgetPopover
-        open={open}
-        onClose={close}
-        anchorRef={buttonRef}
-        placement={placement}
-        className="w-64"
-      >
+      <WidgetPopover open={open} onClose={close} anchorRef={buttonRef} placement={placement} className="w-64">
         <Suspense fallback={<DeferredHUDPanelFallback label="Loading world state…" />}>
           <CombinedWorldPanel
             location={location}

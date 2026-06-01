@@ -68,7 +68,10 @@ export function ChoiceSelectionModal({
   // Parse saved default choices from preset
   const defaultChoices = useMemo<Record<string, string | string[]>>(() => {
     if (!data?.preset) return {};
-    return ((data.preset as any).defaultChoices ?? (data.preset as any).default_choices ?? {}) as Record<string, string | string[]>;
+    return ((data.preset as any).defaultChoices ?? (data.preset as any).default_choices ?? {}) as Record<
+      string,
+      string | string[]
+    >;
   }, [data?.preset]);
 
   // Base selections derived from existing choices / defaults / first option.

@@ -27,7 +27,11 @@ import { resolveMessageMacros } from "../../../../shared/lib/chat-macros";
 import { useTranslate } from "../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "../../shared/chat-ui/types";
-import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "../../shared/chat-ui/index";
+import {
+  GenerationReplayDetailsModal,
+  hasGenerationReplayDetails,
+  readStoredThinking,
+} from "../../shared/chat-ui/index";
 import { ImagePromptPanel } from "../../shared/chat-ui/index";
 import { SwipeJumpControl } from "../../shared/chat-ui/index";
 
@@ -63,8 +67,7 @@ function HiddenFromAIConversationButton({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const className =
-    "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80";
+  const className = "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80";
   if (!canCollapse) {
     return (
       <span className={className} title="Hidden from AI">
@@ -567,7 +570,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     prevContentRef.current = renderedContent;
   }, [renderedContent, segmentCount]);
 
-  const thinking = extra?.thinking;
+  const thinking = readStoredThinking(extra);
   const swipeCount = message.swipeCount ?? 0;
   const hasSwipes = swipeCount > 1;
 
@@ -629,8 +632,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       const target = event.target as HTMLElement | null;
       if (target?.closest(MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR)) return;
 
-      const isCoarsePointer =
-        typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+      const isCoarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
       if (isCoarsePointer) {
         const now = Date.now();
         const isDoubleTap = now - lastMessageTapAtRef.current <= 350;
@@ -640,14 +642,7 @@ export const ConversationMessage = memo(function ConversationMessage({
 
       setShowActions((v) => !v);
     },
-    [
-      isSelected,
-      message.id,
-      messageOrderIndex,
-      multiSelectMode,
-      onToggleSelect,
-      startEditingFromMessageGesture,
-    ],
+    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, startEditingFromMessageGesture],
   );
 
   useEffect(() => {
@@ -743,6 +738,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           isStreaming && "bg-[var(--secondary)]/20",
           multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
         )}
+        data-card-css={message.characterId ?? undefined}
         onClick={handleMessageClick}
         onDoubleClick={handleMessageDoubleClick}
       >
@@ -884,39 +880,42 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Image attachments (selfies, illustrations) */}
-        {!isHiddenCollapsed && extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
-          <div className="ml-14 mt-1.5 flex flex-col items-start gap-2">
-            {extra.attachments.map((att: any, i: number) =>
-              att.type === "image" || att.type?.startsWith("image/") ? (
-                <div key={i} className="group/att relative inline-block">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
-                    }}
-                    className="block cursor-zoom-in rounded-lg text-left"
-                    title="Open image"
-                  >
-                    <img
-                      src={att.url || att.data}
-                      alt={att.filename || att.name || "image"}
-                      className="max-h-80 max-w-full rounded-lg"
-                      loading="lazy"
-                    />
-                  </button>
-                  <button
-                    onClick={() => handleRemoveAttachment(i)}
-                    title="Remove from message"
-                    className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
-                  >
-                    <X size="0.875rem" />
-                  </button>
-                </div>
-              ) : null,
-            )}
-          </div>
-        )}
+        {!isHiddenCollapsed &&
+          extra.attachments &&
+          extra.attachments.length > 0 &&
+          !IMAGE_URL_RE.test(renderedContent.trim()) && (
+            <div className="ml-14 mt-1.5 flex flex-col items-start gap-2">
+              {extra.attachments.map((att: any, i: number) =>
+                att.type === "image" || att.type?.startsWith("image/") ? (
+                  <div key={i} className="group/att relative inline-block">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
+                      }}
+                      className="block cursor-zoom-in rounded-lg text-left"
+                      title="Open image"
+                    >
+                      <img
+                        src={att.url || att.data}
+                        alt={att.filename || att.name || "image"}
+                        className="max-h-80 max-w-full rounded-lg"
+                        loading="lazy"
+                      />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveAttachment(i)}
+                      title="Remove from message"
+                      className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
+                    >
+                      <X size="0.875rem" />
+                    </button>
+                  </div>
+                ) : null,
+              )}
+            </div>
+          )}
 
         {!hideActions && hasSwipes && (
           <SwipeJumpControl
@@ -1036,6 +1035,7 @@ export const ConversationMessage = memo(function ConversationMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-card-css={message.characterId ?? undefined}
       onClick={handleMessageClick}
       onDoubleClick={handleMessageDoubleClick}
     >
@@ -1188,39 +1188,42 @@ export const ConversationMessage = memo(function ConversationMessage({
         )}
 
         {/* Image attachments (selfies, illustrations) — skip when content is already an image URL */}
-        {!isHiddenCollapsed && extra.attachments && extra.attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
-          <div className="mt-1.5 flex flex-col items-center gap-2">
-            {extra.attachments.map((att: any, i: number) =>
-              att.type === "image" || att.type?.startsWith("image/") ? (
-                <div key={i} className="group/att relative inline-block">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
-                    }}
-                    className="block cursor-zoom-in rounded-lg text-left"
-                    title="Open image"
-                  >
-                    <img
-                      src={att.url || att.data}
-                      alt={att.filename || att.name || "image"}
-                      className="max-h-80 max-w-full rounded-lg"
-                      loading="lazy"
-                    />
-                  </button>
-                  <button
-                    onClick={() => handleRemoveAttachment(i)}
-                    title="Remove from message"
-                    className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
-                  >
-                    <X size="0.875rem" />
-                  </button>
-                </div>
-              ) : null,
-            )}
-          </div>
-        )}
+        {!isHiddenCollapsed &&
+          extra.attachments &&
+          extra.attachments.length > 0 &&
+          !IMAGE_URL_RE.test(renderedContent.trim()) && (
+            <div className="mt-1.5 flex flex-col items-center gap-2">
+              {extra.attachments.map((att: any, i: number) =>
+                att.type === "image" || att.type?.startsWith("image/") ? (
+                  <div key={i} className="group/att relative inline-block">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageLightbox({ url: att.url || att.data, prompt: att.prompt });
+                      }}
+                      className="block cursor-zoom-in rounded-lg text-left"
+                      title="Open image"
+                    >
+                      <img
+                        src={att.url || att.data}
+                        alt={att.filename || att.name || "image"}
+                        className="max-h-80 max-w-full rounded-lg"
+                        loading="lazy"
+                      />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveAttachment(i)}
+                      title="Remove from message"
+                      className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white/80 transition-opacity hover:bg-black/80 hover:text-white sm:opacity-0 sm:group-hover/att:opacity-100"
+                    >
+                      <X size="0.875rem" />
+                    </button>
+                  </div>
+                ) : null,
+              )}
+            </div>
+          )}
 
         {!hideActions && hasSwipes && (
           <SwipeJumpControl
@@ -1319,9 +1322,9 @@ export const ConversationMessage = memo(function ConversationMessage({
                 </pre>
               </div>
             </div>
-            </div>,
-            document.body,
-          )}
+          </div>,
+          document.body,
+        )}
       {generationReplay && (
         <GenerationReplayDetailsModal
           open={showGenerationReplay}

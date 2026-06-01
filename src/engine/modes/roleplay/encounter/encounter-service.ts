@@ -5,7 +5,27 @@ import { parseGameJsonish } from "../../../shared/parsing-jsonish";
 import { readString as stringValue } from "../../../shared/value-readers";
 import type { RPGStatsConfig } from "../../../contracts/types/character";
 import type { Chat, Message } from "../../../contracts/types/chat";
-import type { CombatActionResult, CombatAttack, CombatEnemy, CombatEnemyAction, CombatInitState, CombatItemEffect, CombatPartyAction, CombatPartyMember, CombatPlayerActions, CombatStatus, CombatStyleNotes, EncounterActionRequest, EncounterActionResponse, EncounterInitRequest, EncounterInitResponse, EncounterLogEntry, EncounterSummaryRequest, EncounterSummaryResponse, NarrativeStyle } from "../../../contracts/types/combat-encounter";
+import type {
+  CombatActionResult,
+  CombatAttack,
+  CombatEnemy,
+  CombatEnemyAction,
+  CombatInitState,
+  CombatItemEffect,
+  CombatPartyAction,
+  CombatPartyMember,
+  CombatPlayerActions,
+  CombatStatus,
+  CombatStyleNotes,
+  EncounterActionRequest,
+  EncounterActionResponse,
+  EncounterInitRequest,
+  EncounterInitResponse,
+  EncounterLogEntry,
+  EncounterSummaryRequest,
+  EncounterSummaryResponse,
+  NarrativeStyle,
+} from "../../../contracts/types/combat-encounter";
 import type { PersonaStatsConfig } from "../../../contracts/types/persona";
 
 type JsonRecord = Record<string, unknown>;
@@ -76,6 +96,15 @@ export async function resolveRoleplayEncounterAction(
     temperature: 0.8,
     maxTokens: ACTION_OUTPUT_TOKENS,
   });
+  // completeJsonObject returns null only when the model output was unparseable
+  // or the LLM call failed. In that case there is no real turn: synthesizing a
+  // deterministic fallback would silently advance combat (and can reach
+  // victory + summary writeback). Surface a recoverable invalid signal instead
+  // and leave combat state untouched. A present-but-partial response is still a
+  // real turn and continues through sanitizeCombatActionResult below.
+  if (parsed === null) {
+    return { result: fallback, invalid: true };
+  }
   const rawResult = recordValue(parsed?.result) ?? parsed;
   const result = sanitizeCombatActionResult(rawResult, input, fallback);
 
@@ -392,7 +421,10 @@ function buildSummaryPrompt(
     `Write in ${styleInstruction(narrative)}. Include NPC or enemy dialogue only if it appears in the combat log.`,
     `Express ${context.personaName}'s actions using indirect speech. Return only the summary text.`,
   ].join("\n\n");
-  return [{ role: "system", content: system }, { role: "user", content: user }];
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
 }
 
 async function completeJsonObject(
@@ -533,7 +565,10 @@ function fallbackActionResult(input: EncounterActionRequest): CombatActionResult
 
   const action = input.action.trim() || "Attack";
   const lower = action.toLowerCase();
-  const playerIndex = Math.max(0, party.findIndex((member) => member.isPlayer));
+  const playerIndex = Math.max(
+    0,
+    party.findIndex((member) => member.isPlayer),
+  );
   const player = party[playerIndex]!;
   const playerName = player.name || "Player";
   if (/\b(flee|run away|retreat|escape)\b/i.test(action)) {
@@ -634,7 +669,10 @@ function sanitizeCombatActionResult(
   const currentEnemies = sanitizeEnemyArray(input.combatStats.enemies, []);
   const party = sanitizePartyArray(arrayValue(combatStats?.party), currentParty);
   const enemies = sanitizeEnemyArray(arrayValue(combatStats?.enemies), currentEnemies);
-  const playerActions = sanitizePlayerActions(recordValue(source.playerActions), input.playerActions ?? playerActionsFromParty(party));
+  const playerActions = sanitizePlayerActions(
+    recordValue(source.playerActions),
+    input.playerActions ?? playerActionsFromParty(party),
+  );
   const result = stringValue(source.result);
 
   return {
@@ -666,9 +704,9 @@ function sanitizePartyMember(value: JsonRecord | null, fallback?: CombatPartyMem
     hp: clamp(numberValue(value?.hp, fallback?.hp ?? maxHp), 0, maxHp),
     maxHp,
     attacks: sanitizeAttacks(arrayValue(value?.attacks), fallback?.attacks ?? []),
-    items: stringArray(value?.items).length ? stringArray(value?.items) : fallback?.items ?? [],
+    items: stringArray(value?.items).length ? stringArray(value?.items) : (fallback?.items ?? []),
     statuses: sanitizeStatuses(arrayValue(value?.statuses), fallback?.statuses ?? []),
-    isPlayer: typeof value?.isPlayer === "boolean" ? value.isPlayer : fallback?.isPlayer ?? false,
+    isPlayer: typeof value?.isPlayer === "boolean" ? value.isPlayer : (fallback?.isPlayer ?? false),
   };
 }
 
@@ -956,7 +994,9 @@ function arrayValue(value: unknown): unknown[] | null {
 }
 
 function stringArray(value: unknown): string[] {
-  return parseJsonArray<unknown>(value).filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return parseJsonArray<unknown>(value).filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
 }
 
 function numberValue(value: unknown, fallback: number): number {

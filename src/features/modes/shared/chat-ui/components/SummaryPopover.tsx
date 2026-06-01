@@ -4,7 +4,11 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useBulkSetMessagesHiddenFromAI, useGenerateSummary, useUpdateChatMetadata } from "../../../../catalog/chats/index";
+import {
+  useBulkSetMessagesHiddenFromAI,
+  useGenerateSummary,
+  useUpdateChatMetadata,
+} from "../../../../catalog/chats/index";
 import { Check, Info, Loader2, Save, ScrollText, Settings2, Sparkles, X } from "lucide-react";
 import { cn } from "../../../../../shared/lib/utils";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
@@ -112,7 +116,12 @@ export function SummaryPopover({
     const fallbackEnd = Math.max(1, totalMessageCount);
     setRangeStart(String(summaryPopoverSettings.rangeStart ?? 1));
     setRangeEnd(String(summaryPopoverSettings.rangeEnd ?? fallbackEnd));
-  }, [summaryPopoverSettings.rangeEnd, summaryPopoverSettings.rangeStart, summaryPopoverSettings.sourceMode, totalMessageCount]);
+  }, [
+    summaryPopoverSettings.rangeEnd,
+    summaryPopoverSettings.rangeStart,
+    summaryPopoverSettings.sourceMode,
+    totalMessageCount,
+  ]);
 
   useEffect(() => {
     if (editing) {

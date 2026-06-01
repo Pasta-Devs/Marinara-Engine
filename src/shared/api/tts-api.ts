@@ -88,10 +88,14 @@ export const ttsApi = {
     if (!isTtsSpeakResponse(response)) {
       throw new Error(ttsFailureMessage(response));
     }
-    const audio = optionalString(response.audioBase64) ?? optionalString(response.base64) ?? optionalString(response.audio);
+    const audio =
+      optionalString(response.audioBase64) ?? optionalString(response.base64) ?? optionalString(response.audio);
     if (!audio) {
       throw new Error(ttsFailureMessage(response));
     }
-    return base64ToBlob(audio, optionalString(response.contentType) ?? optionalString(response.mimeType) ?? "audio/mpeg");
+    return base64ToBlob(
+      audio,
+      optionalString(response.contentType) ?? optionalString(response.mimeType) ?? "audio/mpeg",
+    );
   },
 };

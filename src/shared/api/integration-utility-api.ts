@@ -64,8 +64,7 @@ export const spotifyApi = {
     invokeTauri<T>("spotify_devices", { body: body ?? null }),
   playlists: <T = unknown>(input?: { agentId?: string | null; limit?: number }) =>
     invokeTauri<T>("spotify_playlists", { agentId: input?.agentId ?? null, limit: input?.limit ?? null }),
-  playlistTracks: <T = unknown>(input: Record<string, unknown>) =>
-    invokeTauri<T>("spotify_playlist_tracks", { input }),
+  playlistTracks: <T = unknown>(input: Record<string, unknown>) => invokeTauri<T>("spotify_playlist_tracks", { input }),
   play: (body: Record<string, unknown>) => invokeTauri("spotify_player_play", { body }),
   pause: (body: Record<string, unknown>) => invokeTauri("spotify_player_pause", { body }),
   next: (body: Record<string, unknown>) => invokeTauri("spotify_player_next", { body }),

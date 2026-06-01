@@ -1,4 +1,4 @@
-export const DEFAULT_GAME_AUDIO_SETTINGS = {
+const DEFAULT_GAME_AUDIO_SETTINGS = {
   masterVolume: 50,
   musicVolume: 60,
   sfxVolume: 80,

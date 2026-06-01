@@ -5,10 +5,6 @@ import { ChatSidebar, type ChatSidebarTab } from "./ChatSidebar";
 import { AppFindOverlay } from "./AppFindOverlay";
 import { TopBar } from "./TopBar";
 import { WindowTitleBar } from "./WindowTitleBar";
-import { SpotifyMobileWidget } from "../../features/shell/spotify/shell";
-import { ChatNotificationBubbles } from "../../features/shell/notifications/shell";
-import { AgentDebugPanel } from "../../features/catalog/agents/shell";
-import { ProfessorMariSurface } from "../../features/shell/mari/shell";
 import {
   getTrackerPanelWidthForProfile,
   RIGHT_PANEL_WIDTH_MAX,
@@ -19,8 +15,9 @@ import {
 } from "../../shared/stores/ui.store";
 import type { TrackerPanelSizeProfile } from "../../shared/stores/ui.store";
 import { useChatStore } from "../../shared/stores/chat.store";
-import { useBackgroundAutonomousPolling } from "../../features/modes/conversation/index";
-import { useClearAutonomousUnread } from "../../features/catalog/chats/index";
+import { useAgentStore } from "../../shared/stores/agent.store";
+import { useBackgroundAutonomousPolling } from "../../features/modes/conversation/background-autonomous";
+import { useClearAutonomousUnread } from "../../features/catalog/chats/autonomous-unread";
 import { useIdleDetection } from "../../shared/hooks/use-idle-detection";
 import { ImagePromptReviewHost } from "../../shared/components/ui/ImagePromptReviewHost";
 import { cn } from "../../shared/lib/utils";
@@ -57,6 +54,22 @@ const TrackerDataSidebar = lazy(() =>
 const OnboardingTutorial = lazy(() =>
   import("../../features/shell/onboarding/shell").then((module) => ({ default: module.OnboardingTutorial })),
 );
+const ProfessorMariSurface = lazy(() =>
+  import("../../features/shell/mari/shell").then((module) => ({ default: module.ProfessorMariSurface })),
+);
+const ChatNotificationBubbles = lazy(() =>
+  import("../../features/shell/notifications/shell").then((module) => ({
+    default: module.ChatNotificationBubbles,
+  })),
+);
+const AgentDebugPanel = lazy(() =>
+  import("../../features/catalog/agents/debug-shell").then((module) => ({
+    default: module.AgentDebugPanel,
+  })),
+);
+const SpotifyMobileWidget = lazy(() =>
+  import("../../features/shell/spotify/shell").then((module) => ({ default: module.SpotifyMobileWidget })),
+);
 
 function clampWidth(width: number, min: number, max: number) {
   return Math.max(min, Math.min(max, width));
@@ -75,6 +88,7 @@ function getMobileTrackerPanelWidthForProfile(profile: TrackerPanelSizeProfile) 
 }
 
 const PANEL_RESIZE_STEP = 16;
+const NOTIFICATION_BUBBLES_EXIT_MS = 500;
 const PANEL_RESIZE_LARGE_STEP = 48;
 const RESIZER_HITBOX = 10;
 const TRACKER_PANEL_EDGE_OFFSET = 8;
@@ -168,17 +182,13 @@ function MountOnceWhenOpened({
         )}
         style={hideOverlayWhenClosed && !open ? { display: "none" } : undefined}
       >
-        <Suspense fallback={<MainPaneFallback />}>
-          {children}
-        </Suspense>
+        <Suspense fallback={<MainPaneFallback />}>{children}</Suspense>
       </motion.div>
     );
   }
   return (
     <div className={open ? "flex flex-1 flex-col overflow-hidden" : "hidden"}>
-      <Suspense fallback={<MainPaneFallback />}>
-        {children}
-      </Suspense>
+      <Suspense fallback={<MainPaneFallback />}>{children}</Suspense>
     </div>
   );
 }
@@ -201,6 +211,7 @@ export function AppShell() {
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
+  const setRightPanelResizing = useUIStore((s) => s.setRightPanelResizing);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
@@ -212,6 +223,11 @@ export function AppShell() {
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const [activeChatSidebarTab, setActiveChatSidebarTab] = useState<ChatSidebarTab>("conversation");
   const [professorMariOpen, setProfessorMariOpen] = useState(false);
+  const chatNotificationCount = useChatStore((s) => s.chatNotifications.size);
+  const [notificationBubblesMounted, setNotificationBubblesMounted] = useState(false);
+  const debugMode = useUIStore((s) => s.debugMode);
+  const hasAgentDebugActivity = useAgentStore((s) => debugMode && (s.debugLog.length > 0 || s.lastResults.size > 0));
+  const spotifyPlayerEnabled = useUIStore((s) => s.spotifyPlayerEnabled);
   const sidebarDragWidthRef = useRef<number | null>(null);
   const rightPanelDragWidthRef = useRef<number | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -219,6 +235,16 @@ export function AppShell() {
   const liveRightPanelWidth = rightPanelDragWidth ?? rightPanelWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const mobileTrackerPanelWidth = getMobileTrackerPanelWidthForProfile(trackerPanelSizeProfile);
+
+  useEffect(() => {
+    if (chatNotificationCount > 0) {
+      setNotificationBubblesMounted(true);
+      return;
+    }
+    if (!notificationBubblesMounted) return;
+    const timeoutId = window.setTimeout(() => setNotificationBubblesMounted(false), NOTIFICATION_BUBBLES_EXIT_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [chatNotificationCount, notificationBubblesMounted]);
 
   // Track mobile breakpoint for right-panel animation strategy
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -352,13 +378,7 @@ export function AppShell() {
         lastAutonomousUnreadClearRef.current = clearKey;
       },
     });
-  }, [
-    activeChat?.metadata,
-    activeChatId,
-    clearAutonomousUnread,
-    clearUnread,
-    isClearingAutonomousUnread,
-  ]);
+  }, [activeChat?.metadata, activeChatId, clearAutonomousUnread, clearUnread, isClearingAutonomousUnread]);
 
   const startSidebarResize = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -407,6 +427,7 @@ export function AppShell() {
       document.body.style.userSelect = "none";
       rightPanelDragWidthRef.current = rightPanelWidth;
       setRightPanelDragWidth(rightPanelWidth);
+      setRightPanelResizing(true);
 
       const onMove = (moveEvent: MouseEvent) => {
         const nextWidth = clampWidth(
@@ -424,6 +445,7 @@ export function AppShell() {
         setRightPanelWidth(rightPanelDragWidthRef.current ?? useUIStore.getState().rightPanelWidth);
         rightPanelDragWidthRef.current = null;
         setRightPanelDragWidth(null);
+        setRightPanelResizing(false);
         document.body.style.cursor = originalCursor;
         document.body.style.userSelect = originalUserSelect;
         window.removeEventListener("mousemove", onMove);
@@ -435,7 +457,7 @@ export function AppShell() {
       window.addEventListener("mouseup", finishResize);
       window.addEventListener("blur", finishResize);
     },
-    [isMobile, rightPanelWidth, setRightPanelWidth],
+    [isMobile, rightPanelWidth, setRightPanelWidth, setRightPanelResizing],
   );
 
   const adjustSidebarWidth = useCallback(
@@ -484,13 +506,15 @@ export function AppShell() {
     regexDetailId,
   });
 
-  const showAmbientDecor = !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !professorMariOpen;
+  const showAmbientDecor =
+    !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !professorMariOpen;
   const hasDetailView = detailView != null;
   useEffect(() => {
     if (hasDetailView) setProfessorMariOpen(false);
   }, [hasDetailView]);
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
-  const trackerPanelSurfaceAvailable = !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView && !professorMariOpen;
+  const trackerPanelSurfaceAvailable =
+    !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView && !professorMariOpen;
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable;
   useEffect(() => {
     if (trackerPanelVisible) {
@@ -673,6 +697,12 @@ export function AppShell() {
         ? "var(--tracker-panel-mobile-width)"
         : `${Math.round(trackerPanelWidth * 0.62)}px`
       : "0px";
+  const trackerPanelScrollAvoidance =
+    trackerPanelAnchoredForMotion && trackerPanelSurfaceAvailable
+      ? isMobile
+        ? "var(--tracker-panel-mobile-width)"
+        : `${trackerPanelWidth + TRACKER_PANEL_HUD_GAP}px`
+      : "0px";
   const trackerPanelHudClearance =
     trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
       ? isMobile
@@ -758,13 +788,19 @@ export function AppShell() {
 
   useEffect(() => {
     if (!hasCompletedOnboarding) return;
+    const sidebarPanel = sidebarPanelRef.current;
+    const mobileTrackerPanel = mobileTrackerPanelRef.current;
+    const mobileRightPanel = mobileRightPanelRef.current;
+    const header = headerRef.current;
+    const main = mainRef.current;
+
     syncMobilePanelInert();
     return () => {
-      setInert(sidebarPanelRef.current, false);
-      setInert(mobileTrackerPanelRef.current, false);
-      setInert(mobileRightPanelRef.current, false);
-      setInert(headerRef.current, false);
-      setInert(mainRef.current, false);
+      setInert(sidebarPanel, false);
+      setInert(mobileTrackerPanel, false);
+      setInert(mobileRightPanel, false);
+      setInert(header, false);
+      setInert(main, false);
     };
   }, [hasCompletedOnboarding, syncMobilePanelInert]);
 
@@ -938,217 +974,238 @@ export function AppShell() {
       </header>
 
       <div data-component="AppShellBody" className="relative flex min-h-0 flex-1 overflow-hidden">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Left sidebar - Chat list */}
-      <aside
-        ref={sidebarPanelRef}
-        data-tour="sidebar"
-        data-component="ChatSidebarPanel"
-        aria-label="Chat list"
-        aria-hidden={isMobile && !sidebarOpen ? true : undefined}
-        aria-modal={activeMobilePanel === "sidebar" ? true : undefined}
-        role={activeMobilePanel === "sidebar" ? "dialog" : undefined}
-        tabIndex={activeMobilePanel === "sidebar" ? -1 : undefined}
-        className={cn(
-          "mari-sidebar flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl",
-          sidebarDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          // Mobile: fixed overlay
-          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-2xl max-md:pt-[env(safe-area-inset-top)]",
-          !sidebarOpen && "max-md:w-0!",
+        {/* Mobile sidebar backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
-        style={{ width: sidebarOpen ? (isMobile ? "100vw" : liveSidebarWidth) : 0 }}
-      >
-        <div className="h-full" style={{ width: isMobile ? "100vw" : liveSidebarWidth }}>
-          <ChatSidebar activeTab={activeChatSidebarTab} onActiveTabChange={setActiveChatSidebarTab} />
-        </div>
-      </aside>
-      {!isMobile && sidebarOpen && (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 z-30 hidden w-px bg-[var(--sidebar-border)]/30 md:block"
-            style={{ left: liveSidebarWidth }}
-          />
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize left sidebar"
-            aria-valuemin={SIDEBAR_WIDTH_MIN}
-            aria-valuemax={SIDEBAR_WIDTH_MAX}
-            aria-valuenow={Math.round(liveSidebarWidth)}
-            tabIndex={0}
-            onMouseDown={startSidebarResize}
-            onKeyDown={adjustSidebarWidth}
-            className="absolute inset-y-0 z-20 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
-            style={{ left: liveSidebarWidth }}
-          />
-        </>
-      )}
 
-      <AnimatePresence initial={false}>{!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("left")}</AnimatePresence>
-
-      {/* Center content */}
-      <main
-        ref={mainRef}
-        data-tour="chat-area"
-        data-component="CenterContent"
-        aria-label="Main content"
-        aria-hidden={activeMobileOverlayPanel ? true : undefined}
-        className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
-      >
-        <div className="relative flex flex-1 flex-col overflow-hidden">
-          {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
-          <MountOnceWhenOpened open={botBrowserOpen} overlay>
-            <BotBrowserView />
-          </MountOnceWhenOpened>
-          {/* Game Assets Browser — kept mounted once opened so state persists across close/reopen */}
-          <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
-            <GameAssetsBrowserView />
-          </MountOnceWhenOpened>
-          <MountOnceWhenOpened open={professorMariOpen} overlay hideOverlayWhenClosed>
-            <ProfessorMariSurface />
-          </MountOnceWhenOpened>
-          <div
-            className={
-              botBrowserOpen || gameAssetsBrowserOpen || professorMariOpen
-                ? "hidden"
-                : "flex flex-1 flex-col overflow-hidden"
-            }
-            style={
-              {
-                "--tracker-panel-mobile-width": mobileTrackerPanelWidth,
-                "--tracker-chat-avoid-left": trackerPanelSide === "left" ? trackerPanelChatAvoidance : "0px",
-                "--tracker-chat-avoid-right": trackerPanelSide === "right" ? trackerPanelChatAvoidance : "0px",
-                "--tracker-panel-hud-clear-left": trackerPanelSide === "left" ? trackerPanelHudClearance : "0px",
-                "--tracker-panel-hud-clear-right": trackerPanelSide === "right" ? trackerPanelHudClearance : "0px",
-              } as CSSProperties
-            }
-          >
-            <Suspense fallback={<MainPaneFallback />}>
-              {detailView ?? <ModeSurface />}
-            </Suspense>
-          </div>
-        </div>
-        {/* Floating avatar notification bubbles (right edge) */}
-        <ChatNotificationBubbles />
-      </main>
-
-      <AnimatePresence initial={false}>{!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("right")}</AnimatePresence>
-
-      {/* Mobile tracker panel */}
-      {isMobile && (
-        <AnimatePresence mode="wait">
-          {trackerPanelVisible && (
-            <motion.aside
-              ref={mobileTrackerPanelRef}
-              key="mobile-tracker"
-              initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              data-component="TrackerDataSidebarMobile"
-              aria-label="Tracker data panel"
-              role="complementary"
-              className={cn(
-                "mari-tracker-panel fixed! inset-y-0 z-30 overflow-hidden bg-[var(--background)]/65 pt-[env(safe-area-inset-top)] shadow-2xl backdrop-blur-xl",
-                trackerPanelSide === "left" ? "left-0" : "right-0",
-              )}
-              style={{ width: mobileTrackerPanelWidth }}
-            >
-              <Suspense fallback={<SidePanelFallback />}>
-                <TrackerDataSidebar fillHeight />
-              </Suspense>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      )}
-
-      {/* Mobile right panel backdrop */}
-      {rightPanelOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={() => closeRightPanel()} />
-      )}
-
-      {/* Right panel - Context / Settings */}
-      {isMobile ? (
-        <AnimatePresence mode="wait">
-          {rightPanelOpen && (
-            <motion.aside
-              ref={mobileRightPanelRef}
-              key="mobile"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              data-component="RightPanelMobile"
-              aria-label="Settings and tools panel"
-              aria-modal="true"
-              role="dialog"
-              tabIndex={-1}
-              className="mari-right-panel fixed! inset-y-0 right-0 z-50 w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
-            >
-              <Suspense fallback={<SidePanelFallback />}>
-                <RightPanel />
-              </Suspense>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-      ) : (
+        {/* Left sidebar - Chat list */}
         <aside
-          data-component="RightPanelDesktop"
-          aria-label="Settings and tools panel"
+          ref={sidebarPanelRef}
+          data-tour="sidebar"
+          data-component="ChatSidebarPanel"
+          aria-label="Chat list"
+          aria-hidden={isMobile && !sidebarOpen ? true : undefined}
+          aria-modal={activeMobilePanel === "sidebar" ? true : undefined}
+          role={activeMobilePanel === "sidebar" ? "dialog" : undefined}
+          tabIndex={activeMobilePanel === "sidebar" ? -1 : undefined}
           className={cn(
-            "mari-right-panel flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl",
-            rightPanelDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            "mari-sidebar flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl",
+            sidebarDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            // Mobile: fixed overlay
+            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-2xl max-md:pt-[env(safe-area-inset-top)]",
+            !sidebarOpen && "max-md:w-0!",
           )}
-          style={{ width: rightPanelOpen ? liveRightPanelWidth : 0 }}
+          style={{ width: sidebarOpen ? (isMobile ? "100vw" : liveSidebarWidth) : 0 }}
         >
-          {rightPanelOpen && (
-            <div className="h-full" style={{ width: liveRightPanelWidth }}>
-              <Suspense fallback={<SidePanelFallback />}>
-                <RightPanel />
-              </Suspense>
-            </div>
-          )}
+          <div className="h-full" style={{ width: isMobile ? "100vw" : liveSidebarWidth }}>
+            <ChatSidebar activeTab={activeChatSidebarTab} onActiveTabChange={setActiveChatSidebarTab} />
+          </div>
         </aside>
-      )}
-      {!isMobile && rightPanelOpen && (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 z-30 hidden w-px bg-[var(--sidebar-border)]/30 md:block"
-            style={{ right: liveRightPanelWidth }}
-          />
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize right sidebar"
-            aria-valuemin={RIGHT_PANEL_WIDTH_MIN}
-            aria-valuemax={RIGHT_PANEL_WIDTH_MAX}
-            aria-valuenow={Math.round(liveRightPanelWidth)}
-            tabIndex={0}
-            onMouseDown={startRightPanelResize}
-            onKeyDown={adjustRightPanelWidth}
-            className="absolute inset-y-0 z-20 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
-            style={{ right: liveRightPanelWidth }}
-          />
-        </>
-      )}
+        {!isMobile && sidebarOpen && (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 z-30 hidden w-px bg-[var(--sidebar-border)]/30 md:block"
+              style={{ left: liveSidebarWidth }}
+            />
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize left sidebar"
+              aria-valuemin={SIDEBAR_WIDTH_MIN}
+              aria-valuemax={SIDEBAR_WIDTH_MAX}
+              aria-valuenow={Math.round(liveSidebarWidth)}
+              tabIndex={0}
+              onMouseDown={startSidebarResize}
+              onKeyDown={adjustSidebarWidth}
+              className="absolute inset-y-0 z-20 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
+              style={{ left: liveSidebarWidth }}
+            />
+          </>
+        )}
 
-      {/* First-time onboarding tutorial */}
-      {!hasCompletedOnboarding && (
-        <Suspense fallback={null}>
-          <OnboardingTutorial onShellInertResync={syncMobilePanelInert} />
-        </Suspense>
-      )}
-      <AgentDebugPanel />
-      <SpotifyMobileWidget />
+        <AnimatePresence initial={false}>
+          {!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("left")}
+        </AnimatePresence>
+
+        {/* Center content */}
+        <main
+          ref={mainRef}
+          data-tour="chat-area"
+          data-component="CenterContent"
+          aria-label="Main content"
+          aria-hidden={activeMobileOverlayPanel ? true : undefined}
+          className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="relative flex flex-1 flex-col overflow-hidden">
+            {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
+            <MountOnceWhenOpened open={botBrowserOpen} overlay>
+              <BotBrowserView />
+            </MountOnceWhenOpened>
+            {/* Game Assets Browser — kept mounted once opened so state persists across close/reopen */}
+            <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
+              <GameAssetsBrowserView />
+            </MountOnceWhenOpened>
+            <MountOnceWhenOpened open={professorMariOpen} overlay hideOverlayWhenClosed>
+              <ProfessorMariSurface />
+            </MountOnceWhenOpened>
+            <div
+              className={
+                botBrowserOpen || gameAssetsBrowserOpen || professorMariOpen
+                  ? "hidden"
+                  : "flex flex-1 flex-col overflow-hidden"
+              }
+              style={
+                {
+                  "--tracker-panel-mobile-width": mobileTrackerPanelWidth,
+                  "--tracker-chat-avoid-left": trackerPanelSide === "left" ? trackerPanelChatAvoidance : "0px",
+                  "--tracker-chat-avoid-right": trackerPanelSide === "right" ? trackerPanelChatAvoidance : "0px",
+                  "--tracker-chat-scroll-avoid-left":
+                    trackerPanelSide === "left" ? trackerPanelScrollAvoidance : "0px",
+                  "--tracker-chat-scroll-avoid-right":
+                    trackerPanelSide === "right" ? trackerPanelScrollAvoidance : "0px",
+                  "--tracker-panel-hud-clear-left": trackerPanelSide === "left" ? trackerPanelHudClearance : "0px",
+                  "--tracker-panel-hud-clear-right": trackerPanelSide === "right" ? trackerPanelHudClearance : "0px",
+                } as CSSProperties
+              }
+            >
+              <Suspense fallback={<MainPaneFallback />}>{detailView ?? <ModeSurface />}</Suspense>
+            </div>
+          </div>
+          {/* Floating avatar notification bubbles (right edge) */}
+          {notificationBubblesMounted && (
+            <Suspense fallback={null}>
+              <ChatNotificationBubbles />
+            </Suspense>
+          )}
+        </main>
+
+        <AnimatePresence initial={false}>
+          {!isMobile && trackerPanelSurfaceAvailable && trackerPanelDesktop("right")}
+        </AnimatePresence>
+
+        {/* Mobile tracker panel */}
+        {isMobile && (
+          <AnimatePresence mode="wait">
+            {trackerPanelVisible && (
+              <motion.aside
+                ref={mobileTrackerPanelRef}
+                key="mobile-tracker"
+                initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                data-component="TrackerDataSidebarMobile"
+                aria-label="Tracker data panel"
+                role="complementary"
+                className={cn(
+                  "mari-tracker-panel fixed! inset-y-0 z-30 overflow-hidden bg-[var(--background)]/65 pt-[env(safe-area-inset-top)] shadow-2xl backdrop-blur-xl",
+                  trackerPanelSide === "left" ? "left-0" : "right-0",
+                )}
+                style={{ width: mobileTrackerPanelWidth }}
+              >
+                <Suspense fallback={<SidePanelFallback />}>
+                  <TrackerDataSidebar fillHeight />
+                </Suspense>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        )}
+
+        {/* Mobile right panel backdrop */}
+        {rightPanelOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => closeRightPanel()}
+          />
+        )}
+
+        {/* Right panel - Context / Settings */}
+        {isMobile ? (
+          <AnimatePresence mode="wait">
+            {rightPanelOpen && (
+              <motion.aside
+                ref={mobileRightPanelRef}
+                key="mobile"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 350 }}
+                data-component="RightPanelMobile"
+                aria-label="Settings and tools panel"
+                aria-modal="true"
+                role="dialog"
+                tabIndex={-1}
+                className="mari-right-panel fixed! inset-y-0 right-0 z-50 w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
+              >
+                <Suspense fallback={<SidePanelFallback />}>
+                  <RightPanel />
+                </Suspense>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        ) : (
+          <aside
+            data-component="RightPanelDesktop"
+            aria-label="Settings and tools panel"
+            className={cn(
+              "mari-right-panel flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl",
+              rightPanelDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            )}
+            style={{ width: rightPanelOpen ? liveRightPanelWidth : 0 }}
+          >
+            {rightPanelOpen && (
+              <div className="h-full" style={{ width: liveRightPanelWidth }}>
+                <Suspense fallback={<SidePanelFallback />}>
+                  <RightPanel />
+                </Suspense>
+              </div>
+            )}
+          </aside>
+        )}
+        {!isMobile && rightPanelOpen && (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 z-30 hidden w-px bg-[var(--sidebar-border)]/30 md:block"
+              style={{ right: liveRightPanelWidth }}
+            />
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize right sidebar"
+              aria-valuemin={RIGHT_PANEL_WIDTH_MIN}
+              aria-valuemax={RIGHT_PANEL_WIDTH_MAX}
+              aria-valuenow={Math.round(liveRightPanelWidth)}
+              tabIndex={0}
+              onMouseDown={startRightPanelResize}
+              onKeyDown={adjustRightPanelWidth}
+              className="absolute inset-y-0 z-20 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--primary)]/30 focus-visible:bg-[var(--primary)]/40 focus-visible:outline-none md:block"
+              style={{ right: liveRightPanelWidth }}
+            />
+          </>
+        )}
+
+        {/* First-time onboarding tutorial */}
+        {!hasCompletedOnboarding && (
+          <Suspense fallback={null}>
+            <OnboardingTutorial onShellInertResync={syncMobilePanelInert} />
+          </Suspense>
+        )}
+        {debugMode && hasAgentDebugActivity && (
+          <Suspense fallback={null}>
+            <AgentDebugPanel />
+          </Suspense>
+        )}
+        {spotifyPlayerEnabled && (
+          <Suspense fallback={null}>
+            <SpotifyMobileWidget />
+          </Suspense>
+        )}
       </div>
     </div>
   );

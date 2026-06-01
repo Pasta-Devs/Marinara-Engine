@@ -1,23 +1,10 @@
-import type { LorebookEntry, LorebookMatchingSource } from "../contracts/types/lorebook";
+import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import type { StorageGateway } from "../capabilities/storage";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
-import {
-  applyTokenBudgetWithSkipped,
-  injectAtDepth,
-  processActivatedEntries,
-  type BudgetSkippedActivatedEntry,
-} from "../generation-core/lorebooks/prompt-injector";
-import {
-  recursiveScan,
-  scanForActivatedEntries,
-  type ActivatedEntry,
-  type ScanMessage,
-  type ScanOptions,
-} from "../generation-core/lorebooks/keyword-scanner";
-import { resolveGameLorebookScopeExclusions } from "../generation-core/lorebooks/game-lorebook-scope";
-import { wrapContent } from "../generation-core/prompt/format-engine";
+import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
+import { wrapContent, wrapGroup } from "../generation-core/prompt/format-engine";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { stripConversationPromptTimestamps } from "../modes/chat/core/summaries/transcript-sanitize";
@@ -35,6 +22,7 @@ import type {
 } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { formatPerceptionHints, generatePerceptionHints } from "../modes/game/mechanics/perception.service";
+import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { activeCharacterIds } from "./active-characters";
 import {
@@ -43,7 +31,6 @@ import {
   type StoredGenerationParameters,
 } from "./generate-route-utils";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
-import { LIMITS } from "../contracts/constants/defaults";
 import {
   bySortOrder,
   boolish,
@@ -56,6 +43,11 @@ import {
   stringArray,
   type JsonRecord,
 } from "./runtime-records";
+import {
+  lorebookActivatedEntryForEvent,
+  scanActiveLorebooks,
+  type BudgetSkippedLorebookEntry,
+} from "./active-lorebook-scanner";
 
 export interface GenerationCharacterContext {
   id: string;
@@ -89,20 +81,6 @@ export interface GenerationPersonaContext {
   };
 }
 
-export interface BudgetSkippedLorebookEntry {
-  id: string;
-  name: string;
-  lorebookId: string;
-  lorebookName: string;
-  matchedKeys: string[];
-  estimatedTokens: number;
-  lorebookBudget: number;
-  lorebookUsedTokens: number;
-  chatBudget: number;
-  chatUsedTokens: number;
-  blockedBy: "lorebook" | "chat" | "both";
-}
-
 export interface PromptAssemblyResult {
   messages: ChatMLMessage[];
   previewMessages: ChatMLMessage[];
@@ -121,6 +99,7 @@ export interface PromptAssemblyResult {
     order: number;
     constant: boolean;
   }>;
+  lorebookTimingStates: Record<string, LorebookEntryTimingState> | null;
   budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   chatSummary: string | null;
   chatSummaryFingerprint: string | null;
@@ -142,6 +121,7 @@ type PromptSectionRecord = JsonRecord & {
   name?: unknown;
   identifier?: unknown;
   markerConfig?: unknown;
+  groupId?: unknown;
 };
 
 type PromptChoiceBlockRecord = JsonRecord & {
@@ -150,10 +130,29 @@ type PromptChoiceBlockRecord = JsonRecord & {
   randomPick?: unknown;
 };
 
+type PromptGroupRecord = JsonRecord & {
+  id?: unknown;
+  name?: unknown;
+  enabled?: unknown;
+};
+
+type PromptPresetBundle = {
+  preset: JsonRecord;
+  sections: PromptSectionRecord[];
+  groups: PromptGroupRecord[];
+  choiceBlocks: PromptChoiceBlockRecord[];
+};
+
+type PromptAssemblyEntry = ChatMLMessage & {
+  promptGroupId?: string | null;
+  promptGroupName?: string | null;
+};
+
 interface SelectedPromptPreset {
   id: string;
   preset: JsonRecord | null;
   sections: PromptSectionRecord[];
+  groups: PromptGroupRecord[];
   variables: Record<string, string>;
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat | null;
@@ -285,13 +284,13 @@ function isRpgStats(value: unknown): GenerationPersonaContext["rpgStats"] | unde
   return { enabled: value.enabled, attributes, hp };
 }
 
-async function loadCharacters(storage: StorageGateway, chat: JsonRecord): Promise<GenerationCharacterContext[]> {
+export async function loadCharacters(storage: StorageGateway, chat: JsonRecord): Promise<GenerationCharacterContext[]> {
   const ids = activeCharacterIds(chat);
   const rows = await Promise.all(ids.map((id) => storage.get<JsonRecord>("characters", id)));
   return rows.filter(isRecord).map(loadCharacterContext);
 }
 
-async function loadPersona(storage: StorageGateway, chat: JsonRecord): Promise<GenerationPersonaContext | null> {
+export async function loadPersona(storage: StorageGateway, chat: JsonRecord): Promise<GenerationPersonaContext | null> {
   const personaId = readString(chat.personaId).trim();
   if (personaId) {
     const row = await storage.get<JsonRecord>("personas", personaId);
@@ -482,7 +481,11 @@ function buildGamePerceptionHints(
   const skills = parseRecord(playerStats.skills);
   const personaWisdom = readPersonaAttribute(persona, ["wis", "wisdom"]);
   const wisdomScore = readNormalizedNumber(attributes, ["wis", "wisdom"], personaWisdom ?? 10);
-  const dangerLevel = readNormalizedNumber(state, ["dangerLevel"], readNormalizedNumber(meta, ["gameDangerLevel"], Number.NaN));
+  const dangerLevel = readNormalizedNumber(
+    state,
+    ["dangerLevel"],
+    readNormalizedNumber(meta, ["gameDangerLevel"], Number.NaN),
+  );
   const presentNpcNames = recordArray(state.presentCharacters)
     .map((character) => readString(character.name).trim())
     .filter(Boolean);
@@ -668,6 +671,11 @@ async function loadPromptChoiceBlocks(storage: StorageGateway, presetId: string)
   return blocks.filter(isRecord).sort(bySortOrder);
 }
 
+async function loadPromptGroups(storage: StorageGateway, presetId: string): Promise<PromptGroupRecord[]> {
+  const groups = await storage.list<PromptGroupRecord>("prompt-groups", { filters: { presetId } });
+  return groups.filter(isRecord).sort(bySortOrder);
+}
+
 async function loadPromptPresetRecord(storage: StorageGateway, presetId: string): Promise<JsonRecord | null> {
   const direct = await storage.get<JsonRecord>("prompts", presetId).catch(() => null);
   if (direct && isRecord(direct)) return direct;
@@ -675,32 +683,34 @@ async function loadPromptPresetRecord(storage: StorageGateway, presetId: string)
   return prompts.find((prompt) => readString(prompt.id).trim() === presetId) ?? null;
 }
 
-async function loadPromptPresetBundle(
-  storage: StorageGateway,
-  presetId: string,
-): Promise<{ preset: JsonRecord; sections: PromptSectionRecord[]; choiceBlocks: PromptChoiceBlockRecord[] } | null> {
+async function loadPromptPresetBundle(storage: StorageGateway, presetId: string): Promise<PromptPresetBundle | null> {
   const full = await storage.promptFull?.<JsonRecord>(presetId).catch(() => null);
   if (full && isRecord(full.preset)) {
     const sections = Array.isArray(full.sections)
       ? full.sections.filter(isRecord).sort(bySortOrder)
       : await loadPromptSections(storage, presetId);
+    const groups = Array.isArray(full.groups)
+      ? full.groups.filter(isRecord).sort(bySortOrder)
+      : await loadPromptGroups(storage, presetId);
     const choiceBlocks = Array.isArray(full.choiceBlocks)
       ? full.choiceBlocks.filter(isRecord).sort(bySortOrder)
       : await loadPromptChoiceBlocks(storage, presetId);
     return {
       preset: full.preset,
       sections: sections as PromptSectionRecord[],
+      groups: groups as PromptGroupRecord[],
       choiceBlocks: choiceBlocks as PromptChoiceBlockRecord[],
     };
   }
 
   const preset = await loadPromptPresetRecord(storage, presetId);
   if (!preset) return null;
-  const [sections, choiceBlocks] = await Promise.all([
+  const [sections, groups, choiceBlocks] = await Promise.all([
     loadPromptSections(storage, presetId),
+    loadPromptGroups(storage, presetId),
     loadPromptChoiceBlocks(storage, presetId),
   ]);
-  return { preset, sections, choiceBlocks };
+  return { preset, sections, groups, choiceBlocks };
 }
 
 async function loadSelectedPromptPreset(
@@ -719,7 +729,7 @@ async function loadSelectedPromptPreset(
     const presetId = candidate.id;
     const bundle = await loadPromptPresetBundle(storage, presetId);
     if (!bundle) continue;
-    const { preset, sections, choiceBlocks } = bundle;
+    const { preset, sections, groups, choiceBlocks } = bundle;
     const blocksByName = new Map(
       choiceBlocks
         .map((block) => [readString(block.variableName).trim(), block] as const)
@@ -735,6 +745,7 @@ async function loadSelectedPromptPreset(
       id: presetId,
       preset,
       sections,
+      groups,
       variables: {
         ...stringRecord(preset.variableValues),
         ...promptChoiceVariables(preset.defaultChoices, blocksByName),
@@ -764,6 +775,76 @@ function markerConfig(section: PromptSectionRecord): MarkerConfig | null {
   if (identifier.includes("persona")) return { type: "persona" };
   if (identifier.includes("char")) return { type: "character" };
   return null;
+}
+
+function promptGroupLookup(groups: PromptGroupRecord[]): Map<string, PromptGroupRecord> {
+  const lookup = new Map<string, PromptGroupRecord>();
+  for (const group of groups) {
+    const id = readString(group.id).trim();
+    if (id) lookup.set(id, group);
+  }
+  return lookup;
+}
+
+function promptGroupName(group: PromptGroupRecord): string {
+  return readString(group.name).trim() || "Prompt Group";
+}
+
+function promptGroupForSection(
+  section: PromptSectionRecord,
+  groupsById: Map<string, PromptGroupRecord>,
+): { id: string; name: string } | null {
+  const groupId = readString(section.groupId).trim();
+  if (!groupId) return null;
+  const group = groupsById.get(groupId);
+  if (!group || !boolish(group.enabled, true)) return null;
+  return { id: groupId, name: promptGroupName(group) };
+}
+
+function groupedPromptMessages(entries: PromptAssemblyEntry[], wrapFormat: WrapFormat): ChatMLMessage[] {
+  const messages: ChatMLMessage[] = [];
+  let activeGroup: {
+    id: string;
+    name: string;
+    role: ChatMLMessage["role"];
+    contents: string[];
+  } | null = null;
+
+  const flushGroup = () => {
+    if (!activeGroup) return;
+    const content = wrapGroup(activeGroup.contents.join("\n\n"), activeGroup.name, wrapFormat);
+    if (content.trim()) {
+      messages.push({
+        role: activeGroup.role,
+        content,
+        contextKind: "prompt",
+        displayName: activeGroup.name,
+      });
+    }
+    activeGroup = null;
+  };
+
+  for (const entry of entries) {
+    const { promptGroupId, promptGroupName, ...message } = entry;
+    if (!promptGroupId || !promptGroupName) {
+      flushGroup();
+      messages.push(message);
+      continue;
+    }
+    if (!activeGroup || activeGroup.id !== promptGroupId || activeGroup.role !== message.role) {
+      flushGroup();
+      activeGroup = {
+        id: promptGroupId,
+        name: promptGroupName,
+        role: message.role,
+        contents: [],
+      };
+    }
+    activeGroup.contents.push(message.content);
+  }
+  flushGroup();
+
+  return messages;
 }
 
 function resolveLiveHostTimeZone(): string | undefined {
@@ -853,7 +934,6 @@ const DEFAULT_CHARACTER_MARKER_FIELDS = [
   "scenario",
   "first_mes",
   "mes_example",
-  "creator_notes",
   "system_prompt",
   "post_history_instructions",
 ] as const;
@@ -899,7 +979,7 @@ function characterFieldValue(character: GenerationCharacterContext, fieldName: s
       return character.mesExample ?? "";
     case "creator_notes":
     case "creatorNotes":
-      return character.creatorNotes ?? "";
+      return "";
     case "system_prompt":
     case "systemPrompt":
       return character.systemPrompt ?? "";
@@ -1267,6 +1347,23 @@ async function buildMemoryRecallBlock(
   ].join("\n");
 }
 
+function memoizedEmbeddingSource(
+  source: PromptAssemblyInput["embeddingSource"],
+): PromptAssemblyInput["embeddingSource"] {
+  if (!source) return null;
+  const cache = new Map<string, Promise<number[][] | null>>();
+  return {
+    embed: (texts) => {
+      const key = JSON.stringify(texts);
+      const existing = cache.get(key);
+      if (existing) return existing;
+      const embedding = source.embed(texts);
+      cache.set(key, embedding);
+      return embedding;
+    },
+  };
+}
+
 function connectedNoteTargetsChat(note: JsonRecord, chatId: string): boolean {
   const targetChatId = readString(note.targetChatId).trim();
   return !targetChatId || targetChatId === chatId;
@@ -1323,6 +1420,25 @@ function buildConnectedConversationBlocks(chat: JsonRecord): ChatMLMessage[] {
     });
   }
   return blocks;
+}
+
+function buildRoleplayDirectMessageCommandReminder(chat: JsonRecord): ChatMLMessage[] {
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const meta = parseRecord(chat.metadata);
+  if (mode !== "roleplay" || !boolish(meta.roleplayDmCommandsEnabled, false)) return [];
+  return [
+    {
+      role: "system",
+      contextKind: "prompt",
+      content: [
+        "<direct_message_commands>",
+        'If a roleplay character naturally texts or privately messages the user outside the current scene, append one hidden command after the visible response: [dm: character="Character Name" message="Message text"].',
+        "Use the exact character name and only use this for in-world private messages, not normal spoken dialogue or narration.",
+        "Do not mention the command in visible text.",
+        "</direct_message_commands>",
+      ].join("\n"),
+    },
+  ];
 }
 
 function insertBeforeLastUser(messages: ChatMLMessage[], blocks: ChatMLMessage[]): void {
@@ -1414,6 +1530,17 @@ function scopedIndividualGroupTarget(
   return characters.some((character) => character.id === requestedCharacterId) ? requestedCharacterId : null;
 }
 
+function scopedConversationGroupTarget(
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+): string | null {
+  const chatMode = readString(input.chat.mode || input.chat.chatMode);
+  if (chatMode !== "conversation" || characters.length <= 1 || input.request.impersonate === true) return null;
+  const requestedCharacterId = readString(input.request.forCharacterId).trim();
+  if (!requestedCharacterId) return null;
+  return characters.some((character) => character.id === requestedCharacterId) ? requestedCharacterId : null;
+}
+
 function promptCharactersForGeneration(
   input: PromptAssemblyInput,
   characters: GenerationCharacterContext[],
@@ -1421,6 +1548,40 @@ function promptCharactersForGeneration(
   const targetId = scopedIndividualGroupTarget(input, characters);
   if (!targetId) return characters;
   return characters.filter((character) => character.id === targetId);
+}
+
+function individualGroupTurnPromptMessage(
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+): ChatMLMessage | null {
+  const targetId = scopedIndividualGroupTarget(input, characters);
+  if (!targetId) return null;
+  if (parseRecord(input.chat.metadata).groupTurnPromptEnabled === false) return null;
+  const character = characters.find((candidate) => candidate.id === targetId);
+  const name = character?.name.trim() || "the requested character";
+  return {
+    role: "system",
+    content: `Respond only as ${name}`,
+    contextKind: "prompt",
+    displayName: "Turn",
+  };
+}
+
+function conversationGroupTurnPromptMessage(
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+): ChatMLMessage | null {
+  const targetId = scopedConversationGroupTarget(input, characters);
+  if (!targetId) return null;
+  if (parseRecord(input.chat.metadata).groupTurnPromptEnabled === false) return null;
+  const character = characters.find((candidate) => candidate.id === targetId);
+  const name = character?.name.trim() || "the requested character";
+  return {
+    role: "system",
+    content: `Respond only as ${name}. Use the other attached character cards and recent messages as context, but do not speak as another character in this turn.`,
+    contextKind: "prompt",
+    displayName: "Turn",
+  };
 }
 
 function isIndividualGroupHistoryMessage(message: ChatMLMessage): boolean {
@@ -1520,305 +1681,6 @@ function authorNotesDepthEntry(chat: JsonRecord): { content: string; role: "syst
   return { content, role: "system", depth };
 }
 
-export function normalizeLorebookEntry(entry: JsonRecord): LorebookEntry {
-  return {
-    id: readString(entry.id),
-    lorebookId: readString(entry.lorebookId),
-    name: readString(entry.name) || "Entry",
-    content: readString(entry.content),
-    description: readString(entry.description),
-    keys: stringArray(entry.keys),
-    secondaryKeys: stringArray(entry.secondaryKeys),
-    selective: boolish(entry.selective, false),
-    selectiveLogic: readString(entry.selectiveLogic, "and") as LorebookEntry["selectiveLogic"],
-    constant: boolish(entry.constant, false),
-    enabled: boolish(entry.enabled, true),
-    position: readNumber(entry.position, 0),
-    role: normalizeRole(entry.role) as LorebookEntry["role"],
-    depth: readNumber(entry.depth, 0),
-    order: readNumber(entry.order ?? entry.sortOrder, 0),
-    probability: entry.probability == null ? null : readNumber(entry.probability, 100),
-    useRegex: boolish(entry.useRegex, false),
-    matchWholeWords: boolish(entry.matchWholeWords, false),
-    caseSensitive: boolish(entry.caseSensitive, false),
-    ephemeral: entry.ephemeral == null ? null : readNumber(entry.ephemeral, 0),
-    group: readString(entry.group),
-    groupWeight: entry.groupWeight == null ? null : readNumber(entry.groupWeight, 100),
-    folderId: readString(entry.folderId) || null,
-    locked: boolish(entry.locked, false),
-    preventRecursion: boolish(entry.preventRecursion, false),
-    tag: readString(entry.tag),
-    relationships: stringRecord(entry.relationships),
-    dynamicState: parseRecord(entry.dynamicState),
-    scanDepth: entry.scanDepth == null ? null : readNumber(entry.scanDepth, 0),
-    sticky: entry.sticky == null ? null : readNumber(entry.sticky, 0),
-    cooldown: entry.cooldown == null ? null : readNumber(entry.cooldown, 0),
-    delay: entry.delay == null ? null : readNumber(entry.delay, 0),
-    activationConditions: Array.isArray(entry.activationConditions) ? entry.activationConditions : [],
-    schedule: isRecord(entry.schedule) ? (entry.schedule as unknown as LorebookEntry["schedule"]) : null,
-    excludeFromVectorization: boolish(entry.excludeFromVectorization, false),
-    embedding: Array.isArray(entry.embedding)
-      ? entry.embedding.filter((item): item is number => typeof item === "number")
-      : null,
-    additionalMatchingSources: stringArray(
-      entry.additionalMatchingSources,
-    ) as LorebookEntry["additionalMatchingSources"],
-    characterFilterMode: readString(entry.characterFilterMode, "any") as LorebookEntry["characterFilterMode"],
-    characterFilterIds: stringArray(entry.characterFilterIds),
-    characterTagFilterMode: readString(entry.characterTagFilterMode, "any") as LorebookEntry["characterTagFilterMode"],
-    characterTagFilters: stringArray(entry.characterTagFilters),
-    generationTriggerFilterMode: readString(
-      entry.generationTriggerFilterMode,
-      "any",
-    ) as LorebookEntry["generationTriggerFilterMode"],
-    generationTriggerFilters: stringArray(entry.generationTriggerFilters),
-    createdAt: readString(entry.createdAt),
-    updatedAt: readString(entry.updatedAt),
-  };
-}
-
-function lorebookAppliesToContext(
-  lorebook: JsonRecord,
-  chat: JsonRecord,
-  characters: GenerationCharacterContext[],
-  persona: GenerationPersonaContext | null,
-): boolean {
-  if (!boolish(lorebook.enabled, true)) return false;
-  const meta = parseRecord(chat.metadata);
-  const scopeExclusions = resolveGameLorebookScopeExclusions(readString(chat.mode || chat.chatMode), meta);
-  const lorebookId = readString(lorebook.id);
-  if (scopeExclusions.excludedLorebookIds.includes(lorebookId)) return false;
-  if (scopeExclusions.excludedSourceAgentIds.includes(readString(lorebook.sourceAgentId))) return false;
-  if (boolish(lorebook.isGlobal ?? lorebook.global, false)) return true;
-  const activeIds = new Set(characters.map((character) => character.id));
-  const lorebookCharacterIds = stringArray(lorebook.characterIds);
-  if (lorebookCharacterIds.some((id) => activeIds.has(id)) || activeIds.has(readString(lorebook.characterId))) {
-    return true;
-  }
-  const personaId = readString(chat.personaId);
-  if (persona && personaId) {
-    const personaIds = stringArray(lorebook.personaIds);
-    if (personaIds.includes(personaId) || readString(lorebook.personaId) === personaId) return true;
-  }
-  const chatScopedId = readString(lorebook.chatId).trim();
-  if (chatScopedId && chatScopedId === readString(chat.id).trim()) return true;
-  return stringArray(meta.activeLorebookIds ?? chat.activeLorebookIds).includes(lorebookId);
-}
-
-function joinMatchingSourceParts(parts: Array<string | undefined>): string {
-  return parts
-    .map((part) => part?.trim() ?? "")
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildAdditionalMatchingSourceText(
-  characters: GenerationCharacterContext[],
-  persona: GenerationPersonaContext | null,
-): Partial<Record<LorebookMatchingSource, string>> {
-  return {
-    character_name: joinMatchingSourceParts(characters.map((character) => character.name)),
-    character_description: joinMatchingSourceParts(characters.map((character) => character.description)),
-    character_personality: joinMatchingSourceParts(characters.map((character) => character.personality)),
-    character_scenario: joinMatchingSourceParts(characters.map((character) => character.scenario)),
-    character_tags: joinMatchingSourceParts(characters.flatMap((character) => character.tags)),
-    persona_description: persona?.description ?? "",
-    persona_tags: joinMatchingSourceParts(persona?.tags ?? []),
-  };
-}
-
-function nonNegativeInteger(value: unknown, fallback = 0): number {
-  return Math.max(0, Math.floor(readNumber(value, fallback)));
-}
-
-const MAX_LOREBOOK_RECURSION_DEPTH = 10;
-
-interface LoadedLorebookBudgetSkippedEntry {
-  activatedEntry: ActivatedEntry;
-  lorebookName: string;
-  lorebookBudget: number;
-  lorebookUsedTokens: number;
-  estimatedTokens: number;
-}
-
-interface ScannedLorebookEntries {
-  activatedEntries: ActivatedEntry[];
-  budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
-}
-
-interface LoadedActivatedLore {
-  activatedEntries: ActivatedEntry[];
-  budgetSkippedEntries: LoadedLorebookBudgetSkippedEntry[];
-  lorebookNamesById: Map<string, string>;
-}
-
-function resolveLorebookTokenBudget(chat: JsonRecord, request: JsonRecord): number {
-  const meta = parseRecord(chat.metadata);
-  return nonNegativeInteger(
-    request.lorebookTokenBudget,
-    readNumber(meta.lorebookTokenBudget, LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET),
-  );
-}
-
-function resolveLorebookRecursionDepth(lorebook: JsonRecord): number {
-  return Math.min(MAX_LOREBOOK_RECURSION_DEPTH, Math.max(1, nonNegativeInteger(lorebook.maxRecursionDepth, 3)));
-}
-
-async function loadLorebookEntriesForActivation(
-  storage: StorageGateway,
-  lorebook: JsonRecord,
-): Promise<LorebookEntry[]> {
-  const id = readString(lorebook.id);
-  if (!id) return [];
-  const [rows, folders] = await Promise.all([
-    storage.listLorebookEntries<JsonRecord>(id),
-    storage.list<JsonRecord>("lorebook-folders", { filters: { lorebookId: id } }),
-  ]);
-  const disabledFolderIds = new Set(
-    folders
-      .filter((folder) => !boolish(folder.enabled, true))
-      .map((folder) => readString(folder.id))
-      .filter(Boolean),
-  );
-  const defaultScanDepth = nonNegativeInteger(lorebook.scanDepth, 0);
-  const excludeFromVectorization = boolish(lorebook.excludeFromVectorization, false);
-  return rows
-    .map((row) => normalizeLorebookEntry(excludeFromVectorization ? { ...row, excludeFromVectorization: true } : row))
-    .map((entry) => ({
-      ...entry,
-      scanDepth: entry.scanDepth == null ? defaultScanDepth : entry.scanDepth,
-    }))
-    .filter((entry) => entry.enabled && entry.content.trim())
-    .filter((entry) => !entry.folderId || !disabledFolderIds.has(entry.folderId));
-}
-
-function scanLorebookEntries(
-  messages: ScanMessage[],
-  entries: LorebookEntry[],
-  lorebook: JsonRecord,
-  options: ScanOptions,
-): ScannedLorebookEntries {
-  const activated = boolish(lorebook.recursiveScanning, false)
-    ? recursiveScan(messages, entries, options, resolveLorebookRecursionDepth(lorebook))
-    : scanForActivatedEntries(messages, entries, options);
-  const lorebookId = readString(lorebook.id);
-  const lorebookName = readString(lorebook.name, lorebookId || "Lorebook");
-  const lorebookBudget = nonNegativeInteger(lorebook.tokenBudget, 0);
-  const budgeted = applyTokenBudgetWithSkipped(activated, lorebookBudget);
-  return {
-    activatedEntries: budgeted.includedEntries,
-    budgetSkippedEntries: budgeted.skippedEntries.map((skipped) => ({
-      activatedEntry: skipped.activatedEntry,
-      lorebookName,
-      lorebookBudget,
-      lorebookUsedTokens: skipped.usedTokensBefore,
-      estimatedTokens: skipped.estimatedTokens,
-    })),
-  };
-}
-
-async function loadActivatedLore(
-  storage: StorageGateway,
-  chat: JsonRecord,
-  characters: GenerationCharacterContext[],
-  persona: GenerationPersonaContext | null,
-  storedMessages: JsonRecord[],
-): Promise<LoadedActivatedLore> {
-  const lorebooks = (await storage.list<JsonRecord>("lorebooks")).filter((book) =>
-    lorebookAppliesToContext(book, chat, characters, persona),
-  );
-  const activeCharacterIds = characters.map((character) => character.id);
-  const activeCharacterTags = characters.flatMap((character) => character.tags);
-  const meta = parseRecord(chat.metadata);
-  const gameState = parseRecord(chat.gameState ?? meta.gameState);
-  const messages = storedMessages
-    .filter((message) => !hiddenFromAi(message))
-    .map((message) => ({
-      role: readString(message.role, "user"),
-      content: readString(message.content),
-    }));
-  const generationTriggers = ["chat", readString(chat.mode || chat.chatMode)].filter(Boolean);
-  const options: ScanOptions = {
-    activeCharacterIds,
-    activeCharacterTags,
-    generationTriggers,
-    gameState,
-    additionalMatchingSourceText: buildAdditionalMatchingSourceText(characters, persona),
-  };
-  const lorebookNamesById = new Map(
-    lorebooks.map((book) => {
-      const id = readString(book.id);
-      return [id, readString(book.name, id || "Lorebook")] as const;
-    }),
-  );
-  const scanned = await Promise.all(
-    lorebooks.map(async (book) =>
-      scanLorebookEntries(messages, await loadLorebookEntriesForActivation(storage, book), book, options),
-    ),
-  );
-  return {
-    activatedEntries: scanned
-      .flatMap((result) => result.activatedEntries)
-      .sort((a, b) => a.injectionOrder - b.injectionOrder),
-    budgetSkippedEntries: scanned.flatMap((result) => result.budgetSkippedEntries),
-    lorebookNamesById,
-  };
-}
-
-function loreForEvent(entry: ActivatedEntry) {
-  return {
-    id: entry.entry.id,
-    lorebookId: entry.entry.lorebookId,
-    name: entry.entry.name,
-    content: entry.entry.content,
-    tag: entry.matchedKeys.join(", "),
-    matchedKeys: entry.matchedKeys,
-    order: entry.entry.order,
-    constant: entry.entry.constant,
-  };
-}
-
-function budgetSkippedLoreForEvent(
-  skipped: BudgetSkippedActivatedEntry,
-  lorebookNamesById: Map<string, string>,
-  chatBudget: number,
-): BudgetSkippedLorebookEntry {
-  const entry = skipped.activatedEntry.entry;
-  return {
-    id: entry.id,
-    name: entry.name,
-    lorebookId: entry.lorebookId,
-    lorebookName: lorebookNamesById.get(entry.lorebookId) ?? entry.lorebookId,
-    matchedKeys: skipped.activatedEntry.matchedKeys,
-    estimatedTokens: skipped.estimatedTokens,
-    lorebookBudget: 0,
-    lorebookUsedTokens: 0,
-    chatBudget,
-    chatUsedTokens: skipped.usedTokensBefore,
-    blockedBy: "chat",
-  };
-}
-
-function lorebookBudgetSkippedLoreForEvent(
-  skipped: LoadedLorebookBudgetSkippedEntry,
-  chatBudget: number,
-): BudgetSkippedLorebookEntry {
-  const entry = skipped.activatedEntry.entry;
-  return {
-    id: entry.id,
-    name: entry.name,
-    lorebookId: entry.lorebookId,
-    lorebookName: skipped.lorebookName,
-    matchedKeys: skipped.activatedEntry.matchedKeys,
-    estimatedTokens: skipped.estimatedTokens,
-    lorebookBudget: skipped.lorebookBudget,
-    lorebookUsedTokens: skipped.lorebookUsedTokens,
-    chatBudget,
-    chatUsedTokens: 0,
-    blockedBy: "lorebook",
-  };
-}
-
 function sectionContent(args: {
   section: PromptSectionRecord;
   marker: MarkerConfig | null;
@@ -1860,26 +1722,36 @@ function sectionContent(args: {
 
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
-  input: PromptAssemblyInput,
+  rawInput: PromptAssemblyInput,
 ): Promise<PromptAssemblyResult> {
+  let input = rawInput;
+  const chatMeta = parseRecord(input.chat.metadata);
+  const chatMode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+  if (chatMode === "game") {
+    input = { ...input, storedMessages: applyAllSegmentEdits(input.storedMessages, chatMeta) };
+  }
+
   const characters = await loadCharacters(storage, input.chat);
   const persona = await loadPersona(storage, input.chat);
-  const loadedLore = await loadActivatedLore(storage, input.chat, characters, persona, input.storedMessages);
-  const lorebookTokenBudget = resolveLorebookTokenBudget(input.chat, input.request);
-  const processedLore = processActivatedEntries(loadedLore.activatedEntries, lorebookTokenBudget);
-  const budgetSkippedLorebookEntries = [
-    ...loadedLore.budgetSkippedEntries.map((entry) => lorebookBudgetSkippedLoreForEvent(entry, lorebookTokenBudget)),
-    ...processedLore.skippedEntries.map((entry) =>
-      budgetSkippedLoreForEvent(entry, loadedLore.lorebookNamesById, lorebookTokenBudget),
-    ),
-  ];
+  const embeddingSource = memoizedEmbeddingSource(input.embeddingSource);
+  const loreScan = await scanActiveLorebooks({
+    storage,
+    chat: input.chat,
+    characters,
+    persona,
+    storedMessages: input.storedMessages,
+    request: input.request,
+    latestUserInput: input.latestUserInput,
+    embeddingSource,
+  });
+  const processedLore = loreScan.processedLore;
   const summary = chatSummaryForGeneration(input.chat);
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
     input.chat,
     input.latestUserInput,
     readNumber(input.connection.maxContext, 0) || undefined,
-    input.embeddingSource,
+    embeddingSource,
   );
   const selectedPreset = await loadSelectedPromptPreset(storage, {
     chat: input.chat,
@@ -1896,7 +1768,6 @@ export async function assembleGenerationPrompt(
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
   const promptCharacters = promptCharactersForGeneration(input, characters);
-  const chatMeta = parseRecord(input.chat.metadata);
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
   const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
   const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
@@ -1918,10 +1789,19 @@ export async function assembleGenerationPrompt(
   let usedFallbackSystemPrompt = false;
 
   if (selectedPreset) {
+    const groupsById = promptGroupLookup(selectedPreset.groups);
+    let promptEntries: PromptAssemblyEntry[] = [];
+    const flushPromptEntries = () => {
+      if (promptEntries.length === 0) return;
+      messages.push(...groupedPromptMessages(promptEntries, wrapFormat));
+      promptEntries = [];
+    };
+
     for (const section of selectedPreset.sections) {
       if (!boolish(section.enabled, true)) continue;
       const marker = markerConfig(section);
       if (marker?.type === "chat_history") {
+        flushPromptEntries();
         messages.push(...history);
         insertedHistory = true;
         continue;
@@ -1941,13 +1821,17 @@ export async function assembleGenerationPrompt(
       if (!resolved.trim()) continue;
       if (marker?.type === "chat_summary" && summary?.trim()) insertedSummary = true;
       const name = readString(section.name) || readString(section.identifier) || marker?.type || "Prompt";
-      messages.push({
+      const group = promptGroupForSection(section, groupsById);
+      promptEntries.push({
         role: normalizeRole(section.role),
-        content: wrapContent(resolved, name, wrapFormat),
+        content: wrapContent(resolved, name, wrapFormat, group ? 1 : 0),
         contextKind: "prompt",
         displayName: name,
+        promptGroupId: group?.id ?? null,
+        promptGroupName: group?.name ?? null,
       });
     }
+    flushPromptEntries();
   }
 
   if (messages.length === 0) {
@@ -1974,7 +1858,6 @@ export async function assembleGenerationPrompt(
     messages.push(...history);
   }
 
-  const chatMode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   if (chatMode === "game") {
     const [gameSystem, gameReminder] = await buildGamePromptMessages(
       storage,
@@ -2012,7 +1895,10 @@ export async function assembleGenerationPrompt(
     });
   }
 
-  insertBeforeLastUser(messages, buildConnectedConversationBlocks(input.chat));
+  insertBeforeLastUser(messages, [
+    ...buildConnectedConversationBlocks(input.chat),
+    ...buildRoleplayDirectMessageCommandReminder(input.chat),
+  ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
   messages = injectAtDepth(
@@ -2023,6 +1909,11 @@ export async function assembleGenerationPrompt(
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
     resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
   });
+  const turnPrompt =
+    individualGroupTurnPromptMessage(input, characters) ?? conversationGroupTurnPromptMessage(input, characters);
+  if (turnPrompt) {
+    messages.push(turnPrompt);
+  }
   messages = messages
     .map((message) => ({
       ...message,
@@ -2033,10 +1924,15 @@ export async function assembleGenerationPrompt(
   if (individualGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, individualGroupTarget);
   }
+  const conversationGroupTarget = scopedConversationGroupTarget(input, characters);
+  if (conversationGroupTarget) {
+    messages = scopeIndividualGroupHistoryRoles(messages, conversationGroupTarget);
+  }
   const previewMessages = previewMessagesForPrompt(messages);
-  const strictRoleFormatting = boolish(promptParameters?.strictRoleFormatting, true) && chatMode === "roleplay";
-  messages = strictRoleFormatting ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
-  if (!strictRoleFormatting && boolish(promptParameters?.squashSystemMessages, false)) {
+  const shouldEnforceStrictRoles =
+    boolish(promptParameters?.strictRoleFormatting, true) && chatMode === "roleplay" && !individualGroupTarget;
+  messages = shouldEnforceStrictRoles ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
+  if (!shouldEnforceStrictRoles && boolish(promptParameters?.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
   }
   if (boolish(promptParameters?.singleUserMessage, false)) {
@@ -2052,8 +1948,9 @@ export async function assembleGenerationPrompt(
     wrapFormat,
     characters,
     persona,
-    activatedLorebookEntries: processedLore.includedEntries.map(loreForEvent),
-    budgetSkippedLorebookEntries,
+    activatedLorebookEntries: processedLore.includedEntries.map(lorebookActivatedEntryForEvent),
+    lorebookTimingStates: loreScan.lorebookTimingStates,
+    budgetSkippedLorebookEntries: loreScan.budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,
   };

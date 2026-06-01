@@ -153,6 +153,7 @@ fn import_profile_collections(
     data: &Map<String, Value>,
     collections: &Map<String, Value>,
 ) -> AppResult<Value> {
+    validate_native_profile_import(data, collections)?;
     let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
     let restored_count = restored_assets.restored();
     let result =
@@ -160,6 +161,41 @@ fn import_profile_collections(
             restored_assets.install()
         });
     finish_profile_import_assets(restored_assets, result)
+}
+
+pub(super) fn validate_native_profile_import(
+    data: &Map<String, Value>,
+    collections: &Map<String, Value>,
+) -> AppResult<()> {
+    match data.get("assets") {
+        Some(Value::Array(_)) => {}
+        Some(_) => {
+            return Err(AppError::invalid_input(
+                "Profile export data.assets must be a JSON array",
+            ));
+        }
+        None => {
+            return Err(AppError::invalid_input(
+                "Native profile export is missing data.assets",
+            ));
+        }
+    }
+    for collection in PROFILE_COLLECTIONS {
+        match collections.get(*collection) {
+            Some(Value::Array(_)) => {}
+            Some(_) => {
+                return Err(AppError::invalid_input(format!(
+                    "Profile collection `{collection}` must be a JSON array"
+                )));
+            }
+            None => {
+                return Err(AppError::invalid_input(format!(
+                    "Native profile export is missing collection `{collection}`"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn import_profile_collections_with_restored_assets<F>(
@@ -175,9 +211,26 @@ where
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
     for collection in PROFILE_COLLECTIONS {
-        let mut rows = collections
-            .get(*collection)
-            .and_then(Value::as_array)
+        // A partial modern profile (a hand-built export, or a file missing a
+        // collection) must not wipe collections it does not carry. Skipping the
+        // replacement leaves the user's existing collection untouched; a
+        // collection that is present but empty is still an explicit clear and
+        // falls through to a normal empty replacement. Mirrors the legacy table
+        // path guard added in #1518.
+        let Some(collection_value) = collections.get(*collection) else {
+            continue;
+        };
+        // A present-but-non-array collection is malformed (e.g. `"characters": {}`).
+        // Coercing it to an empty array would silently clear the collection - the
+        // same data loss the absent-key skip above guards against. Reject the
+        // import instead so nothing is replaced.
+        if !collection_value.is_array() {
+            return Err(AppError::invalid_input(format!(
+                "Profile collection `{collection}` must be a JSON array"
+            )));
+        }
+        let mut rows = collection_value
+            .as_array()
             .cloned()
             .unwrap_or_default();
         if *collection == "prompt-overrides" {
@@ -358,6 +411,104 @@ mod tests {
     }
 
     #[test]
+    fn native_profile_import_rejects_missing_assets_without_wiping_existing_assets() {
+        let state = test_state("missing-assets-no-wipe");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+        let collections = complete_empty_profile_collections();
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections
+                }
+            }),
+        )
+        .expect_err("native profile missing data.assets should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    #[test]
+    fn native_profile_import_rejects_missing_collection_without_wiping_existing_rows() {
+        let state = test_state("missing-collection-no-wipe");
+        state
+            .storage
+            .upsert_with_id(
+                "characters",
+                "char-1",
+                json!({ "name": "Keep Me", "data": { "name": "Keep Me" } }),
+            )
+            .expect("seeded character should write");
+        let mut collections = complete_empty_profile_collections();
+        collections.remove("characters");
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect_err("native profile missing a collection should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .is_some());
+    }
+
+    #[test]
+    fn legacy_profile_import_without_files_preserves_existing_assets() {
+        let state = test_state("legacy-missing-files-preserves-assets");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "chats": []
+                        }
+                    }
+                }
+            }),
+        )
+        .expect("legacy profile without files should import partial tables");
+
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
+    }
+
+    fn complete_empty_profile_collections() -> Map<String, Value> {
+        PROFILE_COLLECTIONS
+            .iter()
+            .map(|collection| ((*collection).to_string(), json!([])))
+            .collect()
+    }
+
+    #[test]
     fn profile_import_collections_normalizes_prompt_overrides() {
         let state = test_state("prompt-overrides-normalize");
         let mut collections = Map::new();
@@ -415,6 +566,78 @@ mod tests {
         assert_eq!(rows[1]["template"], "Background ${defaultPrompt}");
         assert_eq!(result["imported"]["prompt-overrides"], 2);
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
+    }
+
+    #[test]
+    fn profile_import_modern_skips_absent_collections() {
+        let state = test_state("modern-skip-absent");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // A partial modern profile that only carries `lorebooks` must leave the
+        // absent `characters` collection untouched instead of wiping it.
+        let mut collections = Map::new();
+        collections.insert(
+            "lorebooks".to_string(),
+            json!([{ "id": "imported-lorebook" }]),
+        );
+
+        let result =
+            import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+                .expect("partial modern profile import should succeed");
+
+        let characters = state.storage.list("characters").unwrap();
+        assert_eq!(characters.len(), 1);
+        assert_eq!(characters[0]["id"], "existing-character");
+        let lorebooks = state.storage.list("lorebooks").unwrap();
+        assert_eq!(lorebooks.len(), 1);
+        assert_eq!(lorebooks[0]["id"], "imported-lorebook");
+        // Absent collections are not reported as imported.
+        assert!(result["imported"].get("characters").is_none());
+        assert_eq!(result["imported"]["lorebooks"], 1);
+    }
+
+    #[test]
+    fn profile_import_modern_present_empty_collection_clears() {
+        let state = test_state("modern-present-empty-clears");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // An explicitly present-but-empty collection is still a deliberate clear.
+        let mut collections = Map::new();
+        collections.insert("characters".to_string(), json!([]));
+
+        import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+            .expect("present-but-empty collection should clear");
+
+        assert!(state.storage.list("characters").unwrap().is_empty());
+    }
+
+    #[test]
+    fn profile_import_modern_rejects_non_array_collection() {
+        let state = test_state("modern-reject-non-array");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .unwrap();
+
+        // A present-but-non-array collection is malformed and must be rejected
+        // before anything is replaced, so existing data is preserved.
+        let mut collections = Map::new();
+        collections.insert("characters".to_string(), json!({}));
+
+        let error =
+            import_profile_collections_with_restored_assets(&state, &collections, 0, || Ok(()))
+                .expect_err("a non-array collection should be rejected");
+        assert_eq!(error.code, "invalid_input");
+
+        let characters = state.storage.list("characters").unwrap();
+        assert_eq!(characters.len(), 1);
+        assert_eq!(characters[0]["id"], "existing-character");
     }
 
     #[test]

@@ -9,6 +9,10 @@ import { useConnections } from "../../connections/index";
 import { useLorebooks, useCreateLorebook, lorebookKeys } from "../hooks/use-lorebooks";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { Loader2, Wand2, CheckCircle, AlertCircle, ChevronDown, BookOpen, Plus } from "lucide-react";
+import {
+  createLorebookEntrySchema,
+  lorebookCategorySchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
 import { ProfessorMariWorkingWindow } from "../../../../shared/components/ui/ProfessorMariWorkingWindow";
 import { generateLorebookMaker } from "../../../../engine/generation/makers";
@@ -41,6 +45,11 @@ type GeneratedData = {
     order?: number;
   }>;
 };
+
+function normalizeGeneratedLorebookCategory(category: unknown) {
+  const parsed = lorebookCategorySchema.safeParse(category);
+  return parsed.success ? parsed.data : "world";
+}
 
 export function LorebookMakerModal({ open, onClose }: Props) {
   const { data: rawConnections } = useConnections();
@@ -193,7 +202,7 @@ export function LorebookMakerModal({ open, onClose }: Props) {
       const result = await createLorebook.mutateAsync({
         name: generated.lorebook_name || "AI Generated Lorebook",
         description: generated.lorebook_description || "",
-        category: (generated.category as "world") || "world",
+        category: normalizeGeneratedLorebookCategory(generated.category),
         generatedBy: "lorebook-maker",
       });
 
@@ -211,7 +220,8 @@ export function LorebookMakerModal({ open, onClose }: Props) {
           order: e.order ?? 100,
         }));
 
-        await Promise.all(entriesToCreate.map((entry) => storageApi.create("lorebook-entries", entry)));
+        const validatedEntries = entriesToCreate.map((entry) => createLorebookEntrySchema.parse(entry));
+        await Promise.all(validatedEntries.map((entry) => storageApi.create("lorebook-entries", entry)));
         // Invalidate so entries appear immediately
         qc.invalidateQueries({ queryKey: lorebookKeys.entries(lbId) });
       }

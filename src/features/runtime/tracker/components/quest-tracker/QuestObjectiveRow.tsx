@@ -22,12 +22,7 @@ export function QuestObjectiveRow({
   deleteMode: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "tracker-quest-objective-row",
-        objectiveGridColumns,
-      )}
-    >
+    <div className={cn("tracker-quest-objective-row", objectiveGridColumns)}>
       {onToggle ? (
         <button
           type="button"

@@ -25,7 +25,6 @@ type PresetRow = {
   sectionOrder?: string | string[];
 };
 
-
 export function PresetsPanel() {
   const { data: presets, isLoading } = usePresets();
   const deletePreset = useDeletePreset();

@@ -178,23 +178,38 @@ export function GameJournal({
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [playerNotes, setPlayerNotes] = useState("");
   const [notesSaved, setNotesSaved] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [removingNpcName, setRemovingNpcName] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestNotesRef = useRef("");
   const queryClient = useQueryClient();
 
-  useEffect(() => {
+  const loadJournal = useCallback(() => {
+    setLoadError(null);
     gameApi
       .getJournal(chatId)
       .then((res) => {
         setJournal(res.journal as Journal);
-        if (res.playerNotes) setPlayerNotes(res.playerNotes);
+        if (res.playerNotes) {
+          setPlayerNotes(res.playerNotes);
+          // Keep the retry-save ref a faithful mirror of the persisted notes
+          // from first load, not just whatever the user last typed.
+          latestNotesRef.current = res.playerNotes;
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : "Failed to load journal");
+      });
   }, [chatId]);
+
+  useEffect(() => {
+    loadJournal();
+  }, [loadJournal]);
 
   const saveNotes = useCallback(
     (text: string) => {
+      setSaveError(null);
       gameApi
         .updateNotes(chatId, text)
         .then((res) => {
@@ -203,8 +218,11 @@ export function GameJournal({
             useChatStore.getState().setActiveChat(res.sessionChat);
           }
           setNotesSaved(true);
+          setSaveError(null);
         })
-        .catch(() => {});
+        .catch((err) => {
+          setSaveError(err instanceof Error ? err.message : "Failed to save notes");
+        });
     },
     [chatId, queryClient],
   );
@@ -214,6 +232,10 @@ export function GameJournal({
       setPlayerNotes(text);
       latestNotesRef.current = text;
       setNotesSaved(false);
+      // Clear a stale failure as soon as the user edits, so the pill returns to
+      // "Saving..." for the fresh, not-yet-attempted content instead of lingering
+      // on the red "Save failed" for the full debounce window.
+      setSaveError(null);
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => saveNotes(text), 800);
     },
@@ -263,6 +285,33 @@ export function GameJournal({
       ),
     [journal?.entries, trackedNpcNames],
   );
+
+  if (!journal && loadError) {
+    return (
+      <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">
+        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+          <p className="text-sm font-medium text-white/90">Couldn&apos;t load the journal.</p>
+          <p className="text-xs text-white/50">{loadError}</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadJournal}
+              className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 transition-colors hover:bg-white/20"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!journal) {
     return (
@@ -327,7 +376,15 @@ export function GameJournal({
         {activeTab === "locations" && <LocationsView locations={journal.locations} />}
         {activeTab === "inventory" && <InventoryView items={journal.inventoryLog} />}
         {activeTab === "library" && <LibraryView entries={visibleEntries.filter((e) => e.type === "note")} />}
-        {activeTab === "notes" && <NotesView notes={playerNotes} onChange={handleNotesChange} saved={notesSaved} />}
+        {activeTab === "notes" && (
+          <NotesView
+            notes={playerNotes}
+            onChange={handleNotesChange}
+            saved={notesSaved}
+            saveError={saveError}
+            onRetrySave={() => saveNotes(latestNotesRef.current || playerNotes)}
+          />
+        )}
       </div>
     </div>
   );
@@ -612,18 +669,45 @@ function LibraryView({ entries }: { entries: JournalEntry[] }) {
   );
 }
 
-function NotesView({ notes, onChange, saved }: { notes: string; onChange: (text: string) => void; saved: boolean }) {
+function NotesView({
+  notes,
+  onChange,
+  saved,
+  saveError,
+  onRetrySave,
+}: {
+  notes: string;
+  onChange: (text: string) => void;
+  saved: boolean;
+  saveError?: string | null;
+  onRetrySave?: () => void;
+}) {
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-between">
         <p className="text-[0.625rem] text-white/40">
           Your personal notes — visible to the Game Master and party members.
         </p>
-        <span
-          className={cn("text-[0.5625rem] transition-opacity", saved ? "text-emerald-400/60" : "text-amber-400/60")}
-        >
-          {saved ? "Saved" : "Saving..."}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "text-[0.5625rem] transition-opacity",
+              saveError ? "text-red-400/80" : saved ? "text-emerald-400/60" : "text-amber-400/60",
+            )}
+            title={saveError ?? undefined}
+          >
+            {saveError ? "Save failed" : saved ? "Saved" : "Saving..."}
+          </span>
+          {saveError && onRetrySave && (
+            <button
+              type="button"
+              onClick={onRetrySave}
+              className="rounded text-[0.5625rem] text-white/60 underline-offset-2 transition-colors hover:text-white/90 hover:underline"
+            >
+              Retry
+            </button>
+          )}
+        </div>
       </div>
       <div className="grid min-h-0 flex-1 gap-2 md:grid-cols-2">
         <textarea

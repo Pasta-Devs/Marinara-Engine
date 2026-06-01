@@ -2,7 +2,17 @@
 // Zustand Store: Combat Encounter
 // ──────────────────────────────────────────────
 import { create } from "zustand";
-import type { CombatInitState, CombatPartyMember, CombatEnemy, CombatPlayerActions, CombatEnemyAction, CombatPartyAction, EncounterLogEntry, EncounterSettings, CombatStyleNotes } from "../../engine/contracts/types/combat-encounter";
+import type {
+  CombatInitState,
+  CombatPartyMember,
+  CombatEnemy,
+  CombatPlayerActions,
+  CombatEnemyAction,
+  CombatPartyAction,
+  EncounterLogEntry,
+  EncounterSettings,
+  CombatStyleNotes,
+} from "../../engine/contracts/types/combat-encounter";
 
 interface EncounterState {
   // ── State ──

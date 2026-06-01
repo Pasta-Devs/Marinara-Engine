@@ -24,7 +24,8 @@ function humanizePromptKey(key: string) {
 }
 
 function promptOverrideStatus(entry: PromptOverrideSummary | undefined) {
-  if (!entry?.hasOverride) return { label: "Default", className: "bg-[var(--secondary)] text-[var(--muted-foreground)]" };
+  if (!entry?.hasOverride)
+    return { label: "Default", className: "bg-[var(--secondary)] text-[var(--muted-foreground)]" };
   if (entry.enabled) return { label: "Custom active", className: "bg-[var(--primary)]/15 text-[var(--primary)]" };
   return { label: "Custom paused", className: "bg-amber-500/15 text-amber-300" };
 }
@@ -159,7 +160,8 @@ function PromptOverridesEditorBody() {
   const status = promptOverrideStatus(selectedEntry);
   const isDirty = draft !== sourceTemplate || enabled !== sourceEnabled;
   const canSave = !!selectedKey && draft.trim().length > 0 && isDirty && !mutationPending && !loadingPrompt;
-  const canReset = !!selectedKey && (detail?.override || draft !== defaultTemplate) && !mutationPending && !loadingPrompt;
+  const canReset =
+    !!selectedKey && (detail?.override || draft !== defaultTemplate) && !mutationPending && !loadingPrompt;
 
   useEffect(() => {
     if (!selectedKey || !defaultQuery.data || detailQuery.isLoading) return;

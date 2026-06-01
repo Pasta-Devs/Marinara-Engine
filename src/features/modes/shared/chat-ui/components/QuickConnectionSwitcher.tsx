@@ -15,7 +15,6 @@ import {
   CHAT_INPUT_ICON_BUTTON_IDLE_CLASS,
 } from "./input-button-styles";
 
-
 export function QuickConnectionSwitcher({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -30,7 +29,12 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
   const isRandom = activeConnectionId === "random";
 
   const sorted = filterLanguageGenerationConnections(
-    (connections ?? []) as Array<{ id: string; name: string; provider?: string; useForRandom?: string | boolean | null }>,
+    (connections ?? []) as Array<{
+      id: string;
+      name: string;
+      provider?: string;
+      useForRandom?: string | boolean | null;
+    }>,
   ).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   const handleSwitch = useCallback(

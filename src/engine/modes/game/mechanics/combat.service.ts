@@ -57,7 +57,7 @@ function applyNamedStatus(target: CombatantStats, effect: StatusEffect) {
   }
 }
 
-export interface InitiativeEntry {
+interface InitiativeEntry {
   id: string;
   name: string;
   roll: number;
@@ -65,7 +65,7 @@ export interface InitiativeEntry {
   total: number;
 }
 
-export interface AttackResult {
+interface AttackResult {
   attackerId: string;
   defenderId: string;
   attackRoll: number;
@@ -292,7 +292,7 @@ function chooseAutoSkill(
 // ── Functions ──
 
 /** Roll initiative for all combatants. Returns sorted order (highest first). */
-export function rollInitiative(combatants: CombatantStats[]): InitiativeEntry[] {
+function rollInitiative(combatants: CombatantStats[]): InitiativeEntry[] {
   const entries: InitiativeEntry[] = combatants.map((c) => {
     const speedMod = Math.floor(c.speed / 5);
     const roll = rollDice("1d20").total;
@@ -309,7 +309,7 @@ export function rollInitiative(combatants: CombatantStats[]): InitiativeEntry[] 
 }
 
 /** Calculate a single attack from attacker against defender. */
-export function resolveAttack(
+function resolveAttack(
   attacker: CombatantStats,
   defender: CombatantStats,
   difficulty: string = "normal",
@@ -415,7 +415,7 @@ export function resolveAttack(
 }
 
 /** Tick status effects: decrement turns, remove expired. Returns tick results. */
-export function tickStatusEffects(combatant: CombatantStats): {
+function tickStatusEffects(combatant: CombatantStats): {
   updated: CombatantStats;
   ticks: Array<{ effect: string; expired: boolean }>;
 } {

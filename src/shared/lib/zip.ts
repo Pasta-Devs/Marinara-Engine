@@ -35,10 +35,7 @@ function crc32(bytes: Uint8Array): number {
 
 function dosTimestamp(date = new Date()) {
   const year = Math.max(1980, date.getFullYear());
-  const time =
-    (date.getHours() << 11) |
-    (date.getMinutes() << 5) |
-    Math.floor(date.getSeconds() / 2);
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
   const day = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
   return { time, day };
 }

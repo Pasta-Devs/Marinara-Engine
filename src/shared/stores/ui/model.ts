@@ -128,7 +128,8 @@ export function normalizeTrackerPanelSizeProfile(value: unknown, legacyWidth?: u
     return value as TrackerPanelSizeProfile;
   }
 
-  const width = typeof legacyWidth === "number" && Number.isFinite(legacyWidth) ? clampTrackerPanelWidth(legacyWidth) : null;
+  const width =
+    typeof legacyWidth === "number" && Number.isFinite(legacyWidth) ? clampTrackerPanelWidth(legacyWidth) : null;
   if (width !== null) {
     if (width <= 300) return "compact";
     if (width >= 380) return "expanded";
@@ -176,8 +177,7 @@ export function normalizeTrackerPanelSectionOrder(value: unknown): TrackerPanelS
 
 export function normalizeSummaryPopoverSettings(value: unknown): SummaryPopoverSettings {
   const raw = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  const numberOrNull = (next: unknown) =>
-    typeof next === "number" && Number.isFinite(next) ? Math.round(next) : null;
+  const numberOrNull = (next: unknown) => (typeof next === "number" && Number.isFinite(next) ? Math.round(next) : null);
   return {
     sourceMode: raw.sourceMode === "range" ? "range" : "last",
     contextSize: numberOrNull(raw.contextSize),
@@ -246,8 +246,18 @@ export const CLEARED_DETAIL_IDS = {
   regexDetailId: null,
 } satisfies FullPageRoutePatch;
 
+// Narrow viewports overlay the right catalog panel over chat, so opening a full-page
+// editor must close it (and Back must reopen it). Keep the width check in one place.
+function isMobilePanelViewport(): boolean {
+  return typeof window !== "undefined" && window.innerWidth < 768;
+}
+
 export function mobilePanelClosePatch(): FullPageRoutePatch {
-  return typeof window !== "undefined" && window.innerWidth < 768 ? { rightPanelOpen: false } : {};
+  return isMobilePanelViewport() ? { rightPanelOpen: false } : {};
+}
+
+export function mobilePanelReopenPatch(): FullPageRoutePatch {
+  return isMobilePanelViewport() ? { rightPanelOpen: true } : {};
 }
 
 export function openDetailRouteState(patch: FullPageRoutePatch): FullPageRoutePatch {
@@ -486,6 +496,10 @@ export interface UIState {
   /** Transient: true when center content area is too narrow (overflow detected) */
   centerCompact: boolean;
 
+  /** Transient: true while the user is dragging a side-panel resizer; lets
+   * ConnectionsPanel suppress framer-motion Reorder layout animations during resize. */
+  rightPanelResizing: boolean;
+
   // Actions
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -601,6 +615,7 @@ export interface UIState {
   setTextStrokeWidth: (v: number) => void;
   setTextStrokeColor: (v: string) => void;
   setCenterCompact: (v: boolean) => void;
+  setRightPanelResizing: (v: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;

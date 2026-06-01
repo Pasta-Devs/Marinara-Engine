@@ -78,10 +78,7 @@ export function addExactNameLookups(
   );
 }
 
-export function addAliasLookups(
-  candidates: readonly CharacterLookupDisplayRow[],
-  idByLookupText: Map<string, string>,
-) {
+export function addAliasLookups(candidates: readonly CharacterLookupDisplayRow[], idByLookupText: Map<string, string>) {
   const aliasCandidatesByKind = new Map<CharacterLookupAliasKind, LookupCandidate[]>();
 
   for (const kind of ALIAS_LOOKUP_KIND_ORDER) aliasCandidatesByKind.set(kind, []);

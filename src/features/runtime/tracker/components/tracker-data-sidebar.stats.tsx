@@ -33,11 +33,7 @@ function StatBarGhost({
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "tracker-stat-ghost-card",
-        wideColumnCell ? "px-1" : "px-1.5",
-        isTight ? "px-1 py-0.5" : "py-1",
-      )}
+      className={cn("tracker-stat-ghost-card", wideColumnCell ? "px-1" : "px-1.5", isTight ? "px-1 py-0.5" : "py-1")}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-x-1">
         <span className="tracker-stat-ghost-name" />
@@ -156,11 +152,7 @@ function StatBar({
   );
   const valueInputClass = cn("min-w-0 px-0 py-0 text-right tabular-nums", numberClass);
   const statBarContainerClass = isInstrument
-    ? cn(
-        "tracker-stat-row--instrument",
-        wideColumnCell ? "px-1" : "px-1.5",
-        isTight ? "px-1 py-0.5" : "py-1",
-      )
+    ? cn("tracker-stat-row--instrument", wideColumnCell ? "px-1" : "px-1.5", isTight ? "px-1 py-0.5" : "py-1")
     : cn(
         "border-b border-[var(--tracker-profile-row-rule)] last:border-b-0",
         isTight ? "py-0" : isCompact ? "py-px" : isRoomy ? "py-1" : "py-0.5",
@@ -196,10 +188,7 @@ function StatBar({
           />
         ) : nameMode === "truncate" ? (
           <FittedText
-            className={cn(
-              "w-full font-medium text-[color:var(--tracker-profile-text)]",
-              nameTextClass,
-            )}
+            className={cn("w-full font-medium text-[color:var(--tracker-profile-text)]", nameTextClass)}
             title={visibleText(stat.name, "Stat")}
             minScale={0.56}
           >

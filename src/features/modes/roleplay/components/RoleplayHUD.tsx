@@ -398,13 +398,7 @@ export function RoleplayHUD({
             />
           )}
 
-          {hasPlayerTrackerSections && (
-            <InventoryWidget
-              items={inventory}
-              onUpdate={updateInventory}
-              layout={layout}
-            />
-          )}
+          {hasPlayerTrackerSections && <InventoryWidget items={inventory} onUpdate={updateInventory} layout={layout} />}
 
           {enabledAgentTypes.has(TRACKER_SECTION_AGENT_TYPES.quests) && (
             <QuestsWidget

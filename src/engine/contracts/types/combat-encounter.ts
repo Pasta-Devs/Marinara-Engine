@@ -223,6 +223,12 @@ export interface EncounterActionRequest {
 /** Response from encounter action resolution. */
 export interface EncounterActionResponse {
   result: CombatActionResult;
+  /**
+   * True when the model output could not be parsed into a usable combat turn.
+   * The caller must surface a retryable error and leave combat state unchanged
+   * instead of treating `result` as a real turn.
+   */
+  invalid?: boolean;
 }
 
 /** Payload for summarizing an encounter. */

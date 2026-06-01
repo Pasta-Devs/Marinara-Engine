@@ -8,6 +8,7 @@ export type WorldStateTarget = Partial<TrackerSnapshotTarget>;
 type ResolvedWorldStateTarget = { messageId: string; swipeIndex: number };
 
 const VISIBLE_TARGET_MESSAGE_LIMIT = 200;
+const VISIBLE_TARGET_MESSAGE_FIELDS = ["id", "role", "activeSwipeIndex", "swipeIndex", "createdAt"];
 const OPERATIONAL_PATCH_KEYS = new Set(["manual", "clearOverrides", "targetVisible"]);
 const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 
@@ -70,7 +71,8 @@ function readText(value: unknown): string | null {
 function removePatchControlFields(patch: WorldStatePatch): WorldStatePatch {
   return Object.fromEntries(
     Object.entries(patch).filter(
-      ([key, value]) => key !== "messageId" && key !== "swipeIndex" && !OPERATIONAL_PATCH_KEYS.has(key) && value !== undefined,
+      ([key, value]) =>
+        key !== "messageId" && key !== "swipeIndex" && !OPERATIONAL_PATCH_KEYS.has(key) && value !== undefined,
     ),
   );
 }
@@ -82,7 +84,9 @@ function updateManualOverrides(
 ): Record<string, string> | null {
   if (options.clearOverrides) return null;
   if (!options.manual) {
-    return current && typeof current === "object" && !Array.isArray(current) ? (current as Record<string, string>) : null;
+    return current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, string>)
+      : null;
   }
   const next =
     current && typeof current === "object" && !Array.isArray(current) ? { ...(current as Record<string, string>) } : {};
@@ -129,6 +133,7 @@ async function visibleTargetContext(chatId: string): Promise<{
 }> {
   const messages = await storageApi.listChatMessages<Record<string, unknown>>(chatId, {
     limit: VISIBLE_TARGET_MESSAGE_LIMIT,
+    fields: VISIBLE_TARGET_MESSAGE_FIELDS,
   });
   const activeTargetKeys = new Set<string>();
   let target: ResolvedWorldStateTarget | null = null;
@@ -202,13 +207,18 @@ export const worldStateApi: WorldStateApi = {
     throwIfAborted(init);
     const existingSnapshot = target ? await trackerSnapshotApi.get(chatId, target) : null;
     throwIfAborted(init);
-    const latestSnapshot = target && !existingSnapshot ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
+    const latestSnapshot =
+      target && !existingSnapshot ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
     throwIfAborted(init);
     const existing = existingSnapshot ?? latestSnapshot ?? chat?.gameState ?? createEmptyWorldState(chatId);
-    const manualOverrides = updateManualOverrides(target ? existingSnapshot?.manualOverrides : existing.manualOverrides, statePatch, {
-      manual,
-      clearOverrides,
-    });
+    const manualOverrides = updateManualOverrides(
+      target ? existingSnapshot?.manualOverrides : existing.manualOverrides,
+      statePatch,
+      {
+        manual,
+        clearOverrides,
+      },
+    );
     const next = withTarget(
       {
         ...existing,

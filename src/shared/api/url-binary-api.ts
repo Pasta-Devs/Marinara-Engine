@@ -19,7 +19,11 @@ function binaryFailureMessage(response: unknown): string {
   if (!isUrlBinaryResponse(response)) {
     return `URL binary request returned an invalid response: ${String(response)}`;
   }
-  return optionalString(response.error) ?? optionalString(response.message) ?? "URL binary request did not return base64 data.";
+  return (
+    optionalString(response.error) ??
+    optionalString(response.message) ??
+    "URL binary request did not return base64 data."
+  );
 }
 
 function base64ToBytes(base64: string): Uint8Array {

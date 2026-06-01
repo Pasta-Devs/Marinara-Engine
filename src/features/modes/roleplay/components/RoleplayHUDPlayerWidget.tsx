@@ -60,12 +60,7 @@ export function CombinedPlayerWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        className={cn(WIDGET, "text-orange-300")}
-        title="Player & Tracker"
-      >
+      <button ref={buttonRef} onClick={toggle} className={cn(WIDGET, "text-orange-300")} title="Player & Tracker">
         <div className="flex h-7 max-md:h-auto items-center justify-center shrink-0">
           <Swords size="0.875rem" className="text-orange-400/70 max-md:h-4 max-md:w-4" />
         </div>

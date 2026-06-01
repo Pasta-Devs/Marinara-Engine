@@ -36,13 +36,14 @@ export function CreateCharacterModal({ open, onClose }: Props) {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
 
     try {
       const result = await createCharacter.mutateAsync({
-        name,
+        name: trimmedName,
         data: {
-          name,
+          name: trimmedName,
           description: "",
           personality: "",
           first_mes: "",

@@ -1,5 +1,10 @@
 import { invokeTauri } from "./tauri-client";
 
+export interface ChatGroupDeleteResult {
+  deleted: number;
+  deletedChatIds?: string[];
+}
+
 export const chatCommandApi = {
   messageCount: (chatId: string | null) => invokeTauri<{ count: number }>("chat_message_count", { chatId }),
   memoriesList: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_memories_list", { chatId }),
@@ -12,7 +17,7 @@ export const chatCommandApi = {
   notesList: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_notes_list", { chatId }),
   noteDelete: (chatId: string | null, noteId: string) => invokeTauri("chat_note_delete", { chatId, noteId }),
   notesClear: (chatId: string | null) => invokeTauri("chat_notes_clear", { chatId }),
-  groupDelete: (groupId: string) => invokeTauri("chat_group_delete", { groupId }),
+  groupDelete: (groupId: string) => invokeTauri<ChatGroupDeleteResult>("chat_group_delete", { groupId }),
   markAutonomousUnread: <T = unknown>(chatId: string, body: { characterId?: string | null; count?: number | null }) =>
     invokeTauri<T>("chat_autonomous_unread_mark", { chatId, body }),
   clearAutonomousUnread: <T = unknown>(chatId: string) => invokeTauri<T>("chat_autonomous_unread_clear", { chatId }),

@@ -158,25 +158,3 @@ export function GameQteOverlay({ actions, timerSeconds, onSelect, onTimeout, onD
     </div>
   );
 }
-
-// ── Tag Parser ──
-
-/** Parse [qte: action1 | action2, timer: 5s] from narration content. */
-export function parseQteTag(content: string): { actions: string[]; timer: number; cleanContent: string } | null {
-  const regex = /\[qte:\s*(.+?),\s*timer:\s*(\d+)s?\]/i;
-  const match = content.match(regex);
-  if (!match) return null;
-
-  const actionsRaw = match[1]!;
-  const timer = parseInt(match[2]!, 10);
-
-  const actions = actionsRaw
-    .split("|")
-    .map((a) => a.trim().replace(/^["']|["']$/g, ""))
-    .filter((a) => a.length > 0);
-
-  if (actions.length === 0 || isNaN(timer)) return null;
-
-  const cleanContent = content.replace(regex, "").trim();
-  return { actions, timer, cleanContent };
-}

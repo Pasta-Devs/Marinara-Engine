@@ -1,4 +1,4 @@
-export type PromptPresetCandidateSource = "impersonate" | "request" | "connection" | "chat";
+type PromptPresetCandidateSource = "impersonate" | "request" | "connection" | "chat";
 
 export interface PromptPresetCandidate {
   id: string;
@@ -32,7 +32,7 @@ function pushUnique(
   seen.add(id);
 }
 
-export function supportsConnectionPromptPresetOverride(chatMode: unknown): boolean {
+function supportsConnectionPromptPresetOverride(chatMode: unknown): boolean {
   return chatMode === "roleplay";
 }
 

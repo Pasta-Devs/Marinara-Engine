@@ -3,6 +3,8 @@ export interface SpriteAssetInfo {
   [key: string]: unknown;
 }
 
+export type SpriteOwnerType = "character" | "persona";
+
 export interface BackgroundAssetInfo {
   filename?: string | null;
   name?: string | null;
@@ -28,7 +30,7 @@ export interface GameAssetManifest {
 }
 
 export interface VisualAssetGateway {
-  listSprites(characterId: string): Promise<SpriteAssetInfo[]>;
+  listSprites(ownerId: string, ownerType?: SpriteOwnerType): Promise<SpriteAssetInfo[]>;
   listBackgrounds(): Promise<BackgroundAssetInfo[]>;
   gameAssetsManifest?(): Promise<GameAssetManifest | null>;
 }

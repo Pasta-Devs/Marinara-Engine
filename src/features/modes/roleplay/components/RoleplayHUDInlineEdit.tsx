@@ -55,10 +55,7 @@ function InlinePreviewPortal({
     const top = Math.round(placeBelow ? rect.bottom + gap : Math.max(margin, rect.top - visibleHeight - gap));
 
     setPosition((current) =>
-      current?.top === top &&
-      current.left === left &&
-      current.maxWidth === maxWidth &&
-      current.maxHeight === maxHeight
+      current?.top === top && current.left === left && current.maxWidth === maxWidth && current.maxHeight === maxHeight
         ? current
         : { top, left, maxWidth, maxHeight },
     );

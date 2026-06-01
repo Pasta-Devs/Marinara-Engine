@@ -79,7 +79,8 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "android-apk-termux",
     category: "Setup",
     question: "Is the Android APK standalone?",
-    answer: "The migrated app is a native Tauri app. Android builds should use the Tauri mobile target, not the old WebView-plus-server setup.",
+    answer:
+      "The migrated app is a native Tauri app. Android builds should use the Tauri mobile target, not the old WebView-plus-server setup.",
     bullets: [
       "Desktop builds are the primary supported path right now.",
       "Mobile builds must ship the Rust backend with the app.",

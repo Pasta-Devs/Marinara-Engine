@@ -17,11 +17,11 @@ const GAME_STATE_TEXT_OBJECT_KEYS = [
   "type",
 ] as const;
 
-export const GAME_STATE_TEXT_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
+const GAME_STATE_TEXT_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 
 export type GameStateTextField = (typeof GAME_STATE_TEXT_FIELDS)[number];
 
-export function coerceGameStateTextValue(value: unknown): string | null {
+function coerceGameStateTextValue(value: unknown): string | null {
   return coerceGameStateTextValueInner(value, new WeakSet<object>());
 }
 

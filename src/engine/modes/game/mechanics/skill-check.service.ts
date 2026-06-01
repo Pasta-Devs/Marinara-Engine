@@ -46,13 +46,6 @@ function d20(): number {
 }
 
 /**
- * Compute a D&D-style attribute modifier: floor((score - 10) / 2).
- */
-export function attributeModifier(score: number): number {
-  return Math.floor((score - 10) / 2);
-}
-
-/**
  * Map common skills to their governing attribute.
  * Falls back to "int" for unlisted skills.
  */

@@ -48,8 +48,7 @@ const NAME_EDIT_CLASS = "tracker-profile-nameplate-edit";
 const NAME_PREVIEW_CLASS = "tracker-profile-nameplate-preview";
 
 export const TRACKER_PROFILE_NAMEPLATE_ICON_BUTTON_CLASS = "tracker-profile-nameplate-icon-button";
-export const TRACKER_PROFILE_NAMEPLATE_ICON_BUTTON_ACTIVE_CLASS =
-  "tracker-profile-nameplate-icon-button--active";
+export const TRACKER_PROFILE_NAMEPLATE_ICON_BUTTON_ACTIVE_CLASS = "tracker-profile-nameplate-icon-button--active";
 export const TRACKER_PROFILE_NAMEPLATE_HEADER_BUTTON_CLASS = "tracker-profile-nameplate-header-button";
 
 function TrackerProfileNameplateClasp({
@@ -172,7 +171,12 @@ export function TrackerProfileNameplate({
           fitMinScale={0.6}
         />
       ) : (
-        <FittedText className={cn(NAME_PREVIEW_CLASS, nameClassName)} title={displayValue} align="center" minScale={0.6}>
+        <FittedText
+          className={cn(NAME_PREVIEW_CLASS, nameClassName)}
+          title={displayValue}
+          align="center"
+          minScale={0.6}
+        >
           {displayValue}
         </FittedText>
       )}

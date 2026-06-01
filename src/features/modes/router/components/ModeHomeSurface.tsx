@@ -65,10 +65,7 @@ export function ModeHomeSurface() {
                 width={80}
                 height={80}
                 decoding="async"
-                className={cn(
-                  "h-full w-full",
-                  showEmptyStateEffects ? "object-cover" : "object-contain p-1.5 sm:p-2",
-                )}
+                className={cn("h-full w-full", showEmptyStateEffects ? "object-cover" : "object-contain p-1.5 sm:p-2")}
               />
             </div>
           </div>
@@ -80,7 +77,9 @@ export function ModeHomeSurface() {
             </p>
           </div>
 
-          <div className={cn("flex flex-wrap justify-center gap-2 sm:gap-3", showEmptyStateEffects && "stagger-children")}>
+          <div
+            className={cn("flex flex-wrap justify-center gap-2 sm:gap-3", showEmptyStateEffects && "stagger-children")}
+          >
             <QuickStartCard
               icon={<MessageSquare size="1.125rem" />}
               label="Conversation"
@@ -110,7 +109,9 @@ export function ModeHomeSurface() {
           <RecentChats />
           <HomeFaq />
 
-          <div className={cn("w-48", showEmptyStateEffects ? "retro-divider" : "h-px rounded-[1px] bg-[var(--border)]/40")} />
+          <div
+            className={cn("w-48", showEmptyStateEffects ? "retro-divider" : "h-px rounded-[1px] bg-[var(--border)]/40")}
+          />
 
           <div className="flex w-full max-w-2xl flex-col items-center gap-2">
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight text-[var(--muted-foreground)]/55 sm:text-xs">
@@ -174,9 +175,9 @@ export function ModeHomeSurface() {
             </div>
 
             <p className="max-w-[42rem] px-1 text-center text-[0.625rem] leading-snug text-[var(--muted-foreground)]/40 sm:max-w-[46rem]">
-              Special thanks to Deci, Xel, Jorge, Cha1latte, Javedz678, Teuku, Shadota, Romu, Mm14141, MagicGoddess, John,
-              Pwildani, Romu, Felor, MuniMuni, Guybrush01, Joshellis625, LukaTheHero, Coxde, JorgeLTE, Seele The Seal
-              King, Loungemeister, Kale, Tabris, GREGOR OVECH, Coins, Tacoman, Jorge, Promansis, Kitsumiro, Sheep,
+              Special thanks to Deci, Xel, Jorge, Cha1latte, Javedz678, Teuku, Shadota, Romu, Mm14141, MagicGoddess,
+              John, Pwildani, Romu, Felor, MuniMuni, Guybrush01, Joshellis625, LukaTheHero, Coxde, JorgeLTE, Seele The
+              Seal King, Loungemeister, Kale, Tabris, GREGOR OVECH, Coins, Tacoman, Jorge, Promansis, Kitsumiro, Sheep,
               Pod042, Prolix, PlutoMayhem, Mezzeh, Kuc0, Exalted, Yang Best Girl, MidnightSleeper, Geechan,
               TheLonelyDevil, Artus, and you!
             </p>
@@ -195,7 +196,10 @@ export function ModeHomeSurface() {
         </div>
       </div>
       {pendingNewChatMode && (
-        <NewChatConnectionGate mode={pendingNewChatMode} onClose={() => useChatStore.getState().setPendingNewChatMode(null)} />
+        <NewChatConnectionGate
+          mode={pendingNewChatMode}
+          onClose={() => useChatStore.getState().setPendingNewChatMode(null)}
+        />
       )}
     </>
   );
@@ -230,9 +234,11 @@ function QuickStartCard({
   };
 
   return (
-    <div
+    <button
+      type="button"
       onClick={handleClick}
       title={tooltip}
+      aria-label={`${comingSoon && !onClick ? "Show status for" : "Start"} ${label} chat`}
       className={cn(
         "group card-3d-tilt btn-scanlines relative flex w-20 sm:w-28 flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 sm:p-4 text-center transition-all",
         "cursor-pointer hover:-translate-y-1 hover:border-[var(--primary)]/40 hover:shadow-lg",
@@ -251,6 +257,6 @@ function QuickStartCard({
         {icon}
       </div>
       <span className="text-[0.625rem] sm:text-xs font-medium text-[var(--muted-foreground)]">{label}</span>
-    </div>
+    </button>
   );
 }

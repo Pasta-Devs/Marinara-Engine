@@ -43,13 +43,15 @@ export function useChatTtsAutoplay({ chatId, mode, messages, characterMap, isStr
   modeRef.current = mode;
   const prevIsStreamingRef = useRef(false);
   const streamingTTSEnabled = Boolean(
-      ttsConfig?.enabled &&
-      ttsConfig.autoplayStreaming &&
-      (mode === "roleplay" ? ttsConfig.autoplayRP : ttsConfig.autoplayConvo),
+    ttsConfig?.enabled &&
+    ttsConfig.autoplayStreaming &&
+    (mode === "roleplay" ? ttsConfig.autoplayRP : ttsConfig.autoplayConvo),
   );
   const fallbackTTSMessage = findLastAssistantMessage(messages);
   const streamingFallbackCharacterId =
-    streamingCharacterId && characterMap.has(streamingCharacterId) ? streamingCharacterId : fallbackTTSMessage?.characterId;
+    streamingCharacterId && characterMap.has(streamingCharacterId)
+      ? streamingCharacterId
+      : fallbackTTSMessage?.characterId;
   const streamingFallbackSpeaker =
     (streamingFallbackCharacterId ? characterMap.get(streamingFallbackCharacterId)?.name : undefined) ??
     typingCharacterName ??
@@ -106,9 +108,12 @@ export function useChatTtsAutoplay({ chatId, mode, messages, characterMap, isStr
         : lastMessage.characterId
           ? characterMap.get(lastMessage.characterId)?.name
           : undefined;
-    const requests = buildTTSVoiceRequests(lastMessage.content, config, fallbackSpeaker, lastMessage.characterId).filter(
-      (request) => request.text.trim().length > 0,
-    );
+    const requests = buildTTSVoiceRequests(
+      lastMessage.content,
+      config,
+      fallbackSpeaker,
+      lastMessage.characterId,
+    ).filter((request) => request.text.trim().length > 0);
     if (requests.length === 0) return;
 
     void ttsService.speakSequence(requests, lastMessage.id, {

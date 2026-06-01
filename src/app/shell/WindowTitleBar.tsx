@@ -1,5 +1,5 @@
 import { Maximize2, Minus, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   closeDesktopWindow,
   getDesktopWindowVisualState,
@@ -14,9 +14,12 @@ import {
 import { cn } from "../../shared/lib/utils";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
-import { SpotifyMiniPlayer } from "../../features/shell/spotify/shell";
 import { ChatTitleControls } from "./ChatTitleControls";
 import { PanelNavButtons } from "./PanelNavButtons";
+
+const SpotifyMiniPlayer = lazy(() =>
+  import("../../features/shell/spotify/shell").then((module) => ({ default: module.SpotifyMiniPlayer })),
+);
 
 type DesktopPlatform = "darwin" | "windows" | "linux";
 type WindowControlAction = "close" | "minimize" | "maximize" | "fullscreen";
@@ -49,6 +52,7 @@ export function WindowTitleBar({
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const spotifyPlayerEnabled = useUIStore((s) => s.spotifyPlayerEnabled);
   const hasOpenSurface = useUIStore((s) =>
     Boolean(
@@ -127,8 +131,9 @@ export function WindowTitleBar({
   const goHome = useCallback(() => {
     setActiveChatId(null);
     closeAllDetails();
+    closeRightPanel();
     onGoHome?.();
-  }, [closeAllDetails, onGoHome, setActiveChatId]);
+  }, [closeAllDetails, closeRightPanel, onGoHome, setActiveChatId]);
 
   const isHomeSurface = !professorMariOpen && !activeChatId && !hasOpenSurface;
   const controlActions: WindowControlAction[] =
@@ -234,7 +239,9 @@ export function WindowTitleBar({
             onMouseDown={(event) => event.stopPropagation()}
             onDoubleClick={(event) => event.stopPropagation()}
           >
-            <SpotifyMiniPlayer />
+            <Suspense fallback={null}>
+              <SpotifyMiniPlayer />
+            </Suspense>
           </div>
         )}
         <div

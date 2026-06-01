@@ -117,4 +117,158 @@ describe("analyzeGameScene", () => {
     expect(result.segmentEffects?.[0]?.sfx).toEqual(["sfx:door-slam"]);
     expect(result.segmentEffects?.[0]?.directions).toEqual([{ effect: "flash", duration: 1 }]);
   });
+
+  it("falls back to the first Spotify candidate when scene analysis JSON is malformed", async () => {
+    const llm = {
+      complete: vi.fn(async () => "{ not valid json"),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The battle starts.",
+        context: {
+          useSpotifyMusic: true,
+          availableSpotifyTracks: [
+            { uri: "spotify:track:first", name: "First Track", artist: "Mari", album: "Fallbacks" },
+            { uri: "spotify:track:second", name: "Second Track", artist: "Mari" },
+          ],
+        },
+      },
+    );
+
+    expect(result.spotifyTrack).toEqual({
+      uri: "spotify:track:first",
+      name: "First Track",
+      artist: "Mari",
+      album: "Fallbacks",
+    });
+  });
+
+  it("normalizes malformed Spotify candidate metadata before falling back", async () => {
+    const llm = {
+      complete: vi.fn(async () => "{ not valid json"),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The battle starts.",
+        context: {
+          useSpotifyMusic: true,
+          availableSpotifyTracks: [
+            {
+              uri: "spotify:track:first",
+              name: 123,
+              artist: null,
+              album: { title: "Fallbacks" },
+            },
+          ],
+        },
+      },
+    );
+
+    expect(result.spotifyTrack).toEqual({
+      uri: "spotify:track:first",
+      name: null,
+      artist: null,
+      album: null,
+    });
+  });
+
+  it("does not fall back when valid scene analysis explicitly returns no Spotify track", async () => {
+    const llm = {
+      complete: vi.fn(async () => JSON.stringify({ spotifyTrack: null })),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The party rests quietly.",
+        context: {
+          useSpotifyMusic: true,
+          availableSpotifyTracks: [{ uri: "spotify:track:first", name: "First Track", artist: "Mari" }],
+        },
+      },
+    );
+
+    expect(result.spotifyTrack).toBeNull();
+  });
+
+  it("keeps default null analysis when malformed scene analysis has no Spotify candidates", async () => {
+    const llm = {
+      complete: vi.fn(async () => "{ not valid json"),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The party rests quietly.",
+        context: {
+          useSpotifyMusic: true,
+          availableSpotifyTracks: [],
+        },
+      },
+    );
+
+    expect(result.background).toBeNull();
+    expect(result.spotifyTrack).toBeNull();
+    expect(result.reputationChanges).toEqual([]);
+    expect(result.segmentEffects).toEqual([]);
+    expect(result.directions).toEqual([]);
+  });
+
+  it("does not fall back to Spotify candidates when Spotify music is disabled", async () => {
+    const llm = {
+      complete: vi.fn(async () => "{ not valid json"),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    const result = await analyzeGameScene(
+      { storage, llm },
+      {
+        chatId: "chat-1",
+        narration: "The party rests quietly.",
+        context: {
+          useSpotifyMusic: false,
+          availableSpotifyTracks: [{ uri: "spotify:track:first", name: "First Track", artist: "Mari" }],
+        },
+      },
+    );
+
+    expect(result.spotifyTrack).toBeNull();
+  });
 });

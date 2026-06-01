@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Design"
+  short_description: "Marinara UI concept and build lens"
+  default_prompt: "Use $frontend-design to design and build this Marinara UI surface, then use Impeccable for polish if needed."

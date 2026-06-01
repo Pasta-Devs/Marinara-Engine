@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { Modal } from "../../../../shared/components/ui/Modal";
-import { useCreatePersona } from "../../characters/index";
+import { useCreatePersona } from "../hooks/use-personas";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { Loader2, User } from "lucide-react";
 import { toast } from "sonner";

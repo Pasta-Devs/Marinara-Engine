@@ -23,9 +23,7 @@ import {
 import { ContinuityIssueChecklist } from "../../../catalog/agents/activity";
 import { ContextInjectionPanel } from "./ContextInjectionPanel";
 
-const SecretPlotPanel = lazy(async () =>
-  import("./SecretPlotPanel").then((m) => ({ default: m.SecretPlotPanel })),
-);
+const SecretPlotPanel = lazy(async () => import("./SecretPlotPanel").then((m) => ({ default: m.SecretPlotPanel })));
 
 interface ThoughtBubble {
   agentId: string;
@@ -286,10 +284,7 @@ export function RoleplayHUDActionsMenu({
               onClick={toggleEchoChamber}
               className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] transition-colors hover:bg-white/5"
             >
-              <MessageCircle
-                size="0.75rem"
-                className={echoChamberOpen ? "text-foreground/75" : "text-foreground/50"}
-              />
+              <MessageCircle size="0.75rem" className={echoChamberOpen ? "text-foreground/75" : "text-foreground/50"} />
               <span className={echoChamberOpen ? "font-medium text-foreground/75" : "text-foreground/55"}>
                 Echo Chamber {echoChamberOpen ? "On" : "Off"}
               </span>

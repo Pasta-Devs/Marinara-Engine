@@ -18,6 +18,7 @@ import type {
   HudWidget,
   PartyArc,
   SessionSummary,
+  SkillCheckResult,
 } from "../../../../engine/contracts/types/game";
 import type { RPGAttributes } from "../../../../engine/contracts/types/game-state";
 import { ApiError, type JsonRepairRequest } from "../../../../shared/api/api-errors";
@@ -27,6 +28,10 @@ import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import {
+  createLorebookEntrySchema,
+  createLorebookSchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
 import {
@@ -44,6 +49,7 @@ import {
   mapSheetAttributesToRPG,
   resolveSkillCheck,
 } from "../../../../engine/modes/game/mechanics/skill-check.service";
+import { serializeResolvedSkillCheckTag } from "../../../../engine/shared/scoring/skill-check-format";
 import {
   applyMoraleEvent,
   getMoraleTier,
@@ -204,15 +210,18 @@ type PromptOverride = {
   prompt?: string;
 };
 
-type GameJsonRepairKind = "game_setup" | "game_map" | "session_conclusion" | "session_lorebook" | "campaign_progression";
+type GameJsonRepairKind =
+  | "game_setup"
+  | "game_map"
+  | "session_conclusion"
+  | "session_lorebook"
+  | "campaign_progression";
 
 type GameJsonRepairContext = {
   kind: GameJsonRepairKind;
   title: string;
   applyBody: Record<string, unknown>;
 };
-
-const EMPTY_JOURNAL: Journal = createJournal();
 
 function newId(prefix = ""): string {
   const id =
@@ -555,7 +564,13 @@ function normalizeGeneratedMap(raw: unknown, fallback: GameMap): GameMap | null 
     const fallbackCell = cells.find((cell) => cell.discovered) ?? cells[0]!;
     const fallbackPosition = { x: fallbackCell.x, y: fallbackCell.y };
     const knownCoordinates = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
-    const partyPosition = normalizeGridPartyPosition(record.partyPosition, fallbackPosition, width, height, knownCoordinates);
+    const partyPosition = normalizeGridPartyPosition(
+      record.partyPosition,
+      fallbackPosition,
+      width,
+      height,
+      knownCoordinates,
+    );
     return {
       ...base,
       type: "grid",
@@ -1031,6 +1046,50 @@ function playerAttributes(meta: Record<string, unknown>): Partial<RPGAttributes>
   const first = asRecord(cards[0]);
   const rpgStats = asRecord(first.rpgStats);
   return mapSheetAttributesToRPG(Array.isArray(rpgStats.attributes) ? (rpgStats.attributes as any[]) : undefined);
+}
+
+function replaceFirstUnresolvedSkillCheckTag(content: string, resolvedTag: string): string {
+  let replaced = false;
+  return content.replace(/\[skill_check:\s*([^\]]+)\]/gi, (fullTag, body: string) => {
+    if (replaced) return fullTag;
+    if (/\bresult\s*=/i.test(body)) return fullTag;
+    replaced = true;
+    return resolvedTag;
+  });
+}
+
+const SKILL_CHECK_HISTORY_PERSIST_ATTEMPTS = 3;
+
+async function persistResolvedSkillCheckTag(
+  chatId: string,
+  messageId: string | undefined,
+  result: SkillCheckResult,
+): Promise<string | undefined> {
+  const id = typeof messageId === "string" ? messageId.trim() : "";
+  if (!id) return undefined;
+  try {
+    const conditionalUpdate = storageApi.updateChatMessageContentIfUnchanged;
+    if (typeof conditionalUpdate !== "function") {
+      throw new Error("Conditional chat message content update is unavailable");
+    }
+    const resolvedTag = serializeResolvedSkillCheckTag(result);
+    for (let attempt = 0; attempt < SKILL_CHECK_HISTORY_PERSIST_ATTEMPTS; attempt += 1) {
+      const message = await storageApi.get<ChatMessage>("messages", id);
+      if (typeof message?.chatId !== "string" || message.chatId !== chatId) return undefined;
+      const content = typeof message?.content === "string" ? message.content : "";
+      if (!content) return undefined;
+      const updatedContent = replaceFirstUnresolvedSkillCheckTag(content, resolvedTag);
+      if (updatedContent === content) return undefined;
+      const update = await conditionalUpdate<ChatMessage>(chatId, id, content, updatedContent);
+      if (update.updated) {
+        return typeof update.message?.content === "string" ? update.message.content : updatedContent;
+      }
+    }
+    return undefined;
+  } catch (error) {
+    console.warn("[game] skill check history persist failed", error);
+    return undefined;
+  }
 }
 
 function generatedAssetSlug(value: string): string {
@@ -1602,32 +1661,37 @@ export const gameApi = {
         },
       }));
     const entries = Array.isArray(parsed.entries) && parsed.entries.length ? parsed.entries : fallbackEntries;
-    const lorebook = await storageApi.create<{ id: string }>("lorebooks", {
-      name: `Game Session ${data.sessionNumber} Lore`,
-      description: "Generated from local game session state.",
-      category: "game",
-      chatId: data.chatId,
-      enabled: true,
-      generatedBy: "game-session",
-    });
+    const lorebook = await storageApi.create<{ id: string }>(
+      "lorebooks",
+      createLorebookSchema.parse({
+        name: `Game Session ${data.sessionNumber} Lore`,
+        description: "Generated from local game session state.",
+        category: "game",
+        chatId: data.chatId,
+        enabled: true,
+        generatedBy: "game-session",
+      }),
+    );
     let entryCount = 0;
     for (const [index, rawEntry] of entries.entries()) {
       const entry = asRecord(rawEntry);
-      await storageApi.create("lorebook-entries", {
-        lorebookId: lorebook.id,
-        name: typeof entry.name === "string" ? entry.name : "Session Lore",
-        content: typeof entry.content === "string" ? entry.content : "",
-        keys: Array.isArray(entry.keys) ? entry.keys : [`session ${data.sessionNumber}`],
-        secondaryKeys: [],
-        enabled: true,
-        constant: false,
-        selective: false,
-        order: index,
-        sortOrder: index,
-        position: 0,
-        role: "system",
-        excludeFromVectorization: false,
-      });
+      await storageApi.create(
+        "lorebook-entries",
+        createLorebookEntrySchema.parse({
+          lorebookId: lorebook.id,
+          name: typeof entry.name === "string" ? entry.name : "Session Lore",
+          content: typeof entry.content === "string" ? entry.content : "",
+          keys: Array.isArray(entry.keys) ? entry.keys : [`session ${data.sessionNumber}`],
+          secondaryKeys: [],
+          enabled: true,
+          constant: false,
+          selective: false,
+          order: index,
+          position: 0,
+          role: "system",
+          excludeFromVectorization: false,
+        }),
+      );
       entryCount += 1;
     }
     const sessionChat = await patchChatMetadata(data.chatId, {
@@ -1719,22 +1783,24 @@ export const gameApi = {
     disadvantage?: boolean;
     preRolledD20?: number;
     skillModifier?: number;
+    messageId?: string;
   }) {
     const meta = chatMeta(await getChat(data.chatId));
     const attrs = playerAttributes(meta);
     const attr = getGoverningAttribute(data.skill);
     const attrScore = Number(attrs[attr] ?? 10);
+    const result = resolveSkillCheck({
+      skill: data.skill,
+      dc: data.dc,
+      skillModifier: Number(data.skillModifier ?? 0),
+      attributeModifier: Math.floor((attrScore - 10) / 2),
+      advantage: data.advantage,
+      disadvantage: data.disadvantage,
+      preRolledD20: data.preRolledD20,
+    });
     return {
-      result: resolveSkillCheck({
-        skill: data.skill,
-        dc: data.dc,
-        skillModifier: Number(data.skillModifier ?? 0),
-        attributeModifier: Math.floor((attrScore - 10) / 2),
-        advantage: data.advantage,
-        disadvantage: data.disadvantage,
-        preRolledD20: data.preRolledD20,
-      }),
-      updatedContent: undefined as string | undefined,
+      result,
+      updatedContent: await persistResolvedSkillCheckTag(data.chatId, data.messageId, result),
     };
   },
 
@@ -2409,8 +2475,4 @@ export async function applyGameJsonRepair(request: JsonRepairRequest, rawJson: s
     default:
       throw new Error("Unsupported game JSON repair request.");
   }
-}
-
-export function getEmptyJournal(): Journal {
-  return { ...EMPTY_JOURNAL, entries: [], quests: [], locations: [], npcLog: [], inventoryLog: [] };
 }

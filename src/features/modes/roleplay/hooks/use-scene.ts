@@ -15,7 +15,17 @@ import {
   forkRoleplayScene,
   planRoleplayScene,
 } from "../../../../engine/modes/roleplay/scene/scene-service";
-import type { SceneCreateRequest, SceneCreateResponse, SceneConcludeRequest, SceneForkMode, SceneForkRequest, SceneForkResponse, ScenePlanRequest, ScenePlanResponse, SceneFullPlan } from "../../../../engine/contracts/types/scene";
+import type {
+  SceneCreateRequest,
+  SceneCreateResponse,
+  SceneConcludeRequest,
+  SceneForkMode,
+  SceneForkRequest,
+  SceneForkResponse,
+  ScenePlanRequest,
+  ScenePlanResponse,
+  SceneFullPlan,
+} from "../../../../engine/contracts/types/scene";
 
 /** Provides scene lifecycle mutations and the scene-to-roleplay fork action. */
 export function useScene() {

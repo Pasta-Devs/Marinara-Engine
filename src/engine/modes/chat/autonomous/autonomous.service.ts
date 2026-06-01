@@ -136,11 +136,13 @@ export async function checkConversationAutonomous(
 ): Promise<AutonomousCheckResult> {
   const chat = await requireChat(storage, input.chatId);
   const meta = metadataRecord(chat.metadata);
-  const userStatus: UserStatus = input.userStatus === "idle" || input.userStatus === "dnd" ? input.userStatus : "active";
+  const userStatus: UserStatus =
+    input.userStatus === "idle" || input.userStatus === "dnd" ? input.userStatus : "active";
   const disabled = meta.autonomousMessages !== true;
   if (disabled) return { shouldTrigger: false, characterIds: [], reason: "disabled", inactivityMs: 0 };
   if (userStatus === "dnd") return { shouldTrigger: false, characterIds: [], reason: "user_dnd", inactivityMs: 0 };
-  if (meta.sceneStatus === "active") return { shouldTrigger: false, characterIds: [], reason: "scene_active", inactivityMs: 0 };
+  if (meta.sceneStatus === "active")
+    return { shouldTrigger: false, characterIds: [], reason: "scene_active", inactivityMs: 0 };
 
   const messages = await chatMessages(storage, input.chatId);
   initializeActivityFromMessages(
@@ -160,7 +162,10 @@ export async function checkConversationAutonomous(
       .filter((characterId) => !autonomySchedules[characterId])
       .map(async (characterId) => {
         const character = await storage.get("characters", characterId);
-        autonomySchedules[characterId] = createSchedulelessAutonomySchedule(characterTalkativeness(character), userStatus);
+        autonomySchedules[characterId] = createSchedulelessAutonomySchedule(
+          characterTalkativeness(character),
+          userStatus,
+        );
       }),
   );
 
@@ -228,7 +233,7 @@ export type AutonomousClientPresenceStatus = "active" | "idle" | "dnd";
 /** Auto-reset generationInProgress after this many ms (5 minutes) */
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
-export interface ChatActivityState {
+interface ChatActivityState {
   /** Timestamp of the last user message */
   lastUserMessageAt: number;
   /** Timestamp of the last assistant message */
@@ -321,7 +326,7 @@ export function clearGenerationInProgress(chatId: string, startedAt?: number): v
  * This handles server restarts and fresh page loads — we look at the most recent
  * messages to reconstruct timing state so autonomous messaging can resume.
  */
-export function initializeActivityFromMessages(
+function initializeActivityFromMessages(
   chatId: string,
   messages: Array<{ role: string; createdAt?: string; characterId?: string | null }>,
 ): void {
@@ -371,17 +376,10 @@ export function recordAutonomousClientPresence(
   });
 }
 
-export function getRecentAutonomousClientPresence(chatId: string, maxAgeMs: number) {
-  const presence = activityStates.get(chatId)?.clientPresence;
-  if (!presence) return null;
-  if (Date.now() - presence.updatedAt > maxAgeMs) return null;
-  return presence;
-}
-
 /**
  * Check whether any character in a chat should send an autonomous message.
  */
-export function checkAutonomousMessaging(
+function checkAutonomousMessaging(
   chatId: string,
   characterSchedules: Record<string, WeekSchedule>,
   isGroupChat: boolean,
@@ -490,7 +488,7 @@ export function checkAutonomousMessaging(
  * This is triggered after an assistant message, to see if another character
  * wants to respond to what was just said.
  */
-export function checkCharacterExchange(
+function checkCharacterExchange(
   chatId: string,
   lastSpeakerCharId: string,
   characterSchedules: Record<string, WeekSchedule>,

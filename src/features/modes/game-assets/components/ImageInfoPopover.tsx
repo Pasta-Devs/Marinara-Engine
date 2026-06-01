@@ -15,13 +15,7 @@ import { formatBytes, formatDate } from "../../../../shared/lib/format";
  * @param node - Image file node to inspect
  * @param onClose - Callback when popover should close
  */
-export function ImageInfoPopover({
-  node,
-  onClose,
-}: {
-  node: TreeNode;
-  onClose: () => void;
-}) {
+export function ImageInfoPopover({ node, onClose }: { node: TreeNode; onClose: () => void }) {
   const { data: info } = useGameAssetFileInfo(node.path);
   const ref = useRef<HTMLDivElement>(null);
 

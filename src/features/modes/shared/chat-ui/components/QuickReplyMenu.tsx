@@ -45,8 +45,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
     const focusable = itemRefs.current
       .map((button, index) => ({ button, index }))
       .filter(
-        (entry): entry is { button: HTMLButtonElement; index: number } =>
-          !!entry.button && !entry.button.disabled,
+        (entry): entry is { button: HTMLButtonElement; index: number } => !!entry.button && !entry.button.disabled,
       );
     if (focusable.length === 0) return;
 
@@ -102,7 +101,9 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
   };
 
   const formatActionTitle = (action: QuickReplyAction) =>
-    action.disabled ? `${action.label}: ${action.disabledReason ?? action.description}` : `${action.label}: ${action.description}`;
+    action.disabled
+      ? `${action.label}: ${action.disabledReason ?? action.description}`
+      : `${action.label}: ${action.description}`;
 
   const handleTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;

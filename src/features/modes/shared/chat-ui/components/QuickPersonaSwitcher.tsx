@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, FolderOpen, Folder } from "lucide-react";
-import { usePersona, usePersonaGroups, usePersonaSummaries } from "../../../../catalog/characters/index";
+import { usePersona, usePersonaGroups, usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../../shared/lib/utils";
@@ -55,7 +55,8 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
     .slice()
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-  const activePersona = personas.find((p) => p.id === activePersonaId) ?? (activePersonaRecord as Persona | null) ?? null;
+  const activePersona =
+    personas.find((p) => p.id === activePersonaId) ?? (activePersonaRecord as Persona | null) ?? null;
 
   // Build a map for quick lookups
   const personaMap = useMemo(() => {

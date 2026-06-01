@@ -128,7 +128,8 @@ export function RegexScriptEditor() {
     if (!regexDetailId) return;
     if (dbRow) {
       setLocalName(dbRow.name);
-      setLocalEnabled(dbRow.enabled === "true");
+      // Stored as a boolean; tolerate the legacy string form too.
+      setLocalEnabled(dbRow.enabled === true || dbRow.enabled === "true" || dbRow.enabled === "1");
       setLocalFindRegex(dbRow.findRegex);
       setLocalReplaceString(dbRow.replaceString);
       try {
@@ -139,14 +140,16 @@ export function RegexScriptEditor() {
       try {
         setLocalPlacement(
           Array.isArray(dbRow.placement)
-            ? dbRow.placement.filter((value): value is RegexPlacement => value === "ai_output" || value === "user_input")
+            ? dbRow.placement.filter(
+                (value): value is RegexPlacement => value === "ai_output" || value === "user_input",
+              )
             : [],
         );
       } catch {
         setLocalPlacement(["ai_output"]);
       }
       setLocalFlags(dbRow.flags);
-      setLocalPromptOnly(dbRow.promptOnly === "true");
+      setLocalPromptOnly(dbRow.promptOnly === true || dbRow.promptOnly === "true" || dbRow.promptOnly === "1");
       setLocalOrder(dbRow.order);
       setLocalMinDepth(dbRow.minDepth);
       setLocalMaxDepth(dbRow.maxDepth);
@@ -693,8 +696,7 @@ export function RegexScriptEditor() {
                   <code className="rounded bg-[var(--secondary)] px-1">***</code>
                 </li>
                 <li>
-                  Capitalize replacement:{" "}
-                  <code className="rounded bg-[var(--secondary)] px-1">\U$1</code>
+                  Capitalize replacement: <code className="rounded bg-[var(--secondary)] px-1">\U$1</code>
                 </li>
               </ul>
               {dbRow && (

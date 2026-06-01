@@ -23,6 +23,7 @@ import {
   clampImageDimension,
   mergeLearnedGameSetupOptions,
   mobilePanelClosePatch,
+  mobilePanelReopenPatch,
   normalizeLearnedGameSetupOption,
   normalizeRememberedGameSetupText,
   normalizeSummaryPopoverSettings,
@@ -213,6 +214,7 @@ export const useUIStore = create<UIState>()(
       userStatus: "active" as UserStatus,
       userActivity: "",
       centerCompact: false,
+      rightPanelResizing: false,
 
       // Impersonate settings defaults
       impersonatePromptTemplate: "",
@@ -290,29 +292,25 @@ export const useUIStore = create<UIState>()(
       setChatBackground: (url) => set({ chatBackground: url }),
       setChatBackgroundBlur: (v) =>
         set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(Number.isFinite(v) ? v : 0))) }),
-      openCharacterDetail: (id) =>
-        set(openDetailRouteState({ characterDetailId: id })),
+      openCharacterDetail: (id) => set(openDetailRouteState({ characterDetailId: id })),
       closeCharacterDetail: () => set({ characterDetailId: null, editorDirty: false }),
-      openLorebookDetail: (id) =>
-        set(openDetailRouteState({ lorebookDetailId: id, characterLibraryOpen: false })),
+      openLorebookDetail: (id) => set(openDetailRouteState({ lorebookDetailId: id, characterLibraryOpen: false })),
       closeLorebookDetail: () => set({ lorebookDetailId: null, editorDirty: false }),
-      openPresetDetail: (id) =>
-        set(openDetailRouteState({ presetDetailId: id, characterLibraryOpen: false })),
+      openPresetDetail: (id) => set(openDetailRouteState({ presetDetailId: id, characterLibraryOpen: false })),
       closePresetDetail: () => set({ presetDetailId: null, editorDirty: false }),
-      openConnectionDetail: (id) =>
-        set(openDetailRouteState({ connectionDetailId: id, characterLibraryOpen: false })),
+      openConnectionDetail: (id) => set(openDetailRouteState({ connectionDetailId: id, characterLibraryOpen: false })),
       closeConnectionDetail: () => set({ connectionDetailId: null, editorDirty: false }),
       openAgentDetail: (agentType) =>
         set(openDetailRouteState({ agentDetailId: agentType, characterLibraryOpen: false })),
-      closeAgentDetail: () => set({ agentDetailId: null, editorDirty: false }),
-      openToolDetail: (id) =>
-        set(openDetailRouteState({ toolDetailId: id, characterLibraryOpen: false })),
+      closeAgentDetail: () =>
+        // On narrow viewports opening the editor closed the catalog panel; reopen it so
+        // Back returns to the Agents list instead of falling through to chat.
+        set({ agentDetailId: null, editorDirty: false, ...mobilePanelReopenPatch() }),
+      openToolDetail: (id) => set(openDetailRouteState({ toolDetailId: id, characterLibraryOpen: false })),
       closeToolDetail: () => set({ toolDetailId: null, editorDirty: false }),
-      openPersonaDetail: (id) =>
-        set(openDetailRouteState({ personaDetailId: id, characterLibraryOpen: false })),
+      openPersonaDetail: (id) => set(openDetailRouteState({ personaDetailId: id, characterLibraryOpen: false })),
       closePersonaDetail: () => set({ personaDetailId: null, editorDirty: false }),
-      openRegexDetail: (id) =>
-        set(openDetailRouteState({ regexDetailId: id, characterLibraryOpen: false })),
+      openRegexDetail: (id) => set(openDetailRouteState({ regexDetailId: id, characterLibraryOpen: false })),
       closeRegexDetail: () => set({ regexDetailId: null, editorDirty: false }),
       openCharacterLibrary: () =>
         set({
@@ -459,6 +457,7 @@ export const useUIStore = create<UIState>()(
       setTextStrokeWidth: (v) => set({ textStrokeWidth: Math.max(0, Math.min(5, v)) }),
       setTextStrokeColor: (v) => set({ textStrokeColor: v }),
       setCenterCompact: (v) => set({ centerCompact: v }),
+      setRightPanelResizing: (v) => set({ rightPanelResizing: v }),
       setVisualTheme: (v) => set({ visualTheme: v }),
       setConvoGradientField: (scheme, field, value) =>
         set((s) => ({

@@ -97,6 +97,7 @@ const DEFAULT_CACHING_AT_DEPTH = 5;
 const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
+const LEGACY_LOCAL_SIDECAR_CONNECTION_ID = "__local_sidecar__";
 
 const OPENAI_CHATGPT_SETUP_STEPS = [
   { label: "Install Codex CLI", command: "npm i -g @openai/codex" },
@@ -426,12 +427,17 @@ export function ConnectionEditor() {
   const embeddingConnectionOptions = useMemo(
     () =>
       ((allConnections ?? []) as Record<string, unknown>[]).filter(
-        (c) => c.id !== connectionDetailId && c.provider !== "image_generation" && c.provider !== "openai_chatgpt",
+        (c) =>
+          c.id !== connectionDetailId &&
+          c.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID &&
+          c.provider !== "image_generation" &&
+          c.provider !== "openai_chatgpt",
       ),
     [allConnections, connectionDetailId],
   );
   const selectedEmbeddingConnectionId =
     localEmbeddingConnectionId &&
+    localEmbeddingConnectionId !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID &&
     (allConnections === undefined || embeddingConnectionOptions.some((c) => c.id === localEmbeddingConnectionId))
       ? localEmbeddingConnectionId
       : "";
@@ -2180,14 +2186,9 @@ function TestResultCard({
         {isSuccess ? (
           <Check size="0.8125rem" className="text-emerald-400" />
         ) : (
-          <AlertCircle
-            size="0.8125rem"
-            className={isWarning ? "text-amber-300" : "text-[var(--destructive)]"}
-          />
+          <AlertCircle size="0.8125rem" className={isWarning ? "text-amber-300" : "text-[var(--destructive)]"} />
         )}
-        <span
-          className={isWarning ? "text-amber-300" : isSuccess ? "text-emerald-400" : "text-[var(--destructive)]"}
-        >
+        <span className={isWarning ? "text-amber-300" : isSuccess ? "text-emerald-400" : "text-[var(--destructive)]"}>
           {label}: {statusLabel}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">{latencyMs}ms</span>

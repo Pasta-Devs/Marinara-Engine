@@ -2,8 +2,8 @@ use crate::state::AppState;
 use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
     entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
-    imports, integrations, knowledge, llm, lorebook_images, mari, profile, prompts, shared,
-    sprites, translation, updates,
+    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
+    profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -79,7 +79,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
     let command = request.command.as_str();
     let args = args_object(request.args)?;
     match command {
-        "load_url_binary" => load_url_binary(&args).await,
+        "load_url_binary" => load_url_binary(state, &args).await,
         "profile_export" => profile::profile_snapshot(state),
         "profile_import" => profile::profile_call(
             state,
@@ -214,9 +214,6 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
                 .remove(required_string(&args, "path")?, false)?;
             Ok(json!({ "deleted": true }))
         }
-        "game_assets_file_path" => Ok(json!({
-            "path": state.game_assets.absolute_path_string(required_string(&args, "path")?)?
-        })),
         "game_assets_read_text" => Ok(json!({
             "content": state.game_assets.read_text(required_string(&args, "path")?)?
         })),
@@ -268,12 +265,6 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         ),
         "game_assets_upload" => {
             game_assets::game_assets_upload(state, optional_value(&args, "body"))
-        }
-        "background_file_path" => Ok(json!({
-            "path": state.backgrounds.absolute_path_string(required_string(&args, "filename")?)?
-        })),
-        "lorebook_image_file_path" => {
-            lorebook_images::lorebook_image_file_path(state, required_string(&args, "filename")?)
         }
         "gif_search" => gif_search(&args).await,
         "tts_config" => integrations::tts_call(state, "GET", &["config"], Value::Null).await,
@@ -512,6 +503,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "storage_delete" => storage_delete(state, &args),
         "storage_duplicate" => storage_duplicate(state, &args),
         "chat_message_add_swipe" => chat_message_add_swipe(state, &args),
+        "chat_message_update_content_if_unchanged" => {
+            chat_message_update_content_if_unchanged(state, &args)
+        }
         "chat_message_set_active_swipe" => chat_message_set_active_swipe(state, &args),
         "chat_message_delete_swipe" => chat_message_delete_swipe(state, &args),
         "chat_autonomous_unread_mark" => chat_autonomous_unread_mark(state, &args),
@@ -642,33 +636,42 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "sprite_cleanup" => {
             sprites::cleanup_generated_sprites(state, optional_value(&args, "body"))
         }
-        "sprite_list" => sprites::list_sprites(state, required_string(&args, "characterId")?),
+        "sprite_list" => sprites::list_sprites(
+            state,
+            required_string(&args, "characterId")?,
+            optional_string(&args, "ownerType").as_deref(),
+        ),
         "sprite_upload" => sprites::upload_sprite(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_upload_bulk" => sprites::upload_sprites(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_delete" => sprites::delete_sprite(
             state,
             required_string(&args, "characterId")?,
             required_string(&args, "expression")?,
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_cleanup_saved" => sprites::clean_saved_sprites(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
         "sprite_cleanup_restore" => sprites::restore_sprite_cleanup_point(
             state,
             required_string(&args, "characterId")?,
             optional_value(&args, "body"),
+            optional_string(&args, "ownerType").as_deref(),
         ),
-        "persona_activate" => characters::activate_persona(state, required_string(&args, "id")?),
+        "persona_activate" => personas::activate_persona(state, required_string(&args, "id")?),
         "character_avatar_upload" => avatars::update_character_avatar(
             state,
             "characters",
@@ -714,8 +717,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
     }
 }
 
-async fn load_url_binary(args: &Map<String, Value>) -> AppResult<Value> {
-    http::http_binary(
+async fn load_url_binary(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    profile_commands::load_url_binary_for_state(
+        state,
         required_string(args, "url")?,
         optional_string(args, "fallbackMime")
             .as_deref()
@@ -854,6 +858,9 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
     let filters = options
         .and_then(|value| value.get("filters"))
         .and_then(Value::as_object);
+    let projection_fields = shared::projection_fields(options);
+    let empty_filters = filters.is_none_or(|filters| filters.is_empty());
+    let has_search = shared::has_storage_search(options);
     let mut rows = match (entity, filters) {
         ("messages", Some(filters))
             if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
@@ -862,17 +869,51 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
                 .get("chatId")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            if let Some((limit, before)) = message_page_options(options) {
-                state
-                    .storage
-                    .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+            if !has_search {
+                if let Some((limit, before)) = message_page_options(options) {
+                    state
+                        .storage
+                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+                } else {
+                    state.storage.list_messages_for_chat(chat_id)?
+                }
             } else {
                 state.storage.list_messages_for_chat(chat_id)?
             }
         }
+        (_, _)
+            if empty_filters
+                && has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let search_projection_fields = shared::search_projection_fields(options);
+            let search_projection_field_selections =
+                shared::search_projection_field_selections(options);
+            state.storage.list_projected(
+                entity,
+                &search_projection_fields,
+                &search_projection_field_selections,
+            )?
+        }
+        (_, _)
+            if empty_filters
+                && !has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            state.storage.list_projected(
+                entity,
+                projection_fields.as_deref().unwrap_or(&[]),
+                shared::projection_field_selections(options),
+            )?
+        }
         (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
         _ => state.storage.list(entity)?,
     };
+    shared::apply_storage_search(&mut rows, options);
 
     let order_by = options
         .and_then(|value| value.get("orderBy"))
@@ -945,17 +986,28 @@ fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> 
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     let entity = required_string(args, "entity")?;
-    state.storage.create(
+    let created = state.storage.create(
         entity,
         shared::with_entity_defaults(entity, optional_value(args, "value"))?,
-    )
+    )?;
+    if entity == "messages" {
+        return Ok(shared::project_timeline_message(created));
+    }
+    Ok(created)
 }
 
 fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     let entity = required_string(args, "entity")?;
     let id = required_string(args, "id")?;
     if entity == "messages" {
-        return shared::patch_message_update(state, id, optional_value(args, "patch"));
+        return Ok(shared::project_timeline_message(shared::patch_message_update(
+            state,
+            id,
+            optional_value(args, "patch"),
+        )?));
+    }
+    if entity == "characters" {
+        return characters::update_character(state, id, optional_value(args, "patch"));
     }
     state.storage.patch(
         entity,
@@ -984,31 +1036,44 @@ fn storage_duplicate(state: &AppState, args: &Map<String, Value>) -> AppResult<V
 }
 
 fn chat_message_add_swipe(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    chats::message_swipes(
+    Ok(shared::project_timeline_message(chats::message_swipes(
         state,
         "POST",
         required_string(args, "chatId")?,
         required_string(args, "messageId")?,
         optional_value(args, "body"),
+    )?))
+}
+
+fn chat_message_update_content_if_unchanged(
+    state: &AppState,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    chats::update_message_content_if_unchanged(
+        state,
+        required_string(args, "chatId")?,
+        required_string(args, "messageId")?,
+        required_string(args, "expectedContent")?,
+        required_string(args, "content")?,
     )
 }
 
 fn chat_message_set_active_swipe(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    chats::set_active_swipe(
+    Ok(shared::project_timeline_message(chats::set_active_swipe(
         state,
         required_string(args, "chatId")?,
         required_string(args, "messageId")?,
         json!({ "index": optional_value(args, "index") }),
-    )
+    )?))
 }
 
 fn chat_message_delete_swipe(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    chats::delete_swipe(
+    Ok(shared::project_timeline_message(chats::delete_swipe(
         state,
         required_string(args, "chatId")?,
         required_string(args, "messageId")?,
         required_string(args, "index")?,
-    )
+    )?))
 }
 
 fn chat_autonomous_unread_mark(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1187,6 +1252,7 @@ fn message_cursor(row: &Value) -> (&str, &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage_commands::media_uploads::file_path_asset_url;
     use base64::{engine::general_purpose, Engine as _};
     use std::collections::BTreeSet;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1195,6 +1261,8 @@ mod tests {
     // local filesystem paths, Tauri IPC channels, or user-machine devices.
     const NON_REMOTE_COMMANDS: &[&str] = &[
         "fonts_open_folder",
+        "background_file_path",
+        "game_assets_file_path",
         "game_assets_open_folder",
         "haptic_command",
         "haptic_connect",
@@ -1204,6 +1272,7 @@ mod tests {
         "haptic_stop_all",
         "haptic_stop_scan",
         "import_st_bulk_run_events",
+        "lorebook_image_file_path",
         "llm_stream_channel",
         "profile_import_file",
     ];
@@ -1221,7 +1290,9 @@ mod tests {
     }
 
     fn upload_body(name: &str) -> Value {
-        let bytes = [137_u8, 80, 78, 71];
+        // Full 8-byte PNG signature so the image-byte validation in
+        // decode_uploaded_image_file recognizes the fixture as a real image.
+        let bytes = [137_u8, 80, 78, 71, 13, 10, 26, 10];
         json!({
             "file": {
                 "name": name,
@@ -1303,6 +1374,41 @@ mod tests {
 
         assert_eq!(remote_allowlist, expected_remote);
         assert_eq!(dispatch_commands, remote_allowlist);
+    }
+
+    #[tokio::test]
+    async fn dispatch_load_url_binary_reads_managed_asset_urls() {
+        let state = test_state("load-url-binary-local-asset");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("Avatar One.png");
+        std::fs::write(&avatar_path, b"avatar-bytes").expect("avatar should be written");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "load_url_binary".to_string(),
+                args: Some(json!({
+                    "url": file_path_asset_url(&avatar_path),
+                    "fallbackMime": "application/octet-stream"
+                })),
+            },
+        )
+        .await
+        .expect("remote load_url_binary should load managed local assets");
+
+        let base64 = result
+            .get("base64")
+            .and_then(Value::as_str)
+            .expect("response should include base64");
+        let bytes = general_purpose::STANDARD
+            .decode(base64)
+            .expect("base64 should decode");
+        assert_eq!(bytes, b"avatar-bytes");
+        assert_eq!(
+            result.get("mimeType"),
+            Some(&Value::String("image/png".into()))
+        );
     }
 
     #[tokio::test]
@@ -1410,6 +1516,28 @@ mod tests {
             result.get("originalName").and_then(Value::as_str),
             Some("background.png")
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_remote_raw_server_path_commands() {
+        for (command, args) in [
+            ("background_file_path", json!({ "filename": "background.png" })),
+            ("game_assets_file_path", json!({ "path": "folder/asset.png" })),
+            ("lorebook_image_file_path", json!({ "filename": "image.png" })),
+        ] {
+            let state = test_state(command);
+            let error = dispatch(
+                &state,
+                InvokeRequest {
+                    command: command.to_string(),
+                    args: Some(args),
+                },
+            )
+            .await
+            .expect_err("raw server file paths should not be exposed remotely");
+
+            assert_eq!(error.code, "unsupported_command");
+        }
     }
 
     #[tokio::test]

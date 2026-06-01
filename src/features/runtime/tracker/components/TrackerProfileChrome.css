@@ -181,12 +181,11 @@
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    repeating-linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--foreground) 16%, transparent) 0 1px,
-      transparent 1px 8px
-    );
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--foreground) 16%, transparent) 0 1px,
+    transparent 1px 8px
+  );
   opacity: 0.12;
 }
 
@@ -357,7 +356,11 @@
   bottom: 0;
   left: 0.5rem;
   height: 50%;
-  background: linear-gradient(0deg, color-mix(in srgb, var(--tracker-profile-accent-solid) 16%, transparent), transparent 72%);
+  background: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 16%, transparent),
+    transparent 72%
+  );
   opacity: var(--tracker-profile-portrait-bottom-glow-opacity, 0.75);
 }
 
@@ -412,7 +415,15 @@
     color-mix(in srgb, var(--tracker-profile-nameplate-rule) 32%, transparent),
     transparent 78%
   );
-  mask-image: linear-gradient(90deg, transparent 0%, transparent 8%, black 28%, black 72%, transparent 92%, transparent 100%);
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 8%,
+    black 28%,
+    black 72%,
+    transparent 92%,
+    transparent 100%
+  );
   opacity: 0.45;
 }
 
@@ -435,7 +446,11 @@
   bottom: 0;
   left: 0;
   height: 5px;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--tracker-profile-surface-solid) 12%, transparent));
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--tracker-profile-surface-solid) 12%, transparent)
+  );
   opacity: 0.48;
 }
 
@@ -515,12 +530,22 @@
 
 .tracker-profile-nameplate-clasp-top-stroke {
   top: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tracker-profile-nameplate-rule) 40%, transparent) 50%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--tracker-profile-nameplate-rule) 40%, transparent) 50%,
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-clasp-bottom-stroke {
   bottom: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tracker-profile-accent-solid) 34%, transparent) 50%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 34%, transparent) 50%,
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-name-accent {
@@ -615,19 +640,35 @@
 }
 
 .tracker-profile-nameplate-primary-wash--left {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--tracker-profile-accent-solid) 8%, transparent), transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 8%, transparent),
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-primary-wash--right {
-  background: linear-gradient(270deg, color-mix(in srgb, var(--tracker-profile-accent-solid) 8%, transparent), transparent);
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 8%, transparent),
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-secondary-wash--left {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--tracker-profile-accent-solid) 6%, transparent), transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 6%, transparent),
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-secondary-wash--right {
-  background: linear-gradient(270deg, color-mix(in srgb, var(--tracker-profile-accent-solid) 6%, transparent), transparent);
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--tracker-profile-accent-solid) 6%, transparent),
+    transparent
+  );
 }
 
 .tracker-profile-nameplate-secondary-controls {
@@ -774,12 +815,20 @@
 }
 
 .tracker-portrait-stage--featured {
-  --tracker-portrait-frame-accent: color-mix(in srgb, var(--tracker-profile-accent-solid) 64%, var(--tracker-profile-display-solid) 36%);
+  --tracker-portrait-frame-accent: color-mix(
+    in srgb,
+    var(--tracker-profile-accent-solid) 64%,
+    var(--tracker-profile-display-solid) 36%
+  );
   --tracker-portrait-frame-rim-opacity: 0.74;
 }
 
 .tracker-portrait-stage--persona {
-  --tracker-portrait-frame-accent: color-mix(in srgb, var(--tracker-profile-accent-solid) 62%, var(--tracker-profile-display-solid) 38%);
+  --tracker-portrait-frame-accent: color-mix(
+    in srgb,
+    var(--tracker-profile-accent-solid) 62%,
+    var(--tracker-profile-display-solid) 38%
+  );
   --tracker-portrait-frame-rim-opacity: 0.7;
 }
 
@@ -802,7 +851,11 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 42% 16%, color-mix(in srgb, var(--tracker-profile-display-solid) 15%, transparent) 0%, transparent 42%),
+    radial-gradient(
+      ellipse at 42% 16%,
+      color-mix(in srgb, var(--tracker-profile-display-solid) 15%, transparent) 0%,
+      transparent 42%
+    ),
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--tracker-portrait-frame-accent) 8%, transparent) 0%,
@@ -976,7 +1029,8 @@
   z-index: 2;
   border-radius: inherit;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--tracker-portrait-frame-accent) 36%, var(--tracker-profile-dialogue-border) 64%),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--tracker-portrait-frame-accent) 36%, var(--tracker-profile-dialogue-border) 64%),
     inset 0 1px 0 color-mix(in srgb, var(--foreground) 9%, transparent),
     inset 0 0 0 2px color-mix(in srgb, var(--tracker-profile-accent-solid) 8%, transparent),
     inset 0 -16px 20px color-mix(in srgb, var(--background) 40%, transparent);
@@ -1126,7 +1180,11 @@
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(circle at 22% 12%, color-mix(in srgb, var(--tracker-profile-nameplate-glow) 10%, transparent), transparent 36%),
+    radial-gradient(
+      circle at 22% 12%,
+      color-mix(in srgb, var(--tracker-profile-nameplate-glow) 10%, transparent),
+      transparent 36%
+    ),
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--foreground) 2%, transparent),
@@ -1217,7 +1275,11 @@
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
   background-image:
-    radial-gradient(ellipse at 48% 0%, color-mix(in srgb, var(--tracker-profile-accent-solid) 11%, transparent) 0%, transparent 62%),
+    radial-gradient(
+      ellipse at 48% 0%,
+      color-mix(in srgb, var(--tracker-profile-accent-solid) 11%, transparent) 0%,
+      transparent 62%
+    ),
     repeating-linear-gradient(
       135deg,
       color-mix(in srgb, var(--tracker-profile-rule) 18%, transparent) 0 1px,
@@ -1332,12 +1394,11 @@
   width: 86%;
   height: 0.75rem;
   margin-top: 0.25rem;
-  background-image:
-    repeating-linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--tracker-profile-nameplate-rule) 16%, transparent) 0 1px,
-      transparent 1px 6px
-    );
+  background-image: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tracker-profile-nameplate-rule) 16%, transparent) 0 1px,
+    transparent 1px 6px
+  );
   mask-image: linear-gradient(90deg, black 0%, transparent 100%);
   opacity: 0.45;
 }

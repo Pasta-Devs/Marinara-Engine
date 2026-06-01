@@ -1,8 +1,8 @@
-use super::{avatars, chats, game_state_snapshots, lorebook_images, shared};
+use super::{avatars, characters, chats, game_state_snapshots, lorebook_images, shared};
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use marinara_core::AppError;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use tauri::State;
 
 #[tauri::command]
@@ -26,8 +26,9 @@ fn storage_list_inner(
         .as_ref()
         .and_then(|value| value.get("filters"))
         .and_then(Value::as_object);
-    let projection_fields = projection_fields(options.as_ref());
+    let projection_fields = shared::projection_fields(options.as_ref());
     let empty_filters = filters.is_none_or(|filters| filters.is_empty());
+    let has_search = shared::has_storage_search(options.as_ref());
     let mut rows = match (entity.as_str(), filters) {
         ("messages", Some(filters))
             if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
@@ -36,18 +37,39 @@ fn storage_list_inner(
                 .get("chatId")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            if let Some((limit, before)) = message_page_options(options.as_ref()) {
-                state
-                    .storage
-                    .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
-            } else if message_id_projection_only(options.as_ref()) {
-                state.storage.list_message_ids_for_chat(chat_id)?
+            if !has_search {
+                if let Some((limit, before)) = message_page_options(options.as_ref()) {
+                    state
+                        .storage
+                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+                } else if message_id_projection_only(options.as_ref()) {
+                    state.storage.list_message_ids_for_chat(chat_id)?
+                } else {
+                    state.storage.list_messages_for_chat(chat_id)?
+                }
             } else {
                 state.storage.list_messages_for_chat(chat_id)?
             }
         }
         (_, _)
             if empty_filters
+                && has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let search_projection_fields = shared::search_projection_fields(options.as_ref());
+            let search_projection_field_selections =
+                shared::search_projection_field_selections(options.as_ref());
+            state.storage.list_projected(
+                &entity,
+                &search_projection_fields,
+                &search_projection_field_selections,
+            )?
+        }
+        (_, _)
+            if empty_filters
+                && !has_search
                 && projection_fields
                     .as_ref()
                     .is_some_and(|fields| !fields.is_empty()) =>
@@ -55,12 +77,13 @@ fn storage_list_inner(
             state.storage.list_projected(
                 &entity,
                 projection_fields.as_deref().unwrap_or(&[]),
-                projection_field_selections(options.as_ref()),
+                shared::projection_field_selections(options.as_ref()),
             )?
         }
         (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
         _ => state.storage.list(&entity)?,
     };
+    shared::apply_storage_search(&mut rows, options.as_ref());
 
     let order_by = options
         .as_ref()
@@ -116,37 +139,6 @@ fn storage_list_inner(
         rows,
         options.as_ref(),
     )))
-}
-
-fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
-    options
-        .and_then(|value| value.get("fields"))
-        .and_then(Value::as_array)
-        .map(|fields| {
-            fields
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::trim)
-                .filter(|field| !field.is_empty())
-                .map(ToOwned::to_owned)
-                .collect()
-        })
-}
-
-fn projection_field_selections(options: Option<&Value>) -> &serde_json::Map<String, Value> {
-    if let Some(selections) = options
-        .and_then(|value| value.get("fieldSelections"))
-        .and_then(Value::as_object)
-    {
-        selections
-    } else {
-        empty_projection_field_selections()
-    }
-}
-
-fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value> {
-    static EMPTY: std::sync::OnceLock<serde_json::Map<String, Value>> = std::sync::OnceLock::new();
-    EMPTY.get_or_init(serde_json::Map::new)
 }
 
 fn message_id_projection_only(options: Option<&Value>) -> bool {
@@ -217,9 +209,16 @@ pub async fn storage_create(
 }
 
 fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
-    state
+    let created = state
         .storage
-        .create(&entity, shared::with_entity_defaults(&entity, value)?)
+        .create(&entity, shared::with_entity_defaults(&entity, value)?)?;
+    if entity == "messages" {
+        return Ok(shared::project_timeline_message(created));
+    }
+    if entity == "connections" {
+        clear_other_default_agent_connections(state, &created)?;
+    }
+    Ok(created)
 }
 
 #[tauri::command]
@@ -242,13 +241,76 @@ fn storage_update_inner(
     patch: Value,
 ) -> Result<Value, AppError> {
     if entity == "messages" {
-        return shared::patch_message_update(state, &id, patch);
+        return Ok(shared::project_timeline_message(shared::patch_message_update(
+            state, &id, patch,
+        )?));
     }
-    state.storage.patch(
+    if entity == "characters" {
+        return characters::update_character(state, &id, patch);
+    }
+    let updated = state.storage.patch(
         &entity,
         &id,
         shared::normalize_update_patch(&entity, patch)?,
-    )
+    )?;
+    if entity == "connections" {
+        clear_other_default_agent_connections(state, &updated)?;
+    }
+    Ok(updated)
+}
+
+fn connection_default_agent_scope(connection: &Value) -> Option<&'static str> {
+    let provider = connection.get("provider").and_then(Value::as_str)?.trim();
+    Some(if provider == "image_generation" {
+        "image"
+    } else {
+        "language"
+    })
+}
+
+fn connection_default_for_agents_enabled(connection: &Value) -> bool {
+    connection
+        .get("defaultForAgents")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn clear_other_default_agent_connections(
+    state: &AppState,
+    selected_connection: &Value,
+) -> Result<(), AppError> {
+    if !connection_default_for_agents_enabled(selected_connection) {
+        return Ok(());
+    }
+    let Some(selected_id) = selected_connection
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+    else {
+        return Ok(());
+    };
+    let Some(selected_scope) = connection_default_agent_scope(selected_connection) else {
+        return Ok(());
+    };
+    for connection in state.storage.list("connections")? {
+        let Some(id) = connection
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|id| *id != selected_id)
+        else {
+            continue;
+        };
+        if !connection_default_for_agents_enabled(&connection) {
+            continue;
+        }
+        if connection_default_agent_scope(&connection) != Some(selected_scope) {
+            continue;
+        }
+        state
+            .storage
+            .patch("connections", id, json!({ "defaultForAgents": false }))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -277,10 +339,11 @@ pub(crate) fn delete_entity(
     }
     if entity == "chats" {
         let existed = state.storage.get("chats", id)?.is_some();
+        let mut deleted_chat_ids = Vec::new();
         if existed {
-            chats::delete_chat_with_messages(state, id)?;
+            deleted_chat_ids = chats::delete_chat_with_messages(state, id)?;
         }
-        return Ok(json!({ "deleted": existed }));
+        return Ok(json!({ "deleted": existed, "deletedChatIds": deleted_chat_ids }));
     }
     if is_protected_record(entity, id) {
         return Err(AppError::invalid_input(
@@ -299,6 +362,9 @@ pub(crate) fn delete_entity(
     };
     let deleted = state.storage.delete(entity, id)?;
     if deleted {
+        if entity == "lorebooks" {
+            delete_lorebook_children(state, id)?;
+        }
         if let Some(record) = existing.as_ref() {
             remove_owned_media(state, entity, record);
         }
@@ -308,6 +374,17 @@ pub(crate) fn delete_entity(
         }
     }
     Ok(json!({ "deleted": deleted }))
+}
+
+fn delete_lorebook_children(state: &AppState, lorebook_id: &str) -> Result<(), AppError> {
+    let mut filters = Map::new();
+    filters.insert(
+        "lorebookId".to_string(),
+        Value::String(lorebook_id.to_string()),
+    );
+    state.storage.delete_where("lorebook-entries", &filters)?;
+    state.storage.delete_where("lorebook-folders", &filters)?;
+    Ok(())
 }
 
 fn owned_record_for_delete(
@@ -407,4 +484,328 @@ fn message_cursor(row: &Value) -> (&str, &str) {
         row.get("createdAt").and_then(Value::as_str).unwrap_or(""),
         row.get("id").and_then(Value::as_str).unwrap_or(""),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-entities-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn ids_for_lorebook(state: &AppState, collection: &str, lorebook_id: &str) -> Vec<String> {
+        let mut filters = Map::new();
+        filters.insert(
+            "lorebookId".to_string(),
+            Value::String(lorebook_id.to_string()),
+        );
+        state
+            .storage
+            .list_where(collection, &filters)
+            .expect("collection should be readable")
+            .into_iter()
+            .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
+            .collect()
+    }
+
+    fn default_for_agents(state: &AppState, id: &str) -> bool {
+        state
+            .storage
+            .get("connections", id)
+            .expect("connection should read")
+            .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn deleting_chat_reports_cascade_deleted_chat_ids() {
+        let state = test_state("chat-delete-ids");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "origin-chat",
+                    "name": "Origin",
+                    "metadata": { "activeSceneChatId": "scene-chat" }
+                }),
+            )
+            .expect("origin chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-chat",
+                    "name": "Scene",
+                    "metadata": { "sceneOriginChatId": "origin-chat" }
+                }),
+            )
+            .expect("scene chat should be created");
+
+        let result = delete_entity(&state, "chats", "origin-chat", false)
+            .expect("chat delete should succeed");
+        let deleted_chat_ids: Vec<&str> = result["deletedChatIds"]
+            .as_array()
+            .expect("deleted chat ids should be returned")
+            .iter()
+            .map(|id| id.as_str().expect("deleted chat id should be a string"))
+            .collect();
+
+        assert_eq!(result.get("deleted").and_then(Value::as_bool), Some(true));
+        assert_eq!(deleted_chat_ids, vec!["origin-chat", "scene-chat"]);
+        assert!(state.storage.get("chats", "origin-chat").unwrap().is_none());
+        assert!(state.storage.get("chats", "scene-chat").unwrap().is_none());
+    }
+
+    #[test]
+    fn deleting_lorebook_cascades_entries_and_folders_only_for_that_lorebook() {
+        let state = test_state("lorebook-delete-cascade");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-delete", "name": "Delete me" }))
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep me" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({ "id": "entry-delete", "lorebookId": "book-delete", "name": "Delete", "content": "x" }),
+            )
+            .expect("entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-delete", "lorebookId": "book-delete", "name": "Delete" }),
+            )
+            .expect("folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({ "id": "entry-keep", "lorebookId": "book-keep", "name": "Keep", "content": "x" }),
+            )
+            .expect("other entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-keep", "lorebookId": "book-keep", "name": "Keep" }),
+            )
+            .expect("other folder should be created");
+
+        let result = delete_entity(&state, "lorebooks", "book-delete", false)
+            .expect("delete should succeed");
+
+        assert_eq!(result.get("deleted").and_then(Value::as_bool), Some(true));
+        assert!(ids_for_lorebook(&state, "lorebook-entries", "book-delete").is_empty());
+        assert!(ids_for_lorebook(&state, "lorebook-folders", "book-delete").is_empty());
+        assert_eq!(
+            ids_for_lorebook(&state, "lorebook-entries", "book-keep"),
+            vec!["entry-keep".to_string()]
+        );
+        assert_eq!(
+            ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
+            vec!["folder-keep".to_string()]
+        );
+    }
+
+    #[test]
+    fn storage_list_searches_projected_character_fields_without_returning_avatar_payloads() {
+        let state = test_state("character-search-projection");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-match",
+                    "comment": "summary",
+                    "avatarPath": "data:image/png;base64,large-avatar",
+                    "avatarFilePath": "C:\\Marinara\\avatars\\characters\\match.png",
+                    "avatarFilename": "match.png",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Frost archive keeper",
+                        "personality": "Dry humor",
+                        "tags": ["Mage"],
+                        "favorite_color": "violet",
+                        "extensions": { "fav": true }
+                    }
+                }),
+            )
+            .expect("matching character should be created");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-avatar-only",
+                    "avatarPath": "data:image/png;base64,frost-hidden-in-avatar",
+                    "data": {
+                        "name": "Mira",
+                        "description": "No matching text",
+                        "tags": []
+                    }
+                }),
+            )
+            .expect("non-matching character should be created");
+
+        let result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data", "comment", "avatarFilePath", "avatarFilename"],
+                "fieldSelections": { "data": ["name", "tags", "extensions"] },
+                "search": "frost archive"
+            })),
+        )
+        .expect("search list should succeed");
+        let rows = result.as_array().expect("storage_list returns an array");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-match");
+        assert_eq!(
+            rows[0],
+            json!({
+                "id": "char-match",
+                "data": {
+                    "name": "Rina",
+                    "tags": ["Mage"],
+                    "extensions": { "fav": true }
+                },
+                "comment": "summary",
+                "avatarFilePath": "C:\\Marinara\\avatars\\characters\\match.png",
+                "avatarFilename": "match.png"
+            })
+        );
+
+        let avatar_payload_result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data", "comment", "avatarFilePath", "avatarFilename"],
+                "fieldSelections": { "data": ["name", "tags", "extensions"] },
+                "search": "frost-hidden-in-avatar"
+            })),
+        )
+        .expect("avatar payload search should succeed");
+
+        assert!(
+            avatar_payload_result
+                .as_array()
+                .expect("storage_list returns an array")
+                .is_empty(),
+            "search should not match embedded avatar payload text"
+        );
+
+        let full_data_result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "fields": ["id", "data"],
+                "search": "frost archive"
+            })),
+        )
+        .expect("full data search list should succeed");
+        let full_data_rows = full_data_result
+            .as_array()
+            .expect("storage_list returns an array");
+        assert_eq!(full_data_rows.len(), 1);
+        assert_eq!(full_data_rows[0]["data"]["favorite_color"], "violet");
+    }
+
+    #[test]
+    fn enabling_agent_default_connection_clears_previous_language_default() {
+        let state = test_state("agent-default-exclusive-update");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "language-a",
+                "name": "Language A",
+                "provider": "anthropic",
+                "defaultForAgents": true
+            }),
+        )
+        .expect("first language connection should be created");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "image-a",
+                "name": "Image A",
+                "provider": "image_generation",
+                "defaultForAgents": true
+            }),
+        )
+        .expect("image connection should be created");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "language-b",
+                "name": "Language B",
+                "provider": "openai",
+                "defaultForAgents": false
+            }),
+        )
+        .expect("second language connection should be created");
+
+        storage_update_inner(
+            &state,
+            "connections".to_string(),
+            "language-b".to_string(),
+            json!({ "defaultForAgents": true }),
+        )
+        .expect("second language connection should become default");
+
+        assert!(!default_for_agents(&state, "language-a"));
+        assert!(default_for_agents(&state, "language-b"));
+        assert!(default_for_agents(&state, "image-a"));
+    }
+
+    #[test]
+    fn creating_agent_default_connection_clears_previous_same_scope_default() {
+        let state = test_state("agent-default-exclusive-create");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "image-a",
+                "name": "Image A",
+                "provider": "image_generation",
+                "defaultForAgents": true
+            }),
+        )
+        .expect("first image connection should be created");
+
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "image-b",
+                "name": "Image B",
+                "provider": "image_generation",
+                "defaultForAgents": "true"
+            }),
+        )
+        .expect("second image connection should be created");
+
+        assert!(!default_for_agents(&state, "image-a"));
+        assert!(default_for_agents(&state, "image-b"));
+    }
 }

@@ -51,9 +51,7 @@ const requiredDocs = [...new Set([...baseRequiredDocs, ...expectedSkillFiles, ..
 await Promise.all(requiredDocs.map((path) => access(path)));
 
 const htmlDocs = requiredDocs.filter((path) => path.endsWith(".html"));
-const htmlByPath = new Map(
-  await Promise.all(htmlDocs.map(async (path) => [path, await readFile(path, "utf8")])),
-);
+const htmlByPath = new Map(await Promise.all(htmlDocs.map(async (path) => [path, await readFile(path, "utf8")])));
 
 const expectedLinks = [
   "./index.html",
@@ -73,12 +71,7 @@ for (const [path, html] of htmlByPath) {
 
   const assetRefs = [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)].map((match) => match[1]);
   for (const ref of assetRefs) {
-    if (
-      ref.startsWith("http://") ||
-      ref.startsWith("https://") ||
-      ref.startsWith("#") ||
-      ref.startsWith("mailto:")
-    ) {
+    if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("#") || ref.startsWith("mailto:")) {
       continue;
     }
 
@@ -112,7 +105,10 @@ for (const skillFile of expectedSkillFiles) {
     throw new Error(`${skillFile} must declare skill metadata frontmatter.`);
   }
 
-  const name = frontmatter[1].match(/^name:\s*(.+)$/m)?.[1]?.trim().replace(/^["']|["']$/g, "");
+  const name = frontmatter[1]
+    .match(/^name:\s*(.+)$/m)?.[1]
+    ?.trim()
+    .replace(/^["']|["']$/g, "");
   const description = frontmatter[1]
     .match(/^description:\s*(.+)$/m)?.[1]
     ?.trim()

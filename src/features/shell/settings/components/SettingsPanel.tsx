@@ -34,12 +34,18 @@ import { triggerDownload } from "../../../../shared/api/download-payload";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../../../shared/lib/backgrounds";
 import {
   backgroundFileUrlFromPath,
+  resolveBackgroundFileUrl,
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
-import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../shared/api/remote-runtime";
+import {
+  checkRemoteRuntimeHealth,
+  unconfiguredRemoteRuntimeHealth,
+  type RemoteRuntimeHealthCheck,
+} from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { AUDIO_MIME_MAP, IMAGE_MIME_MAP } from "../../../../engine/contracts/constants/game-assets";
 import type { Theme } from "../../../../engine/contracts/types/theme";
 import {
   findDuplicateTheme,
@@ -95,7 +101,6 @@ import { TrackerPanelIcon } from "../../../../shared/components/ui/TrackerPanelI
 import { TrackerSizeTierIcon } from "../../../../shared/components/ui/TrackerSizeTierIcon";
 import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploadDropzone";
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
-import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
@@ -237,7 +242,9 @@ function getTrackerTemperatureUnitOption(unit: TrackerTemperatureUnit) {
 
 function getNextTrackerTemperatureUnit(unit: TrackerTemperatureUnit): TrackerTemperatureUnit {
   const currentIndex = TRACKER_TEMPERATURE_UNIT_OPTIONS.findIndex((option) => option.id === unit);
-  return TRACKER_TEMPERATURE_UNIT_OPTIONS[(currentIndex + 1) % TRACKER_TEMPERATURE_UNIT_OPTIONS.length]?.id ?? "celsius";
+  return (
+    TRACKER_TEMPERATURE_UNIT_OPTIONS[(currentIndex + 1) % TRACKER_TEMPERATURE_UNIT_OPTIONS.length]?.id ?? "celsius"
+  );
 }
 
 const TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS: Array<{
@@ -272,36 +279,50 @@ const TRACKER_PANEL_CARD_OPTIONS: Record<TrackerDataPanelSection, { label: strin
   },
 };
 
+const GAME_AUDIO_ASSET_EXTENSIONS = Object.keys(AUDIO_MIME_MAP);
+const GAME_AUDIO_ASSET_MIME_TYPES = Array.from(new Set(Object.values(AUDIO_MIME_MAP)));
+const GAME_AUDIO_ASSET_ACCEPT = [...GAME_AUDIO_ASSET_MIME_TYPES, ...GAME_AUDIO_ASSET_EXTENSIONS].join(",");
+const GAME_RASTER_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP).filter((extension) => extension !== ".svg");
+const GAME_SPRITE_IMAGE_ASSET_EXTENSIONS = Object.keys(IMAGE_MIME_MAP);
+const GAME_RASTER_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_RASTER_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_RASTER_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+const GAME_SPRITE_IMAGE_ASSET_ACCEPT = [
+  ...new Set(GAME_SPRITE_IMAGE_ASSET_EXTENSIONS.map((extension) => IMAGE_MIME_MAP[extension])),
+  ...GAME_SPRITE_IMAGE_ASSET_EXTENSIONS,
+].join(",");
+
 const GAME_ASSET_CATEGORIES = [
   {
     id: "music",
     label: "Music",
     defaultFolder: "exploration/fantasy/calm",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "ambient",
     label: "Ambient",
     defaultFolder: "nature",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sfx",
     label: "Sound Effects",
     defaultFolder: "exploration",
-    accept: "audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac,.webm",
+    accept: GAME_AUDIO_ASSET_ACCEPT,
   },
   {
     id: "sprites",
     label: "Sprites",
     defaultFolder: "generic-fantasy",
-    accept: "image/*,.svg",
+    accept: GAME_SPRITE_IMAGE_ASSET_ACCEPT,
   },
   {
     id: "backgrounds",
     label: "Backgrounds",
     defaultFolder: "custom",
-    accept: "image/*",
+    accept: GAME_RASTER_IMAGE_ASSET_ACCEPT,
   },
 ] as const;
 
@@ -668,9 +689,7 @@ function TrackerPanelAppearanceDrawer({
                 key={option.id}
                 className={cn(
                   "relative z-10 text-center transition-colors",
-                  trackerTemperatureUnit === option.id
-                    ? "text-[var(--foreground)]"
-                    : "text-[var(--muted-foreground)]",
+                  trackerTemperatureUnit === option.id ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
                 )}
               >
                 {option.label}
@@ -679,7 +698,6 @@ function TrackerPanelAppearanceDrawer({
           </button>
         </div>
         <TrackerPanelCardOrderSetting />
-        <TrackerCardColorSettings />
       </fieldset>
     </section>
   );
@@ -1141,7 +1159,7 @@ function GeneralSettings() {
             label="Expose image prompts before sending"
             checked={reviewImagePromptsBeforeSend}
             onChange={setReviewImagePromptsBeforeSend}
-            help="Shows generated image prompts for review before sending Game assets, character or persona avatars, sprites, and chat selfies to the image provider."
+            help="Shows generated image prompts for review before sending Game assets, character or persona avatars, sprites, chat selfies, and Roleplay Illustrator images to the image provider."
           />
           <ToggleSetting
             label="Include card appearances"
@@ -1278,8 +1296,8 @@ function GeneralSettings() {
 
         <p className="mt-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           On desktop, folder buttons open the local app asset folders. Use upload to copy files into Marinara's managed
-          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, and WebM; images support PNG, JPG, GIF, WebP,
-          AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
+          data directory. Audio supports MP3, OGG, WAV, FLAC, M4A, AAC, WebM, and Opus; images support PNG, JPG, GIF,
+          WebP, AVIF, and SVG for sprites. Music folders use state/genre/intensity, such as exploration/fantasy/calm.
         </p>
       </div>
     </div>
@@ -2134,11 +2152,20 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
   const [src, setSrc] = useState(() => (filename ? backgroundFileUrlFromPath(filename, item.absolutePath) : ""));
 
   useEffect(() => {
+    let cancelled = false;
     if (filename) {
       setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
-      return;
+      resolveBackgroundFileUrl(filename)
+        .then((url) => {
+          if (!cancelled) setSrc(url || backgroundFileUrlFromPath(filename, item.absolutePath));
+        })
+        .catch(() => {
+          if (!cancelled) setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-    let cancelled = false;
     resolveManagedLocalAssetUrl(item.url)
       .then((url) => {
         if (!cancelled) setSrc(url ?? "");
@@ -3238,7 +3265,7 @@ function AdvancedSettings() {
   const [remoteRuntimeHealth, setRemoteRuntimeHealth] = useState<RemoteRuntimeHealthView>(() =>
     remoteRuntimeUrl.trim()
       ? { status: "idle", message: "Status checks when this section is visible." }
-      : { status: "unconfigured", message: "Embedded Tauri runtime in use." },
+      : unconfiguredRemoteRuntimeHealth(),
   );
   const queryClient = useQueryClient();
 
@@ -3247,7 +3274,7 @@ function AdvancedSettings() {
     remoteRuntimeHealthAbortRef.current?.abort();
 
     if (!url) {
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 
@@ -3281,7 +3308,7 @@ function AdvancedSettings() {
   useEffect(() => {
     if (!remoteRuntimeUrl.trim()) {
       remoteRuntimeHealthAbortRef.current?.abort();
-      setRemoteRuntimeHealth({ status: "unconfigured", message: "Embedded Tauri runtime in use." });
+      setRemoteRuntimeHealth(unconfiguredRemoteRuntimeHealth());
       return;
     }
 

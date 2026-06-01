@@ -2,7 +2,7 @@
 // Game: Node Map (dungeons/interiors)
 // ──────────────────────────────────────────────
 import { Check, Pencil, X } from "lucide-react";
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import { cn } from "../../../../shared/lib/utils";
 import type { GameMap } from "../../../../engine/contracts/types/game";
 
@@ -35,12 +35,14 @@ export function GameNodeMap({
   topLeftAction,
   topRightAction,
 }: GameNodeMapProps) {
-  const nodes = map.nodes || [];
-  const edges = map.edges || [];
+  const nodes = useMemo(() => map.nodes ?? [], [map.nodes]);
+  const edges = useMemo(() => map.edges ?? [], [map.edges]);
   const currentNodeId = showPartyPosition && typeof map.partyPosition === "string" ? map.partyPosition : null;
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(selectedNodeId ?? currentNodeId ?? nodes[0]?.id ?? null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(
+    selectedNodeId ?? currentNodeId ?? nodes[0]?.id ?? null,
+  );
   const [draftEmoji, setDraftEmoji] = useState("");
   const [draftLabel, setDraftLabel] = useState("");
   const [editorError, setEditorError] = useState<string | null>(null);

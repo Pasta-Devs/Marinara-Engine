@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:line-endings
       - run: pnpm check:architecture
       - run: pnpm lint
       - run: pnpm typecheck
@@ -26,9 +27,8 @@ jobs:
       - run: pnpm build
       - run: pnpm perf:size
       - run: pnpm check:docs
-      - name: Unused code report
+      - name: Unused code check
         run: pnpm check:unused
-        continue-on-error: true
 
   rust:
     name: Rust Capability Layer

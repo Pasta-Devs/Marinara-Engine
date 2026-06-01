@@ -190,10 +190,7 @@ export function HapticConnectionPanel({
                 type="button"
                 onClick={() => {
                   clearHapticActionError();
-                  command.mutate(
-                    { deviceIndex: device.index, action: "stop" },
-                    { onError: handleHapticActionError },
-                  );
+                  command.mutate({ deviceIndex: device.index, action: "stop" }, { onError: handleHapticActionError });
                 }}
                 disabled={stopActionPending}
                 className="text-[0.5625rem] font-medium text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:underline disabled:opacity-50"

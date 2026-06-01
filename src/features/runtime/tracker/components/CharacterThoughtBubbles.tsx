@@ -189,11 +189,7 @@ function ThoughtBubble({
         {thoughtDots.map((sizeClass, index) => (
           <span
             key={sizeClass}
-            className={cn(
-              "animate-pulse rounded-full",
-              TRACKER_FLOATING_THOUGHT_DOT_CLASS,
-              sizeClass,
-            )}
+            className={cn("animate-pulse rounded-full", TRACKER_FLOATING_THOUGHT_DOT_CLASS, sizeClass)}
             style={{ animationDelay: `${index * 140}ms` }}
           />
         ))}
@@ -218,8 +214,7 @@ function ThoughtBubble({
           TRACKER_FLOATING_THOUGHT_SURFACE_CLASS,
           thoughtBubbleSize === "short" &&
             "inline-flex min-h-9 w-fit min-w-[6.5rem] max-w-[13rem] rounded-full px-4 py-2",
-          thoughtBubbleSize === "medium" &&
-            "flex min-h-0 w-full max-w-full rounded-[1.35rem] px-4 py-3",
+          thoughtBubbleSize === "medium" && "flex min-h-0 w-full max-w-full rounded-[1.35rem] px-4 py-3",
           thoughtBubbleSize === "long" && "min-h-0 w-full overflow-y-auto rounded-[1.35rem] px-4 py-3",
         )}
         style={thoughtBubbleStyle}
@@ -302,9 +297,7 @@ export function InlineThoughtBubble({
   const reducedMotion = useReducedMotion();
   const previewLineCount = isFeaturedVariant ? (thoughtText.length <= 70 ? 2 : 3) : thoughtTextFit.previewLineCount;
   const thoughtTextStyle: CSSProperties = {
-    fontSize: isFeaturedVariant
-      ? "clamp(0.65625rem, calc(0.56rem + 0.85cqw), 0.75rem)"
-      : thoughtTextFit.fontSize,
+    fontSize: isFeaturedVariant ? "clamp(0.65625rem, calc(0.56rem + 0.85cqw), 0.75rem)" : thoughtTextFit.fontSize,
     lineHeight: isFeaturedVariant ? 1.12 : thoughtTextFit.lineHeight,
   };
   const editMinHeightClassName = isFeaturedVariant
@@ -320,11 +313,7 @@ export function InlineThoughtBubble({
       {...getInlineThoughtBubbleMotion({ tailOnLeft, featured: isFeaturedVariant, reducedMotion })}
       className={cn(
         "relative mx-1 mt-1 min-w-0 text-[var(--foreground)] will-change-transform [container-type:inline-size]",
-        isFeaturedVariant
-          ? "px-0"
-          : tailOnLeft
-            ? "pl-3.5 pr-0.5"
-            : "pl-0.5 pr-3.5",
+        isFeaturedVariant ? "px-0" : tailOnLeft ? "pl-3.5 pr-0.5" : "pl-0.5 pr-3.5",
         className,
       )}
     >
@@ -359,9 +348,7 @@ export function InlineThoughtBubble({
         <div
           className={cn(
             "pointer-events-none absolute inset-0 rounded-[inherit]",
-            isFeaturedVariant
-              ? TRACKER_PROFILE_THOUGHT_BUBBLE_OVERLAY_CLASS
-              : TRACKER_INLINE_THOUGHT_OVERLAY_CLASS,
+            isFeaturedVariant ? TRACKER_PROFILE_THOUGHT_BUBBLE_OVERLAY_CLASS : TRACKER_INLINE_THOUGHT_OVERLAY_CLASS,
           )}
         />
         <div className="relative z-[1] min-w-0">
@@ -483,8 +470,7 @@ export function ExternalThoughtBubble({
 
     updatePosition();
     const anchor = anchorRef.current;
-    const resizeObserver =
-      anchor && typeof ResizeObserver !== "undefined" ? new ResizeObserver(updatePosition) : null;
+    const resizeObserver = anchor && typeof ResizeObserver !== "undefined" ? new ResizeObserver(updatePosition) : null;
     if (anchor) resizeObserver?.observe(anchor);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);

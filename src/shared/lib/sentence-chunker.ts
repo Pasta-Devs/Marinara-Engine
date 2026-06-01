@@ -9,7 +9,22 @@ const CLOSE_QUOTES_FOR: Record<string, string> = {
   "\u300e": "\u300f",
 };
 
-const ABBREVIATIONS = new Set(["mr", "mrs", "ms", "dr", "st", "prof", "sr", "jr", "vs", "etc", "ie", "eg", "fig", "no"]);
+const ABBREVIATIONS = new Set([
+  "mr",
+  "mrs",
+  "ms",
+  "dr",
+  "st",
+  "prof",
+  "sr",
+  "jr",
+  "vs",
+  "etc",
+  "ie",
+  "eg",
+  "fig",
+  "no",
+]);
 
 const THINKING_BLOCK_RE = /<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const SPECIAL_THINKING_BLOCK_RES = [
@@ -140,7 +155,8 @@ export function extractNewSentences(buffer: string, state: ChunkerState): string
 
     const localIndex = match.index ?? 0;
     const punctuationOffset = lastSentencePunctuationIndex(matchText);
-    const punctuationIndex = punctuationOffset >= 0 ? localIndex + punctuationOffset : localIndex + matchText.length - 1;
+    const punctuationIndex =
+      punctuationOffset >= 0 ? localIndex + punctuationOffset : localIndex + matchText.length - 1;
     if (scannable[punctuationIndex] === "." && endsWithAbbreviation(scannable, punctuationIndex)) continue;
 
     const absoluteEnd = startAt + localIndex + matchText.length;

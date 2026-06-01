@@ -250,7 +250,10 @@
   cursor: pointer !important;
 }
 [data-visual-theme="sillytavern"] .cursor-not-allowed,
-[data-visual-theme="sillytavern"] .disabled\:cursor-not-allowed:disabled {
+[data-visual-theme="sillytavern"] .cursor-not-allowed *,
+[data-visual-theme="sillytavern"] .disabled\:cursor-not-allowed:disabled,
+[data-visual-theme="sillytavern"] .disabled\:cursor-not-allowed:disabled * {
+  /* Cascade to descendants so child icons/spans don't pick up the universal *{cursor} rule. */
   cursor: not-allowed !important;
 }
 [data-visual-theme="sillytavern"] .cursor-grab {

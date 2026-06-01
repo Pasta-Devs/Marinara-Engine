@@ -3,13 +3,13 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const promptRoleSchema = z.enum(["system", "user", "assistant"]);
+const promptRoleSchema = z.enum(["system", "user", "assistant"]);
 
-export const injectionPositionSchema = z.enum(["ordered", "depth"]);
+const injectionPositionSchema = z.enum(["ordered", "depth"]);
 
-export const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
+const wrapFormatSchema = z.enum(["xml", "markdown", "none"]);
 
-export const markerTypeSchema = z.enum([
+const markerTypeSchema = z.enum([
   "character",
   "lorebook",
   "persona",
@@ -21,7 +21,7 @@ export const markerTypeSchema = z.enum([
   "agent_data",
 ]);
 
-export const markerConfigSchema = z.object({
+const markerConfigSchema = z.object({
   type: markerTypeSchema,
   characterFields: z.array(z.string()).optional(),
   lorebookFormat: z.enum(["full", "worldbook_only", "character_only"]).optional(),
@@ -56,12 +56,12 @@ export const generationParametersSchema = z.object({
   singleUserMessage: z.boolean().default(false),
 });
 
-export const promptVariableOptionSchema = z.object({
+const promptVariableOptionSchema = z.object({
   label: z.string(),
   value: z.string(),
 });
 
-export const promptVariableGroupSchema = z.object({
+const promptVariableGroupSchema = z.object({
   name: z.string(),
   label: z.string(),
   options: z.array(promptVariableOptionSchema),
@@ -69,7 +69,7 @@ export const promptVariableGroupSchema = z.object({
 
 // ── Choice blocks (preset variables) ──
 
-export const choiceOptionSchema = z.object({
+const choiceOptionSchema = z.object({
   id: z.string(),
   label: z.string(),
   value: z.string(),
@@ -129,18 +129,35 @@ export const createPromptPresetSchema = z.object({
   author: z.string().default(""),
 });
 
-export const updatePromptPresetSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().optional(),
-  sectionOrder: z.array(z.string()).optional(),
-  groupOrder: z.array(z.string()).optional(),
-  variableGroups: z.array(promptVariableGroupSchema).optional(),
-  variableValues: z.record(z.string()).optional(),
-  parameters: generationParametersSchema.partial().optional(),
-  wrapFormat: wrapFormatSchema.optional(),
-  author: z.string().optional(),
-  defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
-});
+export const updatePromptPresetSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().optional(),
+    sectionOrder: z.array(z.string()).optional(),
+    groupOrder: z.array(z.string()).optional(),
+    variableOrder: z.array(z.string()).optional(),
+    variableGroups: z.array(promptVariableGroupSchema).optional(),
+    variableValues: z.record(z.string()).optional(),
+    parameters: generationParametersSchema.partial().optional(),
+    wrapFormat: wrapFormatSchema.optional(),
+    isDefault: z.boolean().optional(),
+    default: z.boolean().optional(),
+    author: z.string().optional(),
+    defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isDefault !== undefined && value.default !== undefined && value.isDefault !== value.default) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["default"],
+        message: "default must match isDefault when both flags are provided.",
+      });
+    }
+  })
+  .transform(({ default: legacyDefault, ...value }) => ({
+    ...value,
+    ...(value.isDefault === undefined && legacyDefault !== undefined ? { isDefault: legacyDefault } : {}),
+  }));
 
 // ── Sections ──
 

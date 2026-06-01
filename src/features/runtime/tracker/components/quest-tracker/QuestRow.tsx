@@ -51,12 +51,7 @@ export function QuestRow({
     onUpdate(addQuestObjective(quest));
   };
   return (
-    <article
-      className={cn(
-        "group/quest tracker-quest-row",
-        quest.completed && "tracker-quest-row--completed",
-      )}
-    >
+    <article className={cn("group/quest tracker-quest-row", quest.completed && "tracker-quest-row--completed")}>
       <div className="tracker-quest-row__top-rule" />
       <div
         className={cn(
@@ -68,10 +63,7 @@ export function QuestRow({
           <button
             type="button"
             onClick={() => onUpdate({ ...quest, completed: !quest.completed })}
-            className={cn(
-              "tracker-quest-row__toggle",
-              quest.completed && "tracker-quest-row__toggle--completed",
-            )}
+            className={cn("tracker-quest-row__toggle", quest.completed && "tracker-quest-row__toggle--completed")}
             title={quest.completed ? "Mark incomplete" : "Mark complete"}
             aria-label={quest.completed ? "Mark quest incomplete" : "Mark quest complete"}
           >
@@ -105,9 +97,7 @@ export function QuestRow({
             {questTitle}
           </div>
         )}
-        <span className="tracker-quest-row__count">
-          {completionLabel}
-        </span>
+        <span className="tracker-quest-row__count">{completionLabel}</span>
         {onRemove && deleteMode && (
           <button
             type="button"
@@ -136,7 +126,9 @@ export function QuestRow({
           <span
             className={cn(
               "tracker-quest-row__objective-connector",
-              addMode ? "tracker-quest-row__objective-connector--long" : "tracker-quest-row__objective-connector--short",
+              addMode
+                ? "tracker-quest-row__objective-connector--long"
+                : "tracker-quest-row__objective-connector--short",
             )}
           />
           {quest.objectives.map((objective, index) => (

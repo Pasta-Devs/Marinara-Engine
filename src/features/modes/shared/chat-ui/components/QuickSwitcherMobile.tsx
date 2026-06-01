@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Check } from "lucide-react";
 import { useConnections, useUpdateConnection } from "../../../../catalog/connections/index";
-import { usePersonaGroups, usePersonaSummaries } from "../../../../catalog/characters/index";
+import { usePersonaGroups, usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
@@ -41,7 +41,6 @@ interface ParsedGroup {
   members: Persona[];
 }
 
-
 export function QuickSwitcherMobile() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"connections" | "personas">("connections");
@@ -61,7 +60,12 @@ export function QuickSwitcherMobile() {
   const isRandom = activeConnectionId === "random";
 
   const sortedConnections = filterLanguageGenerationConnections(
-    (connections ?? []) as Array<{ id: string; name: string; provider?: string; useForRandom?: string | boolean | null }>,
+    (connections ?? []) as Array<{
+      id: string;
+      name: string;
+      provider?: string;
+      useForRandom?: string | boolean | null;
+    }>,
   ).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   const sortedPersonas = ((rawPersonas ?? []) as Persona[])

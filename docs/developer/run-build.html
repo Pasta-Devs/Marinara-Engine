@@ -27,9 +27,8 @@
         <p class="eyebrow">Local development</p>
         <h1>Run and build the Tauri app from a clean checkout.</h1>
         <p class="lead">
-          The app uses Vite for the React webview and Tauri v2 for the desktop
-          shell. Tauri starts Vite on port <code>1420</code> during desktop
-          development and bundles <code>dist/</code> for production builds.
+          The app uses Vite for the React webview and Tauri v2 for the desktop shell. Tauri starts Vite on port
+          <code>1420</code> during desktop development and bundles <code>dist/</code> for production builds.
         </p>
 
         <h2>Prerequisites</h2>
@@ -62,22 +61,71 @@
 
         <h2>Run The Desktop App</h2>
         <p>
-          This is the normal local development command. It starts Vite through
-          Tauri's <code>beforeDevCommand</code>, opens the Tauri window, and
-          connects the webview to <code>http://localhost:1420</code>.
+          This is the normal local development command. It starts Vite through Tauri's <code>beforeDevCommand</code>,
+          opens the Tauri window, and connects the webview to <code>http://localhost:1420</code>.
         </p>
         <pre><code>pnpm tauri dev</code></pre>
 
         <div class="callout">
-          Port <code>1420</code> is strict in <code>vite.config.ts</code>. If it
-          is already in use, stop the process using that port before running
-          Tauri dev.
+          Port <code>1420</code> is strict in <code>vite.config.ts</code>. If it is already in use, stop the process
+          using that port before running Tauri dev.
         </div>
+
+        <h2>Monitor Tauri Performance</h2>
+        <p>
+          <code>pnpm tauri dev</code> enables the optional <code>devtools</code> Cargo feature and registers
+          <a href="https://docs.crabnebula.dev/devtools/get-started/">CrabNebula DevTools</a> instrumentation for that
+          development run. Regular builds keep the feature disabled. Open the CrabNebula DevTools desktop app and
+          connect it to the running Marinara process. Use its
+          <a href="https://docs.crabnebula.dev/devtools/tabs/calls/">Calls tab</a> to inspect Tauri command timing,
+          payloads, responses, and IPC spans.
+        </p>
+        <p>
+          The normal <code>pnpm tauri dev</code> wrapper also opens native WebView DevTools and enables the WebView2
+          debugging port on Windows. Use the WebView Performance panel for React render/layout jank, and use
+          CrabNebula Calls for Rust command, storage, asset, provider, and IPC timing.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Slow span</th>
+              <th>Likely owner</th>
+              <th>Next check</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ipc::request::run</code></td>
+              <td>Rust command or capability module</td>
+              <td>Profile command internals, storage reads, asset work, provider calls, or locks.</td>
+            </tr>
+            <tr>
+              <td><code>ipc::request::deserialize_arg</code></td>
+              <td>Frontend payload shape</td>
+              <td>Check for oversized arguments, full records sent where IDs or deltas would work, or repeated calls.</td>
+            </tr>
+            <tr>
+              <td><code>ipc::request::respond</code> or <code>wry::eval</code></td>
+              <td>Return payload or WebView handoff</td>
+              <td>Check response size, JSON shape, and whether the UI can page, virtualize, or defer heavy data.</td>
+            </tr>
+            <tr>
+              <td>Long WebView frame tasks</td>
+              <td>React feature surface</td>
+              <td>Use the Performance panel to find expensive renders, layout shifts, effects, or unvirtualized lists.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Best first passes: startup, opening a large chat, sending/generating a message, switching modes, importing
+          large files, browsing sprites/assets, and opening catalog editors. Compare cold run, second run, and repeated
+          same-action runs before deciding whether the root cause is startup, caching, payload size, or render churn.
+        </p>
 
         <h2>Run The Web Shell Only</h2>
         <p>
-          Use this when you only need the React webview. Tauri-only capabilities
-          may not work correctly because the desktop host is not running.
+          Use this when you only need the React webview. Tauri-only capabilities may not work correctly because the
+          desktop host is not running.
         </p>
         <pre><code>pnpm dev</code></pre>
 
@@ -87,30 +135,25 @@
         <p>Build the Tauri desktop bundle:</p>
         <pre><code>pnpm tauri build</code></pre>
         <p>
-          Tauri runs <code>pnpm build</code> before bundling because
-          <code>src-tauri/tauri.conf.json</code> sets
+          Tauri runs <code>pnpm build</code> before bundling because <code>src-tauri/tauri.conf.json</code> sets
           <code>beforeBuildCommand</code> to <code>pnpm build</code>.
         </p>
         <p>
           The public app name for bundles and the desktop window comes from
-          <code>src-tauri/tauri.conf.json</code>. Keep
-          <code>productName</code> and the main window <code>title</code> set to
-          <code>Marinara Engine</code>.
+          <code>src-tauri/tauri.conf.json</code>. Keep <code>productName</code> and the main window
+          <code>title</code> set to <code>Marinara Engine</code>.
         </p>
 
         <h2>Manual Pre-Alpha Platform Builds</h2>
         <p>
-          Maintainers can run <strong>Pre-Alpha Platform Builds</strong> from
-          GitHub Actions on the <code>refactor</code> branch. The workflow is
-          manual-only, creates a draft GitHub release first, uploads artifacts,
-          then publishes it as a <strong>pre-release</strong> with
-          <code>make_latest=false</code> so it is not treated as the latest
-          release.
+          Maintainers can run <strong>Pre-Alpha Platform Builds</strong> from GitHub Actions on the
+          <code>refactor</code> branch. The workflow is manual-only, creates a draft GitHub release first, uploads
+          artifacts, then publishes it as a <strong>pre-release</strong> with <code>make_latest=false</code> so it is
+          not treated as the latest release.
         </p>
         <div class="callout">
-          Pre-alpha release notes intentionally warn that almost everything may
-          be broken. These builds are unsigned, not connected to the stable
-          updater, and should be tested only with throwaway data.
+          Pre-alpha release notes intentionally warn that almost everything may be broken. These builds are unsigned,
+          not connected to the stable updater, and should be tested only with throwaway data.
         </div>
         <table>
           <thead>
@@ -124,19 +167,28 @@
           <tbody>
             <tr>
               <td>Windows x64</td>
-              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-pc-windows-msvc --config src-tauri/tauri.prealpha.conf.json --no-sign</code></td>
+              <td>
+                <code>tauri-apps/tauri-action@v0</code> with
+                <code>--target x86_64-pc-windows-msvc --config src-tauri/tauri.prealpha.conf.json --no-sign</code>
+              </td>
               <td>GitHub pre-release assets, not latest</td>
               <td>Unsigned Tauri bundles; legacy launcher/updater parity is deferred.</td>
             </tr>
             <tr>
               <td>macOS Intel and Apple Silicon</td>
-              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-apple-darwin</code> and <code>--target aarch64-apple-darwin</code> using the pre-alpha config</td>
+              <td>
+                <code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-apple-darwin</code> and
+                <code>--target aarch64-apple-darwin</code> using the pre-alpha config
+              </td>
               <td>GitHub pre-release assets, not latest</td>
               <td>Unsigned and unnotarized; tester Gatekeeper warnings are expected.</td>
             </tr>
             <tr>
               <td>Linux x64</td>
-              <td><code>tauri-apps/tauri-action@v0</code> with <code>--target x86_64-unknown-linux-gnu --config src-tauri/tauri.prealpha.conf.json --no-sign</code></td>
+              <td>
+                <code>tauri-apps/tauri-action@v0</code> with
+                <code>--target x86_64-unknown-linux-gnu --config src-tauri/tauri.prealpha.conf.json --no-sign</code>
+              </td>
               <td>GitHub pre-release assets, not latest</td>
               <td>Unsigned packages/AppImage; stable updater metadata is not generated.</td>
             </tr>
@@ -155,7 +207,10 @@
             <tr>
               <td>Android universal debug APK</td>
               <td>Experimental pre-alpha test build</td>
-              <td><code>pnpm tauri android build --debug --apk --ci</code> with Gradle-provided pre-alpha app id/name overrides</td>
+              <td>
+                <code>pnpm tauri android build --debug --apk --ci</code> with Gradle-provided pre-alpha app id/name
+                overrides
+              </td>
               <td>Debug-signed APK on the GitHub pre-release using <code>com.marinara_engine.prealpha</code>.</td>
             </tr>
             <tr>
@@ -169,10 +224,9 @@
 
         <h2>Run The Remote Rust Runtime</h2>
         <p>
-          The remote runtime hosts the Rust API only. It does not serve the
-          React UI. Desktop clients can point Settings &gt; Advanced &gt; Remote
-          Runtime URL at this server to route supported storage, import,
-          connection, model-list, and LLM calls through HTTP.
+          The remote runtime hosts the Rust API only. It does not serve the React UI. Desktop clients can point Settings
+          &gt; Advanced &gt; Remote Runtime URL at this server to route supported storage, import, connection,
+          model-list, and LLM calls through HTTP.
         </p>
         <pre><code>cargo run --manifest-path src-tauri/Cargo.toml --bin marinara-server</code></pre>
         <p>By default it listens on:</p>
@@ -180,74 +234,65 @@
         <p>Check the server with:</p>
         <pre><code>curl http://127.0.0.1:8787/health</code></pre>
         <p>
-          Legacy local-sidecar embedding clients can use the compatibility
-          endpoint at <code>/api/sidecar/v1/embeddings</code>. In the Tauri
-          refactor this route is backed by the configured Marinara embedding
-          connection, not by the old managed sidecar process. Pass
-          <code>connectionId</code> to target a specific connection, or configure
-          a connection with <code>embeddingModel</code> and
-          <code>embeddingBaseUrl</code> for local OpenAI-compatible, Ollama, or
-          provider embeddings.
+          Legacy local-sidecar embedding clients can use the compatibility endpoint at
+          <code>/api/sidecar/v1/embeddings</code>. In the Tauri refactor this route is backed by the configured Marinara
+          embedding connection, not by the old managed sidecar process. Pass <code>connectionId</code> to target a
+          specific connection, or configure a connection with <code>embeddingModel</code> and
+          <code>embeddingBaseUrl</code> for local OpenAI-compatible, Ollama, or provider embeddings.
         </p>
         <pre><code>curl http://127.0.0.1:8787/api/sidecar/v1/embeddings \
   -H 'content-type: application/json' \
   -d '{"connectionId":"your-connection-id","model":"text-embedding-3-small","input":"hello"}'</code></pre>
         <h3>Managed Local Sidecar Status</h3>
         <p>
-          The Node-era managed local model sidecar is intentionally retired in
-          the Tauri refactor. Marinara no longer downloads curated Hugging Face
-          models, starts or stops a bundled inference process, or exposes the
-          old <code>LOCAL_SIDECAR_CONNECTION_ID</code> path. Use a normal
-          Marinara connection for local models instead: OpenAI-compatible local
-          servers such as LM Studio and KoboldCpp can use the Custom provider,
-          and Ollama can be reached through its OpenAI-compatible
-          <code>/v1</code> endpoint or through dedicated embedding settings.
-          The only retained sidecar URL is the compatibility embedding route
-          above, backed by the configured connection.
+          The Node-era managed local model sidecar is intentionally retired in the Tauri refactor. Marinara no longer
+          downloads curated Hugging Face models, starts or stops a bundled inference process, or exposes the old
+          <code>LOCAL_SIDECAR_CONNECTION_ID</code> path. Use a normal Marinara connection for local models instead:
+          OpenAI-compatible local servers such as LM Studio and KoboldCpp can use the Custom provider, and Ollama can be
+          reached through its OpenAI-compatible <code>/v1</code> endpoint or through dedicated embedding settings. The
+          only retained sidecar URL is the compatibility embedding route above, backed by the configured connection.
         </p>
         <p>Override the bind address and data directory with:</p>
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
 MARINARA_DATA_DIR=/path/to/data</code></pre>
         <p>
           For prompt/model/connection troubleshooting, start the runtime with
-          <code>LOG_PRESET=prompt-connections</code>. This enables Rust LLM
-          prompt diagnostics and suppresses routine <code>/api/invoke</code>
-          request logs. To suppress routine request logs without prompt
-          diagnostics, set <code>LOG_DISABLE_REQUEST_LOGGING=true</code>.
+          <code>LOG_PRESET=prompt-connections</code>. This enables Rust LLM prompt diagnostics and suppresses routine
+          <code>/api/invoke</code> request logs. To suppress routine request logs without prompt diagnostics, set
+          <code>LOG_DISABLE_REQUEST_LOGGING=true</code>.
         </p>
         <p>
-          Autonomous conversation scheduling is owned by the desktop/web client
-          pollers in the refactor architecture. The remote Rust runtime stores
-          autonomous unread state and serves the shared generation/storage APIs,
-          but it does not run a privileged background scheduler when no client is
-          connected. Keep a Marinara client open if autonomous messages should
-          continue to trigger.
+          Autonomous conversation scheduling is owned by the desktop/web client pollers in the refactor architecture.
+          The remote Rust runtime stores autonomous unread state and serves the shared generation/storage APIs, but it
+          does not run a privileged background scheduler when no client is connected. Keep a Marinara client open if
+          autonomous messages should continue to trigger.
         </p>
         <p>
-          Non-loopback clients fail closed unless the runtime has explicit
-          access control. Configure <code>BASIC_AUTH_USER</code> and
-          <code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or an
-          intentional compatibility opt-in such as
-          <code>ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true</code> for trusted
-          LAN/private-network access. Set <code>CORS_ORIGINS</code> or
-          <code>CSRF_TRUSTED_ORIGINS</code> if your desktop client origin is not
-          one of the runtime defaults. Use exact origins;
-          <code>CORS_ORIGINS=*</code> does not grant browser-origin trust for
-          mutating API requests.
+          Non-loopback clients fail closed unless the runtime has explicit access control. Configure
+          <code>BASIC_AUTH_USER</code> and <code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or an intentional
+          compatibility opt-in such as <code>ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true</code> for trusted
+          LAN/private-network access. Set <code>CORS_ORIGINS</code> or <code>CSRF_TRUSTED_ORIGINS</code> if your desktop
+          client origin is not one of the runtime defaults. Use exact origins; <code>CORS_ORIGINS=*</code> does not
+          grant browser-origin trust for mutating API requests.
         </p>
         <div class="callout">
           Remote-capable features must use the shared API HTTP pipeline:
-          <code>src/shared/api</code> wrapper, <code>remote-runtime.ts</code>
-          allowlist, <code>/api/invoke</code> or a dedicated HTTP route, then
-          <code>src-tauri/src/http_dispatch.rs</code> and the focused Rust
-          module. Do not call the server directly from feature or engine code.
+          <code>src/shared/api</code> wrapper, <code>remote-runtime.ts</code> allowlist, <code>/api/invoke</code> or a
+          dedicated HTTP route, then <code>src-tauri/src/http_dispatch.rs</code> and the focused Rust module. Do not
+          call the server directly from feature or engine code.
         </div>
 
         <h2>Run The Remote Runtime With Docker</h2>
         <p>Build and start the Rust API server with Docker Compose:</p>
         <pre><code>docker compose up --build</code></pre>
-        <p>The compose service exposes:</p>
+        <p>The compose service is intended for same-machine browser access by default and exposes:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
+        <p>
+          The default Compose port binding is limited to <code>127.0.0.1</code>. For LAN or
+          reverse-proxy access, intentionally change the bind address and configure
+          <code>BASIC_AUTH_USER</code>/<code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or another
+          explicit remote access opt-in.
+        </p>
         <p>To build directly from GitHub, use Docker's remote git context:</p>
         <pre><code>docker build -t marinara-engine-server https://github.com/Pasta-Devs/Marinara-Engine.git#refactor
 docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-server</code></pre>
@@ -275,11 +320,17 @@ docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-serve
             </tr>
             <tr>
               <td><code>pnpm test:ui</code></td>
-              <td>Build the frontend, start a fresh preview server on port 4175 by default, and run Playwright browser smoke tests. Set <code>PLAYWRIGHT_PORT</code> if that port is occupied.</td>
+              <td>
+                Build the frontend, start a fresh preview server on port 4175 by default, and run Playwright browser
+                smoke tests. Set <code>PLAYWRIGHT_PORT</code> if that port is occupied.
+              </td>
             </tr>
             <tr>
               <td><code>pnpm test:ui:run</code></td>
-              <td>Start a fresh preview server on the Playwright port and run Playwright only after a build already exists.</td>
+              <td>
+                Start a fresh preview server on the Playwright port and run Playwright only after a build already
+                exists.
+              </td>
             </tr>
             <tr>
               <td><code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code></td>
@@ -320,18 +371,15 @@ sequenceDiagram
         <pre><code>pnpm docs:dev</code></pre>
         <p>Then open:</p>
         <pre><code>http://127.0.0.1:4174/</code></pre>
-        <p>
-          You can also open <code>docs/developer/index.html</code> directly from
-          the filesystem.
-        </p>
+        <p>You can also open <code>docs/developer/index.html</code> directly from the filesystem.</p>
         <div class="callout">
-          Use <code>pnpm docs:dev</code>, not <code>pnpm docs</code>. The shorter
-          command collides with pnpm/npm package documentation behavior.
+          Use <code>pnpm docs:dev</code>, not <code>pnpm docs</code>. The shorter command collides with pnpm/npm package
+          documentation behavior.
         </div>
 
         <p class="footer">
-          Keep run/build command changes in sync with <code>package.json</code>,
-          <code>vite.config.ts</code>, and <code>src-tauri/tauri.conf.json</code>.
+          Keep run/build command changes in sync with <code>package.json</code>, <code>vite.config.ts</code>, and
+          <code>src-tauri/tauri.conf.json</code>.
         </p>
       </main>
     </div>

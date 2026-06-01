@@ -118,12 +118,7 @@ export function PersonaStatsWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        className={cn(WIDGET, "text-violet-300")}
-        title="Persona Stats"
-      >
+      <button ref={buttonRef} onClick={toggle} className={cn(WIDGET, "text-violet-300")} title="Persona Stats">
         {bars.length > 0 ? (
           <div className="flex w-6 max-md:w-8 flex-col justify-center gap-0.5 max-md:gap-px shrink-0">
             {bars.map((bar) => {
@@ -197,12 +192,7 @@ export function CustomTrackerWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        className={cn(WIDGET, "text-cyan-300")}
-        title="Custom Tracker"
-      >
+      <button ref={buttonRef} onClick={toggle} className={cn(WIDGET, "text-cyan-300")} title="Custom Tracker">
         {fields.length > 0 && currentField ? (
           <span
             key={animKey}
@@ -307,12 +297,7 @@ export function QuestsWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        className={cn(WIDGET, "text-emerald-300")}
-        title="Active Quests"
-      >
+      <button ref={buttonRef} onClick={toggle} className={cn(WIDGET, "text-emerald-300")} title="Active Quests">
         {currentObjective ? (
           <span className="widget-scroll-text w-full px-0.5 text-center text-[0.375rem] font-semibold leading-[1.15] max-md:text-[0.5rem]">
             <span className="inline-flex animate-[widget-scroll_8s_linear_infinite] whitespace-nowrap">

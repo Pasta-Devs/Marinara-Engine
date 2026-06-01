@@ -8,7 +8,7 @@
 
 import { rollDice } from "./dice.service.js";
 
-export type EncounterType = "combat" | "social" | "trap" | "puzzle" | "merchant" | "event";
+type EncounterType = "combat" | "social" | "trap" | "puzzle" | "merchant" | "event";
 
 export interface EncounterRoll {
   triggered: boolean;
@@ -126,7 +126,7 @@ function pickEncounterType(): EncounterType {
 }
 
 /** Infer location danger from a location string. */
-export function inferLocationDanger(location: string): string {
+function inferLocationDanger(location: string): string {
   const lower = location.toLowerCase();
   if (/town|city|village|inn|tavern|market|home|palace|temple|church/.test(lower)) return "town";
   if (/road|path|trail|highway/.test(lower)) return "road";

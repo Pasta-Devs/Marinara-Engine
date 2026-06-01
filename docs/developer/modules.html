@@ -27,8 +27,8 @@
         <p class="eyebrow">Module guide</p>
         <h1>Where code lives, what it touches, and what depends on it.</h1>
         <p class="lead">
-          Use this page before adding files or moving logic. The right home is
-          the one that makes the dependency direction obvious.
+          Use this page before adding files or moving logic. The right home is the one that makes the dependency
+          direction obvious.
         </p>
 
         <h2>Top-Level Source Folders</h2>
@@ -85,30 +85,154 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>features/catalog/chats</code></td><td>Chat data hooks, mutations, folders, storage-facing types, and query keys.</td><td>Storage API, chat engine contracts, public runtime consumers.</td></tr>
-            <tr><td><code>features/catalog/characters</code></td><td>Character library data, editors, import/create flows, maker flows, card updates, and sprite query keys.</td><td>Storage API, avatar API, character contracts, generation helpers.</td></tr>
-            <tr><td><code>features/catalog/personas</code></td><td>Persona panel/editor/modals, imports, and query keys.</td><td>Storage API, avatar API, persona contracts. Current shared persona data hooks are exported from <code>features/catalog/characters/index.ts</code>.</td></tr>
-            <tr><td><code>features/catalog/lorebooks</code></td><td>Lorebook library data, editor, entries, import flow, and query keys.</td><td>Storage API, import API, lorebook contracts.</td></tr>
-            <tr><td><code>features/catalog/presets</code>, <code>features/catalog/chat-presets</code></td><td>Prompt preset editors, choice selection, chat preset data hooks, and query keys.</td><td>Storage API, prompt contracts, generation preview.</td></tr>
-            <tr><td><code>features/catalog/connections</code></td><td>Provider connection data hooks, folders, tests, types, and query keys.</td><td>Storage API, LLM API, provider contracts.</td></tr>
-            <tr><td><code>features/catalog/agents</code></td><td>Agent configuration data, tools, debug/review surfaces, custom tools, and regex scripts.</td><td>Agent storage hooks, engine contracts, generation results.</td></tr>
-            <tr><td><code>features/catalog/gallery</code>, <code>features/catalog/knowledge</code></td><td>Generated image gallery hooks and knowledge source upload/list/read hooks.</td><td>Image generation API, storage API, integration utilities, agent runtime knowledge routing.</td></tr>
-            <tr><td><code>features/runtime/generation</code></td><td>Generation hook that binds UI state and capability adapters to engine generation services.</td><td>Engine generation, catalog chat keys, shared API adapters, agent/world-state stores.</td></tr>
-            <tr><td><code>features/runtime/world-state</code></td><td>World state API, tracker snapshot bridge, store, display helpers, and patching/controller hooks.</td><td>Storage API, tracker snapshot API, mode runtime consumers, shared stores.</td></tr>
-            <tr><td><code>features/runtime/visuals</code></td><td>Shared visual primitives such as sprites, weather, pinned images, world info, sprite placement, and display modes.</td><td>Shared UI, asset URLs, mode-provided state.</td></tr>
-            <tr><td><code>features/runtime/tracker</code></td><td>Tracker panels for characters, personas, quests, and world state.</td><td>World state API, shared stores, mode state.</td></tr>
-            <tr><td><code>features/runtime/haptics</code></td><td>Haptic capability hook for UI workflows.</td><td>Integration Tauri commands.</td></tr>
-            <tr><td><code>features/modes/shared/chat-ui</code></td><td>Shared transcript, message, input, branch, settings, overlay, gallery, and quick-switcher UI.</td><td>Catalog chat data, runtime visuals, generation replay, shared components.</td></tr>
-            <tr><td><code>features/modes/shared/scene-ui</code></td><td>Shared scene banner UI used by mode surfaces.</td><td>Shared components and mode-provided scene state.</td></tr>
-            <tr><td><code>features/modes/conversation</code></td><td>Conversation surface, setup wizard, recent chats, autonomous effects, echo chamber, and normal conversation UI.</td><td>Chat mode engine, runtime generation, catalog chat data, shared chat UI.</td></tr>
-            <tr><td><code>features/modes/roleplay</code></td><td>Roleplay screen surfaces, HUD, choices, encounters, scene UI, and roleplay tracker panels.</td><td>Roleplay mode engine, runtime visuals/generation, catalog resources, shared chat/scene UI.</td></tr>
-            <tr><td><code>features/modes/game</code></td><td>Game screen, party UI, world UI, mechanics UI, game hooks, stores, and game API facade.</td><td>Game mode engine, game assets, runtime systems, catalog resources, shared chat UI.</td></tr>
-            <tr><td><code>features/modes/game-assets</code></td><td>Managed game asset browser and editor UI.</td><td>Assets API, local file API, game asset helpers.</td></tr>
-            <tr><td><code>features/modes/router</code></td><td>Mode surface composition plus shared active-chat workflow, pagination, swipes, overlays, and mode switching.</td><td>Concrete mode public surfaces, catalog chat data, runtime systems, and mode metadata.</td></tr>
-            <tr><td><code>features/shell/settings</code>, <code>features/shell/connections</code></td><td>Settings panels, provider connection management, themes, extensions, profile import, assets, TTS configuration, and admin reset orchestration.</td><td>Catalog connection/chat APIs, settings/storage APIs, integration APIs, profile API.</td></tr>
-            <tr><td><code>features/shell/mari</code></td><td>Professor Mari standalone assistant surface.</td><td>Engine Mari entry contract, Mari API, catalog connections/personas, shared chat UI.</td></tr>
-            <tr><td><code>features/shell/imports</code>, <code>features/shell/bot-browser</code></td><td>Import modals, progress flows, bot browser integration panels, and API facade.</td><td>Import API, storage APIs, Tauri channels, bot browser commands.</td></tr>
-            <tr><td><code>features/shell/spotify</code>, <code>features/shell/onboarding</code>, <code>features/shell/notifications</code></td><td>Spotify mini player, first-run onboarding tutorial UI, and app-level notification bubbles.</td><td>Integration utility API, app shell, mode stores, shared playback/events UI.</td></tr>
+            <tr>
+              <td><code>features/catalog/chats</code></td>
+              <td>Chat data hooks, mutations, folders, storage-facing types, and query keys.</td>
+              <td>Storage API, chat engine contracts, public runtime consumers.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/characters</code></td>
+              <td>
+                Character library data, editors, import/create flows, maker flows, and card updates.
+              </td>
+              <td>Storage API, avatar API, character contracts, generation helpers.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/personas</code></td>
+              <td>Persona panel/editor/modals, imports, data hooks, and query keys.</td>
+              <td>
+                Storage API, avatar API, persona contracts. Shared persona data hooks are exported from
+                <code>features/catalog/personas/index.ts</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/sprites</code></td>
+              <td>Shared sprite query keys, types, and React Query hooks for character and persona sprite owners.</td>
+              <td>
+                Image generation API sprite commands, character and persona editors, runtime tracker, game, and chat
+                settings consumers.
+              </td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/lorebooks</code></td>
+              <td>Lorebook library data, editor, entries, import flow, and query keys.</td>
+              <td>Storage API, import API, lorebook contracts.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/presets</code>, <code>features/catalog/chat-presets</code></td>
+              <td>Prompt preset editors, choice selection, chat preset data hooks, and query keys.</td>
+              <td>Storage API, prompt contracts, generation preview.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/connections</code></td>
+              <td>Provider connection data hooks, folders, tests, types, and query keys.</td>
+              <td>Storage API, LLM API, provider contracts.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/agents</code></td>
+              <td>Agent configuration data, tools, debug/review surfaces, custom tools, and regex scripts.</td>
+              <td>Agent storage hooks, engine contracts, generation results.</td>
+            </tr>
+            <tr>
+              <td><code>features/catalog/gallery</code>, <code>features/catalog/knowledge</code></td>
+              <td>Generated image gallery hooks and knowledge source upload/list/read hooks.</td>
+              <td>Image generation API, storage API, integration utilities, agent runtime knowledge routing.</td>
+            </tr>
+            <tr>
+              <td><code>features/runtime/generation</code></td>
+              <td>Generation hook that binds UI state and capability adapters to engine generation services.</td>
+              <td>Engine generation, catalog chat keys, shared API adapters, agent/world-state stores.</td>
+            </tr>
+            <tr>
+              <td><code>features/runtime/world-state</code></td>
+              <td>World state API, tracker snapshot bridge, store, display helpers, and patching/controller hooks.</td>
+              <td>Storage API, tracker snapshot API, mode runtime consumers, shared stores.</td>
+            </tr>
+            <tr>
+              <td><code>features/runtime/visuals</code></td>
+              <td>
+                Shared visual primitives such as sprites, weather, pinned images, world info, sprite placement, and
+                display modes.
+              </td>
+              <td>Shared UI, asset URLs, mode-provided state.</td>
+            </tr>
+            <tr>
+              <td><code>features/runtime/tracker</code></td>
+              <td>Tracker panels for characters, personas, quests, and world state.</td>
+              <td>World state API, shared stores, mode state.</td>
+            </tr>
+            <tr>
+              <td><code>features/runtime/haptics</code></td>
+              <td>Haptic capability hook for UI workflows.</td>
+              <td>Integration Tauri commands.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/shared/chat-ui</code></td>
+              <td>Shared transcript, message, input, branch, settings, overlay, gallery, and quick-switcher UI.</td>
+              <td>Catalog chat data, runtime visuals, generation replay, shared components.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/shared/scene-ui</code></td>
+              <td>Shared scene banner UI used by mode surfaces.</td>
+              <td>Shared components and mode-provided scene state.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/conversation</code></td>
+              <td>
+                Conversation surface, setup wizard, recent chats, autonomous effects, echo chamber, and normal
+                conversation UI.
+              </td>
+              <td>Chat mode engine, runtime generation, catalog chat data, shared chat UI.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/roleplay</code></td>
+              <td>Roleplay screen surfaces, HUD, choices, encounters, scene UI, and roleplay tracker panels.</td>
+              <td>Roleplay mode engine, runtime visuals/generation, catalog resources, shared chat/scene UI.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/game</code></td>
+              <td>Game screen, party UI, world UI, mechanics UI, game hooks, stores, and game API facade.</td>
+              <td>Game mode engine, game assets, runtime systems, catalog resources, shared chat UI.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/game-assets</code></td>
+              <td>Managed game asset browser and editor UI.</td>
+              <td>Assets API, local file API, game asset helpers.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes/router</code></td>
+              <td>
+                Mode surface composition plus shared active-chat workflow, pagination, swipes, overlays, and mode
+                switching.
+              </td>
+              <td>Concrete mode public surfaces, catalog chat data, runtime systems, and mode metadata.</td>
+            </tr>
+            <tr>
+              <td><code>features/shell/settings</code>, <code>features/shell/connections</code></td>
+              <td>
+                Settings panels, provider connection management, themes, extensions, profile import, assets, TTS
+                configuration, and admin reset orchestration.
+              </td>
+              <td>Catalog connection/chat APIs, settings/storage APIs, integration APIs, profile API.</td>
+            </tr>
+            <tr>
+              <td><code>features/shell/mari</code></td>
+              <td>Professor Mari standalone assistant surface.</td>
+              <td>Engine Mari entry contract, Mari API, catalog connections/personas, shared chat UI.</td>
+            </tr>
+            <tr>
+              <td><code>features/shell/imports</code>, <code>features/shell/bot-browser</code></td>
+              <td>Import modals, progress flows, bot browser integration panels, and API facade.</td>
+              <td>Import API, storage APIs, Tauri channels, bot browser commands.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>features/shell/spotify</code>, <code>features/shell/onboarding</code>,
+                <code>features/shell/notifications</code>
+              </td>
+              <td>Spotify mini player, first-run onboarding tutorial UI, and app-level notification bubbles.</td>
+              <td>Integration utility API, app shell, mode stores, shared playback/events UI.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -122,14 +246,51 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>src/app/shell</code></td><td>Desktop app chrome, titlebar, sidebar, panel routing, detail route registry, mode surface placement.</td><td>Mode-specific product rules or provider transport.</td></tr>
-            <tr><td><code>src/app/providers</code></td><td>Application-level providers and extension/theme injection.</td><td>Feature screens or mode orchestration.</td></tr>
-            <tr><td><code>src/app/startup</code></td><td>Startup-only browser synchronization.</td><td>Long-running feature effects.</td></tr>
-            <tr><td><code>src/shared/components</code></td><td>Generic UI atoms and modals reused by multiple features.</td><td>Feature-specific workflows.</td></tr>
-            <tr><td><code>src/shared/hooks</code></td><td>Generic frontend hooks such as TTS, translation, page activity, and regex application.</td><td>Feature cache ownership.</td></tr>
-            <tr><td><code>src/shared/lib</code></td><td>Frontend-only deterministic helpers for display, assets, markdown, command text, formatting, and browser URLs.</td><td>Engine mode orchestration or Rust-only IO.</td></tr>
-            <tr><td><code>src/shared/stores</code></td><td>UI/session Zustand stores shared across feature surfaces.</td><td>Persistent domain records that belong in storage or engine contracts.</td></tr>
-            <tr><td><code>src/shared/types/generated</code></td><td>Generated TypeScript bindings from Rust boundary DTOs.</td><td>Hand-authored product contracts.</td></tr>
+            <tr>
+              <td><code>src/app/shell</code></td>
+              <td>
+                Desktop app chrome, titlebar, sidebar, panel routing, detail route registry, mode surface placement.
+              </td>
+              <td>Mode-specific product rules or provider transport.</td>
+            </tr>
+            <tr>
+              <td><code>src/app/providers</code></td>
+              <td>Application-level providers and extension/theme injection.</td>
+              <td>Feature screens or mode orchestration.</td>
+            </tr>
+            <tr>
+              <td><code>src/app/startup</code></td>
+              <td>Startup-only browser synchronization.</td>
+              <td>Long-running feature effects.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/components</code></td>
+              <td>Generic UI atoms and modals reused by multiple features.</td>
+              <td>Feature-specific workflows.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/hooks</code></td>
+              <td>Generic frontend hooks such as TTS, translation, page activity, and regex application.</td>
+              <td>Feature cache ownership.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/lib</code></td>
+              <td>
+                Frontend-only deterministic helpers for display, assets, markdown, command text, formatting, and browser
+                URLs.
+              </td>
+              <td>Engine mode orchestration or Rust-only IO.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/stores</code></td>
+              <td>UI/session Zustand stores shared across feature surfaces.</td>
+              <td>Persistent domain records that belong in storage or engine contracts.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/types/generated</code></td>
+              <td>Generated TypeScript bindings from Rust boundary DTOs.</td>
+              <td>Hand-authored product contracts.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -143,18 +304,66 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>engine/contracts</code></td><td>Types, schemas, constants.</td><td>Runtime orchestration or adapters.</td></tr>
-            <tr><td><code>engine/core</code></td><td>Small primitives such as result, IDs, clock, JSON helpers.</td><td>Feature or mode rules.</td></tr>
-            <tr><td><code>engine/capabilities</code></td><td>TypeScript interfaces for Rust-backed capabilities.</td><td>Tauri invoke calls or concrete implementations.</td></tr>
-            <tr><td><code>engine/shared</code></td><td>Pure deterministic helpers reused across domains.</td><td>Storage calls, providers, UI imports, mode orchestration.</td></tr>
-            <tr><td><code>engine/repositories</code></td><td>Capability-backed repository wrappers.</td><td>React Query, Zustand, or direct Tauri calls.</td></tr>
-            <tr><td><code>engine/generation-core</code></td><td>Prompt, lorebook, regex, context fitting, provider-neutral LLM DTOs.</td><td>Mode-owned turn/scene/autonomous decisions.</td></tr>
-            <tr><td><code>engine/agents-runtime</code></td><td>Agent execution, tools, knowledge, memory routing.</td><td>Chat, game, or roleplay mode orchestration.</td></tr>
-            <tr><td><code>engine/generation</code></td><td>Generation lifecycle, streaming, replay, persistence.</td><td>Mode-specific prompt ownership.</td></tr>
-            <tr><td><code>engine/mari</code></td><td>Professor Mari request/response contract and entry normalization.</td><td>React UI, concrete Tauri invokes, Rust agent execution.</td></tr>
-            <tr><td><code>engine/modes/chat</code></td><td>Chat/autonomous/schedules/summaries/commands.</td><td>Roleplay scene or game turn logic.</td></tr>
-            <tr><td><code>engine/modes/roleplay</code></td><td>Scenes, roleplay encounters, scene memory, roleplay sprites.</td><td>Game state, maps, game session repair.</td></tr>
-            <tr><td><code>engine/modes/game</code></td><td>Game turns, prompts, mechanics, world, state, assets.</td><td>Roleplay scene lifecycle or chat schedules.</td></tr>
+            <tr>
+              <td><code>engine/contracts</code></td>
+              <td>Types, schemas, constants.</td>
+              <td>Runtime orchestration or adapters.</td>
+            </tr>
+            <tr>
+              <td><code>engine/core</code></td>
+              <td>Small primitives such as result, IDs, clock, JSON helpers.</td>
+              <td>Feature or mode rules.</td>
+            </tr>
+            <tr>
+              <td><code>engine/capabilities</code></td>
+              <td>TypeScript interfaces for Rust-backed capabilities.</td>
+              <td>Tauri invoke calls or concrete implementations.</td>
+            </tr>
+            <tr>
+              <td><code>engine/shared</code></td>
+              <td>Pure deterministic helpers reused across domains.</td>
+              <td>Storage calls, providers, UI imports, mode orchestration.</td>
+            </tr>
+            <tr>
+              <td><code>engine/repositories</code></td>
+              <td>Capability-backed repository wrappers.</td>
+              <td>React Query, Zustand, or direct Tauri calls.</td>
+            </tr>
+            <tr>
+              <td><code>engine/generation-core</code></td>
+              <td>Prompt, lorebook, regex, context fitting, provider-neutral LLM DTOs.</td>
+              <td>Mode-owned turn/scene/autonomous decisions.</td>
+            </tr>
+            <tr>
+              <td><code>engine/agents-runtime</code></td>
+              <td>Agent execution, tools, knowledge, memory routing.</td>
+              <td>Chat, game, or roleplay mode orchestration.</td>
+            </tr>
+            <tr>
+              <td><code>engine/generation</code></td>
+              <td>Generation lifecycle, streaming, replay, persistence.</td>
+              <td>Mode-specific prompt ownership.</td>
+            </tr>
+            <tr>
+              <td><code>engine/mari</code></td>
+              <td>Professor Mari request/response contract and entry normalization.</td>
+              <td>React UI, concrete Tauri invokes, Rust agent execution.</td>
+            </tr>
+            <tr>
+              <td><code>engine/modes/chat</code></td>
+              <td>Chat/autonomous/schedules/summaries/commands.</td>
+              <td>Roleplay scene or game turn logic.</td>
+            </tr>
+            <tr>
+              <td><code>engine/modes/roleplay</code></td>
+              <td>Scenes, roleplay encounters, scene memory, roleplay sprites.</td>
+              <td>Game state, maps, game session repair.</td>
+            </tr>
+            <tr>
+              <td><code>engine/modes/game</code></td>
+              <td>Game turns, prompts, mechanics, world, state, assets.</td>
+              <td>Roleplay scene lifecycle or chat schedules.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -187,13 +396,11 @@ flowchart LR
 
         <h2>Shared API Modules</h2>
         <p>
-          Files in <code>src/shared/api</code> are the bridge from frontend code
-          to embedded Tauri commands and the configured hostable Rust HTTP
-          runtime. They should be typed and narrow. If business logic starts to
-          grow here, move it into the TypeScript engine or the owning feature.
-          New feature code should call these wrappers instead of importing
-          <code>tauri-client.ts</code>, <code>@tauri-apps/api</code>, or calling
-          the remote runtime with raw <code>fetch</code> directly.
+          Files in <code>src/shared/api</code> are the bridge from frontend code to embedded Tauri commands and the
+          configured hostable Rust HTTP runtime. They should be typed and narrow. If business logic starts to grow here,
+          move it into the TypeScript engine or the owning feature. New feature code should call these wrappers instead
+          of importing <code>tauri-client.ts</code>, <code>@tauri-apps/api</code>, or calling the remote runtime with
+          raw <code>fetch</code> directly.
         </p>
         <table>
           <thead>
@@ -203,36 +410,99 @@ flowchart LR
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>api-errors.ts</code></td><td>Shared API error and JSON repair request shapes.</td></tr>
-            <tr><td><code>assets-api.ts</code></td><td>Backgrounds, fonts, game assets, and asset browser commands.</td></tr>
-            <tr><td><code>avatar-api.ts</code></td><td>Character/persona/NPC avatar upload and resolution commands.</td></tr>
-            <tr><td><code>download-payload.ts</code> and <code>file-payload.ts</code></td><td>Browser payload helpers for import/export and local file transfer.</td></tr>
-            <tr><td><code>export-api.ts</code></td><td>Character, persona, lorebook, prompt, and profile export commands.</td></tr>
-            <tr><td><code>image-generation-api.ts</code></td><td>Image generation, sprites, gallery, and avatar generation commands.</td></tr>
-            <tr><td><code>import-api.ts</code></td><td>Marinara and SillyTavern import commands plus bulk import channels.</td></tr>
-            <tr><td><code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>tts-api.ts</code>, and <code>translation-api.ts</code></td><td>TTS and translation command wrappers, Spotify and haptics gateway ports, knowledge sources, and connection utilities.</td></tr>
-            <tr><td><code>llm-api.ts</code></td><td>LLM complete, stream, cancel, models, and connection tests.</td></tr>
-            <tr><td><code>local-file-api.ts</code></td><td>Managed local file URL conversion and asset protocol helpers.</td></tr>
-            <tr><td><code>mari-api.ts</code></td><td>Professor Mari command wrapper.</td></tr>
-            <tr><td><code>profile-api.ts</code></td><td>Profile export/import and profile file operations.</td></tr>
-            <tr><td><code>settings-assets-api.ts</code></td><td>Settings-facing background and font commands.</td></tr>
-            <tr><td><code>storage-api.ts</code></td><td>Typed entity CRUD, duplication, chat helpers, and generic storage access.</td></tr>
-            <tr><td><code>remote-runtime.ts</code></td><td>Remote runtime URL parsing, command allowlist, JSON invoke fetch, SSE LLM streaming, and remote stream cancellation.</td></tr>
-            <tr><td><code>tauri-client.ts</code></td><td>Single invoke/listen helper layer that chooses embedded Tauri by default and remote HTTP for allowlisted commands when Remote Runtime URL is configured.</td></tr>
-            <tr><td><code>tracker-snapshot-api.ts</code></td><td>Tracker snapshot save/read commands for game and roleplay state history.</td></tr>
+            <tr>
+              <td><code>api-errors.ts</code></td>
+              <td>Shared API error and JSON repair request shapes.</td>
+            </tr>
+            <tr>
+              <td><code>assets-api.ts</code></td>
+              <td>Backgrounds, fonts, game assets, and asset browser commands.</td>
+            </tr>
+            <tr>
+              <td><code>avatar-api.ts</code></td>
+              <td>Character/persona/NPC avatar upload and resolution commands.</td>
+            </tr>
+            <tr>
+              <td><code>download-payload.ts</code> and <code>file-payload.ts</code></td>
+              <td>Browser payload helpers for import/export and local file transfer.</td>
+            </tr>
+            <tr>
+              <td><code>export-api.ts</code></td>
+              <td>Character, persona, lorebook, prompt, and profile export commands.</td>
+            </tr>
+            <tr>
+              <td><code>image-generation-api.ts</code></td>
+              <td>
+                Image generation, owner-typed character/persona sprite commands, gallery, and avatar generation commands.
+              </td>
+            </tr>
+            <tr>
+              <td><code>import-api.ts</code></td>
+              <td>Marinara and SillyTavern import commands plus bulk import channels.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>tts-api.ts</code>,
+                and <code>translation-api.ts</code>
+              </td>
+              <td>
+                TTS and translation command wrappers, Spotify and haptics gateway ports, knowledge sources, and
+                connection utilities.
+              </td>
+            </tr>
+            <tr>
+              <td><code>llm-api.ts</code></td>
+              <td>LLM complete, stream, cancel, models, and connection tests.</td>
+            </tr>
+            <tr>
+              <td><code>local-file-api.ts</code></td>
+              <td>Managed local file URL conversion and asset protocol helpers.</td>
+            </tr>
+            <tr>
+              <td><code>mari-api.ts</code></td>
+              <td>Professor Mari command wrapper.</td>
+            </tr>
+            <tr>
+              <td><code>profile-api.ts</code></td>
+              <td>Profile export/import and profile file operations.</td>
+            </tr>
+            <tr>
+              <td><code>settings-assets-api.ts</code></td>
+              <td>Settings-facing background and font commands.</td>
+            </tr>
+            <tr>
+              <td><code>storage-api.ts</code></td>
+              <td>Typed entity CRUD, duplication, chat helpers, and generic storage access.</td>
+            </tr>
+            <tr>
+              <td><code>remote-runtime.ts</code></td>
+              <td>
+                Remote runtime URL parsing, command allowlist, JSON invoke fetch, SSE LLM streaming, and remote stream
+                cancellation.
+              </td>
+            </tr>
+            <tr>
+              <td><code>tauri-client.ts</code></td>
+              <td>
+                Single invoke/listen helper layer that chooses embedded Tauri by default and remote HTTP for allowlisted
+                commands when Remote Runtime URL is configured.
+              </td>
+            </tr>
+            <tr>
+              <td><code>tracker-snapshot-api.ts</code></td>
+              <td>Tracker snapshot save/read commands for game and roleplay state history.</td>
+            </tr>
           </tbody>
         </table>
 
         <h2>Rust Command Modules</h2>
         <p>
-          <code>src-tauri/src/commands/storage.rs</code> registers focused
-          implementation modules and thin command facades. Keep new commands in
-          the closest capability group.
+          <code>src-tauri/src/commands/storage.rs</code> registers focused implementation modules and thin command
+          facades. Keep new commands in the closest capability group.
         </p>
         <p>
-          Hostable runtime support belongs in <code>http_dispatch.rs</code> for
-          JSON command reuse or <code>http_server.rs</code> for dedicated routes
-          such as LLM SSE streaming. Do not create a parallel command
+          Hostable runtime support belongs in <code>http_dispatch.rs</code> for JSON command reuse or
+          <code>http_server.rs</code> for dedicated routes such as LLM SSE streaming. Do not create a parallel command
           implementation only for HTTP.
         </p>
         <table>
@@ -243,20 +513,56 @@ flowchart LR
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>admin</code>, <code>agents</code>, <code>custom_tools</code></td><td>Admin resets, agent records, custom tool execution, agent memory, cadence, and patch/toggle commands.</td></tr>
-            <tr><td><code>bot_browser</code>, <code>game_state_snapshots</code></td><td>Bot browser proxy commands and tracker snapshot persistence.</td></tr>
-            <tr><td><code>characters</code>, <code>chats</code>, <code>prompts</code>, <code>knowledge</code></td><td>Creative records, chat memory/notes/branches/swipes, prompt data, and knowledge source persistence.</td></tr>
-            <tr><td><code>avatars</code>, <code>backgrounds</code>, <code>fonts</code>, <code>game_assets</code>, <code>images</code>, <code>lorebook_images</code>, <code>media_uploads</code>, <code>sprites</code></td><td>Managed media, asset paths, image generation, uploads, sprite cleanup, and asset browser operations.</td></tr>
-            <tr><td><code>exports</code>, <code>imports</code>, <code>profile</code></td><td>Marinara profile packages, SillyTavern imports, export payloads, ZIP handling, and profile asset migration.</td></tr>
-            <tr><td><code>generation</code>, <code>llm</code>, <code>http</code>, <code>translation</code></td><td>Provider transport, streaming, model lists, safe fetches, and translation calls.</td></tr>
-            <tr><td><code>integrations</code></td><td>Spotify, TTS, haptics, OAuth callback, and DJ Mari playlist helpers.</td></tr>
-            <tr><td><code>mari</code></td><td>Professor Mari's AutoAgents-backed prompt command and read-only creative library tool.</td></tr>
+            <tr>
+              <td><code>admin</code>, <code>agents</code>, <code>custom_tools</code></td>
+              <td>
+                Admin resets, agent records, custom tool execution, agent memory, cadence, and patch/toggle commands.
+              </td>
+            </tr>
+            <tr>
+              <td><code>bot_browser</code>, <code>game_state_snapshots</code></td>
+              <td>Bot browser proxy commands and tracker snapshot persistence.</td>
+            </tr>
+            <tr>
+              <td><code>characters</code>, <code>chats</code>, <code>prompts</code>, <code>knowledge</code></td>
+              <td>
+                Creative records, chat memory/notes/branches/swipes, prompt data, and knowledge source persistence.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>avatars</code>, <code>backgrounds</code>, <code>fonts</code>, <code>game_assets</code>,
+                <code>images</code>, <code>lorebook_images</code>, <code>media_uploads</code>, <code>sprites</code>
+              </td>
+              <td>
+                Managed media, asset paths, image generation, uploads, sprite cleanup, and asset browser operations.
+              </td>
+            </tr>
+            <tr>
+              <td><code>exports</code>, <code>imports</code>, <code>profile</code></td>
+              <td>
+                Marinara profile packages, SillyTavern imports, export payloads, ZIP handling, and profile asset
+                migration.
+              </td>
+            </tr>
+            <tr>
+              <td><code>generation</code>, <code>llm</code>, <code>http</code>, <code>translation</code></td>
+              <td>Provider transport, streaming, model lists, safe fetches, and translation calls.</td>
+            </tr>
+            <tr>
+              <td><code>integrations</code></td>
+              <td>Spotify, TTS, haptics, OAuth callback, and DJ Mari playlist helpers.</td>
+            </tr>
+            <tr>
+              <td><code>mari</code></td>
+              <td>Professor Mari's AutoAgents-backed prompt command and read-only creative library tool.</td>
+            </tr>
           </tbody>
         </table>
 
         <p class="footer">
-          Before moving code, check whether downstream imports should point to a
-          public owner file, a lower-layer helper, or a capability port.
+          Before moving code, check whether downstream imports should point to a public owner file, a lower-layer
+          helper, or a capability port.
         </p>
       </main>
     </div>

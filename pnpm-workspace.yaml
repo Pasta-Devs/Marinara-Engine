@@ -1,0 +1,11 @@
+# Install-time supply-chain guardrails. The root package is included by pnpm
+# when no workspace package globs are specified.
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+strictDepBuilds: true
+
+allowBuilds:
+  esbuild: true
+  puppeteer@24.43.1: true
+  unrs-resolver: false

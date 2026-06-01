@@ -78,18 +78,16 @@ export function ToolEditor() {
       setLocalName(dbTool.name);
       setLocalDesc(dbTool.description);
       const execType: ExecType =
-        dbTool.executionType === "webhook"
-          ? "webhook"
-          : dbTool.executionType === "script"
-            ? "script"
-            : "static";
+        dbTool.executionType === "webhook" ? "webhook" : dbTool.executionType === "script" ? "script" : "static";
       setLocalExecType(execType);
       setLocalWebhookUrl(dbTool.webhookUrl ?? "");
       setLocalStaticResult(dbTool.staticResult ?? "");
       setLocalScriptBody(dbTool.scriptBody ?? "");
       const schema = dbTool.parametersSchema ?? {};
       const props = (schema.properties as Record<string, unknown> | undefined) ?? {};
-      const req: string[] = Array.isArray(schema.required) ? schema.required.filter((value): value is string => typeof value === "string") : [];
+      const req: string[] = Array.isArray(schema.required)
+        ? schema.required.filter((value): value is string => typeof value === "string")
+        : [];
       setLocalParams(
         Object.entries(props).map(([name, p]) => {
           const prop = p as { type?: string; description?: string };

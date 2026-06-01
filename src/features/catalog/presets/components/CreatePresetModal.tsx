@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Modal } from "../../../../shared/components/ui/Modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createPromptPresetSchema } from "../../../../engine/contracts/schemas/prompt.schema";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { Loader2, FileText } from "lucide-react";
@@ -31,7 +32,7 @@ export function CreatePresetModal({ open, onClose }: Props) {
   const [description, setDescription] = useState("");
 
   const createPreset = useMutation({
-    mutationFn: (data: Record<string, unknown>) => storageApi.create("prompts", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create("prompts", createPromptPresetSchema.parse(data)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["presets"] }),
   });
 

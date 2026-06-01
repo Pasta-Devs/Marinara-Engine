@@ -27,9 +27,8 @@
         <p class="eyebrow">Impact review</p>
         <h1>Use impact maps before fixes, features, and refactors.</h1>
         <p class="lead">
-          Good changes identify what they touch before editing. If a change
-          crosses layers, account for every dependent caller and run the checks
-          that prove the boundary still works.
+          Good changes identify what they touch before editing. If a change crosses layers, account for every dependent
+          caller and run the checks that prove the boundary still works.
         </p>
 
         <h2>Impact Brief</h2>
@@ -75,9 +74,27 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>Message send, regeneration, autonomous sends, summaries, command side effects, prompt preview, replay, streaming, LLM message shaping.</td></tr>
-            <tr><th>Review</th><td>Chat UI, generation events, storage writes, agent pre/post hooks, provider payloads, persisted message metadata.</td></tr>
-            <tr><th>Verify</th><td><code>pnpm typecheck</code>; add <code>pnpm build</code> when imports or bundling changed; add Rust check when LLM/storage commands changed.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                Message send, regeneration, autonomous sends, summaries, command side effects, prompt preview, replay,
+                streaming, LLM message shaping.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                Chat UI, generation events, storage writes, agent pre/post hooks, provider payloads, persisted message
+                metadata.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                <code>pnpm typecheck</code>; add <code>pnpm build</code> when imports or bundling changed; add Rust
+                check when LLM/storage commands changed.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -109,9 +126,26 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>Scenes, scene memory, scene analysis, roleplay encounters, sprites, visual-novel choices, roleplay prompt continuity.</td></tr>
-            <tr><th>Review</th><td>Roleplay screen, visual primitives, origin chat updates, persisted scene metadata, asset reads/writes.</td></tr>
-            <tr><th>Verify</th><td>Typecheck roleplay paths; verify sibling game scene logic only if shared visuals or lower-layer scene utilities changed.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                Scenes, scene memory, scene analysis, roleplay encounters, sprites, visual-novel choices, roleplay
+                prompt continuity.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                Roleplay screen, visual primitives, origin chat updates, persisted scene metadata, asset reads/writes.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                Typecheck roleplay paths; verify sibling game scene logic only if shared visuals or lower-layer scene
+                utilities changed.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -145,9 +179,27 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>Game turns, retries, setup, GM prompts, party prompts, combat, dice, maps, weather, journal, sessions, checkpoints, assets, music.</td></tr>
-            <tr><th>Review</th><td>Game hooks, game mode store, generation guide source, game state persistence, game asset browser, integration side effects.</td></tr>
-            <tr><th>Verify</th><td><code>pnpm typecheck</code> and usually <code>pnpm build</code>; add Rust check when storage/assets/integrations changed.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                Game turns, retries, setup, GM prompts, party prompts, combat, dice, maps, weather, journal, sessions,
+                checkpoints, assets, music.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                Game hooks, game mode store, generation guide source, game state persistence, game asset browser,
+                integration side effects.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                <code>pnpm typecheck</code> and usually <code>pnpm build</code>; add Rust check when
+                storage/assets/integrations changed.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -173,9 +225,28 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>Professor Mari shell entry, standalone chat surface, connection/persona context, attachments, read-only creative library tool, native tool calling, or Mari provider errors.</td></tr>
-            <tr><th>Review</th><td>App shell routing, <code>features/shell/mari</code>, <code>engine/mari</code>, <code>shared/api/mari-api</code>, Rust Mari command, LLM connection support, storage snapshot scope.</td></tr>
-            <tr><th>Verify</th><td><code>pnpm typecheck</code>; add <code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code> when the command, AutoAgents bridge, storage snapshot, or provider transport changed.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                Professor Mari shell entry, standalone chat surface, connection/persona context, attachments, read-only
+                creative library tool, native tool calling, or Mari provider errors.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                App shell routing, <code>features/shell/mari</code>, <code>engine/mari</code>,
+                <code>shared/api/mari-api</code>, Rust Mari command, LLM connection support, storage snapshot scope.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                <code>pnpm typecheck</code>; add
+                <code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code> when the command, AutoAgents
+                bridge, storage snapshot, or provider transport changed.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -201,9 +272,27 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>Entity CRUD, profile import/export, avatar/background/gallery files, game assets, bulk imports, local file URLs.</td></tr>
-            <tr><th>Review</th><td>DTO shapes, filename/path validation, atomic writes, frontend adapter response shapes, progress channels.</td></tr>
-            <tr><th>Verify</th><td><code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code>; run TypeScript checks if adapter contracts changed.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                Entity CRUD, profile import/export, avatar/background/gallery files, game assets, bulk imports, local
+                file URLs.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                DTO shapes, filename/path validation, atomic writes, frontend adapter response shapes, progress
+                channels.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                <code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code>; run TypeScript checks if
+                adapter contracts changed.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -234,9 +323,28 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td>LLM providers, connection tests, streaming, image generation transport, Spotify, TTS, translation, haptics.</td></tr>
-            <tr><th>Review</th><td>Secrets handling, request shaping, provider parameter compatibility, redaction, events/channels, UI error reporting, and whether engine services receive capability ports instead of importing shared API adapters.</td></tr>
-            <tr><th>Verify</th><td>Rust check plus TypeScript typecheck when DTOs or adapters changed. Live-account QA may still be required.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                LLM providers, connection tests, streaming, image generation transport, Spotify, TTS, translation,
+                haptics.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                Secrets handling, request shaping, provider parameter compatibility, redaction, events/channels, UI
+                error reporting, and whether engine services receive capability ports instead of importing shared API
+                adapters.
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                Rust check plus TypeScript typecheck when DTOs or adapters changed. Live-account QA may still be
+                required.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -266,10 +374,40 @@ flowchart LR
         </pre>
         <table>
           <tbody>
-            <tr><th>Touching</th><td><code>invokeTauri</code>, <code>remote-runtime.ts</code>, <code>llm-api</code> streaming, <code>http_server.rs</code>, <code>http_dispatch.rs</code>, <code>local-file-api</code>, Tauri plugins, file dialogs, managed asset URLs, imports/uploads, native window/titlebar behavior, opener behavior, haptics, Spotify OAuth, TTS, or Docker/server build files.</td></tr>
-            <tr><th>Review</th><td>Does the feature require desktop-only native access, or can it safely run through the hostable runtime data directory and JSON/SSE HTTP contract? Is the command allowlisted in <code>remote-runtime.ts</code> and handled explicitly in <code>http_dispatch.rs</code> or a dedicated route? Does the feature avoid raw server filesystem paths and silent no-op fallbacks?</td></tr>
-            <tr><th>Verify</th><td><code>pnpm typecheck</code>, <code>pnpm build</code>, <code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code>, and an HTTP smoke check when practical: run <code>marinara-server</code>, hit <code>/health</code>, then exercise the supported shared API path from Settings &gt; Advanced &gt; Remote Runtime URL.</td></tr>
-            <tr><th>Decision</th><td>If remote behavior cannot be equivalent, keep the feature desktop-only and document that limit instead of adding silent fallbacks.</td></tr>
+            <tr>
+              <th>Touching</th>
+              <td>
+                <code>invokeTauri</code>, <code>remote-runtime.ts</code>, <code>llm-api</code> streaming,
+                <code>http_server.rs</code>, <code>http_dispatch.rs</code>, <code>local-file-api</code>, Tauri plugins,
+                file dialogs, managed asset URLs, imports/uploads, native window/titlebar behavior, opener behavior,
+                haptics, Spotify OAuth, TTS, or Docker/server build files.
+              </td>
+            </tr>
+            <tr>
+              <th>Review</th>
+              <td>
+                Does the feature require desktop-only native access, or can it safely run through the hostable runtime
+                data directory and JSON/SSE HTTP contract? Is the command allowlisted in
+                <code>remote-runtime.ts</code> and handled explicitly in <code>http_dispatch.rs</code> or a dedicated
+                route? Does the feature avoid raw server filesystem paths and silent no-op fallbacks?
+              </td>
+            </tr>
+            <tr>
+              <th>Verify</th>
+              <td>
+                <code>pnpm typecheck</code>, <code>pnpm build</code>,
+                <code>cargo check --manifest-path src-tauri/Cargo.toml --workspace</code>, and an HTTP smoke check when
+                practical: run <code>marinara-server</code>, hit <code>/health</code>, then exercise the supported
+                shared API path from Settings &gt; Advanced &gt; Remote Runtime URL.
+              </td>
+            </tr>
+            <tr>
+              <th>Decision</th>
+              <td>
+                If remote behavior cannot be equivalent, keep the feature desktop-only and document that limit instead
+                of adding silent fallbacks.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -289,7 +427,10 @@ flowchart LR
           </div>
           <div class="panel">
             <h3>Hostable runtime</h3>
-            <p>Review remote allowlists, HTTP dispatch, asset URL resolution, uploads, streaming, and native-plugin limits.</p>
+            <p>
+              Review remote allowlists, HTTP dispatch, asset URL resolution, uploads, streaming, and native-plugin
+              limits.
+            </p>
           </div>
           <div class="panel">
             <h3><code>engine/mari</code></h3>
@@ -302,8 +443,8 @@ flowchart LR
         </div>
 
         <p class="footer">
-          If the impact area cannot be named clearly, the change is probably in
-          the wrong owner or too broad for one commit.
+          If the impact area cannot be named clearly, the change is probably in the wrong owner or too broad for one
+          commit.
         </p>
       </main>
     </div>

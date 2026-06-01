@@ -165,6 +165,44 @@ impl FileStorage {
         self.patch_with(collection, id, patch, |_, _| Ok(()))
     }
 
+    pub fn patch_if<F>(&self, collection: &str, id: &str, mut patch_row: F) -> AppResult<Option<Value>>
+    where
+        F: FnMut(&mut Map<String, Value>) -> AppResult<bool>,
+    {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        let mut rows = self.read_collection(collection)?;
+        let mut found = false;
+        let mut patched = None;
+        for row in &mut rows {
+            if row.get("id").and_then(Value::as_str) != Some(id) {
+                continue;
+            }
+            found = true;
+            let Some(object) = row.as_object_mut() else {
+                return Err(AppError::invalid_input("Stored record is not an object"));
+            };
+            if !patch_row(object)? {
+                return Ok(None);
+            }
+            object.insert("updatedAt".to_string(), Value::String(now_iso()));
+            patched = Some(Value::Object(object.clone()));
+            break;
+        }
+        if !found {
+            return Err(AppError::not_found(format!(
+                "{collection}/{id} was not found"
+            )));
+        }
+        let Some(record) = patched else {
+            return Ok(None);
+        };
+        self.write_collection(collection, &rows)?;
+        Ok(Some(record))
+    }
+
     pub fn patch_with<F>(
         &self,
         collection: &str,

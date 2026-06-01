@@ -39,22 +39,12 @@
 
 .tracker-world-tile-shell__top-rule {
   top: 0.25rem;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--foreground) 18%, transparent),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--foreground) 18%, transparent), transparent);
 }
 
 .tracker-world-tile-shell__bottom-rule {
   bottom: 0.25rem;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--primary) 16%, transparent),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 16%, transparent), transparent);
   opacity: 0.7;
 }
 

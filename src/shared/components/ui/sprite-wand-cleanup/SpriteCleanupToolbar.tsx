@@ -1,14 +1,4 @@
-import {
-  Blend,
-  Brush,
-  Crosshair,
-  Eraser,
-  Hand,
-  Wand2,
-  ZoomIn,
-  ZoomOut,
-  type LucideIcon,
-} from "lucide-react";
+import { Blend, Brush, Crosshair, Eraser, Hand, Wand2, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
 import type { CleanupTool } from "./sprite-cleanup-model";
 
 interface SpriteCleanupToolbarProps {

@@ -5,10 +5,7 @@ import { Compass, MessageCircle, Moon, Swords, type LucideIcon } from "lucide-re
 import type { GameActiveState } from "../../../../engine/contracts/types/game";
 import { cn } from "../../../../shared/lib/utils";
 
-const GAME_STATE_CONFIG: Record<
-  GameActiveState,
-  { icon: LucideIcon; label: string; color: string; bg: string }
-> = {
+const GAME_STATE_CONFIG: Record<GameActiveState, { icon: LucideIcon; label: string; color: string; bg: string }> = {
   exploration: {
     icon: Compass,
     label: "Exploration",

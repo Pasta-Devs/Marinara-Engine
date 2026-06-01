@@ -31,7 +31,7 @@ export interface TreeNode {
 }
 
 /** TanStack Query key factory for game-assets queries. */
-export const gameAssetKeys = {
+const gameAssetKeys = {
   all: ["game-assets"] as const,
   tree: () => [...gameAssetKeys.all, "tree"] as const,
   content: (path: string) => [...gameAssetKeys.all, "content", path] as const,
@@ -82,8 +82,7 @@ export function useDeleteGameAssetFolder() {
 export function useRenameGameAsset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ path, newName }: { path: string; newName: string }) =>
-      gameAssetsApi.rename(path, newName),
+    mutationFn: ({ path, newName }: { path: string; newName: string }) => gameAssetsApi.rename(path, newName),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -199,8 +198,7 @@ export function useGameAssetFileContent(path: string) {
 export function useSaveGameAssetFile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ path, content }: { path: string; content: string }) =>
-      gameAssetsApi.writeText(path, content),
+    mutationFn: ({ path, content }: { path: string; content: string }) => gameAssetsApi.writeText(path, content),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: gameAssetKeys.content(vars.path) });
       qc.invalidateQueries({ queryKey: gameAssetKeys.tree() });

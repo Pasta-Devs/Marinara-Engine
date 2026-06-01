@@ -20,7 +20,11 @@
 
 .tracker-compact-field-mood-edit {
   --foreground: color-mix(in srgb, var(--tracker-profile-text) 82%, var(--tracker-profile-accent-solid) 18%);
-  --muted-foreground: color-mix(in srgb, var(--tracker-profile-muted-text) 78%, var(--tracker-profile-accent-solid) 22%);
+  --muted-foreground: color-mix(
+    in srgb,
+    var(--tracker-profile-muted-text) 78%,
+    var(--tracker-profile-accent-solid) 22%
+  );
 
   color: color-mix(in srgb, var(--tracker-profile-text) 82%, var(--tracker-profile-accent-solid) 18%);
   font-weight: 500;
@@ -65,12 +69,11 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image:
-    repeating-linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--tracker-profile-rule) 10%, transparent) 0 1px,
-      transparent 1px 7px
-    );
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tracker-profile-rule) 10%, transparent) 0 1px,
+    transparent 1px 7px
+  );
   mix-blend-mode: soft-light;
   opacity: 0.24;
 }
@@ -100,7 +103,9 @@
       transparent 100%
     );
   background-repeat: no-repeat;
-  background-position: right bottom, right bottom;
+  background-position:
+    right bottom,
+    right bottom;
   background-size:
     100% 1px,
     1px 78%;

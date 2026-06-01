@@ -37,9 +37,7 @@ const FEATURED_FIELD_PREVIEW_CLASS_BY_PROFILE = {
   standard: "line-clamp-3",
   expanded: "line-clamp-4",
 } satisfies Record<TrackerPanelSizeProfile, string>;
-const FEATURED_STAT_SHELF_CLASS = cn(
-  "group/statbox tracker-featured-stat-shelf",
-);
+const FEATURED_STAT_SHELF_CLASS = cn("group/statbox tracker-featured-stat-shelf");
 
 function FeaturedFieldTile({
   icon,

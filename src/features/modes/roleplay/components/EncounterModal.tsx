@@ -26,7 +26,12 @@ import { useEncounter } from "../encounter/hooks/use-encounter";
 import { useLorebooks } from "../../../catalog/lorebooks/index";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
-import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle } from "../../../../engine/contracts/types/combat-encounter";
+import type {
+  CombatPartyMember,
+  CombatEnemy,
+  CombatAttack,
+  NarrativeStyle,
+} from "../../../../engine/contracts/types/combat-encounter";
 import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
 
 // ──────────────────────────────────────────────

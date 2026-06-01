@@ -51,9 +51,7 @@ for (const check of checks) {
   const lines = countLogicalLines(source);
 
   if (lines > check.maxLines) {
-    failures.push(
-      `${relative(root, absolutePath)} has ${lines} lines; limit is ${check.maxLines}: ${check.reason}`,
-    );
+    failures.push(`${relative(root, absolutePath)} has ${lines} lines; limit is ${check.maxLines}: ${check.reason}`);
   }
 
   for (const pattern of check.forbiddenPatterns) {

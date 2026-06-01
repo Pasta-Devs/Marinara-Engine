@@ -1,8 +1,5 @@
 import type { CharacterStat } from "../../../../engine/contracts/types/game-state";
-import {
-  removeTrackerListItem,
-  replaceTrackerListItem,
-} from "../../../runtime/world-state/index";
+import { removeTrackerListItem, replaceTrackerListItem } from "../../../runtime/world-state/index";
 import { TRACKER_SECTION_AGENT_TYPES } from "../../../runtime/world-state/index";
 import { EMPTY_STATE, PersonaStatusField, TrackerSectionRefresh } from "./RoleplayHUDPanelPrimitives";
 import { StatBarEditable } from "./RoleplayHUDStatControls";
@@ -75,9 +72,7 @@ export function PersonaTrackerSection({
     <div className={sectionPadding(layout)}>
       <PersonaStatusField value={status} onSave={onUpdateStatus} />
       <div className={headerClass(layout)}>
-        <span className="text-[0.625rem] font-semibold text-violet-300/70 uppercase tracking-wider">
-          Persona Stats
-        </span>
+        <span className="text-[0.625rem] font-semibold text-violet-300/70 uppercase tracking-wider">Persona Stats</span>
         <TrackerSectionRefresh
           agentType={TRACKER_SECTION_AGENT_TYPES.persona}
           onRerunSingleTracker={onRerunSingleTracker}

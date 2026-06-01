@@ -71,14 +71,14 @@ Changes to the category selection take effect after pressing **Marinara Sync HA 
 
 ## Entities
 
-| Entity                      | Type   | Description                                        |
-| --------------------------- | ------ | -------------------------------------------------- |
-| Marinara Chat Count         | Sensor | Total number of chats                              |
-| Marinara Active Agent Count | Sensor | Number of globally enabled agents                  |
-| Marinara Active Chat        | Select | Choose which chat HA services target               |
-| Marinara Agent: _name_      | Switch | Enable / disable each AI agent globally            |
+| Entity                      | Type   | Description                                                                         |
+| --------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| Marinara Chat Count         | Sensor | Total number of chats                                                               |
+| Marinara Active Agent Count | Sensor | Number of globally enabled agents                                                   |
+| Marinara Active Chat        | Select | Choose which chat HA services target                                                |
+| Marinara Agent: _name_      | Switch | Enable / disable each AI agent globally                                             |
 | Marinara Abort Generation   | Button | Legacy compatibility button; desktop generation is not exposed by `marinara-server` |
-| Marinara Sync HA Tools      | Button | Re-sync all tool definitions and agent to Marinara |
+| Marinara Sync HA Tools      | Button | Re-sync all tool definitions and agent to Marinara                                  |
 
 ## Tool categories
 
@@ -113,11 +113,11 @@ Use these in automations to interact with Marinara from Home Assistant's side.
 
 Send a message to a Marinara chat through the refactor storage API.
 
-| Field                | Required | Description                                  |
-| -------------------- | -------- | -------------------------------------------- |
-| `message`            | Yes      | Message content                              |
-| `chat_id`            | No       | Target chat ID (defaults to primary chat)    |
-| `role`               | No       | `user` / `assistant` / `system` / `narrator` |
+| Field                | Required | Description                                                                                           |
+| -------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `message`            | Yes      | Message content                                                                                       |
+| `chat_id`            | No       | Target chat ID (defaults to primary chat)                                                             |
+| `role`               | No       | `user` / `assistant` / `system` / `narrator`                                                          |
 | `trigger_generation` | No       | Refactor compatibility flag; the message is stored, but generation still happens from the desktop app |
 
 **Example — notify the AI when someone arrives:**

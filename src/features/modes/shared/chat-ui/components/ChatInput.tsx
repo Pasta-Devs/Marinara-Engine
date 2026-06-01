@@ -24,6 +24,7 @@ import { useGenerate } from "../../../../runtime/generation/index";
 import { useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../../../catalog/chats/index";
 import { characterKeys } from "../../../../catalog/characters/index";
+import { personaKeys } from "../../../../catalog/personas/index";
 import type { Message } from "../../../../../engine/contracts/types/chat";
 import { buildGuidedGenerationInstructionMessage } from "../../../../../engine/shared/text/generation-guide";
 import {
@@ -163,7 +164,8 @@ export const ChatInput = memo(function ChatInput({
   const currentInput = useChatStore((s) => s.currentInput);
   const activeChat = useChatStore((s) => s.activeChat);
   const { generate } = useGenerate();
-  const { applyToUserInput } = useApplyRegex();
+  const chatCharacterIds = useMemo(() => chatCharacters?.map((c) => c.id), [chatCharacters]);
+  const { applyToUserInput } = useApplyRegex(chatCharacterIds);
   const enterToSend = useUIStore((s) => (mode === "conversation" ? s.enterToSendConvo : s.enterToSendRP));
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
@@ -566,12 +568,12 @@ export const ChatInput = memo(function ChatInput({
     }
 
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
-    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
+    const chatMeta = parseChatMetadata(chat?.metadata);
+    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros, scopedMode: chatMeta.scopedRegexMode });
 
     // Input translation: translate user's message before sending
-    const chatMeta = parseChatMetadata(chat?.metadata);
     if (chatMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../../shared/lib/translate-text");
@@ -744,12 +746,12 @@ export const ChatInput = memo(function ChatInput({
     const normalized = formatTextQuotes(raw.trim(), quoteFormat);
     const chat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
-    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros });
+    const chatMeta2 = parseChatMetadata(chat?.metadata);
+    let message = applyToUserInput(normalized, { resolveMacros: resolveInputMacros, scopedMode: chatMeta2.scopedRegexMode });
 
-    const chatMeta = parseChatMetadata(chat?.metadata);
-    if (chatMeta.translateInput && message.trim()) {
+    if (chatMeta2.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../../shared/lib/translate-text");
         const translated = await translateText(message);
@@ -966,9 +968,7 @@ export const ChatInput = memo(function ChatInput({
 
     const shouldSend =
       !e.nativeEvent.isComposing &&
-      (enterToSend
-        ? e.key === "Enter" && !e.shiftKey
-        : e.key === "Enter" && (e.metaKey || e.ctrlKey));
+      (enterToSend ? e.key === "Enter" && !e.shiftKey : e.key === "Enter" && (e.metaKey || e.ctrlKey));
     if (shouldSend) {
       e.preventDefault();
       handleSend();
@@ -1304,7 +1304,8 @@ export const ChatInput = memo(function ChatInput({
           rows={1}
           spellCheck
           autoCorrect="on"
-          className="mari-chat-input-textarea max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-foreground/90 placeholder:text-foreground/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          autoCapitalize="sentences"
+          className="mari-chat-input-textarea max-h-[12.5rem] min-h-[2.5rem] min-w-0 flex-1 resize-none bg-transparent py-2 text-sm leading-normal text-foreground/90 placeholder:text-foreground/30 outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
 
         {/* Emoji picker */}

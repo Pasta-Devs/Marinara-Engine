@@ -8,7 +8,7 @@ import { readString as stringValue } from "../../../shared/value-readers";
 // ── Types ──
 
 /** A single time block in a character's daily schedule */
-export interface ScheduleBlock {
+interface ScheduleBlock {
   /** Hour range, e.g. "06:00-08:00" */
   time: string;
   /** What the character is doing */
@@ -18,7 +18,7 @@ export interface ScheduleBlock {
 }
 
 /** One day of a character's schedule */
-export type DaySchedule = ScheduleBlock[];
+type DaySchedule = ScheduleBlock[];
 
 /** Full weekly schedule for a character */
 export interface WeekSchedule {
@@ -37,7 +37,7 @@ export interface WeekSchedule {
 }
 
 /** All character schedules stored in chat metadata */
-export interface CharacterSchedules {
+interface CharacterSchedules {
   [characterId: string]: WeekSchedule;
 }
 
@@ -105,8 +105,9 @@ export async function generateConversationSchedules(
 
   const meta = parseJsonObject(chat.metadata);
   const existingSchedules = hasSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
-  const characterIds =
-    input.characterIds?.length ? input.characterIds : parseJsonArray<string>(chat.characterIds).filter(Boolean);
+  const characterIds = input.characterIds?.length
+    ? input.characterIds
+    : parseJsonArray<string>(chat.characterIds).filter(Boolean);
   if (characterIds.length === 0) throw new Error("No conversation characters are selected");
   const provider = createScheduleProvider(capabilities.llm, connectionId, numberOrNull(connection.maxTokensOverride));
   const model = stringValue(connection.model);
@@ -167,7 +168,13 @@ export async function generateConversationSchedules(
       );
       const fullSchedule = preserveTimingSettings({ ...schedule, weekStart: mondayStr }, existing);
       newSchedules[characterId] = fullSchedule;
-      await updateCharacterConversationStatus(capabilities.storage, characterId, fullSchedule, character, characterData);
+      await updateCharacterConversationStatus(
+        capabilities.storage,
+        characterId,
+        fullSchedule,
+        character,
+        characterData,
+      );
       results[characterId] = { status: "generated", schedule: fullSchedule };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Schedule generation failed";
@@ -205,7 +212,7 @@ export async function generateConversationSchedules(
 /**
  * Generate a weekly schedule for a character using the LLM.
  */
-export async function generateCharacterSchedule(
+async function generateCharacterSchedule(
   provider: BaseLLMProvider,
   model: string,
   characterName: string,
@@ -321,7 +328,7 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
   jsonStr = jsonStr
     .replace(/\/\/[^\n]*/g, "") // remove single-line comments
     .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
-    .replace(/,\s*([\]\}])/g, "$1") // remove trailing commas before ] or }
+    .replace(/,\s*([\]}])/g, "$1") // remove trailing commas before ] or }
     .replace(/\.{3,}[^"}\]\n]*/g, "") // remove ...etc / ... continuations (not inside strings)
     .replace(/\n\s*\n/g, "\n"); // collapse blank lines left by removals
 
@@ -344,13 +351,13 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
       const trimmed = line.trim();
       // Keep lines that look like JSON structure (braces, brackets, key-value pairs, commas)
       if (!trimmed) return false;
-      if (/^[{}\[\],]/.test(trimmed)) return true;
+      if (/^[{}[\],]/.test(trimmed)) return true;
       if (/^"/.test(trimmed)) return true;
       if (/^\d/.test(trimmed)) return true;
       if (/^[}\]]/.test(trimmed)) return true;
       return false;
     });
-    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]\}])/g, "$1");
+    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]}])/g, "$1");
     try {
       data = normalizeScheduleData(JSON.parse(repairedStr));
     } catch {
@@ -436,19 +443,9 @@ export function getCurrentStatus(
 }
 
 /**
- * Get a human-readable summary of today's schedule for a character.
- */
-export function getTodaySchedule(schedule: WeekSchedule, now: Date = new Date()): string {
-  const dayName = DAYS[(now.getDay() + 6) % 7]!;
-  const daySchedule = schedule.days[dayName];
-  if (!daySchedule || daySchedule.length === 0) return "";
-  return daySchedule.map((b) => `${b.time}: ${b.activity}`).join(", ");
-}
-
-/**
  * Check if a schedule needs regeneration (older than 7 days from current Monday).
  */
-export function scheduleNeedsRefresh(schedule: WeekSchedule, now: Date = new Date()): boolean {
+function scheduleNeedsRefresh(schedule: WeekSchedule, now: Date = new Date()): boolean {
   const weekStart = new Date(schedule.weekStart);
   const currentMonday = getMonday(now);
   return currentMonday.getTime() > weekStart.getTime();
@@ -513,25 +510,27 @@ function createScheduleProvider(
     maxTokensOverrideValue,
     async chatComplete(messages, options) {
       const requestMessages: LlmMessage[] = messages.map(toLlmMessage);
-      const content = await llm.complete(requestMessages.length
-        ? {
-            connectionId,
-            model: options.model,
-            messages: requestMessages,
-            parameters: {
-              temperature: options.temperature,
-              maxTokens: options.maxTokens,
+      const content = await llm.complete(
+        requestMessages.length
+          ? {
+              connectionId,
+              model: options.model,
+              messages: requestMessages,
+              parameters: {
+                temperature: options.temperature,
+                maxTokens: options.maxTokens,
+              },
+            }
+          : {
+              connectionId,
+              model: options.model,
+              messages: [{ role: "user", content: "" }],
+              parameters: {
+                temperature: options.temperature,
+                maxTokens: options.maxTokens,
+              },
             },
-          }
-        : {
-            connectionId,
-            model: options.model,
-            messages: [{ role: "user", content: "" }],
-            parameters: {
-              temperature: options.temperature,
-              maxTokens: options.maxTokens,
-            },
-          });
+      );
       return { content };
     },
   };
@@ -544,7 +543,6 @@ function toLlmMessage(message: ChatMessage): LlmMessage {
       : "user";
   return { role, content: String(message.content ?? ""), name: message.name };
 }
-
 
 async function resolveScheduleConnection(storage: StorageGateway, chatConnectionId: string): Promise<JsonRecord> {
   const connections = await storage.list<JsonRecord>("connections");
@@ -566,7 +564,10 @@ async function resolveScheduleConnection(storage: StorageGateway, chatConnection
   return selected;
 }
 
-async function loadOtherConversationSchedules(storage: StorageGateway, currentChatId: string): Promise<Map<string, WeekSchedule>> {
+async function loadOtherConversationSchedules(
+  storage: StorageGateway,
+  currentChatId: string,
+): Promise<Map<string, WeekSchedule>> {
   const schedules = new Map<string, WeekSchedule>();
   const allChats = await storage.list<JsonRecord>("chats");
   for (const chat of allChats) {
@@ -607,7 +608,10 @@ async function updateCharacterConversationStatus(
   const character = loadedCharacter ?? (await storage.get<JsonRecord>("characters", characterId));
   if (!character) return;
   const characterData = loadedCharacterData ?? parseJsonObject(character.data);
-  const extensions = { ...parseJsonObject(characterData.extensions), conversationStatus: getCurrentStatus(schedule).status };
+  const extensions = {
+    ...parseJsonObject(characterData.extensions),
+    conversationStatus: getCurrentStatus(schedule).status,
+  };
   await storage.update("characters", characterId, {
     data: {
       ...characterData,
@@ -694,7 +698,12 @@ function limitText(value: string, maxChars: number): string {
 function formatSummaryEntry(label: string, entry: SummaryEntry): string[] {
   const lines = [`- ${label}: ${limitText(entry.summary, 700)}`];
   if (entry.keyDetails.length > 0) {
-    lines.push(`  Key details: ${entry.keyDetails.slice(0, 8).map((detail) => limitText(detail, 180)).join("; ")}`);
+    lines.push(
+      `  Key details: ${entry.keyDetails
+        .slice(0, 8)
+        .map((detail) => limitText(detail, 180))
+        .join("; ")}`,
+    );
   }
   return lines;
 }
@@ -821,34 +830,4 @@ export function getBusyDelay(
   schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
 ): number {
   return getConfiguredResponseDelay(status, schedule);
-}
-
-/**
- * Shorter delay for direct user messages (user is actively waiting).
- * Returns 0 for online, shorter delays for idle/dnd than autonomous delays.
- */
-export function getDirectMessageDelay(
-  status: "online" | "idle" | "dnd" | "offline",
-  schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
-): number {
-  return getConfiguredResponseDelay(status, schedule);
-}
-
-/**
- * Reduced delay when the user @mentions a character.
- * Acts as an urgent ping: idle characters respond almost immediately,
- * DND characters respond faster (but not instantly — they're still busy).
- * Offline characters still won't respond (handled elsewhere).
- */
-export function getMentionDelay(status: "online" | "idle" | "dnd" | "offline"): number {
-  switch (status) {
-    case "online":
-      return 0;
-    case "idle":
-      return (5 + Math.random() * 10) * 1000; // 5-15 seconds
-    case "dnd":
-      return (30 + Math.random() * 60) * 1000; // 30-90 seconds
-    case "offline":
-      return 0;
-  }
 }

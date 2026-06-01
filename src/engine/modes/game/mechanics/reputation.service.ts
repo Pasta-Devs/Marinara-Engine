@@ -36,7 +36,7 @@ const ACTION_MODIFIERS: Record<string, number> = {
 export type ReputationTier = "devoted" | "allied" | "friendly" | "neutral" | "unfriendly" | "hostile" | "enemy";
 
 /** Map reputation number to a named tier. */
-export function getReputationTier(reputation: number): ReputationTier {
+function getReputationTier(reputation: number): ReputationTier {
   if (reputation >= 80) return "devoted";
   if (reputation >= 50) return "allied";
   if (reputation >= 20) return "friendly";
@@ -106,7 +106,7 @@ function detectMilestone(npcName: string, oldReputation: number, newReputation: 
 }
 
 /** Apply a reputation change to an NPC. Returns the updated NPC. */
-export function applyReputationChange(
+function applyReputationChange(
   npc: GameNpc,
   action: string,
   customModifier?: number,
@@ -178,16 +178,4 @@ export function processReputationActions(
     changes,
     milestones,
   };
-}
-
-/** Get a summary of NPC relationships for prompt injection. */
-export function buildNpcRelationshipSummary(npcs: GameNpc[]): string {
-  if (npcs.length === 0) return "";
-
-  const lines = npcs.map((n) => {
-    const tier = getReputationTier(n.reputation);
-    return `- ${n.emoji} ${n.name}: ${tier} (${n.reputation}/100)${n.met ? "" : " [not yet met]"}`;
-  });
-
-  return lines.join("\n");
 }

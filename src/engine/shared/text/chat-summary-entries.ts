@@ -9,7 +9,7 @@ const VALID_KINDS = new Set<ChatSummaryEntryKind>(["rolling"]);
 const VALID_ORIGINS = new Set<ChatSummaryEntryOrigin>(["manual", "automated"]);
 const VALID_SOURCES = new Set<ChatSummaryEntrySource>(["last", "range", "agent"]);
 
-export const COMPILED_CHAT_SUMMARY_MAX_BYTES = 64 * 1024;
+const COMPILED_CHAT_SUMMARY_MAX_BYTES = 64 * 1024;
 
 export type ChatSummaryEntryInput = Partial<ChatSummaryEntry> & {
   content: string;
@@ -100,14 +100,14 @@ function sourceFromOrigin(origin: ChatSummaryEntryOrigin): ChatSummaryEntrySourc
 }
 
 /** Cheap token approximation for UI and metadata. */
-export function estimateChatSummaryTokens(content: string): number {
+function estimateChatSummaryTokens(content: string): number {
   const normalized = content.trim();
   if (!normalized) return 0;
   return Math.max(1, Math.ceil(normalized.length / 4));
 }
 
 /** Generate a concise default title from an entry's origin and source metadata. */
-export function generateChatSummaryEntryTitle(
+function generateChatSummaryEntryTitle(
   entry: Pick<ChatSummaryEntry, "origin" | "sourceMode" | "messageCount" | "rangeStartIndex" | "rangeEndIndex">,
 ): string {
   if (entry.origin === "automated") return "Automated summary";
@@ -118,7 +118,7 @@ export function generateChatSummaryEntryTitle(
   return "Manual summary";
 }
 
-export function normalizeChatSummaryEntry(
+function normalizeChatSummaryEntry(
   raw: unknown,
   options: ChatSummaryEntryNormalizeOptions = {},
 ): ChatSummaryEntry | null {
@@ -168,7 +168,7 @@ export function normalizeChatSummaryEntry(
   return base;
 }
 
-export function createChatSummaryEntry(
+function createChatSummaryEntry(
   input: ChatSummaryEntryInput,
   options: ChatSummaryEntryNormalizeOptions = {},
 ): ChatSummaryEntry {
@@ -187,7 +187,7 @@ export function createChatSummaryEntry(
   return entry;
 }
 
-export function sortChatSummaryEntries(entries: ChatSummaryEntry[]): ChatSummaryEntry[] {
+function sortChatSummaryEntries(entries: ChatSummaryEntry[]): ChatSummaryEntry[] {
   return entries
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
@@ -201,7 +201,7 @@ export function sortChatSummaryEntries(entries: ChatSummaryEntry[]): ChatSummary
     .map(({ entry }) => entry);
 }
 
-export function normalizeChatSummaryEntries(
+function normalizeChatSummaryEntries(
   rawEntries: unknown,
   options: ChatSummaryEntryNormalizeOptions = {},
 ): ChatSummaryEntry[] {
@@ -222,7 +222,7 @@ export function normalizeChatSummaryEntries(
   return sortChatSummaryEntries(entries);
 }
 
-export function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string | null {
+function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string | null {
   const compiled = sortChatSummaryEntries(entries)
     .filter((entry) => entry.enabled)
     .map((entry) => entry.content.trim())

@@ -42,6 +42,7 @@ import {
   hasLorebookEntries,
   readEmbeddedLorebookFromCharacterPayload,
 } from "../../../../shared/lib/character-import";
+import { importRegexScriptsForCharacter } from "../../../../shared/lib/regex-script-import";
 import {
   botBrowserAssetUrl,
   botBrowserBlob,
@@ -51,6 +52,28 @@ import {
   importStCharacter,
   resolveBotBrowserAssetUrl,
 } from "../api/bot-browser-api";
+import type {
+  ChartavernDetailResponse,
+  ChartavernSearchResponse,
+  ChubDetailResponse,
+  ChubSearchResponse,
+  DatacatCharacter,
+  DatacatCharacterResponse,
+  DatacatCharacterTag,
+  DatacatDownloadResponse,
+  DatacatFreshResponse,
+  DatacatTagsResponse,
+  DatacatRecentResponse,
+  DatacatTagRecord,
+  JannyCharacterResponse,
+  JannyHit,
+  JannySearchResponse,
+  PygmalionCharacter,
+  PygmalionDetailResponse,
+  PygmalionSearchResponse,
+  WyvernCharacter,
+  WyvernSearchResponse,
+} from "../types/provider-responses";
 
 // ════════════════════════════════════════════════
 // Types
@@ -185,6 +208,19 @@ function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, emb
   }
 
   return cloned;
+}
+
+function isDatacatTagRecord(tag: DatacatCharacterTag): tag is DatacatTagRecord {
+  return typeof tag === "object" && tag !== null;
+}
+
+function datacatTagName(tag: DatacatCharacterTag): string {
+  if (typeof tag === "string") return tag;
+  if (typeof tag === "number") return datacatTagIdToName.get(tag) || "";
+  if (isDatacatTagRecord(tag)) {
+    return tag.name || tag.slug || (typeof tag.id === "number" ? datacatTagIdToName.get(tag.id) || "" : "");
+  }
+  return "";
 }
 
 // ════════════════════════════════════════════════
@@ -383,7 +419,7 @@ const chubProvider: ProviderConfig = {
     if (p.features.lore) params.set("require_lore", "true");
     if (p.features.expressions) params.set("require_expressions", "true");
     if (p.features.greetings) params.set("require_alternate_greetings", "true");
-    const raw = await botBrowserGet<any>(`chub/search?${params}`);
+    const raw = await botBrowserGet<ChubSearchResponse>(`chub/search?${params}`);
     const data = raw?.data ?? raw;
     const nodes = data?.nodes ?? [];
     // Chub API "count" = items on this page, not total. Use cursor to detect more pages.
@@ -391,12 +427,12 @@ const chubProvider: ProviderConfig = {
     const chubTotal = hasMore ? (p.page + 1) * 48 : (p.page - 1) * 48 + nodes.length;
 
     return {
-      cards: nodes.map((n: any) => ({
-        id: n.fullPath,
+      cards: nodes.map((n) => ({
+        id: n.fullPath ?? "",
         name: n.name || "Unnamed",
         creator: (n.fullPath || "").split("/")[0] || "",
         tagline: n.tagline || "",
-        tags: n.topics || [],
+        tags: n.topics ?? [],
         avatarUrl: botBrowserAssetUrl(`chub/avatar/${n.fullPath}`),
         stat1: n.starCount || 0,
         stat1Label: "Downloads",
@@ -415,11 +451,12 @@ const chubProvider: ProviderConfig = {
     };
   },
   fetchDetail: async (card) => {
-    const raw = await botBrowserGet<any>(`chub/character/${card.id}`).catch(() => null);
+    // Let transport/API errors throw — only a successful-but-empty response returns null.
+    const raw = await botBrowserGet<ChubDetailResponse>(`chub/character/${card.id}`);
     if (!raw) return null;
     const node = raw?.data?.node ?? raw?.node;
     if (!node) return null;
-    const def = node.definition || {};
+    const def = node.definition ?? {};
     return {
       description: def.personality || undefined,
       personality: def.tavern_personality || undefined,
@@ -458,9 +495,9 @@ const jannyProvider: ProviderConfig = {
   extraToggles: [{ key: "showLowQuality", label: "Show Low Quality", icon: "🚫" }],
   nsfwAvailable: true,
   nsfwMode: "free",
-  getAvatarUrl: (card) => botBrowserAssetUrl(`janny/avatar/${(card._raw as any)?.avatar || ""}`),
+  getAvatarUrl: (card) => botBrowserAssetUrl(`janny/avatar/${(card._raw as JannyHit)?.avatar || ""}`),
   getExternalUrl: (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as JannyHit;
     const slug = card.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -514,15 +551,15 @@ const jannyProvider: ProviderConfig = {
         ],
       };
 
-      const raw = await botBrowserPost<any>("janny/search", { payload: body });
+      const raw = await botBrowserPost<JannySearchResponse>("janny/search", { payload: body });
       return raw?.results?.[0];
     };
 
     const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
-    const applyClientFilter = (hitsArr: any[]): any[] => {
+    const applyClientFilter = (hitsArr: JannyHit[]): JannyHit[] => {
       if (lowerExclude.length === 0 && customIncludeTags.length === 0) return hitsArr;
-      return hitsArr.filter((h: any) => {
-        const charTagNames = jannyTagNames(h.tagIds || []).map((t) => t.toLowerCase());
+      return hitsArr.filter((h) => {
+        const charTagNames = jannyTagNames(h.tagIds ?? []).map((t) => t.toLowerCase());
         if (lowerExclude.length > 0 && lowerExclude.some((et) => charTagNames.includes(et))) return false;
         // Custom tags: every custom tag must appear in the hit's resolved tag names
         if (customIncludeTags.length > 0 && !customIncludeTags.every((ct) => charTagNames.includes(ct))) return false;
@@ -532,7 +569,7 @@ const jannyProvider: ProviderConfig = {
 
     let currentPage = p.page;
     const result = await fetchOnePage(currentPage);
-    let hits = applyClientFilter(result?.hits || []);
+    let hits = applyClientFilter(result?.hits ?? []);
     const totalPages = result?.totalPages || 1;
 
     // Auto-fetch up to 3 extra pages when client-side filters thin the page
@@ -542,16 +579,16 @@ const jannyProvider: ProviderConfig = {
         autoFetches++;
         currentPage++;
         const more = await fetchOnePage(currentPage);
-        hits = hits.concat(applyClientFilter(more?.hits || []));
+        hits = hits.concat(applyClientFilter(more?.hits ?? []));
       }
     }
     return {
-      cards: hits.map((h: any) => ({
+      cards: hits.map((h) => ({
         id: h.id || "",
         name: h.name || "Unnamed",
         creator: h.creatorUsername || "",
         tagline: (h.description || "").replace(/<[^>]*>/g, "").slice(0, 200),
-        tags: jannyTagNames(h.tagIds),
+        tags: jannyTagNames(h.tagIds ?? []),
         avatarUrl: h.avatar ? botBrowserAssetUrl(`janny/avatar/${h.avatar}`) : "",
         stat1: h.totalToken || 0,
         stat1Label: "Tokens",
@@ -570,7 +607,7 @@ const jannyProvider: ProviderConfig = {
     };
   },
   fetchDetail: async (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as JannyHit;
     const charId = raw?.id || card.id;
     const slug = card.name
       .toLowerCase()
@@ -578,29 +615,24 @@ const jannyProvider: ProviderConfig = {
       .replace(/^-|-$/g, "");
 
     // Fetch through the Tauri backend so browser UI no longer calls provider APIs directly.
-    try {
-      const data = await botBrowserGet<any>(`janny/character/${charId}?slug=character-${slug}`).catch(() => null);
-      if (data) {
-        const char = data?.character;
-        if (char && (char.personality || char.firstMessage)) {
-          return {
-            description: char.personality || undefined,
-            scenario: char.scenario || undefined,
-            firstMessage: char.firstMessage || undefined,
-            exampleDialogs: char.exampleDialogs || undefined,
-            creatorNotes: char.description
-              ? typeof char.description === "string"
-                ? char.description.replace(/<[^>]*>/g, "").trim()
-                : undefined
-              : undefined,
-          };
-        }
-      }
-    } catch {
-      /* fall through */
+    // Transport/API errors throw — they are not swallowed into the empty-result fallback below.
+    const data = await botBrowserGet<JannyCharacterResponse>(`janny/character/${charId}?slug=character-${slug}`);
+    const char = data?.character;
+    if (char && (char.personality || char.firstMessage)) {
+      return {
+        description: char.personality || undefined,
+        scenario: char.scenario || undefined,
+        firstMessage: char.firstMessage || undefined,
+        exampleDialogs: char.exampleDialogs || undefined,
+        creatorNotes: char.description
+          ? typeof char.description === "string"
+            ? char.description.replace(/<[^>]*>/g, "").trim()
+            : undefined
+          : undefined,
+      };
     }
 
-    // Fallback: use search result data
+    // Fallback: successful response with no usable detail — use search result data
     const rawDesc = raw?.description || "";
     const plainDesc = typeof rawDesc === "string" ? rawDesc.replace(/<[^>]*>/g, "").trim() : "";
     if (plainDesc) {
@@ -650,10 +682,10 @@ const chartavernProvider: ProviderConfig = {
     if (p.maxTokens && p.maxTokens !== "0") params.set("max_tokens", p.maxTokens);
     if (p.features.lore) params.set("hasLorebook", "true");
     if (p.extraToggles.isOC) params.set("isOC", "true");
-    const data = await botBrowserGet<any>(`chartavern/search?${params}`);
-    const hits = data?.hits || [];
+    const data = await botBrowserGet<ChartavernSearchResponse>(`chartavern/search?${params}`);
+    const hits = data?.hits ?? [];
     return {
-      cards: hits.map((h: any) => ({
+      cards: hits.map((h) => ({
         id: h.path || "",
         name: h.name || "Unnamed",
         creator: h.author || (h.path || "").split("/")[0] || "",
@@ -673,13 +705,14 @@ const chartavernProvider: ProviderConfig = {
         externalUrl: `https://character-tavern.com/character/${h.path}`,
         _raw: h,
       })),
-      totalCount: (data?.totalHits ?? data?.totalPages) ? data.totalPages * 60 : hits.length,
+      totalCount: data?.totalPages != null ? data.totalPages * 60 : (data?.totalHits ?? hits.length),
     };
   },
   fetchDetail: async (card) => {
     const parts = card.id.split("/");
     if (parts.length < 2) return null;
-    const data = await botBrowserGet<any>(`chartavern/character/${parts[0]}/${parts[1]}`).catch(() => null);
+    // Let transport/API errors throw — only a successful-but-empty response returns null.
+    const data = await botBrowserGet<ChartavernDetailResponse>(`chartavern/character/${parts[0]}/${parts[1]}`);
     if (!data) return null;
     const c = data?.card;
     if (!c) return null;
@@ -721,7 +754,7 @@ const pygmalionProvider: ProviderConfig = {
   nsfwAvailable: false,
   nsfwMode: "login",
   getAvatarUrl: (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as PygmalionCharacter;
     const av = raw?.avatarUrl;
     if (!av) return "";
     if (av.startsWith("http")) return botBrowserAssetUrl(`pygmalion/avatar/${encodeURIComponent(av)}`);
@@ -739,12 +772,12 @@ const pygmalionProvider: ProviderConfig = {
     if (p.includeTags.length > 0) params.set("tagsInclude", p.includeTags.join(","));
     if (p.excludeTags.length > 0) params.set("tagsExclude", p.excludeTags.join(","));
     if (p.nsfw) params.set("includeSensitive", "true");
-    const data = await botBrowserGet<any>(`pygmalion/search?${params}`);
-    const chars = data?.characters || [];
-    const totalItems = parseInt(data?.totalItems || "0", 10);
+    const data = await botBrowserGet<PygmalionSearchResponse>(`pygmalion/search?${params}`);
+    const chars = data?.characters ?? [];
+    const totalItems = parseInt(String(data?.totalItems || "0"), 10);
     return {
-      cards: chars.map((c: any) => {
-        const owner = c.owner || {};
+      cards: chars.map((c) => {
+        const owner = c.owner ?? {};
         const av = c.avatarUrl;
         let avatarProxyUrl = "";
         if (av) {
@@ -777,7 +810,8 @@ const pygmalionProvider: ProviderConfig = {
     };
   },
   fetchDetail: async (card) => {
-    const data = await botBrowserGet<any>(`pygmalion/character?id=${card.id}`).catch(() => null);
+    // Let transport/API errors throw — only a successful-but-empty response returns null.
+    const data = await botBrowserGet<PygmalionDetailResponse>(`pygmalion/character?id=${card.id}`);
     if (!data) return null;
     const char = data?.character;
     if (!char) return null;
@@ -821,7 +855,7 @@ const wyvernProvider: ProviderConfig = {
   nsfwAvailable: false,
   nsfwMode: "wyvern",
   getAvatarUrl: (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as WyvernCharacter;
     const src = raw?.avatar_url || raw?.avatar;
     if (!src) return "";
     if (src.startsWith("http")) return botBrowserAssetUrl(`wyvern/avatar/${encodeURIComponent(src)}`);
@@ -833,19 +867,19 @@ const wyvernProvider: ProviderConfig = {
     if (p.query) params.set("q", p.query);
     if (p.includeTags.length > 0) params.set("tags", p.includeTags.join(","));
     if (!p.nsfw && p.sort !== "nsfw-popular") params.set("rating", "none");
-    const data = await botBrowserGet<any>(`wyvern/search?${params}`);
-    let results = data?.results || [];
+    const data = await botBrowserGet<WyvernSearchResponse>(`wyvern/search?${params}`);
+    let results = data?.results ?? [];
     // Client-side exclude tag filtering (Wyvern API doesn't support server-side exclude)
     if (p.excludeTags.length > 0) {
       const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
-      results = results.filter((c: any) => {
-        const charTags = (c.tags || []).map((t: string) => t.toLowerCase());
+      results = results.filter((c) => {
+        const charTags = (c.tags ?? []).map((t) => t.toLowerCase());
         return !lowerExclude.some((et) => charTags.includes(et));
       });
     }
     return {
-      cards: results.map((c: any) => {
-        const sr = c.statistics_record || c.entity_statistics || {};
+      cards: results.map((c) => {
+        const sr = c.statistics_record ?? c.entity_statistics ?? {};
         const creatorName = c.creator?.displayName || c.creator?.username || "";
         const src = c.avatar_url || c.avatar;
         let avatarProxyUrl = "";
@@ -879,8 +913,8 @@ const wyvernProvider: ProviderConfig = {
     };
   },
   fetchDetail: async (card) => {
-    const c = await botBrowserGet<any>(`wyvern/character/${card.id}`).catch(() => null);
-    if (!c) return null;
+    // Let transport/API errors throw — only a successful-but-empty response returns null.
+    const c = await botBrowserGet<WyvernCharacter>(`wyvern/character/${card.id}`);
     if (!c) return null;
     return {
       description: c.description || undefined,
@@ -890,7 +924,7 @@ const wyvernProvider: ProviderConfig = {
       exampleDialogs: c.mes_example || undefined,
       creatorNotes: c.creator_notes || undefined,
       alternateGreetings: Array.isArray(c.alternate_greetings) ? c.alternate_greetings.filter(Boolean) : [],
-      hasLorebook: !!(c.lorebooks?.length > 0),
+      hasLorebook: (c.lorebooks?.length ?? 0) > 0,
     };
   },
 };
@@ -920,9 +954,9 @@ async function loadDatacatTags(): Promise<void> {
   if (datacatTagsLoading) return datacatTagsLoading;
   datacatTagsLoading = (async () => {
     try {
-      const data = await botBrowserGet<any>("datacat/tags").catch(() => null);
+      const data = await botBrowserGet<DatacatTagsResponse>("datacat/tags").catch(() => null);
       if (!data) return;
-      const list: any[] = data?.tags || data?.facets || data || [];
+      const list = Array.isArray(data) ? data : (data.tags ?? data.facets ?? []);
       const sortable: { id: number; name: string; count: number }[] = [];
       for (const t of list) {
         const id = Number(t?.id ?? t?.tag_id ?? t?.tagId);
@@ -967,14 +1001,14 @@ const datacatProvider: ProviderConfig = {
   nsfwAvailable: false,
   nsfwMode: "wyvern",
   getAvatarUrl: (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as DatacatCharacter;
     const av = raw?.avatar || "";
     if (!av) return "";
     if (av.startsWith("http")) return botBrowserAssetUrl(`datacat/avatar/${encodeURIComponent(av)}`);
     return botBrowserAssetUrl(`datacat/avatar/${av}`);
   },
   getExternalUrl: (card) => {
-    const raw = card._raw as any;
+    const raw = card._raw as DatacatCharacter;
     const id = raw?.characterId || raw?.character_id || card.id;
     return `https://datacat.run/characters/${id}`;
   },
@@ -989,7 +1023,7 @@ const datacatProvider: ProviderConfig = {
     // text-search support, so any user query forces the recent-public path.
     const useFresh = p.sort === "fresh" && tagIds.length === 0 && trimmedQuery.length === 0;
 
-    let list: any[] = [];
+    let list: DatacatCharacter[] = [];
     let totalCount = 0;
 
     if (useFresh) {
@@ -998,10 +1032,10 @@ const datacatProvider: ProviderConfig = {
         limit24: "80",
         limitWeek: "0",
       });
-      const data = await botBrowserGet<any>(`datacat/fresh?${params}`);
+      const data = await botBrowserGet<DatacatFreshResponse>(`datacat/fresh?${params}`);
       // Response shape: { success, sortBy, windows: { last24h: { count, characters: [...] }, thisWeek: {...} } }
       const last24h = data?.windows?.last24h || data?.last24h;
-      list = Array.isArray(last24h) ? last24h : last24h?.characters || [];
+      list = Array.isArray(last24h) ? last24h : (last24h?.characters ?? []);
       // /fresh ignores `page` — the upstream `count` describes the full window
       // even when the response only carries `limit24` items. Reporting that as
       // `totalCount` would let the paginator advertise pages 2+ that just replay
@@ -1013,8 +1047,8 @@ const datacatProvider: ProviderConfig = {
       const params = new URLSearchParams({ limit: "80", offset: String(offset) });
       if (tagIds.length > 0) params.set("tagIds", tagIds.join(","));
       if (trimmedQuery) params.set("q", trimmedQuery);
-      const data = await botBrowserGet<any>(`datacat/recent?${params}`);
-      list = data?.characters || [];
+      const data = await botBrowserGet<DatacatRecentResponse>(`datacat/recent?${params}`);
+      list = data?.characters ?? [];
       totalCount = data?.totalCount || list.length;
     }
 
@@ -1023,26 +1057,18 @@ const datacatProvider: ProviderConfig = {
     // Client-side excludeTags filter
     if (p.excludeTags.length > 0) {
       const lowerExclude = p.excludeTags.map((t) => t.toLowerCase());
-      list = list.filter((c: any) => {
-        const tagNames = (Array.isArray(c.tags) ? c.tags : [])
-          .map((t: any) => (typeof t === "string" ? t : t?.name || t?.slug || ""))
-          .map((s: string) => s.toLowerCase());
+      list = list.filter((c) => {
+        const tagNames = (Array.isArray(c.tags) ? c.tags : []).map(datacatTagName).map((s: string) => s.toLowerCase());
         return !lowerExclude.some((et) => tagNames.includes(et));
       });
     }
 
     return {
-      cards: list.map((c: any) => {
+      cards: list.map((c) => {
         // Tags can come either as objects ({id,name,slug}), as strings, or as
         // numeric tagIds — try every shape and normalize to display names.
-        const rawTags: any[] = Array.isArray(c.tags) ? c.tags : Array.isArray(c.tagIds) ? c.tagIds : [];
-        const tagNames: string[] = rawTags
-          .map((t: any) => {
-            if (typeof t === "string") return t;
-            if (typeof t === "number") return datacatTagIdToName.get(t) || "";
-            return t?.name || t?.slug || (typeof t?.id === "number" ? datacatTagIdToName.get(t.id) || "" : "");
-          })
-          .filter(Boolean);
+        const rawTags: DatacatCharacterTag[] = Array.isArray(c.tags) ? c.tags : Array.isArray(c.tagIds) ? c.tagIds : [];
+        const tagNames: string[] = rawTags.map(datacatTagName).filter((tagName) => tagName.length > 0);
         const av = c.avatar || "";
         const avatarProxyUrl = av
           ? av.startsWith("http")
@@ -1075,44 +1101,43 @@ const datacatProvider: ProviderConfig = {
     };
   },
   fetchDetail: async (card) => {
-    const id = (card._raw as any)?.characterId || (card._raw as any)?.character_id || card.id;
+    const raw = card._raw as DatacatCharacter;
+    const id = raw?.characterId || raw?.character_id || card.id;
     if (!id) return null;
-    // Prefer the download endpoint for V2-shaped data, fall back to character endpoint
+    // Prefer the download endpoint for V2-shaped data, fall back to the character endpoint.
+    // The download endpoint is optional and best-effort (commonly a 404 for cards with no V2
+    // download), so ANY failure here falls through to the character endpoint. The character
+    // endpoint is authoritative — its transport/API errors throw rather than being swallowed
+    // into a benign empty result.
     try {
-      const dl = await botBrowserGet<any>(`datacat/download/${encodeURIComponent(id)}`).catch(() => null);
-      if (dl) {
-        const d = dl?.data;
-        if (d) {
-          return {
-            description: d.description || d.personality || undefined,
-            personality: d.personality || undefined,
-            scenario: d.scenario || undefined,
-            firstMessage: d.first_mes || undefined,
-            exampleDialogs: d.mes_example || undefined,
-            creatorNotes: d.creator_notes || undefined,
-            alternateGreetings: Array.isArray(d.alternate_greetings) ? d.alternate_greetings.filter(Boolean) : [],
-          };
-        }
+      const dl = await botBrowserGet<DatacatDownloadResponse>(`datacat/download/${encodeURIComponent(id)}`);
+      const d = dl?.data;
+      if (d) {
+        return {
+          description: d.description || d.personality || undefined,
+          personality: d.personality || undefined,
+          scenario: d.scenario || undefined,
+          firstMessage: d.first_mes || undefined,
+          exampleDialogs: d.mes_example || undefined,
+          creatorNotes: d.creator_notes || undefined,
+          alternateGreetings: Array.isArray(d.alternate_greetings) ? d.alternate_greetings.filter(Boolean) : [],
+        };
       }
     } catch {
-      /* fall through */
+      /* optional download endpoint failed (commonly a 404); fall through to the authoritative character endpoint */
     }
-    try {
-      const data = await botBrowserGet<any>(`datacat/character/${encodeURIComponent(id)}`).catch(() => null);
-      if (!data) return null;
-      const c = data?.character || data;
-      if (!c) return null;
-      const rawDesc = c.description || "";
-      const plainDesc = typeof rawDesc === "string" ? rawDesc.replace(/<[^>]*>/g, "").trim() : "";
-      return {
-        description: c.personality || undefined,
-        scenario: c.scenario || undefined,
-        firstMessage: c.first_message || undefined,
-        creatorNotes: plainDesc || undefined,
-      };
-    } catch {
-      return null;
-    }
+    const data = await botBrowserGet<DatacatCharacterResponse>(`datacat/character/${encodeURIComponent(id)}`);
+    if (!data) return null;
+    const c = data?.character || data;
+    if (!c) return null;
+    const rawDesc = c.description || "";
+    const plainDesc = typeof rawDesc === "string" ? rawDesc.replace(/<[^>]*>/g, "").trim() : "";
+    return {
+      description: c.personality || undefined,
+      scenario: c.scenario || undefined,
+      firstMessage: c.first_message || undefined,
+      creatorNotes: plainDesc || undefined,
+    };
   },
 };
 
@@ -1177,6 +1202,7 @@ export function BotBrowserView() {
   const [selectedCard, setSelectedCard] = useState<BrowseCard | null>(null);
   const [detail, setDetail] = useState<CardDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
 
@@ -1258,6 +1284,7 @@ export function BotBrowserView() {
     setError(null);
     setSelectedCard(null);
     setDetail(null);
+    setDetailError(null);
     setShowLoginModal(false);
   }, []);
 
@@ -1396,13 +1423,15 @@ export function BotBrowserView() {
   const openDetail = async (card: BrowseCard) => {
     setSelectedCard(card);
     setDetail(null);
+    setDetailError(null);
     setDetailLoading(true);
     try {
       const d = await provider.fetchDetail(card);
       setDetail(d);
-    } catch {
-      toast.error("Failed to load character details");
-      setSelectedCard(null);
+    } catch (err) {
+      // A real transport/API failure — surface it with a Retry instead of the benign
+      // "no detailed definition" empty state, which only applies to successful-but-empty fetches.
+      setDetailError(err instanceof Error ? err.message : "Failed to load character details");
     } finally {
       setDetailLoading(false);
     }
@@ -1421,7 +1450,11 @@ export function BotBrowserView() {
         });
         const file = new File([blob], "character.png", { type: "image/png" });
         const { json, imageDataUrl } = await parsePngCharacterCard(file);
-        const cardDetail = sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card))) : detail;
+        // Import-time enrichment re-fetch is optional: the authoritative PNG is
+        // already downloaded and parsed, so a transient detail failure must not
+        // abort the import (the detail-view path surfaces failures; this one degrades).
+        const cardDetail =
+          sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card).catch(() => null))) : detail;
         const importJson = attachEmbeddedLorebookToCharacterJson(
           json as Record<string, unknown>,
           cardDetail?.embeddedLorebook,
@@ -1442,10 +1475,20 @@ export function BotBrowserView() {
           const cached = cacheCharacterListRecordFromResult(qc, data);
           if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
+          if (data.character) {
+            const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
+            if (charRecord.id && charRecord.data) {
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord }).catch(
+                (error) => console.warn("[bot-browser] Failed to import embedded regex scripts.", error),
+              );
+            }
+          }
         } else throw new Error(data.error ?? "Import failed");
       } else {
+        // Optional enrichment re-fetch: degrade to the search-result-backed card
+        // on failure rather than aborting the import (see the chub branch above).
         let cardDetail = detail;
-        if (!cardDetail) cardDetail = await provider.fetchDetail(card);
+        if (!cardDetail) cardDetail = await provider.fetchDetail(card).catch(() => null);
         const importEmbeddedLorebook = confirmEmbeddedLorebookImport(card.name, cardDetail?.embeddedLorebook);
         // For extracted JanitorAI data, description contains the full personality definition
         const descriptionText = cardDetail?.description || "";
@@ -1489,6 +1532,14 @@ export function BotBrowserView() {
           const cached = cacheCharacterListRecordFromResult(qc, data);
           if (!cached) invalidateCharacterCollectionQueries(qc);
           if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
+          if (data.character) {
+            const charRecord = data.character as { id?: string; data?: Record<string, unknown> };
+            if (charRecord.id && charRecord.data) {
+              void importRegexScriptsForCharacter({ characterId: charRecord.id, character: charRecord }).catch(
+                (error) => console.warn("[bot-browser] Failed to import embedded regex scripts.", error),
+              );
+            }
+          }
         } else throw new Error(data.error ?? "Import failed");
       }
     } catch (err) {
@@ -1829,11 +1880,14 @@ export function BotBrowserView() {
               card={selectedCard}
               detail={detail}
               loading={detailLoading}
+              error={detailError}
+              onRetry={() => openDetail(selectedCard)}
               importing={importing}
               provider={provider}
               onBack={() => {
                 setSelectedCard(null);
                 setDetail(null);
+                setDetailError(null);
               }}
               onImport={handleImport}
               tagImportMode={tagImportMode}
@@ -2595,6 +2649,8 @@ function DetailView({
   card,
   detail,
   loading,
+  error,
+  onRetry,
   importing,
   provider,
   onBack,
@@ -2605,6 +2661,8 @@ function DetailView({
   card: BrowseCard;
   detail: CardDetail | null;
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
   importing: boolean;
   provider: ProviderConfig;
   onBack: () => void;
@@ -2680,6 +2738,16 @@ function DetailView({
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size="1.5rem" className="animate-spin text-[var(--muted-foreground)]" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <span className="text-sm text-[var(--destructive)]">{error}</span>
+          <button
+            onClick={onRetry}
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/15 px-4 py-2 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25"
+          >
+            <RefreshCw size="0.75rem" /> Retry
+          </button>
         </div>
       ) : (
         <div className="flex gap-5 max-md:flex-col">

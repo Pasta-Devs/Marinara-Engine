@@ -14,13 +14,70 @@ export interface AgentRuntimeDebugLogger {
 
 type ConsoleLevel = "debug" | "info" | "warn" | "error";
 
+const MAX_DEBUG_STRING_LENGTH = 4_000;
+const MAX_DEBUG_ARRAY_ITEMS = 24;
+const MAX_DEBUG_OBJECT_KEYS = 48;
+const MAX_DEBUG_DEPTH = 4;
+
+function truncateDebugString(value: string): string {
+  if (value.length <= MAX_DEBUG_STRING_LENGTH) return value;
+  return `${value.slice(0, MAX_DEBUG_STRING_LENGTH)}\n\n[debug output truncated before UI dispatch: ${value.length - MAX_DEBUG_STRING_LENGTH} more characters]`;
+}
+
+function compactDebugValue(value: unknown, depth = 0): unknown {
+  if (typeof value === "string") return truncateDebugString(value);
+  if (!value || typeof value !== "object") return value;
+  if (depth >= MAX_DEBUG_DEPTH) return "[debug output truncated before UI dispatch: nested value]";
+  if (Array.isArray(value)) {
+    const compacted = value.slice(0, MAX_DEBUG_ARRAY_ITEMS).map((item) => compactDebugValue(item, depth + 1));
+    if (value.length > MAX_DEBUG_ARRAY_ITEMS) {
+      compacted.push(`[debug output truncated before UI dispatch: ${value.length - MAX_DEBUG_ARRAY_ITEMS} more items]`);
+    }
+    return compacted;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  const compacted: Record<string, unknown> = {};
+  for (const [key, item] of entries.slice(0, MAX_DEBUG_OBJECT_KEYS)) {
+    compacted[key] = compactDebugValue(item, depth + 1);
+  }
+  if (entries.length > MAX_DEBUG_OBJECT_KEYS) {
+    compacted.__truncated = `${entries.length - MAX_DEBUG_OBJECT_KEYS} more keys`;
+  }
+  return compacted;
+}
+
+function compactDebugArgs(args: unknown[]): unknown[] {
+  return args.map((arg) => compactDebugValue(arg));
+}
+
+function compactDebugEntry(entry: AgentRuntimeDebugEntry): AgentRuntimeDebugEntry {
+  return {
+    ...entry,
+    args: entry.args ? compactDebugArgs(entry.args) : undefined,
+    results: entry.results?.map((result) => compactDebugValue(result) as never),
+    toolCall: entry.toolCall
+      ? {
+          ...entry.toolCall,
+          arguments: truncateDebugString(entry.toolCall.arguments),
+        }
+      : undefined,
+    toolResult: entry.toolResult
+      ? {
+          ...entry.toolResult,
+          result: truncateDebugString(entry.toolResult.result),
+        }
+      : undefined,
+  };
+}
+
 function writeConsole(level: ConsoleLevel, args: unknown[]) {
   if (typeof console === "undefined") return;
   const target = typeof console[level] === "function" ? console[level] : console.log;
   if (typeof target === "function") target.apply(console, args);
 }
 
-export function isAgentRuntimeDebugEnabled(context: Pick<AgentContext, "debugMode">): boolean {
+function isAgentRuntimeDebugEnabled(context: Pick<AgentContext, "debugMode">): boolean {
   return context.debugMode === true;
 }
 
@@ -29,7 +86,7 @@ export function createAgentRuntimeDebug(context: AgentContext): AgentRuntimeDebu
 
   const log = (level: ConsoleLevel, args: unknown[]) => {
     if (!enabled) return;
-    writeConsole(level, args);
+    writeConsole(level, compactDebugArgs(args));
   };
 
   return {
@@ -42,7 +99,7 @@ export function createAgentRuntimeDebug(context: AgentContext): AgentRuntimeDebu
     emit: (entry: AgentRuntimeDebugEntry) => {
       if (!enabled) return;
       context.debugSink?.({
-        ...entry,
+        ...compactDebugEntry(entry),
         timestamp: entry.timestamp ?? Date.now(),
       });
     },

@@ -228,9 +228,7 @@ export function ColorPicker({
             }),
           }}
         />
-        <span className="flex-1 text-left text-xs text-[var(--muted-foreground)] truncate">
-          {value || emptyText}
-        </span>
+        <span className="flex-1 text-left text-xs text-[var(--muted-foreground)] truncate">{value || emptyText}</span>
         <Pipette size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
       </button>
 

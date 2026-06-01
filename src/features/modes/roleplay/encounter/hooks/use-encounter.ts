@@ -13,7 +13,11 @@ import { storageApi } from "../../../../../shared/api/storage-api";
 import { useEncounterStore } from "../../../../../shared/stores/encounter.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { chatKeys } from "../../../../catalog/chats/index";
-import type { EncounterSettings, CombatPartyMember, CombatEnemy } from "../../../../../engine/contracts/types/combat-encounter";
+import type {
+  EncounterSettings,
+  CombatPartyMember,
+  CombatEnemy,
+} from "../../../../../engine/contracts/types/combat-encounter";
 
 /** Ensure each party member has all required numeric/string fields so components don't crash. */
 function sanitizeParty(arr: unknown[], fallback: CombatPartyMember[]): CombatPartyMember[] {
@@ -73,12 +77,15 @@ export function useEncounter() {
       const spellbookId = useEncounterStore.getState().spellbookId;
 
       try {
-        const res = await initRoleplayEncounter({ storage: storageApi, llm: llmApi }, {
-          chatId: activeChatId,
-          connectionId: null,
-          settings,
-          spellbookId,
-        });
+        const res = await initRoleplayEncounter(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: activeChatId,
+            connectionId: null,
+            settings,
+            spellbookId,
+          },
+        );
         store.initCombat(res.combatState);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to initialize encounter";
@@ -98,13 +105,16 @@ export function useEncounter() {
       store.setSummaryStatus("generating");
 
       try {
-        await summarizeRoleplayEncounter({ storage: storageApi, llm: llmApi }, {
-          chatId: activeChatId,
-          connectionId: null,
-          encounterLog,
-          result,
-          settings,
-        });
+        await summarizeRoleplayEncounter(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: activeChatId,
+            connectionId: null,
+            encounterLog,
+            result,
+            settings,
+          },
+        );
 
         store.setSummaryStatus("done");
 
@@ -131,16 +141,27 @@ export function useEncounter() {
       store.setError(null);
 
       try {
-        const res = await resolveRoleplayEncounterAction({ storage: storageApi, llm: llmApi }, {
-          chatId: activeChatId,
-          connectionId: null,
-          action: actionText,
-          combatStats: { party, enemies, environment },
-          playerActions,
-          encounterLog,
-          settings,
-          spellbookId,
-        });
+        const res = await resolveRoleplayEncounterAction(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: activeChatId,
+            connectionId: null,
+            action: actionText,
+            combatStats: { party, enemies, environment },
+            playerActions,
+            encounterLog,
+            settings,
+            spellbookId,
+          },
+        );
+
+        // Model produced no usable combat turn (unparseable output or LLM
+        // error) — surface a retryable error and keep combat state unchanged.
+        if (res.invalid) {
+          store.setError("AI returned an invalid response. Try again.");
+          store.setProcessing(false);
+          return;
+        }
 
         const r = res.result;
 

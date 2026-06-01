@@ -15,16 +15,10 @@ function diffWords(before: string, after: string): DiffResult {
     return { before, after, skipped: true };
   }
 
-  const dp = Array.from(
-    { length: beforeWords.length + 1 },
-    () => new Uint16Array(afterWords.length + 1),
-  );
+  const dp = Array.from({ length: beforeWords.length + 1 }, () => new Uint16Array(afterWords.length + 1));
   for (let i = 1; i <= beforeWords.length; i++) {
     for (let j = 1; j <= afterWords.length; j++) {
-      dp[i][j] =
-        beforeWords[i - 1] === afterWords[j - 1]
-          ? dp[i - 1][j - 1] + 1
-          : Math.max(dp[i - 1][j], dp[i][j - 1]);
+      dp[i][j] = beforeWords[i - 1] === afterWords[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
     }
   }
 
@@ -63,12 +57,8 @@ export function MagicRewritePanel({
   value: string;
   onResultChange: (value: string) => void;
 }) {
-  const { instruction, setInstruction, result, loading, error, generate } =
-    useMagicRewrite(value);
-  const diff = useMemo(
-    () => (result ? diffWords(value, result) : null),
-    [value, result],
-  );
+  const { instruction, setInstruction, result, loading, error, generate } = useMagicRewrite(value);
+  const diff = useMemo(() => (result ? diffWords(value, result) : null), [value, result]);
 
   useEffect(() => {
     onResultChange(result);
@@ -79,8 +69,7 @@ export function MagicRewritePanel({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(12rem,1fr)]">
         <div className="flex min-w-0 flex-col">
           <div className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            Rewrite instructions{" "}
-            <HelpTooltip text="Uses your default agent connection." />
+            Rewrite instructions <HelpTooltip text="Uses your default agent connection." />
           </div>
           <textarea
             value={instruction}
@@ -99,11 +88,7 @@ export function MagicRewritePanel({
               disabled={loading}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/40 bg-violet-500/10 px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/20 disabled:cursor-wait disabled:opacity-60"
             >
-              {loading ? (
-                <Loader2 size="1rem" className="animate-spin" />
-              ) : (
-                <Sparkles size="1rem" />
-              )}
+              {loading ? <Loader2 size="1rem" className="animate-spin" /> : <Sparkles size="1rem" />}
               {loading ? "Rewriting..." : "Generate Rewrite"}
             </button>
           </div>
@@ -118,14 +103,7 @@ export function MagicRewritePanel({
           <div className="whitespace-pre-wrap break-words font-sans">
             {diff && !diff.skipped && Array.isArray(diff.before)
               ? diff.before.map((part, index) => (
-                  <span
-                    key={index}
-                    className={
-                      part.changed
-                        ? "bg-red-500/20 text-red-200 line-through"
-                        : undefined
-                    }
-                  >
+                  <span key={index} className={part.changed ? "bg-red-500/20 text-red-200 line-through" : undefined}>
                     {part.text}
                   </span>
                 ))
@@ -139,14 +117,7 @@ export function MagicRewritePanel({
           <div className="whitespace-pre-wrap break-words font-sans">
             {diff && !diff.skipped && Array.isArray(diff.after)
               ? diff.after.map((part, index) => (
-                  <span
-                    key={index}
-                    className={
-                      part.changed
-                        ? "bg-emerald-500/20 text-emerald-200"
-                        : undefined
-                    }
-                  >
+                  <span key={index} className={part.changed ? "bg-emerald-500/20 text-emerald-200" : undefined}>
                     {part.text}
                   </span>
                 ))

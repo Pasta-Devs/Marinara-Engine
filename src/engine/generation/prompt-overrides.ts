@@ -7,7 +7,7 @@ export const PROMPT_OVERRIDE_COLLECTION = "prompt-overrides";
 const VARIABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const VARIABLE_PATTERN = /\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 
-export type PromptOverrideVariable = {
+type PromptOverrideVariable = {
   name: string;
   description: string;
   example?: string;
@@ -51,7 +51,7 @@ export type PromptOverrideDefault = {
   exampleContext: Record<string, string | number | undefined>;
 };
 
-export type ConversationSelfiePromptContext = Record<string, string | number | undefined> & {
+type ConversationSelfiePromptContext = Record<string, string | number | undefined> & {
   appearance: string;
   charName: string;
   selfieTagsBlock: string;
@@ -102,20 +102,16 @@ function promptOverrideDef<TContext extends Record<string, string | number | und
   };
 }
 
-export const CONVERSATION_SELFIE_PROMPT_OVERRIDE = promptOverrideDef<ConversationSelfiePromptContext>(
+const CONVERSATION_SELFIE_PROMPT_OVERRIDE = promptOverrideDef<ConversationSelfiePromptContext>(
   "conversation.selfie",
   () => requiredManifestEntry("conversation.selfie").template,
 );
 
-export const SPRITE_PORTRAIT_SINGLE_PROMPT_OVERRIDE =
-  promptOverrideDef<ImagePromptOverrideContext>("sprite.portraitSingle");
-export const SPRITE_EXPRESSION_SHEET_PROMPT_OVERRIDE =
-  promptOverrideDef<ImagePromptOverrideContext>("sprite.expressionSheet");
-export const SPRITE_FULL_BODY_SINGLE_PROMPT_OVERRIDE =
-  promptOverrideDef<ImagePromptOverrideContext>("sprite.fullBodySingle");
-export const SPRITE_FULL_BODY_SHEET_PROMPT_OVERRIDE =
-  promptOverrideDef<ImagePromptOverrideContext>("sprite.fullBodySheet");
-export const SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>(
+const SPRITE_PORTRAIT_SINGLE_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>("sprite.portraitSingle");
+const SPRITE_EXPRESSION_SHEET_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>("sprite.expressionSheet");
+const SPRITE_FULL_BODY_SINGLE_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>("sprite.fullBodySingle");
+const SPRITE_FULL_BODY_SHEET_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>("sprite.fullBodySheet");
+const SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>(
   "sprite.fullBodyExpressionSheet",
 );
 export const GAME_BACKGROUND_PROMPT_OVERRIDE = promptOverrideDef<ImagePromptOverrideContext>("game.background");
@@ -203,7 +199,10 @@ export async function loadRegisteredPrompt<TContext extends Record<string, strin
   context: TContext,
 ): Promise<string> {
   try {
-    const row = normalizePromptOverrideRow(await storage.get(PROMPT_OVERRIDE_COLLECTION, definition.key), definition.key);
+    const row = normalizePromptOverrideRow(
+      await storage.get(PROMPT_OVERRIDE_COLLECTION, definition.key),
+      definition.key,
+    );
     if (row?.enabled) {
       const declared = definition.variables.map((variable) => variable.name);
       const validation = validatePromptOverrideTemplate(row.template, declared);
@@ -221,7 +220,7 @@ export async function loadRegisteredPrompt<TContext extends Record<string, strin
   return definition.defaultBuilder(context);
 }
 
-export function buildConversationSelfiePromptContext(input: {
+function buildConversationSelfiePromptContext(input: {
   appearance: string;
   charName: string;
   selfieTagsBlock?: string;

@@ -179,6 +179,7 @@ fn active_swipe_update_response(message: &Value) -> Value {
         "content",
         "activeSwipeIndex",
         "swipeCount",
+        "extra",
         "updatedAt",
     ] {
         if let Some(value) = message.get(field) {
@@ -199,7 +200,8 @@ fn preserve_active_swipe_extra(swipes: &mut [Value], active_index: usize, extra:
     let Some(Value::Object(swipe)) = swipes.get_mut(active_index) else {
         return;
     };
-    swipe.entry("extra".to_string()).or_insert(extra);
+    let merged = merge_active_swipe_extra(swipe.get("extra"), extra);
+    swipe.insert("extra".to_string(), merged);
 }
 
 fn should_activate_new_swipe(body: &Value) -> bool {
@@ -296,6 +298,35 @@ pub(crate) fn message_swipes(
     );
     let updated = state.storage.patch("messages", message_id, message)?;
     Ok(updated)
+}
+
+pub(crate) fn update_message_content_if_unchanged(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+    expected_content: &str,
+    content: &str,
+) -> AppResult<Value> {
+    let content = collapse_excess_blank_lines(content);
+    let updated = state.storage.patch_if("messages", message_id, |message| {
+        let current_chat_id = message.get("chatId").and_then(Value::as_str).unwrap_or("");
+        if current_chat_id != chat_id {
+            return Ok(false);
+        }
+        let current_content = message.get("content").and_then(Value::as_str).unwrap_or("");
+        if current_content != expected_content {
+            return Ok(false);
+        }
+        message.insert("content".to_string(), Value::String(content.clone()));
+        let mut patch = Map::new();
+        patch.insert("content".to_string(), Value::String(content.clone()));
+        sync_message_patch_content_to_active_swipe(message, &patch);
+        Ok(true)
+    })?;
+    Ok(match updated {
+        Some(message) => json!({ "updated": true, "message": message }),
+        None => json!({ "updated": false }),
+    })
 }
 
 pub(crate) fn set_active_swipe(
@@ -683,16 +714,22 @@ pub(crate) fn delete_chat_group(state: &AppState, group_id: &str) -> AppResult<V
         _ => Vec::new(),
     };
     let mut deleted = 0;
+    let mut deleted_chat_ids = Vec::new();
     for chat in chats {
         if let Some(id) = chat.get("id").and_then(Value::as_str) {
             if is_protected_record("chats", id) {
                 continue;
             }
-            delete_chat_with_messages(state, id)?;
-            deleted += 1;
+            let chat_delete_ids = delete_chat_with_messages(state, id)?;
+            if chat_delete_ids.iter().any(|deleted_id| deleted_id == id) {
+                deleted += 1;
+            }
+            deleted_chat_ids.extend(chat_delete_ids);
         }
     }
-    Ok(json!({ "deleted": deleted }))
+    deleted_chat_ids.sort_unstable();
+    deleted_chat_ids.dedup();
+    Ok(json!({ "deleted": deleted, "deletedChatIds": deleted_chat_ids }))
 }
 
 pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppResult<Value> {
@@ -824,14 +861,14 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
     Ok(new_chat)
 }
 
-pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppResult<()> {
+pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppResult<Vec<String>> {
     if is_protected_record("chats", chat_id) {
         return Err(AppError::invalid_input(
             "Protected records cannot be deleted",
         ));
     }
     let Some(root_chat) = state.storage.get("chats", chat_id)? else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let owned_scene_chat_ids = scene_delete_scope(state, chat_id, &root_chat)?;
     clear_character_scene_memories(state, &owned_scene_chat_ids)?;
@@ -846,10 +883,10 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
     state.storage.delete_messages_for_chats(&delete_id_set)?;
 
-    for delete_id in delete_ids {
-        state.storage.delete("chats", &delete_id)?;
+    for delete_id in &delete_ids {
+        state.storage.delete("chats", delete_id)?;
     }
-    Ok(())
+    Ok(delete_ids)
 }
 
 fn chat_game_state_is_bootstrap(chat: &Value) -> bool {
@@ -1098,6 +1135,80 @@ mod tests {
     }
 
     #[test]
+    fn delete_chat_group_reports_exact_deleted_chat_ids_including_scene_children() {
+        let state = test_state("group-delete-ids");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "origin-chat",
+                    "name": "Origin",
+                    "groupId": "group-1",
+                    "metadata": { "activeSceneChatId": "scene-chat" }
+                }),
+            )
+            .expect("origin chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-chat",
+                    "name": "Scene",
+                    "metadata": { "sceneOriginChatId": "origin-chat" }
+                }),
+            )
+            .expect("scene chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "sibling-chat",
+                    "name": "Sibling",
+                    "groupId": "group-1",
+                    "metadata": {}
+                }),
+            )
+            .expect("sibling chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "other-chat",
+                    "name": "Other",
+                    "groupId": "group-other",
+                    "metadata": {}
+                }),
+            )
+            .expect("other chat should be created");
+
+        let result = delete_chat_group(&state, "group-1").expect("group delete should succeed");
+        let deleted_chat_ids: Vec<&str> = result["deletedChatIds"]
+            .as_array()
+            .expect("deleted chat ids should be returned")
+            .iter()
+            .map(|id| id.as_str().expect("deleted chat id should be a string"))
+            .collect();
+
+        assert_eq!(result.get("deleted").and_then(Value::as_i64), Some(2));
+        assert_eq!(
+            deleted_chat_ids,
+            vec!["origin-chat", "scene-chat", "sibling-chat"]
+        );
+        assert!(state.storage.get("chats", "origin-chat").unwrap().is_none());
+        assert!(state.storage.get("chats", "scene-chat").unwrap().is_none());
+        assert!(state
+            .storage
+            .get("chats", "sibling-chat")
+            .unwrap()
+            .is_none());
+        assert!(state.storage.get("chats", "other-chat").unwrap().is_some());
+    }
+
+    #[test]
     fn branch_chat_enrolls_ungrouped_source_chat_into_the_new_group() {
         let state = test_state("branch-enroll-root");
         state
@@ -1165,6 +1276,45 @@ mod tests {
             .expect("source lookup should not fail")
             .expect("source chat should still exist");
         assert_eq!(source["groupId"], "existing-group");
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_updates_only_matching_content() {
+        let state = test_state("conditional-content");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "swipes": [{ "content": "first" }]
+                }),
+            )
+            .expect("message should be created");
+
+        let stale =
+            update_message_content_if_unchanged(&state, "chat-1", "message-1", "stale", "second")
+                .expect("stale conditional update should not fail");
+        assert_eq!(stale["updated"], false);
+        let unchanged = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should still exist");
+        assert_eq!(unchanged["content"], "first");
+        assert_eq!(unchanged["swipes"][0]["content"], "first");
+
+        let updated =
+            update_message_content_if_unchanged(&state, "chat-1", "message-1", "first", "second")
+                .expect("matching conditional update should not fail");
+        assert_eq!(updated["updated"], true);
+        let message = updated["message"].clone();
+        assert_eq!(message["content"], "second");
+        assert_eq!(message["swipes"][0]["content"], "second");
     }
 
     #[test]
@@ -1247,6 +1397,68 @@ mod tests {
         assert_eq!(
             persisted["extra"]["reasoning_content"],
             json!("first reasoning")
+        );
+    }
+
+    #[test]
+    fn message_swipes_merge_late_active_attachments_into_existing_swipe_extra() {
+        let state = test_state("swipe-late-attachments");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "extra": {
+                        "hiddenFromAI": true,
+                        "generationInfo": { "model": "first-model" },
+                        "attachments": [{ "type": "image", "galleryId": "gallery-1" }]
+                    },
+                    "swipes": [
+                        {
+                            "content": "first",
+                            "extra": {
+                                "generationInfo": { "model": "first-model" }
+                            }
+                        },
+                        {
+                            "content": "second",
+                            "extra": {
+                                "generationInfo": { "model": "second-model" }
+                            }
+                        }
+                    ]
+                }),
+            )
+            .expect("message should be created");
+
+        set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 1 }))
+            .expect("swipe should switch away");
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should succeed")
+            .expect("message should exist");
+        assert_eq!(
+            persisted["swipes"][0]["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
+        );
+        assert_eq!(
+            persisted["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+
+        let restored = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 0 }))
+            .expect("swipe should switch back");
+
+        assert_eq!(restored["content"], json!("first"));
+        assert_eq!(
+            restored["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
         );
     }
 

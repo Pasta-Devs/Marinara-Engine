@@ -103,6 +103,8 @@ export const ttsConfigSchema = z.object({
   enabled: z.boolean().default(false),
   source: ttsSourceSchema.default("openai"),
   baseUrl: z.string().default("https://api.openai.com/v1"),
+  /** OpenAI-compatible voice catalog path. Empty preserves the legacy /audio/voices route. */
+  voicesPath: z.string().default(""),
   /** Plain text on write; masked "••••••" on read when a key is saved */
   apiKey: z.string().default(""),
   voice: z.string().default("alloy"),

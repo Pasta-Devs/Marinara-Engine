@@ -12,14 +12,14 @@ import type { StatusEffect } from "./status-effect.js";
 
 // ── Core types ──
 
-export interface ElementDefinition {
+interface ElementDefinition {
   id: string;
   name: string;
   emoji: string;
   color: string;
 }
 
-export interface ReactionRule {
+interface ReactionRule {
   /** Element already applied (aura) */
   trigger: string;
   /** Incoming element */

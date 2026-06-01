@@ -95,7 +95,13 @@ function shouldExecuteIndividually(agent: ResolvedAgent): boolean {
 async function executeResolvedAgent(agent: ResolvedAgent, context: AgentContext): Promise<AgentResult> {
   const agentContext = buildAgentContext(agent, context);
   if (agent.type === "knowledge-retrieval") {
-    return executeKnowledgeRetrieval(agent, agentContext, agent.provider, agent.model, agent.knowledgeSourceMaterial ?? "");
+    return executeKnowledgeRetrieval(
+      agent,
+      agentContext,
+      agent.provider,
+      agent.model,
+      agent.knowledgeSourceMaterial ?? "",
+    );
   }
   if (agent.type === "knowledge-router") {
     return executeKnowledgeRouter(
@@ -127,11 +133,16 @@ async function executeGroup(
   const batchAgents = group.agents.filter((agent) => !shouldExecuteIndividually(agent));
   const toolAgentTypes = individualAgents.filter((agent) => agent.toolContext?.tools.length).map((agent) => agent.type);
 
-  logger.debug("[agent-pipeline] executeGroup: %d batchable, %d individual %j", batchAgents.length, individualAgents.length, {
-    batch: batchAgents.map((a) => a.type),
-    tools: toolAgentTypes,
-    individual: individualAgents.map((a) => a.type),
-  });
+  logger.debug(
+    "[agent-pipeline] executeGroup: %d batchable, %d individual %j",
+    batchAgents.length,
+    individualAgents.length,
+    {
+      batch: batchAgents.map((a) => a.type),
+      tools: toolAgentTypes,
+      individual: individualAgents.map((a) => a.type),
+    },
+  );
 
   // Safe callback wrapper — errors in the callback (e.g. writing to a
   // closed SSE stream) must never crash the group and silently drop results.
@@ -256,7 +267,7 @@ async function executePhase(
  * Run pre-generation agents (batched per provider+model).
  * Returns text snippets to inject into the main prompt.
  */
-export async function runPreGenerationAgents(
+async function runPreGenerationAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -285,7 +296,7 @@ export async function runPreGenerationAgents(
  * Run post-processing agents (batched per provider+model).
  * Returns all results for the caller to apply.
  */
-export async function runPostProcessingAgents(
+async function runPostProcessingAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -296,7 +307,7 @@ export async function runPostProcessingAgents(
 /**
  * Run parallel-phase agents (batched per provider+model).
  */
-export async function runParallelAgents(
+async function runParallelAgents(
   agents: ResolvedAgent[],
   context: AgentContext,
   onResult?: AgentResultCallback,
@@ -307,13 +318,6 @@ export async function runParallelAgents(
 // ──────────────────────────────────────────────
 // Full Pipeline (convenience wrapper)
 // ──────────────────────────────────────────────
-
-export interface AgentPipelineResult {
-  /** Text snippets injected before generation (from pre-gen agents) */
-  contextInjections: string[];
-  /** All agent results from every phase */
-  allResults: AgentResult[];
-}
 
 /**
  * Run ALL enabled agents across the full pipeline.

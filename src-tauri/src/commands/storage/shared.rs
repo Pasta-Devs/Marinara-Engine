@@ -72,14 +72,23 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     let Some(object) = message.as_object_mut() else {
         return;
     };
-    let Some((swipe_count, active_index, active_content, active_extra)) = object
+    let Some((swipe_count, active_index, active_content, active_extra, swipe_previews)) = object
         .get("swipes")
         .and_then(Value::as_array)
         .map(|swipes| {
             let swipe_count = swipes.len();
             if swipe_count == 0 {
-                return (0, 0, None, None);
+                return (0, 0, None, None, Vec::new());
             }
+
+            let swipe_previews = swipes
+                .iter()
+                .map(|swipe| {
+                    json!({
+                        "content": swipe.get("content").and_then(Value::as_str).unwrap_or("")
+                    })
+                })
+                .collect::<Vec<_>>();
 
             let requested_index = object
                 .get("activeSwipeIndex")
@@ -93,11 +102,18 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
             let active_extra = json_object_value(active_swipe.and_then(|swipe| swipe.get("extra")));
-            (swipe_count, active_index, active_content, active_extra)
+            (
+                swipe_count,
+                active_index,
+                active_content,
+                active_extra,
+                swipe_previews,
+            )
         })
     else {
         return;
     };
+    object.insert("swipePreviews".to_string(), Value::Array(swipe_previews));
     object.insert("swipeCount".to_string(), json!(swipe_count));
     if swipe_count == 0 {
         object.insert("activeSwipeIndex".to_string(), json!(0));
@@ -114,6 +130,58 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
             merge_active_swipe_extra(object.get("extra"), extra),
         );
     }
+}
+
+const TIMELINE_MESSAGE_FIELDS: [&str; 14] = [
+    "id",
+    "chatId",
+    "role",
+    "content",
+    "characterId",
+    "name",
+    "displayName",
+    "characterName",
+    "activeSwipeIndex",
+    "swipeCount",
+    "swipePreviews",
+    "rowid",
+    "extra",
+    "createdAt",
+];
+
+const TIMELINE_MESSAGE_EXTRA_FIELDS: [&str; 21] = [
+    "displayText",
+    "isGenerated",
+    "tokenCount",
+    "generationInfo",
+    "thinking",
+    "reasoning",
+    "reasoning_content",
+    "spriteExpressions",
+    "cyoaChoices",
+    "contextInjections",
+    "chatSummaryFingerprint",
+    "generationReplay",
+    "generationPromptSnapshot",
+    "attachments",
+    "personaSnapshot",
+    "hiddenFromUser",
+    "hiddenFromAI",
+    "hiddenFromAi",
+    "isConversationStart",
+    "generationError",
+    "translation",
+];
+
+pub(crate) fn project_timeline_message(mut message: Value) -> Value {
+    materialize_message_swipe_fields(&mut message);
+    let options = json!({
+        "fields": TIMELINE_MESSAGE_FIELDS,
+        "fieldSelections": {
+            "extra": TIMELINE_MESSAGE_EXTRA_FIELDS,
+        },
+    });
+    project_record(message, Some(&options))
 }
 
 const SWIPE_SCOPED_EXTRA_KEYS: [&str; 15] = [
@@ -377,13 +445,56 @@ pub(crate) fn normalize_typed_json_fields(
             normalize_json_array_fields(object, &["tags", "characterIds", "personaIds"])?;
         }
         "lorebook-entries" => {
-            normalize_json_array_fields(object, &["keys", "secondaryKeys"])?;
+            // The generic storage boundary is the single contract every
+            // lorebook-entry write crosses (editor, bulk create, copy/move,
+            // tool-generated entries, remote runtime). Coerce every legacy-style
+            // shape - string booleans, JSON-string arrays, and JSON-string
+            // objects - to the native shape, or reject what cannot be coerced,
+            // so downstream UI/generation never has to guess the intended type.
+            normalize_json_array_fields(
+                object,
+                &[
+                    "keys",
+                    "secondaryKeys",
+                    "characterFilterIds",
+                    "characterTagFilters",
+                    "generationTriggerFilters",
+                    "additionalMatchingSources",
+                    "activationConditions",
+                ],
+            )?;
+            normalize_boolish_fields(
+                object,
+                &[
+                    "enabled",
+                    "constant",
+                    "selective",
+                    "matchWholeWords",
+                    "caseSensitive",
+                    "useRegex",
+                    "preventRecursion",
+                    "locked",
+                    "excludeFromVectorization",
+                ],
+            );
+            // Use the nullable object normalizer so a stored entry that already
+            // carries `null` (e.g. round-tripped through a copy/duplicate) is
+            // left untouched rather than rejected, while a JSON-string object is
+            // still parsed and a malformed value still rejected.
+            normalize_nullable_json_object_fields(
+                object,
+                &["relationships", "dynamicState", "schedule"],
+            )?;
         }
         "connections" => {
             normalize_nullable_json_object_fields(
                 object,
                 &["defaultParameters", "capabilities", "providerMetadata"],
             )?;
+            normalize_boolish_fields(
+                object,
+                &["isDefault", "default", "useForRandom", "defaultForAgents"],
+            );
         }
         "custom-tools" => {
             normalize_json_object_fields(object, &["parametersSchema"])?;
@@ -398,6 +509,7 @@ pub(crate) fn normalize_typed_json_fields(
         }
         "chat-presets" => {
             normalize_json_object_fields(object, &["parameters"])?;
+            normalize_boolish_fields(object, &["isDefault", "default", "isActive", "active"]);
         }
         "prompts" => {
             normalize_json_array_fields(object, &["sectionOrder", "groupOrder", "variableOrder"])?;
@@ -468,6 +580,27 @@ fn normalize_json_object_fields(object: &mut Map<String, Value>, fields: &[&str]
         object.insert((*field).to_string(), normalized);
     }
     Ok(())
+}
+
+fn normalize_boolish_fields(object: &mut Map<String, Value>, fields: &[&str]) {
+    for field in fields {
+        let Some(value) = object.get_mut(*field) else {
+            continue;
+        };
+        if value.is_boolean() {
+            continue;
+        }
+        let normalized = match value.as_str().map(str::trim).map(str::to_ascii_lowercase) {
+            Some(raw) if raw == "true" || raw == "1" || raw == "yes" || raw == "on" => true,
+            Some(raw) if raw == "false" || raw == "0" || raw == "no" || raw == "off" => false,
+            _ => value
+                .as_i64()
+                .map(|number| number != 0)
+                .or_else(|| value.as_f64().map(|number| !number.is_nan() && number != 0.0))
+                .unwrap_or(false),
+        };
+        *value = Value::Bool(normalized);
+    }
 }
 
 fn normalize_nullable_json_object_fields(
@@ -692,6 +825,9 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
             object
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
+            object
+                .entry("credit".to_string())
+                .or_insert_with(|| Value::String("Marinara Dev Team".to_string()));
         }
         _ => {}
     }
@@ -736,6 +872,234 @@ mod tests {
 
         assert_eq!(patch["data"]["name"], "Professor Mari");
         assert_eq!(patch["data"]["tags"], json!(["guide"]));
+    }
+
+    #[test]
+    fn apply_storage_search_matches_character_summary_fields() {
+        let mut rows = vec![
+            json!({
+                "id": "char-rina",
+                "comment": "ice mage",
+                "avatarPath": "data:image/png;base64,needle",
+                "data": {
+                    "name": "Rina",
+                    "creator": "Xel",
+                    "creator_notes": "Frost academy rival",
+                    "tags": ["Mage", "Winter"]
+                }
+            }),
+            json!({
+                "id": "char-mari",
+                "comment": "assistant",
+                "avatarPath": "data:image/png;base64,very-large-avatar",
+                "data": {
+                    "name": "Professor Mari",
+                    "creator": "Pasta",
+                    "creator_notes": "Codebase helper",
+                    "tags": ["Guide"]
+                }
+            }),
+        ];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "winter rina" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-rina");
+    }
+
+    #[test]
+    fn apply_storage_search_matches_non_ascii_case() {
+        let mut rows = vec![json!({
+            "id": "char-elodie",
+            "data": {
+                "name": "Élodie",
+                "description": "Archivist"
+            }
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "élodie" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-elodie");
+    }
+
+    #[test]
+    fn apply_storage_search_matches_character_prompt_fields() {
+        let rows = vec![
+            json!({
+                "id": "char-rina",
+                "comment": "ice mage",
+                "data": {
+                    "name": "Rina",
+                    "description": "Frost academy rival",
+                    "personality": "Dry humor",
+                    "scenario": "Hidden winter archive",
+                    "first_mes": "The gate is frozen shut.",
+                    "mes_example": "Rina: Keep up.",
+                    "system_prompt": "Protect the archive.",
+                    "post_history_instructions": "Stay wary.",
+                    "alternate_greetings": ["The lantern sigil glows."],
+                    "extensions": {
+                        "backstory": "Raised by the north library.",
+                        "appearance": "Silver cloak.",
+                        "altDescriptions": [{ "content": "Carries an aurora lantern." }],
+                        "depth_prompt": { "prompt": "The moon sigil matters." }
+                    },
+                    "tags": ["Mage"]
+                }
+            }),
+            json!({
+                "id": "char-mari",
+                "comment": "assistant",
+                "data": {
+                    "name": "Professor Mari",
+                    "description": "Codebase helper",
+                    "tags": ["Guide"]
+                }
+            }),
+        ];
+
+        let mut prompt_rows = rows.clone();
+        apply_storage_search(&mut prompt_rows, Some(&json!({ "search": "winter sigil" })));
+
+        assert_eq!(prompt_rows.len(), 1);
+        assert_eq!(prompt_rows[0]["id"], "char-rina");
+
+        let mut alternate_rows = rows;
+        apply_storage_search(
+            &mut alternate_rows,
+            Some(&json!({ "search": "aurora lantern" })),
+        );
+
+        assert_eq!(alternate_rows.len(), 1);
+        assert_eq!(alternate_rows[0]["id"], "char-rina");
+    }
+
+    #[test]
+    fn apply_storage_search_ignores_avatar_payload_text() {
+        let mut rows = vec![json!({
+            "id": "char-rina",
+            "avatarPath": "data:image/png;base64,hidden-needle",
+            "data": {
+                "name": "Rina",
+                "tags": []
+            }
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "hidden-needle" })));
+
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn apply_storage_search_matches_message_content_and_swipes() {
+        let mut rows = vec![
+            json!({
+                "id": "message-direct",
+                "content": "The party finds a silver key."
+            }),
+            json!({
+                "id": "message-swipe",
+                "content": "No match here.",
+                "swipes": [
+                    { "content": "Alternate route through the moonlit archive." }
+                ]
+            }),
+            json!({
+                "id": "message-miss",
+                "content": "Plain campfire chatter."
+            }),
+        ];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "moonlit" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "message-swipe");
+    }
+
+    #[test]
+    fn apply_storage_search_matches_string_encoded_character_data() {
+        let mut rows = vec![json!({
+            "id": "char-legacy",
+            "data": r#"{"name":"Legacy Rin","creator_notes":"Imported archive"}"#
+        })];
+
+        apply_storage_search(&mut rows, Some(&json!({ "search": "archive" })));
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "char-legacy");
+    }
+
+    #[test]
+    fn project_list_rows_applies_field_selections_to_string_encoded_data() {
+        let rows = vec![json!({
+            "id": "char-legacy",
+            "data": r#"{"name":"Legacy Rin","description":"large prompt","creator_notes":"Imported archive"}"#
+        })];
+
+        let projected = project_list_rows(
+            rows,
+            Some(&json!({
+                "fields": ["id", "data"],
+                "fieldSelections": { "data": ["name", "creator_notes"] }
+            })),
+        );
+
+        assert_eq!(
+            projected,
+            vec![json!({
+                "id": "char-legacy",
+                "data": {
+                    "name": "Legacy Rin",
+                    "creator_notes": "Imported archive"
+                }
+            })],
+        );
+    }
+
+    #[test]
+    fn project_list_rows_keeps_only_legacy_avatar_path_for_summary_projection() {
+        let rows = vec![
+            json!({
+                "id": "managed",
+                "avatarPath": "data:image/png;base64,large",
+                "avatarFilePath": "C:\\Marinara\\avatars\\managed.png",
+                "avatarFilename": "managed.png"
+            }),
+            json!({
+                "id": "legacy",
+                "avatarPath": "data:image/png;base64,legacy"
+            }),
+        ];
+
+        let projected = project_list_rows(
+            rows,
+            Some(&json!({
+                "fields": ["id", "avatarPath", "avatarFilePath", "avatarFilename"]
+            })),
+        );
+
+        assert_eq!(
+            projected,
+            vec![
+                json!({
+                    "id": "managed",
+                    "avatarFilePath": "C:\\Marinara\\avatars\\managed.png",
+                    "avatarFilename": "managed.png"
+                }),
+                json!({
+                    "id": "legacy",
+                    "avatarPath": "data:image/png;base64,legacy"
+                })
+            ],
+        );
+    }
+
+    #[test]
+    fn has_storage_search_ignores_empty_terms() {
+        assert!(!has_storage_search(Some(&json!({ "search": "   " }))));
+        assert!(!has_storage_search(Some(&json!({ "search": null }))));
+        assert!(has_storage_search(Some(&json!({ "search": "rina" }))));
     }
 
     #[test]
@@ -818,6 +1182,10 @@ mod tests {
         materialize_message_swipe_fields(&mut message);
 
         assert_eq!(message["content"], json!("second"));
+        assert_eq!(
+            message["swipePreviews"],
+            json!([{ "content": "first" }, { "content": "second" }])
+        );
         assert_eq!(message["extra"]["hiddenFromAI"], json!(true));
         assert_eq!(
             message["extra"]["generationInfo"]["model"],
@@ -1124,6 +1492,28 @@ mod tests {
     }
 
     #[test]
+    fn chat_preset_defaults_normalize_boolish_flags() {
+        let row = with_entity_defaults(
+            "chat-presets",
+            json!({
+                "name": "Imported Preset",
+                "mode": "roleplay",
+                "parameters": {},
+                "isDefault": "false",
+                "default": "0",
+                "isActive": "true",
+                "active": "yes"
+            }),
+        )
+        .expect("chat preset defaults should normalize");
+
+        assert_eq!(row["isDefault"], json!(false));
+        assert_eq!(row["default"], json!(false));
+        assert_eq!(row["isActive"], json!(true));
+        assert_eq!(row["active"], json!(true));
+    }
+
+    #[test]
     fn decode_uploaded_image_file_rejects_declared_oversized_upload() {
         let result = decode_uploaded_image_file(&json!({
             "file": {
@@ -1157,6 +1547,204 @@ mod tests {
         };
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("Only image uploads"));
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_declared_image_with_non_image_bytes() {
+        // `bm9wZQ==` decodes to "nope" - a valid `image/png` content type but
+        // bytes that are not actually an image.
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "fake.png",
+                "type": "image/png",
+                "size": 4,
+                "base64": "bm9wZQ=="
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("image-typed payload with non-image bytes should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Only image uploads"));
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_valid_png_bytes() {
+        // A real 1x1 PNG so the magic-byte check passes.
+        let png_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "pixel.png",
+                "type": "image/png",
+                "size": 70,
+                "base64": png_base64
+            }
+        }))
+        .expect("a real PNG payload should be accepted");
+        assert_eq!(uploaded.content_type, "image/png");
+        assert!(!uploaded.bytes.is_empty());
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_svg_with_root_element() {
+        let svg = "<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "logo.svg",
+                "type": "image/svg+xml",
+                "size": svg.len(),
+                "base64": general_purpose::STANDARD.encode(svg)
+            }
+        }))
+        .expect("a real SVG payload should be accepted");
+        assert_eq!(uploaded.content_type, "image/svg+xml");
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_svg_typed_non_svg_bytes() {
+        // `bm9wZQ==` decodes to "nope" - declared image/svg+xml but not SVG.
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "fake.svg",
+                "type": "image/svg+xml",
+                "size": 4,
+                "base64": "bm9wZQ=="
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("svg-typed payload without an svg root should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Only image uploads"));
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_accepts_svg_with_prolog_doctype_and_comment() {
+        let svg = "\u{feff}<?xml version=\"1.0\"?>\n<!-- a logo -->\n<!DOCTYPE svg>\n<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
+        let uploaded = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "logo.svg",
+                "type": "image/svg+xml",
+                "size": svg.len(),
+                "base64": general_purpose::STANDARD.encode(svg)
+            }
+        }))
+        .expect("an SVG with BOM, prolog, comment and doctype should be accepted");
+        assert_eq!(uploaded.content_type, "image/svg+xml");
+    }
+
+    #[test]
+    fn decode_uploaded_image_file_rejects_svg_substring_not_at_root() {
+        // `<svg` appears, but the document root is `<html>`, not `<svg>`.
+        let html = "<html><body><svg></svg></body></html>";
+        let result = decode_uploaded_image_file(&json!({
+            "file": {
+                "name": "sneaky.svg",
+                "type": "image/svg+xml",
+                "size": html.len(),
+                "base64": general_purpose::STANDARD.encode(html)
+            }
+        }));
+
+        let Err(error) = result else {
+            panic!("a non-svg-root document declared as SVG should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_coerces_legacy_string_fields() {
+        let Value::Object(mut object) = json!({
+            "enabled": "false",
+            "constant": "true",
+            "excludeFromVectorization": "1",
+            "keys": "[\"moon\"]",
+            "secondaryKeys": "[]",
+            "characterFilterIds": "[\"c1\"]",
+            "additionalMatchingSources": "[\"character_name\"]",
+            "relationships": "{}",
+            "schedule": null
+        }) else {
+            unreachable!("json! object literal");
+        };
+
+        normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect("legacy-style lorebook entry should normalize at the storage boundary");
+
+        assert_eq!(object["enabled"], json!(false));
+        assert_eq!(object["constant"], json!(true));
+        assert_eq!(object["excludeFromVectorization"], json!(true));
+        assert_eq!(object["keys"], json!(["moon"]));
+        assert_eq!(object["secondaryKeys"], json!([]));
+        assert_eq!(object["characterFilterIds"], json!(["c1"]));
+        assert_eq!(object["additionalMatchingSources"], json!(["character_name"]));
+        assert_eq!(object["relationships"], json!({}));
+        assert_eq!(object["schedule"], Value::Null);
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_keeps_native_row_unchanged() {
+        let Value::Object(mut object) = json!({
+            "enabled": true,
+            "constant": false,
+            "keys": ["sun"],
+            "secondaryKeys": [],
+            "additionalMatchingSources": ["character_name"],
+            "relationships": { "ally": "moon" },
+            "dynamicState": {},
+            "schedule": { "activeTimes": [], "activeDates": [], "activeLocations": [] }
+        }) else {
+            unreachable!("json! object literal");
+        };
+        let before = object.clone();
+
+        normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect("a native lorebook entry should pass through unchanged");
+
+        assert_eq!(object, before);
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_allows_null_object_fields() {
+        // A copy/duplicate round-trips a stored entry through this arm; a null
+        // relationships/dynamicState/schedule must pass through, not be rejected.
+        let Value::Object(mut object) = json!({
+            "relationships": null,
+            "dynamicState": null,
+            "schedule": null
+        }) else {
+            unreachable!("json! object literal");
+        };
+
+        normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect("null object fields should round-trip, not reject");
+        assert_eq!(object["relationships"], Value::Null);
+        assert_eq!(object["dynamicState"], Value::Null);
+        assert_eq!(object["schedule"], Value::Null);
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_rejects_unparseable_array_field() {
+        let Value::Object(mut object) = json!({ "keys": "not json" }) else {
+            unreachable!("json! object literal");
+        };
+
+        let error = normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect_err("an unparseable array field must be rejected, not silently stored");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn normalize_typed_lorebook_entry_rejects_unparseable_object_field() {
+        let Value::Object(mut object) = json!({ "relationships": "not json" }) else {
+            unreachable!("json! object literal");
+        };
+
+        let error = normalize_typed_json_fields("lorebook-entries", &mut object)
+            .expect_err("an unparseable object field must be rejected, not silently stored");
+        assert_eq!(error.code, "invalid_input");
     }
 }
 
@@ -1303,6 +1891,48 @@ fn image_upload_invalid_type_error() -> AppError {
     AppError::invalid_input("Only image uploads are allowed")
 }
 
+/// True when the decoded bytes are a UTF-8 XML document whose first element is
+/// `<svg>`. Skips a UTF-8 BOM, leading whitespace, the `<?xml ...?>` prolog, XML
+/// comments, and `<!DOCTYPE ...>`/declarations, then requires the first start
+/// tag to be `svg`. This rejects a non-SVG document that merely contains the
+/// `<svg` substring somewhere inside it.
+fn bytes_have_svg_root(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+    loop {
+        if let Some(after) = rest.strip_prefix("<?") {
+            let Some(end) = after.find("?>") else {
+                return false;
+            };
+            rest = after[end + 2..].trim_start();
+        } else if let Some(after) = rest.strip_prefix("<!--") {
+            let Some(end) = after.find("-->") else {
+                return false;
+            };
+            rest = after[end + 3..].trim_start();
+        } else if rest.starts_with("<!") {
+            // DOCTYPE or other declaration.
+            let Some(end) = rest.find('>') else {
+                return false;
+            };
+            rest = rest[end + 1..].trim_start();
+        } else {
+            break;
+        }
+    }
+    let Some(after) = rest
+        .get(..4)
+        .filter(|head| head.eq_ignore_ascii_case("<svg"))
+        .map(|_| &rest[4..])
+    else {
+        return false;
+    };
+    // The tag name must end here (delimiter), not be a prefix like `<svguard`.
+    after.is_empty() || after.starts_with(['>', '/']) || after.starts_with(char::is_whitespace)
+}
+
 pub(crate) fn decode_uploaded_file_value(file: &Value) -> AppResult<UploadedFile> {
     let name = file
         .get("name")
@@ -1365,6 +1995,23 @@ pub(crate) fn decode_uploaded_image_file(body: &Value) -> AppResult<UploadedFile
     let uploaded = decode_uploaded_file_value(file)?;
     if uploaded.bytes.len() > MAX_IMAGE_UPLOAD_BYTES {
         return Err(image_upload_too_large_error());
+    }
+    // The declared `image/*` content type is caller-controlled; validate that
+    // the decoded bytes actually carry image content before storing or serving
+    // them, rejecting arbitrary bytes masquerading as an image.
+    if content_type.eq_ignore_ascii_case("image/svg+xml") {
+        // SVG is an accepted upload type but is XML text with no binary magic,
+        // so `image::guess_format` cannot recognize it. Require an `<svg>` ROOT
+        // element (not just the substring anywhere), which still rejects non-SVG
+        // bytes declared as SVG, including a document that merely embeds `<svg`
+        // inside another root element.
+        if !bytes_have_svg_root(&uploaded.bytes) {
+            return Err(image_upload_invalid_type_error());
+        }
+    } else {
+        // A magic-byte check accepts every real raster image format, including
+        // ones whose decoder feature is not compiled in (e.g. GIF).
+        image::guess_format(&uploaded.bytes).map_err(|_| image_upload_invalid_type_error())?;
     }
     Ok(uploaded)
 }
@@ -1431,12 +2078,246 @@ pub(crate) fn project_record(row: Value, options: Option<&Value>) -> Value {
     project_row(row, &fields, options)
 }
 
+pub(crate) fn projection_fields(options: Option<&Value>) -> Option<Vec<String>> {
+    option_string_array(options, "fields").map(|fields| {
+        fields
+            .into_iter()
+            .map(|field| field.trim().to_string())
+            .filter(|field| !field.is_empty())
+            .collect()
+    })
+}
+
+pub(crate) fn projection_field_selections(
+    options: Option<&Value>,
+) -> &serde_json::Map<String, Value> {
+    if let Some(selections) = options
+        .and_then(|value| value.get("fieldSelections"))
+        .and_then(Value::as_object)
+    {
+        selections
+    } else {
+        empty_projection_field_selections()
+    }
+}
+
+fn empty_projection_field_selections() -> &'static serde_json::Map<String, Value> {
+    static EMPTY: std::sync::OnceLock<serde_json::Map<String, Value>> = std::sync::OnceLock::new();
+    EMPTY.get_or_init(serde_json::Map::new)
+}
+
+/// Character data subfields added to projected rows so storage search can
+/// match card metadata and prompt text without returning embedded avatars.
+const CHARACTER_DATA_SEARCH_FIELDS: &[&str] = &[
+    "name",
+    "creator",
+    "creator_notes",
+    "tags",
+    "description",
+    "personality",
+    "scenario",
+    "first_mes",
+    "mes_example",
+    "system_prompt",
+    "post_history_instructions",
+    "alternate_greetings",
+    "extensions",
+];
+
+/// Expands top-level projection fields for searchable list queries.
+///
+/// The returned field set preserves the caller's requested projection, then
+/// adds fields searched by `apply_storage_search` plus default/orderBy sort
+/// fields needed before the final caller-facing projection is applied.
+pub(crate) fn search_projection_fields(options: Option<&Value>) -> Vec<String> {
+    let mut fields = projection_fields(options).unwrap_or_default();
+    for field in [
+        "id",
+        "name",
+        "comment",
+        "content",
+        "swipes",
+        "data",
+        "sortOrder",
+        "order",
+        "createdAt",
+        "updatedAt",
+    ] {
+        if !fields.iter().any(|existing| existing == field) {
+            fields.push(field.to_string());
+        }
+    }
+    if let Some(order_by) = options
+        .and_then(|value| value.get("orderBy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !fields.iter().any(|existing| existing == order_by) {
+            fields.push(order_by.to_string());
+        }
+    }
+    fields
+}
+
+/// Expands nested projection selections for searchable character data.
+///
+/// When callers request a subset of `data`, this adds the character fields that
+/// search needs for matching, then final projection narrows the response again.
+pub(crate) fn search_projection_field_selections(
+    options: Option<&Value>,
+) -> serde_json::Map<String, Value> {
+    let mut selections = projection_field_selections(options).clone();
+    let original_fields = projection_fields(options).unwrap_or_default();
+    let original_requests_data = original_fields.iter().any(|field| field == "data");
+    let original_data_fields = selections.get("data").and_then(string_array_from_json);
+    // Preserve explicit full-data projections. If the caller requested `data`
+    // and `original_data_fields` is absent or empty, returning the original
+    // `selections` lets storage return complete data for search and response.
+    if original_requests_data
+        && original_data_fields
+            .as_ref()
+            .is_none_or(|fields| fields.is_empty())
+    {
+        return selections;
+    }
+
+    let mut data_fields = original_data_fields.unwrap_or_default();
+    for field in CHARACTER_DATA_SEARCH_FIELDS {
+        if !data_fields.iter().any(|existing| existing == field) {
+            data_fields.push(field.to_string());
+        }
+    }
+    selections.insert(
+        "data".to_string(),
+        Value::Array(data_fields.into_iter().map(Value::String).collect()),
+    );
+    selections
+}
+
+pub(crate) fn apply_storage_search(rows: &mut Vec<Value>, options: Option<&Value>) {
+    let Some(query) = storage_search_query(options) else {
+        return;
+    };
+    let terms = query
+        .split_whitespace()
+        .map(|term| term.to_lowercase())
+        .filter(|term| !term.is_empty())
+        .collect::<Vec<_>>();
+    if terms.is_empty() {
+        return;
+    }
+    rows.retain(|row| terms.iter().all(|term| row_matches_search_term(row, term)));
+}
+
+pub(crate) fn has_storage_search(options: Option<&Value>) -> bool {
+    storage_search_query(options).is_some()
+}
+
+fn storage_search_query(options: Option<&Value>) -> Option<&str> {
+    options
+        .and_then(|value| value.get("search"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn row_matches_search_term(row: &Value, term: &str) -> bool {
+    let Some(object) = row.as_object() else {
+        return false;
+    };
+    value_matches_search_term(object.get("id"), term)
+        || value_matches_search_term(object.get("name"), term)
+        || value_matches_search_term(object.get("comment"), term)
+        || value_matches_search_term(object.get("content"), term)
+        || swipe_content_matches_search_term(object.get("swipes"), term)
+        || json_object_value(object.get("data")).is_some_and(|data| {
+            let Some(data) = data.as_object() else {
+                return false;
+            };
+            value_matches_search_term(data.get("name"), term)
+                || value_matches_search_term(data.get("creator"), term)
+                || value_matches_search_term(data.get("creator_notes"), term)
+                || value_matches_search_term(data.get("tags"), term)
+                || value_matches_search_term(data.get("description"), term)
+                || value_matches_search_term(data.get("personality"), term)
+                || value_matches_search_term(data.get("scenario"), term)
+                || value_matches_search_term(data.get("first_mes"), term)
+                || value_matches_search_term(data.get("mes_example"), term)
+                || value_matches_search_term(data.get("system_prompt"), term)
+                || value_matches_search_term(data.get("post_history_instructions"), term)
+                || value_matches_search_term(data.get("alternate_greetings"), term)
+                || character_extension_matches_search_term(data.get("extensions"), term)
+        })
+}
+
+fn value_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    match value {
+        Some(Value::String(value)) => value.to_lowercase().contains(term),
+        Some(Value::Array(values)) => values
+            .iter()
+            .any(|value| value_matches_search_term(Some(value), term)),
+        _ => false,
+    }
+}
+
+fn character_extension_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(extensions) = json_object_value(value) else {
+        return false;
+    };
+    let Some(extensions) = extensions.as_object() else {
+        return false;
+    };
+    value_matches_search_term(extensions.get("backstory"), term)
+        || value_matches_search_term(extensions.get("appearance"), term)
+        || value_matches_search_term(extensions.get("world"), term)
+        || character_alt_description_matches_search_term(extensions.get("altDescriptions"), term)
+        || json_object_value(extensions.get("depth_prompt")).is_some_and(|depth_prompt| {
+            depth_prompt.as_object().is_some_and(|depth_prompt| {
+                value_matches_search_term(depth_prompt.get("prompt"), term)
+            })
+        })
+}
+
+fn character_alt_description_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(Value::Array(alt_descriptions)) = value else {
+        return false;
+    };
+    alt_descriptions.iter().any(|entry| {
+        json_object_value(Some(entry)).is_some_and(|entry| {
+            entry.as_object().is_some_and(|entry| {
+                value_matches_search_term(entry.get("label"), term)
+                    || value_matches_search_term(entry.get("content"), term)
+            })
+        })
+    })
+}
+
+fn swipe_content_matches_search_term(value: Option<&Value>, term: &str) -> bool {
+    let Some(Value::Array(swipes)) = value else {
+        return false;
+    };
+    swipes
+        .iter()
+        .any(|swipe| value_matches_search_term(swipe.get("content"), term))
+}
+
 fn project_row(row: Value, fields: &[String], options: Option<&Value>) -> Value {
     let Value::Object(object) = row else {
         return row;
     };
     let mut projected = Map::new();
+    let omit_redundant_avatar_path = fields
+        .iter()
+        .any(|field| field == "avatarFilePath" || field == "avatarFilename")
+        && [object.get("avatarFilePath"), object.get("avatarFilename")]
+            .into_iter()
+            .flatten()
+            .any(|value| value.as_str().is_some_and(|value| !value.trim().is_empty()));
     for field in fields {
+        if field == "avatarPath" && omit_redundant_avatar_path {
+            continue;
+        }
         let Some(value) = object.get(field) else {
             continue;
         };
@@ -1461,17 +2342,23 @@ fn project_nested_field(field: &str, value: Value, options: Option<&Value>) -> V
         return value;
     }
     match value {
-        Value::Object(object) => {
-            let mut projected = Map::new();
-            for nested_field in nested_fields {
-                if let Some(nested_value) = object.get(&nested_field) {
-                    projected.insert(nested_field, nested_value.clone());
-                }
-            }
-            Value::Object(projected)
-        }
+        Value::String(raw) => match serde_json::from_str::<Value>(&raw) {
+            Ok(Value::Object(object)) => project_object_nested_fields(&object, &nested_fields),
+            _ => Value::String(raw),
+        },
+        Value::Object(object) => project_object_nested_fields(&object, &nested_fields),
         other => other,
     }
+}
+
+fn project_object_nested_fields(object: &Map<String, Value>, nested_fields: &[String]) -> Value {
+    let mut projected = Map::new();
+    for nested_field in nested_fields {
+        if let Some(nested_value) = object.get(nested_field) {
+            projected.insert(nested_field.clone(), nested_value.clone());
+        }
+    }
+    Value::Object(projected)
 }
 
 fn option_string_array(options: Option<&Value>, key: &str) -> Option<Vec<String>> {

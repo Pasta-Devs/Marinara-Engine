@@ -2,12 +2,14 @@
 // Panel: Browser (sidebar — shows imported characters)
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback } from "react";
-import { useCharacters } from "../../../catalog/characters/index";
+import { characterAvatarUrl, useCharacterSummaries } from "../../../catalog/characters/index";
 import { useStartChatFromCharacter } from "../../../catalog/characters/index";
+import { storageApi } from "../../../../shared/api/storage-api";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { Search, User, Globe, Wand2, MessageCircle } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../../../shared/lib/utils";
 import { ContextMenu, type ContextMenuItem } from "../../../../shared/components/ui/ContextMenu";
+import { toast } from "sonner";
 
 type CharacterData = Record<string, unknown> & {
   name?: string;
@@ -16,7 +18,15 @@ type CharacterData = Record<string, unknown> & {
   extensions?: Record<string, unknown>;
 };
 
-type CharacterRow = { id: string; data: unknown; avatarPath: string | null; createdAt: string; updatedAt: string };
+type CharacterRow = {
+  id: string;
+  data: unknown;
+  avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 function parseCharacterData(data: unknown): CharacterData | null {
   if (typeof data === "string") {
@@ -31,7 +41,7 @@ function parseCharacterData(data: unknown): CharacterData | null {
 }
 
 export function BotBrowserPanel() {
-  const { data: characters, isLoading } = useCharacters();
+  const { data: characters, isLoading } = useCharacterSummaries();
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
@@ -54,7 +64,12 @@ export function BotBrowserPanel() {
       const d = parseCharacterData(c.data);
       if (!d) return acc;
       if (d.extensions?.botBrowserSource) {
-        acc.push({ id: c.id, name: d.name ?? "Unnamed", avatarPath: c.avatarPath, createdAt: c.createdAt });
+        acc.push({
+          id: c.id,
+          name: d.name ?? "Unnamed",
+          avatarPath: characterAvatarUrl(c),
+          createdAt: c.createdAt ?? "",
+        });
       }
       return acc;
     }, []);
@@ -67,17 +82,22 @@ export function BotBrowserPanel() {
   }, [parsed, search]);
 
   const getCharacterGreeting = useCallback(
-    (charId: string): { firstMes?: string; altGreetings: string[] } => {
-      const raw = (characters as CharacterRow[] | undefined)?.find((c) => c.id === charId);
+    async (charId: string): Promise<{ firstMes?: string; altGreetings: string[] }> => {
+      const raw = await storageApi.get<CharacterRow>("characters", charId, {
+        fields: ["id", "data"],
+        fieldSelections: { data: ["first_mes", "alternate_greetings"] },
+      });
       if (!raw) return { altGreetings: [] };
       const d = parseCharacterData(raw.data);
       if (!d) return { altGreetings: [] };
       return {
         firstMes: d.first_mes,
-        altGreetings: Array.isArray(d.alternate_greetings) ? d.alternate_greetings.filter((g): g is string => typeof g === "string") : [],
+        altGreetings: Array.isArray(d.alternate_greetings)
+          ? d.alternate_greetings.filter((g): g is string => typeof g === "string")
+          : [],
       };
     },
-    [characters],
+    [],
   );
 
   return (
@@ -123,15 +143,29 @@ export function BotBrowserPanel() {
               onClick={() => openCharacterDetail(char.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                const greeting = getCharacterGreeting(char.id);
-                setContextMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  charId: char.id,
-                  charName: char.name,
-                  firstMes: greeting.firstMes,
-                  altGreetings: greeting.altGreetings,
-                });
+                const x = e.clientX;
+                const y = e.clientY;
+                void getCharacterGreeting(char.id)
+                  .then((greeting) => {
+                    setContextMenu({
+                      x,
+                      y,
+                      charId: char.id,
+                      charName: char.name,
+                      firstMes: greeting.firstMes,
+                      altGreetings: greeting.altGreetings,
+                    });
+                  })
+                  .catch(() => {
+                    toast.error("Could not load character greetings.");
+                    setContextMenu({
+                      x,
+                      y,
+                      charId: char.id,
+                      charName: char.name,
+                      altGreetings: [],
+                    });
+                  });
               }}
               className="group flex items-center gap-2.5 rounded-xl p-2 text-left transition-all hover:bg-[var(--sidebar-accent)]"
             >

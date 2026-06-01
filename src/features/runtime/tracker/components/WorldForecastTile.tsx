@@ -166,12 +166,18 @@ function getBalancedWeatherLines(text: string, lineCount: 2 | 3) {
     }
   }
 
-  return candidates.reduce((best, candidate) => {
-    return scoreWeatherLines(candidate) < scoreWeatherLines(best) ? candidate : best;
-  }, candidates[0] ?? [text]);
+  return candidates.reduce(
+    (best, candidate) => {
+      return scoreWeatherLines(candidate) < scoreWeatherLines(best) ? candidate : best;
+    },
+    candidates[0] ?? [text],
+  );
 }
 
-function getWorldWeatherLabelPlan(text: string, trackerPanelSizeProfile: TrackerPanelSizeProfile): WorldWeatherLabelPlan {
+function getWorldWeatherLabelPlan(
+  text: string,
+  trackerPanelSizeProfile: TrackerPanelSizeProfile,
+): WorldWeatherLabelPlan {
   const normalized = text.replace(/\s+/g, " ").trim();
   const words = normalized ? normalized.split(" ") : [];
   const wordCount = words.length;
@@ -191,8 +197,7 @@ function getWorldWeatherLabelPlan(text: string, trackerPanelSizeProfile: Tracker
   }
 
   const useThreeLines =
-    !isExpanded &&
-    (wordCount > (isCompact ? 4 : 5) || normalized.length > (isCompact ? 34 : 42) || longestWord > 18);
+    !isExpanded && (wordCount > (isCompact ? 4 : 5) || normalized.length > (isCompact ? 34 : 42) || longestWord > 18);
   const lines = getBalancedWeatherLines(normalized, useThreeLines ? 3 : 2);
 
   return {

@@ -25,7 +25,7 @@ interface GameInventoryProps {
   /** Called when the user wants to add a new item */
   onAddItem?: () => Promise<string | null> | string | null;
   /** Called when the user wants to use an item during input phase */
-  onUseItem?: (itemName: string) => void;
+  onUseItem?: (itemName: string) => void | Promise<void>;
   /** Called when the user wants to rename an item */
   onRenameItem?: (currentName: string, nextName: string) => Promise<string | null> | string | null;
   /** Called when the user wants to manually remove one unit of an item */
@@ -60,6 +60,7 @@ export function GameInventory({
   const [renamePending, setRenamePending] = useState(false);
   const [addPending, setAddPending] = useState(false);
   const [amountPending, setAmountPending] = useState<"increment" | "decrement" | "clear" | null>(null);
+  const [usePending, setUsePending] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
 
   // Mouse: 4px distance threshold so quick clicks still select.
@@ -82,9 +83,16 @@ export function GameInventory({
   );
 
   const handleUse = useCallback(
-    (itemName: string) => {
-      onUseItem?.(itemName);
-      setSelectedItem(null);
+    async (itemName: string) => {
+      if (!onUseItem) return;
+
+      setUsePending(true);
+      try {
+        await onUseItem(itemName);
+        setSelectedItem(null);
+      } finally {
+        setUsePending(false);
+      }
     },
     [onUseItem],
   );
@@ -391,11 +399,12 @@ export function GameInventory({
               )}
               {selectedItem && canInteract && onUseItem && (
                 <button
-                  onClick={() => handleUse(selectedItem)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 py-1.5 text-[0.7rem] font-semibold text-amber-400 transition-colors hover:bg-amber-500/15"
+                  onClick={() => void handleUse(selectedItem)}
+                  disabled={usePending}
+                  className="flex flex-1 items-center justify-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 py-1.5 text-[0.7rem] font-semibold text-amber-400 transition-colors hover:bg-amber-500/15 disabled:cursor-wait disabled:opacity-60"
                 >
                   <Wand2 size={12} />
-                  Use
+                  {usePending ? "Using..." : "Use"}
                 </button>
               )}
             </div>

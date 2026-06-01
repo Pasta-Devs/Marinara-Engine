@@ -1,16 +1,10 @@
 import { useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  Circle,
-  Image,
-  Layers,
-  MessageSquareText,
-  Palette,
-  Sparkles,
-  Square,
-} from "lucide-react";
-import type { TrackerCardColorConfig, TrackerCardColorMode, TrackerCardPortraitStageBackground } from "../../../engine/contracts/types/persona";
+import { Check, ChevronDown, Circle, Image, Layers, MessageSquareText, Palette, Sparkles, Square } from "lucide-react";
+import type {
+  TrackerCardColorConfig,
+  TrackerCardColorMode,
+  TrackerCardPortraitStageBackground,
+} from "../../../engine/contracts/types/persona";
 import { cn } from "../../lib/utils";
 import {
   cleanTrackerCardColorConfig,
@@ -280,7 +274,10 @@ export function TrackerCardColorControls({
           <h4 className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{entityLabel} card</h4>
           <div className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
             <span
-              className={cn("h-4 w-4 rounded ring-1 ring-[var(--border)]", !paintEnabled.displayEnabled && "opacity-35")}
+              className={cn(
+                "h-4 w-4 rounded ring-1 ring-[var(--border)]",
+                !paintEnabled.displayEnabled && "opacity-35",
+              )}
               style={getDisplayStyle(effectiveColors.nameColor)}
             />
             <span
@@ -288,7 +285,10 @@ export function TrackerCardColorControls({
               style={getDisplayStyle(effectiveColors.dialogueColor)}
             />
             <span
-              className={cn("h-4 w-4 rounded ring-1 ring-[var(--border)]", !paintEnabled.surfaceEnabled && "opacity-35")}
+              className={cn(
+                "h-4 w-4 rounded ring-1 ring-[var(--border)]",
+                !paintEnabled.surfaceEnabled && "opacity-35",
+              )}
               style={getDisplayStyle(effectiveColors.boxColor)}
             />
             <ChevronDown
@@ -578,15 +578,24 @@ export function TrackerCardColorControls({
         </div>
         <div className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
           <span
-            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.displayEnabled && "opacity-35")}
+            className={cn(
+              "h-5 w-5 rounded-md ring-1 ring-[var(--border)]",
+              !paintEnabled.displayEnabled && "opacity-35",
+            )}
             style={getDisplayStyle(effectiveColors.nameColor)}
           />
           <span
-            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.accentEnabled && "opacity-35")}
+            className={cn(
+              "h-5 w-5 rounded-md ring-1 ring-[var(--border)]",
+              !paintEnabled.accentEnabled && "opacity-35",
+            )}
             style={getDisplayStyle(effectiveColors.dialogueColor)}
           />
           <span
-            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.surfaceEnabled && "opacity-35")}
+            className={cn(
+              "h-5 w-5 rounded-md ring-1 ring-[var(--border)]",
+              !paintEnabled.surfaceEnabled && "opacity-35",
+            )}
             style={getDisplayStyle(effectiveColors.boxColor)}
           />
           <ChevronDown

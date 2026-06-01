@@ -1,8 +1,4 @@
-import type {
-  AddChatMessageSwipeOptions,
-  StorageGateway,
-  StorageListOptions,
-} from "../../engine/capabilities/storage";
+import type { AddChatMessageSwipeOptions, StorageGateway, StorageListOptions } from "../../engine/capabilities/storage";
 import { collapseExcessBlankLines } from "../../engine/shared/text/newlines";
 import { ApiError } from "./api-errors";
 import { invokeTauri } from "./tauri-client";
@@ -42,7 +38,11 @@ function normalizeArrayField(record: Record<string, unknown>, field: string): vo
   }
 }
 
-function normalizeObjectField(record: Record<string, unknown>, field: string, fallback: Record<string, unknown> | null): void {
+function normalizeObjectField(
+  record: Record<string, unknown>,
+  field: string,
+  fallback: Record<string, unknown> | null,
+): void {
   const parsed = parseStoredJson(record[field]);
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
     record[field] = parsed as Record<string, unknown>;
@@ -138,40 +138,58 @@ async function patchChatObjectField<T>(chatId: string, field: string, patch: Rec
   return storageApi.update<T>("chats", chatId, { [field]: { ...current, ...patch } });
 }
 
+// Day/week summary maps live inside chat metadata, but callers send only the
+// entries they changed (a delta), not the whole map. A plain metadata patch
+// would replace `metadata.daySummaries` with just the delta and drop every
+// other summary, so merge each map at the entry level instead.
+const SUMMARY_MAP_FIELDS = ["daySummaries", "weekSummaries"] as const;
+
+async function patchChatSummariesField<T>(chatId: string, patch: Record<string, unknown>): Promise<T> {
+  const chat = await storageApi.get<Record<string, unknown>>("chats", chatId, { fields: ["metadata"] });
+  if (!chat) throw new ApiError(`Chat ${chatId} was not found`, 404);
+  const current = asRecord(chat.metadata);
+  const metadata: Record<string, unknown> = { ...current };
+  for (const field of SUMMARY_MAP_FIELDS) {
+    if (patch[field] === undefined) continue;
+    metadata[field] = { ...asRecord(current[field]), ...asRecord(patch[field]) };
+  }
+  return storageApi.update<T>("chats", chatId, { metadata });
+}
+
 export const storageApi: StorageGateway = {
   list: async (entity: string, options?: StorageListOptions) =>
     normalizeStorageReadResult(
       entity,
       await invokeTauri("storage_list", {
-      entity,
-      options: options ?? null,
-    }),
+        entity,
+        options: options ?? null,
+      }),
     ) as never,
   get: async (entity: string, id: string, options?: Pick<StorageListOptions, "fields" | "fieldSelections">) =>
     normalizeStorageReadResult(
       entity,
       await invokeTauri("storage_get", {
-      entity,
-      id,
-      options: options ?? null,
-    }),
+        entity,
+        id,
+        options: options ?? null,
+      }),
     ) as never,
   create: async (entity: string, value: Record<string, unknown>) =>
     normalizeStorageReadResult(
       entity,
       await invokeTauri("storage_create", {
-      entity,
-      value: normalizeStorageWrite(entity, value),
-    }),
+        entity,
+        value: normalizeStorageWrite(entity, value),
+      }),
     ) as never,
   update: async (entity: string, id: string, patch: Record<string, unknown>) =>
     normalizeStorageReadResult(
       entity,
       await invokeTauri("storage_update", {
-      entity,
-      id,
-      patch: normalizeStorageWrite(entity, patch),
-    }),
+        entity,
+        id,
+        patch: normalizeStorageWrite(entity, patch),
+      }),
     ) as never,
   delete: (entity: string, id: string) =>
     invokeTauri("storage_delete", {
@@ -185,9 +203,22 @@ export const storageApi: StorageGateway = {
     }),
   createChatMessage: (chatId, value) => storageApi.create("messages", chatMessageDefaults(chatId, value)),
   updateChatMessage: (messageId, patch) => storageApi.update("messages", messageId, normalizeMessageWrite(patch)),
+  updateChatMessageContentIfUnchanged: async (chatId, messageId, expectedContent, content) => {
+    const result = (await invokeTauri("chat_message_update_content_if_unchanged", {
+      chatId,
+      messageId,
+      expectedContent,
+      content: collapseExcessBlankLines(content),
+    })) as { updated?: boolean; message?: unknown } | null;
+    const message = result?.message ? normalizeStorageReadResult("messages", result.message) : undefined;
+    return {
+      updated: result?.updated === true,
+      ...(message === undefined ? {} : { message }),
+    } as never;
+  },
   deleteChatMessage: (messageId) => storageApi.delete("messages", messageId),
   patchChatMessageExtra: async (messageId, patch) => {
-    const message = await storageApi.get<Record<string, unknown>>("messages", messageId);
+    const message = await storageApi.get<Record<string, unknown>>("messages", messageId, { fields: ["extra"] });
     if (!message) throw new ApiError(`Message ${messageId} was not found`, 404);
     return storageApi.update("messages", messageId, {
       extra: { ...asRecord(message.extra), ...patch },
@@ -200,7 +231,7 @@ export const storageApi: StorageGateway = {
       body: chatMessageSwipeBody(content, options),
     }),
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
-  patchChatSummaries: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
+  patchChatSummaries: (chatId, patch) => patchChatSummariesField(chatId, patch),
   listChatMemories: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
     return asArray(chat?.memories);

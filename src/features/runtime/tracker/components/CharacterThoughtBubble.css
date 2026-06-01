@@ -22,11 +22,7 @@
   inset: 0;
   border-radius: inherit;
   background-image:
-    radial-gradient(
-      circle at 26% 12%,
-      color-mix(in srgb, var(--foreground) 9%, transparent),
-      transparent 34%
-    ),
+    radial-gradient(circle at 26% 12%, color-mix(in srgb, var(--foreground) 9%, transparent), transparent 34%),
     radial-gradient(
       circle at 88% 92%,
       color-mix(in srgb, var(--tracker-profile-accent-solid) 13%, transparent),
@@ -100,11 +96,7 @@
 
 .tracker-floating-thought-overlay {
   background-image:
-    radial-gradient(
-      circle at 28% 14%,
-      color-mix(in srgb, var(--foreground) 10%, transparent),
-      transparent 36%
-    ),
+    radial-gradient(circle at 28% 14%, color-mix(in srgb, var(--foreground) 10%, transparent), transparent 36%),
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--primary) 10%, transparent),
@@ -169,11 +161,7 @@
 
 .tracker-inline-thought-overlay {
   background-image:
-    radial-gradient(
-      circle at 28% 18%,
-      color-mix(in srgb, var(--foreground) 8%, transparent),
-      transparent 38%
-    ),
+    radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--foreground) 8%, transparent), transparent 38%),
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--primary) 8%, transparent),

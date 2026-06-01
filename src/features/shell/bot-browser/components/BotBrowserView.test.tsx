@@ -51,7 +51,10 @@ function deferred<T>() {
 }
 
 function chubSearchResult(name = "Retry Bot") {
-  const pathName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const pathName = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
   return {
     data: {
       nodes: [
@@ -205,9 +208,9 @@ describe("BotBrowserView provider error UI", () => {
       expect(container.textContent).toContain("Retry Bot");
     });
     expect(container.textContent).not.toContain("late provider failure");
-    expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Retry")).toBe(
-      false,
-    );
+    expect(
+      Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Retry"),
+    ).toBe(false);
   });
 
   it("does not paint older results during the debounce gap after search criteria changes", async () => {
@@ -256,5 +259,85 @@ describe("BotBrowserView provider error UI", () => {
       expect(container.textContent).toContain("New Query Bot");
     });
     expect(container.textContent).not.toContain("Old Query Bot");
+  });
+
+  it("surfaces a failed detail fetch as a retryable error instead of the empty-definition state", async () => {
+    // Search succeeds with one card; the detail fetch (chub/character/...) rejects.
+    botBrowserGetMock.mockImplementation(async (path) => {
+      const textPath = String(path);
+      if (textPath.endsWith("/session") || textPath === "pygmalion/session" || textPath === "chartavern/session") {
+        return { active: false };
+      }
+      if (textPath.includes("chub/character/")) {
+        return Promise.reject(new Error("Network down"));
+      }
+      if (textPath.startsWith("chub/search?")) {
+        return chubSearchResult("Detail Bot");
+      }
+      return {};
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <BotBrowserView />
+        </QueryClientProvider>,
+      );
+    });
+
+    await flushSearchTimer();
+
+    // The card tile renders as a grid button (onClick -> openDetail). Locate it by its name,
+    // excluding the "Refresh" search-bar button and any error Retry button.
+    let cardTile: HTMLButtonElement | undefined;
+    await vi.waitFor(() => {
+      cardTile = Array.from(container.querySelectorAll("button")).find(
+        (button) =>
+          button.getAttribute("title") !== "Refresh" &&
+          button.textContent?.includes("Detail Bot") &&
+          !button.textContent?.includes("Retry"),
+      ) as HTMLButtonElement | undefined;
+      expect(cardTile).toBeTruthy();
+    });
+
+    await act(async () => {
+      cardTile!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // Post-fix (GREEN): the transport error is surfaced with a Retry control.
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("Network down");
+    });
+    expect(container.textContent).not.toContain("No detailed definition available");
+
+    const detailRetryButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Retry"),
+    );
+    expect(detailRetryButton).toBeTruthy();
+
+    // Retry path: a now-succeeding detail fetch clears the error and renders the definition.
+    botBrowserGetMock.mockImplementation(async (path) => {
+      const textPath = String(path);
+      if (textPath.endsWith("/session") || textPath === "pygmalion/session" || textPath === "chartavern/session") {
+        return { active: false };
+      }
+      if (textPath.includes("chub/character/")) {
+        return { node: { definition: { personality: "Recovered personality text." } } };
+      }
+      if (textPath.startsWith("chub/search?")) {
+        return chubSearchResult("Detail Bot");
+      }
+      return {};
+    });
+
+    await act(async () => {
+      detailRetryButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("Recovered personality text.");
+    });
+    expect(container.textContent).not.toContain("Network down");
+    expect(container.textContent).not.toContain("No detailed definition available");
   });
 });

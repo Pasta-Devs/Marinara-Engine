@@ -15,7 +15,7 @@ export interface KnownModel {
 
 // ── OpenAI (from #model_openai_select) ──
 
-export const OPENAI_MODELS: KnownModel[] = [
+const OPENAI_MODELS: KnownModel[] = [
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
@@ -102,7 +102,7 @@ export const OPENAI_MODELS: KnownModel[] = [
 
 // ── Anthropic / Claude (from #model_claude_select) ──
 
-export const ANTHROPIC_MODELS: KnownModel[] = [
+const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-4-8", name: "claude-opus-4-8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "claude-opus-4-7", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 32000 },
@@ -131,7 +131,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 ];
 
 // ── Claude (Subscription via local Claude Code auth) ──
-export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
+const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
   { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-6", name: "Claude Opus 4.6", context: 1000000, maxOutput: 32000 },
@@ -142,7 +142,7 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 ];
 
 // ── OpenAI (ChatGPT login via local Codex auth) ──
-export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
+const OPENAI_CHATGPT_MODELS: KnownModel[] = [
   { id: "gpt-5.2", name: "GPT-5.2", context: 1000000, maxOutput: 32768 },
   { id: "gpt-5.1", name: "GPT-5.1", context: 1000000, maxOutput: 32768 },
   { id: "gpt-5", name: "GPT-5", context: 1000000, maxOutput: 32768 },
@@ -156,7 +156,7 @@ export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
 
 // ── Google AI Studio (from #model_google_select) ──
 
-export const GOOGLE_MODELS: KnownModel[] = [
+const GOOGLE_MODELS: KnownModel[] = [
   // Gemini 3.5
   { id: "gemini-3.5-flash", name: "gemini-3.5-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.1
@@ -260,11 +260,11 @@ export const GOOGLE_MODELS: KnownModel[] = [
 
 // ── MistralAI (loaded dynamically from API in SillyTavern — no static list) ──
 
-export const MISTRAL_MODELS: KnownModel[] = [];
+const MISTRAL_MODELS: KnownModel[] = [];
 
 // ── Cohere (from #model_cohere_select) ──
 
-export const COHERE_MODELS: KnownModel[] = [
+const COHERE_MODELS: KnownModel[] = [
   // Stable
   { id: "c4ai-aya-23-8b", name: "c4ai-aya-23-8b", context: 8192, maxOutput: 4096 },
   { id: "c4ai-aya-23", name: "c4ai-aya-23", context: 8192, maxOutput: 4096 },
@@ -288,115 +288,17 @@ export const COHERE_MODELS: KnownModel[] = [
 
 // ── OpenRouter (loaded dynamically from API in SillyTavern — no static list) ──
 
-export const OPENROUTER_MODELS: KnownModel[] = [];
+const OPENROUTER_MODELS: KnownModel[] = [];
 
 // ── xAI / Grok (OpenAI-compatible API) ──
 
-export const XAI_MODELS: KnownModel[] = [
+const XAI_MODELS: KnownModel[] = [
   // Official xAI docs recommend Grok 4.3 for standard chat API usage.
   { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },
   // Reasoning docs mention this model as auto-reasoning without configurable effort.
   { id: "grok-4-1-fast", name: "Grok 4.1 Fast", context: 2000000, maxOutput: 0 },
   // Multi-agent research model; uses Responses API and reasoning.effort for 4 vs 16 agents.
   { id: "grok-4.20-multi-agent", name: "Grok 4.20 Multi-Agent", context: 2000000, maxOutput: 0 },
-];
-
-// ── Additional providers with static lists in SillyTavern ──
-
-// Groq (from #model_groq_select)
-export const GROQ_MODELS: KnownModel[] = [
-  { id: "qwen/qwen3-32b", name: "qwen/qwen3-32b", context: 128000, maxOutput: 8192 },
-  { id: "deepseek-r1-distill-llama-70b", name: "deepseek-r1-distill-llama-70b", context: 128000, maxOutput: 8192 },
-  { id: "gemma2-9b-it", name: "gemma2-9b-it", context: 8191, maxOutput: 8191 },
-  {
-    id: "meta-llama/llama-4-scout-17b-16e-instruct",
-    name: "meta-llama/llama-4-scout-17b-16e-instruct",
-    context: 131072,
-    maxOutput: 8192,
-  },
-  {
-    id: "meta-llama/llama-4-maverick-17b-128e-instruct",
-    name: "meta-llama/llama-4-maverick-17b-128e-instruct",
-    context: 131072,
-    maxOutput: 8192,
-  },
-  { id: "llama-3.1-8b-instant", name: "llama-3.1-8b-instant", context: 131072, maxOutput: 8192 },
-  { id: "llama-3.3-70b-versatile", name: "llama-3.3-70b-versatile", context: 128000, maxOutput: 32768 },
-  { id: "llama-guard-3-8b", name: "llama-guard-3-8b", context: 8192, maxOutput: 4096 },
-  { id: "llama3-70b-8192", name: "llama3-70b-8192", context: 8192, maxOutput: 4096 },
-  { id: "llama3-8b-8192", name: "llama3-8b-8192", context: 8192, maxOutput: 4096 },
-  { id: "mistral-saba-24b", name: "mistral-saba-24b", context: 32768, maxOutput: 8192 },
-];
-
-// DeepSeek (from #model_deepseek_select)
-export const DEEPSEEK_MODELS: KnownModel[] = [
-  { id: "deepseek-chat", name: "deepseek-chat", context: 131072, maxOutput: 8192 },
-  { id: "deepseek-coder", name: "deepseek-coder", context: 131072, maxOutput: 8192 },
-  { id: "deepseek-reasoner", name: "deepseek-reasoner", context: 131072, maxOutput: 8192 },
-];
-
-// Perplexity (from #model_perplexity_select)
-export const PERPLEXITY_MODELS: KnownModel[] = [
-  // Sonar Models
-  { id: "sonar", name: "sonar", context: 128000, maxOutput: 4096 },
-  { id: "sonar-pro", name: "sonar-pro", context: 200000, maxOutput: 8192 },
-  { id: "sonar-reasoning", name: "sonar-reasoning", context: 128000, maxOutput: 8192 },
-  { id: "sonar-reasoning-pro", name: "sonar-reasoning-pro", context: 128000, maxOutput: 8192 },
-  { id: "sonar-deep-research", name: "sonar-deep-research", context: 128000, maxOutput: 8192 },
-  // Offline Models
-  { id: "r1-1776", name: "r1-1776", context: 128000, maxOutput: 8192 },
-];
-
-// Moonshot (from #model_moonshot_select)
-export const MOONSHOT_MODELS: KnownModel[] = [
-  { id: "kimi-k2-0711-preview", name: "kimi-k2-0711-preview", context: 256000, maxOutput: 8192 },
-  { id: "moonshot-v1-8k", name: "moonshot-v1-8k", context: 8192, maxOutput: 4096 },
-  { id: "moonshot-v1-32k", name: "moonshot-v1-32k", context: 32768, maxOutput: 4096 },
-  { id: "moonshot-v1-128k", name: "moonshot-v1-128k", context: 128000, maxOutput: 4096 },
-  { id: "moonshot-v1-auto", name: "moonshot-v1-auto", context: 128000, maxOutput: 4096 },
-  { id: "kimi-latest", name: "kimi-latest", context: 256000, maxOutput: 8192 },
-  { id: "moonshot-v1-8k-vision-preview", name: "moonshot-v1-8k-vision-preview", context: 8192, maxOutput: 4096 },
-  { id: "moonshot-v1-32k-vision-preview", name: "moonshot-v1-32k-vision-preview", context: 32768, maxOutput: 4096 },
-  { id: "moonshot-v1-128k-vision-preview", name: "moonshot-v1-128k-vision-preview", context: 128000, maxOutput: 4096 },
-  { id: "kimi-thinking-preview", name: "kimi-thinking-preview", context: 256000, maxOutput: 8192 },
-];
-
-// Z.AI / GLM (from #model_zai_select)
-export const ZAI_MODELS: KnownModel[] = [
-  { id: "glm-5", name: "glm-5", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.7", name: "glm-4.7", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.7-flash", name: "glm-4.7-flash", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.7-flashx", name: "glm-4.7-flashx", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.6", name: "glm-4.6", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.6v", name: "glm-4.6v", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.6v-flash", name: "glm-4.6v-flash", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.6v-flashx", name: "glm-4.6v-flashx", context: 200000, maxOutput: 8192 },
-  { id: "glm-4.5v", name: "glm-4.5v", context: 128000, maxOutput: 4096 },
-  { id: "glm-4.5", name: "glm-4.5", context: 128000, maxOutput: 4096 },
-  { id: "glm-4.5-air", name: "glm-4.5-air", context: 128000, maxOutput: 4096 },
-  { id: "glm-4.5-x", name: "glm-4.5-x", context: 128000, maxOutput: 4096 },
-  { id: "glm-4.5-airx", name: "glm-4.5-airx", context: 128000, maxOutput: 4096 },
-  { id: "glm-4.5-flash", name: "glm-4.5-flash", context: 128000, maxOutput: 4096 },
-  { id: "glm-4-32b-0414-128k", name: "glm-4-32b-0414-128k", context: 128000, maxOutput: 4096 },
-  { id: "autoglm-phone-multilingual", name: "autoglm-phone-multilingual", context: 128000, maxOutput: 4096 },
-];
-
-// AI21 (from #model_ai21_select)
-export const AI21_MODELS: KnownModel[] = [
-  // Jamba (Latest)
-  { id: "jamba-mini", name: "jamba-mini", context: 256000, maxOutput: 4096 },
-  { id: "jamba-large", name: "jamba-large", context: 256000, maxOutput: 4096 },
-  // Jamba 1.7
-  { id: "jamba-1.7-mini", name: "jamba-1.7-mini", context: 256000, maxOutput: 4096 },
-  { id: "jamba-1.7-large", name: "jamba-1.7-large", context: 256000, maxOutput: 4096 },
-  // Jamba 1.6 (Deprecated)
-  { id: "jamba-1.6-mini", name: "jamba-1.6-mini", context: 256000, maxOutput: 4096 },
-  { id: "jamba-1.6-large", name: "jamba-1.6-large", context: 256000, maxOutput: 4096 },
-  // Jamba 1.5 (Deprecated)
-  { id: "jamba-1.5-mini", name: "jamba-1.5-mini", context: 256000, maxOutput: 4096 },
-  { id: "jamba-1.5-large", name: "jamba-1.5-large", context: 256000, maxOutput: 4096 },
-  // Jamba-Instruct (Deprecated)
-  { id: "jamba-instruct-preview", name: "jamba-instruct-preview", context: 256000, maxOutput: 4096 },
 ];
 
 // ── Image Generation Sources (service metadata for base URLs) ──
@@ -643,10 +545,3 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   custom: OPENAI_MODELS,
   image_generation: IMAGE_GEN_MODELS,
 };
-
-/**
- * Look up a known model by ID across all providers.
- */
-export function findKnownModel(provider: APIProvider, modelId: string): KnownModel | undefined {
-  return MODEL_LISTS[provider]?.find((m) => m.id === modelId);
-}

@@ -19,7 +19,7 @@ import {
 import { cn } from "../../../../../shared/lib/utils";
 import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSVoices } from "../../../../../shared/hooks/use-tts";
-import { useCharacters } from "../../../../catalog/characters/index";
+import { useCharacterSummaries } from "../../../../catalog/characters/index";
 import { ttsService } from "../../../../../shared/lib/tts-service";
 import { clientSidePlaybackRate } from "../../../../../shared/lib/tts-dialogue";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
@@ -293,12 +293,13 @@ function NpcDefaultVoicePool({
 export function TTSConfigCard() {
   const { data: savedConfig, isLoading } = useTTSConfig();
   const updateConfig = useUpdateTTSConfig();
-  const { data: characters } = useCharacters();
+  const { data: characters } = useCharacterSummaries();
 
   // Local draft state
   const [enabled, setEnabled] = useState(false);
   const [source, setSource] = useState<TTSSource>("openai");
   const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
+  const [voicesPath, setVoicesPath] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("tts-1");
   const [voice, setVoice] = useState("alloy");
@@ -335,6 +336,7 @@ export function TTSConfigCard() {
   } = useTTSVoices(
     savedSource,
     savedConfig?.baseUrl ?? TTS_SOURCE_DEFAULTS[savedSource].baseUrl,
+    savedConfig?.voicesPath ?? "",
     savedConfig?.enabled ?? false,
   );
 
@@ -344,6 +346,7 @@ export function TTSConfigCard() {
     setEnabled(savedConfig.enabled);
     setSource(savedConfig.source ?? "openai");
     setBaseUrl(savedConfig.baseUrl);
+    setVoicesPath(savedConfig.voicesPath ?? "");
     setApiKey(savedConfig.apiKey); // masked value from server
     setModel(savedConfig.model);
     setVoice(savedConfig.voice);
@@ -390,6 +393,7 @@ export function TTSConfigCard() {
     enabled,
     source,
     baseUrl,
+    voicesPath,
     apiKey: apiKey === TTS_API_KEY_MASK ? TTS_API_KEY_MASK : apiKey,
     model,
     voice,
@@ -452,6 +456,7 @@ export function TTSConfigCard() {
 
     setSource(nextSource);
     setBaseUrl(defaults.baseUrl);
+    setVoicesPath("");
     setApiKey(nextApiKey);
     setModel(defaults.model);
     setVoice(defaults.voice);
@@ -467,6 +472,7 @@ export function TTSConfigCard() {
     mark({
       source: nextSource,
       baseUrl: defaults.baseUrl,
+      voicesPath: "",
       apiKey: nextApiKey,
       model: defaults.model,
       voice: defaults.voice,
@@ -676,7 +682,7 @@ export function TTSConfigCard() {
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/5 to-orange-500/5 p-3 transition-all",
+        "rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/5 to-orange-500/5 p-3 transition-colors",
         expanded && "border-rose-400/30",
       )}
     >
@@ -766,6 +772,23 @@ export function TTSConfigCard() {
               />
             </div>
           </FieldRow>
+
+          {source === "openai" && (
+            <FieldRow
+              label="Voice Lookup Path"
+              help="Optional path used to fetch provider voices. Leave blank for the default /audio/voices route."
+            >
+              <input
+                value={voicesPath}
+                onChange={(e) => {
+                  setVoicesPath(e.target.value);
+                  mark({ voicesPath: e.target.value });
+                }}
+                className={cn(INPUT_CLS, "font-mono")}
+                placeholder="/audio/voices"
+              />
+            </FieldRow>
+          )}
 
           {/* API Key */}
           <FieldRow
@@ -1006,7 +1029,9 @@ export function TTSConfigCard() {
                     >
                       {source === "elevenlabs" && <option value="">Select narrator voice</option>}
                       {fetchingVoices && <option value="">Loading voices&hellip;</option>}
-                      {!fetchingVoices && voiceOptions.length === 0 && <option value="">Save config to load voices</option>}
+                      {!fetchingVoices && voiceOptions.length === 0 && (
+                        <option value="">Save config to load voices</option>
+                      )}
                       {voiceOptions.map((option) => (
                         <option key={option.id} value={option.id}>
                           {option.name === option.id ? option.id : `${option.name} (${option.id})`}

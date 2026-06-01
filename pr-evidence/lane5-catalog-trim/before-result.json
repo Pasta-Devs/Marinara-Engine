@@ -1,0 +1,13 @@
+{
+  "baseUrl": "http://127.0.0.1:5179/",
+  "rows": [
+    {
+      "entity": "characters",
+      "topLevelName": "  Padded Character  ",
+      "dataName": "  Padded Character  ",
+      "topLevelTrimmed": false,
+      "dataNameTrimmed": false
+    }
+  ],
+  "passed": false
+}

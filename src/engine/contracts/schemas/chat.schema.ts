@@ -3,9 +3,14 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const chatModeSchema = z.enum(["conversation", "roleplay", "game"]);
+const canonicalChatModeSchema = z.enum(["conversation", "roleplay", "game"]);
 
-export const messageRoleSchema = z.enum(["user", "assistant", "system", "narrator"]);
+export const chatModeSchema = z.preprocess(
+  (value) => (value === "visual_novel" ? "roleplay" : value),
+  canonicalChatModeSchema,
+);
+
+const messageRoleSchema = z.enum(["user", "assistant", "system", "narrator"]);
 
 export const createChatSchema = z.object({
   name: z.string().min(1).max(200),
@@ -34,10 +39,15 @@ export const generateRequestSchema = z.object({
   streaming: z.boolean().optional().default(true),
   userStatus: z.enum(["active", "idle", "dnd"]).optional().default("active"),
   userActivity: z.string().max(120).optional().default(""),
+  userTimeZone: z.string().max(128).optional(),
   mentionedCharacterNames: z.array(z.string()).optional().default([]),
   forCharacterId: z.string().nullable().optional().default(null),
   generationGuide: z.string().nullable().optional().default(null),
-  generationGuideSource: z.enum(["narrator", "guide", "game_start", "game_turn", "game_retry"]).nullable().optional().default(null),
+  generationGuideSource: z
+    .enum(["narrator", "guide", "game_start", "game_turn", "game_retry"])
+    .nullable()
+    .optional()
+    .default(null),
   agentInjectionOverrides: z
     .array(
       z.object({
@@ -70,7 +80,7 @@ export const generateRequestSchema = z.object({
 });
 
 // Auto-summarization entries — shape-only validation (no length caps).
-export const summaryEntrySchema = z.object({
+const summaryEntrySchema = z.object({
   summary: z.string(),
   keyDetails: z.array(z.string()),
 });

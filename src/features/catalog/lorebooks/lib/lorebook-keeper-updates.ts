@@ -1,6 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
+import {
+  createLorebookEntrySchema,
+  updateLorebookEntrySchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { Lorebook, LorebookEntry } from "../../../../engine/contracts/types/lorebook";
+import { resolveLorebookKeeperTarget } from "../../../../engine/generation-core/lorebooks/lorebook-keeper-target";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import type { PendingLorebookUpdate } from "../../../../shared/stores/agent.store";
@@ -96,21 +101,17 @@ async function lorebooksForUpdate(queryClient: QueryClient): Promise<Lorebook[]>
   return storageApi.list<Lorebook>("lorebooks").catch(() => []);
 }
 
-async function resolveTargetLorebook(
-  queryClient: QueryClient,
-  chatId: string,
+function resolveTargetLorebook(
+  chat: Chat | null,
+  lorebooks: Lorebook[],
   rawUpdate: Record<string, unknown>,
-): Promise<{ id: string; name: string } | null> {
-  const explicitLorebookId = readString(rawUpdate.lorebookId);
-  const chat = await chatForUpdate(queryClient, chatId);
-  const metadata = parseChatMetadata(chat?.metadata);
-  const metadataLorebookId = readString(metadata.lorebookKeeperTargetLorebookId);
-  const activeLorebookIds = stringArray(metadata.activeLorebookIds);
-  const lorebooks = await lorebooksForUpdate(queryClient);
-  const targetId = explicitLorebookId || metadataLorebookId || activeLorebookIds[0] || lorebooks[0]?.id || "";
-  if (!targetId) return null;
-  const lorebook = lorebooks.find((item) => item.id === targetId);
-  return { id: targetId, name: lorebook?.name || "Lorebook" };
+): { id: string; name: string } | null {
+  return resolveLorebookKeeperTarget(lorebooks, {
+    chat,
+    characters: (chat?.characterIds ?? []).map((id) => ({ id })),
+    persona: chat?.personaId ? { id: chat.personaId } : null,
+    proposedLorebookId: rawUpdate.lorebookId,
+  });
 }
 
 function normalizeRawLorebookUpdate(raw: unknown): Record<string, unknown> | null {
@@ -145,9 +146,11 @@ export async function buildPendingLorebookUpdates(
   if (updates.length === 0) return [];
 
   const timestamp = Date.now();
+  const chat = await chatForUpdate(queryClient, chatId);
+  const lorebooks = await lorebooksForUpdate(queryClient);
   const pending: PendingLorebookUpdate[] = [];
   for (const rawUpdate of updates) {
-    const target = await resolveTargetLorebook(queryClient, chatId, rawUpdate);
+    const target = resolveTargetLorebook(chat, lorebooks, rawUpdate);
     if (!target) continue;
     const action = readString(rawUpdate.action).toLowerCase() as PendingLorebookUpdate["action"];
     pending.push({
@@ -175,7 +178,9 @@ async function findExistingEntry(update: PendingLorebookUpdate): Promise<Loreboo
     const entry = await storageApi.get<LorebookEntry>("lorebook-entries", update.entryId).catch(() => null);
     if (entry?.lorebookId === update.lorebookId) return entry;
   }
-  const entries = await storageApi.list<LorebookEntry>("lorebook-entries", { filters: { lorebookId: update.lorebookId } });
+  const entries = await storageApi.list<LorebookEntry>("lorebook-entries", {
+    filters: { lorebookId: update.lorebookId },
+  });
   const targetName = update.entryName.trim().toLowerCase();
   return entries.find((entry) => entry.name.trim().toLowerCase() === targetName) ?? null;
 }
@@ -184,7 +189,10 @@ function appendLoreFacts(existingContent: string, update: PendingLorebookUpdate)
   const additions = uniqueStrings([
     ...update.newFacts,
     ...(update.content && !existingContent.trim() ? [update.content] : []),
-    ...(update.content && existingContent.trim() && !existingContent.includes(update.content) && update.newFacts.length === 0
+    ...(update.content &&
+    existingContent.trim() &&
+    !existingContent.includes(update.content) &&
+    update.newFacts.length === 0
       ? [update.content]
       : []),
   ]).filter((fact) => !existingContent.toLowerCase().includes(fact.toLowerCase()));
@@ -195,14 +203,20 @@ function appendLoreFacts(existingContent: string, update: PendingLorebookUpdate)
 
 export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): Promise<void> {
   if (update.action === "create") {
-    await storageApi.create<LorebookEntry>("lorebook-entries", entryDefaults(update.lorebookId, update));
+    await storageApi.create<LorebookEntry>(
+      "lorebook-entries",
+      createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
+    );
     return;
   }
 
   const existing = await findExistingEntry(update);
   if (!existing) {
     if (update.action === "delete") return;
-    await storageApi.create<LorebookEntry>("lorebook-entries", entryDefaults(update.lorebookId, update));
+    await storageApi.create<LorebookEntry>(
+      "lorebook-entries",
+      createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
+    );
     return;
   }
 
@@ -223,6 +237,6 @@ export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): 
   if (update.tag && update.tag !== existing.tag) patch.tag = update.tag;
   if (Object.keys(patch).length > 0) {
     patch.embedding = null;
-    await storageApi.update<LorebookEntry>("lorebook-entries", existing.id, patch);
+    await storageApi.update<LorebookEntry>("lorebook-entries", existing.id, updateLorebookEntrySchema.parse(patch));
   }
 }

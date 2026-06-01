@@ -35,7 +35,8 @@ import {
   useBulkUnvectorizeLorebookEntries,
   lorebookKeys,
 } from "../hooks/use-lorebooks";
-import { useCharacterSummaries, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummaries, useCharacterSummariesByIds } from "../../characters/index";
+import { usePersonaSummaries } from "../../personas/index";
 import { useConnections } from "../../connections/index";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -93,6 +94,7 @@ import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/
 // state is independent across books.
 // ──────────────────────────────────────────────
 const FOLDER_COLLAPSE_KEY_PREFIX = "lorebook-folder-collapsed:";
+const LEGACY_LOCAL_SIDECAR_CONNECTION_ID = "__local_sidecar__";
 
 function readCollapsedFolderIds(lorebookId: string | null): Set<string> {
   if (!lorebookId || typeof window === "undefined") return new Set();
@@ -116,11 +118,35 @@ function writeCollapsedFolderIds(lorebookId: string, ids: Set<string>) {
   }
 }
 
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
+}
+
+function splitSearchTerms(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function searchValuesMatchTerms(values: string[], terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const normalizedValues = values.map((value) => value.toLowerCase());
+  return terms.every((term) => normalizedValues.some((value) => value.includes(term)));
+}
+
 // ── Types ──
 type LinkedResourceItem = {
   id: string;
   name: string;
   description?: string | null;
+  searchText?: string[];
   deleted?: boolean;
 };
 
@@ -145,6 +171,8 @@ function LinkedResourcePicker({
   selectedIds,
   search,
   onSearchChange,
+  isLoading = false,
+  isError = false,
   isOpen,
   onOpen,
   onClose,
@@ -161,6 +189,8 @@ function LinkedResourcePicker({
   selectedIds: string[];
   search: string;
   onSearchChange: (value: string) => void;
+  isLoading?: boolean;
+  isError?: boolean;
   isOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -176,10 +206,11 @@ function LinkedResourcePicker({
         deleted: true,
       },
   );
+  const searchTerms = useMemo(() => splitSearchTerms(search), [search]);
   const availableItems = items.filter(
     (item) =>
       !selectedIds.includes(item.id) &&
-      [item.name, item.description ?? ""].some((value) => value.toLowerCase().includes(search.toLowerCase())),
+      searchValuesMatchTerms(item.searchText ?? [item.name, item.description ?? ""], searchTerms),
   );
 
   return (
@@ -264,7 +295,13 @@ function LinkedResourcePicker({
             ))}
             {availableItems.length === 0 && (
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {items.length === selectedItems.length ? `All ${label.toLowerCase()} already added.` : "No matches."}
+                {isLoading
+                  ? "Loading..."
+                  : isError
+                    ? `${label} could not be loaded.`
+                    : items.length === selectedItems.length
+                      ? `All ${label.toLowerCase()} already added.`
+                      : "No matches."}
               </p>
             )}
           </div>
@@ -308,7 +345,6 @@ export function LorebookEditor() {
   const { data: rawLorebooks } = useLorebooks();
   const { data: rawEntries } = useLorebookEntries(lorebookId);
   const { data: rawFolders } = useLorebookFolders(lorebookId);
-  const { data: rawCharacters } = useCharacterSummaries();
   const { data: rawPersonas } = usePersonaSummaries();
   const updateLorebook = useUpdateLorebook();
   const deleteLorebook = useDeleteLorebook();
@@ -324,18 +360,6 @@ export function LorebookEditor() {
   const lorebooks = useMemo(() => (rawLorebooks ?? []) as Lorebook[], [rawLorebooks]);
   const entries = useMemo(() => (rawEntries ?? []) as LorebookEntry[], [rawEntries]);
   const folders = useMemo(() => (rawFolders ?? []) as LorebookFolder[], [rawFolders]);
-  const characters = useMemo(() => {
-    if (!rawCharacters) return [] as Array<{ id: string; name: string; tags: string[] }>;
-    return rawCharacters.map((c) => {
-      const parsed = c.data ?? {};
-      const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
-      return { id: c.id, name: typeof parsed?.name === "string" ? parsed.name : "Unknown", tags };
-    });
-  }, [rawCharacters]);
-  const characterTags = useMemo(
-    () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
-    [characters],
-  );
   const personas = useMemo(() => {
     if (!rawPersonas) return [] as Array<{ id: string; name: string; comment?: string | null }>;
     return rawPersonas.map((p) => ({
@@ -439,9 +463,48 @@ export function LorebookEditor() {
   const [formTags, setFormTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [characterLinkSearch, setCharacterLinkSearch] = useState("");
+  const debouncedCharacterLinkSearch = useDebouncedValue(characterLinkSearch, 180);
   const [personaLinkSearch, setPersonaLinkSearch] = useState("");
   const [characterLinkPickerOpen, setCharacterLinkPickerOpen] = useState(false);
   const [personaLinkPickerOpen, setPersonaLinkPickerOpen] = useState(false);
+
+  const { data: linkedRawCharacters } = useCharacterSummariesByIds(formCharacterIds, formCharacterIds.length > 0);
+  const shouldLoadAllCharacters = characterLinkPickerOpen || activeTab === "entries";
+  const {
+    data: allRawCharacters,
+    isFetching: allRawCharactersFetching,
+    isError: allRawCharactersError,
+  } = useCharacterSummaries(
+    shouldLoadAllCharacters,
+    characterLinkPickerOpen ? debouncedCharacterLinkSearch : undefined,
+  );
+  const rawCharacters = useMemo(() => {
+    const byId = new Map<string, NonNullable<typeof linkedRawCharacters>[number]>();
+    for (const character of linkedRawCharacters ?? []) byId.set(character.id, character);
+    for (const character of allRawCharacters ?? []) byId.set(character.id, character);
+    return Array.from(byId.values());
+  }, [allRawCharacters, linkedRawCharacters]);
+  const characters = useMemo(() => {
+    return rawCharacters.map((c) => {
+      const parsed = c.data ?? {};
+      const tags = Array.isArray(parsed?.tags) ? parsed.tags.map(String).filter(Boolean) : [];
+      const name = typeof parsed?.name === "string" ? parsed.name : "Unknown";
+      const searchText = [
+        c.id,
+        name,
+        c.comment,
+        typeof parsed?.creator === "string" ? parsed.creator : null,
+        typeof parsed?.creator_notes === "string" ? parsed.creator_notes : null,
+        typeof parsed?.character_version === "string" ? parsed.character_version : null,
+        ...tags,
+      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+      return { id: c.id, name, tags, searchText };
+    });
+  }, [rawCharacters]);
+  const characterTags = useMemo(
+    () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
+    [characters],
+  );
 
   const characterNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -1312,6 +1375,12 @@ export function LorebookEditor() {
                         selectedIds={formCharacterIds}
                         search={characterLinkSearch}
                         onSearchChange={setCharacterLinkSearch}
+                        isLoading={
+                          characterLinkPickerOpen &&
+                          (allRawCharactersFetching ||
+                            characterLinkSearch.trim() !== debouncedCharacterLinkSearch.trim())
+                        }
+                        isError={characterLinkPickerOpen && allRawCharactersError}
                         isOpen={characterLinkPickerOpen}
                         onOpen={() => {
                           setCharacterLinkPickerOpen(true);
@@ -2103,16 +2172,20 @@ function VectorizeSection({
   const unvectorizeEntries = useBulkUnvectorizeLorebookEntries();
   const { data: rawConnections } = useConnections();
   const connections = (rawConnections ?? []) as Array<{ id: string; name: string; embeddingModel?: string }>;
-  const embeddingConnections = connections.filter((c) => c.embeddingModel);
+  const embeddingConnections = connections.filter(
+    (c) =>
+      c.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID && typeof c.embeddingModel === "string" && c.embeddingModel.trim(),
+  );
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizing, setVectorizing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const excludedCount = excludeFromVectorization
     ? entries.length
     : entries.filter((entry) => readBoolFlag(entry.excludeFromVectorization)).length;
-  const vectorizableEntries = excludeFromVectorization
-    ? []
-    : entries.filter((entry) => !readBoolFlag(entry.excludeFromVectorization));
+  const vectorizableEntries = useMemo(
+    () => (excludeFromVectorization ? [] : entries.filter((entry) => !readBoolFlag(entry.excludeFromVectorization))),
+    [entries, excludeFromVectorization],
+  );
   const vectorizableEntryCount = vectorizableEntries.length;
   const vectorizedCount = vectorizableEntries.filter(
     (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,

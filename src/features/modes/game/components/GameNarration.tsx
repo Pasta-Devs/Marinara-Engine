@@ -34,7 +34,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import { findNamedMapValue } from "../lib/game-character-name-match";
+import { findNamedEntry, findNamedMapValue } from "../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../lib/game-segment-edits";
 import { parseGmTags, stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import { audioManager } from "../lib/game-audio";
@@ -43,10 +43,11 @@ import {
   stripSurroundingDialogueQuotes,
 } from "../../../../shared/lib/dialogue-quotes";
 import { formatNarration } from "../lib/game-narration-format";
-import type { SpriteInfo } from "../../../catalog/characters/index";
+import type { SpriteInfo } from "../../../catalog/sprites/index";
 import { useTranslate } from "../../../../shared/hooks/use-translate";
 import { useTTSConfig } from "../../../../shared/hooks/use-tts";
 import { useApplyRegex } from "../../../catalog/agents/regex-application";
+import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -54,7 +55,11 @@ import { createMessageMacroResolver, findCharacterByName } from "../../../../sha
 import { animateTextHtml } from "./AnimatedText";
 import { ttsService } from "../../../../shared/lib/tts-service";
 import { getOrCreateCachedTTSAudioBlob } from "../../../../shared/lib/tts-audio-cache";
-import { resolveTTSVoiceForSpeaker, splitTTSChunks, ttsConfigMatchesSpeaker } from "../../../../shared/lib/tts-dialogue";
+import {
+  resolveTTSVoiceForSpeaker,
+  splitTTSChunks,
+  ttsConfigMatchesSpeaker,
+} from "../../../../shared/lib/tts-dialogue";
 import type { Message } from "../../../../engine/contracts/types/chat";
 import type { PartyDialogueLine, GameNpc, SkillCheckResult } from "../../../../engine/contracts/types/game";
 import type { TTSConfig } from "../../../../engine/contracts/types/tts";
@@ -930,7 +935,15 @@ export function GameNarration({
   onMaxNavOffsetChange,
 }: GameNarrationProps) {
   const { translations, translating } = useTranslate();
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput } = useApplyRegex(activeCharacterIds);
+  const scopedRegexMode = useChatStore((s) => {
+    const meta = s.activeChat?.metadata;
+    return (meta as Record<string, unknown> | undefined)?.scopedRegexMode as
+      | "disabled"
+      | "exclusive"
+      | "chat"
+      | undefined;
+  });
   const [activeIndex, setActiveIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -1002,6 +1015,13 @@ export function GameNarration({
     const allowedIds = new Set(activeCharacterIds);
     return Array.from(characterMap).filter(([id]) => allowedIds.has(id));
   }, [activeCharacterIds, characterMap]);
+  const resolveSegmentCharacterId = useCallback(
+    (speaker: string | null | undefined) => {
+      if (!speaker?.trim()) return null;
+      return findNamedEntry(activeCharacterEntries, speaker, ([, character]) => character.name)?.[0] ?? null;
+    },
+    [activeCharacterEntries],
+  );
 
   const speakerColors = useMemo(() => {
     const byName = new Map<string, string>();
@@ -1305,17 +1325,21 @@ export function GameNarration({
   const applyOutputRegexForSource = useCallback(
     (
       text: string,
+      speaker: string | null | undefined,
       sourceMessageId: string | null | undefined,
       sourceRole: Message["role"] | null | undefined,
       resolveMacrosForText: (value: string) => string,
     ) => {
       if (sourceRole !== "assistant" && sourceRole !== "narrator") return text;
+      const sourceMsg = sourceMessageId ? sourceMessagesById.get(sourceMessageId) : undefined;
       return applyToAIOutput(text, {
         depth: sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
         resolveMacros: resolveMacrosForText,
+        scopedMode: scopedRegexMode,
+        characterId: resolveSegmentCharacterId(speaker) ?? sourceMsg?.characterId ?? null,
       });
     },
-    [applyToAIOutput, messageDepthById],
+    [applyToAIOutput, messageDepthById, resolveSegmentCharacterId, scopedRegexMode, sourceMessagesById],
   );
 
   const prepareSegmentText = useCallback(
@@ -1332,7 +1356,7 @@ export function GameNarration({
         characters: macroCharacters,
       };
       const resolveMacrosForText = createMessageMacroResolver(macroContext);
-      const regexApplied = applyOutputRegexForSource(text, sourceMessageId, sourceRole, resolveMacrosForText);
+      const regexApplied = applyOutputRegexForSource(text, speaker, sourceMessageId, sourceRole, resolveMacrosForText);
       return resolveMacrosForText(regexApplied);
     },
     [applyOutputRegexForSource, macroCharacters, personaInfo, resolveMacroCharacter],
@@ -2482,10 +2506,11 @@ export function GameNarration({
   const getSegmentStartVisibleChars = useCallback(
     (index: number) => {
       const segment = segments[index];
-      if (!segment || !gameInstantTextReveal || directionsActive || scenePreparing) return 0;
-      return effectDisplayLength(segment.content);
+      if (!segment || directionsActive || scenePreparing) return 0;
+      if (!isStreaming || gameInstantTextReveal) return effectDisplayLength(segment.content);
+      return 0;
     },
-    [segments, gameInstantTextReveal, directionsActive, scenePreparing],
+    [segments, directionsActive, scenePreparing, isStreaming, gameInstantTextReveal],
   );
 
   useEffect(() => {
@@ -2851,7 +2876,7 @@ export function GameNarration({
     tw.pos = visibleChars;
 
     if (tw.pos >= dispLen) return;
-    if (gameInstantTextReveal || gameTextSpeed >= 100) {
+    if (!isStreaming || gameInstantTextReveal || gameTextSpeed >= 100) {
       // Instant
       tw.pos = dispLen;
       setVisibleChars(dispLen);
@@ -2873,7 +2898,7 @@ export function GameNarration({
     }, TICK_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, gameInstantTextReveal, gameTextSpeed, directionsActive, scenePreparing, logsOpen]); // visibleChars intentionally excluded — managed internally
+  }, [active, isStreaming, gameInstantTextReveal, gameTextSpeed, directionsActive, scenePreparing, logsOpen]); // visibleChars intentionally excluded — managed internally
 
   const assetManifest = useGameAssetStore((s) => s.manifest);
 
@@ -3478,7 +3503,11 @@ export function GameNarration({
               }}
             >
               {stackedLogEntries.map((entry) => (
-                <div key={entry.messageId} className="space-y-1.5">
+                <div
+                  key={entry.messageId}
+                  className="space-y-1.5"
+                  data-card-css={sourceMessagesById.get(entry.messageId)?.characterId ?? undefined}
+                >
                   {entry.segments.map((seg) => renderStackedLogSegment(seg))}
                 </div>
               ))}
@@ -4157,7 +4186,11 @@ export function GameNarration({
                 const translatedEntryText = sourceMessage ? translations[entry.messageId] : undefined;
                 const entryIsTranslating = sourceMessage ? !!translating[entry.messageId] : false;
                 return (
-                  <div key={entry.messageId} className="space-y-1.5">
+                  <div
+                    key={entry.messageId}
+                    className="space-y-1.5"
+                    data-card-css={sourceMessage?.characterId ?? undefined}
+                  >
                     {entry.segments.map((seg) => {
                       const sourceMessageId = seg.sourceMessageId ?? entry.messageId;
                       const hasSourceSegmentIndex = seg.sourceSegmentIndex != null;
@@ -5258,10 +5291,7 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
       continue;
     }
 
-    const isSpecial =
-      readablePlaceholderRe.test(line) ||
-      partyLineRegex.test(line) ||
-      compactDialogueRegex.test(line);
+    const isSpecial = readablePlaceholderRe.test(line) || partyLineRegex.test(line) || compactDialogueRegex.test(line);
 
     if (isSpecial) {
       if (pendingFallback) {

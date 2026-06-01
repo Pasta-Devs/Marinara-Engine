@@ -15,8 +15,9 @@ services:
       # use API-key auth or a credentials file in CLAUDE_CONFIG_DIR.
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       CLAUDE_CONFIG_DIR: ${CLAUDE_CONFIG_DIR:-/data/claude-config}
+      BYPASS_AUTH_DOCKER: "true"
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"
     volumes:
       - marinara-server-data:/data
 

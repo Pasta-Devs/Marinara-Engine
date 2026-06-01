@@ -27,8 +27,15 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGenerate } from "../../../runtime/generation/index";
 import { useApplyRegex } from "../../../catalog/agents/regex-application";
-import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, useChat, chatKeys } from "../../../catalog/chats/index";
-import { characterKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/characters/index";
+import {
+  useCreateMessage,
+  useDeleteMessage,
+  useUpdateMessageExtra,
+  useChat,
+  chatKeys,
+} from "../../../catalog/chats/index";
+import { characterKeys } from "../../../catalog/characters/index";
+import { personaKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/personas/index";
 import {
   matchSlashCommand,
   getSlashCompletions,
@@ -213,7 +220,8 @@ export function ConversationInput({
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
   const currentInput = useChatStore((s) => s.currentInput);
   const { generate } = useGenerate();
-  const { applyToUserInput } = useApplyRegex();
+  const chatCharacterIds = useMemo(() => chatCharacters?.map((c) => c.id), [chatCharacters]);
+  const { applyToUserInput } = useApplyRegex(chatCharacterIds);
   const enterToSend = useUIStore((s) => s.enterToSendConvo);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
@@ -555,12 +563,12 @@ export function ConversationInput({
     if (isStreaming) {
       const activeChatData = useChatStore.getState().activeChat;
       const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-      const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+      const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
       const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-      // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-      let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
-      // Input translation for streaming path too
       const streamMeta = parseChatMetadata(activeChatData?.metadata);
+      // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
+      let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: streamMeta.scopedRegexMode });
+      // Input translation for streaming path too
       if (streamMeta.translateInput && message.trim()) {
         try {
           const { translateText } = await import("../../../../shared/lib/translate-text");
@@ -660,13 +668,13 @@ export function ConversationInput({
 
     const activeChat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
+    const chatMeta = parseChatMetadata(activeChat?.metadata);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
+    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: chatMeta.scopedRegexMode });
 
     // Input translation: translate user's message before sending
-    const chatMeta = parseChatMetadata(activeChat?.metadata);
     if (chatMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../shared/lib/translate-text");
@@ -858,12 +866,15 @@ export function ConversationInput({
 
     const activeChatData = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(personaKeys.list);
     const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros });
+    const postOnlyMeta = parseChatMetadata(activeChatData?.metadata);
+    let message = applyToUserInput(raw, {
+      resolveMacros: resolveInputMacros,
+      scopedMode: postOnlyMeta.scopedRegexMode,
+    });
 
-    const chatMeta = parseChatMetadata(activeChatData?.metadata);
-    if (chatMeta.translateInput && message.trim()) {
+    if (postOnlyMeta.translateInput && message.trim()) {
       try {
         const { translateText } = await import("../../../../shared/lib/translate-text");
         const translated = await translateText(message);
@@ -1613,10 +1624,13 @@ export function ConversationInput({
                   : "Message..."
           }
           rows={1}
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="sentences"
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="max-h-[12.5rem] min-w-0 basis-full resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 sm:flex-1 sm:basis-auto"
+          className="max-h-[12.5rem] min-h-[2.5rem] min-w-0 basis-full resize-none bg-transparent py-2 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 sm:flex-1 sm:basis-auto"
         />
 
         <div className="flex items-center gap-1.5 sm:hidden">

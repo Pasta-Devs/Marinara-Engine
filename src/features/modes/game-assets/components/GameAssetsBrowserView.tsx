@@ -2,7 +2,21 @@
 // View: File Browser (full-page overlay)
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Check, Folder, Upload, Pencil, Info, FileText, Move, Copy, Minus, RotateCcw, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Folder,
+  Upload,
+  Pencil,
+  Info,
+  FileText,
+  Move,
+  Copy,
+  Minus,
+  RotateCcw,
+  Trash2,
+  X,
+  RefreshCw,
+} from "lucide-react";
 import {
   useGameAssetTree,
   useCreateGameAssetFolder,
@@ -75,7 +89,7 @@ function sameFolderSelection(a: readonly string[], b: readonly string[]): boolea
  * - Keyboard shortcuts: Ctrl+A (select all), Esc (clear selection)
  */
 export function GameAssetsBrowserView() {
-  const { data: tree, isLoading } = useGameAssetTree();
+  const { data: tree, isLoading, isError, error, refetch } = useGameAssetTree();
   const createFolder = useCreateGameAssetFolder();
   const deleteFolder = useDeleteGameAssetFolder();
   const renameAsset = useRenameGameAsset();
@@ -370,6 +384,12 @@ export function GameAssetsBrowserView() {
   const handleUpload = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
+      // The asset tree failed to load, so we cannot resolve target folders or
+      // trust the current view. Block uploads until the tree is available again.
+      if (isError || !tree) {
+        toast.error("Game assets failed to load. Retry before uploading.");
+        return;
+      }
       if (selectedPath === "") {
         toast.error("Please navigate to a category folder before uploading.");
         return;
@@ -397,7 +417,7 @@ export function GameAssetsBrowserView() {
         }
       }
     },
-    [selectedPath, upload, getUploadErrorMessage],
+    [selectedPath, upload, getUploadErrorMessage, isError, tree],
   );
 
   const handleDrop = useCallback(
@@ -808,6 +828,8 @@ export function GameAssetsBrowserView() {
         <div className="w-56 overflow-y-auto border-r border-[var(--border)]/40 bg-[var(--card)]/30 p-2 max-md:hidden">
           {isLoading ? (
             <div className="p-4 text-sm text-[var(--muted-foreground)]">Loading...</div>
+          ) : isError ? (
+            <div className="p-4 text-xs text-[var(--destructive)]">Failed to load game assets.</div>
           ) : tree ? (
             <FolderTree
               node={tree}
@@ -836,6 +858,18 @@ export function GameAssetsBrowserView() {
           {isLoading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
               Loading assets...
+            </div>
+          ) : isError ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
+              <span className="text-sm text-[var(--destructive)]">
+                {error instanceof Error ? error.message : "Failed to load game assets."}
+              </span>
+              <button
+                onClick={() => refetch()}
+                className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/15 px-4 py-2 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25"
+              >
+                <RefreshCw size="0.75rem" /> Retry
+              </button>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto">

@@ -2,31 +2,7 @@ import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { parseGameJsonish } from "../shared/parsing-jsonish";
 
-export type CharacterMakerData = {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  first_mes?: string;
-  mes_example?: string;
-  creator_notes?: string;
-  system_prompt?: string;
-  post_history_instructions?: string;
-  tags?: string[];
-  backstory?: string;
-  appearance?: string;
-};
-
-export type PersonaMakerData = {
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  backstory?: string;
-  appearance?: string;
-};
-
-export type LorebookMakerEntry = {
+type LorebookMakerEntry = {
   name?: string;
   content?: string;
   keys?: string[];
@@ -38,7 +14,7 @@ export type LorebookMakerEntry = {
   enabled?: boolean;
 };
 
-export type LorebookMakerData = {
+type LorebookMakerData = {
   lorebook_name?: string;
   lorebook_description?: string;
   category?: string;
@@ -175,7 +151,9 @@ function buildCharacterMakerPrompt(input: CharacterOrPersonaMakerInput): string 
 
   if (declensionHint) {
     lines.push("", `Name declension / grammar note: ${declensionHint}`);
-    lines.push("Keep the base name stable in the JSON name field and only use declined forms where grammatically needed in prose.");
+    lines.push(
+      "Keep the base name stable in the JSON name field and only use declined forms where grammatically needed in prose.",
+    );
   }
 
   return lines.join("\n");
@@ -186,11 +164,16 @@ export async function* generateCharacterMaker(
   input: CharacterOrPersonaMakerInput,
   signal?: AbortSignal,
 ): AsyncGenerator<MakerEvent> {
-  yield* generateJsonMaker(capabilities, input, {
-    systemPrompt: CHARACTER_SYSTEM_PROMPT,
-    userPrompt: buildCharacterMakerPrompt(input),
-    maxTokens: 8192,
-  }, signal);
+  yield* generateJsonMaker(
+    capabilities,
+    input,
+    {
+      systemPrompt: CHARACTER_SYSTEM_PROMPT,
+      userPrompt: buildCharacterMakerPrompt(input),
+      maxTokens: 8192,
+    },
+    signal,
+  );
 }
 
 export async function* generatePersonaMaker(
@@ -198,11 +181,16 @@ export async function* generatePersonaMaker(
   input: CharacterOrPersonaMakerInput,
   signal?: AbortSignal,
 ): AsyncGenerator<MakerEvent> {
-  yield* generateJsonMaker(capabilities, input, {
-    systemPrompt: PERSONA_SYSTEM_PROMPT,
-    userPrompt: `Create a persona based on: ${input.prompt}`,
-    maxTokens: 4096,
-  }, signal);
+  yield* generateJsonMaker(
+    capabilities,
+    input,
+    {
+      systemPrompt: PERSONA_SYSTEM_PROMPT,
+      userPrompt: `Create a persona based on: ${input.prompt}`,
+      maxTokens: 4096,
+    },
+    signal,
+  );
 }
 
 export async function* generateLorebookMaker(
@@ -243,10 +231,16 @@ export async function* generateLorebookMaker(
         ? `Generate exactly ${batchSize} lorebook entries based on: ${input.prompt}`
         : buildContinuationLorebookPrompt(input.prompt, batchSize, allEntries);
 
-    const raw = yield* runMakerRequest(capabilities.llm, input, [
-      { role: "system", content: LOREBOOK_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ], 16384, signal);
+    const raw = yield* runMakerRequest(
+      capabilities.llm,
+      input,
+      [
+        { role: "system", content: LOREBOOK_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      16384,
+      signal,
+    );
 
     const parsed = parseObject<LorebookMakerData>(raw);
     if (index === 0) {
@@ -304,10 +298,16 @@ async function* generateJsonMaker(
   signal?: AbortSignal,
 ): AsyncGenerator<MakerEvent> {
   assertReady(input.prompt, input.connectionId, signal);
-  const raw = yield* runMakerRequest(capabilities.llm, input, [
-    { role: "system", content: options.systemPrompt },
-    { role: "user", content: options.userPrompt },
-  ], options.maxTokens, signal);
+  const raw = yield* runMakerRequest(
+    capabilities.llm,
+    input,
+    [
+      { role: "system", content: options.systemPrompt },
+      { role: "user", content: options.userPrompt },
+    ],
+    options.maxTokens,
+    signal,
+  );
 
   const payload = parseObject(raw);
   yield {
@@ -325,9 +325,9 @@ async function* runMakerRequest(
 ): AsyncGenerator<MakerEvent, string> {
   if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
   const request = {
-      connectionId: input.connectionId,
-      messages,
-      parameters: { temperature: 1, maxTokens },
+    connectionId: input.connectionId,
+    messages,
+    parameters: { temperature: 1, maxTokens },
   };
   if (!input.streaming) {
     const raw = await llm.complete(request, signal);
@@ -351,7 +351,11 @@ async function* runMakerRequest(
   return raw;
 }
 
-function buildContinuationLorebookPrompt(prompt: string, batchSize: number, existingEntries: LorebookMakerEntry[]): string {
+function buildContinuationLorebookPrompt(
+  prompt: string,
+  batchSize: number,
+  existingEntries: LorebookMakerEntry[],
+): string {
   const existingNames = existingEntries
     .map((entry) => entry.name)
     .filter((name): name is string => typeof name === "string" && name.trim().length > 0)

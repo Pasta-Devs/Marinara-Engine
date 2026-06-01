@@ -369,10 +369,8 @@ const TRACKER_CARD_NAMEPLATE_BASE_BOTTOM =
   "var(--tracker-card-nameplate-base-bottom, color-mix(in srgb, var(--background) 82%, var(--card) 18%))";
 const TRACKER_CARD_NAMEPLATE_TEXT_BASE =
   "var(--tracker-card-nameplate-text-base, color-mix(in srgb, var(--card-foreground) 92%, var(--primary) 8%))";
-const TRACKER_CARD_MATERIAL_BRIGHT_TARGET =
-  "var(--tracker-card-material-bright-target, oklch(0.975 0.012 315))";
-const TRACKER_CARD_MATERIAL_DARK_TARGET =
-  "var(--tracker-card-material-dark-target, oklch(0.055 0.014 300))";
+const TRACKER_CARD_MATERIAL_BRIGHT_TARGET = "var(--tracker-card-material-bright-target, oklch(0.975 0.012 315))";
+const TRACKER_CARD_MATERIAL_DARK_TARGET = "var(--tracker-card-material-dark-target, oklch(0.055 0.014 300))";
 const TRACKER_CARD_READABLE_LIGHT_INK = "var(--tracker-card-readable-light-ink, oklch(0.94 0.012 315))";
 const TRACKER_CARD_READABLE_DARK_INK = "var(--tracker-card-readable-dark-ink, oklch(0.18 0.024 300))";
 const TRACKER_CARD_MUTED_LIGHT_INK = "var(--tracker-card-muted-light-ink, oklch(0.76 0.018 315))";
@@ -447,7 +445,9 @@ export function cleanTrackerCardColorConfig(config: TrackerCardColorConfig | nul
   // Legacy Tint controlled how much Surface paint entered material; preserve that as Surface strength.
   const boxColorOpacity =
     materialBrightness === undefined && legacyTintIntensity !== undefined
-      ? Math.round(((rawBoxColorOpacity ?? TRACKER_CARD_PAINT_OPACITY_DEFAULTS.boxColorOpacity) * legacyTintIntensity) / 100)
+      ? Math.round(
+          ((rawBoxColorOpacity ?? TRACKER_CARD_PAINT_OPACITY_DEFAULTS.boxColorOpacity) * legacyTintIntensity) / 100,
+        )
       : rawBoxColorOpacity;
   const glowIntensity = getClampedFinishValue(config?.glowIntensity);
   const contrastIntensity = getClampedFinishValue(config?.contrastIntensity);
@@ -672,8 +672,7 @@ function getMaterialBrightnessAdjustment(brightness: number) {
   if (clampedBrightness === DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) return null;
 
   const distanceFromNeutral =
-    Math.abs(clampedBrightness - DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) /
-    DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS;
+    Math.abs(clampedBrightness - DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) / DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS;
 
   if (clampedBrightness > DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) {
     return {
@@ -795,8 +794,7 @@ function getStrengthAdjustedColor(color: string, opacity: number, neutral: strin
 
 function getMaterialPolarityMix(materialBrightness: number, contrastIntensity: number) {
   const brightnessDistance =
-    Math.abs(materialBrightness - DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) /
-    DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS;
+    Math.abs(materialBrightness - DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS) / DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS;
   const contrastBoost = 58 + opacityWeight(contrastIntensity) * 38;
   return Math.round(Math.min(1, brightnessDistance) * contrastBoost);
 }

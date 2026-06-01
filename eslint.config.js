@@ -1,7 +1,16 @@
+import js from "@eslint/js";
 import boundaries from "eslint-plugin-boundaries";
 import importX from "eslint-plugin-import-x";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
+
+const sourceFiles = ["src/**/*.{js,jsx,mjs,cjs,ts,tsx}"];
+const tsSourceFiles = ["src/**/*.{ts,tsx}"];
+const typeScriptRecommendedConfigs = tseslint.configs.recommended.slice(1).map((config) => ({
+  ...config,
+  name: `marinara/${config.name}`,
+  files: tsSourceFiles,
+}));
 
 export default tseslint.config(
   {
@@ -57,6 +66,8 @@ export default tseslint.config(
       ],
     },
     rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "no-restricted-imports": [
         "error",
         {
@@ -159,5 +170,33 @@ export default tseslint.config(
         },
       ],
     },
-  }
+  },
+  {
+    name: "marinara/js-recommended",
+    files: sourceFiles,
+    rules: {
+      ...js.configs.recommended.rules,
+    },
+  },
+  ...typeScriptRecommendedConfigs,
+  {
+    name: "marinara/typescript-pragmatic-relaxations",
+    files: tsSourceFiles,
+    rules: {
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+          varsIgnorePattern: "^_",
+        },
+      ],
+      "no-empty-pattern": "off",
+      "no-undef": "off",
+    },
+  },
 );

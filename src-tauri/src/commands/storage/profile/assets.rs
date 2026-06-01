@@ -266,11 +266,20 @@ fn collect_profile_assets(
     inline_bytes: bool,
 ) -> AppResult<()> {
     let dir = root.join(relative);
-    if !dir.exists() {
+    let dir_metadata = match fs::symlink_metadata(&dir) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    if dir_metadata.file_type().is_symlink() || !dir_metadata.is_dir() {
         return Ok(());
     }
     for entry in fs::read_dir(&dir)? {
         let path = entry?.path();
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
         let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
@@ -278,9 +287,9 @@ fn collect_profile_assets(
             continue;
         }
         let next_relative = relative.join(name);
-        if path.is_dir() {
+        if metadata.is_dir() {
             collect_profile_assets(root, &next_relative, assets, inline_bytes)?;
-        } else if path.is_file() {
+        } else if metadata.is_file() {
             let mut asset = json!({
                 "path": profile_relative_path(&next_relative),
             });
@@ -293,7 +302,7 @@ fn collect_profile_assets(
                     Value::String(general_purpose::STANDARD.encode(fs::read(path)?)),
                 );
             } else {
-                object.insert("size".to_string(), json!(fs::metadata(path)?.len()));
+                object.insert("size".to_string(), json!(metadata.len()));
             }
             assets.push(asset);
         }
@@ -328,6 +337,12 @@ fn restore_profile_json_assets_in_root(
     raw_assets: Option<&Value>,
     allow_legacy_data_field: bool,
 ) -> AppResult<RestoredProfileAssets> {
+    if raw_assets.is_none() {
+        return Ok(RestoredProfileAssets {
+            restored: 0,
+            transaction: None,
+        });
+    }
     let assets = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
     let restored = assets.len();
     let transaction = ProfileAssetTransaction::new(data_dir)?;
@@ -380,6 +395,12 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
     profile_prefix: &str,
     raw_assets: Option<&Value>,
 ) -> AppResult<RestoredProfileAssets> {
+    if raw_assets.is_none() {
+        return Ok(RestoredProfileAssets {
+            restored: 0,
+            transaction: None,
+        });
+    }
     let assets = decoded_profile_zip_assets(raw_assets, names, profile_prefix)?;
     let restored = assets.len();
     let transaction = ProfileAssetTransaction::new(&state.data_dir)?;

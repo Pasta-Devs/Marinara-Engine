@@ -1,6 +1,6 @@
 import type { SkillCheckResult } from "../../contracts/types/game.js";
 
-export function getSkillCheckOutcomeLabel(
+function getSkillCheckOutcomeLabel(
   result: Pick<SkillCheckResult, "success" | "criticalSuccess" | "criticalFailure">,
 ): string {
   if (result.criticalSuccess) return "Critical success";
@@ -8,7 +8,7 @@ export function getSkillCheckOutcomeLabel(
   return result.success ? "Success" : "Failure";
 }
 
-export function getSkillCheckOutcomeKey(
+function getSkillCheckOutcomeKey(
   result: Pick<SkillCheckResult, "success" | "criticalSuccess" | "criticalFailure">,
 ): string {
   if (result.criticalSuccess) return "critical_success";

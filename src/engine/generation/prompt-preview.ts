@@ -2,6 +2,7 @@ import type { ChatMLMessage, GenerationParameters } from "../contracts/types/pro
 import type { StorageGateway } from "../capabilities/storage";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
 import { assembleGenerationPrompt } from "./prompt-assembly";
+import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
 import { parseRecord, readNumber, readString } from "./runtime-records";
 
 export interface PromptPreviewInput {
@@ -90,26 +91,28 @@ export async function previewGenerationPrompt(
     latestUserInput: "",
   });
   const parameters = llmParameters(connection, request, previewChat, assembly.parameters);
+  const visibleParameters = providerVisibleLlmParameters(connection, parameters, { stream: true });
+  const generationInfo = generationInfoFromVisibleParameters(connection, visibleParameters);
   return {
     messages: assembly.messages,
     previewMessages: assembly.previewMessages,
-    parameters,
+    parameters: visibleParameters,
     promptPresetId: assembly.promptPresetId,
     messageCount: assembly.messages.length,
     generationInfo: {
-      model: readString(connection.model) || undefined,
-      provider: readString(connection.provider) || undefined,
-      temperature: nullableNumber(parameters.temperature),
-      maxTokens: nullableNumber(parameters.maxTokens ?? parameters.max_tokens),
-      topP: nullableNumber(parameters.topP ?? parameters.top_p),
-      topK: nullableNumber(parameters.topK ?? parameters.top_k),
-      frequencyPenalty: nullableNumber(parameters.frequencyPenalty ?? parameters.frequency_penalty),
-      presencePenalty: nullableNumber(parameters.presencePenalty ?? parameters.presence_penalty),
-      showThoughts: typeof parameters.showThoughts === "boolean" ? parameters.showThoughts : null,
-      reasoningEffort: typeof parameters.reasoningEffort === "string" ? parameters.reasoningEffort : null,
-      verbosity: typeof parameters.verbosity === "string" ? parameters.verbosity : null,
-      serviceTier: typeof parameters.serviceTier === "string" ? parameters.serviceTier : null,
-      assistantPrefill: typeof parameters.assistantPrefill === "string" ? parameters.assistantPrefill : null,
+      model: generationInfo.model,
+      provider: generationInfo.provider,
+      temperature: generationInfo.temperature ?? null,
+      maxTokens: generationInfo.maxTokens ?? null,
+      topP: generationInfo.topP ?? null,
+      topK: generationInfo.topK ?? null,
+      frequencyPenalty: generationInfo.frequencyPenalty ?? null,
+      presencePenalty: generationInfo.presencePenalty ?? null,
+      showThoughts: generationInfo.showThoughts ?? null,
+      reasoningEffort: generationInfo.reasoningEffort ?? null,
+      verbosity: generationInfo.verbosity ?? null,
+      serviceTier: generationInfo.serviceTier ?? null,
+      assistantPrefill: generationInfo.assistantPrefill ?? null,
       tokensPrompt: null,
       tokensCompletion: null,
       tokensCachedPrompt: null,
@@ -118,9 +121,4 @@ export async function previewGenerationPrompt(
       finishReason: null,
     },
   };
-}
-
-function nullableNumber(value: unknown): number | null {
-  const parsed = readNumber(value, NaN);
-  return Number.isFinite(parsed) ? parsed : null;
 }

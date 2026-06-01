@@ -27,9 +27,8 @@
         <p class="eyebrow">Agent onboarding</p>
         <h1>Ask an agent “how do I get started?” and use this path.</h1>
         <p class="lead">
-          This page gives coding agents and developers the same starting point:
-          run the docs, learn the repo shape, run the desktop app or hostable
-          Rust runtime, test real workflows, then fix bugs from the correct owner.
+          This page gives coding agents and developers the same starting point: run the docs, learn the repo shape, run
+          the desktop app or hostable Rust runtime, test real workflows, then fix bugs from the correct owner.
         </p>
 
         <h2>First Agent Response</h2>
@@ -75,12 +74,33 @@ flowchart TB
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>src/app</code></td><td>App shell, providers, startup effects.</td></tr>
-            <tr><td><code>src/features</code></td><td>React screens, components, hooks, user workflows.</td></tr>
-            <tr><td><code>src/engine</code></td><td>React-free product rules and mode orchestration.</td></tr>
-            <tr><td><code>src/engine/capabilities</code></td><td>Ports accepted by engine services. Implement them at the feature/app edge.</td></tr>
-            <tr><td><code>src/shared/api</code></td><td>Typed bridge to embedded Tauri commands and the configured hostable Rust HTTP runtime.</td></tr>
-            <tr><td><code>src-tauri</code></td><td>Rust storage, assets, provider transport, integrations, native commands, HTTP server/dispatch, and <code>marinara-server</code>.</td></tr>
+            <tr>
+              <td><code>src/app</code></td>
+              <td>App shell, providers, startup effects.</td>
+            </tr>
+            <tr>
+              <td><code>src/features</code></td>
+              <td>React screens, components, hooks, user workflows.</td>
+            </tr>
+            <tr>
+              <td><code>src/engine</code></td>
+              <td>React-free product rules and mode orchestration.</td>
+            </tr>
+            <tr>
+              <td><code>src/engine/capabilities</code></td>
+              <td>Ports accepted by engine services. Implement them at the feature/app edge.</td>
+            </tr>
+            <tr>
+              <td><code>src/shared/api</code></td>
+              <td>Typed bridge to embedded Tauri commands and the configured hostable Rust HTTP runtime.</td>
+            </tr>
+            <tr>
+              <td><code>src-tauri</code></td>
+              <td>
+                Rust storage, assets, provider transport, integrations, native commands, HTTP server/dispatch, and
+                <code>marinara-server</code>.
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -88,7 +108,10 @@ flowchart TB
         <div class="grid">
           <div class="panel">
             <h3>Chat</h3>
-            <p>Create/select a connection, character, and persona. Send a message, regenerate, retry, swipe/branch, test attachments and summaries.</p>
+            <p>
+              Create/select a connection, character, and persona. Send a message, regenerate, retry, swipe/branch, test
+              attachments and summaries.
+            </p>
           </div>
           <div class="panel">
             <h3>Roleplay</h3>
@@ -96,19 +119,32 @@ flowchart TB
           </div>
           <div class="panel">
             <h3>Game</h3>
-            <p>Create a game, start a session, send a turn, retry, test dice, combat, map, journal, weather, time, assets, and music.</p>
+            <p>
+              Create a game, start a session, send a turn, retry, test dice, combat, map, journal, weather, time,
+              assets, and music.
+            </p>
           </div>
           <div class="panel">
             <h3>Professor Mari</h3>
-            <p>Open Professor Mari from the shell, select a connection/persona, send text and file attachments, and ask a library question that should use the read-only creative library tool.</p>
+            <p>
+              Open Professor Mari from the shell, select a connection/persona, send text and file attachments, and ask a
+              library question that should use the read-only creative library tool.
+            </p>
           </div>
           <div class="panel">
             <h3>Settings and imports</h3>
-            <p>Create provider connections, test them, import/export core objects, upload avatars/backgrounds/assets, and verify visible errors.</p>
+            <p>
+              Create provider connections, test them, import/export core objects, upload avatars/backgrounds/assets, and
+              verify visible errors.
+            </p>
           </div>
           <div class="panel">
             <h3>Remote runtime</h3>
-            <p>Start <code>marinara-server</code>, set Settings &gt; Advanced &gt; Remote Runtime URL to <code>http://127.0.0.1:8787</code>, and retest supported storage, imports, connection tests, model lists, and LLM generation.</p>
+            <p>
+              Start <code>marinara-server</code>, set Settings &gt; Advanced &gt; Remote Runtime URL to
+              <code>http://127.0.0.1:8787</code>, and retest supported storage, imports, connection tests, model lists,
+              and LLM generation.
+            </p>
           </div>
         </div>
 
@@ -135,9 +171,8 @@ flowchart LR
         </pre>
 
         <div class="callout">
-          Agents should not start coding from a vague onboarding request. They
-          should run the docs, teach the repo, help the user test the app, then
-          edit code only after there is a concrete bug or feature request.
+          Agents should not start coding from a vague onboarding request. They should run the docs, teach the repo, help
+          the user test the app, then edit code only after there is a concrete bug or feature request.
         </div>
 
         <p class="footer">

@@ -16,14 +16,7 @@ interface ExpandedTextareaProps {
   placeholder?: string;
 }
 
-export function ExpandedTextarea({
-  open,
-  onClose,
-  title,
-  value,
-  onChange,
-  placeholder,
-}: ExpandedTextareaProps) {
+export function ExpandedTextarea({ open, onClose, title, value, onChange, placeholder }: ExpandedTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [local, setLocal] = useState(value);
   const [magicRewriteMode, setMagicRewriteMode] = useState(false);
@@ -88,9 +81,7 @@ export function ExpandedTextarea({
         >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-5 py-3">
-            <h2 className="text-sm font-semibold">
-              {magicRewriteMode ? "Magic Rewrite" : title}
-            </h2>
+            <h2 className="text-sm font-semibold">{magicRewriteMode ? "Magic Rewrite" : title}</h2>
             <div className="flex items-center gap-2">
               {!magicRewriteMode && (
                 <button
@@ -119,9 +110,7 @@ export function ExpandedTextarea({
                   Apply
                 </button>
               )}
-              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                {local.length} characters
-              </span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">{local.length} characters</span>
               <button
                 onClick={handleClose}
                 className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -134,10 +123,7 @@ export function ExpandedTextarea({
 
           <div className="flex-1 overflow-hidden p-4 md:p-6">
             {magicRewriteMode ? (
-              <MagicRewritePanel
-                value={local}
-                onResultChange={handleMagicRewriteResultChange}
-              />
+              <MagicRewritePanel value={local} onResultChange={handleMagicRewriteResultChange} />
             ) : (
               <textarea
                 ref={textareaRef}

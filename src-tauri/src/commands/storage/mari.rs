@@ -152,7 +152,11 @@ impl ChatProvider for MarinaraLlmProvider {
                 .iter()
                 .map(autoagents_message_to_marinara)
                 .collect(),
-            parameters: mari_request_parameters(messages, tools.unwrap_or_default()),
+            parameters: mari_request_parameters(
+                &self.connection,
+                messages,
+                tools.unwrap_or_default(),
+            ),
             tools: tools
                 .unwrap_or_default()
                 .iter()
@@ -173,7 +177,11 @@ impl ChatProvider for MarinaraLlmProvider {
     }
 }
 
-fn mari_request_parameters(messages: &[ChatMessage], tools: &[Tool]) -> Value {
+fn mari_request_parameters(
+    connection: &marinara_llm::LlmConnection,
+    messages: &[ChatMessage],
+    tools: &[Tool],
+) -> Value {
     let mut parameters = json!({
                 "temperature": 0.4,
                 "maxTokens": 2048,
@@ -188,17 +196,21 @@ fn mari_request_parameters(messages: &[ChatMessage], tools: &[Tool]) -> Value {
         .map(|message| message.content.as_str())
         .unwrap_or_default();
     if !tools.is_empty() && !has_tool_result && looks_like_codebase_question(latest_user) {
-        parameters["toolChoice"] = json!({
-            "type": "function",
-            "function": { "name": "search_marinara_code" }
-        });
+        parameters["toolChoice"] = mari_forced_tool_choice(connection, "search_marinara_code");
     } else if !tools.is_empty() && !has_tool_result && looks_like_library_question(latest_user) {
-        parameters["toolChoice"] = json!({
-            "type": "function",
-            "function": { "name": "read_marinara_library" }
-        });
+        parameters["toolChoice"] = mari_forced_tool_choice(connection, "read_marinara_library");
     }
     parameters
+}
+
+fn mari_forced_tool_choice(connection: &marinara_llm::LlmConnection, tool_name: &str) -> Value {
+    if connection.provider == "custom" {
+        return json!("required");
+    }
+    json!({
+        "type": "function",
+        "function": { "name": tool_name }
+    })
 }
 
 #[async_trait]
@@ -1424,6 +1436,82 @@ fn looks_like_encoded_blob(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_connection(provider: &str) -> marinara_llm::LlmConnection {
+        marinara_llm::LlmConnection {
+            provider: provider.to_string(),
+            model: "test-model".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            openrouter_provider: None,
+            enable_caching: false,
+            caching_at_depth: None,
+            max_tokens_override: None,
+            claude_fast_mode: false,
+        }
+    }
+
+    fn text_message(content: &str) -> ChatMessage {
+        ChatMessage {
+            role: ChatRole::User,
+            message_type: MessageType::Text,
+            content: content.to_string(),
+        }
+    }
+
+    fn test_tool(name: &str) -> Tool {
+        Tool {
+            tool_type: "function".to_string(),
+            function: autoagents::llm::chat::FunctionTool {
+                name: name.to_string(),
+                description: "Test tool".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
+            },
+        }
+    }
+
+    #[test]
+    fn professor_mari_custom_connections_use_string_tool_choice() {
+        let connection = test_connection("custom");
+        let messages = [text_message("What does src/app/shell/AppShell.tsx do?")];
+        let tools = [test_tool("search_marinara_code")];
+
+        let parameters = mari_request_parameters(&connection, &messages, &tools);
+
+        assert_eq!(parameters["toolChoice"], json!("required"));
+    }
+
+    #[test]
+    fn professor_mari_known_openai_connections_keep_exact_tool_choice() {
+        let connection = test_connection("openai");
+        let messages = [text_message("What does src/app/shell/AppShell.tsx do?")];
+        let tools = [test_tool("search_marinara_code")];
+
+        let parameters = mari_request_parameters(&connection, &messages, &tools);
+
+        assert_eq!(
+            parameters["toolChoice"],
+            json!({
+                "type": "function",
+                "function": { "name": "search_marinara_code" }
+            })
+        );
+    }
+
+    #[test]
+    fn professor_mari_custom_library_questions_use_string_tool_choice() {
+        let connection = test_connection("custom");
+        let messages = [text_message("What personas are in my library?")];
+        let tools = [test_tool("read_marinara_library")];
+
+        let parameters = mari_request_parameters(&connection, &messages, &tools);
+
+        assert_eq!(parameters["toolChoice"], json!("required"));
+    }
 
     fn prompt_with_attachment(attachment: MariAttachment) -> String {
         prompt_with_attachments(vec![attachment])

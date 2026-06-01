@@ -568,7 +568,6 @@ function OnboardingTutorialInner({ onShellInertResync }: OnboardingTutorialProps
         setStep(STEPS.length - 1);
         return;
       }
-
     },
     [openRightPanel, setSettingsTab],
   );

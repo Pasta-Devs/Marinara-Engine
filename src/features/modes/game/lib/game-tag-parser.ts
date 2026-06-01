@@ -1,4 +1,9 @@
-import type { DirectionCommand, DirectionEffect, SkillCheckResult, WidgetUpdate } from "../../../../engine/contracts/types/game";
+import type {
+  DirectionCommand,
+  DirectionEffect,
+  SkillCheckResult,
+  WidgetUpdate,
+} from "../../../../engine/contracts/types/game";
 
 export interface CombatEncounterTag {
   enemies: Array<{
@@ -15,14 +20,14 @@ export interface CombatEncounterTag {
   allies?: string[] | null;
 }
 
-export interface SkillCheckTag {
+interface SkillCheckTag {
   skill: string;
   dc: number;
   advantage?: boolean;
   disadvantage?: boolean;
   resolvedResult?: SkillCheckResult;
   /**
-   * Player-submitted d20 echoed by the GM when a `[dice:1d20]` was rolled
+   * Player-submitted d20 echoed by the GM when a dice:1d20 tag was rolled
    * before the check. Forwarded to the server resolver so the sheet's
    * attribute modifier is applied on top of the player's number.
    */
@@ -675,9 +680,7 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
     }
 
     const isStandaloneSegment =
-      readablePlaceholderRe.test(line) ||
-      partyLineRegex.test(line) ||
-      compactDialogueRegex.test(line);
+      readablePlaceholderRe.test(line) || partyLineRegex.test(line) || compactDialogueRegex.test(line);
 
     if (isStandaloneSegment) {
       if (fallbackActive) {

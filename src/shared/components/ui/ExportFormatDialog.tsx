@@ -45,7 +45,6 @@ export function ExportFormatDialog({
       <div className="space-y-4">
         <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{description}</p>
         <div className={cn("grid gap-2", showPngOption ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-
           {options.map((option) => {
             const Icon = option.icon;
             return (

@@ -1,4 +1,5 @@
-import { formDataToJson } from "./file-payload";
+import { formDataToJson, CHAT_IMPORT_SIZE_ERROR, type FilePayloadOptions } from "./file-payload";
+import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { Channel } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
 import { remoteRuntimeTarget } from "./remote-runtime";
@@ -8,7 +9,15 @@ export interface ImportFilePayload {
   fields?: Record<string, string | number | boolean | null | undefined>;
 }
 
-async function filePayload(payload: ImportFilePayload | File): Promise<Record<string, unknown>> {
+const CHAT_IMPORT_LIMIT: FilePayloadOptions = {
+  maxBytes: MAX_FILE_SIZES.CHAT_JSONL,
+  tooLargeMessage: CHAT_IMPORT_SIZE_ERROR,
+};
+
+async function filePayload(
+  payload: ImportFilePayload | File,
+  options?: FilePayloadOptions,
+): Promise<Record<string, unknown>> {
   const file = payload instanceof File ? payload : payload.file;
   const fields = payload instanceof File ? undefined : payload.fields;
   const formData = new FormData();
@@ -16,14 +25,17 @@ async function filePayload(payload: ImportFilePayload | File): Promise<Record<st
     if (value !== null && value !== undefined) formData.append(key, String(value));
   }
   formData.append("file", file, file.name);
-  return formDataToJson(formData);
+  return formDataToJson(formData, options);
 }
 
-async function filesPayload(payload: File[] | FormData): Promise<Record<string, unknown>> {
-  if (payload instanceof FormData) return formDataToJson(payload);
+async function filesPayload(
+  payload: File[] | FormData,
+  options?: FilePayloadOptions,
+): Promise<Record<string, unknown>> {
+  if (payload instanceof FormData) return formDataToJson(payload, options);
   const form = new FormData();
   payload.forEach((file) => form.append("files", file, file.name));
-  return formDataToJson(form);
+  return formDataToJson(form, options);
 }
 
 export const importApi = {
@@ -34,15 +46,17 @@ export const importApi = {
   stCharacterFile: async <T>(payload: ImportFilePayload) =>
     invokeTauri<T>("import_st_character", { body: await filePayload(payload) }),
   stCharacterBatch: async <T>(payload: ImportFilePayload | File[] | FormData) => {
-    const body = Array.isArray(payload) || payload instanceof FormData ? await filesPayload(payload) : await filePayload(payload);
+    const body =
+      Array.isArray(payload) || payload instanceof FormData ? await filesPayload(payload) : await filePayload(payload);
     return invokeTauri<T>("import_st_character_batch", { body });
   },
   stCharacterInspect: async <T>(payload: File[] | FormData) =>
     invokeTauri<T>("import_st_character_inspect", { body: await filesPayload(payload) }),
-  stChat: async <T>(file: File) => invokeTauri<T>("import_st_chat", { body: await filePayload(file) }),
+  stChat: async <T>(file: File) =>
+    invokeTauri<T>("import_st_chat", { body: await filePayload(file, CHAT_IMPORT_LIMIT) }),
   stChatIntoGroup: async <T>(chatId: string, file: File) =>
     invokeTauri<T>("import_st_chat_into_group", {
-      body: await filePayload({ file, fields: { chatId } }),
+      body: await filePayload({ file, fields: { chatId } }, CHAT_IMPORT_LIMIT),
     }),
   stPreset: <T>(payload: unknown) => invokeTauri<T>("import_st_preset", { payload }),
   stLorebook: <T>(payload: unknown) => invokeTauri<T>("import_st_lorebook", { payload }),

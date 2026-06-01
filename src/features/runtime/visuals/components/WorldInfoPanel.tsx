@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Globe, Loader2, X } from "lucide-react";
-import { type BudgetSkippedLorebookEntry, useActiveLorebookEntries } from "../../../catalog/lorebooks/index";
+import {
+  type BudgetSkippedLorebookEntry,
+  type LorebookSemanticScanStatus,
+  useActiveLorebookEntries,
+} from "../../../catalog/lorebooks/index";
 
 function WorldInfoEntryRow({
   entry,
@@ -91,15 +95,19 @@ function BudgetSkippedEntriesNotice({ entries }: { entries: BudgetSkippedLoreboo
 
   return (
     <div className="mb-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-xs text-amber-50/85">
-      <button type="button" className="flex w-full items-start gap-2 text-left" onClick={() => setExpanded((prev) => !prev)}>
+      <button
+        type="button"
+        className="flex w-full items-start gap-2 text-left"
+        onClick={() => setExpanded((prev) => !prev)}
+      >
         <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-amber-300" />
         <span className="min-w-0 flex-1">
           <span className="block font-medium text-amber-100">
             {entries.length} matching lore {entries.length === 1 ? "entry was" : "entries were"} skipped by token budget
           </span>
           <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-amber-50/65">
-            Expand for budget details. Knowledge Retrieval or Knowledge Router may fit large lorebooks better than simply
-            raising caps.
+            Expand for budget details. Knowledge Retrieval or Knowledge Router may fit large lorebooks better than
+            simply raising caps.
           </span>
         </span>
         {expanded ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
@@ -115,6 +123,26 @@ function BudgetSkippedEntriesNotice({ entries }: { entries: BudgetSkippedLoreboo
   );
 }
 
+function SemanticScanNotice({ status }: { status?: LorebookSemanticScanStatus | null }) {
+  if (!status || status.vectorizedEntryCount === 0 || status.state === "ready" || status.state === "not_applicable") {
+    return null;
+  }
+  const count = status.vectorizedEntryCount.toLocaleString();
+  const message =
+    status.state === "missing_embedding_source"
+      ? `${count} vectorized ${status.vectorizedEntryCount === 1 ? "entry was" : "entries were"} not semantically scanned. Keyword and constant matches are shown.`
+      : status.state === "empty_query"
+        ? `${count} vectorized ${status.vectorizedEntryCount === 1 ? "entry was" : "entries were"} not semantically scanned because there is no chat text to embed.`
+        : `${count} vectorized ${status.vectorizedEntryCount === 1 ? "entry was" : "entries were"} not semantically scanned because embedding was unavailable.`;
+
+  return (
+    <div className="mb-2 flex gap-2 rounded-lg border border-sky-500/25 bg-sky-500/10 p-2 text-xs text-sky-50/85">
+      <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-sky-200" />
+      <span className="leading-relaxed">{message}</span>
+    </div>
+  );
+}
+
 export function WorldInfoPanel({
   chatId,
   isMobile,
@@ -124,9 +152,10 @@ export function WorldInfoPanel({
   isMobile: boolean;
   onClose: () => void;
 }) {
-  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
+  const { data, isLoading, isError, error } = useActiveLorebookEntries(chatId, true);
   const entries = data?.entries ?? [];
   const skippedEntries = data?.budgetSkippedEntries ?? [];
+  const errorMessage = error instanceof Error ? error.message : "The active world info scan could not complete.";
 
   return (
     <>
@@ -147,8 +176,17 @@ export function WorldInfoPanel({
           <Loader2 size="0.75rem" className="animate-spin" />
           Scanning entries...
         </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-2 text-xs text-[var(--destructive)]">
+          <div className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle size="0.75rem" />
+            World info scan failed
+          </div>
+          <p className="mt-1 leading-relaxed text-[var(--destructive)]/80">{errorMessage}</p>
+        </div>
       ) : entries.length === 0 ? (
         <>
+          <SemanticScanNotice status={data?.semanticStatus} />
           <BudgetSkippedEntriesNotice entries={skippedEntries} />
           <p className="py-3 text-center text-xs text-[var(--muted-foreground)]">No active entries for this chat</p>
         </>
@@ -157,6 +195,7 @@ export function WorldInfoPanel({
           <p className="mb-2 text-[0.625rem] text-[var(--muted-foreground)]">
             {entries.length} active * ~{(data?.totalTokens ?? 0).toLocaleString()} tokens
           </p>
+          <SemanticScanNotice status={data?.semanticStatus} />
           <BudgetSkippedEntriesNotice entries={skippedEntries} />
           <div className="space-y-1.5">
             {entries.map((entry) => (

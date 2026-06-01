@@ -1,7 +1,55 @@
-import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateCharacterSchema } from "../../../../engine/contracts/schemas/character.schema";
-import { cacheCharacterListRecordFromResult, characterKeys, removeCachedCharacterRecord } from "./use-characters";
+import { characterApi } from "../../../../shared/api/character-api";
+import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
+import { storageApi } from "../../../../shared/api/storage-api";
+import {
+  cacheCharacterListRecordFromResult,
+  characterKeys,
+  useCharacter,
+  useCharacterSummaries,
+  useCharactersByIds,
+  useUpdateCharacter,
+} from "./use-characters";
+import { removeCachedCharacterRecord } from "../lib/character-query-cache";
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock("../../../../shared/api/storage-api", () => ({
+  storageApi: {
+    get: vi.fn(),
+    list: vi.fn(),
+  },
+}));
+
+vi.mock("../../../../shared/api/character-api", () => ({
+  characterApi: {
+    update: vi.fn(),
+  },
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: vi.fn(),
+  invoke: vi.fn(),
+}));
+
+vi.mock("../../../../shared/api/remote-runtime", () => ({
+  invokeRemote: vi.fn(),
+  isRemoteCommand: vi.fn(),
+  remoteRuntimeTarget: vi.fn(),
+}));
+
+const convertFileSrcMock = vi.mocked(convertFileSrc);
+const characterUpdateMock = vi.mocked(characterApi.update);
+const remoteRuntimeTargetMock = vi.mocked(remoteRuntimeTarget);
+const storageGetMock = vi.mocked(storageApi.get);
+const storageListMock = vi.mocked(storageApi.list);
 
 function characterRecord(id: string, name: string) {
   return {
@@ -11,6 +59,166 @@ function characterRecord(id: string, name: string) {
     comment: null,
   };
 }
+
+describe("character list query", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    storageListMock.mockResolvedValue([]);
+    storageGetMock.mockResolvedValue(null);
+    characterUpdateMock.mockResolvedValue(characterRecord("char-updated", "Updated Character") as never);
+    remoteRuntimeTargetMock.mockReturnValue(null);
+    convertFileSrcMock.mockImplementation((path) => `asset://localhost/${encodeURIComponent(path)}`);
+    (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__ = {
+      convertFileSrc: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+    queryClient.clear();
+    storageGetMock.mockReset();
+    storageListMock.mockReset();
+    characterUpdateMock.mockReset();
+    convertFileSrcMock.mockReset();
+    remoteRuntimeTargetMock.mockReset();
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+  });
+
+  async function renderHook<THook>(useHook: () => THook): Promise<() => THook> {
+    let hook: THook | undefined;
+
+    function Probe() {
+      hook = useHook();
+      return null;
+    }
+
+    await act(async () => {
+      root.render(
+        createElement(QueryClientProvider, {
+          client: queryClient,
+          children: createElement(Probe),
+        }),
+      );
+    });
+
+    if (!hook) {
+      throw new Error("Hook did not render");
+    }
+
+    return () => {
+      if (!hook) {
+        throw new Error("Hook did not render");
+      }
+      return hook;
+    };
+  }
+
+  it("normalizes managed avatar paths from character summaries", async () => {
+    storageListMock.mockResolvedValue([
+      {
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+        avatarFilename: "Managed.png",
+      },
+    ]);
+
+    const getSummaries = await renderHook(useCharacterSummaries);
+
+    await vi.waitFor(() =>
+      expect(getSummaries().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+          avatarFilename: "Managed.png",
+        },
+      ]),
+    );
+  });
+
+  it("preserves version snapshot options through update mutations", async () => {
+    const readHook = await renderHook(() => useUpdateCharacter());
+
+    await act(async () => {
+      await readHook().mutateAsync({
+        id: "char-1",
+        data: { name: "Updated" },
+        versionSource: "agent",
+        versionReason: "Professor Mari card update",
+        skipVersionSnapshot: true,
+      });
+    });
+
+    expect(characterUpdateMock).toHaveBeenCalledWith("char-1", {
+      data: { name: "Updated" },
+      versionSource: "agent",
+      versionReason: "Professor Mari card update",
+      skipVersionSnapshot: true,
+    });
+  });
+
+  it("normalizes managed avatar paths from character detail reads", async () => {
+    storageGetMock.mockResolvedValue({
+      id: "char-1",
+      data: { name: "Managed Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+      avatarFilename: "Managed.png",
+    });
+
+    const getCharacter = await renderHook(() => useCharacter("char-1"));
+
+    await vi.waitFor(() =>
+      expect(getCharacter().data).toEqual({
+        id: "char-1",
+        data: { name: "Managed Character" },
+        avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+        avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+        avatarFilename: "Managed.png",
+      }),
+    );
+  });
+
+  it("normalizes managed avatar paths from character reads by id", async () => {
+    storageGetMock.mockResolvedValue({
+      id: "char-1",
+      data: { name: "Managed Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+      avatarFilename: "Managed.png",
+    });
+
+    const getCharacters = await renderHook(() => useCharactersByIds(["char-1"]));
+
+    await vi.waitFor(() =>
+      expect(getCharacters().data).toEqual([
+        {
+          id: "char-1",
+          data: { name: "Managed Character" },
+          avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CManaged.png",
+          avatarFilePath: "C:\\Marinara\\avatars\\characters\\Managed.png",
+          avatarFilename: "Managed.png",
+        },
+      ]),
+    );
+  });
+});
 
 describe("character query cache helpers", () => {
   it("updates character list and summary caches from a created or imported character result", () => {
@@ -27,6 +235,37 @@ describe("character query cache helpers", () => {
     expect(queryClient.getQueryData(characterKeys.summaries())).toEqual([created, existing]);
     expect(queryClient.getQueryData(characterKeys.detail(created.id))).toEqual(created);
     expect(queryClient.getQueryData(characterKeys.summaryDetail(created.id))).toEqual(created);
+  });
+
+  it("normalizes managed avatar paths in character cache writes", () => {
+    const queryClient = new QueryClient();
+    remoteRuntimeTargetMock.mockReturnValue(null);
+    convertFileSrcMock.mockImplementation((path) => `asset://localhost/${encodeURIComponent(path)}`);
+    (window as unknown as { __TAURI_INTERNALS__?: { convertFileSrc?: unknown } }).__TAURI_INTERNALS__ = {
+      convertFileSrc: vi.fn(),
+    };
+    const created = {
+      id: "char-created",
+      data: { name: "Created Character" },
+      avatarPath: "data:image/png;base64,large-avatar",
+      avatarFilePath: "C:\\Marinara\\avatars\\characters\\Created.png",
+      avatarFilename: "Created.png",
+      comment: null,
+    };
+    const expected = {
+      ...created,
+      avatarPath: "asset://localhost/C%3A%5CMarinara%5Cavatars%5Ccharacters%5CCreated.png",
+    };
+
+    queryClient.setQueryData(characterKeys.list(), []);
+    queryClient.setQueryData(characterKeys.summaries(), []);
+
+    expect(cacheCharacterListRecordFromResult(queryClient, { character: created })).toBe(true);
+
+    expect(queryClient.getQueryData(characterKeys.list())).toEqual([expected]);
+    expect(queryClient.getQueryData(characterKeys.summaries())).toEqual([expected]);
+    expect(queryClient.getQueryData(characterKeys.detail(created.id))).toEqual(expected);
+    expect(queryClient.getQueryData(characterKeys.summaryDetail(created.id))).toEqual(expected);
   });
 
   it("removes deleted characters from list and summary caches", () => {

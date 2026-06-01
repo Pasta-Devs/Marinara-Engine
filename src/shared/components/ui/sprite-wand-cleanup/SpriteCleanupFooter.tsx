@@ -34,9 +34,7 @@ export function SpriteCleanupFooter({
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
       <div className="w-full min-w-0 space-y-0.5 text-xs text-[var(--muted-foreground)] sm:flex-1">
-        <div>
-          {error ? <span className="text-[var(--destructive)]">{error}</span> : (status ?? "Wand ready")}
-        </div>
+        <div>{error ? <span className="text-[var(--destructive)]">{error}</span> : (status ?? "Wand ready")}</div>
         <div className="font-mono text-[0.6875rem] text-[var(--muted-foreground)]/85">{hoverReadout}</div>
       </div>
       <button

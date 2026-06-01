@@ -4,15 +4,17 @@ import { cn } from "../../../../shared/lib/utils";
 import { visibleText } from "./tracker-display.helpers";
 import "./WorldEditableTile.css";
 
-export function WorldTileShell({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+export function WorldTileShell({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div
-      className={cn(
-        "tracker-world-tile-shell",
-        className,
-      )}
-      title={label}
-    >
+    <div className={cn("tracker-world-tile-shell", className)} title={label}>
       <div className="tracker-world-tile-shell__wash" />
       <div className="tracker-world-tile-shell__top-rule" />
       <div className="tracker-world-tile-shell__bottom-rule" />
@@ -92,10 +94,7 @@ export function WorldRenderedEdit({
           }
         }}
         onBlur={commit}
-        className={cn(
-          "tracker-world-edit-input",
-          inputClassName,
-        )}
+        className={cn("tracker-world-edit-input", inputClassName)}
         placeholder={placeholder ?? `Set ${label.toLowerCase()}`}
         aria-label={label}
       />
@@ -108,20 +107,11 @@ export function WorldRenderedEdit({
       onClick={() => setEditing(true)}
       title={title}
       aria-label={`${title}. Click to edit.`}
-      className={cn(
-        "tracker-world-edit-button",
-        className,
-      )}
+      className={cn("tracker-world-edit-button", className)}
     >
       {children}
       {showEditHint && (
-        <span
-          className={cn(
-            "tracker-world-edit-hint",
-            editHintClassName,
-          )}
-          aria-hidden="true"
-        >
+        <span className={cn("tracker-world-edit-hint", editHintClassName)} aria-hidden="true">
           <Pencil size="0.5rem" />
         </span>
       )}

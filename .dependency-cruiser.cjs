@@ -107,7 +107,8 @@ module.exports = {
     {
       name: "catalog-must-not-import-higher-feature-layers",
       severity: "error",
-      comment: "Catalog packages are the resource/data layer and cannot depend on runtime systems, modes, or shell tools.",
+      comment:
+        "Catalog packages are the resource/data layer and cannot depend on runtime systems, modes, or shell tools.",
       from: { path: "^src/features/catalog/" },
       to: { path: "^src/features/(runtime|modes|shell)/" },
     },
@@ -149,7 +150,8 @@ module.exports = {
     {
       name: "shared-mode-ui-must-not-import-concrete-modes",
       severity: "error",
-      comment: "Shared mode UI is a lower mode layer and cannot import concrete conversation, roleplay, or game packages.",
+      comment:
+        "Shared mode UI is a lower mode layer and cannot import concrete conversation, roleplay, or game packages.",
       from: { path: "^src/features/modes/shared/" },
       to: { path: "^src/features/modes/(conversation|roleplay|game)/" },
     },

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Modal } from "../../../../shared/components/ui/Modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { Loader2, BookOpen, AlertCircle } from "lucide-react";
 
@@ -18,7 +19,7 @@ export function CreateLorebookModal({ open, onClose }: Props) {
 
   const createLorebook = useMutation({
     mutationFn: (data: { name: string; description: string }) =>
-      storageApi.create("lorebooks", { ...data, entries: [] }),
+      storageApi.create("lorebooks", { ...createLorebookSchema.parse(data), entries: [] }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lorebooks"] });
       onClose();

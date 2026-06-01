@@ -25,15 +25,7 @@ export function isEditableText(ext?: string) {
  * @param size - Optional icon size
  * @returns A Lucide icon component
  */
-export function FileIcon({
-  ext,
-  className,
-  size,
-}: {
-  ext?: string;
-  className?: string;
-  size?: string | number;
-}) {
+export function FileIcon({ ext, className, size }: { ext?: string; className?: string; size?: string | number }) {
   if (isImage(ext)) {
     return <FileImage className={className} size={size} />;
   }

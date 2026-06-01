@@ -66,7 +66,7 @@ function resolveScriptString(value: string, options: ApplyRegexScriptOptions | u
   return options?.resolveMacros ? options.resolveMacros(value) : value;
 }
 
-export function applyRegexScriptsToPromptText(
+function applyRegexScriptsToPromptText(
   text: string,
   scripts: RegexScriptLike[],
   placement: RegexPlacement,

@@ -32,7 +32,7 @@ export function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void })
 
 type WidgetPopoverPlacement = "bottom" | "right" | "left";
 
-export function getWidgetPopoverPlacement(layout: HudPosition): WidgetPopoverPlacement {
+function getWidgetPopoverPlacement(layout: HudPosition): WidgetPopoverPlacement {
   return layout === "left" ? "right" : layout === "right" ? "left" : "bottom";
 }
 

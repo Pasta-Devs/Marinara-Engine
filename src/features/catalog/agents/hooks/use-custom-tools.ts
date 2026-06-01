@@ -2,7 +2,10 @@
 // Hooks: Custom Tools (React Query)
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createCustomToolSchema } from "../../../../engine/contracts/schemas/custom-tool.schema";
+import {
+  createCustomToolSchema,
+  updateCustomToolSchema,
+} from "../../../../engine/contracts/schemas/custom-tool.schema";
 import { customToolApi } from "../../../../shared/api/custom-tool-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 
@@ -38,7 +41,6 @@ export function isCustomToolSelectable(tool: CustomToolRow, _capabilities?: Cust
 
 const toolKeys = {
   all: ["custom-tools"] as const,
-  detail: (id: string) => ["custom-tools", id] as const,
   capabilities: ["custom-tools", "capabilities"] as const,
 };
 
@@ -46,14 +48,6 @@ export function useCustomTools() {
   return useQuery({
     queryKey: toolKeys.all,
     queryFn: () => storageApi.list<CustomToolRow>("custom-tools"),
-  });
-}
-
-export function useCustomTool(id: string | null) {
-  return useQuery({
-    queryKey: toolKeys.detail(id ?? ""),
-    queryFn: () => storageApi.get<CustomToolRow>("custom-tools", id!),
-    enabled: !!id,
   });
 }
 
@@ -67,7 +61,8 @@ export function useCustomToolCapabilities() {
 export function useCreateCustomTool() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => storageApi.create("custom-tools", createCustomToolSchema.parse(data)),
+    mutationFn: (data: Record<string, unknown>) =>
+      storageApi.create("custom-tools", createCustomToolSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: toolKeys.all });
     },
@@ -78,7 +73,7 @@ export function useUpdateCustomTool() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
-      storageApi.update("custom-tools", id, data),
+      storageApi.update("custom-tools", id, updateCustomToolSchema.parse(data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: toolKeys.all });
     },

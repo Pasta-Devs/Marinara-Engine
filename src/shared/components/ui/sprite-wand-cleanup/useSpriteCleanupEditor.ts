@@ -211,14 +211,20 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
     return point;
   }, []);
 
-  const pushHistory = useCallback((snapshot: ImageData) => {
-    setRedoHistory([]);
-    setHistory((prev) => [...prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1)), snapshot]);
-  }, [setHistory, setRedoHistory]);
+  const pushHistory = useCallback(
+    (snapshot: ImageData) => {
+      setRedoHistory([]);
+      setHistory((prev) => [...prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1)), snapshot]);
+    },
+    [setHistory, setRedoHistory],
+  );
 
-  const pushRedoHistory = useCallback((snapshot: ImageData) => {
-    setRedoHistory((prev) => [...prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1)), snapshot]);
-  }, [setRedoHistory]);
+  const pushRedoHistory = useCallback(
+    (snapshot: ImageData) => {
+      setRedoHistory((prev) => [...prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1)), snapshot]);
+    },
+    [setRedoHistory],
+  );
 
   const applyWandAtPoint = useCallback(
     (point: CanvasPoint) => {
@@ -640,8 +646,7 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
 
   const reticleStyle = useMemo<CSSProperties | null>(() => {
     if (!hoverPoint) return null;
-    const diameter =
-      activeBrushMode && !pickingBrushColor ? Math.max(8, brushSize * zoom) : Math.max(12, 12 * zoom);
+    const diameter = activeBrushMode && !pickingBrushColor ? Math.max(8, brushSize * zoom) : Math.max(12, 12 * zoom);
     return {
       width: `${diameter}px`,
       height: `${diameter}px`,
@@ -651,14 +656,13 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
     };
   }, [activeBrushMode, brushSize, hoverPoint, pickingBrushColor, zoom]);
 
-  const cursorClass =
-    isPanning
-      ? "cursor-grabbing"
-      : tool === "pan"
-        ? "cursor-grab active:cursor-grabbing"
-        : tool === "wand" || pickingBrushColor
-          ? "cursor-crosshair"
-          : "cursor-none";
+  const cursorClass = isPanning
+    ? "cursor-grabbing"
+    : tool === "pan"
+      ? "cursor-grab active:cursor-grabbing"
+      : tool === "wand" || pickingBrushColor
+        ? "cursor-crosshair"
+        : "cursor-none";
 
   const hoverReadout = hoverPoint
     ? `x ${hoverPoint.x}, y ${hoverPoint.y} · ${formatRgba(hoverPoint.color)}`

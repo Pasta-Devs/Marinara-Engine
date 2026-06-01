@@ -176,9 +176,7 @@ export function partializeUiState(state: UIState) {
 
 export function migrateUiState(persistedState: unknown): Partial<UIState> {
   const persisted =
-    typeof persistedState === "object" && persistedState !== null
-      ? { ...(persistedState as PersistedUiState) }
-      : {};
+    typeof persistedState === "object" && persistedState !== null ? { ...(persistedState as PersistedUiState) } : {};
 
   const legacyWidth = persisted.trackerPanelWidth;
   persisted.sidebarWidth = normalizePersistedWidth(
@@ -196,12 +194,8 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.trackerPanelThoughtBubbleDisplay = normalizeTrackerThoughtBubbleDisplay(
     persisted.trackerPanelThoughtBubbleDisplay,
   );
-  persisted.trackerPanelDockedThoughtsAlwaysVisible =
-    persisted.trackerPanelDockedThoughtsAlwaysVisible === true;
-  persisted.trackerPanelSizeProfile = normalizeTrackerPanelSizeProfile(
-    persisted.trackerPanelSizeProfile,
-    legacyWidth,
-  );
+  persisted.trackerPanelDockedThoughtsAlwaysVisible = persisted.trackerPanelDockedThoughtsAlwaysVisible === true;
+  persisted.trackerPanelSizeProfile = normalizeTrackerPanelSizeProfile(persisted.trackerPanelSizeProfile, legacyWidth);
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
   persisted.trackerPanelCollapsedSections = normalizeTrackerPanelCollapsedSections(
     persisted.trackerPanelCollapsedSections,

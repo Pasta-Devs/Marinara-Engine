@@ -75,7 +75,12 @@ export function ChatTitleControls({
           title="Home"
           aria-label="Home"
         >
-          <img src="/favicon.png" alt="" className="h-[0.95rem] w-[0.95rem] rounded-[0.2rem] object-cover" draggable={false} />
+          <img
+            src="/favicon.png"
+            alt=""
+            className="h-[0.95rem] w-[0.95rem] rounded-[0.2rem] object-cover"
+            draggable={false}
+          />
         </button>
       )}
       <button

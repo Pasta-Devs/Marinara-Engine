@@ -14,14 +14,31 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { cn } from "../../../../shared/lib/utils";
 import { audioManager } from "../lib/game-audio";
 import { getOrCreateCachedTTSAudioBlob } from "../../../../shared/lib/tts-audio-cache";
-import { normalizeTTSCharacterName, resolveTTSVoiceForSpeaker, splitTTSChunks } from "../../../../shared/lib/tts-dialogue";
+import {
+  normalizeTTSCharacterName,
+  resolveTTSVoiceForSpeaker,
+  splitTTSChunks,
+} from "../../../../shared/lib/tts-dialogue";
 import { ttsService } from "../../../../shared/lib/tts-service";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useCombatRound } from "../hooks/use-game";
 import { useTTSConfig } from "../../../../shared/hooks/use-tts";
 import { AnimatedText } from "./AnimatedText";
-import type { CombatDialogueCue, CombatItemEffect, CombatMechanic, CombatStatus } from "../../../../engine/contracts/types/combat-encounter";
-import type { Combatant, CombatAttackResult, CombatRoundResult, CombatPlayerAction, CombatSummary, CombatSkill, PartyDialogueLine } from "../../../../engine/contracts/types/game";
+import type {
+  CombatDialogueCue,
+  CombatItemEffect,
+  CombatMechanic,
+  CombatStatus,
+} from "../../../../engine/contracts/types/combat-encounter";
+import type {
+  Combatant,
+  CombatAttackResult,
+  CombatRoundResult,
+  CombatPlayerAction,
+  CombatSummary,
+  CombatSkill,
+  PartyDialogueLine,
+} from "../../../../engine/contracts/types/game";
 import type { TTSConfig } from "../../../../engine/contracts/types/tts";
 import {
   Heart,

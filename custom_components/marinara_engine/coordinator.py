@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from base64 import b64encode
 from datetime import timedelta
 from typing import Any
 
@@ -19,6 +20,14 @@ from .const import DOMAIN, SCAN_INTERVAL
 _LOGGER = logging.getLogger(__name__)
 
 
+def _authorization_header(username: str | None, password: str | None) -> str | None:
+    user = (username or "").strip()
+    if not user:
+        return None
+    credentials = f"{user}:{password or ''}".encode()
+    return f"Basic {b64encode(credentials).decode()}"
+
+
 def _is_enabled(value: object) -> bool:
     if isinstance(value, bool):
         return value
@@ -32,15 +41,29 @@ def _is_enabled(value: object) -> bool:
 class MarinaraCoordinator(DataUpdateCoordinator[dict]):
     """Polls Marinara Engine for chats and agents."""
 
-    def __init__(self, hass: HomeAssistant, host: str, port: int) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        host: str,
+        port: int,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
         self.base_url = f"http://{host}:{port}"
         self._session = async_get_clientsession(hass)
+        self._authorization = _authorization_header(username, password)
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"X-Marinara-CSRF": "1"}
+        if self._authorization:
+            headers["Authorization"] = self._authorization
+        return headers
 
     async def _invoke(
         self,
@@ -51,7 +74,7 @@ class MarinaraCoordinator(DataUpdateCoordinator[dict]):
         async with self._session.post(
             f"{self.base_url}/api/invoke",
             json={"command": command, "args": args or None},
-            headers={"X-Marinara-CSRF": "1"},
+            headers=self._headers(),
             timeout=aiohttp.ClientTimeout(total=timeout_seconds),
         ) as resp:
             resp.raise_for_status()
@@ -107,13 +130,19 @@ class MarinaraCoordinator(DataUpdateCoordinator[dict]):
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
     async def async_verify_connection(self) -> None:
-        """Raise ConfigEntryNotReady if the server is unreachable."""
+        """Raise ConfigEntryNotReady if the authenticated health/API checks fail."""
         try:
             async with self._session.get(
                 f"{self.base_url}/health",
+                headers=self._headers(),
                 timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:
                 resp.raise_for_status()
+            await self._invoke(
+                "storage_list",
+                {"entity": "chats", "options": {"fields": ["id"], "limit": 1}},
+                timeout_seconds=5,
+            )
         except Exception as err:
             raise ConfigEntryNotReady(
                 f"Cannot connect to Marinara Engine at {self.base_url}: {err}"

@@ -24,16 +24,21 @@ import {
   Trash2,
   Zap,
   Camera,
+  Gamepad2,
 } from "lucide-react";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../hooks/use-lorebooks";
-import { useCharacterSummaries, usePersonaSummaries } from "../../characters/index";
+import { useCharacterSummariesByIds } from "../../characters/index";
+import { usePersonaSummaries } from "../../personas/index";
 import type { Lorebook, LorebookCategory } from "../../../../engine/contracts/types/lorebook";
+import { resolveActiveLorebookScopeReasons } from "../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import { resolveGameLorebookScopeExclusions } from "../../../../engine/generation-core/lorebooks/game-lorebook-scope";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
 import { exportApi } from "../../../../shared/api/export-api";
 import { getChatCharacterIds } from "../../../../shared/lib/chat-macros";
+import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
 import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
 
@@ -44,6 +49,7 @@ const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string
   { id: "character", label: "Character", icon: Users },
   { id: "npc", label: "NPC", icon: UserRound },
   { id: "spellbook", label: "Spellbook", icon: Wand2 },
+  { id: "game", label: "Game", icon: Gamepad2 },
   { id: "uncategorized", label: "Other", icon: BookOpen },
 ];
 
@@ -52,6 +58,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   character: "from-violet-400 to-purple-500",
   npc: "from-rose-400 to-pink-500",
   spellbook: "from-blue-400 to-indigo-500",
+  game: "from-cyan-400 to-sky-500",
   uncategorized: "from-amber-400 to-orange-500",
   all: "from-amber-400 to-orange-500",
 };
@@ -71,25 +78,36 @@ export function LorebooksPanel() {
 
   // Active chat context for the "Active" filter
   const activeChat = useChatStore((s) => s.activeChat);
-  const activeChatMetadata = activeChat?.metadata;
-  const activeLorebookIds: string[] = useMemo(() => {
-    if (!activeChatMetadata) return [];
-    try {
-      const meta = typeof activeChatMetadata === "string" ? JSON.parse(activeChatMetadata) : activeChatMetadata;
-      return Array.isArray(meta.activeLorebookIds) ? meta.activeLorebookIds : [];
-    } catch {
-      return [];
-    }
-  }, [activeChatMetadata]);
   const activeCharacterIds = useMemo(() => getChatCharacterIds(activeChat), [activeChat]);
-  const activePersonaId = activeChat?.personaId ?? null;
-  const activeChatId = activeChat?.id ?? null;
+  const activeLorebookScopeContext = useMemo(
+    () => ({
+      chat: activeChat,
+      characters: activeCharacterIds.map((id) => ({ id })),
+      persona: activeChat?.personaId ? { id: activeChat.personaId } : null,
+      scopeExclusions: resolveGameLorebookScopeExclusions(activeChat?.mode, parseChatMetadata(activeChat?.metadata)),
+    }),
+    [activeChat, activeCharacterIds],
+  );
 
   // When "active" category is selected, fetch all lorebooks (no category filter) — we filter client-side
   const { data: lorebooks, isLoading } = useLorebooks(
     activeCategory === "active" || activeCategory === "all" ? undefined : activeCategory,
   );
-  const { data: rawCharacters } = useCharacterSummaries();
+  const lorebookCharacterIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const lorebook of (lorebooks ?? []) as Lorebook[]) {
+      if (Array.isArray(lorebook.characterIds)) {
+        for (const id of lorebook.characterIds) {
+          if (typeof id === "string" && id.trim()) ids.add(id.trim());
+        }
+      }
+      if (typeof lorebook.characterId === "string" && lorebook.characterId.trim()) {
+        ids.add(lorebook.characterId.trim());
+      }
+    }
+    return Array.from(ids);
+  }, [lorebooks]);
+  const { data: rawCharacters } = useCharacterSummariesByIds(lorebookCharacterIds, lorebookCharacterIds.length > 0);
   const { data: rawPersonas } = usePersonaSummaries();
   const deleteLorebook = useDeleteLorebook();
   const updateLorebook = useUpdateLorebook();
@@ -188,19 +206,8 @@ export function LorebooksPanel() {
     if (!lorebooks) return [];
     let list = lorebooks as Lorebook[];
     // "Active" filter: show lorebooks active in the current chat
-    // Mirrors native lorebook filtering: global + pinned + character-linked + persona-linked + chat-scoped.
     if (activeCategory === "active") {
-      list = list.filter(
-        (lb) =>
-          lb.enabled &&
-          (lb.isGlobal ||
-            activeLorebookIds.includes(lb.id) ||
-            (Array.isArray(lb.characterIds) && lb.characterIds.some((id) => activeCharacterIds.includes(id))) ||
-            (lb.characterId && activeCharacterIds.includes(lb.characterId)) ||
-            (Array.isArray(lb.personaIds) && lb.personaIds.includes(activePersonaId ?? "")) ||
-            (lb.personaId && lb.personaId === activePersonaId) ||
-            (lb.chatId && lb.chatId === activeChatId)),
-      );
+      list = list.filter((lb) => resolveActiveLorebookScopeReasons(lb, activeLorebookScopeContext).length > 0);
     }
     if (activeTag) {
       list = list.filter((lb) => parseTags(lb).includes(activeTag));
@@ -218,10 +225,7 @@ export function LorebooksPanel() {
   }, [
     lorebooks,
     activeCategory,
-    activeLorebookIds,
-    activeCharacterIds,
-    activePersonaId,
-    activeChatId,
+    activeLorebookScopeContext,
     searchQuery,
     activeTag,
     getCharacterNames,
@@ -610,7 +614,10 @@ export function LorebooksPanel() {
           {activeCategory === "all" && grouped
             ? // Grouped view
               Array.from(grouped.entries()).map(([category, books]) => {
-                const catMeta = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[5];
+                const catMeta =
+                  CATEGORIES.find((c) => c.id === category) ??
+                  CATEGORIES.find((c) => c.id === "uncategorized") ??
+                  CATEGORIES[0];
                 const CatIcon = catMeta.icon;
                 return (
                   <div key={category} className="mb-2">
@@ -677,7 +684,7 @@ export function LorebooksPanel() {
                       ) {
                         deleteLorebook.mutate(lb.id);
                       }
-                      }}
+                    }}
                     onImagePick={() => handlePickLorebookImage(lb.id)}
                     selectionMode={selectionMode}
                     isSelected={selectedLorebookIds.has(lb.id)}

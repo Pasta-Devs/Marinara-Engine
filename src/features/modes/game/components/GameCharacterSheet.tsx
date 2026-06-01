@@ -33,7 +33,7 @@ export interface GameCharacterSheetGameCard {
   };
 }
 
-export interface CharacterSheetCard {
+interface CharacterSheetCard {
   title: string;
   subtitle?: string;
   mood?: string;

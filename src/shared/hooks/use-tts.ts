@@ -7,7 +7,8 @@ import type { TTSConfig, TTSSource } from "../../engine/contracts/types/tts";
 
 const KEYS = {
   config: ["tts", "config"] as const,
-  voices: (source: TTSSource, baseUrl: string) => ["tts", "voices", source, baseUrl] as const,
+  voices: (source: TTSSource, baseUrl: string, voicesPath: string) =>
+    ["tts", "voices", source, baseUrl, voicesPath] as const,
 };
 
 // ── Config ───────────────────────────────────────
@@ -17,6 +18,14 @@ export function useTTSConfig() {
     queryKey: KEYS.config,
     queryFn: () => ttsApi.config(),
     staleTime: 60_000,
+  });
+}
+
+export function useCachedTTSConfig() {
+  return useQuery({
+    queryKey: KEYS.config,
+    queryFn: () => ttsApi.config(),
+    enabled: false,
   });
 }
 
@@ -33,9 +42,9 @@ export function useUpdateTTSConfig() {
 
 // ── Voices ───────────────────────────────────────
 
-export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolean) {
+export function useTTSVoices(source: TTSSource, baseUrl: string, voicesPath: string, enabled: boolean) {
   return useQuery({
-    queryKey: KEYS.voices(source, baseUrl),
+    queryKey: KEYS.voices(source, baseUrl, voicesPath),
     queryFn: () => ttsApi.voices(),
     enabled: enabled && Boolean(baseUrl),
     staleTime: 5 * 60_000,

@@ -2,7 +2,7 @@ import { resolveAssetTag } from "../lib/asset-fuzzy-match";
 
 type AssetManifestMap = Record<string, { path: string }> | null;
 
-export type SceneAssetNpcAvatarCandidate = {
+type SceneAssetNpcAvatarCandidate = {
   name: string;
   description: string;
   avatarUrl?: string | null;
@@ -31,10 +31,7 @@ export function normalizeSceneAssetNameForGeneration(value: string): string {
   return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 }
 
-export function getMissingBackgroundTag(
-  backgroundTag: string | undefined | null,
-  manifest: AssetManifestMap,
-): string | null {
+function getMissingBackgroundTag(backgroundTag: string | undefined | null, manifest: AssetManifestMap): string | null {
   const cleaned = backgroundTag?.trim();
   if (!cleaned || cleaned === "black" || cleaned === "none") return null;
   const resolved = resolveAssetTag(cleaned, "backgrounds", manifest);

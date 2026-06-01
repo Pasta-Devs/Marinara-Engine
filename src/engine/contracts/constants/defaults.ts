@@ -36,11 +36,13 @@ export const DEFAULT_GENERATION_PARAMS: GenerationParameters = {
 export const MAX_FILE_SIZES = {
   AVATAR: 10 * 1024 * 1024, // 10 MB
   BACKGROUND: 20 * 1024 * 1024, // 20 MB
+  IMAGE_UPLOAD: 20 * 1024 * 1024, // 20 MB
   SPRITE: 10 * 1024 * 1024, // 10 MB
   CHARACTER_JSON: 5 * 1024 * 1024, // 5 MB
   LOREBOOK_JSON: 10 * 1024 * 1024, // 10 MB
   PRESET_JSON: 2 * 1024 * 1024, // 2 MB
   CHAT_JSONL: 50 * 1024 * 1024, // 50 MB
+  GAME_ASSET: 50 * 1024 * 1024, // 50 MB (matches the Settings game-asset upload gate; under the 75 MB Rust server ceiling)
 } as const;
 
 /** Limits for various entities. */

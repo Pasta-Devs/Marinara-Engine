@@ -1,5 +1,6 @@
 use super::shared::*;
 use super::*;
+use serde_json::Map;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use zip::write::SimpleFileOptions;
@@ -117,10 +118,11 @@ pub(crate) fn import_character_embedded_lorebook(
         .and_then(Value::as_str)
         .or_else(|| data.get("name").and_then(Value::as_str))
         .unwrap_or("Character");
-    let lorebook = state.storage.create(
-        "lorebooks",
-        with_entity_defaults(
+    let existing_lorebook_id = linked_embedded_lorebook_id(state, character_id, &data)?;
+    let (lorebook, reimported) = if let Some(lorebook_id) = existing_lorebook_id {
+        let patched = state.storage.patch(
             "lorebooks",
+            &lorebook_id,
             json!({
                 "name": format!("{name} Lorebook"),
                 "description": "Imported from embedded character book",
@@ -128,8 +130,26 @@ pub(crate) fn import_character_embedded_lorebook(
                 "characterId": character_id,
                 "sourceCharacterId": character_id
             }),
-        )?,
-    )?;
+        )?;
+        remove_lorebook_child_rows(state, &lorebook_id)?;
+        remove_duplicate_embedded_lorebooks(state, character_id, &lorebook_id)?;
+        (patched, true)
+    } else {
+        let created = state.storage.create(
+            "lorebooks",
+            with_entity_defaults(
+                "lorebooks",
+                json!({
+                    "name": format!("{name} Lorebook"),
+                    "description": "Imported from embedded character book",
+                    "category": "character",
+                    "characterId": character_id,
+                    "sourceCharacterId": character_id
+                }),
+            )?,
+        )?;
+        (created, false)
+    };
     let lorebook_id = lorebook
         .get("id")
         .and_then(Value::as_str)
@@ -146,7 +166,7 @@ pub(crate) fn import_character_embedded_lorebook(
         "success": true,
         "lorebookId": lorebook_id,
         "entriesImported": imported,
-        "reimported": false
+        "reimported": reimported
     }))
 }
 
@@ -451,6 +471,82 @@ fn compatible_lorebook_export(lorebook: &Value, entries: &Value) -> Value {
 
 fn character_data_value(character: &Value) -> Value {
     character.get("data").cloned().unwrap_or_else(|| json!({}))
+}
+
+fn embedded_lorebook_pointer(data: &Value) -> Option<&str> {
+    data.get("extensions")?
+        .get("importMetadata")?
+        .get("embeddedLorebook")?
+        .get("lorebookId")?
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn lorebook_linked_to_character(lorebook: &Value, character_id: &str) -> bool {
+    lorebook.get("characterId").and_then(Value::as_str) == Some(character_id)
+        || lorebook.get("sourceCharacterId").and_then(Value::as_str) == Some(character_id)
+}
+
+fn linked_embedded_lorebook_id(
+    state: &AppState,
+    character_id: &str,
+    data: &Value,
+) -> AppResult<Option<String>> {
+    if let Some(pointer_id) = embedded_lorebook_pointer(data) {
+        if let Some(lorebook) = state.storage.get("lorebooks", pointer_id)? {
+            if lorebook_linked_to_character(&lorebook, character_id) {
+                return Ok(Some(pointer_id.to_string()));
+            }
+        }
+    }
+
+    let candidates = list_collection(state, "lorebooks", Some(("sourceCharacterId", character_id)))?;
+    let fallback = candidates
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|lorebook| lorebook_linked_to_character(lorebook, character_id))
+        .and_then(|lorebook| lorebook.get("id").and_then(Value::as_str))
+        .map(str::to_string);
+    Ok(fallback)
+}
+
+fn remove_lorebook_child_rows(state: &AppState, lorebook_id: &str) -> AppResult<()> {
+    let mut filters = Map::new();
+    filters.insert(
+        "lorebookId".to_string(),
+        Value::String(lorebook_id.to_string()),
+    );
+    state.storage.delete_where("lorebook-entries", &filters)?;
+    state.storage.delete_where("lorebook-folders", &filters)?;
+    Ok(())
+}
+
+fn is_embedded_lorebook_import_record(lorebook: &Value, character_id: &str) -> bool {
+    lorebook_linked_to_character(lorebook, character_id)
+        && lorebook.get("category").and_then(Value::as_str) == Some("character")
+        && lorebook.get("description").and_then(Value::as_str)
+            == Some("Imported from embedded character book")
+}
+
+fn remove_duplicate_embedded_lorebooks(
+    state: &AppState,
+    character_id: &str,
+    keep_lorebook_id: &str,
+) -> AppResult<()> {
+    let candidates = list_collection(state, "lorebooks", Some(("sourceCharacterId", character_id)))?;
+    for lorebook in candidates.as_array().into_iter().flatten() {
+        let Some(id) = lorebook.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        if id == keep_lorebook_id || !is_embedded_lorebook_import_record(lorebook, character_id) {
+            continue;
+        }
+        remove_lorebook_child_rows(state, id)?;
+        state.storage.delete("lorebooks", id)?;
+    }
+    Ok(())
 }
 
 fn normalize_character_book_entry(entry: &Value, index: usize, lorebook_id: &str) -> Value {
@@ -890,5 +986,160 @@ fn safe_export_name(name: &str, fallback: &str) -> String {
         fallback.to_string()
     } else {
         sanitized
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-exports-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn entries_for_lorebook(state: &AppState, lorebook_id: &str) -> Vec<Value> {
+        list_collection(state, "lorebook-entries", Some(("lorebookId", lorebook_id)))
+            .expect("entries should be readable")
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn embedded_lorebook_reimport_reuses_linked_lorebook_and_replaces_entries() {
+        let state = test_state("embedded-lorebook-reimport");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "name": "Mira",
+                    "data": {
+                        "name": "Mira",
+                        "character_book": {
+                            "entries": [
+                                { "comment": "First", "content": "first moon", "key": ["moon"] }
+                            ]
+                        }
+                    }
+                }),
+            )
+            .expect("character should be created");
+
+        let first = import_character_embedded_lorebook(&state, "character-1")
+            .expect("first import should succeed");
+        let lorebook_id = first
+            .get("lorebookId")
+            .and_then(Value::as_str)
+            .expect("first import should return lorebook id")
+            .to_string();
+        assert_eq!(first.get("reimported").and_then(Value::as_bool), Some(false));
+
+        state
+            .storage
+            .patch(
+                "characters",
+                "character-1",
+                json!({
+                    "data": {
+                        "name": "Mira",
+                        "character_book": {
+                            "entries": [
+                                { "comment": "Second", "content": "second sun", "key": ["sun"] },
+                                { "comment": "Third", "content": "third star", "key": ["star"] }
+                            ]
+                        },
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": lorebook_id,
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("character should update");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({
+                    "id": "stale-linked-book",
+                    "name": "Stale duplicate",
+                    "description": "Imported from embedded character book",
+                    "category": "character",
+                    "characterId": "character-1",
+                    "sourceCharacterId": "character-1"
+                }),
+            )
+            .expect("stale linked lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "stale-entry",
+                    "lorebookId": "stale-linked-book",
+                    "name": "Stale",
+                    "content": "stale duplicate"
+                }),
+            )
+            .expect("stale entry should be created");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({
+                    "id": "manual-character-book",
+                    "name": "Manual character book",
+                    "category": "character",
+                    "characterId": "character-1",
+                    "sourceCharacterId": "character-1"
+                }),
+            )
+            .expect("manual linked lorebook should be created");
+
+        let second = import_character_embedded_lorebook(&state, "character-1")
+            .expect("reimport should succeed");
+
+        assert_eq!(
+            second.get("lorebookId").and_then(Value::as_str),
+            Some(lorebook_id.as_str())
+        );
+        assert_eq!(second.get("reimported").and_then(Value::as_bool), Some(true));
+        let lorebook_ids = state
+            .storage
+            .list("lorebooks")
+            .unwrap()
+            .into_iter()
+            .filter_map(|lorebook| lorebook.get("id").and_then(Value::as_str).map(str::to_string))
+            .collect::<Vec<_>>();
+        assert!(lorebook_ids.contains(&lorebook_id));
+        assert!(lorebook_ids.contains(&"manual-character-book".to_string()));
+        assert!(!lorebook_ids.contains(&"stale-linked-book".to_string()));
+        assert!(entries_for_lorebook(&state, "stale-linked-book").is_empty());
+
+        let entries = entries_for_lorebook(&state, &lorebook_id);
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|entry| {
+            entry.get("content").and_then(Value::as_str) == Some("second sun")
+        }));
+        assert!(!entries.iter().any(|entry| {
+            entry.get("content").and_then(Value::as_str) == Some("first moon")
+        }));
     }
 }

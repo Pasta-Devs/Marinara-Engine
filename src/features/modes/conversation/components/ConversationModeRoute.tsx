@@ -14,6 +14,7 @@ import {
 } from "../../shared/chat-ui/index";
 import { useDeleteChat } from "../../../catalog/chats/index";
 import { ChatConversationSurface } from "./ChatConversationSurface";
+import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
 
 type ConversationModeRouteProps = {
   activeChatId: string;
@@ -87,7 +88,8 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     isStreaming: timeline.isStreaming,
   });
 
-  const connectedChatId = (data.chat as unknown as { connectedChatId?: string | null } | null | undefined)?.connectedChatId;
+  const connectedChatId = (data.chat as unknown as { connectedChatId?: string | null } | null | undefined)
+    ?.connectedChatId;
   const activeSceneChat = data.chatMeta.activeSceneChatId
     ? data.chatList.find((item) => item.id === data.chatMeta.activeSceneChatId)
     : undefined;
@@ -114,8 +116,20 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
       });
   }, [activeChatId, deleteChat, overlays, setActiveChatId]);
 
+  const cardCssMode = (() => {
+    const mode = data.chatMeta.cardCssMode;
+    if (mode === "disabled" || mode === "exclusive") return mode;
+    return "chat" as const;
+  })();
+
   return (
     <>
+      <CreatorNotesCssInjector
+        allCharacters={data.allCharacters}
+        characterIds={data.chatCharIds}
+        mode={cardCssMode}
+        chatMode="conversation"
+      />
       <ChatConversationSurface
         activeChatId={activeChatId}
         chat={data.chat}
@@ -179,7 +193,10 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         lastAssistantMessageId={timeline.lastAssistantMessageId}
       />
       {pendingNewChatMode && (
-        <NewChatConnectionGate mode={pendingNewChatMode} onClose={() => useChatStore.getState().setPendingNewChatMode(null)} />
+        <NewChatConnectionGate
+          mode={pendingNewChatMode}
+          onClose={() => useChatStore.getState().setPendingNewChatMode(null)}
+        />
       )}
     </>
   );

@@ -40,9 +40,7 @@ function buildRewriteMessages(value: string, instructionValue: string) {
   const hasSourceText = text.length > 0;
   const instruction =
     instructionValue.trim() ||
-    (hasSourceText
-      ? "Improve this text while preserving its meaning."
-      : "Generate suitable content.");
+    (hasSourceText ? "Improve this text while preserving its meaning." : "Generate suitable content.");
 
   return [
     { role: "system" as const, content: REWRITE_SYSTEM_PROMPT },
@@ -57,16 +55,11 @@ function buildRewriteMessages(value: string, instructionValue: string) {
 
 async function resolveDefaultConnectionId() {
   const connections = await storageApi.list<ConnectionRecord>("connections");
-  const textConnections = connections.filter(
-    (connection) => connection.provider !== "image_generation",
-  );
+  const textConnections = connections.filter((connection) => connection.provider !== "image_generation");
   const selected =
-    textConnections.find(
-      (connection) =>
-        boolish(connection.isDefault) || boolish(connection.default),
-    ) ?? textConnections[0];
-  const connectionId =
-    typeof selected?.id === "string" ? selected.id.trim() : "";
+    textConnections.find((connection) => boolish(connection.isDefault) || boolish(connection.default)) ??
+    textConnections[0];
+  const connectionId = typeof selected?.id === "string" ? selected.id.trim() : "";
 
   if (!connectionId) throw new Error("No text connection configured");
 
@@ -80,10 +73,7 @@ export function useMagicRewrite(value: string) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => writeStoredInstruction(instruction),
-      300,
-    );
+    const timer = window.setTimeout(() => writeStoredInstruction(instruction), 300);
     return () => window.clearTimeout(timer);
   }, [instruction]);
 

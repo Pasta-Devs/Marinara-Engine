@@ -4,7 +4,7 @@
 // Collapsible overlay showing agent batch diagnostics.
 // Only renders when debug mode is enabled in settings.
 // ──────────────────────────────────────────────
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bug, ChevronDown, ChevronUp, X, CheckCircle2, XCircle, Clock, FileText, Wrench } from "lucide-react";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
@@ -17,23 +17,35 @@ export function AgentDebugPanel() {
   const lastResults = useAgentStore((s) => s.lastResults);
   const clearDebugLog = useAgentStore((s) => s.clearDebugLog);
   const [collapsed, setCollapsed] = useState(true);
+  const groupedEntries = useMemo(
+    () => ({
+      setup: debugLog.filter((e) => e.agents && !e.results),
+      results: debugLog.filter((e) => e.results),
+      tools: debugLog.filter((e) => e.toolCall || e.toolResult),
+      details: debugLog.filter((e) => !e.agents && !e.results && !e.toolCall && !e.toolResult),
+    }),
+    [debugLog],
+  );
 
   // Show panel if debug mode is on and we have debug entries OR agent results
   const hasResults = lastResults.size > 0;
   if (!debugMode || (debugLog.length === 0 && !hasResults)) return null;
 
   // Group entries by phase pattern: setup phases and result phases
-  const setupEntries = debugLog.filter((e) => e.agents && !e.results);
-  const resultEntries = debugLog.filter((e) => e.results);
-  const toolEntries = debugLog.filter((e) => e.toolCall || e.toolResult);
-  const detailEntries = debugLog.filter((e) => !e.agents && !e.results && !e.toolCall && !e.toolResult);
+  const setupEntries = groupedEntries.setup;
+  const resultEntries = groupedEntries.results;
+  const toolEntries = groupedEntries.tools;
+  const detailEntries = groupedEntries.details;
 
+  // Dock bottom-right to clear the main editor content pane. Use a tall bottom
+  // offset so this sits above the AgentThoughtBubbles overlay (bottom-20 right-4)
+  // and the two bottom-right panels do not overlap.
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      className="fixed bottom-20 left-4 z-50 w-80 max-w-[calc(100vw-2rem)]"
+      className="fixed bottom-96 right-4 z-50 w-80 max-w-[calc(100vw-2rem)]"
     >
       {/* Header */}
       <div
@@ -192,34 +204,37 @@ export function AgentDebugPanel() {
               ))}
 
               {/* Fallback: show lastResults when no debug log entries */}
-              {resultEntries.length === 0 && toolEntries.length === 0 && detailEntries.length === 0 && lastResults.size > 0 && (
-                <div className="rounded-md bg-[var(--muted)]/30 p-2">
-                  <div className="font-semibold text-blue-400 mb-1">Last Agent Results</div>
-                  <div className="flex flex-col gap-0.5">
-                    {Array.from(lastResults.entries()).map(([type, r]) => (
-                      <div key={type} className="flex items-center gap-1.5">
-                        {r.success ? (
-                          <CheckCircle2 size="0.75rem" className="shrink-0 text-emerald-500" />
-                        ) : (
-                          <XCircle size="0.75rem" className="shrink-0 text-red-500" />
-                        )}
-                        <span className={cn("font-medium", r.success ? "text-[var(--foreground)]" : "text-red-400")}>
-                          {r.agentType}
-                        </span>
-                        <span className="flex items-center gap-0.5 text-[var(--muted-foreground)]">
-                          <Clock size="0.625rem" />
-                          {(r.durationMs / 1000).toFixed(1)}s
-                        </span>
-                        {r.error && (
-                          <span className="truncate text-red-400" title={r.error}>
-                            {r.error}
+              {resultEntries.length === 0 &&
+                toolEntries.length === 0 &&
+                detailEntries.length === 0 &&
+                lastResults.size > 0 && (
+                  <div className="rounded-md bg-[var(--muted)]/30 p-2">
+                    <div className="font-semibold text-blue-400 mb-1">Last Agent Results</div>
+                    <div className="flex flex-col gap-0.5">
+                      {Array.from(lastResults.entries()).map(([type, r]) => (
+                        <div key={type} className="flex items-center gap-1.5">
+                          {r.success ? (
+                            <CheckCircle2 size="0.75rem" className="shrink-0 text-emerald-500" />
+                          ) : (
+                            <XCircle size="0.75rem" className="shrink-0 text-red-500" />
+                          )}
+                          <span className={cn("font-medium", r.success ? "text-[var(--foreground)]" : "text-red-400")}>
+                            {r.agentType}
                           </span>
-                        )}
-                      </div>
-                    ))}
+                          <span className="flex items-center gap-0.5 text-[var(--muted-foreground)]">
+                            <Clock size="0.625rem" />
+                            {(r.durationMs / 1000).toFixed(1)}s
+                          </span>
+                          {r.error && (
+                            <span className="truncate text-red-400" title={r.error}>
+                              {r.error}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </motion.div>
         )}

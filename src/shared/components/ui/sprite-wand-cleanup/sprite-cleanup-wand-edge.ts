@@ -236,7 +236,9 @@ export function softenKeptCutEdge(
         if (sampleAlpha <= 48) continue;
 
         const targetDistance = Math.sqrt(colorDistanceSquared(sourceData, sampleOffset, target));
-        const matteSeparation = clampUnit((targetDistance - matteTolerance * 0.72) / Math.max(1, matteTolerance * 1.55));
+        const matteSeparation = clampUnit(
+          (targetDistance - matteTolerance * 0.72) / Math.max(1, matteTolerance * 1.55),
+        );
         if (matteSeparation <= 0) continue;
 
         const distanceWeight = Math.pow(1 - sampleDistance / Math.max(1, sampleRadius + 0.001), 1.35);
@@ -353,10 +355,7 @@ export function softenKeptCutEdge(
     const edgePosition = clampUnit((edgeRadius - distanceFromCut + 1) / Math.max(1, edgeRadius));
     const averagedAlpha = Math.round(alphaTotal / weightTotal);
     const blurMix = transitionAmount * Math.pow(edgePosition, 0.72) * 0.64;
-    blurred[offset + 3] = Math.min(
-      currentAlpha,
-      Math.round(currentAlpha * (1 - blurMix) + averagedAlpha * blurMix),
-    );
+    blurred[offset + 3] = Math.min(currentAlpha, Math.round(currentAlpha * (1 - blurMix) + averagedAlpha * blurMix));
   }
 
   let changed = 0;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGenerate } from "../../../runtime/generation/index";
 
-export type AgentInjectionReviewItem = {
+type AgentInjectionReviewItem = {
   agentType: string;
   agentName: string;
   text: string;

@@ -4,7 +4,7 @@ import { spriteApi } from "./image-generation-api";
 import { backgroundsApi } from "./settings-assets-api";
 
 export const visualAssetsApi: VisualAssetGateway = {
-  listSprites: (characterId) => spriteApi.list(characterId),
+  listSprites: (ownerId, ownerType = "character") => spriteApi.list(ownerId, { ownerType }),
   listBackgrounds: () => backgroundsApi.list(),
   gameAssetsManifest: () => gameAssetsApi.manifest(),
 };

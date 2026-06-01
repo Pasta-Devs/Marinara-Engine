@@ -53,15 +53,15 @@ function truncateOldestHistory(messages: LlmMessage[], tokenBudget: number): Llm
 
   next[index] = {
     ...message,
-    content: message.content.slice(removeChars).replace(/^[\s\S]*?(?:\n\n|\n)/, "").trimStart(),
+    content: message.content
+      .slice(removeChars)
+      .replace(/^[\s\S]*?(?:\n\n|\n)/, "")
+      .trimStart(),
   };
   return next;
 }
 
-export function fitMessagesToContextWindow(
-  messages: LlmMessage[],
-  parameters: Record<string, unknown>,
-): LlmMessage[] {
+export function fitMessagesToContextWindow(messages: LlmMessage[], parameters: Record<string, unknown>): LlmMessage[] {
   const maxContext = readNumber(parameters.maxContext, 0);
   if (maxContext <= 0) return messages;
 

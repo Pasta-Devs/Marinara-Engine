@@ -24,12 +24,18 @@ import {
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
 import { useConnections } from "../../../../catalog/connections/index";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../../../catalog/presets/index";
-import { useCharacterSummaries, usePersonaSummaries } from "../../../../catalog/characters/index";
+import {
+  characterAvatarUrl,
+  useCharacterSummaries,
+  useCharacterSummariesByIds,
+} from "../../../../catalog/characters/index";
+import { usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../../../catalog/chats/index";
 import { useChatPresets, useApplyChatPreset } from "../../../../catalog/chat-presets/index";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
+import { boolish } from "../../../../../engine/generation/runtime-records";
 import { generateConversationSchedules } from "../../../../../engine/modes/chat/schedules/schedule.service";
 import { llmApi } from "../../../../../shared/api/llm-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
@@ -125,7 +131,118 @@ type CharacterSetupOption = {
   data: unknown;
   comment?: string | null;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
 };
+
+function useDebouncedValue(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    if (value === "") {
+      setDebounced("");
+      return;
+    }
+    const handle = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [delayMs, value]);
+  return debounced;
+}
+
+function mergeCharacterSetupOptions(
+  ...sources: Array<Array<CharacterSetupOption | undefined> | null | undefined>
+): CharacterSetupOption[] {
+  const byId = new Map<string, CharacterSetupOption>();
+  for (const source of sources) {
+    for (const character of source ?? []) {
+      if (!character?.id) continue;
+      byId.set(character.id, {
+        ...character,
+        avatarPath: characterAvatarUrl(character),
+      });
+    }
+  }
+  return Array.from(byId.values());
+}
+
+function characterSearchValues(character: { id?: string; data: unknown; comment?: string | null }): string[] {
+  const info = parseCharacterDisplayData(character);
+  const data = character.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return [
+    character.id,
+    info.name,
+    info.comment,
+    data.creator,
+    data.creator_notes,
+    data.character_version,
+    ...tags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function characterMatchesSearch(
+  character: { id?: string; data: unknown; comment?: string | null },
+  search: string,
+): boolean {
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const values = characterSearchValues(character).map((value) => value.toLowerCase());
+  return terms.every((term) => values.some((value) => value.includes(term)));
+}
+
+function characterPickerEmptyText({
+  hasError,
+  isPending,
+  hasCharacters,
+  hasUnselectedCharacters,
+  noCharactersText,
+  allAddedText,
+}: {
+  hasError: boolean;
+  isPending: boolean;
+  hasCharacters: boolean;
+  hasUnselectedCharacters: boolean;
+  noCharactersText: string;
+  allAddedText: string;
+}): string {
+  if (hasError) return "Characters could not be loaded.";
+  if (isPending) return "Loading characters...";
+  if (!hasCharacters) return noCharactersText;
+  if (!hasUnselectedCharacters) return allAddedText;
+  return "No matches.";
+}
+
+function deriveCharacterPickerEmptyState({
+  hasSearch,
+  characters,
+  unfilteredCharacters,
+  searchPending,
+  baseError,
+  unfilteredFetching,
+  unfilteredError,
+  selectedCharacterIds,
+}: {
+  hasSearch: boolean;
+  characters: CharacterSetupOption[];
+  unfilteredCharacters: CharacterSetupOption[] | undefined;
+  searchPending: boolean;
+  baseError: boolean;
+  unfilteredFetching: boolean;
+  unfilteredError: boolean;
+  selectedCharacterIds: string[];
+}): {
+  characters: CharacterSetupOption[];
+  isPending: boolean;
+  hasError: boolean;
+  hasUnselectedCharacters: boolean;
+} {
+  const charactersForEmptyState = hasSearch ? (unfilteredCharacters ?? []) : characters;
+  return {
+    characters: charactersForEmptyState,
+    isPending: searchPending || (hasSearch && unfilteredFetching),
+    hasError: baseError || (hasSearch && unfilteredError),
+    hasUnselectedCharacters: charactersForEmptyState.some((character) => !selectedCharacterIds.includes(character.id)),
+  };
+}
 
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
   const title = persona.comment?.trim();
@@ -314,7 +431,24 @@ export function ChatSetupWizard({ chat, onFinish, onCancel }: ChatSetupWizardPro
 
 function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardProps) {
   const { data: connections } = useConnections();
-  const { data: allCharacters } = useCharacterSummaries();
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 180);
+  const chatCharIds: string[] = useMemo(() => {
+    return chat.characterIds ?? [];
+  }, [chat.characterIds]);
+  const {
+    data: allCharacters,
+    isFetching: allCharactersFetching,
+    isError: allCharactersError,
+  } = useCharacterSummaries(true, debouncedSearch);
+  const hasCharacterSearch = search.trim().length > 0;
+  // Keep this query unfiltered so search misses can distinguish "No matches" from an empty library.
+  const {
+    data: unfilteredCharactersForEmptyState,
+    isFetching: unfilteredCharactersForEmptyStateFetching,
+    isError: unfilteredCharactersForEmptyStateError,
+  } = useCharacterSummaries(hasCharacterSearch, "");
+  const { data: selectedCharacters } = useCharacterSummariesByIds(chatCharIds, chatCharIds.length > 0);
   const { data: allPersonas } = usePersonaSummaries();
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -336,9 +470,14 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
   }, [chat.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const characters = useMemo(
-    () => (allCharacters ?? []) as CharacterSetupOption[],
-    [allCharacters],
+    () =>
+      mergeCharacterSetupOptions(
+        selectedCharacters as CharacterSetupOption[] | undefined,
+        allCharacters as CharacterSetupOption[] | undefined,
+      ),
+    [allCharacters, selectedCharacters],
   );
+  const characterSearchPending = allCharactersFetching || search.trim() !== debouncedSearch.trim();
   const personas = (allPersonas ?? []) as Array<{
     id: string;
     name: string;
@@ -375,12 +514,6 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
   useEffect(() => {
     setCustomizeParameters(!!parseEditableGenerationParameters(metadata.chatParameters));
   }, [metadata.chatParameters]);
-
-  const chatCharIds: string[] = useMemo(() => {
-    return chat.characterIds ?? [];
-  }, [chat.characterIds]);
-
-  const [search, setSearch] = useState("");
 
   const charInfoMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof parseCharacterDisplayData>>();
@@ -457,10 +590,17 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
 
   const available = characters.filter((c) => {
     if (chatCharIds.includes(c.id)) return false;
-    const info = getCharacterInfo(c);
-    const query = search.toLowerCase();
-    const title = getCharacterTitle(info)?.toLowerCase() ?? "";
-    return info.name.toLowerCase().includes(query) || title.includes(query);
+    return characterMatchesSearch(c, search);
+  });
+  const characterEmptyState = deriveCharacterPickerEmptyState({
+    hasSearch: hasCharacterSearch,
+    characters,
+    unfilteredCharacters: unfilteredCharactersForEmptyState as CharacterSetupOption[] | undefined,
+    searchPending: characterSearchPending,
+    baseError: allCharactersError,
+    unfilteredFetching: unfilteredCharactersForEmptyStateFetching,
+    unfilteredError: unfilteredCharactersForEmptyStateError,
+    selectedCharacterIds: chatCharIds,
   });
 
   const hasConnection = !!chat.connectionId;
@@ -481,11 +621,14 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
       setScheduleState("generating");
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
-        await generateConversationSchedules({ storage: storageApi, llm: llmApi }, {
-          chatId: chat.id,
-          characterIds: chatCharIds,
-          scheduleGenerationPreferences,
-        });
+        await generateConversationSchedules(
+          { storage: storageApi, llm: llmApi },
+          {
+            chatId: chat.id,
+            characterIds: chatCharIds,
+            scheduleGenerationPreferences,
+          },
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Schedule generation failed.";
         toast.error(message);
@@ -701,9 +844,14 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                   })}
                   {available.length === 0 && (
                     <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                        ? "All characters added."
-                        : "No matches."}
+                      {characterPickerEmptyText({
+                        hasError: characterEmptyState.hasError,
+                        isPending: characterEmptyState.isPending,
+                        hasCharacters: characterEmptyState.characters.length > 0,
+                        hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                        noCharactersText: "No characters yet. Create or import one before starting a conversation.",
+                        allAddedText: "All characters added.",
+                      })}
                     </p>
                   )}
                 </div>
@@ -852,6 +1000,9 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  const [charSearch, setCharSearch] = useState("");
+  const debouncedCharSearch = useDebouncedValue(charSearch, 180);
+  const [lbSearch, setLbSearch] = useState("");
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -866,7 +1017,19 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: presets } = usePresets();
   const { data: defaultPreset } = useDefaultPreset();
   const { data: allPersonas } = usePersonaSummaries();
-  const { data: allCharacters } = useCharacterSummaries();
+  const {
+    data: searchedCharacters,
+    isFetching: searchedCharactersFetching,
+    isError: searchedCharactersError,
+  } = useCharacterSummaries(currentStep.key === "characters" || shortcutMode, debouncedCharSearch);
+  const hasCharacterSearch = charSearch.trim().length > 0;
+  const shouldLoadCharacters = currentStep.key === "characters" || shortcutMode;
+  // Keep this query unfiltered so search misses can distinguish "No matches" from an empty library.
+  const {
+    data: unfilteredCharactersForEmptyState,
+    isFetching: unfilteredCharactersForEmptyStateFetching,
+    isError: unfilteredCharactersForEmptyStateError,
+  } = useCharacterSummaries(shouldLoadCharacters && hasCharacterSearch, "");
   const { data: lorebooks } = useLorebooks();
 
   // Chat-settings presets for the shortcut view
@@ -881,10 +1044,6 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     avatarPath: string | null;
     comment?: string | null;
   }>;
-  const characters = useMemo(
-    () => (allCharacters ?? []) as CharacterSetupOption[],
-    [allCharacters],
-  );
   const connectionOptions = useMemo(
     () => filterLanguageGenerationConnections((connections ?? []) as ConnectionSetupOption[]),
     [connections],
@@ -920,6 +1079,26 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const chatCharIds: string[] = useMemo(() => {
     return chat.characterIds ?? [];
   }, [chat.characterIds]);
+  const { data: selectedCharacters } = useCharacterSummariesByIds(chatCharIds, chatCharIds.length > 0);
+  const characters = useMemo(
+    () =>
+      mergeCharacterSetupOptions(
+        selectedCharacters as CharacterSetupOption[] | undefined,
+        searchedCharacters as CharacterSetupOption[] | undefined,
+      ),
+    [searchedCharacters, selectedCharacters],
+  );
+  const characterSearchPending = searchedCharactersFetching || charSearch.trim() !== debouncedCharSearch.trim();
+  const characterEmptyState = deriveCharacterPickerEmptyState({
+    hasSearch: hasCharacterSearch,
+    characters,
+    unfilteredCharacters: unfilteredCharactersForEmptyState as CharacterSetupOption[] | undefined,
+    searchPending: characterSearchPending,
+    baseError: searchedCharactersError,
+    unfilteredFetching: unfilteredCharactersForEmptyStateFetching,
+    unfilteredError: unfilteredCharactersForEmptyStateError,
+    selectedCharacterIds: chatCharIds,
+  });
 
   const activeLorebookIds: string[] = useMemo(() => metadata.activeLorebookIds ?? [], [metadata.activeLorebookIds]);
 
@@ -1017,7 +1196,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             void storageApi
               .get<{ data?: unknown }>("characters", charId)
               .then((char) => {
-                const parsed = char?.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
+                const parsed =
+                  char?.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
                 const firstMes = typeof parsed.first_mes === "string" ? parsed.first_mes : "";
                 const altGreetings = Array.isArray(parsed.alternate_greetings)
                   ? parsed.alternate_greetings.filter((greeting): greeting is string => typeof greeting === "string")
@@ -1070,8 +1250,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     if (chatPresetList.length === 0) return;
     const appliedId = (metadata.appliedChatPresetId as string | undefined) ?? null;
     const applied = appliedId ? chatPresetList.find((p) => p.id === appliedId) : null;
-    const starred = chatPresetList.find((p) => p.isActive);
-    const fallback = chatPresetList.find((p) => p.isDefault);
+    const starred = chatPresetList.find((p) => boolish(p.isActive ?? p.active, false));
+    const fallback = chatPresetList.find((p) => boolish(p.isDefault ?? p.default, false));
     const pick = applied ?? starred ?? fallback;
     if (pick) setShortcutPresetId(pick.id);
   }, [chatPresetList, shortcutPresetId, metadata.appliedChatPresetId]);
@@ -1101,10 +1281,6 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       onFinish();
     }
   }, [shortcutPresetId, chat.id, applyChatPreset, onFinish]);
-
-  // Search state for character & lorebook pickers
-  const [charSearch, setCharSearch] = useState("");
-  const [lbSearch, setLbSearch] = useState("");
 
   // On the preset step, wait for full preset data before allowing advance
   const isPresetStep = currentStep.key === "preset";
@@ -1196,9 +1372,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   function renderCharacters() {
     const available = characters.filter((c) => {
       if (chatCharIds.includes(c.id)) return false;
-      const query = charSearch.toLowerCase();
-      const title = charTitle(c)?.toLowerCase() ?? "";
-      return charName(c).toLowerCase().includes(query) || title.includes(query);
+      return characterMatchesSearch(c, charSearch);
     });
 
     return (
@@ -1296,9 +1470,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             })}
             {available.length === 0 && (
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                  ? "All characters already added."
-                  : "No matches."}
+                {characterPickerEmptyText({
+                  hasError: characterEmptyState.hasError,
+                  isPending: characterEmptyState.isPending,
+                  hasCharacters: characterEmptyState.characters.length > 0,
+                  hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                  noCharactersText: "No characters yet. Create or import one before adding them to this roleplay.",
+                  allAddedText: "All characters already added.",
+                })}
               </p>
             )}
           </div>
@@ -1460,7 +1639,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     {chatPresetList.length === 0 && <option value="">Loading…</option>}
                     {chatPresetList.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.isDefault ? "Default" : p.name}
+                        {boolish(p.isDefault ?? p.default, false) ? "Default" : p.name}
                       </option>
                     ))}
                   </select>
@@ -1538,9 +1717,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       {characters
                         .filter((c) => {
                           if (chatCharIds.includes(c.id)) return false;
-                          const query = charSearch.toLowerCase();
-                          const title = charTitle(c)?.toLowerCase() ?? "";
-                          return charName(c).toLowerCase().includes(query) || title.includes(query);
+                          return characterMatchesSearch(c, charSearch);
                         })
                         .map((c) => {
                           const name = charName(c);
@@ -1577,14 +1754,17 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                         })}
                       {characters.filter((c) => {
                         if (chatCharIds.includes(c.id)) return false;
-                        const query = charSearch.toLowerCase();
-                        const title = charTitle(c)?.toLowerCase() ?? "";
-                        return charName(c).toLowerCase().includes(query) || title.includes(query);
+                        return characterMatchesSearch(c, charSearch);
                       }).length === 0 && (
                         <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                          {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                            ? "All characters added."
-                            : "No matches."}
+                          {characterPickerEmptyText({
+                            hasError: characterEmptyState.hasError,
+                            isPending: characterEmptyState.isPending,
+                            hasCharacters: characterEmptyState.characters.length > 0,
+                            hasUnselectedCharacters: characterEmptyState.hasUnselectedCharacters,
+                            noCharactersText: "No characters yet. Create or import one before applying setup.",
+                            allAddedText: "All characters added.",
+                          })}
                         </p>
                       )}
                     </div>

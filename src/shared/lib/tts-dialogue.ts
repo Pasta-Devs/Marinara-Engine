@@ -152,11 +152,7 @@ export function resolveTTSVoiceForSpeaker(
   npcHint?: TTSNpcVoiceHint | null,
 ): string {
   const fallbackVoice = config.voice ?? "";
-  if (
-    config.narratorVoiceEnabled &&
-    isSyntheticTTSNarrator(speaker) &&
-    (config.voiceMode ?? "single") === "single"
-  ) {
+  if (config.narratorVoiceEnabled && isSyntheticTTSNarrator(speaker) && (config.voiceMode ?? "single") === "single") {
     return config.narratorVoice || fallbackVoice;
   }
 
@@ -337,9 +333,9 @@ export function buildTTSVoiceRequests(
     const resolvedCharacterId = isSyntheticNarrator
       ? undefined
       : speaker
-      ? (resolveCharacterIdForSpeaker?.(speaker) ??
-        (speakerKey && speakerKey === fallbackSpeakerKey ? fallbackCharacterId : undefined))
-      : fallbackCharacterId;
+        ? (resolveCharacterIdForSpeaker?.(speaker) ??
+          (speakerKey && speakerKey === fallbackSpeakerKey ? fallbackCharacterId : undefined))
+        : fallbackCharacterId;
     const voice = resolveTTSVoiceForSpeaker(config, speaker, resolvedCharacterId);
     if (config.source === "elevenlabs" && !voice) return [];
     const requestSpeaker = isSyntheticNarrator ? "Narrator" : speaker;

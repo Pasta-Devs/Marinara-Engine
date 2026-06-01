@@ -3,10 +3,7 @@ import { useUpdateChatMetadata, useUpdateMessageExtra, type Chat } from "../../.
 import type { SpritePlacement, SpriteSide } from "../../../../../engine/contracts/types/chat";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { mirrorSpritePlacements, normalizeSpritePlacements } from "../../../../runtime/visuals/sprite-placement";
-import {
-  normalizeSpriteDisplayModes,
-  type SpriteDisplayMode,
-} from "../../../../runtime/visuals/sprite-display-modes";
+import { normalizeSpriteDisplayModes, type SpriteDisplayMode } from "../../../../runtime/visuals/sprite-display-modes";
 import type { MessageWithSwipes } from "../types";
 
 type UseSpriteMetadataStateOptions = {

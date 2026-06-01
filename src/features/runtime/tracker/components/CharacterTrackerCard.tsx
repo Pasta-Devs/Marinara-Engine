@@ -10,10 +10,7 @@ import { cn } from "../../../../shared/lib/utils";
 import { visibleText } from "./tracker-display.helpers";
 import { getCharacterAmbienceStyle } from "./tracker-character-profile-style";
 import type { TrackerProfileColors } from "./tracker-profile-colors";
-import {
-  addPresentCharacterStat,
-  updatePresentCharacterCustomField,
-} from "../../world-state/index";
+import { addPresentCharacterStat, updatePresentCharacterCustomField } from "../../world-state/index";
 import { FittedText, InlineEdit } from "./tracker-data-sidebar.controls";
 import {
   TrackerProfileDisplayWash,
@@ -243,7 +240,11 @@ export function CharacterTrackerCard({
             fitMinScale={0.58}
           />
         ) : (
-          <FittedText className={CHARACTER_NAME_PREVIEW_CLASS} title={visibleText(character.name, "Character")} minScale={0.58}>
+          <FittedText
+            className={CHARACTER_NAME_PREVIEW_CLASS}
+            title={visibleText(character.name, "Character")}
+            minScale={0.58}
+          >
             {visibleText(character.name, "Character")}
           </FittedText>
         )}

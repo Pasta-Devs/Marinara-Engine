@@ -4,7 +4,7 @@ import type { StoredZipFile } from "../../../../shared/lib/zip";
 export type ChatTranscriptExportFormat = "jsonl" | "text";
 export type BulkChatExportFormat = ChatTranscriptExportFormat | "native";
 
-export function getChatNameForExport(chat: Chat) {
+function getChatNameForExport(chat: Chat) {
   const metadata = chat.metadata;
   if (metadata && typeof metadata === "object" && "branchName" in metadata) {
     const branchName = (metadata as { branchName?: unknown }).branchName;

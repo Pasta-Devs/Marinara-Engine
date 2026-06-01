@@ -6,7 +6,7 @@ import { CustomThemeInjector } from "./providers/CustomThemeInjector";
 import { AppDialogRenderer } from "../shared/components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "../shared/components/ui/ChibiProfessorMariEasterEgg";
 import { fontsApi } from "../shared/api/settings-assets-api";
-import { fontFileUrlFromPath } from "../shared/api/local-file-api";
+import { resolveFontFileUrl } from "../shared/api/local-file-api";
 import { useUIStore } from "../shared/stores/ui.store";
 import { useChatSwitchEffects } from "./startup/chat-switch-effects";
 import { installRangeSliderSync } from "./startup/range-slider-sync";
@@ -87,24 +87,28 @@ export function App() {
     const loadFonts = () => {
       fontsApi
         .list<CustomFontFace[]>()
-        .then((fonts) => {
-        if (cancelled) return;
-        const css = fonts
-          .map((font) => {
-            const source = fontFileUrlFromPath(font.filename, font.absolutePath) || font.url;
-            if (!source || !font.family) return "";
-            const unicodeRange = font.unicodeRange ? `  unicode-range: ${font.unicodeRange};\n` : "";
-            return `@font-face {\n  font-family: "${font.family.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}";\n  src: url("${source}") format("${font.filename.endsWith(".woff2") ? "woff2" : font.filename.endsWith(".woff") ? "woff" : font.filename.endsWith(".otf") ? "opentype" : "truetype"}");\n  font-weight: ${font.weight ?? "400"};\n  font-style: ${font.style ?? "normal"};\n  font-display: swap;\n${unicodeRange}}`;
-          })
-          .filter(Boolean)
-          .join("\n");
-        let style = document.getElementById("marinara-custom-fonts") as HTMLStyleElement | null;
-        if (!style) {
-          style = document.createElement("style");
-          style.id = "marinara-custom-fonts";
-          document.head.appendChild(style);
-        }
-        style.textContent = css;
+        .then(async (fonts) => {
+          if (cancelled) return;
+          const cssParts = await Promise.all(
+            fonts.map(async (font) => {
+              const source =
+                (await resolveFontFileUrl(font.filename, font.absolutePath).catch(() => "")) || font.url;
+              if (!source || !font.family) return "";
+              const unicodeRange = font.unicodeRange ? `  unicode-range: ${font.unicodeRange};\n` : "";
+              return `@font-face {\n  font-family: "${font.family.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}";\n  src: url("${source}") format("${font.filename.endsWith(".woff2") ? "woff2" : font.filename.endsWith(".woff") ? "woff" : font.filename.endsWith(".otf") ? "opentype" : "truetype"}");\n  font-weight: ${font.weight ?? "400"};\n  font-style: ${font.style ?? "normal"};\n  font-display: swap;\n${unicodeRange}}`;
+            }),
+          );
+          if (cancelled) return;
+          const css = cssParts
+            .filter(Boolean)
+            .join("\n");
+          let style = document.getElementById("marinara-custom-fonts") as HTMLStyleElement | null;
+          if (!style) {
+            style = document.createElement("style");
+            style.id = "marinara-custom-fonts";
+            document.head.appendChild(style);
+          }
+          style.textContent = css;
         })
         .catch(() => {});
     };
@@ -125,7 +129,7 @@ export function App() {
       <AppDialogRenderer />
       <ChibiProfessorMariEasterEgg />
       <Toaster
-        position="bottom-right"
+        position="top-center"
         theme={theme}
         closeButton
         toastOptions={{

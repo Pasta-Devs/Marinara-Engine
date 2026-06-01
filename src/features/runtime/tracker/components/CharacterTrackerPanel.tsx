@@ -131,7 +131,9 @@ export function CharacterTrackerPanel({
           <div
             className={cn(
               "grid grid-cols-1 items-start gap-1 px-1 pb-1",
-              allowCompactCardColumns && (compactEntries.length > 1 || showExpandedGhostCard) && "@min-[220px]:grid-cols-2",
+              allowCompactCardColumns &&
+                (compactEntries.length > 1 || showExpandedGhostCard) &&
+                "@min-[220px]:grid-cols-2",
               allowCompactCardColumns && compactEntries.length > 2 && "@min-[420px]:grid-cols-3",
               featuredEntries.length === 0 && "pt-1",
             )}

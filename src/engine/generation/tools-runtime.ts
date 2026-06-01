@@ -2,8 +2,12 @@ import { BUILT_IN_TOOLS, DEFAULT_AGENT_TOOLS, type ToolDefinition } from "../con
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmToolDefinition } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
+import type { LorebookEntry } from "../contracts/types/lorebook";
 import type { LLMToolCall, LLMToolDefinition } from "../generation-core/llm/base-provider";
+import { lorebookEntryPassesContextFilters } from "../generation-core/lorebooks/keyword-scanner";
 import { appendChatSummaryEntryToMetadata } from "../shared/text/chat-summary-entries";
+import { loadLorebookEntriesForActivation, lorebookAppliesToContext } from "./active-lorebook-scanner";
+import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import {
   boolish,
   isRecord,
@@ -25,8 +29,12 @@ import {
  */
 export interface ToolRuntimeInput {
   chat: JsonRecord;
+  storedMessages?: JsonRecord[];
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
+  characters: GenerationCharacterContext[];
+  persona: GenerationPersonaContext | null;
   chatSummary: string | null;
+  hideAutomatedSummarySourceMessages?: boolean;
 }
 
 export interface CustomToolRecord extends JsonRecord {
@@ -63,7 +71,7 @@ export function normalizeToolCall(value: unknown): LLMToolCall | null {
   };
 }
 
-export function parseToolParameters(value: unknown): unknown {
+function parseToolParameters(value: unknown): unknown {
   if (!value) return { type: "object", properties: {} };
   if (typeof value === "string") {
     try {
@@ -75,7 +83,7 @@ export function parseToolParameters(value: unknown): unknown {
   return value;
 }
 
-export function customToolRecord(row: JsonRecord): CustomToolRecord | null {
+function customToolRecord(row: JsonRecord): CustomToolRecord | null {
   const name = readString(row.name).trim();
   if (!name || !boolish(row.enabled, false)) return null;
   const executionType = readString(row.executionType, "static");
@@ -110,9 +118,7 @@ export function customToolDefinition(tool: CustomToolRecord): LLMToolDefinition 
   };
 }
 
-export const BUILT_IN_TOOL_MAP: Map<string, ToolDefinition> = new Map(
-  BUILT_IN_TOOLS.map((tool) => [tool.name, tool]),
-);
+export const BUILT_IN_TOOL_MAP: Map<string, ToolDefinition> = new Map(BUILT_IN_TOOLS.map((tool) => [tool.name, tool]));
 
 export function builtInToolDefinition(name: string): LLMToolDefinition | null {
   const tool = BUILT_IN_TOOL_MAP.get(name);
@@ -130,37 +136,75 @@ export function stringifyToolResult(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-export function toolArguments(call: LLMToolCall): JsonRecord {
+function toolArguments(call: LLMToolCall): JsonRecord {
   const raw = call.function?.arguments || call.arguments || "{}";
   if (typeof raw === "string") return parseRecord(raw);
   return parseRecord(raw);
 }
 
-export function stringArg(args: JsonRecord, key: string, fallback = ""): string {
+function stringArg(args: JsonRecord, key: string, fallback = ""): string {
   return readString(args[key], fallback).trim();
 }
 
-export function numberArg(args: JsonRecord, key: string, fallback: number): number {
+function numberArg(args: JsonRecord, key: string, fallback: number): number {
   return readNumber(args[key], fallback);
 }
 
-export function stringArrayArg(args: JsonRecord, key: string): string[] {
+function stringArrayArg(args: JsonRecord, key: string): string[] {
   const value = args[key];
   if (!Array.isArray(value)) return [];
   return value.map((item) => readString(item).trim()).filter(Boolean);
 }
 
-export function toolError(message: string): never {
+function toolError(message: string): never {
   throw new Error(message);
 }
 
-export function requireChatId(input: ToolRuntimeInput): string {
+function requireChatId(input: ToolRuntimeInput): string {
   const chatId = readString(input.chat.id).trim();
   if (!chatId) toolError("Tool requires a persisted chat id.");
   return chatId;
 }
 
-export async function updateChatMetadata(
+function automatedSummarySourceMessageIds(input: ToolRuntimeInput): string[] {
+  const seen = new Set<string>();
+  return (input.storedMessages ?? [])
+    .filter((message) => !hiddenFromAiRecord(message))
+    .slice(-60)
+    .map((message) => readString(message.id).trim())
+    .filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+}
+
+function hiddenFromAiRecord(message: JsonRecord): boolean {
+  const extra = parseRecord(message.extra);
+  return boolish(extra.hiddenFromAI ?? extra.hiddenFromAi, false);
+}
+
+async function hideSummarySourceMessages(storage: StorageGateway, messageIds: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(
+    messageIds.map((messageId) => storage.patchChatMessageExtra(messageId, { hiddenFromAI: true, hiddenFromAi: true })),
+  );
+  const hiddenIds: string[] = [];
+  for (const [index, result] of results.entries()) {
+    const messageId = messageIds[index];
+    if (!messageId) continue;
+    if (result.status === "fulfilled") {
+      hiddenIds.push(messageId);
+    } else {
+      console.warn("[tools-runtime] Failed to hide automated summary source message", {
+        messageId,
+        error: result.reason,
+      });
+    }
+  }
+  return hiddenIds;
+}
+
+async function updateChatMetadata(
   storage: StorageGateway,
   input: ToolRuntimeInput,
   updater: (metadata: JsonRecord) => JsonRecord,
@@ -172,7 +216,7 @@ export async function updateChatMetadata(
   return metadata;
 }
 
-export function rollDiceNotation(notation: string) {
+function rollDiceNotation(notation: string) {
   const match = notation.trim().match(/^(\d*)d(\d+)([+-]\d+)?$/i);
   if (!match) toolError("Dice notation must look like 1d20, 2d6, or 3d8+2.");
   const count = Math.max(1, Math.min(100, Number(match[1] || "1")));
@@ -187,12 +231,31 @@ export function rollDiceNotation(notation: string) {
   };
 }
 
-export async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {
+function lorebookToolEntryPassesContext(entry: LorebookEntry, input: ToolRuntimeInput): boolean {
+  return lorebookEntryPassesContextFilters(entry, {
+    activeCharacterIds: input.characters.map((character) => character.id),
+    activeCharacterTags: input.characters.flatMap((character) => character.tags),
+    generationTriggers: ["chat", readString(input.chat.mode || input.chat.chatMode)].filter(Boolean),
+  });
+}
+
+async function loadSearchableStoredLorebookEntries(
+  storage: StorageGateway,
+  input: ToolRuntimeInput,
+): Promise<LorebookEntry[]> {
+  const lorebooks = (await storage.list<JsonRecord>("lorebooks")).filter((book) =>
+    lorebookAppliesToContext(book, input.chat, input.characters, input.persona),
+  );
+  const entries = await Promise.all(lorebooks.map((book) => loadLorebookEntriesForActivation(storage, book)));
+  return entries.flat().filter((entry) => lorebookToolEntryPassesContext(entry, input));
+}
+
+async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {
   const query = stringArg(args, "query").toLowerCase();
   if (!query) toolError("query is required.");
   const category = stringArg(args, "category").toLowerCase();
   const tokens = query.split(/\s+/).filter((token) => token.length > 1);
-  const rows = await storage.list<JsonRecord>("lorebook-entries").catch(() => []);
+  const rows = await loadSearchableStoredLorebookEntries(storage, input);
   const activated = input.activatedLorebookEntries.map((entry) => ({
     id: entry.id,
     name: entry.name,
@@ -201,10 +264,10 @@ export async function searchLorebookTool(storage: StorageGateway, input: ToolRun
     source: "activated",
   }));
   const stored = rows.map((entry) => ({
-    id: readString(entry.id),
-    name: readString(entry.name || entry.comment || entry.title, "Lorebook entry"),
-    content: readString(entry.content),
-    tag: readString(entry.tag || entry.category || entry.position),
+    id: entry.id,
+    name: entry.name || "Lorebook entry",
+    content: entry.content,
+    tag: entry.tag || String(entry.position),
     source: "stored",
   }));
   const seen = new Set<string>();
@@ -310,6 +373,7 @@ export async function executeBuiltInTool(
       if (!text) toolError("text is required.");
       const now = nowIso();
       const metadata = parseRecord(input.chat.metadata);
+      const sourceMessageIds = automatedSummarySourceMessageIds(input);
       const appended = appendChatSummaryEntryToMetadata(
         metadata,
         {
@@ -317,15 +381,20 @@ export async function executeBuiltInTool(
           origin: "automated",
           sourceMode: "agent",
           title: "Agent memory",
+          messageCount: sourceMessageIds.length || undefined,
+          messageIds: sourceMessageIds.length > 0 ? sourceMessageIds : undefined,
         },
         { now, createId: () => newId("summary") },
       );
+      const hiddenMessageIds = input.hideAutomatedSummarySourceMessages
+        ? await hideSummarySourceMessages(storage, sourceMessageIds)
+        : [];
       metadata.summaryEntries = appended.entries;
       metadata.summary = appended.summary;
-      await storage.update("chats", chatId, { metadata });
       input.chat.metadata = metadata;
       input.chatSummary = appended.summary;
-      return { success: true, entry: appended.entry, summary: appended.summary };
+      await storage.update("chats", chatId, { metadata });
+      return { success: true, entry: appended.entry, summary: appended.summary, hiddenMessageIds };
     }
     case "read_chat_variable": {
       const key = stringArg(args, "key");
@@ -390,7 +459,7 @@ export async function executeBuiltInTool(
   }
 }
 
-export function spotifyAgentId(agent: JsonRecord): string {
+function spotifyAgentId(agent: JsonRecord): string {
   const settings = parseRecord(agent.settings);
   return readString(settings.spotifyAgentId).trim() || readString(agent.id).trim() || "spotify";
 }
@@ -487,11 +556,11 @@ ${scriptBody}`,
 // Main-path metadata gating (mode-neutral)
 // ──────────────────────────────────────────────
 
-export function chatToolsEnabledFor(chat: JsonRecord): boolean {
+function chatToolsEnabledFor(chat: JsonRecord): boolean {
   return boolish(parseRecord(chat.metadata).enableTools, false);
 }
 
-export function chatActiveToolIdsFor(chat: JsonRecord): Set<string> {
+function chatActiveToolIdsFor(chat: JsonRecord): Set<string> {
   const value = parseRecord(chat.metadata).activeToolIds;
   if (!Array.isArray(value)) return new Set();
   return new Set(value.map((item) => readString(item).trim()).filter(Boolean));
@@ -571,10 +640,7 @@ export async function buildMainToolDefinitions(
     customs.push(customToolDefinition(tool));
   }
   if (builtIns.length === 0 && customs.length === 0) return null;
-  const allowedToolNames = new Set<string>([
-    ...builtIns.map((tool) => tool.name),
-    ...customTools.keys(),
-  ]);
+  const allowedToolNames = new Set<string>([...builtIns.map((tool) => tool.name), ...customTools.keys()]);
   return { toolDefs: [...builtIns, ...customs], customTools, allowedToolNames };
 }
 

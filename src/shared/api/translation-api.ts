@@ -1,6 +1,6 @@
 import { invokeTauri } from "./tauri-client";
 
-export type TranslationProvider = "ai" | "deeplx" | "deepl" | "google";
+type TranslationProvider = "ai" | "deeplx" | "deepl" | "google";
 
 export interface TranslateTextInput {
   text: string;

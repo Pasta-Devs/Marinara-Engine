@@ -20,7 +20,10 @@ export type UpdateCheckResponse = {
   manualUpdateHint: string;
 };
 
-export type UpdateApplyResponse = Omit<UpdateCheckResponse, "releaseNotes" | "publishedAt" | "updateAvailable" | "versionUpdate"> & {
+export type UpdateApplyResponse = Omit<
+  UpdateCheckResponse,
+  "releaseNotes" | "publishedAt" | "updateAvailable" | "versionUpdate"
+> & {
   status: "manual_update_required";
   message: string;
 };

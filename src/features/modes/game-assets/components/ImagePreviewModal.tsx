@@ -7,7 +7,7 @@ import type { TreeNode } from "../hooks/use-game-assets";
 import { useGameAssetFileInfo } from "../hooks/use-game-assets";
 import { cn } from "../../../../shared/lib/utils";
 import { formatBytes, formatDate } from "../../../../shared/lib/format";
-import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api";
+import { gameAssetFileUrlFromPath, resolveGameAssetFileUrl } from "../../../../shared/api/local-file-api";
 
 /**
  * Full-screen image preview overlay with optional metadata side panel.
@@ -16,14 +16,9 @@ import { gameAssetFileUrlFromPath } from "../../../../shared/api/local-file-api"
  * @param node - Image file node to preview
  * @param onClose - Callback when modal should close
  */
-export function ImagePreviewModal({
-  node,
-  onClose,
-}: {
-  node: TreeNode;
-  onClose: () => void;
-}) {
+export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: () => void }) {
   const [showInfo, setShowInfo] = useState(false);
+  const [imageSrc, setImageSrc] = useState(() => gameAssetFileUrlFromPath(node.path, node.absolutePath));
   const { data: info } = useGameAssetFileInfo(node.path);
 
   useEffect(() => {
@@ -33,6 +28,21 @@ export function ImagePreviewModal({
     document.addEventListener("keydown", handle);
     return () => document.removeEventListener("keydown", handle);
   }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setImageSrc(gameAssetFileUrlFromPath(node.path, node.absolutePath));
+    resolveGameAssetFileUrl(node.path)
+      .then((url) => {
+        if (!cancelled) setImageSrc(url || gameAssetFileUrlFromPath(node.path, node.absolutePath));
+      })
+      .catch(() => {
+        if (!cancelled) setImageSrc(gameAssetFileUrlFromPath(node.path, node.absolutePath));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [node.absolutePath, node.path]);
 
   return (
     <div
@@ -45,7 +55,7 @@ export function ImagePreviewModal({
       <div className="relative flex max-h-[90vh] max-w-[90vw]">
         <div className="relative">
           <img
-            src={gameAssetFileUrlFromPath(node.path, node.absolutePath)}
+            src={imageSrc}
             alt={node.name}
             className={cn(
               "max-h-[85vh] rounded-lg object-contain shadow-2xl",

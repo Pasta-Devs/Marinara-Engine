@@ -1,5 +1,5 @@
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
-import { useCharacterSprites, type SpriteInfo } from "../../../catalog/characters/index";
+import { useSprites, type SpriteInfo } from "../../../catalog/sprites/index";
 import {
   FEATURED_PORTRAIT_DEFAULT_FOCUS_X,
   FEATURED_PORTRAIT_DEFAULT_FOCUS_Y,
@@ -37,7 +37,7 @@ export function FeaturedCharacterPortrait({
   const resolvedSpriteCharacterId =
     expressionSpritesEnabled && isSpriteLookupCharacterId(spriteCharacterId) ? (spriteCharacterId ?? null) : null;
   const expression = expressionSpritesEnabled ? getCharacterExpressionHint(character, spriteExpression) : null;
-  const { data: sprites } = useCharacterSprites(resolvedSpriteCharacterId);
+  const { data: sprites } = useSprites(resolvedSpriteCharacterId);
   const spriteUrl = expression ? resolveSpriteUrl(sprites as SpriteInfo[] | undefined, expression) : null;
   const media = spriteUrl ?? characterPicture ?? character.avatarPath ?? null;
   const mediaKind: TrackerPortraitStageMediaKind | null = spriteUrl ? "expression" : media ? "art" : null;

@@ -1,10 +1,4 @@
-import type {
-  CSSProperties,
-  MouseEventHandler,
-  PointerEventHandler,
-  RefObject,
-  WheelEventHandler,
-} from "react";
+import type { CSSProperties, MouseEventHandler, PointerEventHandler, RefObject, WheelEventHandler } from "react";
 import { Loader2 } from "lucide-react";
 import { previewBackgroundStyles, type PreviewBackground } from "./sprite-cleanup-model";
 

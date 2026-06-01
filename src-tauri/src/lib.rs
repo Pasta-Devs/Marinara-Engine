@@ -53,6 +53,9 @@ fn open_main_window_devtools_if_requested(app: &tauri::App) {
 pub fn run() {
     let builder = tauri::Builder::default();
 
+    #[cfg(feature = "devtools")]
+    let builder = builder.plugin(tauri_plugin_devtools::init());
+
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder.plugin(
         tauri_plugin_window_state::Builder::new()
@@ -215,6 +218,7 @@ pub fn run() {
             storage_commands::chat_commands::chat_branch,
             storage_commands::chat_commands::chat_message_swipes,
             storage_commands::chat_commands::chat_message_add_swipe,
+            storage_commands::chat_commands::chat_message_update_content_if_unchanged,
             storage_commands::chat_commands::chat_message_set_active_swipe,
             storage_commands::chat_commands::chat_message_delete_swipe,
             storage_commands::chat_commands::chat_connect,

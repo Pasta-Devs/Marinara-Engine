@@ -6,7 +6,7 @@ import { boolish } from "../../../../generation/runtime-records";
 import { readString as stringValue } from "../../../../shared/value-readers";
 import { stripConversationPromptTimestamps } from "./transcript-sanitize.js";
 
-export interface ConversationSummaryMessage {
+interface ConversationSummaryMessage {
   id?: string;
   role: string;
   content: string | null;
@@ -14,7 +14,7 @@ export interface ConversationSummaryMessage {
   createdAt?: string | null;
 }
 
-export interface ConversationSummaryRunResult {
+interface ConversationSummaryRunResult {
   daySummaries: Record<string, DaySummaryEntry>;
   weekSummaries: Record<string, WeekSummaryEntry>;
   newlyGeneratedDays: Record<string, DaySummaryEntry>;
@@ -79,7 +79,8 @@ function parseRecord(value: unknown): JsonRecord {
 }
 
 function stringArray(value: unknown): string[] {
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  if (Array.isArray(value))
+    return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
@@ -112,9 +113,7 @@ function createSummaryProvider(llm: LlmGateway, connection: JsonRecord): BaseLLM
     async chatComplete(messages, options) {
       const requestMessages: LlmMessage[] = messages.map((message) => ({
         role:
-          message.role === "system" || message.role === "assistant" || message.role === "tool"
-            ? message.role
-            : "user",
+          message.role === "system" || message.role === "assistant" || message.role === "tool" ? message.role : "user",
         content: String(message.content ?? ""),
         name: message.name,
       }));
@@ -162,7 +161,9 @@ async function resolveSummaryConnection(
 
 async function loadScopedMessages(storage: StorageGateway, chatId: string): Promise<ConversationSummaryMessage[]> {
   const rows = await storage.listChatMessages<unknown>(chatId);
-  const messages = Array.isArray(rows) ? rows.filter((row): row is JsonRecord => !!row && typeof row === "object" && !Array.isArray(row)) : [];
+  const messages = Array.isArray(rows)
+    ? rows.filter((row): row is JsonRecord => !!row && typeof row === "object" && !Array.isArray(row))
+    : [];
   let startIndex = 0;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (parseRecord(messages[index]!.extra).isConversationStart === true) {
@@ -215,7 +216,7 @@ function coerceSummaryEntry(value: unknown): DaySummaryEntry | null {
   return summary || keyDetails.length > 0 ? { summary, keyDetails } : null;
 }
 
-export function normalizeDaySummaries(raw: unknown): Record<string, DaySummaryEntry> {
+function normalizeDaySummaries(raw: unknown): Record<string, DaySummaryEntry> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: Record<string, DaySummaryEntry> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
@@ -225,7 +226,7 @@ export function normalizeDaySummaries(raw: unknown): Record<string, DaySummaryEn
   return out;
 }
 
-export function normalizeWeekSummaries(raw: unknown): Record<string, WeekSummaryEntry> {
+function normalizeWeekSummaries(raw: unknown): Record<string, WeekSummaryEntry> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: Record<string, WeekSummaryEntry> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
@@ -235,16 +236,16 @@ export function normalizeWeekSummaries(raw: unknown): Record<string, WeekSummary
   return out;
 }
 
-export function parseConversationDateKey(dateKey: string): Date {
+function parseConversationDateKey(dateKey: string): Date {
   const [dd, mm, yyyy] = dateKey.split(".");
   return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
 }
 
-export function formatConversationDateKey(date: Date): string {
+function formatConversationDateKey(date: Date): string {
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
 }
 
-export function getConversationWeekMonday(date: Date): Date {
+function getConversationWeekMonday(date: Date): Date {
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + diff);
@@ -480,7 +481,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function generateMissingConversationSummaries(
+async function generateMissingConversationSummaries(
   options: GenerateMissingConversationSummariesOptions,
 ): Promise<ConversationSummaryRunResult> {
   const rolloverHour = Math.max(0, Math.min(11, Math.floor(options.rolloverHour ?? 4)));

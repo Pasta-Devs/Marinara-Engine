@@ -2,11 +2,56 @@ import type { StorageGateway } from "../capabilities/storage";
 import { generationParameterSources, mergeStoredGenerationParameters } from "./generate-route-utils";
 import { boolish, isRecord, readString, type JsonRecord } from "./runtime-records";
 
+const GENERATION_MESSAGE_FIELDS = [
+  "id",
+  "chatId",
+  "role",
+  "content",
+  "characterId",
+  "name",
+  "displayName",
+  "characterName",
+  "activeSwipeIndex",
+  "swipeCount",
+  "images",
+  "extra",
+  "createdAt",
+];
+
+const GENERATION_MESSAGE_EXTRA_FIELDS = [
+  "hiddenFromAI",
+  "hiddenFromAi",
+  "thinking",
+  "reasoning",
+  "reasoning_content",
+  "contextInjections",
+  "cyoaChoices",
+  "spriteExpressions",
+];
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return Array.from(new Set(values.filter((value) => value.trim().length > 0)));
+}
+
+function withGenerationMessageProjection(
+  options?: Parameters<StorageGateway["listChatMessages"]>[1],
+): Parameters<StorageGateway["listChatMessages"]>[1] {
+  const fieldSelections = options?.fieldSelections ?? {};
+  const extraFields = fieldSelections.extra ?? [];
+  return {
+    ...options,
+    fields: uniqueStrings([...(options?.fields ?? []), ...GENERATION_MESSAGE_FIELDS]),
+    fieldSelections: {
+      ...fieldSelections,
+      extra: uniqueStrings([...extraFields, ...GENERATION_MESSAGE_EXTRA_FIELDS]),
+    },
+  };
+}
+
 export function requireRecord(value: unknown, label: string): JsonRecord {
   if (isRecord(value)) return value;
   throw new Error(`${label} was not found`);
 }
-
 
 export async function resolveGenerationConnection(
   storage: StorageGateway,
@@ -32,7 +77,7 @@ export async function loadChatMessages(
   chatId: string,
   options?: Parameters<StorageGateway["listChatMessages"]>[1],
 ): Promise<JsonRecord[]> {
-  const messages = await storage.listChatMessages<unknown>(chatId, options);
+  const messages = await storage.listChatMessages<unknown>(chatId, withGenerationMessageProjection(options));
   return Array.isArray(messages) ? messages.filter(isRecord) : [];
 }
 

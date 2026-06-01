@@ -4,21 +4,8 @@
 // and LorebookEntryRow (the per-entry inline drawer).
 // Extracted from LorebookEditor.tsx so styling stays consistent.
 // ──────────────────────────────────────────────
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
-import {
-  FileText,
-  Maximize2,
-  Sparkles,
-  ToggleLeft,
-  ToggleRight,
-  X,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { FileText, Maximize2, Sparkles, ToggleLeft, ToggleRight, X } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 import { MagicRewritePanel } from "../../../../shared/components/ui/MagicRewritePanel";
@@ -46,13 +33,7 @@ export function FieldGroup({
   );
 }
 
-export function KeysEditor({
-  keys,
-  onChange,
-}: {
-  keys: string[];
-  onChange: (keys: string[]) => void;
-}) {
+export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys: string[]) => void }) {
   const [input, setInput] = useState("");
 
   const addKey = () => {
@@ -143,9 +124,7 @@ export function NumberField({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-        {label}
-      </label>
+      <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">{label}</label>
       <input
         type="number"
         value={value}
@@ -158,11 +137,7 @@ export function NumberField({
   );
 }
 
-export function insertTabAtSelection(
-  element: HTMLTextAreaElement,
-  value: string,
-  applyValue: (nextValue: string) => void,
-) {
+function insertTabAtSelection(element: HTMLTextAreaElement, value: string, applyValue: (nextValue: string) => void) {
   const start = element.selectionStart;
   const end = element.selectionEnd;
   const nextValue = `${value.slice(0, start)}\t${value.slice(end)}`;
@@ -173,19 +148,12 @@ export function insertTabAtSelection(
   });
 }
 
-export function handleTextareaTabKeyDown(
+function handleTextareaTabKeyDown(
   event: ReactKeyboardEvent<HTMLTextAreaElement>,
   value: string,
   applyValue: (nextValue: string) => void,
 ) {
-  if (
-    event.key !== "Tab" ||
-    event.shiftKey ||
-    event.altKey ||
-    event.metaKey ||
-    event.ctrlKey
-  )
-    return;
+  if (event.key !== "Tab" || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return;
   event.preventDefault();
   insertTabAtSelection(event.currentTarget, value, applyValue);
 }
@@ -246,7 +214,7 @@ export function ExpandableTextarea({
 }
 
 /** Fullscreen modal editor for lorebook entry fields. */
-export function ExpandedContentModal({
+function ExpandedContentModal({
   title,
   value,
   onChange,
@@ -307,31 +275,19 @@ export function ExpandedContentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 max-md:pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
       <div className="relative flex h-[80vh] w-full max-w-5xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl shadow-black/50">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h3 className="text-sm font-semibold">
-            {magicRewriteMode ? "Magic Rewrite" : title}
-          </h3>
+          <h3 className="text-sm font-semibold">{magicRewriteMode ? "Magic Rewrite" : title}</h3>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded-lg p-1.5 hover:bg-[var(--accent)]"
-            >
+            <button type="button" onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
               <X size="1rem" />
             </button>
           </div>
         </div>
         <div className="flex-1 overflow-hidden p-4">
           {magicRewriteMode ? (
-            <MagicRewritePanel
-              value={local}
-              onResultChange={handleMagicRewriteResultChange}
-            />
+            <MagicRewritePanel value={local} onResultChange={handleMagicRewriteResultChange} />
           ) : (
             <textarea
               ref={textareaRef}

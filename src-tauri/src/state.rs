@@ -62,6 +62,7 @@ impl AppState {
         let backgrounds = AssetService::new(data_dir.join("backgrounds"))?;
         Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
         migrate_storage_json_fields(&storage)?;
+        migrate_legacy_chat_group_roots(&storage)?;
         migrate_local_media_references(&storage, &data_dir)?;
 
         Ok(Self {
@@ -218,6 +219,56 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
     }
     if changed {
         storage.replace_all(collection, normalized_rows)?;
+    }
+    Ok(())
+}
+
+fn migrate_legacy_chat_group_roots(storage: &FileStorage) -> AppResult<()> {
+    let mut rows = storage.list("chats")?;
+    let referenced_group_ids: HashSet<String> = rows
+        .iter()
+        .filter_map(|row| {
+            row.get("groupId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|group_id| !group_id.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+    if referenced_group_ids.is_empty() {
+        return Ok(());
+    }
+
+    let mut changed = false;
+    for row in &mut rows {
+        let Some(object) = row.as_object_mut() else {
+            continue;
+        };
+        let Some(id) = object
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map(ToOwned::to_owned)
+        else {
+            continue;
+        };
+        if !referenced_group_ids.contains(&id) {
+            continue;
+        }
+        let has_group_id = object
+            .get("groupId")
+            .and_then(Value::as_str)
+            .is_some_and(|group_id| !group_id.trim().is_empty());
+        if has_group_id {
+            continue;
+        }
+        object.insert("groupId".to_string(), Value::String(id));
+        changed = true;
+    }
+
+    if changed {
+        storage.replace_all("chats", rows)?;
     }
     Ok(())
 }
@@ -780,6 +831,74 @@ mod tests {
         assert_ne!(background, old_asset_url);
         assert_eq!(background, "chat-1.webp");
         assert!(root.0.join("backgrounds/chat-1.webp").is_file());
+    }
+
+    #[test]
+    fn app_state_startup_enrolls_legacy_ungrouped_chat_roots() {
+        let root = temp_root("legacy-chat-root-groups");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        for chat in [
+            json!({
+                "id": "root-1",
+                "mode": "roleplay",
+                "groupId": null,
+                "characterIds": [],
+                "metadata": {}
+            }),
+            json!({
+                "id": "branch-1",
+                "mode": "roleplay",
+                "groupId": "root-1",
+                "characterIds": [],
+                "metadata": {}
+            }),
+            json!({
+                "id": "unrelated-root",
+                "mode": "conversation",
+                "groupId": null,
+                "characterIds": [],
+                "metadata": {}
+            }),
+            json!({
+                "id": "already-grouped-root",
+                "mode": "roleplay",
+                "groupId": "existing-group",
+                "characterIds": [],
+                "metadata": {}
+            }),
+            json!({
+                "id": "existing-branch",
+                "mode": "roleplay",
+                "groupId": "already-grouped-root",
+                "characterIds": [],
+                "metadata": {}
+            }),
+        ] {
+            storage
+                .create("chats", chat)
+                .expect("chat row should be inserted");
+        }
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let root_chat = state
+            .storage
+            .get("chats", "root-1")
+            .expect("root lookup should not fail")
+            .expect("root should still exist");
+        let unrelated = state
+            .storage
+            .get("chats", "unrelated-root")
+            .expect("unrelated lookup should not fail")
+            .expect("unrelated chat should still exist");
+        let already_grouped = state
+            .storage
+            .get("chats", "already-grouped-root")
+            .expect("grouped root lookup should not fail")
+            .expect("grouped root should still exist");
+
+        assert_eq!(root_chat["groupId"], "root-1");
+        assert_eq!(unrelated.get("groupId"), Some(&Value::Null));
+        assert_eq!(already_grouped["groupId"], "existing-group");
     }
 
     #[test]

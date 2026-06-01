@@ -11,11 +11,15 @@ const CharactersPanel = lazy(() =>
 const LorebooksPanel = lazy(() =>
   import("../../features/catalog/lorebooks/shell").then((module) => ({ default: module.LorebooksPanel })),
 );
-const PresetsPanel = lazy(() => import("../../features/catalog/presets/shell").then((module) => ({ default: module.PresetsPanel })));
+const PresetsPanel = lazy(() =>
+  import("../../features/catalog/presets/shell").then((module) => ({ default: module.PresetsPanel })),
+);
 const ConnectionsPanel = lazy(() =>
   import("../../features/shell/connections/shell").then((module) => ({ default: module.ConnectionsPanel })),
 );
-const AgentsPanel = lazy(() => import("../../features/catalog/agents/shell").then((module) => ({ default: module.AgentsPanel })));
+const AgentsPanel = lazy(() =>
+  import("../../features/catalog/agents/shell").then((module) => ({ default: module.AgentsPanel })),
+);
 const PersonasPanel = lazy(() =>
   import("../../features/catalog/personas/shell").then((module) => ({ default: module.PersonasPanel })),
 );
