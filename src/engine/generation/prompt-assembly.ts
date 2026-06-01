@@ -1597,6 +1597,8 @@ function sharesConversationCharacter(source: JsonRecord, candidate: JsonRecord):
   return activeCharacterIds(candidate).some((id) => sourceIds.has(id));
 }
 
+const CROSS_CHAT_SIBLING_SCAN_LIMIT = 24;
+
 function chatRecencyMs(chat: JsonRecord): number {
   const raw =
     readString(chat.lastActivityAt).trim() ||
@@ -1624,7 +1626,8 @@ async function buildCrossChatAwarenessBlock(
     .filter((candidate) => readString(candidate.id).trim() !== chatId)
     .filter((candidate) => modeOf(candidate) === "conversation")
     .filter((candidate) => sharesConversationCharacter(chat, candidate))
-    .sort((left, right) => chatRecencyMs(right) - chatRecencyMs(left));
+    .sort((left, right) => chatRecencyMs(right) - chatRecencyMs(left))
+    .slice(0, CROSS_CHAT_SIBLING_SCAN_LIMIT);
   const sections: string[] = [];
   for (const sibling of siblingChats) {
     if (sections.length >= 6) break;

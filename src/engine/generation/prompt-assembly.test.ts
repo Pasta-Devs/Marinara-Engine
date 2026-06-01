@@ -238,6 +238,43 @@ describe("assembleGenerationPrompt conversation parity", () => {
     expect(text).not.toContain("[scene:");
   });
 
+  it("bounds cross-chat sibling message reads to recent candidates", async () => {
+    const chat = {
+      id: "chat-1",
+      mode: "conversation",
+      characterIds: ["alice"],
+      metadata: { crossChatAwareness: true },
+    };
+    const emptyRecentSiblings = Array.from({ length: 24 }, (_, index) => ({
+      id: `chat-empty-${index}`,
+      name: `Empty recent ${index}`,
+      mode: "conversation",
+      characterIds: ["alice"],
+      updatedAt: `2026-06-01T14:${String(index).padStart(2, "0")}:00Z`,
+      metadata: {},
+    }));
+    const oldSibling = {
+      id: "chat-old",
+      name: "Old sibling",
+      mode: "conversation",
+      characterIds: ["alice"],
+      updatedAt: "2026-05-01T14:00:00Z",
+      metadata: {},
+    };
+    const storage = createStorage({
+      chats: [chat, oldSibling, ...emptyRecentSiblings],
+      characters: [alice],
+      messages: {
+        "chat-old": [{ id: "old", chatId: "chat-old", role: "user", content: "Old but non-empty continuity." }],
+      },
+    });
+
+    const text = await promptText(storage, chat);
+
+    expect(text).not.toContain("<cross_chat_awareness>");
+    expect(text).not.toContain("Old but non-empty continuity.");
+  });
+
   it("injects linked roleplay and game context into conversation prompts", async () => {
     const conversation = {
       id: "chat-1",
