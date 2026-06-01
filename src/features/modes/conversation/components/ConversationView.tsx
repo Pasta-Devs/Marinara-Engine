@@ -75,6 +75,7 @@ interface ConversationViewProps {
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
+  onBranch: (messageId: string) => void;
   lastAssistantMessageId: string | null;
   onOpenSettings: () => void;
   onOpenFiles: () => void;
@@ -339,6 +340,7 @@ export function ConversationView({
   onSetActiveSwipe,
   onPeekPrompt,
   onToggleHiddenFromAI,
+  onBranch,
   lastAssistantMessageId,
   onOpenSettings,
   onOpenFiles,
@@ -1050,6 +1052,7 @@ export function ConversationView({
                   onSetActiveSwipe={onSetActiveSwipe}
                   onPeekPrompt={onPeekPrompt}
                   onToggleHiddenFromAI={onToggleHiddenFromAI}
+                  onBranch={onBranch}
                 />,
               );
               i = j;
@@ -1087,6 +1090,7 @@ export function ConversationView({
                 onSetActiveSwipe={onSetActiveSwipe}
                 onPeekPrompt={onPeekPrompt}
                 onToggleHiddenFromAI={onToggleHiddenFromAI}
+                onBranch={onBranch}
                 isLastAssistantMessage={msg.id === lastAssistantMessageId}
                 characterMap={characterMap}
                 personaInfo={personaInfo}
@@ -1219,6 +1223,7 @@ function SplitMessageGroup({
   onSetActiveSwipe,
   onPeekPrompt,
   onToggleHiddenFromAI,
+  onBranch,
 }: {
   items: Array<{ key: string; msg: Message; isGrouped: boolean; index: number }>;
   isStreaming: boolean;
@@ -1235,6 +1240,7 @@ function SplitMessageGroup({
   onSetActiveSwipe: (id: string, index: number) => void;
   onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
+  onBranch: (messageId: string) => void;
 }) {
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -1276,6 +1282,7 @@ function SplitMessageGroup({
           onSetActiveSwipe={onSetActiveSwipe}
           onPeekPrompt={onPeekPrompt}
           onToggleHiddenFromAI={onToggleHiddenFromAI}
+          onBranch={onBranch}
           isLastAssistantMessage={false}
           characterMap={characterMap}
           chatCharacterIds={chatCharacterIds}
@@ -1352,6 +1359,7 @@ function SplitMessageGroup({
                 onSetActiveSwipe={onSetActiveSwipe}
                 onPeekPrompt={onPeekPrompt}
                 onToggleHiddenFromAI={onToggleHiddenFromAI}
+                onBranch={onBranch}
                 isLastAssistantMessage={false}
                 characterMap={characterMap}
                 chatCharacterIds={chatCharacterIds}
@@ -1379,6 +1387,7 @@ function SplitMessageGroup({
               onSetActiveSwipe={onSetActiveSwipe}
               onPeekPrompt={onPeekPrompt}
               onToggleHiddenFromAI={onToggleHiddenFromAI}
+              onBranch={onBranch}
               onEditClick={handleStartEdit}
               isLastAssistantMessage={firstItem.msg.id === lastAssistantMessageId}
               characterMap={characterMap}
@@ -1407,6 +1416,7 @@ function SplitMessageGroup({
               onSetActiveSwipe={onSetActiveSwipe}
               onPeekPrompt={onPeekPrompt}
               onToggleHiddenFromAI={isChild ? undefined : onToggleHiddenFromAI}
+              onBranch={isChild ? undefined : onBranch}
               onEditClick={handleStartEdit}
               isLastAssistantMessage={msg.id === lastAssistantMessageId}
               characterMap={characterMap}

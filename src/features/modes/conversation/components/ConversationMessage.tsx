@@ -16,6 +16,7 @@ import {
   X,
   User,
   Languages,
+  GitBranch,
 } from "lucide-react";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Message, MessageExtra } from "../../../../engine/contracts/types/chat";
@@ -273,6 +274,7 @@ interface ConversationMessageProps {
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onPeekPrompt?: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
+  onBranch?: (messageId: string) => void;
   isLastAssistantMessage?: boolean;
   characterMap?: CharacterMap;
   personaInfo?: PersonaInfo;
@@ -301,6 +303,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   onSetActiveSwipe,
   onPeekPrompt,
   onToggleHiddenFromAI,
+  onBranch,
   characterMap,
   personaInfo,
   onEditClick,
@@ -967,6 +970,13 @@ export const ConversationMessage = memo(function ConversationMessage({
           {thinking && (
             <MsgAction icon={<Brain size="0.75rem" />} onClick={() => setShowThinking(true)} title="View thoughts" />
           )}
+          {onBranch && (
+            <MsgAction
+              icon={<GitBranch size="0.75rem" />}
+              onClick={() => onBranch(message.id)}
+              title="Branch from here"
+            />
+          )}
           <MsgAction
             icon={<Trash2 size="0.75rem" />}
             onClick={() => onDelete?.(message.id)}
@@ -1288,6 +1298,13 @@ export const ConversationMessage = memo(function ConversationMessage({
           )}
           {thinking && !isUser && (
             <MsgAction icon={<Brain size="0.75rem" />} onClick={() => setShowThinking(true)} title="View thoughts" />
+          )}
+          {onBranch && (
+            <MsgAction
+              icon={<GitBranch size="0.75rem" />}
+              onClick={() => onBranch(message.id)}
+              title="Branch from here"
+            />
           )}
           <MsgAction
             icon={<Trash2 size="0.75rem" />}

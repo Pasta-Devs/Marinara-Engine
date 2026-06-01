@@ -168,6 +168,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         onSetActiveSwipe={timeline.handleSetActiveSwipe}
         onPeekPrompt={timeline.handlePeekPrompt}
         onToggleHiddenFromAI={timeline.handleToggleHiddenFromAI}
+        onBranch={timeline.handleBranch}
         onToggleSelectMessage={timeline.handleToggleSelectMessage}
         onSwitchChat={connectedChatId ? () => setActiveChatId(connectedChatId) : undefined}
         onOpenSettings={overlays.openSettings}
