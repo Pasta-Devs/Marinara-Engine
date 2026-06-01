@@ -734,7 +734,7 @@ def render_finding_body(finding):
     ]
     if finding.fix_hint:
         parts.extend([""] + alert_block("TIP", [f"**Suggested fix:** {finding.fix_hint}"]))
-    parts.extend(["", render_agent_prompt_details([finding], "🤖 Prompt for AI Agents")])
+    parts.extend(["", render_agent_prompt_details([finding], "🤖 Repair prompt for agents")])
     return "\n".join(parts).strip()
 
 
@@ -815,7 +815,7 @@ def status_badge(meta):
 
 def finding_summary(findings):
     if not findings:
-        return "No actionable findings."
+        return "No actionable defects isolated."
     counts = {}
     for finding in findings:
         severity = str(finding.severity or "unknown").lower()
@@ -847,22 +847,22 @@ def review_callout(findings, pre_merge):
         return "\n".join(
             [
                 "> [!CAUTION]",
-                f"> **Action required.** {summary}",
-                "> Review blocking/high findings and failed checks before merging.",
+                f"> **Specimen unstable.** {summary}",
+                "> Repair blocking/high findings and failed controls before merge.",
             ]
         )
     if findings or has_warn_check:
         return "\n".join(
             [
                 "> [!WARNING]",
-                f"> **Needs review.** {summary}",
-                "> Check the findings and any warning rows before merging.",
+                f"> **Anomalies remain.** {summary}",
+                "> Examine the findings and warning rows before merge.",
             ]
         )
     return "\n".join(
         [
             "> [!TIP]",
-            "> **No actionable findings.** Bunny did not find merge-blocking review items.",
+            "> **No actionable defects isolated.** The examined mechanism yielded no merge-blocking specimen.",
         ]
     )
 
@@ -889,20 +889,21 @@ def code_block_text(text):
 
 def agent_prompt_for_finding(finding):
     lines = [
-        f"In `@{finding.path}` around line {finding.line}:",
+        f"Inspect `@{finding.path}` around line {finding.line}:",
         f"- {finding.title}",
         "",
         finding.body,
     ]
     if finding.fix_hint:
-        lines.extend(["", f"Suggested fix: {finding.fix_hint}"])
+        lines.extend(["", f"Corrective action: {finding.fix_hint}"])
     return "\n".join(lines)
 
 
 def render_agent_prompt(findings):
     sections = [
-        "Verify each Bunny finding against current code. Fix only still-valid issues, "
-        "skip the rest with a brief reason, keep changes minimal, and validate.",
+        "Verify each Bunny finding against current code. Repair only defects that still "
+        "reproduce, reject stale observations with a brief reason, keep changes minimal, "
+        "and validate the corrected mechanism.",
     ]
     sections.extend(agent_prompt_for_finding(finding) for finding in findings)
     return code_block_text("\n\n".join(sections))
@@ -983,7 +984,7 @@ def ci_status_to_pre_merge_checks(ci_status):
             {
                 "name": "CI Status",
                 "status": "fail",
-                "detail": "One or more expected CI checks failed or were cancelled; do not merge until CI is repaired.",
+                "detail": "One or more expected CI controls failed or were cancelled; the specimen is not fit for merge.",
             }
         ]
     if "warning:" in lowered or "still running" in lowered:
@@ -991,14 +992,14 @@ def ci_status_to_pre_merge_checks(ci_status):
             {
                 "name": "CI Status",
                 "status": "warn",
-                "detail": "Expected CI checks were missing or incomplete when Bunny posted; verify CI before merging.",
+                "detail": "Expected CI controls were missing or incomplete when Bunny posted; verify the control path before merge.",
             }
         ]
     return [
         {
             "name": "CI Status",
             "status": "pass",
-            "detail": "Expected CI checks completed without a reported failure.",
+            "detail": "Expected CI controls completed without a reported failure.",
         }
     ]
 
@@ -1022,10 +1023,10 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         "",
         render_review_metadata(review_obj, head_sha),
         "",
-        "### 🧭 Change Summary",
+        "### 🧭 Specimen Summary",
     ]
-    body.extend([f"- {line}" for line in summary[:3]] or ["- No change summary produced."])
-    body.extend(["", "### 🔎 Findings"])
+    body.extend([f"- {line}" for line in summary[:3]] or ["- No specimen summary produced."])
+    body.extend(["", "### 🔎 Isolated Defects"])
     if findings:
         body.extend(
             [
@@ -1042,9 +1043,9 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
                 f"{md_cell(finding.title)} |"
             )
     else:
-        body.extend(["", "> [!TIP]", "> No actionable findings."])
+        body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
     agent_prompt = render_agent_prompt_details(
-        findings, "🤖 Prompt for all Bunny findings with AI agents"
+        findings, "🤖 Repair prompt for isolated Bunny findings"
     )
     if agent_prompt:
         body.extend(["", agent_prompt])
@@ -1052,7 +1053,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         body.extend(
             [
                 "",
-                "### ✅ Pre-Merge Checks",
+                "### ✅ Control Checks",
                 "| Status | Check | Detail |",
                 "| :---: | --- | --- |",
             ]
@@ -1069,16 +1070,16 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
                 f"{md_cell(detail)} |"
             )
     body.extend(["", "### ❓ Open Questions"])
-    body.extend([f"- {line}" for line in questions[:2]] or ["- None."])
-    body.extend(["", "### 🧪 What I Checked"])
-    body.extend([f"- {line}" for line in checked[:6]] or ["- Review packet and diff context."])
+    body.extend([f"- {line}" for line in questions[:2]] or ["- None recorded."])
+    body.extend(["", "### 🧪 Observations"])
+    body.extend([f"- {line}" for line in checked[:6]] or ["- Review packet and diff context inspected."])
     if invalid_findings:
         body.extend(
             [
                 "",
                 "### 📝 Reviewer Notes",
                 "> [!WARNING]",
-                f"> Skipped {len(invalid_findings)} model finding(s) because Bunny could not validate their diff locations.",
+                f"> Withheld {len(invalid_findings)} model finding(s) because their diff locations failed validation.",
             ]
         )
     if normalized_ci_status:
@@ -1130,7 +1131,7 @@ def write_skipped_review(title, body):
                     {"name": title, "status": "unknown", "detail": body}
                 ],
                 "open_questions": [],
-                "what_i_checked": ["Bunny Review did not run a model pass."],
+                "what_i_checked": ["No model pass ran; the specimen remained unexamined."],
             },
             indent=2,
             sort_keys=True,
@@ -1191,7 +1192,7 @@ def produce_review(args):
     if not os.environ.get("OPENAI_API_KEY"):
         write_skipped_review(
             "Review Skipped",
-            "Bunny Review could not run because `OPENAI_API_KEY` is not available to this workflow run. This is expected for PRs where repository secrets are withheld.",
+            "The reviewer could not run because `OPENAI_API_KEY` is absent from this workflow run. Repository-secret withholding leaves the specimen unexamined.",
         )
         print("Bunny telemetry: skipped=missing_openai_api_key", flush=True)
         return
@@ -1252,7 +1253,7 @@ def produce_review(args):
             chunk_reviews.append(three_pass_review(client, skill, triage_content, stats))
         review_obj = merge_review_objects(chunk_reviews)
         review_obj.setdefault("what_i_checked", []).append(
-            f"Reviewed the PR in {len(chunks)} file chunk(s) to avoid dropping large-diff context."
+            f"Examined the PR in {len(chunks)} file chunk(s) so the large diff did not contaminate context retention."
         )
     else:
         review_packet = build_review_packet(base, ci_status, effective_mode)
@@ -1371,7 +1372,7 @@ def patch_command_status_complete(pr_num, head_sha):
             "## ✅ Bunny Review Completed",
             "",
             "> [!TIP]",
-            "> Review posted. The specimen has been returned to the table.",
+            "> Review posted. The specimen has left the observation table.",
             "",
             f"- **{commit_line(head_sha)}**",
         ]
