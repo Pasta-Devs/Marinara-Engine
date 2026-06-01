@@ -19,16 +19,20 @@ import type {
   PresentCharacter,
 } from "../../../../engine/contracts/types/game-state";
 import { chatBackgroundMetadataToUrl } from "../../../../shared/lib/backgrounds";
+import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import { requestImagePromptReview } from "../../../../shared/components/ui/ImagePromptReviewHost";
+import { showConversationLocalNotification } from "../../../../shared/lib/local-notifications";
+import { playNotificationPing } from "../../../../shared/lib/notification-sound";
 import { useAgentStore, type PendingCardUpdate } from "../../../../shared/stores/agent.store";
 import { formatAgentFailuresToast, toAgentFailure, type AgentFailure } from "../../../../shared/lib/agent-failures";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import type { AvatarCropValue } from "../../../../shared/lib/utils";
 import { useGameStateStore } from "../../world-state/index";
 import { worldStateApi, type WorldStateTarget } from "../../world-state/index";
 import {
@@ -341,6 +345,75 @@ function scheduleChatQueryRefresh(queryClient: QueryClient, chatId: string): voi
     ]).catch((error) => console.warn("[generation] chat cache refresh failed", error));
   }, 75);
   scheduledChatRefreshTimers.set(chatId, timer);
+}
+
+async function chatForNotification(queryClient: QueryClient, chatId: string): Promise<Chat | null> {
+  const cached = queryClient.getQueryData<Chat>(chatKeys.detail(chatId));
+  if (cached) return cached;
+  return storageApi.get<Chat>("chats", chatId).catch(() => null);
+}
+
+async function characterNotificationInfo(characterId: string | null): Promise<{
+  characterName: string;
+  avatarUrl: string | null;
+  avatarCrop: AvatarCropValue | null;
+}> {
+  if (!characterId) return { characterName: "Someone", avatarUrl: null, avatarCrop: null };
+
+  try {
+    const row = await storageApi.get<Record<string, unknown>>("characters", characterId);
+    if (!row) return { characterName: "Someone", avatarUrl: null, avatarCrop: null };
+    const data = parseMaybeRecord(row.data);
+    const extensions = parseMaybeRecord(data.extensions);
+    return {
+      characterName: readString(data.name).trim() || readString(row.name).trim() || "Someone",
+      avatarUrl: readString(row.avatarPath).trim() || null,
+      avatarCrop: (extensions.avatarCrop ?? null) as AvatarCropValue | null,
+    };
+  } catch {
+    return { characterName: "Someone", avatarUrl: null, avatarCrop: null };
+  }
+}
+
+async function notifyOffChatAssistantMessage(queryClient: QueryClient, chatId: string, rawMessage: unknown): Promise<void> {
+  const state = useChatStore.getState();
+  if (state.activeChatId === chatId) return;
+
+  const savedMessage = savedMessagePayload(rawMessage, chatId);
+  if (!savedMessage || savedMessage.role !== "assistant") return;
+
+  const chat = await chatForNotification(queryClient, chatId);
+  if (chat?.mode !== "conversation" && chat?.mode !== "roleplay") return;
+
+  const characterId = readString(savedMessage.characterId).trim() || null;
+  const { characterName, avatarUrl, avatarCrop } = await characterNotificationInfo(characterId);
+  if (useChatStore.getState().activeChatId === chatId) return;
+
+  void chatCommandApi
+    .markAutonomousUnread<Chat>(chatId, { characterId })
+    .then((updatedChat) => {
+      queryClient.setQueryData(chatKeys.detail(chatId), updatedChat);
+      void queryClient.invalidateQueries({ queryKey: chatKeys.list() });
+    })
+    .catch(() => {
+      /* persistence is best-effort; keep the local notification */
+    });
+
+  const latestState = useChatStore.getState();
+  latestState.incrementUnread(chatId);
+  latestState.addNotification(chatId, characterName, avatarUrl, avatarCrop);
+
+  const uiState = useUIStore.getState();
+  if (chat.mode === "conversation") {
+    if (uiState.convoNotificationSound) playNotificationPing();
+    void showConversationLocalNotification({
+      enabled: uiState.conversationBrowserNotifications,
+      characterName,
+      tag: `marinara-conversation-${chatId}`,
+    });
+  } else if (uiState.rpNotificationSound) {
+    playNotificationPing();
+  }
 }
 
 function parseMaybeRecord(value: unknown): Record<string, unknown> {
@@ -1305,6 +1378,7 @@ export async function runGenerationWithUi(
             await flushLiveGenerationBuffers();
             upsertCachedMessage(queryClient, chatId, event.data, { replaceMessageId: regenerateMessageId });
             scheduleChatQueryRefresh(queryClient, chatId);
+            await notifyOffChatAssistantMessage(queryClient, chatId, event.data);
             const trackerTarget = trackerTargetFromMessagePayload(event.data);
             runDeferredGenerationWork("game state refresh", () => refreshGameStateFromStorage(chatId, trackerTarget));
             if (groupTurnActive) {
