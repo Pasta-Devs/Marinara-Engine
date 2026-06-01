@@ -60,6 +60,10 @@ describe("discovery registry", () => {
     expect(search("remember lore").map((entry) => entry.id)).toContain("lorebooks");
     expect(search("images").map((entry) => entry.id)).toContain("image-generation");
     expect(search("webhook").map((entry) => entry.id)).toContain("discord-mirror");
+    expect(search("spotify playlist").map((entry) => entry.id)).toContain("spotify-dj");
+    expect(search("game checkpoint").map((entry) => entry.id)).toContain("game-checkpoints");
+    expect(search("profile backup").map((entry) => entry.id)).toContain("backups-profile-export");
+    expect(search("author notes").map((entry) => entry.id)).toContain("roleplay-context-panels");
   });
 
   it("filters entries by category and coverage", () => {
