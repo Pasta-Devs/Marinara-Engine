@@ -565,7 +565,7 @@ async fn check_image_generation_connection(connection: &Value) -> AppResult<Stri
             Ok("ComfyUI endpoint is reachable.".to_string())
         }
         "automatic1111" | "drawthings" => {
-            let url = format!("{base}/sdapi/v1/options");
+            let url = super::images::image_sdapi_url(&base, "options");
             check_optional_bearer_get(&url, connection, "Stable Diffusion Web UI").await?;
             Ok("Stable Diffusion Web UI endpoint is reachable.".to_string())
         }
@@ -941,7 +941,7 @@ async fn fetch_image_models(connection: &Value) -> AppResult<Vec<Value>> {
         }
         "automatic1111" | "drawthings" => {
             fetch_json_models(
-                &format!("{base}/sdapi/v1/sd-models"),
+                &super::images::image_sdapi_url(&base, "sd-models"),
                 connection,
                 "image_generation",
                 |json| {

@@ -172,6 +172,9 @@ fn infer_image_source(model_or_source: &str, base_url: &str) -> String {
     if url.contains("runpod.ai") {
         return "runpod_comfyui".to_string();
     }
+    if url.contains("arliai.com") || url.contains("/sdapi/v1") {
+        return "automatic1111".to_string();
+    }
     if url.contains(":7860") && !url.contains("drawthings") {
         return "automatic1111".to_string();
     }
@@ -1850,6 +1853,7 @@ async fn generate_automatic1111(
         payload["override_settings"] = json!({ "CLIP_stop_at_last_layers": clip_skip });
     }
     if let Some(model) = model {
+        payload["sd_model_checkpoint"] = Value::String(model.to_string());
         if payload
             .get("override_settings")
             .and_then(Value::as_object)
@@ -1866,17 +1870,16 @@ async fn generate_automatic1111(
             Value::String(model.to_string()),
         );
     }
-    let response = http_client(180)?
-        .post(format!(
-            "{base}/sdapi/v1/{}",
-            if use_img2img { "img2img" } else { "txt2img" }
-        ))
-        .json(&payload)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::new("image_network_error", image_transport_error_message(error))
-        })?;
+    let endpoint = if use_img2img { "img2img" } else { "txt2img" };
+    let response = bearer(
+        http_client(180)?
+            .post(automatic1111_sdapi_url(&base, endpoint))
+            .json(&payload),
+        &connection_api_key(connection),
+    )
+    .send()
+    .await
+    .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "automatic1111").await?;
     let image = json
         .get("images")
@@ -1886,6 +1889,35 @@ async fn generate_automatic1111(
         .ok_or_else(|| AppError::new("image_response_error", "AUTOMATIC1111 returned no image"))?;
     let (base64, mime) = strip_data_url(image);
     Ok((base64.to_string(), mime.to_string()))
+}
+
+pub(crate) fn automatic1111_sdapi_url(base: &str, endpoint: &str) -> String {
+    let trimmed = base.trim_end_matches('/');
+    let target_endpoint = endpoint.trim_matches('/');
+    if let Ok(mut parsed) = reqwest::Url::parse(trimmed) {
+        let parts = parsed
+            .path()
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>();
+        let sdapi_index = parts.windows(2).position(|parts| parts == ["sdapi", "v1"]);
+        let prefix = sdapi_index
+            .map(|index| parts[..index].to_vec())
+            .unwrap_or(parts);
+        let path = prefix
+            .into_iter()
+            .chain(["sdapi", "v1", target_endpoint])
+            .collect::<Vec<_>>()
+            .join("/");
+        parsed.set_path(&format!("/{path}"));
+        parsed.set_query(None);
+        parsed.set_fragment(None);
+        return parsed.to_string().trim_end_matches('/').to_string();
+    }
+    if let Some((prefix, _)) = trimmed.split_once("/sdapi/v1") {
+        return format!("{prefix}/sdapi/v1/{target_endpoint}");
+    }
+    format!("{trimmed}/sdapi/v1/{target_endpoint}")
 }
 
 async fn generate_horde(
@@ -2637,6 +2669,72 @@ fn find_comfyui_image<'a>(history: &'a Value, prompt_id: &str) -> Option<&'a Val
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    fn find_header_end(bytes: &[u8]) -> Option<usize> {
+        bytes.windows(4).position(|window| window == b"\r\n\r\n")
+    }
+
+    fn content_length(headers: &str) -> usize {
+        headers
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                if name.eq_ignore_ascii_case("content-length") {
+                    value.trim().parse::<usize>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0)
+    }
+
+    async fn serve_single_image_response() -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test image server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test image server address should be readable");
+        let handle = tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test image server should accept one request");
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            loop {
+                let read = stream
+                    .read(&mut buffer)
+                    .await
+                    .expect("test image server should read request");
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..read]);
+                if let Some(header_end) = find_header_end(&request) {
+                    let headers = String::from_utf8_lossy(&request[..header_end]);
+                    let expected_len = header_end + 4 + content_length(&headers);
+                    if request.len() >= expected_len {
+                        break;
+                    }
+                }
+            }
+            let body =
+                r#"{"images":["iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="],"info":"{}"}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test image server should write response");
+            String::from_utf8_lossy(&request).to_string()
+        });
+        (format!("http://{address}"), handle)
+    }
 
     #[test]
     fn image_provider_error_sanitizer_redacts_secrets() {
@@ -2732,5 +2830,83 @@ mod tests {
 
         assert_eq!(error.code, "image_provider_error");
         assert!(error.message.contains("prompt is too long"));
+    }
+
+    #[tokio::test]
+    async fn automatic1111_sends_arliai_required_auth_and_model_checkpoint() {
+        let (base_url, request_handle) = serve_single_image_response().await;
+        let connection = json!({
+            "provider": "image_generation",
+            "imageGenerationSource": "automatic1111",
+            "baseUrl": format!("{base_url}/sdapi/v1/txt2img"),
+            "apiKey": "arliai-secret",
+            "model": "arliai-image-model",
+            "defaultParameters": {
+                "imageGeneration": {
+                    "service": "automatic1111",
+                    "automatic1111": { "steps": 30, "sampler": "DPM++ 2M Karras" },
+                    "seed": -1
+                }
+            }
+        });
+
+        let result = generate_automatic1111(
+            &connection,
+            "A photo of an astronaut riding a horse on the moon",
+            1024,
+            1024,
+            &ImageGenerationOptions {
+                negative_prompt: Some("ugly, blurry, low quality".to_string()),
+                ..ImageGenerationOptions::default()
+            },
+        )
+        .await
+        .expect("ArliAI-compatible SD API response should parse");
+
+        assert_eq!(result.1, "image/png");
+        let request = request_handle
+            .await
+            .expect("test image server should return captured request");
+        let lower_request = request.to_ascii_lowercase();
+        assert!(request.starts_with("POST /sdapi/v1/txt2img "));
+        assert!(lower_request.contains("authorization: bearer arliai-secret"));
+
+        let body = request
+            .split_once("\r\n\r\n")
+            .map(|(_, body)| body)
+            .expect("request should contain a JSON body");
+        let payload: Value = serde_json::from_str(body).expect("request body should be JSON");
+        assert_eq!(
+            payload["prompt"],
+            json!("A photo of an astronaut riding a horse on the moon")
+        );
+        assert_eq!(payload["sd_model_checkpoint"], json!("arliai-image-model"));
+        assert_eq!(payload["steps"], json!(30));
+        assert_eq!(payload["sampler_name"], json!("DPM++ 2M Karras"));
+    }
+
+    #[test]
+    fn automatic1111_sdapi_url_accepts_roots_and_endpoint_urls() {
+        assert_eq!(
+            automatic1111_sdapi_url("https://api.arliai.com", "txt2img"),
+            "https://api.arliai.com/sdapi/v1/txt2img"
+        );
+        assert_eq!(
+            automatic1111_sdapi_url("https://api.arliai.com/sdapi/v1", "txt2img"),
+            "https://api.arliai.com/sdapi/v1/txt2img"
+        );
+        assert_eq!(
+            automatic1111_sdapi_url("https://api.arliai.com/sdapi/v1/txt2img", "img2img"),
+            "https://api.arliai.com/sdapi/v1/img2img"
+        );
+    }
+
+    #[test]
+    fn arliai_and_sdapi_urls_infer_automatic1111_image_source() {
+        assert_eq!(infer_image_source("", "https://api.arliai.com"), "automatic1111");
+        assert_eq!(
+            infer_image_source("", "https://api.example.test/sdapi/v1/txt2img"),
+            "automatic1111"
+        );
     }
 }
