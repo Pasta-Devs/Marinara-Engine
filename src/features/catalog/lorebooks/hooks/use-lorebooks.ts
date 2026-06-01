@@ -5,6 +5,7 @@ import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/rea
 import { lorebookKeys } from "../query-keys";
 import { scanActiveLorebookEntries } from "../../../../engine/generation/active-lorebooks";
 import type { LorebookSemanticScanStatus } from "../../../../engine/generation/active-lorebook-scanner";
+import { resolveGenerationConnection } from "../../../../engine/generation/context";
 import {
   createLorebookEntrySchema,
   createLorebookFolderSchema,
@@ -15,6 +16,7 @@ import {
 } from "../../../../engine/contracts/schemas/lorebook.schema";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { ApiError } from "../../../../shared/api/api-errors";
+import { llmApi } from "../../../../shared/api/llm-api";
 import { lorebookCommandApi } from "../../../../shared/api/lorebook-command-api";
 import type { Lorebook, LorebookEntry, LorebookFolder } from "../../../../engine/contracts/types/lorebook";
 import { characterKeys } from "../../characters/query-keys";
@@ -468,10 +470,47 @@ interface ActiveLorebookScan {
   semanticStatus: LorebookSemanticScanStatus;
 }
 
+function recordString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function activeLorebookEmbeddingSource(chat: Record<string, unknown>) {
+  if (!llmApi.embed) return null;
+  try {
+    const connection = await resolveGenerationConnection(storageApi, chat, {});
+    const connectionId = recordString(connection.id) || null;
+    const model = recordString(connection.embeddingModel) || null;
+    return {
+      embed: (texts: string[]) =>
+        llmApi.embed!({
+          texts,
+          connectionId,
+          model,
+        }),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      message === "No LLM connection is configured" ||
+      message === "Connection was not found" ||
+      message === "Chat connection was not found"
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export function useActiveLorebookEntries(chatId: string | null, enabled = false) {
   return useQuery({
     queryKey: lorebookKeys.active(chatId),
-    queryFn: () => scanActiveLorebookEntries(storageApi, chatId!) as Promise<ActiveLorebookScan>,
+    queryFn: async () => {
+      const chat = await storageApi.get<Record<string, unknown>>("chats", chatId!);
+      if (!chat) throw new ApiError("Chat not found", 404);
+      return scanActiveLorebookEntries(storageApi, chatId!, {
+        embeddingSource: await activeLorebookEmbeddingSource(chat),
+      }) as Promise<ActiveLorebookScan>;
+    },
     enabled: !!chatId && enabled,
     staleTime: 30_000,
   });

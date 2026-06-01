@@ -24,9 +24,14 @@ export interface ActiveLorebookScanResult {
   semanticStatus: LorebookSemanticScanStatus;
 }
 
+interface ActiveLorebookScanOptions {
+  embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
+}
+
 export async function scanActiveLorebookEntries(
   storage: StorageGateway,
   chatId: string,
+  options: ActiveLorebookScanOptions = {},
 ): Promise<ActiveLorebookScanResult> {
   const chat = requireRecord(await storage.get("chats", chatId), "Chat");
   const storedMessages = await loadChatMessages(storage, chatId);
@@ -40,6 +45,7 @@ export async function scanActiveLorebookEntries(
     storedMessages,
     request: {},
     latestUserInput: "",
+    embeddingSource: options.embeddingSource,
   });
   const entries = scan.processedLore.includedEntries.map((entry) => {
     const event = lorebookActivatedEntryForEvent(entry);
