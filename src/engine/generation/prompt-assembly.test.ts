@@ -154,17 +154,35 @@ describe("assembleGenerationPrompt conversation parity", () => {
       characterIds: ["alice"],
       metadata: { crossChatAwareness: true },
     };
+    const emptyNewerSibling = {
+      id: "chat-empty",
+      name: "Empty newer chat",
+      mode: "conversation",
+      characterIds: ["alice"],
+      updatedAt: "2026-06-01T15:00:00Z",
+      metadata: {},
+    };
+    const staleSibling = {
+      id: "chat-stale",
+      name: "Stale chat",
+      mode: "conversation",
+      characterIds: ["alice"],
+      updatedAt: "2026-05-01T15:00:00Z",
+      metadata: {},
+    };
     const sibling = {
       id: "chat-2",
       name: "Sibling chat",
       mode: "conversation",
       characterIds: ["alice", "bob"],
+      updatedAt: "2026-06-01T14:00:00Z",
       metadata: {},
     };
     const storage = createStorage({
-      chats: [chat, sibling],
+      chats: [chat, staleSibling, emptyNewerSibling, sibling],
       characters: [alice, bob],
       messages: {
+        "chat-stale": [{ id: "old", chatId: "chat-stale", role: "user", content: "Old continuity." }],
         "chat-2": [
           { id: "s1", chatId: "chat-2", role: "user", content: "We talked about the comet." },
           { id: "s2", chatId: "chat-2", role: "assistant", characterId: "alice", content: "I will remember it." },
@@ -178,6 +196,8 @@ describe("assembleGenerationPrompt conversation parity", () => {
     expect(enabled).toContain("<cross_chat_awareness>");
     expect(enabled).toContain("Sibling chat");
     expect(enabled).toContain("We talked about the comet.");
+    expect(enabled.indexOf("We talked about the comet.")).toBeLessThan(enabled.indexOf("Old continuity."));
+    expect(enabled).not.toContain("Empty newer chat");
     expect(disabled).not.toContain("<cross_chat_awareness>");
     expect(disabled).not.toContain("We talked about the comet.");
   });
@@ -253,6 +273,36 @@ describe("assembleGenerationPrompt conversation parity", () => {
     expect(enabled).toContain("[scene:");
     expect(enabled).toContain("<note>");
     expect(disabled).not.toContain("<conversation_commands>");
+  });
+
+  it("honors explicit conversation command capability false flags", async () => {
+    const chat = {
+      id: "chat-1",
+      mode: "conversation",
+      characterIds: ["alice"],
+      metadata: {
+        characterCommands: true,
+        commandCapabilities: {
+          canCrossPost: false,
+          canSelfie: false,
+          canStartScenes: false,
+          canSaveMemory: false,
+          canScheduleUpdate: false,
+        },
+        conversationSchedulesEnabled: true,
+        characterSchedules: { alice: { days: { Monday: [{ time: "10:00", activity: "available" }] } } },
+      },
+    };
+    const storage = createStorage({ chats: [chat], characters: [alice] });
+
+    const text = await promptText(storage, chat);
+
+    expect(text).not.toContain("<conversation_commands>");
+    expect(text).not.toContain("[schedule_update:");
+    expect(text).not.toContain("[cross_post:");
+    expect(text).not.toContain("[selfie");
+    expect(text).not.toContain("[memory:");
+    expect(text).not.toContain("[scene:");
   });
 
   it("does not inject conversation-only context into roleplay prompts", async () => {

@@ -1597,6 +1597,16 @@ function sharesConversationCharacter(source: JsonRecord, candidate: JsonRecord):
   return activeCharacterIds(candidate).some((id) => sourceIds.has(id));
 }
 
+function chatRecencyMs(chat: JsonRecord): number {
+  const raw =
+    readString(chat.lastActivityAt).trim() ||
+    readString(chat.updatedAt).trim() ||
+    readString(chat.lastMessageAt).trim() ||
+    readString(chat.createdAt).trim();
+  const time = raw ? Date.parse(raw) : Number.NaN;
+  return Number.isFinite(time) ? time : 0;
+}
+
 async function buildCrossChatAwarenessBlock(
   storage: StorageGateway,
   chat: JsonRecord,
@@ -1614,9 +1624,10 @@ async function buildCrossChatAwarenessBlock(
     .filter((candidate) => readString(candidate.id).trim() !== chatId)
     .filter((candidate) => modeOf(candidate) === "conversation")
     .filter((candidate) => sharesConversationCharacter(chat, candidate))
-    .slice(0, 6);
+    .sort((left, right) => chatRecencyMs(right) - chatRecencyMs(left));
   const sections: string[] = [];
   for (const sibling of siblingChats) {
+    if (sections.length >= 6) break;
     const siblingId = readString(sibling.id).trim();
     if (!siblingId) continue;
     const lines = recentVisibleMessageLines(
@@ -1706,6 +1717,22 @@ async function buildConversationLinkedChatBlock(
   };
 }
 
+function conversationCommandCapabilities(chat: JsonRecord, meta: JsonRecord): JsonRecord {
+  return {
+    ...parseRecord(meta.commandCapabilities),
+    ...parseRecord(meta.capabilities),
+    ...parseRecord(chat.capabilities),
+  };
+}
+
+function commandCapabilityEnabled(capabilities: JsonRecord, keys: string[], fallback = true): boolean {
+  for (const key of keys) {
+    if (capabilities[key] === false) return false;
+    if (capabilities[key] === true) return true;
+  }
+  return fallback;
+}
+
 function buildConversationCommandBlock(
   chat: JsonRecord,
   characters: GenerationCharacterContext[],
@@ -1715,21 +1742,34 @@ function buildConversationCommandBlock(
   if (modeOf(chat) !== "conversation") return null;
   const meta = parseRecord(chat.metadata);
   if (meta.characterCommands === false) return null;
+  const capabilities = conversationCommandCapabilities(chat, meta);
   const schedules = parseRecord(meta.characterSchedules);
-  const hasSchedules = boolish(meta.conversationSchedulesEnabled, Object.keys(schedules).length > 0);
+  const hasSchedules =
+    boolish(meta.conversationSchedulesEnabled, Object.keys(schedules).length > 0) &&
+    commandCapabilityEnabled(capabilities, ["scheduleUpdate", "canScheduleUpdate", "canUpdateSchedule"]);
   const hasCharacters = characters.length > 0;
   const hasConnectedRoleplayOrGame = connectedMode === "roleplay" || connectedMode === "game";
+  const canCrossPost = commandCapabilityEnabled(capabilities, ["crossPost", "canCrossPost"]);
+  const canSelfie = commandCapabilityEnabled(capabilities, ["selfie", "canSelfie", "imageGeneration", "canGenerateImages"]);
+  const canMemory = commandCapabilityEnabled(capabilities, ["memory", "canSaveMemory"]);
+  const canStartScene = commandCapabilityEnabled(capabilities, ["scene", "canStartScene", "canStartScenes"]);
   const instructions = [
     "When useful, append one hidden command tag after the visible reply. Hidden tags are parsed by Marinara and stripped before the user sees the message. Never describe the tag in visible prose.",
     hasSchedules
       ? '- Update availability with [schedule_update: status="online|idle|dnd|offline", activity="short activity"] when the character is correcting their current status or plans.'
       : "",
-    '- Cross-post a message with [cross_post: target="group or chat name"] when the character naturally wants to move or share a message across conversations.',
-    '- Request an image with [selfie] or [selfie: context="brief visual context"] when a casual conversation selfie is appropriate and image generation is configured.',
-    hasCharacters
+    canCrossPost
+      ? '- Cross-post a message with [cross_post: target="group or chat name"] when the character naturally wants to move or share a message across conversations.'
+      : "",
+    canSelfie
+      ? '- Request an image with [selfie] or [selfie: context="brief visual context"] when a casual conversation selfie is appropriate and image generation is configured.'
+      : "",
+    hasCharacters && canMemory
       ? '- Save a durable character memory with [memory: target="Character Name", summary="brief memory"] when the character learns something they should remember later.'
       : "",
-    '- Start a linked roleplay scene with [scene: scenario="what happens", background="optional setting", plan="optional short plan"] when the conversation clearly calls for a scene.',
+    canStartScene
+      ? '- Start a linked roleplay scene with [scene: scenario="what happens", background="optional setting", plan="optional short plan"] when the conversation clearly calls for a scene.'
+      : "",
     hasConnectedRoleplayOrGame
       ? "- Send linked-chat context with <influence>one-shot OOC steering note</influence> or <note>durable fact for the linked prompt</note> when this conversation should affect the linked roleplay/game."
       : "",
