@@ -1,5 +1,6 @@
 # .github/bunny-review/bunny_review.py
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -13,6 +14,7 @@ from openai import OpenAI
 
 REPO_ROOT = pathlib.Path.cwd().resolve()
 BUNNY_MARKER = "<!-- bunny-review:walkthrough -->"
+FINDING_MARKER_RE = re.compile(r"<!-- bunny-review:finding=([0-9a-f]{16}) -->")
 STATE_MARKER_RE = re.compile(r"<!-- bunny-review:last-reviewed-sha=([0-9a-f]{40}) -->")
 MAX_REVIEW_PACKET_CHARS = 180_000
 MAX_SECTION_CHARS = 60_000
@@ -721,6 +723,7 @@ def validate_findings(review_obj, base):
 
 def render_finding_body(finding):
     parts = [
+        finding_marker(finding),
         f"**[{finding.severity}] {finding.title}**",
         "",
         finding.body,
@@ -729,6 +732,34 @@ def render_finding_body(finding):
         parts.extend(["", f"Suggested fix: {finding.fix_hint}"])
     parts.extend(["", render_agent_prompt_details([finding], "Prompt for AI Agents")])
     return "\n".join(parts).strip()
+
+
+def finding_marker(finding):
+    raw = f"{finding.path}:{finding.line}:{finding.title}".encode("utf-8", "replace")
+    digest = hashlib.sha256(raw).hexdigest()[:16]
+    return f"<!-- bunny-review:finding={digest} -->"
+
+
+def short_ref(value):
+    if not value:
+        return "unknown"
+    value = str(value)
+    if re.fullmatch(r"[0-9a-f]{40}", value):
+        return value[:8]
+    if value.startswith("origin/"):
+        return value
+    return value[:24]
+
+
+def render_review_metadata(review_obj, head_sha):
+    mode = review_obj.get("mode") or "unknown"
+    base = review_obj.get("review_base") or review_obj.get("base_ref") or "unknown"
+    parts = [
+        f"Mode: `{mode}`",
+        f"Head: `{short_ref(head_sha)}`",
+        f"Base: `{short_ref(base)}`",
+    ]
+    return "_Review update: " + " · ".join(parts) + "._"
 
 
 def code_block_text(text):
@@ -869,6 +900,8 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         BUNNY_MARKER,
         f"<!-- bunny-review:last-reviewed-sha={head_sha} -->",
         "## Bunny Review",
+        "",
+        render_review_metadata(review_obj, head_sha),
         "",
         "### Change Summary",
     ]
@@ -1145,6 +1178,56 @@ def find_walkthrough_comment(pr_num):
     return None
 
 
+def load_json_list(stdout):
+    try:
+        loaded = json.loads(stdout or "[]")
+        return loaded if isinstance(loaded, list) else []
+    except json.JSONDecodeError:
+        items = []
+        for line in stdout.splitlines():
+            if not line.strip():
+                continue
+            loaded = json.loads(line)
+            if isinstance(loaded, list):
+                items.extend(loaded)
+        return items
+
+
+def existing_inline_finding_markers(pr_num):
+    gh = run_gh(
+        [
+            "api",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{pr_num}/comments?per_page=100",
+            "--paginate",
+        ],
+        check=True,
+    )
+    markers = set()
+    for comment in load_json_list(gh.stdout):
+        markers.update(FINDING_MARKER_RE.findall(comment.get("body", "")))
+    return markers
+
+
+def inline_comment_marker(comment):
+    match = FINDING_MARKER_RE.search(comment.get("body", ""))
+    if not match:
+        return None
+    return match.group(1)
+
+
+def filter_duplicate_inline_comments(pr_num, comments):
+    existing = existing_inline_finding_markers(pr_num)
+    if not existing:
+        return comments
+    filtered = []
+    for comment in comments:
+        marker = inline_comment_marker(comment)
+        if marker and marker in existing:
+            continue
+        filtered.append(comment)
+    return filtered
+
+
 def post_review(args):
     pr_num = os.environ["PR_NUM"]
     body = pathlib.Path(args.review_md).read_text("utf-8")
@@ -1166,6 +1249,7 @@ def post_review(args):
         run_gh(["pr", "comment", pr_num, "--body-file", args.review_md], check=True)
 
     comments = json.loads(pathlib.Path(args.inline_json).read_text("utf-8"))
+    comments = filter_duplicate_inline_comments(pr_num, comments)
     if not comments:
         return
     payload = {
