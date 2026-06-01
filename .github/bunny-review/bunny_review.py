@@ -821,6 +821,36 @@ def normalize_ci_status(ci_status):
     return "\n".join(unique_lines).strip()
 
 
+def ci_status_to_pre_merge_checks(ci_status):
+    normalized = normalize_ci_status(ci_status)
+    if not normalized:
+        return []
+    lowered = normalized.lower()
+    if "failure:" in lowered or ": failure" in lowered or ": cancelled" in lowered:
+        return [
+            {
+                "name": "CI Status",
+                "status": "fail",
+                "detail": "One or more expected CI checks failed or were cancelled; do not merge until CI is repaired.",
+            }
+        ]
+    if "warning:" in lowered or "still running" in lowered:
+        return [
+            {
+                "name": "CI Status",
+                "status": "warn",
+                "detail": "Expected CI checks were missing or incomplete when Bunny posted; verify CI before merging.",
+            }
+        ]
+    return [
+        {
+            "name": "CI Status",
+            "status": "pass",
+            "detail": "Expected CI checks completed without a reported failure.",
+        }
+    ]
+
+
 def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_sha):
     summary = review_obj.get("change_summary") or []
     questions = review_obj.get("open_questions") or []
@@ -830,6 +860,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
     if normalized_ci_status:
         pre_merge = [item for item in pre_merge if not is_stale_ci_check(item)]
         checked = [item for item in checked if not is_stale_ci_text(str(item))]
+        pre_merge = ci_status_to_pre_merge_checks(normalized_ci_status) + pre_merge
     finding_lines = (
         [f"- [{f.severity}] `{f.path}:{f.line}` - {f.title}" for f in findings]
         or ["No actionable findings."]

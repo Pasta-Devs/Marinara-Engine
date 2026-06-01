@@ -104,11 +104,20 @@ jobs:
 
           HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
           TARGET_CHECKS='Frontend|Rust|Smoke'
-          for attempt in $(seq 1 90); do
+          FOUND_ANY=0
+          MISSING_CHECK_ATTEMPTS=18
+          MAX_CHECK_ATTEMPTS=90
+          for attempt in $(seq 1 "$MAX_CHECK_ATTEMPTS"); do
             FOUND=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
               --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | .name" | wc -l)
             PENDING=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
               --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status != \"completed\") | .name" | wc -l)
+            if [ "${FOUND:-0}" -gt 0 ]; then
+              FOUND_ANY=1
+            fi
+            if [ "$FOUND_ANY" -eq 0 ] && [ "$attempt" -ge "$MISSING_CHECK_ATTEMPTS" ]; then
+              break
+            fi
             if [ "${FOUND:-0}" -ge 3 ] && [ "${PENDING:-0}" -eq 0 ]; then
               break
             fi
@@ -121,9 +130,26 @@ jobs:
             FINAL_CHECKS=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
               --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | \"- \(.name): \(.conclusion // .status)\"")
             if [ -z "$FINAL_CHECKS" ]; then
-              echo "- No Frontend, Rust, or Smoke checks were found before Bunny posted."
+              echo "- warning: no Frontend, Rust, or Smoke checks appeared after 3 minutes; do not merge until required CI runs."
             else
               echo "$FINAL_CHECKS"
+              FOUND=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select(.name | test(\"$TARGET_CHECKS\")) | .name" | wc -l)
+              PENDING=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status != \"completed\") | .name" | wc -l)
+              COMPLETED=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status == \"completed\") | .name" | wc -l)
+              FAILURES=$(gh api "repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs" \
+                --jq ".check_runs[] | select((.name | test(\"$TARGET_CHECKS\")) and .status == \"completed\" and (.conclusion != \"success\" and .conclusion != \"skipped\")) | .name" | wc -l)
+              if [ "${FOUND:-0}" -lt 3 ]; then
+                echo "- warning: only ${FOUND:-0}/3 expected CI check groups appeared before Bunny posted."
+              fi
+              if [ "${PENDING:-0}" -gt 0 ]; then
+                echo "- warning: ${PENDING:-0} expected CI check group(s) were still running when Bunny posted."
+              fi
+              if [ "${COMPLETED:-0}" -gt 0 ] && [ "${FAILURES:-0}" -gt 0 ]; then
+                echo "- failure: ${FAILURES:-0} expected CI check group(s) failed; do not merge until CI is repaired."
+              fi
             fi
           } > bunny-ci-status.md
 
