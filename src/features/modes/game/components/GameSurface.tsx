@@ -41,6 +41,7 @@ import {
 } from "../hooks/use-game";
 import {
   chatKeys,
+  useBranchChat,
   useCreateMessage,
   useDeleteChat,
   useUpdateChat,
@@ -4825,6 +4826,7 @@ export function GameSurface({
   const startSession = useStartSession();
   const generateMap = useGenerateMap();
   const deleteChat = useDeleteChat();
+  const branchChat = useBranchChat();
   const updateChatMetadata = useUpdateChatMetadata();
   const updateSessionHistoryMetadata = useUpdateChatMetadata();
   const updateMessage = useUpdateMessage(activeChatId);
@@ -5645,6 +5647,30 @@ export function GameSurface({
       updateMessage.mutate({ messageId, content });
     },
     [updateMessage],
+  );
+
+  const handleBranchMessage = useCallback(
+    (messageId: string) => {
+      if (!messageId || branchChat.isPending) return;
+      if (isStreaming) {
+        toast.error("Wait for the current turn to finish before branching.");
+        return;
+      }
+      branchChat.mutate(
+        { chatId: activeChatId, upToMessageId: messageId },
+        {
+          onSuccess: (newChat) => {
+            if (!newChat?.id) return;
+            useChatStore.getState().setActiveChatId(newChat.id);
+            toast.success("Game branch created.");
+          },
+          onError: (error) => {
+            toast.error(error instanceof Error ? error.message : "Could not create branch.");
+          },
+        },
+      );
+    },
+    [activeChatId, branchChat, isStreaming],
   );
 
   const [gameInputFocusToken, setGameInputFocusToken] = useState(0);
@@ -8840,6 +8866,7 @@ export function GameSurface({
                           selectedMessageIds={selectedMessageIds}
                           onDeleteSegment={handleDeleteSegment}
                           onEditMessage={handleEditMessage}
+                          onBranchMessage={handleBranchMessage}
                           segmentEdits={segmentEdits}
                           segmentDeletes={segmentDeletes}
                           onEditSegment={handleEditSegment}
@@ -8921,6 +8948,7 @@ export function GameSurface({
                       selectedMessageIds={selectedMessageIds}
                       onDeleteSegment={handleDeleteSegment}
                       onEditMessage={handleEditMessage}
+                      onBranchMessage={handleBranchMessage}
                       segmentEdits={segmentEdits}
                       segmentDeletes={segmentDeletes}
                       onEditSegment={handleEditSegment}

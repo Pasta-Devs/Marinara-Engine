@@ -740,6 +740,24 @@ export function useLoadCheckpoint() {
   });
 }
 
+export function useBranchCheckpoint() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { chatId: string; checkpointId: string }) => gameApi.branchFromCheckpoint(data),
+    onSuccess: (newChat, { chatId }) => {
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+      qc.invalidateQueries({ queryKey: [...gameKeys.all, "checkpoints", chatId] });
+      if (newChat?.groupId) {
+        qc.invalidateQueries({ queryKey: chatKeys.group(newChat.groupId) });
+      }
+      if (newChat?.id) {
+        qc.setQueryData(chatKeys.detail(newChat.id), newChat);
+      }
+    },
+  });
+}
+
 export function useDeleteCheckpoint() {
   return useMutation({
     mutationFn: (id: string) => gameApi.deleteCheckpoint(id),

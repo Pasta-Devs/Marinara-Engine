@@ -32,6 +32,7 @@ import {
   Loader2,
   Wand2,
   RotateCcw,
+  GitBranch,
 } from "lucide-react";
 import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { findNamedEntry, findNamedMapValue } from "../lib/game-character-name-match";
@@ -416,6 +417,8 @@ interface GameNarrationProps {
   onDeleteSegment?: (messageId: string, segmentIndex: number) => void;
   /** Edit the backing content of a user-authored message. */
   onEditMessage?: (messageId: string, newContent: string) => void;
+  /** Create a new Game Mode branch from a backing chat message. */
+  onBranchMessage?: (messageId: string) => void;
   /** Called when user edits a narration/dialogue segment. */
   onEditSegment?: (messageId: string, segmentIndex: number, edit: GameSegmentEdit) => void;
   /** Map of "messageId:segmentIndex" → segment overlay edits */
@@ -911,6 +914,7 @@ export function GameNarration({
   selectedMessageIds,
   onDeleteSegment,
   onEditMessage,
+  onBranchMessage,
   onEditSegment,
   segmentEdits,
   segmentDeletes,
@@ -4258,6 +4262,8 @@ export function GameNarration({
                       const isSelectedForDeletion =
                         multiSelectMode && !!sourceMessageId && selectedMessageIds?.has(sourceMessageId) === true;
                       const showDeleteButton = canDeleteMessage || canDeleteThisSegment;
+                      const canBranchFromMessage =
+                        !!onBranchMessage && !!sourceMessageId && sourceMessageId !== "party-chat";
                       const copyKey =
                         sourceMessageId && hasSourceSegmentIndex
                           ? `log:${sourceMessageId}:${sourceSegmentIndex}`
@@ -4311,6 +4317,21 @@ export function GameNarration({
                           title={canDeleteThisSegment ? "Delete segment" : "Delete message"}
                         >
                           <Trash2 size={11} />
+                        </button>
+                      ) : null;
+                      const branchButton = canBranchFromMessage ? (
+                        <button
+                          type="button"
+                          onPointerDown={stopLogActionPointerDown}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (sourceMessageId) onBranchMessage?.(sourceMessageId);
+                          }}
+                          className="rounded p-1 text-white/45 opacity-100 transition-all hover:bg-white/10 hover:text-sky-200 md:text-white/20 md:opacity-0 md:group-hover/logseg:opacity-100"
+                          title="Branch from here"
+                        >
+                          <GitBranch size={11} />
                         </button>
                       ) : null;
                       // Party-type badge for side/extra/thought/whisper
@@ -4457,7 +4478,7 @@ export function GameNarration({
                       );
 
                       const actionButtons =
-                        deleteButton || copyButton || editButtons ? (
+                        deleteButton || copyButton || branchButton || editButtons ? (
                           <div
                             onPointerDown={stopLogActionPointerDown}
                             onClick={(event) => event.stopPropagation()}
@@ -4465,6 +4486,7 @@ export function GameNarration({
                           >
                             {deleteButton}
                             {copyButton}
+                            {branchButton}
                             {editButtons}
                           </div>
                         ) : null;

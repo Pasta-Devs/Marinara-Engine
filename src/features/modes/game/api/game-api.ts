@@ -27,6 +27,7 @@ import { imageGenerationApi, spriteApi } from "../../../../shared/api/image-gene
 import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../../shared/api/llm-api";
+import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import {
   createLorebookEntrySchema,
@@ -335,6 +336,22 @@ async function listMessages(chatId: string, limit?: number): Promise<ChatMessage
   return storageApi.list<ChatMessage>("messages", { filters: { chatId }, limit });
 }
 
+function latestMessageId(messages: ChatMessage[]): string {
+  let fallbackId = "";
+  let latestTimed: { id: string; createdAt: string } | null = null;
+  for (const message of messages) {
+    const id = message.id;
+    if (typeof id !== "string" || !id.trim()) continue;
+    fallbackId = id;
+    const createdAt = typeof message.createdAt === "string" ? message.createdAt : "";
+    if (!createdAt) continue;
+    if (!latestTimed || createdAt >= latestTimed.createdAt) {
+      latestTimed = { id, createdAt };
+    }
+  }
+  return latestTimed?.id ?? fallbackId;
+}
+
 async function createChatRecord(value: Record<string, unknown>): Promise<Chat> {
   return storageApi.create<Chat>("chats", value);
 }
@@ -349,9 +366,11 @@ async function createGameCheckpoint(data: {
   triggerType: string;
 }): Promise<{ id: string }> {
   const chat = await getChat(data.chatId);
+  const messages = await listMessages(data.chatId);
+  const messageId = latestMessageId(messages);
   const snapshot = await storageApi.create<{ id: string }>("game-state-snapshots", {
     chatId: data.chatId,
-    messageId: null,
+    messageId: messageId || null,
     gameState: (chat as { gameState?: unknown }).gameState ?? {},
     metadata: chatMeta(chat),
   });
@@ -360,7 +379,7 @@ async function createGameCheckpoint(data: {
     record = await storageApi.create<{ id: string }>("game-checkpoints", {
       chatId: data.chatId,
       snapshotId: snapshot.id,
-      messageId: "",
+      messageId,
       label: data.label || "Checkpoint",
       triggerType: data.triggerType || "manual",
       location: null,
@@ -2368,6 +2387,42 @@ export const gameApi = {
       content: `[Checkpoint restored: ${checkpoint.label || "Checkpoint"}]`,
     });
     return { ok: true, messageId: message.id, gameState: snapshot.gameState ?? {}, metadata: snapshot.metadata ?? {} };
+  },
+
+  async branchFromCheckpoint(data: { chatId: string; checkpointId: string }): Promise<Chat> {
+    const checkpoint = await storageApi.get<{
+      id: string;
+      chatId?: string;
+      label?: string;
+      snapshotId?: string;
+      messageId?: string | null;
+    }>("game-checkpoints", data.checkpointId);
+    if (!checkpoint) throw new Error("Checkpoint was not found.");
+    if (checkpoint.chatId !== data.chatId) throw new Error("Checkpoint does not belong to this chat.");
+    if (!checkpoint.snapshotId) throw new Error("Checkpoint is missing its state snapshot.");
+    const messageId = typeof checkpoint.messageId === "string" ? checkpoint.messageId.trim() : "";
+    if (!messageId) {
+      throw new Error(
+        "This checkpoint was saved before branch anchors were recorded. Load it, save a new checkpoint, then branch from that checkpoint.",
+      );
+    }
+    const snapshot = await storageApi.get<{
+      id: string;
+      chatId?: string;
+      gameState?: unknown;
+      metadata?: Record<string, unknown>;
+    }>("game-state-snapshots", checkpoint.snapshotId);
+    if (!snapshot) throw new Error("Checkpoint snapshot was not found.");
+    if (snapshot.chatId !== data.chatId) throw new Error("Checkpoint snapshot does not belong to this chat.");
+    const branch = await chatCommandApi.branch<Chat>(data.chatId, messageId);
+    return patchChat(branch.id, {
+      gameState: snapshot.gameState ?? {},
+      metadata: {
+        ...(snapshot.metadata ?? {}),
+        branchedFromCheckpointId: checkpoint.id,
+        branchedFromCheckpointLabel: checkpoint.label ?? "Checkpoint",
+      },
+    });
   },
 
   async deleteCheckpoint(id: string) {
