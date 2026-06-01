@@ -53,8 +53,6 @@ const PROFILE_COLLECTIONS: &[&str] = &[
     "game-checkpoints",
 ];
 
-const SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS: &[&str] = &["conversation.selfie"];
-
 pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
     Ok(json!({
         "type": "marinara_profile",
@@ -242,7 +240,7 @@ pub(super) fn normalize_profile_prompt_overrides(rows: &mut Vec<Value>) -> usize
         let Some(key) = key else {
             continue;
         };
-        if !SUPPORTED_PROFILE_PROMPT_OVERRIDE_KEYS.contains(&key.as_str()) {
+        if !prompt_overrides::is_supported_prompt_override_key(&key) {
             unsupported += 1;
             log::trace!("skipping unsupported prompt override key={key}");
             continue;
@@ -387,7 +385,13 @@ mod tests {
                 {
                     "id": "game.background",
                     "key": "game.background",
-                    "template": "Background ${location}",
+                    "template": "Background ${defaultPrompt}",
+                    "enabled": "true"
+                },
+                {
+                    "id": "game.unknown",
+                    "key": "game.unknown",
+                    "template": "Unknown ${defaultPrompt}",
                     "enabled": "true"
                 }
             ]),
@@ -401,12 +405,15 @@ mod tests {
             .storage
             .list("prompt-overrides")
             .expect("prompt overrides should be readable");
-        assert_eq!(rows.len(), 1);
+        assert_eq!(rows.len(), 2);
         assert_eq!(rows[0]["id"], "conversation.selfie");
         assert_eq!(rows[0]["key"], "conversation.selfie");
         assert_eq!(rows[0]["template"], "Selfie ${charName}");
         assert_eq!(rows[0]["enabled"], true);
-        assert_eq!(result["imported"]["prompt-overrides"], 1);
+        assert_eq!(rows[1]["id"], "game.background");
+        assert_eq!(rows[1]["key"], "game.background");
+        assert_eq!(rows[1]["template"], "Background ${defaultPrompt}");
+        assert_eq!(result["imported"]["prompt-overrides"], 2);
         assert_eq!(result["imported"]["unsupportedPromptOverrides"], 3);
     }
 

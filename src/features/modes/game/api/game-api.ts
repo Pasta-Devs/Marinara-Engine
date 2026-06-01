@@ -55,6 +55,14 @@ import {
 } from "../../../../engine/modes/game/mechanics/element-reactions.service";
 import { buildPartySystemPrompt } from "../../../../engine/modes/game/prompts/party-prompts";
 import { buildSessionConclusionPrompt, buildSetupPrompt } from "../../../../engine/modes/game/prompts/gm-prompts";
+import {
+  GAME_BACKGROUND_PROMPT_OVERRIDE,
+  GAME_ILLUSTRATION_PROMPT_OVERRIDE,
+  GAME_PORTRAIT_PROMPT_OVERRIDE,
+  loadRegisteredPrompt,
+  type ImagePromptOverrideContext,
+  type PromptOverrideKeyDef,
+} from "../../../../engine/generation/prompt-overrides";
 import { dedupeSessionSummaryLists } from "../../../../engine/modes/game/state/session-summary-normalization";
 import { buildRecapPrompt, buildSessionCarryoverContext } from "../../../../engine/modes/game/state/session.service";
 import { validateTransition } from "../../../../engine/modes/game/state/state-machine.service";
@@ -1133,6 +1141,26 @@ function sceneAssetPrompt(
   return `Portrait of ${label}. ${detail}. ${style}. Centered bust portrait, expressive face, clean readable silhouette, no text.`;
 }
 
+async function registeredGameImagePrompt(
+  definition: PromptOverrideKeyDef<ImagePromptOverrideContext>,
+  input: {
+    defaultPrompt: string;
+    label: string;
+    detail: string;
+    artStyle: string;
+    promptSettings: ImagePromptSettings;
+  },
+): Promise<string> {
+  return loadRegisteredPrompt(storageApi, definition, {
+    defaultPrompt: input.defaultPrompt,
+    label: input.label,
+    detail: input.detail,
+    artStyle: input.artStyle,
+    format: input.promptSettings.format ?? "descriptive",
+    includeAppearances: String(input.promptSettings.includeAppearances !== false),
+  });
+}
+
 function assetTagFromPath(path: string): string {
   return path.replace(/\.[^.]+$/, "").replace(/[\\/]/g, ":");
 }
@@ -2150,13 +2178,26 @@ export const gameApi = {
     const items: GameImagePromptReviewItem[] = [];
     if (typeof record.backgroundTag === "string" && record.backgroundTag.trim()) {
       const id = imageReviewId("background", record.backgroundTag);
+      const defaultPrompt = sceneAssetPrompt(
+        "background",
+        record.backgroundTag,
+        record.backgroundTag,
+        artStyle,
+        promptSettings,
+      );
       items.push({
         id,
         kind: "background",
         title: `Background: ${record.backgroundTag}`,
         prompt:
           promptOverride(record, id) ??
-          sceneAssetPrompt("background", record.backgroundTag, record.backgroundTag, artStyle, promptSettings),
+          (await registeredGameImagePrompt(GAME_BACKGROUND_PROMPT_OVERRIDE, {
+            defaultPrompt,
+            label: record.backgroundTag,
+            detail: record.backgroundTag,
+            artStyle,
+            promptSettings,
+          })),
         width: imageSize(record, "background", "width", 1280),
         height: imageSize(record, "background", "height", 720),
       });
@@ -2169,13 +2210,21 @@ export const gameApi = {
         (typeof illustration.prompt === "string" && illustration.prompt) ||
         "Scene illustration";
       const id = imageReviewId("illustration", label);
+      const detail = String(illustration.prompt ?? label);
+      const defaultPrompt = sceneAssetPrompt("illustration", label, detail, artStyle, promptSettings);
       items.push({
         id,
         kind: "illustration",
         title: `Illustration: ${label}`,
         prompt:
           promptOverride(record, id) ??
-          sceneAssetPrompt("illustration", label, String(illustration.prompt ?? label), artStyle, promptSettings),
+          (await registeredGameImagePrompt(GAME_ILLUSTRATION_PROMPT_OVERRIDE, {
+            defaultPrompt,
+            label,
+            detail,
+            artStyle,
+            promptSettings,
+          })),
         width: imageSize(record, "background", "width", 1280),
         height: imageSize(record, "background", "height", 720),
       });
@@ -2189,11 +2238,20 @@ export const gameApi = {
           ? npcRecord.description
           : "distinctive character portrait";
       const id = imageReviewId("portrait", name);
+      const defaultPrompt = sceneAssetPrompt("portrait", name, detail, artStyle, promptSettings);
       items.push({
         id,
         kind: "portrait",
         title: `Portrait: ${name}`,
-        prompt: promptOverride(record, id) ?? sceneAssetPrompt("portrait", name, detail, artStyle, promptSettings),
+        prompt:
+          promptOverride(record, id) ??
+          (await registeredGameImagePrompt(GAME_PORTRAIT_PROMPT_OVERRIDE, {
+            defaultPrompt,
+            label: name,
+            detail,
+            artStyle,
+            promptSettings,
+          })),
         width: imageSize(record, "portrait", "width", 768),
         height: imageSize(record, "portrait", "height", 1024),
       });

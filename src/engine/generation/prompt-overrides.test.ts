@@ -4,6 +4,7 @@ import type { LlmGateway } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
 import { persistConnectedCommandTags } from "./connected-commands";
 import {
+  PROMPT_OVERRIDE_REGISTRY,
   normalizePromptOverrideRow,
   resolveConversationSelfieSystemPrompt,
   validatePromptOverrideTemplate,
@@ -26,6 +27,20 @@ function storageWithOverride(template: string, enabled = true): StorageGateway {
 }
 
 describe("conversation selfie prompt overrides", () => {
+  it("registers supported sprite and game image prompt override keys", () => {
+    expect(PROMPT_OVERRIDE_REGISTRY.map((definition) => definition.key)).toEqual([
+      "conversation.selfie",
+      "sprite.portraitSingle",
+      "sprite.expressionSheet",
+      "sprite.fullBodySingle",
+      "sprite.fullBodySheet",
+      "sprite.fullBodyExpressionSheet",
+      "game.background",
+      "game.illustration",
+      "game.portrait",
+    ]);
+  });
+
   it("renders the registered global override as the selfie system prompt", async () => {
     const systemPrompt = await resolveConversationSelfieSystemPrompt({
       storage: storageWithOverride("GLOBAL SELFIE OVERRIDE for ${charName}: ${appearance}${selfieTagsBlock}"),

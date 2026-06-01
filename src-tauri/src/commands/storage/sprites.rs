@@ -14,6 +14,11 @@ use std::process::Command;
 
 const SPRITE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"];
 const CLEANUP_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
+const SPRITE_PORTRAIT_SINGLE_PROMPT_KEY: &str = "sprite.portraitSingle";
+const SPRITE_EXPRESSION_SHEET_PROMPT_KEY: &str = "sprite.expressionSheet";
+const SPRITE_FULL_BODY_SINGLE_PROMPT_KEY: &str = "sprite.fullBodySingle";
+const SPRITE_FULL_BODY_SHEET_PROMPT_KEY: &str = "sprite.fullBodySheet";
+const SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY: &str = "sprite.fullBodyExpressionSheet";
 
 #[derive(Clone)]
 struct SpritePlan {
@@ -25,8 +30,11 @@ struct SpritePlan {
     generate_individually: bool,
     model: String,
     prompt: String,
+    prompt_key: &'static str,
     sheet_width: u32,
     sheet_height: u32,
+    cell_width: u32,
+    cell_height: u32,
 }
 
 struct SpriteCleanupOutput {
@@ -82,15 +90,25 @@ pub(crate) async fn generate_sprite_sheet_preview(
             .expressions
             .iter()
             .map(|expression| {
-                let prompt = single_sprite_prompt(
-                    &plan.sprite_type,
-                    &plan.appearance,
-                    expression,
-                    &body,
-                    &plan.model,
-                );
+                let prompt_id = sprite_prompt_review_id("expression", &plan.sprite_type, expression);
+                let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| {
+                    let default_prompt = single_sprite_prompt(
+                        &plan.sprite_type,
+                        &plan.appearance,
+                        expression,
+                        &body,
+                        &plan.model,
+                    );
+                    registered_sprite_prompt(
+                        state,
+                        SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                        default_prompt,
+                        &plan,
+                        Some(expression),
+                    )
+                });
                 json!({
-                    "id": sprite_prompt_review_id("expression", &plan.sprite_type, expression),
+                    "id": prompt_id,
                     "kind": "sprite",
                     "title": format!("Expression: {}", expression.replace('_', " ")),
                     "prompt": prompt,
@@ -101,16 +119,24 @@ pub(crate) async fn generate_sprite_sheet_preview(
             .collect::<Vec<_>>();
         return Ok(json!({ "items": items }));
     }
+    let prompt_id = sprite_prompt_review_id(
+        "sheet",
+        &plan.sprite_type,
+        &format!("{}x{}-{}", plan.cols, plan.rows, plan.expressions.join(",")),
+    );
+    let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| {
+        registered_sprite_prompt(state, plan.prompt_key, plan.prompt.clone(), &plan, None)
+    });
     Ok(json!({
         "items": [{
-            "id": sprite_prompt_review_id("sheet", &plan.sprite_type, &format!("{}x{}-{}", plan.cols, plan.rows, plan.expressions.join(","))),
+            "id": prompt_id,
             "kind": "sprite",
             "title": if plan.sprite_type == "full-body" {
                 format!("Full-body sprites: {}x{}", plan.cols, plan.rows)
             } else {
                 format!("Expression sprites: {}x{}", plan.cols, plan.rows)
             },
-            "prompt": plan.prompt,
+            "prompt": prompt,
             "width": plan.sheet_width,
             "height": plan.sheet_height
         }]
@@ -135,12 +161,19 @@ pub(crate) async fn generate_sprite_sheet(state: &AppState, body: Value) -> AppR
         for expression in &plan.expressions {
             let prompt_id = sprite_prompt_review_id("expression", &plan.sprite_type, expression);
             let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| {
-                single_sprite_prompt(
+                let default_prompt = single_sprite_prompt(
                     &plan.sprite_type,
                     &plan.appearance,
                     expression,
                     &body,
                     &plan.model,
+                );
+                registered_sprite_prompt(
+                    state,
+                    SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                    default_prompt,
+                    &plan,
+                    Some(expression),
                 )
             });
             match generate_image_with_options(
@@ -195,7 +228,9 @@ pub(crate) async fn generate_sprite_sheet(state: &AppState, body: Value) -> AppR
         &plan.sprite_type,
         &format!("{}x{}-{}", plan.cols, plan.rows, plan.expressions.join(",")),
     );
-    let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| plan.prompt.clone());
+    let prompt = prompt_override(&body, &prompt_id).unwrap_or_else(|| {
+        registered_sprite_prompt(state, plan.prompt_key, plan.prompt.clone(), &plan, None)
+    });
     let (sheet_base64, _mime_type) = generate_image_with_options(
         &connection,
         &format!("{prompt}{reference_note}"),
@@ -635,44 +670,59 @@ fn build_sprite_plan(body: &Value, connection: Option<&Value>) -> SpritePlan {
         sprite_type != "full-body" && !single_portrait && is_openai_gpt_image_model(model);
     let (sheet_width, sheet_height, cell_width, cell_height) =
         resolve_canvas(cols, rows, &sprite_type, model);
-    let prompt = if full_body_expression_mode {
-        full_body_expression_sheet_prompt(
-            cols,
-            rows,
-            &expressions,
-            &appearance,
-            sheet_width,
-            sheet_height,
-            cell_width,
-            cell_height,
+    let (prompt_key, prompt) = if full_body_expression_mode {
+        (
+            SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY,
+            full_body_expression_sheet_prompt(
+                cols,
+                rows,
+                &expressions,
+                &appearance,
+                sheet_width,
+                sheet_height,
+                cell_width,
+                cell_height,
+            ),
         )
     } else if single_full_body {
-        single_full_body_prompt(
-            &appearance,
-            expressions.first().map(String::as_str).unwrap_or("idle"),
-            body,
-            model,
+        (
+            SPRITE_FULL_BODY_SINGLE_PROMPT_KEY,
+            single_full_body_prompt(
+                &appearance,
+                expressions.first().map(String::as_str).unwrap_or("idle"),
+                body,
+                model,
+            ),
         )
     } else if sprite_type == "full-body" {
-        full_body_sheet_prompt(
-            cols,
-            rows,
-            &expressions,
-            &appearance,
-            sheet_width,
-            sheet_height,
-            cell_width,
-            cell_height,
+        (
+            SPRITE_FULL_BODY_SHEET_PROMPT_KEY,
+            full_body_sheet_prompt(
+                cols,
+                rows,
+                &expressions,
+                &appearance,
+                sheet_width,
+                sheet_height,
+                cell_width,
+                cell_height,
+            ),
         )
     } else if single_portrait {
-        single_portrait_prompt(
-            &appearance,
-            expressions.first().map(String::as_str).unwrap_or("neutral"),
-            body,
-            model,
+        (
+            SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+            single_portrait_prompt(
+                &appearance,
+                expressions.first().map(String::as_str).unwrap_or("neutral"),
+                body,
+                model,
+            ),
         )
     } else {
-        expression_sheet_prompt(cols, rows, &expressions, &appearance, body, model)
+        (
+            SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+            expression_sheet_prompt(cols, rows, &expressions, &appearance, body, model),
+        )
     };
     let prompt = transparent_prompt(prompt, body, model);
     SpritePlan {
@@ -684,8 +734,11 @@ fn build_sprite_plan(body: &Value, connection: Option<&Value>) -> SpritePlan {
         generate_individually,
         model: model.to_string(),
         prompt,
+        prompt_key,
         sheet_width,
         sheet_height,
+        cell_width,
+        cell_height,
     }
 }
 
@@ -853,6 +906,49 @@ fn single_sprite_prompt(
     } else {
         single_portrait_prompt(appearance, expression, body, model)
     }
+}
+
+fn registered_sprite_prompt(
+    state: &AppState,
+    key: &str,
+    default_prompt: String,
+    plan: &SpritePlan,
+    expression: Option<&str>,
+) -> String {
+    let expression_value = expression
+        .or_else(|| plan.expressions.first().map(String::as_str))
+        .unwrap_or("");
+    let expressions = if let Some(expression) = expression {
+        format_sprite_label_for_prompt(expression)
+    } else {
+        plan.expressions
+            .iter()
+            .map(|expression| format_sprite_label_for_prompt(expression))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let context = Map::from_iter([
+        ("defaultPrompt".to_string(), json!(default_prompt)),
+        ("appearance".to_string(), json!(plan.appearance.as_str())),
+        (
+            "expression".to_string(),
+            json!(format_sprite_label_for_prompt(expression_value)),
+        ),
+        ("expressions".to_string(), json!(expressions)),
+        ("spriteType".to_string(), json!(plan.sprite_type.as_str())),
+        ("cols".to_string(), json!(plan.cols)),
+        ("rows".to_string(), json!(plan.rows)),
+        ("sheetWidth".to_string(), json!(plan.sheet_width)),
+        ("sheetHeight".to_string(), json!(plan.sheet_height)),
+        ("cellWidth".to_string(), json!(plan.cell_width)),
+        ("cellHeight".to_string(), json!(plan.cell_height)),
+    ]);
+    let default_prompt = context
+        .get("defaultPrompt")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    prompt_overrides::resolve_registered_prompt_override(state, key, &context, default_prompt)
 }
 
 fn transparent_prompt(prompt: String, body: &Value, model: &str) -> String {
@@ -1999,6 +2095,194 @@ fn validate_safe_segment(value: &str, label: &str) -> AppResult<()> {
 
 fn image_error(error: image::ImageError) -> AppError {
     AppError::new("image_processing_error", error.to_string())
+}
+
+#[cfg(test)]
+mod sprite_prompt_override_tests {
+    use super::*;
+    use std::fs;
+
+    fn test_state(label: &str) -> (AppState, PathBuf) {
+        let root = env::temp_dir().join(format!("marinara-sprite-prompt-{label}-{}", now_millis()));
+        let data_dir = root.join("data");
+        let state = AppState::from_data_dir_with_resource_dir(data_dir, Vec::new(), None)
+            .expect("test state should initialize");
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "image-conn",
+                json!({
+                    "provider": "image_generation",
+                    "model": "stable-diffusion"
+                }),
+            )
+            .expect("image connection should write");
+        (state, root)
+    }
+
+    async fn preview_prompt(state: &AppState, body: Value) -> String {
+        generate_sprite_sheet_preview(state, body)
+            .await
+            .expect("sprite preview should build")
+            .get("items")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("prompt"))
+            .and_then(Value::as_str)
+            .expect("preview prompt should be returned")
+            .to_string()
+    }
+
+    fn base_body(sprite_type: &str, expressions: Vec<&str>, cols: u32, rows: u32) -> Value {
+        json!({
+            "connectionId": "image-conn",
+            "appearance": "silver hair, green cloak",
+            "expressions": expressions,
+            "cols": cols,
+            "rows": rows,
+            "spriteType": sprite_type
+        })
+    }
+
+    #[tokio::test]
+    async fn sprite_preview_uses_registered_overrides_for_all_builder_keys() {
+        let (state, root) = test_state("all-keys");
+        for key in [
+            SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+            SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+            SPRITE_FULL_BODY_SINGLE_PROMPT_KEY,
+            SPRITE_FULL_BODY_SHEET_PROMPT_KEY,
+            SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY,
+        ] {
+            state
+                .storage
+                .upsert_with_id(
+                    "prompt-overrides",
+                    key,
+                    json!({
+                        "id": key,
+                        "key": key,
+                        "template": format!("REGISTERED {key} ${{defaultPrompt}}"),
+                        "enabled": true
+                    }),
+                )
+                .expect("prompt override should write");
+        }
+
+        let cases = [
+            (
+                SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                base_body("expressions", vec!["happy"], 1, 1),
+            ),
+            (
+                SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+                base_body("expressions", vec!["neutral", "happy"], 2, 1),
+            ),
+            (
+                SPRITE_FULL_BODY_SINGLE_PROMPT_KEY,
+                base_body("full-body", vec!["idle"], 1, 1),
+            ),
+            (
+                SPRITE_FULL_BODY_SHEET_PROMPT_KEY,
+                base_body("full-body", vec!["idle", "attack"], 2, 1),
+            ),
+            (
+                SPRITE_FULL_BODY_EXPRESSION_SHEET_PROMPT_KEY,
+                {
+                    let mut body = base_body("full-body", vec!["neutral", "happy"], 2, 1);
+                    body.as_object_mut()
+                        .expect("body should be object")
+                        .insert("fullBodyExpressionMode".to_string(), json!(true));
+                    body
+                },
+            ),
+        ];
+
+        for (key, body) in cases {
+            let prompt = preview_prompt(&state, body).await;
+            assert!(
+                prompt.starts_with(&format!("REGISTERED {key} ")),
+                "{key} should use the registered prompt override"
+            );
+        }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn sprite_preview_falls_back_when_registered_override_is_invalid_or_disabled() {
+        let (state, root) = test_state("fallback");
+        state
+            .storage
+            .upsert_with_id(
+                "prompt-overrides",
+                SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                json!({
+                    "id": SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                    "key": SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                    "template": "BROKEN ${missing}",
+                    "enabled": true
+                }),
+            )
+            .expect("prompt override should write");
+
+        let prompt = preview_prompt(&state, base_body("expressions", vec!["happy"], 1, 1)).await;
+
+        assert!(prompt.contains("single character portrait sprite"));
+        assert!(!prompt.contains("BROKEN"));
+
+        state
+            .storage
+            .upsert_with_id(
+                "prompt-overrides",
+                SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                json!({
+                    "id": SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                    "key": SPRITE_PORTRAIT_SINGLE_PROMPT_KEY,
+                    "template": "DISABLED ${defaultPrompt}",
+                    "enabled": false
+                }),
+            )
+            .expect("prompt override should write");
+
+        let prompt = preview_prompt(&state, base_body("expressions", vec!["happy"], 1, 1)).await;
+
+        assert!(prompt.contains("single character portrait sprite"));
+        assert!(!prompt.contains("DISABLED"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn sprite_preview_transient_override_wins_over_registered_override() {
+        let (state, root) = test_state("transient-wins");
+        state
+            .storage
+            .upsert_with_id(
+                "prompt-overrides",
+                SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+                json!({
+                    "id": SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+                    "key": SPRITE_EXPRESSION_SHEET_PROMPT_KEY,
+                    "template": "REGISTERED ${defaultPrompt}",
+                    "enabled": true
+                }),
+            )
+            .expect("prompt override should write");
+
+        let mut body = base_body("expressions", vec!["neutral", "happy"], 2, 1);
+        let prompt_id = sprite_prompt_review_id("sheet", "expressions", "2x1-neutral,happy");
+        body.as_object_mut()
+            .expect("body should be object")
+            .insert("promptOverrides".to_string(), json!([{ "id": prompt_id, "prompt": "TRANSIENT PROMPT" }]));
+
+        let prompt = preview_prompt(&state, body).await;
+
+        assert_eq!(prompt, "TRANSIENT PROMPT");
+
+        let _ = fs::remove_dir_all(root);
+    }
 }
 
 #[cfg(test)]
