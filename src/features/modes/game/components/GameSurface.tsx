@@ -4777,6 +4777,7 @@ export function GameSurface({
     chatMeta.gameSetupConfig,
     currentBackground,
     fetchSpotifySceneCandidates,
+    gameSceneIllustrationAllowed,
     gameSnapshot?.time,
     gameSnapshot?.weather,
     gameState,
@@ -4787,6 +4788,7 @@ export function GameSurface({
     playSpotifySceneTrack,
     sceneAnalysis,
     sceneWrapCharacterNames,
+    sceneTurnNumber,
     useSpotifyGameMusic,
   ]);
 

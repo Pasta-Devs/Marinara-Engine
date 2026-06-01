@@ -242,24 +242,19 @@ export async function analyzeGameScene(
   capabilities: GameSceneAnalysisCapabilities,
   input: GameSceneAnalysisRequest,
 ): Promise<SceneAnalysis> {
-  let chat: JsonRecord | null = null;
-  try {
-    chat = input.chatId ? await capabilities.storage.get<JsonRecord>("chats", input.chatId) : null;
-    const connectionId = await resolveGameSceneConnectionId(capabilities.storage, chat, input.connectionId ?? null);
-    const sceneContext = normalizeSceneAnalyzerContext(input.context);
+  const chat = input.chatId ? await capabilities.storage.get<JsonRecord>("chats", input.chatId) : null;
+  const connectionId = await resolveGameSceneConnectionId(capabilities.storage, chat, input.connectionId ?? null);
+  const sceneContext = normalizeSceneAnalyzerContext(input.context);
 
-    const raw = await capabilities.llm.complete({
-      connectionId,
-      messages: [
-        { role: "system", content: buildSceneAnalyzerSystemPrompt(sceneContext) },
-        { role: "user", content: buildSceneAnalyzerUserPrompt(input.narration, undefined, sceneContext) },
-      ],
-      parameters: { maxTokens: 1200, temperature: 0.2 },
-    });
-    const parsed = parseObject(raw);
-    const analysis = parsed ? sanitizeGameSceneAnalysis(parsed) : malformedJsonFallback(sceneContext);
-    return postProcessSceneResult(analysis, scenePostProcessContext(sceneContext));
-  } catch (error) {
-    throw error;
-  }
+  const raw = await capabilities.llm.complete({
+    connectionId,
+    messages: [
+      { role: "system", content: buildSceneAnalyzerSystemPrompt(sceneContext) },
+      { role: "user", content: buildSceneAnalyzerUserPrompt(input.narration, undefined, sceneContext) },
+    ],
+    parameters: { maxTokens: 1200, temperature: 0.2 },
+  });
+  const parsed = parseObject(raw);
+  const analysis = parsed ? sanitizeGameSceneAnalysis(parsed) : malformedJsonFallback(sceneContext);
+  return postProcessSceneResult(analysis, scenePostProcessContext(sceneContext));
 }
