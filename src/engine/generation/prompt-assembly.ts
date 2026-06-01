@@ -1814,7 +1814,7 @@ function buildConversationCommandBlock(
 ): ChatMLMessage | null {
   if (modeOf(chat) !== "conversation") return null;
   const meta = parseRecord(chat.metadata);
-  if (!boolish(meta.characterCommands, true)) return null;
+  if (!boolish(meta.characterCommands, false)) return null;
   const capabilities = conversationCommandCapabilities(chat, meta);
   const schedules = parseRecord(meta.characterSchedules);
   const hasSchedules =
