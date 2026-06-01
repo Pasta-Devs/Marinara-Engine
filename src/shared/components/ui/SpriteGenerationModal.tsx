@@ -8,6 +8,7 @@ import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw } fr
 import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
 import { cropSpriteDataUrl, type SpriteFrameAdjustments } from "../../lib/sprite-frame-crop";
+import { getErrorMessage } from "../../lib/error-message";
 import { useUIStore } from "../../stores/ui.store";
 import { spriteApi, type SpriteOwnerType } from "../../api/image-generation-api";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
@@ -339,15 +340,7 @@ function imageDataUrl(base64: string): string {
 }
 
 function getGenerationErrorMessage(err: unknown): string {
-  if (
-    err &&
-    typeof err === "object" &&
-    "message" in err &&
-    typeof (err as { message?: unknown }).message === "string"
-  ) {
-    return (err as { message: string }).message;
-  }
-  return "Image generation failed";
+  return getErrorMessage(err, "Image generation failed");
 }
 
 function createGeneratedSpritesFromResult(
@@ -956,8 +949,8 @@ export function SpriteGenerationModal({
         })),
       );
       setCleanupApplied(true);
-    } catch (err: any) {
-      setError(err?.message || "Failed to apply background cleanup");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to apply background cleanup"));
     } finally {
       setCleanupApplying(false);
     }
@@ -1024,8 +1017,8 @@ export function SpriteGenerationModal({
         ),
       );
       handleCloseCellFrame();
-    } catch (err: any) {
-      setError(err?.message || "Failed to frame sprite");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to frame sprite"));
     } finally {
       setFrameApplying(false);
     }
@@ -1145,8 +1138,8 @@ export function SpriteGenerationModal({
       setActiveFrameIndex(null);
       setFrameAdjustments(DEFAULT_SPRITE_FRAME_ADJUSTMENTS);
       setFramePreviewUrl(null);
-    } catch (err: any) {
-      setError(err?.message || "Failed to adjust sprite slices");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to adjust sprite slices"));
     } finally {
       setSliceApplying(false);
     }
@@ -1210,8 +1203,8 @@ export function SpriteGenerationModal({
       setFailedMatchedBatch(null);
       setGenerationProgress(null);
       handleCloseCellFrame();
-    } catch (err: any) {
-      setError(err?.message || "Failed to save sprites");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save sprites"));
     } finally {
       setSaving(false);
     }

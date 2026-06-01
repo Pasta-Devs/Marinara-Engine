@@ -180,9 +180,8 @@ export interface AgentContext {
   streaming?: boolean;
   /** Whether agent runtime diagnostics should emit to the debug sink and console. */
   debugMode?: boolean;
-  /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signal?: any;
+  /** Abort signal — when triggered, agent execution should stop. */
+  signal?: AbortSignal;
 }
 
 /** Built-in agent type identifiers. */

@@ -13,6 +13,7 @@ import {
 } from "../../sprites/index";
 import { SpriteGenerationModal } from "../../../../shared/components/ui/SpriteGenerationModal";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
+import { getErrorMessage } from "../../../../shared/lib/error-message";
 import { downloadBlob, loadUrlBlob } from "../../../../shared/lib/url-blob";
 import {
   DEFAULT_EXPRESSIONS,
@@ -98,10 +99,6 @@ export function CharacterSpritesTab({
     (stored: string) => displaySpriteExpressionForCategory(stored, category),
     [category],
   );
-  const getSpriteErrorMessage = useCallback(
-    (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
-    [],
-  );
 
   const handleDeleteSingleSprite = useCallback(async () => {
     if (!deleteSpriteRequest) return;
@@ -110,11 +107,11 @@ export function CharacterSpritesTab({
       await deleteSprite.mutateAsync({ characterId, expression: deleteSpriteRequest.expression });
       setDeleteSpriteRequest(null);
     } catch (error) {
-      toast.error(getSpriteErrorMessage(error, "Failed to delete sprite."));
+      toast.error(getErrorMessage(error, "Failed to delete sprite."));
     } finally {
       setDeletingSprites(null);
     }
-  }, [characterId, deleteSprite, deleteSpriteRequest, getSpriteErrorMessage]);
+  }, [characterId, deleteSprite, deleteSpriteRequest]);
 
   const handleDeleteVisibleSprites = useCallback(async () => {
     if (visibleSprites.length === 0) return;
@@ -211,8 +208,8 @@ export function CharacterSpritesTab({
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} sprite${result.failed.length === 1 ? "" : "s"} could not be cleaned.`);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to clean saved sprites.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to clean saved sprites."));
     } finally {
       setCleaningSprites(false);
     }
@@ -236,8 +233,8 @@ export function CharacterSpritesTab({
       } else {
         setLastCleanupRestorePointId(null);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to restore sprite cleanup point.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to restore sprite cleanup point."));
     } finally {
       setRestoringCleanup(false);
     }
@@ -257,12 +254,12 @@ export function CharacterSpritesTab({
         toast.success(`Framed ${displayExpression(framingSprite.expression)} sprite.`);
         setFramingSprite(null);
       } catch (error) {
-        toast.error(getSpriteErrorMessage(error, "Failed to save framed sprite."));
+        toast.error(getErrorMessage(error, "Failed to save framed sprite."));
       } finally {
         setSavingFrame(false);
       }
     },
-    [characterId, displayExpression, framingSprite, getSpriteErrorMessage, uploadSprite],
+    [characterId, displayExpression, framingSprite, uploadSprite],
   );
 
   const handleApplyWandCleanup = useCallback(
@@ -279,12 +276,12 @@ export function CharacterSpritesTab({
         toast.success(`Cleaned ${displayExpression(wandCleanupSprite.expression)} sprite.`);
         setWandCleanupSprite(null);
       } catch (error) {
-        toast.error(getSpriteErrorMessage(error, "Failed to save cleaned sprite."));
+        toast.error(getErrorMessage(error, "Failed to save cleaned sprite."));
       } finally {
         setSavingWandCleanup(false);
       }
     },
-    [characterId, displayExpression, getSpriteErrorMessage, uploadSprite, wandCleanupSprite],
+    [characterId, displayExpression, uploadSprite, wandCleanupSprite],
   );
 
   return (

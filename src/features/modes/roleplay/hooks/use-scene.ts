@@ -26,6 +26,21 @@ import type {
   ScenePlanResponse,
   SceneFullPlan,
 } from "../../../../engine/contracts/types/scene";
+import type { Chat } from "../../../../engine/contracts/types/chat";
+
+type CachedChatWithLegacyMetadata = Omit<Chat, "metadata"> & {
+  metadata: Chat["metadata"] | Record<string, unknown> | string;
+};
+
+function parseMetadataRecord(metadata: CachedChatWithLegacyMetadata["metadata"]): Record<string, unknown> {
+  if (typeof metadata !== "string") return { ...metadata };
+  try {
+    const parsed = JSON.parse(metadata);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
+  } catch {
+    return {};
+  }
+}
 
 /** Provides scene lifecycle mutations and the scene-to-roleplay fork action. */
 export function useScene() {
@@ -123,9 +138,9 @@ export function useScene() {
 
         // Optimistically clear scene pointer from the cached origin chat
         // so the banner disappears immediately (invalidation refetches async).
-        qc.setQueryData(chatKeys.detail(res.originChatId), (old: any) => {
+        qc.setQueryData<CachedChatWithLegacyMetadata | undefined>(chatKeys.detail(res.originChatId), (old) => {
           if (!old) return old;
-          const meta = typeof old.metadata === "string" ? JSON.parse(old.metadata) : { ...(old.metadata ?? {}) };
+          const meta = parseMetadataRecord(old.metadata);
           delete meta.activeSceneChatId;
           delete meta.sceneBusyCharIds;
           return { ...old, metadata: meta };

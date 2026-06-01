@@ -25,6 +25,33 @@ type PresetRow = {
   sectionOrder?: string | string[];
 };
 
+type PresetChoices = Record<string, string | string[]>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizePresetChoices(value: unknown): PresetChoices {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string | string[]] =>
+        typeof entry[1] === "string" || (Array.isArray(entry[1]) && entry[1].every((item) => typeof item === "string")),
+    ),
+  );
+}
+
+function getPresetChoices(metadata: unknown): PresetChoices {
+  if (typeof metadata === "string") {
+    try {
+      return getPresetChoices(JSON.parse(metadata));
+    } catch {
+      return {};
+    }
+  }
+  return normalizePresetChoices(isRecord(metadata) ? metadata.presetChoices : undefined);
+}
+
 export function PresetsPanel() {
   const { data: presets, isLoading } = usePresets();
   const deletePreset = useDeletePreset();
@@ -415,11 +442,7 @@ export function PresetsPanel() {
           onClose={() => setChoiceModalPresetId(null)}
           presetId={choiceModalPresetId}
           chatId={activeChat.id}
-          existingChoices={
-            typeof activeChat.metadata === "string"
-              ? (JSON.parse(activeChat.metadata).presetChoices ?? {})
-              : ((activeChat.metadata as any)?.presetChoices ?? {})
-          }
+          existingChoices={getPresetChoices(activeChat.metadata)}
         />
       )}
     </div>

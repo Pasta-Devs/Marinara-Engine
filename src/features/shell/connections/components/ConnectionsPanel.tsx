@@ -157,7 +157,7 @@ function ConnectionRow({
           onClick={(e) => {
             e.stopPropagation();
             duplicateConnection.mutate(conn.id, {
-              onSuccess: (data: any) => {
+              onSuccess: (data) => {
                 if (data?.id) openConnectionDetail(data.id);
               },
             });

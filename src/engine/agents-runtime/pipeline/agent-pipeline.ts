@@ -92,6 +92,16 @@ function shouldExecuteIndividually(agent: ResolvedAgent): boolean {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function getAgentResultText(data: unknown): string {
+  if (typeof data === "string") return data;
+  if (isRecord(data) && typeof data.text === "string") return data.text;
+  return "";
+}
+
 async function executeResolvedAgent(agent: ResolvedAgent, context: AgentContext): Promise<AgentResult> {
   const agentContext = buildAgentContext(agent, context);
   if (agent.type === "knowledge-retrieval") {
@@ -282,7 +292,7 @@ async function runPreGenerationAgents(
 
     // prose-guardian & director produce text to inject
     if (result.type === "context_injection" || result.type === "director_event") {
-      const text = typeof result.data === "string" ? result.data : ((result.data as any)?.text ?? "");
+      const text = getAgentResultText(result.data);
       const agentName = agents.find((agent) => agent.type === result.agentType)?.name;
       if (text) injections.push({ agentType: result.agentType, agentName, text });
     }

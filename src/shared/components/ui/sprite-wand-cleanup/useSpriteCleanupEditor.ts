@@ -10,6 +10,7 @@ import {
   type WheelEvent,
 } from "react";
 import { applyBrushLine, applyBrushStamp } from "./sprite-cleanup-brush";
+import { getErrorMessage } from "../../../lib/error-message";
 import { canvasPointFromClient, loadImageToCanvas } from "./sprite-cleanup-canvas";
 import {
   brushActionLabels,
@@ -183,9 +184,9 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
           setLoading(false);
           requestAnimationFrame(fitCanvasToStage);
         })
-        .catch((err: any) => {
+        .catch((err) => {
           if (cancelled) return;
-          setError(err?.message || "Sprite image could not be loaded");
+          setError(getErrorMessage(err, "Sprite image could not be loaded"));
           setLoading(false);
         });
     };
@@ -619,8 +620,8 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
     try {
       setError(null);
       await onApply(canvas.toDataURL("image/png"));
-    } catch (err: any) {
-      setError(err?.message || "Failed to save sprite cleanup");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save sprite cleanup"));
     }
   }, [onApply]);
 

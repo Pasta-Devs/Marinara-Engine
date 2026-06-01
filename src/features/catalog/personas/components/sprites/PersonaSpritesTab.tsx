@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { SpriteGenerationModal } from "../../../../../shared/components/ui/SpriteGenerationModal";
 import { showAlertDialog, showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { getErrorMessage } from "../../../../../shared/lib/error-message";
 import { cn } from "../../../../../shared/lib/utils";
 import { downloadBlob, loadUrlBlob } from "../../../../../shared/lib/url-blob";
 import {
@@ -86,10 +87,6 @@ export function PersonaSpritesTab({
   const cleanupEngineReason = spriteCapabilities?.cleanupEngine?.reason ?? "Sprite cleanup is not available.";
 
   const displayExpression = useCallback((stored: string) => displaySpriteExpression(stored, category), [category]);
-  const getErrorMessage = useCallback(
-    (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
-    [],
-  );
 
   const startUpload = useCallback((expression: string) => {
     if (!expression) return;
@@ -187,7 +184,7 @@ export function PersonaSpritesTab({
         toast.error("No sprites could be imported.");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to import sprites.");
+      toast.error(getErrorMessage(error, "Failed to import sprites."));
     } finally {
       setFolderProgress(null);
       event.target.value = "";
@@ -209,7 +206,7 @@ export function PersonaSpritesTab({
     } finally {
       setDeletingSprites(null);
     }
-  }, [deleteSprite, deleteSpriteRequest, getErrorMessage, personaId]);
+  }, [deleteSprite, deleteSpriteRequest, personaId]);
 
   const handleDeleteVisibleSprites = useCallback(async () => {
     if (visibleSprites.length === 0) return;
@@ -255,7 +252,7 @@ export function PersonaSpritesTab({
         toast.error(getErrorMessage(error, "Failed to download sprite."));
       }
     },
-    [downloadSpriteFile, getErrorMessage],
+    [downloadSpriteFile],
   );
 
   const handleExportSprites = useCallback(
@@ -326,8 +323,8 @@ export function PersonaSpritesTab({
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} sprite${result.failed.length === 1 ? "" : "s"} could not be cleaned.`);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to clean saved sprites.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to clean saved sprites."));
     } finally {
       setCleaningSprites(false);
     }
@@ -352,8 +349,8 @@ export function PersonaSpritesTab({
       } else {
         setLastCleanupRestorePointId(null);
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to restore sprite cleanup point.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to restore sprite cleanup point."));
     } finally {
       setRestoringCleanup(false);
     }
@@ -379,7 +376,7 @@ export function PersonaSpritesTab({
         setSavingFrame(false);
       }
     },
-    [displayExpression, framingSprite, getErrorMessage, personaId, uploadSprite],
+    [displayExpression, framingSprite, personaId, uploadSprite],
   );
 
   const handleApplyWandCleanup = useCallback(
@@ -402,7 +399,7 @@ export function PersonaSpritesTab({
         setSavingWandCleanup(false);
       }
     },
-    [displayExpression, getErrorMessage, personaId, uploadSprite, wandCleanupSprite],
+    [displayExpression, personaId, uploadSprite, wandCleanupSprite],
   );
 
   return (

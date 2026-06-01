@@ -34,6 +34,13 @@ export type PromptPresetSummary = Pick<PromptPreset, "id" | "name" | "isDefault"
   default?: boolean | string;
 };
 
+export interface PresetFullData {
+  preset: PromptPreset;
+  sections: PromptSection[];
+  groups: PromptGroup[];
+  choiceBlocks: ChoiceBlock[];
+}
+
 const PRESET_SUMMARY_OPTIONS = {
   fields: ["id", "name", "isDefault", "default"],
 };
@@ -187,12 +194,16 @@ export function usePresetSummaries() {
 export function usePresetFull(id: string | null) {
   return useQuery({
     queryKey: presetKeys.full(id ?? ""),
-    queryFn: async () => ({
-      preset: (await storageApi.get<PromptPreset>("prompts", id!))!,
-      sections: await listPromptNested<PromptSection>(id!, "sections"),
-      groups: await listPromptNested<PromptGroup>(id!, "groups"),
-      choiceBlocks: await listPromptNested<ChoiceBlock>(id!, "variables"),
-    }),
+    queryFn: async (): Promise<PresetFullData> => {
+      const preset = await storageApi.get<PromptPreset>("prompts", id!);
+      if (!preset) throw new Error("Preset not found");
+      return {
+        preset,
+        sections: await listPromptNested<PromptSection>(id!, "sections"),
+        groups: await listPromptNested<PromptGroup>(id!, "groups"),
+        choiceBlocks: await listPromptNested<ChoiceBlock>(id!, "variables"),
+      };
+    },
     enabled: !!id,
     staleTime: 5 * 60_000,
     refetchOnMount: "always",
@@ -373,7 +384,7 @@ export function useReorderSections() {
       reorderPromptNested<PromptSection>(presetId, "sections", sectionIds),
     onMutate: async ({ presetId, sectionIds }) => {
       await qc.cancelQueries({ queryKey: presetKeys.full(presetId) });
-      const prev = qc.getQueryData(presetKeys.full(presetId)) as any;
+      const prev = qc.getQueryData<PresetFullData>(presetKeys.full(presetId));
       if (prev?.preset?.sectionOrder) {
         qc.setQueryData(presetKeys.full(presetId), {
           ...prev,
@@ -445,11 +456,11 @@ export function useReorderVariables() {
       reorderPromptNested<ChoiceBlock>(presetId, "variables", variableIds),
     onMutate: async ({ presetId, variableIds }) => {
       await qc.cancelQueries({ queryKey: presetKeys.full(presetId) });
-      const prev = qc.getQueryData(presetKeys.full(presetId)) as any;
+      const prev = qc.getQueryData<PresetFullData>(presetKeys.full(presetId));
       if (prev?.choiceBlocks) {
         const idOrder = new Map(variableIds.map((id, i) => [id, i]));
         const sorted = [...prev.choiceBlocks].sort(
-          (a: any, b: any) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0),
+          (a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0),
         );
         qc.setQueryData(presetKeys.full(presetId), { ...prev, choiceBlocks: sorted });
       }

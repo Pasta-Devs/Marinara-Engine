@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Crop, Loader2, RotateCcw, X } from "lucide-react";
 import { cropSpriteDataUrl, type SpriteFrameAdjustments } from "../../lib/sprite-frame-crop";
+import { getErrorMessage } from "../../lib/error-message";
 
 type SpriteFrameAdjustmentKey = keyof SpriteFrameAdjustments;
 
@@ -53,10 +54,10 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
           setError(null);
         }
       })
-      .catch((err: any) => {
+      .catch((err) => {
         if (!cancelled) {
           setPreviewUrl(imageUrl);
-          setError(err?.message || "Frame preview failed");
+          setError(getErrorMessage(err, "Frame preview failed"));
         }
       });
 
@@ -87,8 +88,8 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
     setError(null);
     try {
       await onApply(await cropSpriteDataUrl(imageUrl, frame));
-    } catch (err: any) {
-      setError(err?.message || "Failed to frame sprite");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to frame sprite"));
     }
   }, [frame, imageUrl, onApply]);
 

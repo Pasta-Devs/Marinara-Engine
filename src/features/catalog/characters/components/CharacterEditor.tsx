@@ -11,6 +11,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useStartChatFromCharacter } from "../hooks/use-start-chat-from-character";
 import { useConnections } from "../../connections/index";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
+import { getErrorMessage } from "../../../../shared/lib/error-message";
 import type { CharacterData } from "../../../../engine/contracts/types/character";
 import type { ImageGenerationConnectionOption } from "../../../../shared/types/image-generation";
 import { useCharacterEditorAvatar } from "../hooks/use-character-editor-avatar";
@@ -155,9 +156,9 @@ export function CharacterEditor() {
         setDirtyState(false);
       }
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error("[CharacterEditor] Save failed:", err);
-      toast.error(err?.message ?? "Failed to save character. Check the console for details.");
+      toast.error(getErrorMessage(err, "Failed to save character. Check the console for details."));
       return false;
     } finally {
       setSaving(false);

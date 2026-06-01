@@ -10,6 +10,7 @@ import { usePresetFull, useUpdatePreset } from "../hooks/use-presets";
 import { useUpdateChatMetadata } from "../../chats/index";
 import { CheckCircle2, Circle, CheckSquare2, Square, Sparkles, ListChecks, Shuffle, Save } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
+import type { ChoiceBlock, ChoiceOption } from "../../../../engine/contracts/types/prompt";
 
 interface ChoiceSelectionModalProps {
   open: boolean;
@@ -20,12 +21,6 @@ interface ChoiceSelectionModalProps {
   existingChoices?: Record<string, string | string[]>;
 }
 
-interface ChoiceOption {
-  id: string;
-  label: string;
-  value: string;
-}
-
 interface VariableData {
   id: string;
   variableName: string;
@@ -33,6 +28,43 @@ interface VariableData {
   options: ChoiceOption[];
   multiSelect: boolean;
   randomPick: boolean;
+}
+
+type ChoiceSelections = Record<string, string | string[]>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringField(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function boolishChoice(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+function isChoiceOption(value: unknown): value is ChoiceOption {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.value === "string"
+  );
+}
+
+function legacyField(block: ChoiceBlock, field: string): unknown {
+  return (block as unknown as Record<string, unknown>)[field];
+}
+
+function normalizeChoiceSelections(value: unknown): ChoiceSelections {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string | string[]] =>
+        typeof entry[1] === "string" || (Array.isArray(entry[1]) && entry[1].every((item) => typeof item === "string")),
+    ),
+  );
 }
 
 export function ChoiceSelectionModal({
@@ -52,15 +84,16 @@ export function ChoiceSelectionModal({
   // Parse variables from preset data
   const variables = useMemo<VariableData[]>(() => {
     if (!data?.choiceBlocks) return [];
-    return (data.choiceBlocks as any[]).map((cb: any) => {
-      const opts: ChoiceOption[] = Array.isArray(cb.options) ? cb.options : [];
+    return data.choiceBlocks.map((cb) => {
+      const rawOptions = legacyField(cb, "options");
+      const options: ChoiceOption[] = Array.isArray(rawOptions) ? rawOptions.filter(isChoiceOption) : [];
       return {
         id: cb.id,
-        variableName: cb.variableName ?? cb.variable_name ?? "unknown",
-        question: cb.question ?? "Choose an option",
-        options: opts,
-        multiSelect: cb.multiSelect === "true" || cb.multiSelect === true || cb.multi_select === "true",
-        randomPick: cb.randomPick === "true" || cb.randomPick === true || cb.random_pick === "true",
+        variableName: stringField(cb.variableName, stringField(legacyField(cb, "variable_name"), "unknown")),
+        question: stringField(cb.question, "Choose an option"),
+        options,
+        multiSelect: boolishChoice(cb.multiSelect) || boolishChoice(legacyField(cb, "multi_select")),
+        randomPick: boolishChoice(cb.randomPick) || boolishChoice(legacyField(cb, "random_pick")),
       };
     });
   }, [data?.choiceBlocks]);
@@ -68,10 +101,8 @@ export function ChoiceSelectionModal({
   // Parse saved default choices from preset
   const defaultChoices = useMemo<Record<string, string | string[]>>(() => {
     if (!data?.preset) return {};
-    return ((data.preset as any).defaultChoices ?? (data.preset as any).default_choices ?? {}) as Record<
-      string,
-      string | string[]
-    >;
+    const preset = data.preset as unknown as Record<string, unknown>;
+    return normalizeChoiceSelections(preset.defaultChoices ?? preset.default_choices);
   }, [data?.preset]);
 
   // Base selections derived from existing choices / defaults / first option.
