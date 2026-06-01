@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-function installAudioContext(overrides: Partial<AudioContext> = {}) {
+function installAudioContext(overrides: Partial<AudioContext> | Array<Partial<AudioContext>> = {}) {
   const oscillator = {
     frequency: { value: 0 },
     connect: vi.fn(),
@@ -13,7 +13,12 @@ function installAudioContext(overrides: Partial<AudioContext> = {}) {
     gain: { value: 0 },
     connect: vi.fn(),
   };
+  let instanceIndex = 0;
   const AudioContextMock = vi.fn(function AudioContextMock() {
+    const instanceOverrides = Array.isArray(overrides)
+      ? (overrides[Math.min(instanceIndex, overrides.length - 1)] ?? {})
+      : overrides;
+    instanceIndex += 1;
     return {
       state: "running",
       currentTime: 1,
@@ -21,7 +26,7 @@ function installAudioContext(overrides: Partial<AudioContext> = {}) {
       createOscillator: vi.fn(() => oscillator),
       createGain: vi.fn(() => gain),
       resume: vi.fn().mockResolvedValue(undefined),
-      ...overrides,
+      ...instanceOverrides,
     };
   });
 
@@ -58,5 +63,15 @@ describe("playNotificationPing", () => {
     const { playNotificationPing } = await import("./notification-sound");
 
     expect(() => playNotificationPing()).not.toThrow();
+  });
+
+  it("replaces an interrupted WebKit AudioContext", async () => {
+    const { AudioContextMock } = installAudioContext([{ state: "interrupted" } as Partial<AudioContext>, {}]);
+    const { playNotificationPing } = await import("./notification-sound");
+
+    playNotificationPing();
+    playNotificationPing();
+
+    expect(AudioContextMock).toHaveBeenCalledTimes(2);
   });
 });
