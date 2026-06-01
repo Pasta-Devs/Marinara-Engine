@@ -267,7 +267,7 @@ export function PersonaInventoryPanel({
         ) : (
           inventory.map((item, index) => (
             <PersonaInventoryRow
-              key={`${item.name}-${index}`}
+              key={item.inventoryItemId || `${item.name}-${index}`}
               item={item}
               onUpdate={(updated) => onUpdateInventoryItem(index, updated)}
               onRemove={() => onRemoveInventoryItem(index)}

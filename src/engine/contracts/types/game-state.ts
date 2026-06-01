@@ -67,6 +67,7 @@ export interface PresentCharacter {
 
 /** A numeric stat for a character. */
 export interface CharacterStat {
+  statId: string;
   name: string;
   value: number;
   max: number;
@@ -75,6 +76,7 @@ export interface CharacterStat {
 
 /** A user-defined custom tracker field. */
 export interface CustomTrackerField {
+  customFieldId: string;
   name: string;
   value: string;
 }
@@ -109,6 +111,7 @@ export interface RPGAttributes {
 
 /** An item in the player's inventory. */
 export interface InventoryItem {
+  inventoryItemId: string;
   name: string;
   description: string;
   quantity: number;
@@ -116,11 +119,18 @@ export interface InventoryItem {
   location: string;
 }
 
+/** A quest objective row. */
+export interface QuestObjective {
+  objectiveId: string;
+  text: string;
+  completed: boolean;
+}
+
 /** Quest progress data tracked in game state. */
 export interface QuestProgress {
   questEntryId: string;
   name: string;
   currentStage: number;
-  objectives: Array<{ text: string; completed: boolean }>;
+  objectives: QuestObjective[];
   completed: boolean;
 }

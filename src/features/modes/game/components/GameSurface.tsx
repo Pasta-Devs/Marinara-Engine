@@ -13,6 +13,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useGameStatePatcher } from "../../../runtime/world-state/index";
 import type { GameStatePatchField, GameStatePatchValue } from "../../../runtime/world-state/types";
+import { makeManualTrackerRowId } from "../../../../engine/shared/game-state/tracker-row-ids";
 import {
   useSyncGameState,
   useCreateGame,
@@ -114,7 +115,7 @@ import type {
   HudWidget,
   SkillCheckResult,
 } from "../../../../engine/contracts/types/game";
-import type { GameState } from "../../../../engine/contracts/types/game-state";
+import type { GameState, InventoryItem } from "../../../../engine/contracts/types/game-state";
 import type {
   SceneAnalysis,
   SceneIllustrationRequest,
@@ -1079,6 +1080,31 @@ function addInventoryUnit<T extends { name: string; quantity: number }>(items: T
   });
 
   return addedToExisting ? updated : [...updated, { name, quantity: 1 } as T];
+}
+
+function addDetailedInventoryUnit(items: InventoryItem[], itemName: string): InventoryItem[] {
+  const name = normalizeInventoryName(itemName);
+  if (!name) return items;
+
+  let addedToExisting = false;
+  const updated = items.map((item) => {
+    if (item.name.trim().toLowerCase() !== name.toLowerCase()) return item;
+    addedToExisting = true;
+    return { ...item, quantity: item.quantity + 1 };
+  });
+
+  return addedToExisting
+    ? updated
+    : [
+        ...updated,
+        {
+          inventoryItemId: makeManualTrackerRowId(),
+          name,
+          description: "",
+          quantity: 1,
+          location: "on_person",
+        },
+      ];
 }
 
 function normalizeInventoryName(value: string): string {
@@ -5130,7 +5156,13 @@ export function GameSurface({
           ...currentPlayerStats,
           inventory: [
             ...currentPlayerStats.inventory,
-            { name: addedItemName, description: "", quantity: 1, location: "on_person" },
+            {
+              inventoryItemId: makeManualTrackerRowId(),
+              name: addedItemName,
+              description: "",
+              quantity: 1,
+              location: "on_person",
+            },
           ],
         }
       : null;
@@ -5188,7 +5220,7 @@ export function GameSurface({
       const nextPlayerStats = currentPlayerStats
         ? {
             ...currentPlayerStats,
-            inventory: addInventoryUnit(currentPlayerStats.inventory, normalizedItemName),
+            inventory: addDetailedInventoryUnit(currentPlayerStats.inventory, normalizedItemName),
           }
         : null;
       const shouldPatchGameState =

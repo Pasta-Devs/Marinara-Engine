@@ -3,6 +3,7 @@ import type {
   CustomTrackerField,
   InventoryItem,
   PlayerStats,
+  QuestObjective,
   QuestProgress,
   RPGAttributes,
 } from "../../contracts/types/game-state";
@@ -15,7 +16,6 @@ import {
   readString,
 } from "../../generation/runtime-records";
 
-type QuestObjective = QuestProgress["objectives"][number];
 type QuestUpdateAction = "create" | "update" | "complete" | "fail";
 
 interface NormalizedQuestUpdate {
@@ -35,10 +35,10 @@ const RPG_ATTRIBUTE_KEYS: RpgAttributeKey[] = ["str", "dex", "con", "int", "wis"
  */
 const NESTED_QUEST_KEYS = ["quests", "activeQuests", "groups", "items", "children"] as const;
 
-function parseQuestObjective(value: unknown): { text: string; completed: boolean } | null {
+function parseQuestObjective(value: unknown): QuestObjective | null {
   if (typeof value === "string") {
     const text = value.trim();
-    return text ? { text, completed: false } : null;
+    return text ? { objectiveId: "", text, completed: false } : null;
   }
   const record = parseRecord(value);
   const text = firstString(record.text, record.description, record.objective, record.name, record.title);
@@ -47,6 +47,7 @@ function parseQuestObjective(value: unknown): { text: string; completed: boolean
     .trim()
     .toLowerCase();
   return {
+    objectiveId: readString(record.objectiveId).trim(),
     text,
     completed: boolish(record.completed, status === "complete" || status === "completed" || status === "done"),
   };
@@ -139,7 +140,7 @@ export function parseStat(value: unknown): CharacterStat | null {
   const max = Math.max(1, readNumber(record.max, 100));
   const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
   const color = readString(record.color).trim() || "#8b5cf6";
-  return { name, value: valueNumber, max, color };
+  return { statId: readString(record.statId).trim(), name, value: valueNumber, max, color };
 }
 
 export function parseInventoryItem(value: unknown): InventoryItem | null {
@@ -147,6 +148,7 @@ export function parseInventoryItem(value: unknown): InventoryItem | null {
   const name = readString(record.name).trim();
   if (!name) return null;
   return {
+    inventoryItemId: readString(record.inventoryItemId).trim(),
     name,
     description: readString(record.description).trim(),
     quantity: Math.max(0, readNumber(record.quantity, 1)),
@@ -158,7 +160,7 @@ export function parseCustomTrackerField(value: unknown): CustomTrackerField | nu
   const record = parseRecord(value);
   const name = readString(record.name).trim();
   if (!name) return null;
-  return { name, value: readString(record.value).trim() };
+  return { customFieldId: readString(record.customFieldId).trim(), name, value: readString(record.value).trim() };
 }
 
 function parseRpgAttributes(value: unknown): RPGAttributes | null {

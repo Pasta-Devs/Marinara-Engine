@@ -326,7 +326,7 @@ export function StatList({
       >
         {stats.map((stat, index) => (
           <StatBar
-            key={`${stat.name}-${index}`}
+            key={stat.statId || `${stat.name}-${index}`}
             stat={stat}
             onUpdateName={onUpdate && editableName ? (name) => updateStat(index, { ...stat, name }) : undefined}
             onUpdateValue={onUpdate ? (value) => updateStat(index, { ...stat, value }) : undefined}

@@ -702,7 +702,7 @@ function parseStat(value: unknown): CharacterStat | null {
   const max = Math.max(1, readNumber(record.max, 100));
   const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
   const color = readString(record.color).trim() || "#8b5cf6";
-  return { name, value: valueNumber, max, color };
+  return { statId: readString(record.statId).trim(), name, value: valueNumber, max, color };
 }
 
 function parseInventoryItem(value: unknown): InventoryItem | null {
@@ -710,6 +710,7 @@ function parseInventoryItem(value: unknown): InventoryItem | null {
   const name = readString(record.name).trim();
   if (!name) return null;
   return {
+    inventoryItemId: readString(record.inventoryItemId).trim(),
     name,
     description: readString(record.description).trim(),
     quantity: Math.max(0, readNumber(record.quantity, 1)),
@@ -749,7 +750,7 @@ function parseCustomTrackerField(value: unknown): CustomTrackerField | null {
   const record = parseMaybeRecord(value);
   const name = readString(record.name).trim();
   if (!name) return null;
-  return { name, value: readString(record.value).trim() };
+  return { customFieldId: readString(record.customFieldId).trim(), name, value: readString(record.value).trim() };
 }
 
 function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {

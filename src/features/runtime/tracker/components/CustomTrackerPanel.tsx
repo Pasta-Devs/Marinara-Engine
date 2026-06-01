@@ -45,7 +45,7 @@ function CustomFieldList({
         <div className="grid grid-cols-1 border-t border-[var(--border)]/30 @min-[220px]:grid-cols-2 @min-[420px]:grid-cols-3">
           {fields.map((field, index) => (
             <div
-              key={`${field.name}-${index}`}
+              key={field.customFieldId || `${field.name}-${index}`}
               className={cn(
                 "group/field relative grid min-h-6 grid-cols-[minmax(0,1fr)_minmax(1.8rem,max-content)] items-center gap-1 border-b border-[var(--border)]/28 px-1 py-0.5 text-[0.6875rem] leading-[0.875rem]",
                 index % 2 === 0 &&
