@@ -2,7 +2,7 @@
 // Panel: Lorebooks (overhauled)
 // Category tabs, search, click-to-edit, AI generate
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, useMemo, useCallback, type ChangeEvent } from "react";
+import { useRef, useState, useMemo, useCallback, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -11,28 +11,19 @@ import {
   Sparkles,
   BookOpen,
   Search,
-  Globe,
-  Users,
-  UserRound,
-  Layers,
   ArrowUpDown,
   Tag,
   ChevronDown,
   ChevronUp,
   X,
-  Wand2,
   Trash2,
-  Zap,
-  Camera,
-  Gamepad2,
 } from "lucide-react";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../hooks/use-lorebooks";
 import { useCharacterSummariesByIds } from "../../characters/index";
 import { usePersonaSummaries } from "../../personas/index";
-import type { Lorebook, LorebookCategory } from "../../../../engine/contracts/types/lorebook";
-import { resolveActiveLorebookScopeReasons } from "../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
 import { resolveGameLorebookScopeExclusions } from "../../../../engine/generation-core/lorebooks/game-lorebook-scope";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
@@ -40,33 +31,21 @@ import { exportApi } from "../../../../shared/api/export-api";
 import { getChatCharacterIds } from "../../../../shared/lib/chat-macros";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
-import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
-
-const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string; icon: typeof Globe }> = [
-  { id: "all", label: "All", icon: Layers },
-  { id: "active", label: "Active", icon: Zap },
-  { id: "world", label: "World", icon: Globe },
-  { id: "character", label: "Character", icon: Users },
-  { id: "npc", label: "NPC", icon: UserRound },
-  { id: "spellbook", label: "Spellbook", icon: Wand2 },
-  { id: "game", label: "Game", icon: Gamepad2 },
-  { id: "uncategorized", label: "Other", icon: BookOpen },
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  world: "from-emerald-400 to-teal-500",
-  character: "from-violet-400 to-purple-500",
-  npc: "from-rose-400 to-pink-500",
-  spellbook: "from-blue-400 to-indigo-500",
-  game: "from-cyan-400 to-sky-500",
-  uncategorized: "from-amber-400 to-orange-500",
-  all: "from-amber-400 to-orange-500",
-};
+import { LorebookRow } from "./LorebookRow";
+import {
+  collectLorebookTags,
+  filterLorebooksForPanel,
+  groupLorebooksByCategory,
+  parseLorebookTags,
+  sortLorebooksForPanel,
+  type LorebookPanelSort,
+} from "./lorebook-panel-model";
+import { LOREBOOK_PANEL_CATEGORIES, type LorebookPanelCategory } from "./lorebook-panel-config";
 
 export function LorebooksPanel() {
-  const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all" | "active">("all");
+  const [activeCategory, setActiveCategory] = useState<LorebookPanelCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<"name-asc" | "name-desc" | "newest" | "oldest" | "tokens">("name-asc");
+  const [sort, setSort] = useState<LorebookPanelSort>("name-asc");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -153,25 +132,9 @@ export function LorebooksPanel() {
     [personaNameById],
   );
 
-  const parseTags = (lb: Lorebook): string[] => {
-    const raw = lb.tags;
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === "string")
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return [];
-      }
-    return [];
-  };
-
   const allTags = useMemo(() => {
     if (!lorebooks) return [] as string[];
-    const tagSet = new Set<string>();
-    for (const lb of lorebooks as Lorebook[]) {
-      for (const t of parseTags(lb)) tagSet.add(t);
-    }
-    return Array.from(tagSet).sort();
+    return collectLorebookTags(lorebooks as Lorebook[]);
   }, [lorebooks]);
 
   const handleDeleteTag = useCallback(
@@ -188,9 +151,9 @@ export function LorebooksPanel() {
       }
       try {
         if (!lorebooks) return;
-        const affected = (lorebooks as Lorebook[]).filter((lb) => parseTags(lb).includes(tag));
+        const affected = (lorebooks as Lorebook[]).filter((lb) => parseLorebookTags(lb).includes(tag));
         for (const lb of affected) {
-          const newTags = parseTags(lb).filter((t) => t !== tag);
+          const newTags = parseLorebookTags(lb).filter((t) => t !== tag);
           await updateLorebook.mutateAsync({ id: lb.id, tags: newTags });
         }
         if (activeTag === tag) setActiveTag(null);
@@ -204,24 +167,15 @@ export function LorebooksPanel() {
   // Filter by search
   const filtered = useMemo(() => {
     if (!lorebooks) return [];
-    let list = lorebooks as Lorebook[];
-    // "Active" filter: show lorebooks active in the current chat
-    if (activeCategory === "active") {
-      list = list.filter((lb) => resolveActiveLorebookScopeReasons(lb, activeLorebookScopeContext).length > 0);
-    }
-    if (activeTag) {
-      list = list.filter((lb) => parseTags(lb).includes(activeTag));
-    }
-    if (!searchQuery) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(
-      (lb: Lorebook) =>
-        lb.name.toLowerCase().includes(q) ||
-        lb.description.toLowerCase().includes(q) ||
-        getCharacterNames(lb).some((name) => name.toLowerCase().includes(q)) ||
-        getPersonaNames(lb).some((name) => name.toLowerCase().includes(q)) ||
-        parseTags(lb).some((t) => t.toLowerCase().includes(q)),
-    );
+    return filterLorebooksForPanel({
+      lorebooks: lorebooks as Lorebook[],
+      activeCategory,
+      activeScopeContext: activeLorebookScopeContext,
+      activeTag,
+      searchQuery,
+      getCharacterNames,
+      getPersonaNames,
+    });
   }, [
     lorebooks,
     activeCategory,
@@ -233,34 +187,13 @@ export function LorebooksPanel() {
   ]);
 
   const sorted = useMemo(() => {
-    const list = [...filtered];
-    switch (sort) {
-      case "name-asc":
-        return list.sort((a, b) => a.name.localeCompare(b.name));
-      case "name-desc":
-        return list.sort((a, b) => b.name.localeCompare(a.name));
-      case "newest":
-        return list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-      case "oldest":
-        return list.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-      case "tokens":
-        return list.sort((a, b) => (b.tokenBudget ?? 0) - (a.tokenBudget ?? 0));
-      default:
-        return list;
-    }
+    return sortLorebooksForPanel(filtered, sort);
   }, [filtered, sort]);
 
   // Group by category for "all" view
   const grouped = useMemo(() => {
     if (activeCategory !== "all") return null;
-    const map = new Map<string, Lorebook[]>();
-    for (const lb of sorted) {
-      const cat = lb.category || "uncategorized";
-      const list = map.get(cat) ?? [];
-      list.push(lb);
-      map.set(cat, list);
-    }
-    return map;
+    return groupLorebooksByCategory(sorted);
   }, [sorted, activeCategory]);
 
   const exitSelectionMode = useCallback(() => {
@@ -511,7 +444,7 @@ export function LorebooksPanel() {
 
       {/* Category tabs */}
       <div className="flex flex-wrap gap-1">
-        {CATEGORIES.map((cat) => {
+        {LOREBOOK_PANEL_CATEGORIES.map((cat) => {
           const Icon = cat.icon;
           const isActive = activeCategory === cat.id;
           return (
@@ -615,9 +548,9 @@ export function LorebooksPanel() {
             ? // Grouped view
               Array.from(grouped.entries()).map(([category, books]) => {
                 const catMeta =
-                  CATEGORIES.find((c) => c.id === category) ??
-                  CATEGORIES.find((c) => c.id === "uncategorized") ??
-                  CATEGORIES[0];
+                  LOREBOOK_PANEL_CATEGORIES.find((c) => c.id === category) ??
+                  LOREBOOK_PANEL_CATEGORIES.find((c) => c.id === "uncategorized") ??
+                  LOREBOOK_PANEL_CATEGORIES[0];
                 const CatIcon = catMeta.icon;
                 return (
                   <div key={category} className="mb-2">
@@ -692,144 +625,6 @@ export function LorebooksPanel() {
                   />
                 );
               })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LorebookRow({
-  lorebook,
-  characterName,
-  personaName,
-  onClick,
-  onDelete,
-  onImagePick,
-  selectionMode,
-  isSelected,
-  onToggleSelect,
-}: {
-  lorebook: Lorebook;
-  characterName?: string;
-  personaName?: string;
-  onClick: () => void;
-  onDelete: () => void;
-  onImagePick: () => void;
-  selectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
-}) {
-  const gradient = CATEGORY_COLORS[lorebook.category] ?? CATEGORY_COLORS.uncategorized;
-  const CatIcon = CATEGORIES.find((c) => c.id === lorebook.category)?.icon ?? BookOpen;
-  const [resolvedImagePath, setResolvedImagePath] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResolvedImagePath(null);
-    if (!lorebook.imagePath) return;
-    resolveManagedLocalAssetUrl(lorebook.imagePath)
-      .then((url) => {
-        if (!cancelled) setResolvedImagePath(url);
-      })
-      .catch(() => {
-        if (!cancelled) setResolvedImagePath(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [lorebook.imagePath]);
-
-  const imageContent = resolvedImagePath ? (
-    <img src={resolvedImagePath} alt="" className="h-full w-full object-cover" draggable={false} />
-  ) : (
-    <CatIcon size="1rem" />
-  );
-  const imageClasses = cn(
-    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white shadow-sm",
-    lorebook.imagePath ? "bg-[var(--muted)]" : `bg-gradient-to-br ${gradient}`,
-  );
-
-  return (
-    <div
-      className={cn(
-        "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
-        selectionMode && isSelected && "ring-1 ring-amber-400/40 bg-amber-400/10",
-      )}
-      onClick={onClick}
-    >
-      {selectionMode && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelect?.();
-          }}
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-            isSelected
-              ? "border-amber-400 bg-amber-400 text-white"
-              : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
-          )}
-          aria-label={isSelected ? "Deselect lorebook" : "Select lorebook"}
-        >
-          <span className="text-[0.75rem]">✓</span>
-        </button>
-      )}
-      {selectionMode ? (
-        <div className={imageClasses}>{imageContent}</div>
-      ) : (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onImagePick();
-          }}
-          className={cn(
-            imageClasses,
-            "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400/50",
-          )}
-          title={lorebook.imagePath ? "Replace lorebook picture" : "Upload lorebook picture"}
-          aria-label={lorebook.imagePath ? "Replace lorebook picture" : "Upload lorebook picture"}
-        >
-          {imageContent}
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size="0.875rem" />
-          </span>
-        </button>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{lorebook.name}</span>
-          {!lorebook.enabled && (
-            <span className="rounded bg-[var(--muted)]/50 px-1 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
-              OFF
-            </span>
-          )}
-        </div>
-        <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-          {characterName || personaName ? (
-            <span className="inline-flex items-center gap-1">
-              <UserRound size="0.625rem" className="shrink-0" />
-              {characterName ?? personaName}
-              {lorebook.description ? ` · ${lorebook.description}` : ""}
-            </span>
-          ) : (
-            lorebook.description || "No description"
-          )}
-        </div>
-      </div>
-      {!selectionMode && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15 active:scale-90"
-            title="Delete"
-          >
-            <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
-          </button>
         </div>
       )}
     </div>
