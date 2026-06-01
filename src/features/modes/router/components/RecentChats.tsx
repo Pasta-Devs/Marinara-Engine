@@ -3,7 +3,7 @@
 // interacted chats on the homepage (compact row)
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquare, BookOpen } from "lucide-react";
+import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
 import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
@@ -19,6 +19,11 @@ const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: str
     icon: <BookOpen size="0.375rem" />,
     bg: "linear-gradient(135deg, #eb8951, #d97530)",
     label: "Roleplay",
+  },
+  game: {
+    icon: <Theater size="0.375rem" />,
+    bg: "linear-gradient(135deg, #e15c8c, #c94776)",
+    label: "Game",
   },
 };
 
