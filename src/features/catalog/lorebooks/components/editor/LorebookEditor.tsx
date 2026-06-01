@@ -20,7 +20,6 @@ import {
   useReorderLorebookEntries,
   useLorebookFolders,
   useCreateLorebookFolder,
-  useUpdateLorebookEntry,
   useReorderLorebookFolders,
   useTransferLorebookEntries,
   useBulkUnvectorizeLorebookEntries,
@@ -99,7 +98,6 @@ export function LorebookEditor() {
   const updateLorebook = useUpdateLorebook();
   const deleteLorebook = useDeleteLorebook();
   const createEntry = useCreateLorebookEntry();
-  const updateEntry = useUpdateLorebookEntry();
   const reorderEntries = useReorderLorebookEntries();
   const createFolder = useCreateLorebookFolder();
   const reorderFolders = useReorderLorebookFolders();
@@ -393,8 +391,7 @@ export function LorebookEditor() {
     showFolderGrouping,
     reorderEntriesPending: reorderEntries.isPending,
     reorderFoldersPending: reorderFolders.isPending,
-    onReorderEntries: reorderEntries.mutate,
-    onUpdateEntryFolder: updateEntry.mutate,
+    onReorderEntries: reorderEntries.mutateAsync,
     onReorderFolders: reorderFolders.mutate,
   });
 
@@ -453,6 +450,7 @@ export function LorebookEditor() {
     entries,
     filteredEntries,
     showFolderGrouping,
+    collapsedFolderIds,
     onTransferEntries: transferEntries.mutateAsync,
     onUnvectorizeEntries: unvectorizeEntries.mutateAsync,
   });
@@ -517,9 +515,27 @@ export function LorebookEditor() {
     ) {
       return;
     }
-    await deleteLorebook.mutateAsync(lorebookId);
-    closeDetail();
+    try {
+      await deleteLorebook.mutateAsync(lorebookId);
+      closeDetail();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete lorebook.");
+    }
   }, [lorebookId, deleteLorebook, closeDetail]);
+
+  const handleExportLorebook = useCallback(
+    async (format: ExportFormatChoice) => {
+      if (!lorebookId) return;
+      try {
+        const payload = await exportApi.lorebook(lorebookId, format);
+        exportApi.triggerDownload(payload);
+        setExportDialogOpen(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to export lorebook.");
+      }
+    },
+    [lorebookId],
+  );
 
   // ── Loading ──
   if (isLoading || !lorebook) {
@@ -538,11 +554,7 @@ export function LorebookEditor() {
         title="Export Lorebook"
         description="Native keeps Marinara folders and entry fields. Compatible exports a folderless World Info JSON for other roleplay tools."
         onClose={() => setExportDialogOpen(false)}
-        onSelect={(format: ExportFormatChoice) => {
-          if (!lorebookId) return;
-          setExportDialogOpen(false);
-          void exportApi.lorebook(lorebookId, format).then(exportApi.triggerDownload);
-        }}
+        onSelect={(format: ExportFormatChoice) => void handleExportLorebook(format)}
       />
 
       {showUnsavedWarning && (

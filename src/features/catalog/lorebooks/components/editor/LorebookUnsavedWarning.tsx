@@ -10,8 +10,8 @@ export function LorebookUnsavedWarning({
   onSaveAndClose: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 bg-amber-500/10 px-4 py-2.5 text-xs">
-      <AlertTriangle size="0.875rem" className="text-amber-400" />
+    <div role="alert" className="flex items-center gap-3 bg-amber-500/10 px-4 py-2.5 text-xs">
+      <AlertTriangle size="0.875rem" className="text-amber-400" aria-hidden="true" />
       <span className="flex-1 text-amber-200">You have unsaved changes</span>
       <button
         onClick={onKeepEditing}

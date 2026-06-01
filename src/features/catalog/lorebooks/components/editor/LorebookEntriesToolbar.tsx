@@ -42,6 +42,7 @@ export function LorebookEntriesToolbar({
         <input
           type="text"
           placeholder="Search entries…"
+          aria-label="Search entries"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           className="w-full rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-3 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
@@ -54,6 +55,7 @@ export function LorebookEntriesToolbar({
         />
         <select
           value={sort}
+          aria-label="Sort entries"
           onChange={(event) => onSortChange(event.target.value as EntrySortKey)}
           className="h-full appearance-none rounded-xl bg-[var(--secondary)] py-2.5 pl-8 pr-6 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         >

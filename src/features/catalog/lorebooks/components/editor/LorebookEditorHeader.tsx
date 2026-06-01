@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Save, Trash2, Upload } from "lucide-react";
 import type { LorebookCategory } from "../../../../../engine/contracts/types/lorebook";
 
 export function LorebookEditorHeader({
@@ -33,7 +33,7 @@ export function LorebookEditorHeader({
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-base font-semibold">{name}</h2>
         <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-          {entryCount} entries • {category}
+          {entryCount} {entryCount === 1 ? "entry" : "entries"} • {category}
         </p>
       </div>
       <button
@@ -49,16 +49,7 @@ export function LorebookEditorHeader({
         className="rounded-lg p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
         title="Export lorebook"
       >
-        <svg width="0.875rem" height="0.875rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M10 13V3m0 0l-4 4m4-4l4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-        </svg>
+        <Upload size="0.875rem" />
       </button>
       <button
         onClick={onDelete}

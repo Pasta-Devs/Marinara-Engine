@@ -173,6 +173,7 @@ export function LorebookEntryDrawer({
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const saveNowRef = useRef<() => Promise<void>>(async () => {});
+  const savePromiseRef = useRef<Promise<void> | null>(null);
   const drawerStatus = deriveStatus(entry);
 
   const clearAutosaveTimer = useCallback(() => {
@@ -194,40 +195,48 @@ export function LorebookEntryDrawer({
 
   const saveNow = useCallback(async () => {
     clearAutosaveTimer();
-    if (!dirtyRef.current || savingRef.current) return;
-
-    const versionAtStart = changeVersionRef.current;
-    const entryIdAtStart = loadedEntryIdRef.current;
-    const snapshot = formRef.current;
-    savingRef.current = true;
-    if (mountedRef.current) {
-      setSaving(true);
-      setSaveError(false);
+    if (!dirtyRef.current) return;
+    if (savePromiseRef.current) {
+      await savePromiseRef.current;
+      return;
     }
 
-    try {
-      await mutateEntryAsync({
-        lorebookId,
-        entryId: entryIdAtStart,
-        ...buildEntrySavePayload(snapshot),
-      });
-
-      if (!mountedRef.current) return;
-      if (changeVersionRef.current === versionAtStart) {
-        dirtyRef.current = false;
-        setDirty(false);
-      } else {
-        queueAutosave();
+    savePromiseRef.current = (async () => {
+      const versionAtStart = changeVersionRef.current;
+      const entryIdAtStart = loadedEntryIdRef.current;
+      const snapshot = formRef.current;
+      savingRef.current = true;
+      if (mountedRef.current) {
+        setSaving(true);
+        setSaveError(false);
       }
-    } catch {
-      if (!mountedRef.current) return;
-      dirtyRef.current = true;
-      setDirty(true);
-      setSaveError(true);
-    } finally {
-      savingRef.current = false;
-      if (mountedRef.current) setSaving(false);
-    }
+
+      try {
+        await mutateEntryAsync({
+          lorebookId,
+          entryId: entryIdAtStart,
+          ...buildEntrySavePayload(snapshot),
+        });
+
+        if (!mountedRef.current) return;
+        if (changeVersionRef.current === versionAtStart) {
+          dirtyRef.current = false;
+          setDirty(false);
+        } else {
+          queueAutosave();
+        }
+      } catch {
+        if (!mountedRef.current) return;
+        dirtyRef.current = true;
+        setDirty(true);
+        setSaveError(true);
+      } finally {
+        savingRef.current = false;
+        savePromiseRef.current = null;
+        if (mountedRef.current) setSaving(false);
+      }
+    })();
+    await savePromiseRef.current;
   }, [clearAutosaveTimer, lorebookId, mutateEntryAsync, queueAutosave]);
 
   useEffect(() => {
@@ -250,26 +259,32 @@ export function LorebookEntryDrawer({
   }, [clearAutosaveTimer, lorebookId, mutateEntry]);
 
   useEffect(() => {
-    const switched = loadedEntryIdRef.current !== entry.id;
-    if (switched && dirtyRef.current) {
-      mutateEntry({
-        lorebookId,
-        entryId: loadedEntryIdRef.current,
-        ...buildEntrySavePayload(formRef.current),
-      });
-      dirtyRef.current = false;
-      setDirty(false);
-    }
+    let cancelled = false;
 
-    if (switched || (!dirtyRef.current && !savingRef.current)) {
-      const next = { ...entry };
-      formRef.current = next;
-      setForm(next);
-      setDirty(false);
-      setSaveError(false);
-      loadedEntryIdRef.current = entry.id;
-    }
-  }, [entry, lorebookId, mutateEntry]);
+    const syncEntry = async () => {
+      const switched = loadedEntryIdRef.current !== entry.id;
+      if (switched && dirtyRef.current) {
+        await saveNowRef.current();
+        if (cancelled || dirtyRef.current) return;
+      }
+
+      if (cancelled) return;
+      if (switched || (!dirtyRef.current && !savingRef.current)) {
+        const next = { ...entry };
+        formRef.current = next;
+        setForm(next);
+        dirtyRef.current = false;
+        setDirty(false);
+        setSaveError(false);
+        loadedEntryIdRef.current = entry.id;
+      }
+    };
+
+    void syncEntry();
+    return () => {
+      cancelled = true;
+    };
+  }, [entry]);
 
   const update = useCallback(
     (patch: Partial<LorebookEntry>) => {

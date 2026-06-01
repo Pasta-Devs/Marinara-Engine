@@ -7,12 +7,6 @@ type ReorderEntriesInput = {
   folderId: string | null;
 };
 
-type UpdateEntryFolderInput = {
-  lorebookId: string;
-  entryId: string;
-  folderId: string | null;
-};
-
 type ReorderFoldersInput = {
   lorebookId: string;
   folderIds: string[];
@@ -27,7 +21,6 @@ export function useLorebookEditorDragDrop({
   reorderEntriesPending,
   reorderFoldersPending,
   onReorderEntries,
-  onUpdateEntryFolder,
   onReorderFolders,
 }: {
   lorebookId: string | null;
@@ -37,8 +30,7 @@ export function useLorebookEditorDragDrop({
   showFolderGrouping: boolean;
   reorderEntriesPending: boolean;
   reorderFoldersPending: boolean;
-  onReorderEntries: (input: ReorderEntriesInput) => void;
-  onUpdateEntryFolder: (input: UpdateEntryFolderInput) => void;
+  onReorderEntries: (input: ReorderEntriesInput) => Promise<unknown> | void;
   onReorderFolders: (input: ReorderFoldersInput) => void;
 }) {
   const [draggingEntryIdx, setDraggingEntryIdx] = useState<number | null>(null);
@@ -187,11 +179,24 @@ export function useLorebookEditorDragDrop({
         const ids = sourceList.map((entry) => entry.id);
         ids.splice(sourceIdx, 1);
         ids.splice(insertAt, 0, moved.id);
-        onReorderEntries({ lorebookId, entryIds: ids, folderId: sourceContainer });
+        void Promise.resolve(onReorderEntries({ lorebookId, entryIds: ids, folderId: sourceContainer })).catch(() => {
+          /* mutation surfaces errors through React Query */
+        });
         return;
       }
 
-      onUpdateEntryFolder({ lorebookId, entryId: moved.id, folderId: targetContainer });
+      const sourceIds = sourceList.filter((_, idx) => idx !== sourceIdx).map((entry) => entry.id);
+      const targetIds = (entriesByContainer.get(targetContainer) ?? []).map((entry) => entry.id);
+      const insertAt = Math.max(0, Math.min(targetIdx, targetIds.length));
+      targetIds.splice(insertAt, 0, moved.id);
+      void (async () => {
+        if (sourceIds.length > 0) {
+          await onReorderEntries({ lorebookId, entryIds: sourceIds, folderId: sourceContainer });
+        }
+        await onReorderEntries({ lorebookId, entryIds: targetIds, folderId: targetContainer });
+      })().catch(() => {
+        /* mutation surfaces errors through React Query */
+      });
     },
     [
       canReorderEntries,
@@ -202,7 +207,6 @@ export function useLorebookEditorDragDrop({
       entryDropIdx,
       lorebookId,
       onReorderEntries,
-      onUpdateEntryFolder,
       resetEntryDragState,
     ],
   );

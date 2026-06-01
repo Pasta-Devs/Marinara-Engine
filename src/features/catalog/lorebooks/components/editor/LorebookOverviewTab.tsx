@@ -173,6 +173,7 @@ export function LorebookOverviewTab({
                   onDirty();
                 }}
                 className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-amber-400/20"
+                aria-label={`Remove tag ${tag}`}
               >
                 <X size="0.625rem" />
               </button>
@@ -195,6 +196,7 @@ export function LorebookOverviewTab({
           <button
             onClick={addTag}
             className="rounded-xl bg-[var(--secondary)] px-3 py-2 text-xs font-medium ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+            aria-label="Add tag"
           >
             <Plus size="0.75rem" />
           </button>
@@ -311,6 +313,8 @@ export function LorebookOverviewTab({
               onDirty();
             }}
             className="transition-colors"
+            aria-label={enabled ? "Disable lorebook" : "Enable lorebook"}
+            aria-pressed={enabled}
           >
             {enabled ? (
               <ToggleRight size="1.75rem" className="text-amber-400" />
@@ -365,6 +369,8 @@ export function LorebookOverviewTab({
               onDirty();
             }}
             className="transition-colors"
+            aria-label={global ? "Disable global lorebook" : "Enable global lorebook"}
+            aria-pressed={global}
           >
             {global ? (
               <ToggleRight size="1.75rem" className="text-amber-400" />
@@ -416,6 +422,8 @@ export function LorebookOverviewTab({
                 onRecursiveChange(!recursive);
                 onDirty();
               }}
+              aria-label={recursive ? "Disable recursive scanning" : "Enable recursive scanning"}
+              aria-pressed={recursive}
             >
               {recursive ? (
                 <ToggleRight size="1.375rem" className="text-amber-400" />
@@ -455,6 +463,10 @@ export function LorebookOverviewTab({
                 onExcludeFromVectorizationChange(!excludeFromVectorization);
                 onDirty();
               }}
+              aria-label={
+                excludeFromVectorization ? "Enable semantic vectorization" : "Disable semantic vectorization"
+              }
+              aria-pressed={excludeFromVectorization}
             >
               {excludeFromVectorization ? (
                 <ToggleRight size="1.375rem" className="text-amber-400" />

@@ -20,6 +20,7 @@ export function useLorebookEntrySelection({
   entries,
   filteredEntries,
   showFolderGrouping,
+  collapsedFolderIds,
   onTransferEntries,
   onUnvectorizeEntries,
 }: {
@@ -28,6 +29,7 @@ export function useLorebookEntrySelection({
   entries: LorebookEntry[];
   filteredEntries: LorebookEntry[];
   showFolderGrouping: boolean;
+  collapsedFolderIds: Set<string>;
   onTransferEntries: TransferEntries;
   onUnvectorizeEntries: UnvectorizeEntries;
 }) {
@@ -40,8 +42,12 @@ export function useLorebookEntrySelection({
     [lorebooks, lorebookId],
   );
   const visibleEntryIds = useMemo(
-    () => (showFolderGrouping ? entries : filteredEntries).map((entry) => entry.id),
-    [entries, filteredEntries, showFolderGrouping],
+    () =>
+      (showFolderGrouping
+        ? entries.filter((entry) => !entry.folderId || !collapsedFolderIds.has(entry.folderId))
+        : filteredEntries
+      ).map((entry) => entry.id),
+    [collapsedFolderIds, entries, filteredEntries, showFolderGrouping],
   );
 
   useEffect(() => {

@@ -65,14 +65,23 @@ export function LorebookVectorizeSection({
   }, [embeddingConnections, selectedConnectionId]);
 
   const handleVectorize = async () => {
-    if (!selectedConnectionId) return;
+    const selectedConnection = embeddingConnections.find((item) => item.id === selectedConnectionId);
+    const connection = selectedConnection ?? embeddingConnections[0];
+    if (!connection) return;
+    const model = connection.embeddingModel?.trim();
+    if (!model) {
+      setResult({ success: false, message: "Selected connection has no embedding model configured." });
+      return;
+    }
+    if (connection.id !== selectedConnectionId) {
+      setSelectedConnectionId(connection.id);
+    }
     setVectorizing(true);
     setResult(null);
     try {
-      const connection = embeddingConnections.find((item) => item.id === selectedConnectionId);
       const response = await lorebookCommandApi.vectorize(lorebookId, {
-        connectionId: selectedConnectionId,
-        model: connection?.embeddingModel ?? "",
+        connectionId: connection.id,
+        model,
         onlyMissing: !allVectorized,
       });
       const data = response as { vectorized: number; total?: number; skipped?: number };

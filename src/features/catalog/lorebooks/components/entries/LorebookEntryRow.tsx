@@ -125,16 +125,31 @@ export function LorebookEntryRow({
   const lastSyncedRef = useRef(entry);
   useEffect(() => {
     if (lastSyncedRef.current === entry) return;
+    const previous = lastSyncedRef.current;
+    const entryChanged = previous.id !== entry.id;
+    const previousStatus = deriveStatus(previous);
     lastSyncedRef.current = entry;
-    setLocalEnabled(entry.enabled);
-    setLocalStatus(deriveStatus(entry));
-    setLocalPosition(entry.position);
-    setLocalDepth(entry.depth);
-    setLocalOrder(entry.order);
-    setLocalProbability(entry.probability ?? 100);
-    setLocalName(entry.name);
-    setLocalUseRegex(entry.useRegex ?? false);
-  }, [entry]);
+    if (entryChanged || localEnabled === previous.enabled) setLocalEnabled(entry.enabled);
+    if (entryChanged || localStatus === previousStatus) setLocalStatus(deriveStatus(entry));
+    if (entryChanged || localPosition === previous.position) setLocalPosition(entry.position);
+    if (entryChanged || localDepth === previous.depth) setLocalDepth(entry.depth);
+    if (entryChanged || localOrder === previous.order) setLocalOrder(entry.order);
+    if (entryChanged || localProbability === (previous.probability ?? 100)) {
+      setLocalProbability(entry.probability ?? 100);
+    }
+    if (entryChanged || localName === previous.name) setLocalName(entry.name);
+    if (entryChanged || localUseRegex === (previous.useRegex ?? false)) setLocalUseRegex(entry.useRegex ?? false);
+  }, [
+    entry,
+    localDepth,
+    localEnabled,
+    localName,
+    localOrder,
+    localPosition,
+    localProbability,
+    localStatus,
+    localUseRegex,
+  ]);
 
   useEffect(() => {
     if (!showMobileControls) return;

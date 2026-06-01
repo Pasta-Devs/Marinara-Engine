@@ -100,6 +100,7 @@ export function LinkedResourcePicker({
               <button
                 onClick={() => onRemove(item.id)}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                aria-label={`Remove ${item.name}`}
                 title={`Remove ${item.name}`}
               >
                 <X size="0.6875rem" />
@@ -113,6 +114,7 @@ export function LinkedResourcePicker({
         <button
           onClick={onOpen}
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+          aria-label={addLabel}
         >
           <Plus size="0.75rem" /> {addLabel}
         </button>
@@ -124,12 +126,14 @@ export function LinkedResourcePicker({
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder={searchPlaceholder}
+              aria-label={`Search ${label.toLowerCase()}`}
               autoFocus
               className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
             />
             <button
               onClick={onClose}
               className="text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+              aria-label={`Close ${label.toLowerCase()} picker`}
             >
               <X size="0.75rem" />
             </button>
@@ -159,7 +163,7 @@ export function LinkedResourcePicker({
                   ? "Loading..."
                   : isError
                     ? `${label} could not be loaded.`
-                    : items.length === selectedItems.length
+                    : items.length > 0 && items.every((item) => selectedIds.includes(item.id))
                       ? `All ${label.toLowerCase()} already added.`
                       : "No matches."}
               </p>
