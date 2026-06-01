@@ -104,7 +104,7 @@ pub(crate) fn materialize_connection_for_runtime(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        let api_key = decrypt_api_key(state, secret)?;
+        let api_key = decrypt_secret(state, secret)?;
         object.insert("apiKey".to_string(), Value::String(api_key));
         return Ok(connection);
     }
@@ -159,7 +159,7 @@ fn normalize_connection_secret_object(
             Some(value) if !value.is_empty() && value != API_KEY_MASK => {
                 object.insert(
                     "apiKeyEncrypted".to_string(),
-                    Value::String(encrypt_api_key(state, value)?),
+                    Value::String(encrypt_secret(state, value)?),
                 );
                 object.remove("apiKey");
             }
@@ -178,7 +178,7 @@ fn normalize_connection_secret_object(
         if value != API_KEY_MASK {
             object.insert(
                 "apiKeyEncrypted".to_string(),
-                Value::String(encrypt_api_key(state, value)?),
+                Value::String(encrypt_secret(state, value)?),
             );
         }
         object.remove("apiKey");
@@ -200,7 +200,7 @@ fn migrate_legacy_api_key(state: &AppState, id: &str, api_key: &str) -> AppResul
             }
             object.insert(
                 "apiKeyEncrypted".to_string(),
-                Value::String(encrypt_api_key(state, api_key)?),
+                Value::String(encrypt_secret(state, api_key)?),
             );
             object.remove("apiKey");
             Ok(())
@@ -208,7 +208,7 @@ fn migrate_legacy_api_key(state: &AppState, id: &str, api_key: &str) -> AppResul
         .map(|_| ())
 }
 
-fn encrypt_api_key(state: &AppState, value: &str) -> AppResult<String> {
+pub(crate) fn encrypt_secret(state: &AppState, value: &str) -> AppResult<String> {
     let key = master_key(state)?;
     let cipher = Aes256Gcm::new_from_slice(&key)
         .map_err(|_| AppError::new("connection_secret_error", "Invalid connection secret key"))?;
@@ -216,12 +216,7 @@ fn encrypt_api_key(state: &AppState, value: &str) -> AppResult<String> {
     OsRng.fill_bytes(&mut nonce);
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&nonce), value.as_bytes())
-        .map_err(|_| {
-            AppError::new(
-                "connection_secret_error",
-                "Failed to encrypt connection API key",
-            )
-        })?;
+        .map_err(|_| AppError::new("connection_secret_error", "Failed to encrypt secret"))?;
     Ok(format!(
         "{SECRET_VERSION}:{}:{}",
         general_purpose::STANDARD_NO_PAD.encode(nonce),
@@ -229,7 +224,7 @@ fn encrypt_api_key(state: &AppState, value: &str) -> AppResult<String> {
     ))
 }
 
-fn decrypt_api_key(state: &AppState, value: &str) -> AppResult<String> {
+pub(crate) fn decrypt_secret(state: &AppState, value: &str) -> AppResult<String> {
     let mut parts = value.split(':');
     let version = parts.next().unwrap_or_default();
     let nonce = parts.next().unwrap_or_default();
@@ -258,7 +253,7 @@ fn decrypt_api_key(state: &AppState, value: &str) -> AppResult<String> {
 fn decrypt_error() -> AppError {
     AppError::new(
         "connection_secret_error",
-        "Connection API key could not be decrypted. Re-enter the API key in Connections.",
+        "Stored secret could not be decrypted. Re-enter the credential.",
     )
 }
 

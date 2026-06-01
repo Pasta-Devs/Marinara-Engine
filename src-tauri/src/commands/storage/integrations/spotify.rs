@@ -1,3 +1,4 @@
+use super::super::connection_secrets;
 use super::super::images::percent_encode_component;
 use super::super::shared::*;
 use super::super::*;
@@ -14,6 +15,8 @@ const LIKED_SONG_EXAMPLE_LIMIT: u32 = 50;
 const SPOTIFY_MIN_TITLE_SIMILARITY: f64 = 0.7;
 const SPOTIFY_MIN_ARTIST_SIMILARITY: f64 = 0.2;
 const SPOTIFY_MIN_MATCH_SCORE: f64 = 70.0;
+const SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY: &str = "spotifyAccessTokenEncrypted";
+const SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY: &str = "spotifyRefreshTokenEncrypted";
 
 #[derive(Clone)]
 struct SpotifyTrack {
@@ -114,8 +117,59 @@ async fn search_tracks(state: &AppState, body: Value) -> AppResult<Value> {
         .unwrap_or_default();
     let route = ParsedPath::new("");
     let credentials = resolve_credentials(state, &route, &body).await?;
+    let source_type = spotify_source_type(&body);
+    if source_type == "liked" {
+        let tracks = spotify_candidate_tracks_from_path(
+            &credentials,
+            &format!("/me/tracks?limit={limit}&offset=0"),
+            &recent,
+        )
+        .await?;
+        return Ok(json!({
+            "enabled": true,
+            "tracks": tracks,
+            "candidateMode": "liked",
+            "source": "liked"
+        }));
+    }
+    if source_type == "playlist" {
+        let playlist_id = body
+            .get("playlistId")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                AppError::invalid_input("Spotify playlist source requires playlistId")
+            })?;
+        let tracks = spotify_candidate_tracks_from_path(
+            &credentials,
+            &format!(
+                "/playlists/{}/tracks?limit={limit}&offset=0",
+                percent_encode_component(playlist_id)
+            ),
+            &recent,
+        )
+        .await?;
+        return Ok(json!({
+            "enabled": true,
+            "tracks": tracks,
+            "candidateMode": "playlist",
+            "source": "playlist",
+            "playlistId": playlist_id,
+            "playlistName": body.get("playlistName").cloned().unwrap_or(Value::Null)
+        }));
+    }
+    let query = if source_type == "artist" {
+        let artist = body
+            .get("artist")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| AppError::invalid_input("Spotify artist source requires artist"))?;
+        format!("artist:\"{artist}\" {query}")
+    } else {
+        query.to_string()
+    };
     let params = form_urlencoded(&[
-        ("q", query),
+        ("q", &query),
         ("type", "track"),
         ("limit", &limit.to_string()),
     ]);
@@ -162,9 +216,68 @@ async fn search_tracks(state: &AppState, body: Value) -> AppResult<Value> {
     Ok(json!({
         "enabled": true,
         "tracks": tracks,
-        "candidateMode": "spotify_search",
-        "source": "spotify"
+        "candidateMode": if source_type == "artist" { "artist" } else { "spotify_search" },
+        "source": if source_type == "artist" { "artist" } else { "spotify" },
+        "artist": body.get("artist").cloned().unwrap_or(Value::Null)
     }))
+}
+
+fn spotify_source_type(body: &Value) -> &str {
+    match body
+        .get("sourceType")
+        .and_then(Value::as_str)
+        .unwrap_or("any")
+        .trim()
+    {
+        "liked" => "liked",
+        "playlist" => "playlist",
+        "artist" => "artist",
+        _ => "any",
+    }
+}
+
+async fn spotify_candidate_tracks_from_path(
+    credentials: &SpotifyCredentials,
+    path: &str,
+    recent: &[String],
+) -> AppResult<Vec<Value>> {
+    let response = spotify_api(credentials, path, "GET", None).await?;
+    if !(200..300).contains(&response.status) {
+        return Err(AppError::with_details(
+            "spotify_api_error",
+            "Spotify source tracks failed",
+            json!({ "status": response.status, "body": response.body }),
+        ));
+    }
+    let recent = recent
+        .iter()
+        .map(|uri| uri.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    let all_tracks = response
+        .json
+        .get("items")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|item| item.get("track").cloned().or(Some(item)))
+        .filter_map(map_track_candidate)
+        .collect::<Vec<_>>();
+    let filtered = all_tracks
+        .iter()
+        .filter(|track| {
+            track
+                .get("uri")
+                .and_then(Value::as_str)
+                .is_some_and(|uri| !recent.contains(uri))
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    Ok(if filtered.is_empty() {
+        all_tracks
+    } else {
+        filtered
+    })
 }
 
 async fn play_track(state: &AppState, body: Value) -> AppResult<Value> {
@@ -172,7 +285,11 @@ async fn play_track(state: &AppState, body: Value) -> AppResult<Value> {
         .get("track")
         .ok_or_else(|| AppError::invalid_input("track is required"))?;
     let device_id = body.get("deviceId").and_then(Value::as_str);
-    game_spotify_play(state, track, device_id).await
+    let mobile_device_only = body
+        .get("mobileDeviceOnly")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    game_spotify_play(state, track, device_id, mobile_device_only).await
 }
 
 async fn playlist_tracks(state: &AppState, body: Value) -> AppResult<Value> {
@@ -232,6 +349,7 @@ pub(crate) async fn game_spotify_play(
     state: &AppState,
     track: &Value,
     device_id: Option<&str>,
+    mobile_device_only: bool,
 ) -> AppResult<Value> {
     let uri = track
         .get("uri")
@@ -241,8 +359,16 @@ pub(crate) async fn game_spotify_play(
     let route = ParsedPath::new("");
     let body = Value::Null;
     let credentials = resolve_credentials(state, &route, &body).await?;
-    let path = spotify_control_path("/me/player/play", device_id);
-    let response = spotify_api(&credentials, &path, "PUT", Some(json!({ "uris": [uri] }))).await?;
+    let device_id = spotify_scene_device_id(&credentials, device_id, mobile_device_only).await?;
+    let _ = spotify_player_repeat_command(&credentials, "off", device_id.as_deref()).await;
+    let response = spotify_api_with_device_retry(
+        &credentials,
+        "/me/player/play",
+        device_id.as_deref(),
+        "PUT",
+        Some(json!({ "uris": [uri] })),
+    )
+    .await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
         return Err(AppError::with_details(
             "spotify_api_error",
@@ -250,7 +376,179 @@ pub(crate) async fn game_spotify_play(
             json!({ "status": response.status, "body": response.body }),
         ));
     }
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    let _ = spotify_player_repeat_command(&credentials, "track", device_id.as_deref()).await;
     Ok(json!({ "played": true, "track": track }))
+}
+
+async fn spotify_scene_device_id(
+    credentials: &SpotifyCredentials,
+    requested_device_id: Option<&str>,
+    mobile_device_only: bool,
+) -> AppResult<Option<String>> {
+    if requested_device_id.is_some_and(|value| !value.trim().is_empty()) {
+        return Ok(requested_device_id.map(ToOwned::to_owned));
+    }
+    if !mobile_device_only {
+        if let Some(active) = spotify_active_device_id(credentials).await? {
+            return Ok(Some(active));
+        }
+    }
+    spotify_available_device_id(credentials, mobile_device_only)
+        .await?
+        .map(Some)
+        .ok_or_else(|| {
+            AppError::new(
+                "spotify_no_device",
+                if mobile_device_only {
+                    "No available personal Spotify device was found. Open Spotify on your phone or tablet and try again."
+                } else {
+                    "No available Spotify playback device was found. Open Spotify on a device and try again."
+                },
+            )
+        })
+}
+
+async fn spotify_active_device_id(credentials: &SpotifyCredentials) -> AppResult<Option<String>> {
+    let response = spotify_api(credentials, "/me/player", "GET", None).await?;
+    if response.status == 204 || !(200..300).contains(&response.status) {
+        return Ok(None);
+    }
+    Ok(response
+        .json
+        .get("device")
+        .and_then(|device| device.get("id"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned))
+}
+
+async fn spotify_available_device_id(
+    credentials: &SpotifyCredentials,
+    mobile_device_only: bool,
+) -> AppResult<Option<String>> {
+    let response = spotify_api(credentials, "/me/player/devices", "GET", None).await?;
+    if !(200..300).contains(&response.status) {
+        return Ok(None);
+    }
+    let devices = response
+        .json
+        .get("devices")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let candidates = devices
+        .into_iter()
+        .filter(|device| spotify_device_is_usable(device, mobile_device_only))
+        .collect::<Vec<_>>();
+    let selected = candidates
+        .iter()
+        .find(|device| {
+            device
+                .get("is_active")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .or_else(|| candidates.first());
+    Ok(selected.and_then(|device| {
+        device
+            .get("id")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+    }))
+}
+
+fn spotify_device_is_usable(device: &Value, mobile_device_only: bool) -> bool {
+    let has_id = device
+        .get("id")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty());
+    let is_restricted = device
+        .get("is_restricted")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let is_mobile =
+        is_personal_mobile_spotify_device_type(device.get("type").and_then(Value::as_str));
+    has_id && !is_restricted && (!mobile_device_only || is_mobile)
+}
+
+fn is_personal_mobile_spotify_device_type(device_type: Option<&str>) -> bool {
+    matches!(
+        device_type
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+            .as_str(),
+        "smartphone" | "tablet"
+    )
+}
+
+async fn spotify_api_with_device_retry(
+    credentials: &SpotifyCredentials,
+    base_path: &str,
+    device_id: Option<&str>,
+    method: &str,
+    payload: Option<Value>,
+) -> AppResult<SpotifyResponse> {
+    let path = spotify_control_path(base_path, device_id);
+    let response = spotify_api(credentials, &path, method, payload.clone()).await?;
+    if spotify_response_ok(&response) || !spotify_should_retry_device(&response, device_id) {
+        return Ok(response);
+    }
+    if let Some(active_device_id) = spotify_active_device_id(credentials).await? {
+        if Some(active_device_id.as_str()) != device_id {
+            let path = spotify_control_path(base_path, Some(&active_device_id));
+            let retry = spotify_api(credentials, &path, method, payload.clone()).await?;
+            if spotify_response_ok(&retry)
+                || !spotify_should_retry_device(&retry, Some(&active_device_id))
+            {
+                return Ok(retry);
+            }
+        }
+    }
+    let fallback = spotify_available_device_id(credentials, false).await?;
+    if let Some(fallback_device_id) = fallback.filter(|id| Some(id.as_str()) != device_id) {
+        let path = spotify_control_path(base_path, Some(&fallback_device_id));
+        return spotify_api(credentials, &path, method, payload).await;
+    }
+    Ok(response)
+}
+
+async fn spotify_player_repeat_command(
+    credentials: &SpotifyCredentials,
+    repeat: &str,
+    device_id: Option<&str>,
+) -> AppResult<SpotifyResponse> {
+    spotify_api_with_device_retry(
+        credentials,
+        &format!("/me/player/repeat?state={repeat}"),
+        device_id,
+        "PUT",
+        None,
+    )
+    .await
+}
+
+fn spotify_response_ok(response: &SpotifyResponse) -> bool {
+    (200..300).contains(&response.status) || response.status == 204
+}
+
+fn spotify_should_retry_device(response: &SpotifyResponse, device_id: Option<&str>) -> bool {
+    if device_id.map(str::trim).unwrap_or_default().is_empty() {
+        return response.status == 404
+            && response
+                .body
+                .to_ascii_lowercase()
+                .contains("no active device");
+    }
+    if !matches!(response.status, 403 | 404) {
+        return false;
+    }
+    let body = response.body.to_ascii_lowercase();
+    body.contains("device")
+        || body.contains("restriction")
+        || body.contains("not found")
+        || body.contains("no active")
 }
 
 fn authorize(state: &AppState, route: &ParsedPath, body: &Value) -> AppResult<Value> {
@@ -348,15 +646,22 @@ fn status(state: &AppState, route: &ParsedPath, body: &Value) -> AppResult<Value
     let agent_id = string_param(route, body, "agentId")
         .ok_or_else(|| AppError::invalid_input("agentId is required"))?;
     let agent = get_required(state, "agents", &agent_id)?;
-    let settings = agent_settings(&agent);
-    let has_token = settings
-        .get("spotifyAccessToken")
-        .and_then(Value::as_str)
-        .is_some_and(|value| !value.is_empty());
-    let has_refresh = settings
-        .get("spotifyRefreshToken")
-        .and_then(Value::as_str)
-        .is_some_and(|value| !value.is_empty());
+    let mut settings = agent_settings(&agent);
+    migrate_legacy_spotify_tokens(state, &agent_id, &mut settings)?;
+    let has_token = spotify_stored_token(
+        state,
+        &settings,
+        "spotifyAccessToken",
+        SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY,
+    )?
+    .is_some_and(|value| !value.is_empty());
+    let has_refresh = spotify_stored_token(
+        state,
+        &settings,
+        "spotifyRefreshToken",
+        SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
+    )?
+    .is_some_and(|value| !value.is_empty());
     let expires_at = settings
         .get("spotifyExpiresAt")
         .and_then(Value::as_u64)
@@ -1362,8 +1667,7 @@ async fn player_control(
 ) -> AppResult<Value> {
     let credentials = resolve_credentials(state, route, &body).await?;
     let device_id = body.get("deviceId").and_then(Value::as_str);
-    let path = spotify_control_path(path, device_id);
-    let payload = if path.ends_with("/play") || path.contains("/play?") {
+    let payload = if path.ends_with("/play") {
         let mut object = Map::new();
         if let Some(context_uri) = body
             .get("contextUri")
@@ -1400,7 +1704,8 @@ async fn player_control(
     } else {
         None
     };
-    let response = spotify_api(&credentials, &path, method, payload).await?;
+    let response =
+        spotify_api_with_device_retry(&credentials, path, device_id, method, payload).await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
         return Err(AppError::with_details(
             "spotify_api_error",
@@ -1419,8 +1724,14 @@ async fn player_volume(state: &AppState, route: &ParsedPath, body: Value) -> App
         .unwrap_or(50)
         .clamp(0, 100);
     let base = format!("/me/player/volume?volume_percent={volume}");
-    let path = spotify_control_path(&base, body.get("deviceId").and_then(Value::as_str));
-    let response = spotify_api(&credentials, &path, "PUT", None).await?;
+    let response = spotify_api_with_device_retry(
+        &credentials,
+        &base,
+        body.get("deviceId").and_then(Value::as_str),
+        "PUT",
+        None,
+    )
+    .await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
         let body_text = response.body.to_ascii_lowercase();
         if body_text.contains("cannot control device volume") {
@@ -1446,8 +1757,14 @@ async fn player_shuffle(state: &AppState, route: &ParsedPath, body: Value) -> Ap
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let base = format!("/me/player/shuffle?state={enabled}");
-    let path = spotify_control_path(&base, body.get("deviceId").and_then(Value::as_str));
-    let response = spotify_api(&credentials, &path, "PUT", None).await?;
+    let response = spotify_api_with_device_retry(
+        &credentials,
+        &base,
+        body.get("deviceId").and_then(Value::as_str),
+        "PUT",
+        None,
+    )
+    .await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
         return Err(AppError::with_details(
             "spotify_api_error",
@@ -1467,8 +1784,14 @@ async fn player_repeat(state: &AppState, route: &ParsedPath, body: Value) -> App
         ));
     }
     let base = format!("/me/player/repeat?state={repeat}");
-    let path = spotify_control_path(&base, body.get("deviceId").and_then(Value::as_str));
-    let response = spotify_api(&credentials, &path, "PUT", None).await?;
+    let response = spotify_api_with_device_retry(
+        &credentials,
+        &base,
+        body.get("deviceId").and_then(Value::as_str),
+        "PUT",
+        None,
+    )
+    .await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
         return Err(AppError::with_details(
             "spotify_api_error",
@@ -1508,7 +1831,9 @@ fn disconnect(state: &AppState, body: Value) -> AppResult<Value> {
     let mut settings = agent_settings(&agent);
     for key in [
         "spotifyAccessToken",
+        SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY,
         "spotifyRefreshToken",
+        SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
         "spotifyExpiresAt",
         "spotifyScope",
     ] {
@@ -1541,12 +1866,15 @@ async fn resolve_credentials(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let settings = agent_settings(&agent);
-    let refresh_token = settings
-        .get("spotifyRefreshToken")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+    let mut settings = agent_settings(&agent);
+    migrate_legacy_spotify_tokens(state, &agent_id, &mut settings)?;
+    let refresh_token = spotify_stored_token(
+        state,
+        &settings,
+        "spotifyRefreshToken",
+        SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
+    )?
+    .unwrap_or_default();
     let client_id = settings
         .get("spotifyClientId")
         .and_then(Value::as_str)
@@ -1557,11 +1885,13 @@ async fn resolve_credentials(
             "Spotify is not connected. Open the Spotify DJ agent and connect your account.",
         ));
     }
-    let mut access_token = settings
-        .get("spotifyAccessToken")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+    let mut access_token = spotify_stored_token(
+        state,
+        &settings,
+        "spotifyAccessToken",
+        SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY,
+    )?
+    .unwrap_or_default();
     let mut expires_at = settings
         .get("spotifyExpiresAt")
         .and_then(Value::as_u64)
@@ -1581,7 +1911,17 @@ async fn resolve_credentials(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
-        expires_at = token.get("expiresAt").and_then(Value::as_u64).unwrap_or(0) as u128;
+        expires_at = token
+            .get("expiresAt")
+            .and_then(Value::as_u64)
+            .map(u128::from)
+            .or_else(|| {
+                token
+                    .get("expires_in")
+                    .and_then(Value::as_u64)
+                    .map(|expires_in| now_millis() + (u128::from(expires_in) * 1000))
+            })
+            .unwrap_or(0);
         scopes = scope_list(token.get("scope").and_then(Value::as_str).unwrap_or(""));
     }
     if access_token.is_empty() || (expires_at > 0 && now_millis() > expires_at) {
@@ -1611,18 +1951,22 @@ fn find_spotify_agent(state: &AppState, preferred_agent_id: Option<&str>) -> App
 
 async fn refresh_agent_token(state: &AppState, agent_id: &str) -> AppResult<Value> {
     let agent = get_required(state, "agents", agent_id)?;
-    let settings = agent_settings(&agent);
-    let refresh_token = settings
-        .get("spotifyRefreshToken")
-        .and_then(Value::as_str)
-        .ok_or_else(|| AppError::invalid_input("No Spotify refresh token configured"))?;
+    let mut settings = agent_settings(&agent);
+    migrate_legacy_spotify_tokens(state, agent_id, &mut settings)?;
+    let refresh_token = spotify_stored_token(
+        state,
+        &settings,
+        "spotifyRefreshToken",
+        SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
+    )?
+    .ok_or_else(|| AppError::invalid_input("No Spotify refresh token configured"))?;
     let client_id = settings
         .get("spotifyClientId")
         .and_then(Value::as_str)
         .ok_or_else(|| AppError::invalid_input("No Spotify client ID configured"))?;
     let token = spotify_token_request(&[
         ("grant_type", "refresh_token"),
-        ("refresh_token", refresh_token),
+        ("refresh_token", refresh_token.as_str()),
         ("client_id", client_id),
     ])
     .await?;
@@ -1645,9 +1989,18 @@ fn save_spotify_tokens(
     let refresh_token = token
         .get("refresh_token")
         .and_then(Value::as_str)
-        .or_else(|| settings.get("spotifyRefreshToken").and_then(Value::as_str))
-        .unwrap_or("")
-        .to_string();
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            spotify_stored_token(
+                state,
+                &settings,
+                "spotifyRefreshToken",
+                SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
+            )
+            .ok()
+            .flatten()
+        })
+        .unwrap_or_default();
     let expires_in = token
         .get("expires_in")
         .and_then(Value::as_u64)
@@ -1659,13 +2012,15 @@ fn save_spotify_tokens(
         .unwrap_or("")
         .to_string();
     settings.insert(
-        "spotifyAccessToken".to_string(),
-        Value::String(access_token.to_string()),
+        SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY.to_string(),
+        Value::String(connection_secrets::encrypt_secret(state, access_token)?),
     );
+    settings.remove("spotifyAccessToken");
     settings.insert(
-        "spotifyRefreshToken".to_string(),
-        Value::String(refresh_token),
+        SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY.to_string(),
+        Value::String(connection_secrets::encrypt_secret(state, &refresh_token)?),
     );
+    settings.remove("spotifyRefreshToken");
     settings.insert(
         "spotifyExpiresAt".to_string(),
         json!(now_millis() + (expires_in as u128 * 1000)),
@@ -1680,6 +2035,74 @@ fn save_spotify_tokens(
         agent_id,
         json!({ "settings": Value::Object(settings) }),
     )?;
+    Ok(())
+}
+
+fn spotify_stored_token(
+    state: &AppState,
+    settings: &Map<String, Value>,
+    plain_key: &str,
+    encrypted_key: &str,
+) -> AppResult<Option<String>> {
+    if let Some(encrypted) = settings
+        .get(encrypted_key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return connection_secrets::decrypt_secret(state, encrypted).map(Some);
+    }
+    Ok(settings
+        .get(plain_key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned))
+}
+
+fn migrate_legacy_spotify_tokens(
+    state: &AppState,
+    agent_id: &str,
+    settings: &mut Map<String, Value>,
+) -> AppResult<()> {
+    let mut changed = false;
+    for (plain_key, encrypted_key) in [
+        ("spotifyAccessToken", SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY),
+        ("spotifyRefreshToken", SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY),
+    ] {
+        let has_encrypted = settings
+            .get(encrypted_key)
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty());
+        if has_encrypted {
+            if settings.remove(plain_key).is_some() {
+                changed = true;
+            }
+            continue;
+        }
+        let Some(plain) = settings
+            .get(plain_key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+        else {
+            continue;
+        };
+        settings.insert(
+            encrypted_key.to_string(),
+            Value::String(connection_secrets::encrypt_secret(state, &plain)?),
+        );
+        settings.remove(plain_key);
+        changed = true;
+    }
+    if changed {
+        state.storage.patch(
+            "agents",
+            agent_id,
+            json!({ "settings": Value::Object(settings.clone()) }),
+        )?;
+    }
     Ok(())
 }
 
@@ -1968,4 +2391,140 @@ fn percent_decode_component(value: &str) -> String {
         }
     }
     String::from_utf8_lossy(&output).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn test_state(label: &str) -> (TempRoot, AppState) {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let root = TempRoot(std::env::temp_dir().join(format!("marinara-spotify-{label}-{nonce}")));
+        let state =
+            AppState::from_data_dir(&root.0, Vec::new()).expect("test app state should initialize");
+        (root, state)
+    }
+
+    #[test]
+    fn spotify_source_type_accepts_supported_sources_only() {
+        assert_eq!(
+            spotify_source_type(&json!({ "sourceType": "liked" })),
+            "liked"
+        );
+        assert_eq!(
+            spotify_source_type(&json!({ "sourceType": "playlist" })),
+            "playlist"
+        );
+        assert_eq!(
+            spotify_source_type(&json!({ "sourceType": "artist" })),
+            "artist"
+        );
+        assert_eq!(
+            spotify_source_type(&json!({ "sourceType": "unexpected" })),
+            "any"
+        );
+        assert_eq!(spotify_source_type(&json!({})), "any");
+    }
+
+    #[test]
+    fn spotify_device_retry_is_limited_to_device_failures() {
+        let stale_device = SpotifyResponse {
+            status: 404,
+            body: r#"{"error":{"message":"Device not found"}}"#.to_string(),
+            json: json!({}),
+        };
+        assert!(spotify_should_retry_device(
+            &stale_device,
+            Some("stale-device")
+        ));
+
+        let no_active_device = SpotifyResponse {
+            status: 404,
+            body: r#"{"error":{"message":"No active device found"}}"#.to_string(),
+            json: json!({}),
+        };
+        assert!(spotify_should_retry_device(&no_active_device, None));
+
+        let auth_error = SpotifyResponse {
+            status: 401,
+            body: r#"{"error":{"message":"The access token expired"}}"#.to_string(),
+            json: json!({}),
+        };
+        assert!(!spotify_should_retry_device(&auth_error, Some("device")));
+    }
+
+    #[test]
+    fn spotify_legacy_plaintext_tokens_migrate_to_encrypted_settings() {
+        let (_root, state) = test_state("token-migration");
+        state
+            .storage
+            .upsert_with_id(
+                "agents",
+                "spotify",
+                json!({
+                    "id": "spotify",
+                    "type": "spotify",
+                    "settings": {
+                        "spotifyAccessToken": "access-secret",
+                        "spotifyRefreshToken": "refresh-secret",
+                        "spotifyClientId": "client-id"
+                    }
+                }),
+            )
+            .expect("spotify agent should be stored");
+
+        let agent = get_required(&state, "agents", "spotify").expect("spotify agent should read");
+        let mut settings = agent_settings(&agent);
+        migrate_legacy_spotify_tokens(&state, "spotify", &mut settings)
+            .expect("legacy tokens should migrate");
+
+        let raw = state
+            .storage
+            .get("agents", "spotify")
+            .expect("agent read should succeed")
+            .expect("agent should exist");
+        let migrated = agent_settings(&raw);
+        assert!(migrated.get("spotifyAccessToken").is_none());
+        assert!(migrated.get("spotifyRefreshToken").is_none());
+        assert_ne!(
+            migrated
+                .get(SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY)
+                .and_then(Value::as_str),
+            Some("access-secret")
+        );
+        assert_eq!(
+            spotify_stored_token(
+                &state,
+                &migrated,
+                "spotifyAccessToken",
+                SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY,
+            )
+            .expect("access token should decrypt"),
+            Some("access-secret".to_string())
+        );
+        assert_eq!(
+            spotify_stored_token(
+                &state,
+                &migrated,
+                "spotifyRefreshToken",
+                SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY,
+            )
+            .expect("refresh token should decrypt"),
+            Some("refresh-secret".to_string())
+        );
+    }
 }

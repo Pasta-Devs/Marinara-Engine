@@ -1532,6 +1532,20 @@ function recentSpotifyTracks(payload: Record<string, unknown>): string[] {
     : [];
 }
 
+async function gameSpotifySourceSettings(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const chatId = readTrimmed(payload.chatId);
+  if (!chatId) return {};
+  const meta = chatMeta(await getChat(chatId));
+  const setup = asRecord(meta.gameSetupConfig);
+  const sourceType = readTrimmed(meta.gameSpotifySourceType) || readTrimmed(setup.spotifySourceType) || "any";
+  return {
+    sourceType,
+    playlistId: readTrimmed(meta.gameSpotifyPlaylistId) || readTrimmed(setup.spotifyPlaylistId) || null,
+    playlistName: readTrimmed(meta.gameSpotifyPlaylistName) || readTrimmed(setup.spotifyPlaylistName) || null,
+    artist: readTrimmed(meta.gameSpotifyArtist) || readTrimmed(setup.spotifyArtist) || null,
+  };
+}
+
 async function llmJson(input: {
   connectionId?: string | null;
   system: string;
@@ -2505,10 +2519,12 @@ export const gameApi = {
 
   async spotifyCandidates(payload: Record<string, unknown>) {
     try {
+      const source = await gameSpotifySourceSettings(payload);
       return await spotifyApi.searchTracks({
         query: spotifyQuery(payload),
         limit: Math.max(1, Math.min(50, Number(payload.limit ?? 50))),
         recentTrackUris: recentSpotifyTracks(payload),
+        ...source,
       });
     } catch (error) {
       return { enabled: false, tracks: [], error: error instanceof Error ? error.message : "Spotify search failed" };
