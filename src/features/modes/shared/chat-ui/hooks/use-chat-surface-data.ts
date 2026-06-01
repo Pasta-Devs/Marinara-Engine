@@ -6,10 +6,7 @@ import {
   type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
-import {
-  characterAvatarUrl,
-  useCharactersByIds,
-} from "../../../../catalog/characters/index";
+import { characterAvatarUrl, useCharactersByIds } from "../../../../catalog/characters/index";
 import { useActivePersona, usePersona } from "../../../../catalog/personas/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
@@ -284,6 +281,8 @@ export function useChatSurfaceData({
           postHistoryInstructions:
             readString(parsed.post_history_instructions) || readString(parsed.postHistoryInstructions),
           avatarUrl: characterAvatarUrl(character),
+          avatarFilePath: character.avatarFilePath ?? null,
+          avatarFilename: character.avatarFilename ?? null,
           nameColor: readString(extensions.nameColor) || undefined,
           dialogueColor: readString(extensions.dialogueColor) || undefined,
           boxColor: readString(extensions.boxColor) || undefined,

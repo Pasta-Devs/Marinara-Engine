@@ -13,6 +13,8 @@ export type CharacterMap = Map<
     systemPrompt?: string;
     postHistoryInstructions?: string;
     avatarUrl: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
     nameColor?: string;
     dialogueColor?: string;
     boxColor?: string;
