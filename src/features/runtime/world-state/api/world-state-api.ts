@@ -124,6 +124,9 @@ function canUseChatGameStateFallback(
   const exact = stateTarget.messageId === target.messageId && stateTarget.swipeIndex === target.swipeIndex;
   if (options.requestedTarget) return exact;
   if (exact && options.hasVisibleTarget) return true;
+  if (options.hasVisibleTarget && stateTarget.messageId) {
+    return options.activeTargetKeys?.has(targetKey(stateTarget)) ?? false;
+  }
   return exact && (options.activeTargetKeys?.has(targetKey(stateTarget)) ?? false);
 }
 
@@ -180,13 +183,20 @@ async function getWorldState(
     throwIfAborted(init);
     if (snapshot) return snapshot;
   }
-  return canUseChatGameStateFallback(chat?.gameState, target, {
-    activeTargetKeys: visibleContext?.activeTargetKeys,
-    hasVisibleTarget: !!visibleContext?.target,
-    requestedTarget: !!requestedTarget,
-  }) && chat?.gameState
-    ? withTarget(chat.gameState, chatId, target)
-    : null;
+  if (
+    canUseChatGameStateFallback(chat?.gameState, target, {
+      activeTargetKeys: visibleContext?.activeTargetKeys,
+      hasVisibleTarget: !!visibleContext?.target,
+      requestedTarget: !!requestedTarget,
+    }) &&
+    chat?.gameState
+  ) {
+    return withTarget(chat.gameState, chatId, target);
+  }
+  const latestSnapshot = !requestedTarget && target ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
+  throwIfAborted(init);
+  if (latestSnapshot) return withTarget(latestSnapshot, chatId, target);
+  return null;
 }
 
 export const worldStateApi: WorldStateApi = {

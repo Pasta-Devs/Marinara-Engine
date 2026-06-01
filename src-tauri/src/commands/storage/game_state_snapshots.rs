@@ -207,6 +207,7 @@ pub(crate) fn save_tracker_snapshot(
     let mut snapshot = normalize_tracker_snapshot(chat_id, body)?;
     let message_id =
         tracker_message_id(string_value(&snapshot, "messageId").as_deref())?.to_string();
+    ensure_tracker_target_message_belongs_to_chat(state, chat_id, &message_id)?;
     let swipe_index = parse_swipe_index(snapshot.get("swipeIndex"))?;
     let mut existing = tracker_snapshots_for_target(state, chat_id, &message_id, swipe_index)?;
     sort_newest_first(&mut existing);
@@ -292,6 +293,34 @@ fn tracker_snapshots_for_target(
         .filter(is_tracker_snapshot)
         .filter(|row| non_negative_i64_value(row.get("swipeIndex")) == Some(swipe_index))
         .collect())
+}
+
+fn ensure_tracker_target_message_belongs_to_chat(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+) -> AppResult<()> {
+    let chat_id = required_chat_id(chat_id)?;
+    let message_id = tracker_message_id(Some(message_id))?;
+    if message_id.is_empty() {
+        return Ok(());
+    }
+    let Some(message) = state.storage.get("messages", message_id)? else {
+        return Err(AppError::invalid_input(
+            "Tracker snapshot target message was not found",
+        ));
+    };
+    let message_chat_id = message
+        .get("chatId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if message_chat_id != chat_id {
+        return Err(AppError::invalid_input(
+            "Tracker snapshot target message does not belong to the target chat",
+        ));
+    }
+    Ok(())
 }
 
 fn visible_tracker_snapshot(state: &AppState, chat_id: &str) -> AppResult<Option<Value>> {
@@ -600,6 +629,37 @@ fn parse_timestamp(value: Option<&Value>) -> Option<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    struct TempRoot(std::path::PathBuf);
+
+    impl TempRoot {
+        fn new(test_name: &str) -> Self {
+            let suffix = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after unix epoch")
+                .as_nanos();
+            Self(
+                std::env::temp_dir()
+                    .join(format!("marinara-tracker-snapshot-{test_name}-{suffix}")),
+            )
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn test_state(test_name: &str) -> (TempRoot, AppState) {
+        let root = TempRoot::new(test_name);
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        (root, state)
+    }
 
     #[test]
     fn normalize_tracker_snapshot_uses_repo_json_shape() {
@@ -686,6 +746,98 @@ mod tests {
             }),
         )
         .expect_err("malformed swipe index should fail");
+
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn save_tracker_snapshot_allows_message_from_same_chat() {
+        let (_root, state) = test_state("same-chat-message");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "turn"
+                }),
+            )
+            .expect("message should be created");
+
+        let snapshot = save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-1",
+                "location": "Harbor"
+            }),
+        )
+        .expect("same-chat message should save");
+
+        assert_eq!(snapshot["messageId"], "message-1");
+        assert_eq!(snapshot["location"], "Harbor");
+    }
+
+    #[test]
+    fn save_tracker_snapshot_allows_bootstrap_without_message_record() {
+        let (_root, state) = test_state("bootstrap-target");
+
+        let snapshot = save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "",
+                "location": "Harbor"
+            }),
+        )
+        .expect("bootstrap target should save without a message");
+
+        assert_eq!(snapshot["messageId"], "");
+        assert_eq!(snapshot["location"], "Harbor");
+    }
+
+    #[test]
+    fn save_tracker_snapshot_rejects_missing_target_message() {
+        let (_root, state) = test_state("missing-message");
+
+        let error = save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "missing-message"
+            }),
+        )
+        .expect_err("missing target message should fail");
+
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn save_tracker_snapshot_rejects_message_from_another_chat() {
+        let (_root, state) = test_state("wrong-chat-message");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-2",
+                    "role": "assistant",
+                    "content": "turn"
+                }),
+            )
+            .expect("message should be created");
+
+        let error = save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-1"
+            }),
+        )
+        .expect_err("cross-chat target message should fail");
 
         assert_eq!(error.code, "invalid_input");
     }
