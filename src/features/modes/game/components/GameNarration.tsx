@@ -418,7 +418,7 @@ interface GameNarrationProps {
   /** Edit the backing content of a user-authored message. */
   onEditMessage?: (messageId: string, newContent: string) => void;
   /** Create a new Game Mode branch from a backing chat message. */
-  onBranchMessage?: (messageId: string) => void;
+  onBranchMessage?: (messageId: string, segmentIndex?: number | null) => void;
   /** Called when user edits a narration/dialogue segment. */
   onEditSegment?: (messageId: string, segmentIndex: number, edit: GameSegmentEdit) => void;
   /** Map of "messageId:segmentIndex" → segment overlay edits */
@@ -4262,8 +4262,13 @@ export function GameNarration({
                       const isSelectedForDeletion =
                         multiSelectMode && !!sourceMessageId && selectedMessageIds?.has(sourceMessageId) === true;
                       const showDeleteButton = canDeleteMessage || canDeleteThisSegment;
+                      const isCanonicalBranchRow = hasSourceSegmentIndex ? sourceSegmentIndex === 0 : true;
                       const canBranchFromMessage =
-                        !!onBranchMessage && !!sourceMessageId && sourceMessageId !== "party-chat";
+                        !!onBranchMessage &&
+                        !!sourceMessageId &&
+                        sourceMessageId !== "party-chat" &&
+                        sourceRole !== "system" &&
+                        isCanonicalBranchRow;
                       const copyKey =
                         sourceMessageId && hasSourceSegmentIndex
                           ? `log:${sourceMessageId}:${sourceSegmentIndex}`
@@ -4326,7 +4331,7 @@ export function GameNarration({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            if (sourceMessageId) onBranchMessage?.(sourceMessageId);
+                            if (sourceMessageId) onBranchMessage?.(sourceMessageId, sourceSegmentIndex);
                           }}
                           className="rounded p-1 text-white/45 opacity-100 transition-all hover:bg-white/10 hover:text-sky-200 md:text-white/20 md:opacity-0 md:group-hover/logseg:opacity-100"
                           title="Branch from here"

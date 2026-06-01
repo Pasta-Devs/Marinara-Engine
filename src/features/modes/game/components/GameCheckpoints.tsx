@@ -172,6 +172,7 @@ export function GameCheckpoints({ chatId, onClose, onLoaded }: GameCheckpointsPr
             {checkpoints.map((cp) => {
               const Icon = TRIGGER_ICONS[cp.triggerType as CheckpointTrigger] ?? Clock;
               const triggerLabel = TRIGGER_LABELS[cp.triggerType as CheckpointTrigger] ?? cp.triggerType;
+              const canBranchCheckpoint = Boolean(cp.messageId?.trim());
 
               return (
                 <div
@@ -219,9 +220,16 @@ export function GameCheckpoints({ chatId, onClose, onLoaded }: GameCheckpointsPr
                         </button>
                         <button
                           onClick={() => handleBranch(cp)}
-                          disabled={branchCheckpoint.isPending}
-                          className="rounded p-1 opacity-0 transition-opacity hover:bg-muted disabled:cursor-wait disabled:opacity-50 group-hover:opacity-100"
-                          title="Branch from checkpoint"
+                          disabled={branchCheckpoint.isPending || !canBranchCheckpoint}
+                          className={cn(
+                            "rounded p-1 opacity-0 transition-opacity hover:bg-muted disabled:opacity-50 group-hover:opacity-100",
+                            branchCheckpoint.isPending ? "disabled:cursor-wait" : "disabled:cursor-not-allowed",
+                          )}
+                          title={
+                            canBranchCheckpoint
+                              ? "Branch from checkpoint"
+                              : "Cannot branch legacy checkpoint - no message anchor"
+                          }
                         >
                           <GitBranch className="h-3 w-3" />
                         </button>
