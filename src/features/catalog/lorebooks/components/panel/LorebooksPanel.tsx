@@ -18,19 +18,19 @@ import {
   X,
   Trash2,
 } from "lucide-react";
-import { useUIStore } from "../../../../shared/stores/ui.store";
-import { useChatStore } from "../../../../shared/stores/chat.store";
-import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../hooks/use-lorebooks";
-import { useCharacterSummariesByIds } from "../../characters/index";
-import { usePersonaSummaries } from "../../personas/index";
-import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
-import { resolveGameLorebookScopeExclusions } from "../../../../engine/generation-core/lorebooks/game-lorebook-scope";
-import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { cn } from "../../../../shared/lib/utils";
-import { exportApi } from "../../../../shared/api/export-api";
-import { getChatCharacterIds } from "../../../../shared/lib/chat-macros";
-import { parseChatMetadata } from "../../../../shared/lib/chat-display";
-import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
+import { useUIStore } from "../../../../../shared/stores/ui.store";
+import { useChatStore } from "../../../../../shared/stores/chat.store";
+import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../../hooks/use-lorebooks";
+import { useCharacterSummariesByIds } from "../../../characters/index";
+import { usePersonaSummaries } from "../../../personas/index";
+import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
+import { resolveGameLorebookScopeExclusions } from "../../../../../engine/generation-core/lorebooks/game-lorebook-scope";
+import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { cn } from "../../../../../shared/lib/utils";
+import { exportApi } from "../../../../../shared/api/export-api";
+import { getChatCharacterIds } from "../../../../../shared/lib/chat-macros";
+import { parseChatMetadata } from "../../../../../shared/lib/chat-display";
+import { ExportFormatDialog, type ExportFormatChoice } from "../../../../../shared/components/ui/ExportFormatDialog";
 import { LorebookRow } from "./LorebookRow";
 import {
   collectLorebookTags,

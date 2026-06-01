@@ -20,10 +20,10 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { ChevronDown, Folder, GripVertical, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
-import { cn } from "../../../../shared/lib/utils";
-import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
-import { useUpdateLorebookFolder, useDeleteLorebookFolder } from "../hooks/use-lorebooks";
-import type { LorebookFolder } from "../../../../engine/contracts/types/lorebook";
+import { cn } from "../../../../../shared/lib/utils";
+import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { useUpdateLorebookFolder, useDeleteLorebookFolder } from "../../hooks/use-lorebooks";
+import type { LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
 
 interface Props {
   folder: LorebookFolder;

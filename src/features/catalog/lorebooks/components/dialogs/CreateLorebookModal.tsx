@@ -2,10 +2,10 @@
 // Modal: Create Lorebook
 // ──────────────────────────────────────────────
 import { useState } from "react";
-import { Modal } from "../../../../shared/components/ui/Modal";
+import { Modal } from "../../../../../shared/components/ui/Modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
-import { storageApi } from "../../../../shared/api/storage-api";
+import { createLorebookSchema } from "../../../../../engine/contracts/schemas/lorebook.schema";
+import { storageApi } from "../../../../../shared/api/storage-api";
 import { Loader2, BookOpen, AlertCircle } from "lucide-react";
 
 interface Props {

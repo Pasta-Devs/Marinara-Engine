@@ -1,5 +1,5 @@
 import { BookOpen, Gamepad2, Globe, Layers, UserRound, Users, Wand2, Zap, type LucideIcon } from "lucide-react";
-import type { LorebookCategory } from "../../../../engine/contracts/types/lorebook";
+import type { LorebookCategory } from "../../../../../engine/contracts/types/lorebook";
 
 export type LorebookPanelCategory = LorebookCategory | "all" | "active";
 

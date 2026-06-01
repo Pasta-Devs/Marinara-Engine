@@ -6,9 +6,9 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { FileText, Maximize2, Sparkles, ToggleLeft, ToggleRight, X } from "lucide-react";
-import { cn } from "../../../../shared/lib/utils";
-import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
-import { MagicRewritePanel } from "../../../../shared/components/ui/MagicRewritePanel";
+import { cn } from "../../../../../shared/lib/utils";
+import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
+import { MagicRewritePanel } from "../../../../../shared/components/ui/MagicRewritePanel";
 
 export function FieldGroup({
   label,

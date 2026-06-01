@@ -2,10 +2,10 @@ import { useState } from "react";
 import { AlertCircle, BookOpen, Check, Loader2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Modal } from "../../../../shared/components/ui/Modal";
-import { useAgentStore } from "../../../../shared/stores/agent.store";
-import { applyLorebookKeeperUpdate } from "../lib/lorebook-keeper-updates";
-import { lorebookKeys } from "../query-keys";
+import { Modal } from "../../../../../shared/components/ui/Modal";
+import { useAgentStore } from "../../../../../shared/stores/agent.store";
+import { applyLorebookKeeperUpdate } from "../../lib/lorebook-keeper-updates";
+import { lorebookKeys } from "../../query-keys";
 
 interface Props {
   open: boolean;

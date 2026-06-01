@@ -1,8 +1,8 @@
-import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
+import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
 import {
   resolveActiveLorebookScopeReasons,
   type ActiveLorebookScopeContext,
-} from "../../../../engine/generation-core/lorebooks/active-lorebook-scope";
+} from "../../../../../engine/generation-core/lorebooks/active-lorebook-scope";
 import type { LorebookPanelCategory } from "./lorebook-panel-config";
 
 export type LorebookPanelSort = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";

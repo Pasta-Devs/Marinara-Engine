@@ -2,10 +2,10 @@
 // Modal: Import Lorebook (JSON)
 // ──────────────────────────────────────────────
 import { useState, useRef } from "react";
-import { Modal } from "../../../../shared/components/ui/Modal";
+import { Modal } from "../../../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { importApi } from "../../../../shared/api/import-api";
+import { importApi } from "../../../../../shared/api/import-api";
 
 interface Props {
   open: boolean;
