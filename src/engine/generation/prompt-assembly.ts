@@ -1615,7 +1615,7 @@ async function buildCrossChatAwarenessBlock(
 ): Promise<ChatMLMessage | null> {
   if (modeOf(chat) !== "conversation") return null;
   const meta = parseRecord(chat.metadata);
-  if (meta.crossChatAwareness === false) return null;
+  if (!boolish(meta.crossChatAwareness, false)) return null;
   const chatId = readString(chat.id).trim();
   if (!chatId) return null;
   const characterNames = characterNameLookup(characters);
@@ -1741,7 +1741,7 @@ function buildConversationCommandBlock(
 ): ChatMLMessage | null {
   if (modeOf(chat) !== "conversation") return null;
   const meta = parseRecord(chat.metadata);
-  if (meta.characterCommands === false) return null;
+  if (!boolish(meta.characterCommands, false)) return null;
   const capabilities = conversationCommandCapabilities(chat, meta);
   const schedules = parseRecord(meta.characterSchedules);
   const hasSchedules =

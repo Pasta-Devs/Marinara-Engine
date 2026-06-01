@@ -24,10 +24,10 @@ function createStorage(args: {
   };
 
   return {
-    async list<T = unknown>(entity: string): Promise<T[]> {
+    async list<T = unknown>(entity: string, _options?: unknown): Promise<T[]> {
       return ((byEntity[entity] ?? []) as T[]).slice();
     },
-    async get<T = unknown>(entity: string, id: string): Promise<T | null> {
+    async get<T = unknown>(entity: string, id: string, _options?: unknown): Promise<T | null> {
       return ((byEntity[entity] ?? []).find((row) => row.id === id) as T | undefined) ?? null;
     },
     async create<T = unknown>(_entity: string, value: Record<string, unknown>): Promise<T> {
@@ -36,10 +36,10 @@ function createStorage(args: {
     async update<T = unknown>(_entity: string, _id: string, patch: Record<string, unknown>): Promise<T> {
       return patch as T;
     },
-    async delete() {
+    async delete(_entity?: unknown, _id?: unknown) {
       return { deleted: true };
     },
-    async listChatMessages<T = unknown>(chatId: string): Promise<T[]> {
+    async listChatMessages<T = unknown>(chatId: string, _options?: unknown): Promise<T[]> {
       return ((messages[chatId] ?? []) as T[]).slice();
     },
     async createChatMessage<T = unknown>(_chatId: string, value: Record<string, unknown>): Promise<T> {
@@ -200,6 +200,42 @@ describe("assembleGenerationPrompt conversation parity", () => {
     expect(enabled).not.toContain("Empty newer chat");
     expect(disabled).not.toContain("<cross_chat_awareness>");
     expect(disabled).not.toContain("We talked about the comet.");
+  });
+
+  it("keeps cross-chat and command instructions quiet when conversation metadata is absent", async () => {
+    const chat = {
+      id: "chat-1",
+      mode: "conversation",
+      characterIds: ["alice"],
+      connectedChatId: "roleplay-1",
+      metadata: {},
+    };
+    const sibling = {
+      id: "chat-2",
+      name: "Sibling chat",
+      mode: "conversation",
+      characterIds: ["alice"],
+      updatedAt: "2026-06-01T14:00:00Z",
+      metadata: {},
+    };
+    const roleplay = { id: "roleplay-1", mode: "roleplay", characterIds: ["alice"], metadata: {} };
+    const storage = createStorage({
+      chats: [chat, sibling, roleplay],
+      characters: [alice],
+      messages: {
+        "chat-2": [{ id: "s1", chatId: "chat-2", role: "user", content: "Private sibling continuity." }],
+      },
+    });
+
+    const text = await promptText(storage, chat);
+
+    expect(text).not.toContain("<cross_chat_awareness>");
+    expect(text).not.toContain("Private sibling continuity.");
+    expect(text).not.toContain("<conversation_commands>");
+    expect(text).not.toContain("[cross_post:");
+    expect(text).not.toContain("[selfie");
+    expect(text).not.toContain("[memory:");
+    expect(text).not.toContain("[scene:");
   });
 
   it("injects linked roleplay and game context into conversation prompts", async () => {
