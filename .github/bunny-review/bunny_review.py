@@ -809,6 +809,10 @@ def status_meta(status):
     return {"icon": "❔", "label": normalized.upper() or "UNKNOWN"}
 
 
+def status_badge(meta):
+    return f"<strong>{meta['icon']}&nbsp;{meta['label']}</strong>"
+
+
 def finding_summary(findings):
     if not findings:
         return "No actionable findings."
@@ -1026,14 +1030,14 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         body.extend(
             [
                 "| Severity | Location | Finding |",
-                "| --- | --- | --- |",
+                "| :---: | --- | --- |",
             ]
         )
         for finding in findings:
             meta = severity_meta(finding.severity)
             body.append(
                 "| "
-                f"{meta['icon']} **{meta['label']}** | "
+                f"{status_badge(meta)} | "
                 f"`{md_cell(finding.path)}:{finding.line}` | "
                 f"{md_cell(finding.title)} |"
             )
@@ -1050,7 +1054,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
                 "",
                 "### ✅ Pre-Merge Checks",
                 "| Status | Check | Detail |",
-                "| --- | --- | --- |",
+                "| :---: | --- | --- |",
             ]
         )
         for item in pre_merge[:8]:
@@ -1060,7 +1064,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
             meta = status_meta(status)
             body.append(
                 "| "
-                f"{meta['icon']} **{meta['label']}** | "
+                f"{status_badge(meta)} | "
                 f"{md_cell(name)} | "
                 f"{md_cell(detail)} |"
             )
