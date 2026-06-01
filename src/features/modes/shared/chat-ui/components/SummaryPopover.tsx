@@ -602,6 +602,7 @@ export function SummaryPopover({
                         const template = promptTemplates.find((item) => item.id === activeSummaryPromptTemplateId);
                         if (template) startEditPromptTemplate(template);
                       }}
+                      aria-label="Edit selected prompt template"
                       className="rounded-md p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                       title="Edit selected prompt template"
                     >
@@ -630,6 +631,7 @@ export function SummaryPopover({
                       <button
                         type="button"
                         onClick={() => duplicatePromptTemplate(template)}
+                        aria-label={`Duplicate prompt template ${template.name}`}
                         className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                         title="Duplicate prompt template"
                       >
@@ -638,6 +640,7 @@ export function SummaryPopover({
                       <button
                         type="button"
                         onClick={() => startEditPromptTemplate(template)}
+                        aria-label={`Edit prompt template ${template.name}`}
                         className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                         title="Edit prompt template"
                       >
@@ -646,6 +649,7 @@ export function SummaryPopover({
                       <button
                         type="button"
                         onClick={() => deletePromptTemplate(template.id)}
+                        aria-label={`Delete prompt template ${template.name}`}
                         className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                         title="Delete prompt template"
                       >
