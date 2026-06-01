@@ -106,7 +106,7 @@ Use this exact schema:
 ```json
 {
   "change_summary": [
-    "1-2 clinical sentences explaining what the PR changes and which mechanism it alters."
+    "2-4 voiced clinical sentences explaining what the PR changes, which mechanism it alters, and why the experiment is interesting."
   ],
   "findings": [
     {

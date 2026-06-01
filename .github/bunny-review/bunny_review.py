@@ -889,21 +889,25 @@ def code_block_text(text):
 
 def agent_prompt_for_finding(finding):
     lines = [
-        f"Inspect `@{finding.path}` around line {finding.line}:",
-        f"- {finding.title}",
-        "",
-        finding.body,
+        f"Task: verify and repair `{finding.path}` around line {finding.line}.",
+        f"Finding: {finding.title}",
+        f"Severity: {finding.severity}",
     ]
     if finding.fix_hint:
-        lines.extend(["", f"Corrective action: {finding.fix_hint}"])
+        lines.append(f"Suggested repair: {finding.fix_hint}")
+    lines.extend(
+        [
+            "Validate the fix with the narrowest relevant check.",
+            "If the finding is stale, leave the code unchanged and record why.",
+        ]
+    )
     return "\n".join(lines)
 
 
 def render_agent_prompt(findings):
     sections = [
-        "Verify each Bunny finding against current code. Repair only defects that still "
-        "reproduce, reject stale observations with a brief reason, keep changes minimal, "
-        "and validate the corrected mechanism.",
+        "Use this as an implementation handoff, not as reviewer prose. Keep the response "
+        "concise, technical, and direct.",
     ]
     sections.extend(agent_prompt_for_finding(finding) for finding in findings)
     return code_block_text("\n\n".join(sections))
