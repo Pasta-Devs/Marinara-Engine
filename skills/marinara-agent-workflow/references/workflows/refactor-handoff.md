@@ -23,6 +23,19 @@ Use this card when refactor work needs stronger guardrails around:
 - If behavior cannot be verified, say exactly what proof is missing.
 - Do not call a refactor safe while known risky paths are untested.
 
+## Safe Extraction Queue
+
+Use this queue for hygiene-first testability work that must not change product
+behavior:
+
+- `GameSurface.tsx`: extract pure game time parsing, combat status normalization, inventory transforms, and background tag scoring one cluster at a time.
+- `ChatMessage.tsx`: extract speaker-tag rendering, chat HTML/CSS sanitizing, attachment helpers, and timestamp formatting one cluster at a time.
+- `PresetEditor.tsx`: extract tab/section reorder helpers, marker config readers, macro reference data, and textarea commit helpers one cluster at a time.
+- `SettingsPanel.tsx`: extract tracker appearance option helpers, background-library normalization, import button state helpers, and advanced-setting option data one cluster at a time.
+
+Each extraction PR must move one pure helper cluster plus focused tests, preserve
+all UI behavior, and avoid broad component rewrites.
+
 ## Blockers Vs Review Notes
 
 Treat these as blockers:
