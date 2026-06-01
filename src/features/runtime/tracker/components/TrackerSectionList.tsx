@@ -15,6 +15,7 @@ import { PersonaInventoryPanel } from "./PersonaTrackerPanel";
 import { CharacterTrackerPanel } from "./CharacterTrackerPanel";
 import { QuestTrackerPanel } from "./QuestTrackerPanel";
 import { CustomTrackerPanel } from "./CustomTrackerPanel";
+import { getSpriteExpressionForPersona } from "../../visuals/sprite-expression-lookup";
 
 export function TrackerSectionList({
   addMode,
@@ -159,7 +160,7 @@ export function TrackerSectionList({
             status={playerStats?.status ?? ""}
             spriteExpression={
               expressionSpritesEnabled && activePersona
-                ? (spriteExpressions[activePersona.id] ?? spriteExpressions[activePersona.name] ?? "neutral")
+                ? (getSpriteExpressionForPersona(spriteExpressions, activePersona.id, activePersona.name) ?? "neutral")
                 : undefined
             }
             trackerPanelSide={trackerPanelSide}

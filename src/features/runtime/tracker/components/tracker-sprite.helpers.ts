@@ -1,5 +1,6 @@
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
 import type { SpriteInfo } from "../../../catalog/sprites/index";
+import { getSpriteExpressionForCharacter as getExpressionForCharacterId } from "../../visuals/sprite-expression-lookup";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();
@@ -11,10 +12,10 @@ export function getSpriteExpressionForCharacter(
   character: PresentCharacter,
   spriteCharacterId: string | null,
 ) {
-  if (spriteCharacterId && expressions[spriteCharacterId]) return expressions[spriteCharacterId];
-  if (character.characterId && expressions[character.characterId]) return expressions[character.characterId];
-  if (character.name && expressions[character.name]) return expressions[character.name];
-  return undefined;
+  return (
+    getExpressionForCharacterId(expressions, spriteCharacterId, character.name) ??
+    getExpressionForCharacterId(expressions, character.characterId, character.name)
+  );
 }
 
 export function getCharacterExpressionHint(character: PresentCharacter, spriteExpression?: string | null) {

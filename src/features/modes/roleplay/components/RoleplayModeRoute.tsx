@@ -27,6 +27,10 @@ import {
   getSpriteOwnerId,
   getSpriteOwnerKind,
 } from "../../../runtime/visuals/sprite-owner-keys";
+import {
+  getSpriteExpressionForCharacter,
+  normalizeSpriteExpressionMap,
+} from "../../../runtime/visuals/sprite-expression-lookup";
 import { AgentInjectionReviewModal } from "./AgentInjectionReviewModal";
 import { ChatRoleplaySurface } from "./ChatRoleplaySurface";
 import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
@@ -49,17 +53,6 @@ function parseMessageExtraRecord(value: unknown): Record<string, unknown> {
     }
   }
   return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function normalizeMessageSpriteExpressions(value: unknown): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const expressions: Record<string, string> = {};
-  for (const [key, expression] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof expression !== "string") continue;
-    const trimmed = expression.trim();
-    if (key && trimmed) expressions[key] = trimmed;
-  }
-  return expressions;
 }
 
 function metadataString(value: unknown, fallback: string): string {
@@ -268,13 +261,15 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
     if (!expressionAvatarsEnabled) return undefined;
     return (message: MessageWithSwipes, characterId: string) => {
       const extra = parseMessageExtraRecord(message.extra);
-      const expressions = normalizeMessageSpriteExpressions(extra.spriteExpressions);
+      const expressions = normalizeSpriteExpressionMap(extra.spriteExpressions);
       const characterName = data.characterMap.get(characterId)?.name;
-      const expression = expressions[characterId] ?? (characterName ? expressions[characterName] : undefined);
+      const expression =
+        getSpriteExpressionForCharacter(expressions, characterId, characterName) ??
+        getSpriteExpressionForCharacter(spriteState.spriteExpressions, characterId, characterName);
       if (!expression) return null;
       return resolveExpressionAvatarSpriteUrl(expressionAvatarSpriteMap.get(characterId), expression);
     };
-  }, [data.characterMap, expressionAvatarSpriteMap, expressionAvatarsEnabled]);
+  }, [data.characterMap, expressionAvatarSpriteMap, expressionAvatarsEnabled, spriteState.spriteExpressions]);
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {

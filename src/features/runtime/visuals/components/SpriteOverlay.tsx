@@ -14,6 +14,7 @@ import {
 } from "../sprite-display-modes";
 import { getCharacterIdFromSpriteOwnerKey, getSpriteOwnerId, getSpriteOwnerKind } from "../sprite-owner-keys";
 import { clampSpritePlacement, getDefaultSpritePlacement, type SpritePlacementMap } from "../sprite-placement";
+import { getSpriteExpressionForOwnerKey } from "../sprite-expression-lookup";
 
 interface SpriteOverlayProps {
   /** Character IDs or sprite owner keys enabled in this chat */
@@ -111,8 +112,7 @@ export function SpriteOverlay({
     const next: Record<string, string> = {};
     if (!spriteExpressions) return next;
     for (const ownerKey of characterIds) {
-      const characterId = getCharacterIdFromSpriteOwnerKey(ownerKey);
-      const expression = spriteExpressions[ownerKey] ?? (characterId ? spriteExpressions[characterId] : undefined);
+      const expression = getSpriteExpressionForOwnerKey(spriteExpressions, ownerKey);
       if (expression) next[ownerKey] = expression;
     }
     return next;

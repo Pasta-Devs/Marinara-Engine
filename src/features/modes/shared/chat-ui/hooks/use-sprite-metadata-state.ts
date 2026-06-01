@@ -4,6 +4,7 @@ import type { SpritePlacement, SpriteSide } from "../../../../../engine/contract
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { mirrorSpritePlacements, normalizeSpritePlacements } from "../../../../runtime/visuals/sprite-placement";
 import { normalizeSpriteDisplayModes, type SpriteDisplayMode } from "../../../../runtime/visuals/sprite-display-modes";
+import { normalizeSpriteExpressionMap } from "../../../../runtime/visuals/sprite-expression-lookup";
 import type { MessageWithSwipes } from "../types";
 
 type UseSpriteMetadataStateOptions = {
@@ -24,10 +25,25 @@ function readMessageExtra(message: MessageWithSwipes): Record<string, unknown> {
     : {};
 }
 
-function stringRecord(value: unknown): Record<string, string> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const entries = Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string");
-  return entries.length ? Object.fromEntries(entries) : null;
+function getLatestAssistantSpriteExpressions(messages?: MessageWithSwipes[]): Record<string, string> | null {
+  if (!messages?.length) return null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role !== "assistant") continue;
+    const extra = readMessageExtra(message);
+    const spriteExpressions = normalizeSpriteExpressionMap(extra.spriteExpressions);
+    return Object.keys(spriteExpressions).length > 0 ? spriteExpressions : null;
+  }
+  return null;
+}
+
+function getLatestAssistantMessageId(messages?: MessageWithSwipes[]): string | null {
+  if (!messages?.length) return null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role === "assistant") return message.id;
+  }
+  return null;
 }
 
 export function useSpriteMetadataState({ chat, chatMeta, messages }: UseSpriteMetadataStateOptions) {
@@ -48,22 +64,14 @@ export function useSpriteMetadataState({ chat, chatMeta, messages }: UseSpriteMe
   );
   const hasCustomSpritePlacements = Object.keys(spritePlacements).length > 0;
 
-  const spriteExpressions: Record<string, string> = useMemo(() => {
-    if (messages?.length) {
-      for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const message = messages[index]!;
-        if (message.role === "assistant") {
-          const extra = readMessageExtra(message);
-          const spriteExpressions = stringRecord(extra.spriteExpressions);
-          if (spriteExpressions && Object.keys(spriteExpressions).length > 0) {
-            return spriteExpressions;
-          }
-          break;
-        }
-      }
-    }
-    return {};
-  }, [messages]);
+  const chatSpriteExpressions = useMemo(
+    () => normalizeSpriteExpressionMap(chatMeta.spriteExpressions),
+    [chatMeta.spriteExpressions],
+  );
+  const spriteExpressions: Record<string, string> = useMemo(
+    () => getLatestAssistantSpriteExpressions(messages) ?? chatSpriteExpressions,
+    [chatSpriteExpressions, messages],
+  );
 
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
   const pendingSpritePlacements = useRef<Record<string, SpritePlacement>>(spritePlacements);
@@ -86,20 +94,16 @@ export function useSpriteMetadataState({ chat, chatMeta, messages }: UseSpriteMe
   const persistSpriteExpressions = useCallback(
     (expressions: Record<string, string>) => {
       if (!chat?.id) return;
-      if (messages?.length) {
-        for (let index = messages.length - 1; index >= 0; index -= 1) {
-          const message = messages[index]!;
-          if (message.role === "assistant") {
-            updateMessageExtra.mutate({
-              messageId: message.id,
-              extra: { spriteExpressions: expressions },
-            });
-            break;
-          }
-        }
+      updateMeta.mutate({ id: chat.id, spriteExpressions: expressions });
+      const assistantMessageId = getLatestAssistantMessageId(messages);
+      if (assistantMessageId) {
+        updateMessageExtra.mutate({
+          messageId: assistantMessageId,
+          extra: { spriteExpressions: expressions },
+        });
       }
     },
-    [chat?.id, messages, updateMessageExtra],
+    [chat?.id, messages, updateMessageExtra, updateMeta],
   );
 
   const handleExpressionChange = useCallback(
