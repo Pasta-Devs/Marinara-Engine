@@ -31,7 +31,14 @@ type ProfileImportProgressState = {
   startedAt: number;
   elapsedSeconds: number;
   imported?: ProfileImportStats;
+  warnings?: ProfileImportWarning[];
   error?: string;
+};
+
+type ProfileImportWarning = {
+  type?: string;
+  path?: string;
+  message?: string;
 };
 
 type ProfileImportResult = {
@@ -39,6 +46,7 @@ type ProfileImportResult = {
   error?: string;
   message?: string;
   imported?: ProfileImportStats;
+  warnings?: ProfileImportWarning[];
 };
 
 function formatProfileImportDuration(seconds: number) {
@@ -90,6 +98,16 @@ function formatProfileImportSkippedStats(stats?: ProfileImportStats) {
   return `${count} unsupported prompt override${count === 1 ? "" : "s"} skipped`;
 }
 
+function formatProfileImportWarnings(warnings?: ProfileImportWarning[]) {
+  const count = warnings?.length ?? 0;
+  if (count <= 0) return "";
+  return `${count} warning${count === 1 ? "" : "s"}`;
+}
+
+function isProfileZipFile(file: File) {
+  return file.name.toLowerCase().endsWith(".zip") || file.type.toLowerCase().includes("zip");
+}
+
 export function ProfileImportSection() {
   const qc = useQueryClient();
   const remoteProfileInputRef = useRef<HTMLInputElement>(null);
@@ -117,8 +135,10 @@ export function ProfileImportSection() {
     if (data?.success === false) throw new Error(data.error ?? data.message ?? "Unknown error");
     qc.invalidateQueries();
     const imported = data?.imported;
+    const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
     const summary = formatProfileImportStats(imported);
     const skippedSummary = formatProfileImportSkippedStats(imported);
+    const warningSummary = formatProfileImportWarnings(warnings);
     setProfileImportProgress((current) => {
       const totalItems = Math.max(1, current?.totalItems ?? 1);
       return {
@@ -129,10 +149,15 @@ export function ProfileImportSection() {
         startedAt,
         elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
         imported,
+        warnings,
       };
     });
     toast.success(
-      [summary ? `Imported: ${summary}` : "Profile imported.", skippedSummary ? `Skipped: ${skippedSummary}.` : ""]
+      [
+        summary ? `Imported: ${summary}` : "Profile imported.",
+        skippedSummary ? `Skipped: ${skippedSummary}.` : "",
+        warningSummary ? `${warningSummary} reported.` : "",
+      ]
         .filter(Boolean)
         .join(" "),
     );
@@ -176,7 +201,7 @@ export function ProfileImportSection() {
   };
 
   const showProfileImportError = (err: unknown, startedAt: number) => {
-    const expectedProfileFile = isRemoteRuntime ? "profile JSON file" : "profile JSON or ZIP file";
+    const expectedProfileFile = "profile JSON or ZIP file";
     const message =
       err instanceof SyntaxError
         ? `Import failed. Make sure this is a valid ${expectedProfileFile}.`
@@ -244,6 +269,9 @@ export function ProfileImportSection() {
     });
     try {
       await runConfirmedProfileImport(startedAt, async () => {
+        if (isProfileZipFile(file)) {
+          return profileApi.importProfileUpload<ProfileImportResult>(file);
+        }
         const envelope = JSON.parse(await file.text()) as unknown;
         return profileApi.importProfile<ProfileImportResult>(envelope);
       });
@@ -257,7 +285,7 @@ export function ProfileImportSection() {
       <input
         ref={remoteProfileInputRef}
         type="file"
-        accept=".json,application/json"
+        accept=".json,.zip,application/json,application/zip,application/x-zip-compressed"
         className="hidden"
         onChange={(event) => void handleRemoteProfileFileChange(event)}
       />
@@ -273,9 +301,7 @@ export function ProfileImportSection() {
         {profileImportBusy ? <Loader2 size="1rem" className="animate-spin" /> : <Download size="1rem" />}
         {profileImportBusy
           ? "Importing Profile..."
-          : isRemoteRuntime
-            ? "Import Profile (JSON)"
-            : "Import Profile (JSON/ZIP)"}
+          : "Import Profile (JSON/ZIP)"}
       </button>
 
       {profileImportProgress && (
@@ -336,6 +362,11 @@ export function ProfileImportSection() {
               {formatProfileImportSkippedStats(profileImportProgress.imported) && (
                 <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
                   Skipped: {formatProfileImportSkippedStats(profileImportProgress.imported)}
+                </div>
+              )}
+              {formatProfileImportWarnings(profileImportProgress.warnings) && (
+                <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  Warnings: {formatProfileImportWarnings(profileImportProgress.warnings)}
                 </div>
               )}
             </>

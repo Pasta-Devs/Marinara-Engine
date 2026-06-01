@@ -12,9 +12,13 @@ use self::legacy::import_legacy_profile_tables;
 use self::zip_import::import_profile_zip;
 use super::shared::*;
 use super::*;
+use base64::engine::general_purpose;
 use std::collections::HashSet;
-use std::fs::File;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::path::{Path, PathBuf};
+
+const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
+const PROFILE_EXPORT_JSON_TOO_LARGE_CODE: &str = "PROFILE_EXPORT_JSON_TOO_LARGE";
 
 const PROFILE_COLLECTIONS: &[&str] = &[
     "characters",
@@ -101,6 +105,37 @@ pub(crate) fn import_profile_file_path(state: &AppState, value: &str) -> AppResu
     }
 }
 
+pub(crate) fn import_profile_upload(
+    state: &AppState,
+    filename: &str,
+    base64: &str,
+) -> AppResult<Value> {
+    let extension = Path::new(filename)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .ok_or_else(|| AppError::invalid_input("Profile upload must be a .json or .zip file"))?;
+    let bytes =
+        base64::Engine::decode(&general_purpose::STANDARD, base64.trim()).map_err(|error| {
+            AppError::invalid_input(format!("Invalid profile upload data: {error}"))
+        })?;
+    match extension.as_str() {
+        "json" => import_profile(state, serde_json::from_slice(&bytes)?),
+        "zip" => {
+            let upload_dir = state.data_dir.join(".profile-upload-imports");
+            fs::create_dir_all(&upload_dir)?;
+            let path = upload_dir.join(format!("profile-import-{}.zip", now_millis()));
+            fs::write(&path, bytes)?;
+            let result = import_profile_zip(state, &path);
+            let _ = fs::remove_file(path);
+            result
+        }
+        _ => Err(AppError::invalid_input(
+            "Profile upload must be a .json or .zip file",
+        )),
+    }
+}
+
 pub(crate) fn profile_call(
     state: &AppState,
     method: &str,
@@ -118,13 +153,32 @@ pub(crate) fn profile_call(
     }
 }
 
-fn export_profile(state: &AppState, format: Option<&str>) -> AppResult<Value> {
+pub(crate) fn export_profile(state: &AppState, format: Option<&str>) -> AppResult<Value> {
     match format {
-        Some("native") | None => profile_snapshot(state),
+        Some("native") | None => native_profile_export(state),
+        Some("compatible") => super::exports::export_compatible_profile(state),
+        Some("zip") => super::backup::download_profile_zip(state),
         Some(_) => Err(AppError::invalid_input(
-            "Only native Marinara profile JSON export is supported.",
+            "Profile export format must be native, compatible, or zip.",
         )),
     }
+}
+
+fn native_profile_export(state: &AppState) -> AppResult<Value> {
+    let snapshot = profile_snapshot(state)?;
+    let estimated_bytes = serde_json::to_vec(&snapshot)?.len();
+    if estimated_bytes > PROFILE_EXPORT_JSON_LIMIT_BYTES {
+        return Err(AppError::with_details(
+            PROFILE_EXPORT_JSON_TOO_LARGE_CODE,
+            "This profile is too large for the JSON profile exporter. Export it as a profile ZIP instead.",
+            json!({
+                "fallbackFormat": "zip",
+                "estimatedBytes": estimated_bytes,
+                "limitBytes": PROFILE_EXPORT_JSON_LIMIT_BYTES,
+            }),
+        ));
+    }
+    Ok(snapshot)
 }
 
 fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
@@ -332,9 +386,15 @@ fn finish_profile_import_assets(
     restored_assets: RestoredProfileAssets,
     result: AppResult<Value>,
 ) -> AppResult<Value> {
+    let warnings = restored_assets.warnings().to_vec();
     match result {
-        Ok(value) => {
+        Ok(mut value) => {
             restored_assets.commit();
+            if !warnings.is_empty() {
+                if let Some(object) = value.as_object_mut() {
+                    object.insert("warnings".to_string(), Value::Array(warnings));
+                }
+            }
             Ok(value)
         }
         Err(error) => {
@@ -734,6 +794,86 @@ mod tests {
         assert_eq!(connection["sortOrder"], 7);
         assert!(connection.get("apiKey").is_none());
         assert!(connection.get("apiKeyEncrypted").is_none());
+    }
+
+    #[test]
+    fn profile_export_supports_compatible_and_zip_formats() {
+        let state = test_state("profile-export-formats");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "data": {
+                        "name": "Bundle Character"
+                    }
+                }),
+            )
+            .expect("fixture character should write");
+
+        let compatible = profile_call(
+            &state,
+            "GET",
+            &["export"],
+            &ParsedPath::new("/profile/export?format=compatible"),
+            Value::Null,
+        )
+        .expect("compatible profile export should succeed");
+        assert_eq!(compatible["filename"], "marinara-compatible-export.zip");
+        assert_eq!(compatible["contentType"], "application/zip");
+        assert!(compatible["base64"].as_str().unwrap_or_default().len() > 16);
+
+        let zip = profile_call(
+            &state,
+            "GET",
+            &["export"],
+            &ParsedPath::new("/profile/export?format=zip"),
+            Value::Null,
+        )
+        .expect("profile ZIP export should succeed");
+        assert_eq!(zip["filename"], "marinara-profile.zip");
+        assert_eq!(zip["contentType"], "application/zip");
+        assert!(zip["base64"].as_str().unwrap_or_default().len() > 16);
+    }
+
+    #[test]
+    fn profile_upload_import_accepts_json_payloads() {
+        let state = test_state("profile-upload-json");
+        let envelope = json!({
+            "type": "marinara_profile",
+            "version": 1,
+            "data": {
+                "fileStorage": {
+                    "tables": {
+                        "chats": [
+                            {
+                                "id": "chat-1",
+                                "name": "Uploaded Chat",
+                                "mode": "conversation",
+                                "metadata": {},
+                                "characterIds": []
+                            }
+                        ]
+                    }
+                }
+            }
+        });
+        let base64 = base64::Engine::encode(
+            &general_purpose::STANDARD,
+            serde_json::to_vec(&envelope).unwrap(),
+        );
+
+        let result = import_profile_upload(&state, "profile.json", &base64)
+            .expect("uploaded profile JSON should import");
+
+        assert_eq!(result["success"], true);
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should not fail")
+            .expect("uploaded chat should import");
+        assert_eq!(chat["name"], "Uploaded Chat");
     }
 
     #[test]

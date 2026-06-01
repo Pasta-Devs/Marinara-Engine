@@ -26,7 +26,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { openExternalUrl } from "../../../../shared/api/external-link-api";
 import { importApi } from "../../../../shared/api/import-api";
-import { backupApi, profileApi, type ManagedBackup } from "../../../../shared/api/profile-api";
+import { backupApi, profileApi, type ManagedBackup, type ProfileExportFormat } from "../../../../shared/api/profile-api";
+import { ApiError } from "../../../../shared/api/api-errors";
 import { updatesApi, type UpdateCheckResponse } from "../../../../shared/api/updates-api";
 import { backgroundsApi, fontsApi } from "../../../../shared/api/settings-assets-api";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -97,6 +98,7 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGameAssetStore } from "../../../modes/game/index";
 import { chatKeys } from "../../../catalog/chats";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
+import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
 import { TrackerPanelIcon } from "../../../../shared/components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../../shared/components/ui/TrackerSizeTierIcon";
 import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploadDropzone";
@@ -105,6 +107,7 @@ import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
 import { ProfileImportSection } from "./ProfileImportSection";
+import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 
 type CustomFontFace = {
   filename: string;
@@ -3258,6 +3261,7 @@ function AdvancedSettings() {
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
   const [confirmAction, setConfirmAction] = useState<"selected" | "all" | null>(null);
   const [exportingProfile, setExportingProfile] = useState(false);
+  const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [downloadingBackupName, setDownloadingBackupName] = useState<string | null>(null);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
@@ -3369,16 +3373,51 @@ function AdvancedSettings() {
     if (enabled) setQuickRepliesDrawerOpen(true);
   };
 
-  const handleExportProfile = async () => {
+  const profileExportSuccessMessages: Record<ProfileExportFormat, string> = {
+    native: "Profile JSON exported!",
+    compatible: "Compatible profile bundle exported!",
+    zip: "Profile ZIP exported!",
+  };
+
+  const profileExportFallbackFormat = (err: unknown) => {
+    if (!(err instanceof ApiError) || !err.details || typeof err.details !== "object") return null;
+    const payload = err.details as { code?: unknown; details?: unknown };
+    if (payload.code !== "PROFILE_EXPORT_JSON_TOO_LARGE") return null;
+    const details = payload.details && typeof payload.details === "object" ? (payload.details as Record<string, unknown>) : {};
+    return details.fallbackFormat === "zip" ? "zip" : null;
+  };
+
+  const handleExportProfile = async (format: ProfileExportFormat) => {
     setExportingProfile(true);
+    setExportProfileDialogOpen(false);
     try {
-      triggerDownload(await profileApi.exportProfile());
-      toast.success("Profile exported!");
+      triggerDownload(await profileApi.exportProfile(format));
+      toast.success(profileExportSuccessMessages[format]);
     } catch (err) {
+      if (format === "native" && profileExportFallbackFormat(err) === "zip") {
+        const confirmed = await showConfirmDialog({
+          title: "Export profile as ZIP?",
+          message:
+            err instanceof Error
+              ? err.message
+              : "This profile is too large for JSON export. Export it as a profile ZIP instead?",
+          confirmLabel: "Export ZIP",
+          cancelLabel: "Cancel",
+        });
+        if (confirmed) {
+          await handleExportProfile("zip");
+        }
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Failed to export profile");
     } finally {
       setExportingProfile(false);
     }
+  };
+
+  const handleExportProfileChoice = (format: ExportFormatChoice) => {
+    if (format === "compatible-png") return;
+    void handleExportProfile(format);
   };
 
   const handleDownloadBackup = async (name?: string) => {
@@ -3497,6 +3536,17 @@ function AdvancedSettings() {
 
   return (
     <div className="flex flex-col gap-3">
+      <ExportFormatDialog
+        open={exportProfileDialogOpen}
+        title="Export Profile"
+        description="Native JSON keeps full Marinara import fidelity. Profile ZIP packages the same data with asset files outside the JSON for large profiles and recovery."
+        nativeDescription="Creates a Marinara profile JSON for direct re-import when the profile is small enough."
+        compatibleDescription="Exports character cards, simple persona JSON, and folderless lorebooks for other roleplay tools."
+        zipDescription="Creates an importable profile ZIP with Marinara data plus managed assets for large profiles and recovery."
+        showZipOption
+        onClose={() => setExportProfileDialogOpen(false)}
+        onSelect={handleExportProfileChoice}
+      />
       <div className="text-xs text-[var(--muted-foreground)]">Advanced settings for power users.</div>
 
       <div className="flex flex-col gap-2 rounded-lg bg-[var(--secondary)]/40 p-2.5 ring-1 ring-[var(--border)]">
@@ -3909,10 +3959,10 @@ function AdvancedSettings() {
         <div className="flex items-center gap-1.5">
           <Download size="0.75rem" className="text-[var(--muted-foreground)]" />
           <span className="text-xs font-medium">Profile Export</span>
-          <HelpTooltip text="Exports the current Marinara profile as native JSON for re-import through Import Profile." />
+          <HelpTooltip text="Exports the current profile as native JSON, compatible bundle, or ZIP for large profiles and recovery." />
         </div>
         <button
-          onClick={() => void handleExportProfile()}
+          onClick={() => setExportProfileDialogOpen(true)}
           disabled={exportingProfile}
           className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
         >
@@ -3924,7 +3974,7 @@ function AdvancedSettings() {
           ) : (
             <>
               <Download size="0.8125rem" />
-              Export Profile (JSON)
+              Export Profile
             </>
           )}
         </button>

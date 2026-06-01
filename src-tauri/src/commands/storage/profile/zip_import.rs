@@ -205,4 +205,54 @@ mod tests {
 
         let _ = std::fs::remove_file(&zip_path);
     }
+
+    #[test]
+    fn import_profile_zip_warns_and_preserves_data_when_asset_file_is_missing() {
+        let state = test_state("missing-asset-warning");
+        let profile_json = json!({
+            "type": "marinara_profile",
+            "data": {
+                "fileStorage": {
+                    "tables": {
+                        "chats": [
+                            {
+                                "id": "chat-1",
+                                "name": "Recovered Chat",
+                                "mode": "conversation",
+                                "metadata": {},
+                                "characterIds": []
+                            }
+                        ]
+                    },
+                    "files": [
+                        {
+                            "path": "avatars/missing-from-zip.png",
+                            "size": 12
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string();
+        let zip_path = write_profile_zip("missing-asset-warning", &profile_json);
+
+        let result = import_profile_zip(&state, &zip_path)
+            .expect("zip import should preserve tables and warn about missing assets");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["imported"]["files"], 0);
+        assert_eq!(result["warnings"][0]["type"], "missing_asset");
+        assert_eq!(
+            result["warnings"][0]["path"],
+            "avatars/missing-from-zip.png"
+        );
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should not fail")
+            .expect("recoverable profile data should import");
+        assert_eq!(chat["name"], "Recovered Chat");
+
+        let _ = std::fs::remove_file(&zip_path);
+    }
 }

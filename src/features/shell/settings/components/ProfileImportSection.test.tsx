@@ -28,6 +28,7 @@ vi.mock("../../../../shared/api/profile-api", () => ({
   profileApi: {
     importProfile: vi.fn(),
     importProfileFile: vi.fn(),
+    importProfileUpload: vi.fn(),
   },
 }));
 
@@ -35,6 +36,8 @@ const toastError = vi.mocked(await import("sonner")).toast.error;
 const toastSuccess = vi.mocked(await import("sonner")).toast.success;
 const importProfile = (await import("../../../../shared/api/profile-api")).profileApi
   .importProfile as unknown as ReturnType<typeof vi.fn>;
+const importProfileUpload = (await import("../../../../shared/api/profile-api")).profileApi
+  .importProfileUpload as unknown as ReturnType<typeof vi.fn>;
 const showConfirmDialog = vi.mocked(await import("../../../../shared/lib/app-dialogs")).showConfirmDialog;
 
 async function changeProfileFileInput(input: HTMLInputElement, file: File) {
@@ -76,7 +79,7 @@ describe("ProfileImportSection", () => {
     });
 
     const button = container.querySelector("button");
-    expect(button?.textContent).toContain("Import Profile (JSON)");
+    expect(button?.textContent).toContain("Import Profile (JSON/ZIP)");
 
     await act(async () => {
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -115,6 +118,36 @@ describe("ProfileImportSection", () => {
     expect(toastSuccess).toHaveBeenCalledWith("Imported: 1 characters");
   });
 
+  it("imports a remote profile ZIP file through the upload API", async () => {
+    useUIStore.setState({ remoteRuntimeUrl: "http://localhost:4111" });
+    showConfirmDialog.mockResolvedValue(true);
+    importProfileUpload.mockResolvedValue({
+      success: true,
+      imported: { characters: 1, files: 0 },
+      warnings: [{ type: "missing_asset", path: "avatars/missing.png", message: "Missing avatar" }],
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <ProfileImportSection />
+        </QueryClientProvider>,
+      );
+    });
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(input?.accept).toContain(".zip");
+
+    const file = new File(["zip-bytes"], "profile.zip", { type: "application/zip" });
+    await changeProfileFileInput(input!, file);
+
+    await vi.waitFor(() => {
+      expect(importProfileUpload).toHaveBeenCalledWith(file);
+    });
+    expect(importProfile).not.toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalledWith("Imported: 1 characters 1 warning reported.");
+  });
+
   it("reports a SyntaxError toast when a remote profile JSON file cannot be parsed", async () => {
     useUIStore.setState({ remoteRuntimeUrl: "http://localhost:4111" });
     showConfirmDialog.mockResolvedValue(true);
@@ -133,7 +166,7 @@ describe("ProfileImportSection", () => {
     await changeProfileFileInput(input!, new File(["{"], "profile.json", { type: "application/json" }));
 
     await vi.waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith("Import failed. Make sure this is a valid profile JSON file.");
+      expect(toastError).toHaveBeenCalledWith("Import failed. Make sure this is a valid profile JSON or ZIP file.");
     });
     expect(importProfile).not.toHaveBeenCalled();
   });

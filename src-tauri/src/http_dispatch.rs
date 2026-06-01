@@ -81,13 +81,20 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
     let args = args_object(request.args)?;
     match command {
         "load_url_binary" => load_url_binary(state, &args).await,
-        "profile_export" => profile::profile_snapshot(state),
+        "profile_export" => {
+            profile::export_profile(state, optional_string(&args, "format").as_deref())
+        }
         "profile_import" => profile::profile_call(
             state,
             "POST",
             &["import"],
             &shared::ParsedPath::new("/profile/import"),
             optional_value(&args, "envelope"),
+        ),
+        "profile_import_upload" => profile::import_profile_upload(
+            state,
+            required_string(&args, "filename")?,
+            required_string(&args, "base64")?,
         ),
         "backup_create" => backup::create_backup(state),
         "backup_list" => backup::list_backups(state),

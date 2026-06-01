@@ -62,6 +62,7 @@ struct ProfileAssetRestore {
 pub(super) struct RestoredProfileAssets {
     restored: usize,
     transaction: Option<ProfileAssetTransaction>,
+    warnings: Vec<Value>,
 }
 
 struct ProfileAssetTransaction {
@@ -76,6 +77,10 @@ struct ProfileAssetTransaction {
 impl RestoredProfileAssets {
     pub(super) fn restored(&self) -> usize {
         self.restored
+    }
+
+    pub(super) fn warnings(&self) -> &[Value] {
+        &self.warnings
     }
 
     /// Path where staged assets live before `install()` moves them into the
@@ -344,6 +349,7 @@ fn restore_profile_json_assets_in_root(
         return Ok(RestoredProfileAssets {
             restored: 0,
             transaction: None,
+            warnings: Vec::new(),
         });
     }
     let assets = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
@@ -355,6 +361,7 @@ fn restore_profile_json_assets_in_root(
     Ok(RestoredProfileAssets {
         restored,
         transaction: Some(transaction),
+        warnings: Vec::new(),
     })
 }
 
@@ -402,9 +409,10 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
         return Ok(RestoredProfileAssets {
             restored: 0,
             transaction: None,
+            warnings: Vec::new(),
         });
     }
-    let assets = decoded_profile_zip_assets(raw_assets, names, profile_prefix)?;
+    let (assets, warnings) = decoded_profile_zip_assets(raw_assets, names, profile_prefix)?;
     let restored = assets.len();
     let transaction = ProfileAssetTransaction::new(&state.data_dir)?;
     for asset in assets {
@@ -431,6 +439,7 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
     Ok(RestoredProfileAssets {
         restored,
         transaction: Some(transaction),
+        warnings,
     })
 }
 
@@ -438,11 +447,12 @@ fn decoded_profile_zip_assets(
     raw_assets: Option<&Value>,
     names: &[String],
     profile_prefix: &str,
-) -> AppResult<Vec<ProfileAssetRestore>> {
+) -> AppResult<(Vec<ProfileAssetRestore>, Vec<Value>)> {
     let Some(assets) = profile_asset_manifest(raw_assets)? else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     };
     let mut decoded = Vec::new();
+    let mut warnings = Vec::new();
     for (index, asset) in assets.iter().enumerate() {
         let path = profile_asset_manifest_path(asset, index)?;
         if is_legacy_cleanup_backup_asset_path(path) {
@@ -458,13 +468,16 @@ fn decoded_profile_zip_assets(
         } else if let Some(entry_name) = zip_asset_entry_name(names, profile_prefix, path) {
             ProfileAssetSource::ZipEntry(entry_name)
         } else {
-            return Err(AppError::invalid_input(format!(
-                "Profile ZIP is missing asset file: {path}"
-            )));
+            warnings.push(json!({
+                "type": "missing_asset",
+                "path": path,
+                "message": format!("Profile ZIP is missing {path}. Imported the rest of the profile without that asset."),
+            }));
+            continue;
         };
         decoded.push(ProfileAssetRestore { relative, source });
     }
-    Ok(decoded)
+    Ok((decoded, warnings))
 }
 
 fn profile_asset_manifest(raw_assets: Option<&Value>) -> AppResult<Option<&Vec<Value>>> {
@@ -1088,9 +1101,10 @@ mod tests {
         ]);
         let names = vec!["sprites/character-1/neutral.png".to_string()];
 
-        let decoded = decoded_profile_zip_assets(Some(&assets), &names, "")
+        let (decoded, warnings) = decoded_profile_zip_assets(Some(&assets), &names, "")
             .expect("legacy cleanup backups should be skipped, not reject the profile zip");
 
+        assert!(warnings.is_empty());
         assert_eq!(decoded.len(), 1);
         assert_eq!(
             decoded[0].relative,
@@ -1122,7 +1136,7 @@ mod tests {
     }
 
     #[test]
-    fn profile_zip_assets_reject_manifest_entries_without_matching_file() {
+    fn profile_zip_assets_warn_manifest_entries_without_matching_file() {
         let assets = json!([
             {
                 "path": "avatars/missing-from-zip.png",
@@ -1130,12 +1144,12 @@ mod tests {
         ]);
         let names = Vec::new();
 
-        let error = match decoded_profile_zip_assets(Some(&assets), &names, "") {
-            Ok(_) => panic!("missing ZIP asset entry should reject the import"),
-            Err(error) => error,
-        };
+        let (decoded, warnings) = decoded_profile_zip_assets(Some(&assets), &names, "")
+            .expect("missing ZIP asset entries should warn without rejecting the import");
 
-        assert_eq!(error.code, "invalid_input");
-        assert!(error.message.contains("missing-from-zip.png"));
+        assert!(decoded.is_empty());
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0]["type"], "missing_asset");
+        assert_eq!(warnings[0]["path"], "avatars/missing-from-zip.png");
     }
 }

@@ -254,6 +254,24 @@ pub(crate) fn download_backup(state: &AppState, name: Option<&str>) -> AppResult
     }))
 }
 
+pub(crate) fn download_profile_zip(state: &AppState) -> AppResult<Value> {
+    let temp_dir = state
+        .data_dir
+        .join(".profile-export-downloads")
+        .join(format!("marinara-profile-{}-staging", now_millis()));
+    if temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir)?;
+    }
+    write_backup_payload(state, &temp_dir)?;
+    let bytes = zip_backup_folder(&temp_dir, "marinara-profile")?;
+    let _ = fs::remove_dir_all(temp_dir);
+    Ok(json!({
+        "base64": general_purpose::STANDARD.encode(bytes),
+        "filename": "marinara-profile.zip",
+        "contentType": "application/zip",
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

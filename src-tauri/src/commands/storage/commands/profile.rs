@@ -199,8 +199,11 @@ fn hex_value(byte: u8) -> Option<u8> {
 }
 
 #[tauri::command]
-pub fn profile_export(state: State<'_, AppState>) -> Result<Value, AppError> {
-    profile::profile_snapshot(&state)
+pub fn profile_export(
+    state: State<'_, AppState>,
+    format: Option<String>,
+) -> Result<Value, AppError> {
+    profile::export_profile(&state, format.as_deref())
 }
 
 #[tauri::command]
@@ -217,6 +220,15 @@ pub fn profile_import(state: State<'_, AppState>, envelope: Value) -> Result<Val
 #[tauri::command]
 pub fn profile_import_file(state: State<'_, AppState>, path: String) -> Result<Value, AppError> {
     profile::import_profile_file_path(&state, &path)
+}
+
+#[tauri::command]
+pub fn profile_import_upload(
+    state: State<'_, AppState>,
+    filename: String,
+    base64: String,
+) -> Result<Value, AppError> {
+    profile::import_profile_upload(&state, &filename, &base64)
 }
 
 #[tauri::command]

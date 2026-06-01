@@ -243,6 +243,48 @@ pub(crate) fn export_lorebooks(state: &AppState, body: Value) -> AppResult<Value
     ))
 }
 
+pub(crate) fn export_compatible_profile(state: &AppState) -> AppResult<Value> {
+    let mut zip = ExportZip::new();
+    let characters = state.storage.list("characters")?;
+    let personas = state.storage.list("personas")?;
+    let lorebooks = state.storage.list("lorebooks")?;
+
+    for (index, character) in characters.iter().enumerate() {
+        let fallback = format!("character-{}", index + 1);
+        let name = item_export_name("characters", character).unwrap_or_else(|| fallback.clone());
+        zip.add_json(
+            &format!("characters/{}.json", safe_export_name(&name, &fallback)),
+            &compatible_character_export(character),
+        )?;
+    }
+
+    for (index, persona) in personas.iter().enumerate() {
+        let fallback = format!("persona-{}", index + 1);
+        let name = item_export_name("personas", persona).unwrap_or_else(|| fallback.clone());
+        zip.add_json(
+            &format!("personas/{}.json", safe_export_name(&name, &fallback)),
+            &compatible_persona_export(persona),
+        )?;
+    }
+
+    for (index, lorebook) in lorebooks.iter().enumerate() {
+        let id = record_id(lorebook, "lorebook")?;
+        let entries = list_collection(state, "lorebook-entries", Some(("lorebookId", id)))?;
+        let fallback = format!("lorebook-{}", index + 1);
+        let name = item_export_name("lorebooks", lorebook).unwrap_or_else(|| fallback.clone());
+        zip.add_json(
+            &format!("lorebooks/{}.json", safe_export_name(&name, &fallback)),
+            &compatible_lorebook_export(lorebook, &entries),
+        )?;
+    }
+
+    Ok(binary_download(
+        zip.finish()?,
+        "application/zip",
+        "marinara-compatible-export.zip",
+    ))
+}
+
 fn native_record_export(
     state: &AppState,
     kind: &str,
