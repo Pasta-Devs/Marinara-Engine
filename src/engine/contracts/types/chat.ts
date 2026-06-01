@@ -378,6 +378,8 @@ export interface Message {
   extra: MessageExtra;
 }
 
+export type MessageAttachmentExtraValue = string | number | boolean | null | undefined;
+
 /** Persisted attachment rendered with a message or carried into generation. */
 export interface MessageAttachment {
   type?: string | null;
@@ -387,7 +389,7 @@ export interface MessageAttachment {
   name?: string | null;
   prompt?: string | null;
   galleryId?: string | null;
-  [key: string]: unknown;
+  [key: string]: MessageAttachmentExtraValue;
 }
 
 /** Additional data attached to a message. */
