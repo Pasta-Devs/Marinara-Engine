@@ -493,6 +493,28 @@ function formatKnowledgeSourceMaterial(entries: LorebookEntry[]): string {
   return entries.map((entry) => `### ${entry.name}\n${entry.content}`).join("\n\n");
 }
 
+async function loadKnowledgeSourceFileMaterial(
+  storage: StorageGateway,
+  settings: Record<string, unknown>,
+): Promise<string> {
+  const readKnowledgeSourceText = storage.knowledgeSourceText;
+  if (!readKnowledgeSourceText) return "";
+  const fileIds = stringArray(settings.sourceFileIds);
+  if (fileIds.length === 0) return "";
+
+  const parts = await Promise.all(
+    uniqueStrings(fileIds).map(async (fileId) => {
+      const source = await readKnowledgeSourceText<unknown>(fileId).catch(() => null);
+      const sourceRecord = parseRecord(source);
+      const text = readString(sourceRecord.text || source).trim();
+      if (!text) return "";
+      const name = readString(sourceRecord.originalName).trim() || fileId;
+      return `### ${name}\n${text}`;
+    }),
+  );
+  return parts.filter(Boolean).join("\n\n");
+}
+
 async function runKnowledgePreGenerationAgents(
   deps: AgentDeps,
   input: GenerationAgentRuntimeInput,
@@ -511,35 +533,37 @@ async function runKnowledgePreGenerationAgents(
 
   for (const agent of knowledgeAgents) {
     const entries = await loadKnowledgeSourceLorebookEntries(deps.storage, input, agent.settings);
-    const scopedEntries =
-      agent.type === KNOWLEDGE_ROUTER_AGENT_TYPE
-        ? entries.filter((entry) => !entry.constant && knowledgeEntryPassesContext(entry, input))
-        : entries;
-    if (scopedEntries.length === 0) continue;
+    let result: AgentResult | null = null;
 
-    const result =
-      agent.type === KNOWLEDGE_ROUTER_AGENT_TYPE
-        ? await executeKnowledgeRouter(agent, context, agent.provider, agent.model, scopedEntries, {
-            activatedEntries: scopedEntries.filter((entry) => activatedEntryIds.has(entry.id)),
-            keywordScanEntries: scopedEntries.filter((entry) => !activatedEntryIds.has(entry.id)),
-            scanMessages: context.recentMessages.map((message) => ({
-              role: message.role,
-              content: message.content,
-            })),
-            scanOptions: {
-              gameState: context.gameState as GameStateForScanning | null,
-              activeCharacterIds: input.characters.map((character) => character.id),
-              activeCharacterTags: input.characters.flatMap((character) => character.tags),
-              generationTriggers: ["chat", context.chatMode].filter(Boolean),
-            },
-          })
-        : await executeKnowledgeRetrieval(
-            agent,
-            context,
-            agent.provider,
-            agent.model,
-            formatKnowledgeSourceMaterial(scopedEntries),
-          );
+    if (agent.type === KNOWLEDGE_ROUTER_AGENT_TYPE) {
+      const scopedEntries = entries.filter((entry) => !entry.constant && knowledgeEntryPassesContext(entry, input));
+      if (scopedEntries.length === 0) continue;
+      result = await executeKnowledgeRouter(agent, context, agent.provider, agent.model, scopedEntries, {
+        activatedEntries: scopedEntries.filter((entry) => activatedEntryIds.has(entry.id)),
+        keywordScanEntries: scopedEntries.filter((entry) => !activatedEntryIds.has(entry.id)),
+        scanMessages: context.recentMessages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        scanOptions: {
+          gameState: context.gameState as GameStateForScanning | null,
+          activeCharacterIds: input.characters.map((character) => character.id),
+          activeCharacterTags: input.characters.flatMap((character) => character.tags),
+          generationTriggers: ["chat", context.chatMode].filter(Boolean),
+        },
+      });
+    } else {
+      const sourceMaterial = [
+        formatKnowledgeSourceMaterial(entries),
+        await loadKnowledgeSourceFileMaterial(deps.storage, agent.settings),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      if (!sourceMaterial) continue;
+      result = await executeKnowledgeRetrieval(agent, context, agent.provider, agent.model, sourceMaterial);
+    }
+
+    if (!result) continue;
 
     results.push(result);
     onResult?.(result);

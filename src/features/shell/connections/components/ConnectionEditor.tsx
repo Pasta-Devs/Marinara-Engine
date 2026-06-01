@@ -115,6 +115,8 @@ const CLAUDE_SUBSCRIPTION_SETUP_STEPS = [
 type RemoteModel = {
   id: string;
   name: string;
+  context?: number;
+  maxOutput?: number;
   fallback?: boolean;
   fromProvider?: boolean;
   providerError?: string;
@@ -355,6 +357,8 @@ export function ConnectionEditor() {
       { token: "%seed%", label: "%seed%", critical: false },
       { token: "%model%", label: "%model%", critical: false },
       { token: "%reference_image%", label: "%reference_image%", critical: false },
+      { token: "%reference_image_name%", label: "%reference_image_name%", critical: false },
+      { token: "%reference_image_name_01%", label: "%reference_image_name_01%", critical: false },
     ];
     const missing = KNOWN_SUBS.filter(({ token }) => !wf.includes(token));
     return { parseError: false as const, missing };
@@ -390,19 +394,20 @@ export function ConnectionEditor() {
 
   // Merge known models with remote models (remote first, deduped)
   const allModels = useMemo(() => {
-    const knownIds = new Set(providerModels.map((m) => m.id));
-    const uniqueRemote = remoteModels
-      .filter((m) => !knownIds.has(m.id))
-      .map((m) => ({
+    const remoteIds = new Set<string>();
+    const remote = remoteModels.map((m) => {
+      remoteIds.add(m.id);
+      return {
         id: m.id,
         name: m.name,
-        context: 0,
-        maxOutput: 0,
+        context: Number(m.context) || 0,
+        maxOutput: Number(m.maxOutput) || 0,
         isRemote: true as const,
         fallback: m.fallback,
-      }));
-    const known = providerModels.map((m) => ({ ...m, isRemote: false as const }));
-    return [...known, ...uniqueRemote];
+      };
+    });
+    const known = providerModels.filter((m) => !remoteIds.has(m.id)).map((m) => ({ ...m, isRemote: false as const }));
+    return [...remote, ...known];
   }, [providerModels, remoteModels]);
 
   const filteredModels = useMemo(() => {
@@ -412,8 +417,8 @@ export function ConnectionEditor() {
   }, [allModels, modelSearch]);
 
   const selectedModelInfo = useMemo(() => {
-    return providerModels.find((m) => m.id === localModel) ?? null;
-  }, [providerModels, localModel]);
+    return allModels.find((m) => m.id === localModel) ?? null;
+  }, [allModels, localModel]);
 
   // Clear remote models when provider changes
   useEffect(() => {
@@ -692,9 +697,10 @@ export function ConnectionEditor() {
     });
   }, [connectionDetailId, dirty, handleSave, fetchModels]);
 
-  const selectModel = useCallback((model: { id: string; context?: number }) => {
+  const selectModel = useCallback((model: { id: string; context?: number; maxOutput?: number }) => {
     setLocalModel(model.id);
     if (model.context) setLocalMaxContext(Number(model.context));
+    if (model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
     setShowModelDropdown(false);
     setModelSearch("");
     setDirty(true);
@@ -1281,7 +1287,7 @@ export function ConnectionEditor() {
                               .map((m) => (
                                 <button
                                   key={m.id}
-                                  onClick={() => selectModel({ id: m.id })}
+                                  onClick={() => selectModel(m)}
                                   className={cn(
                                     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]",
                                     localModel === m.id && "bg-sky-400/5",
@@ -1400,8 +1406,8 @@ export function ConnectionEditor() {
                 icon={<Zap size="0.875rem" className="text-sky-400" />}
                 help={
                   selectedImageService === "runpod_comfyui"
-                    ? "RunPod requires a ComfyUI workflow JSON in API format. Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%."
-                    : "Paste a custom ComfyUI workflow JSON (API format). Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%. Leave empty to use the built-in default txt2img workflow."
+                    ? "RunPod requires a ComfyUI workflow JSON in API format. Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, %denoise%, %reference_image%, %reference_image_name%, and indexed names such as %reference_image_name_02%."
+                    : "Paste a custom ComfyUI workflow JSON (API format). Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, %denoise%, %reference_image%, %reference_image_name%, and indexed names such as %reference_image_name_02%. Leave empty to use the built-in default txt2img workflow."
                 }
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1477,8 +1483,9 @@ export function ConnectionEditor() {
                   )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
                   Export your workflow from ComfyUI using <strong>Save (API Format)</strong> in the menu. Placeholders
-                  like <code>%prompt%</code>, <code>%steps%</code>, and <code>%sampler%</code> will be replaced at
-                  generation time.
+                  like <code>%prompt%</code>, <code>%steps%</code>, <code>%sampler%</code>,{" "}
+                  <code>%reference_image%</code>, <code>%reference_image_name%</code>, and indexed reference names like{" "}
+                  <code>%reference_image_name_02%</code> will be replaced at generation time.
                 </p>
               </FieldGroup>
             )}
@@ -2463,7 +2470,8 @@ function ImageGenerationDefaultsPanel({
                 </div>
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   Custom ComfyUI workflows can use %steps%, %cfg%, %sampler%, %scheduler%, %denoise%, and %clip_skip%
-                  placeholders.
+                  placeholders, plus %reference_image%, %reference_image_name%, and indexed reference filenames such as
+                  %reference_image_name_02%.
                 </p>
               </>
             ) : (

@@ -26,6 +26,9 @@ const OLD_ASSET_MARKERS: &[&str] = &[
     "/api/backgrounds/file/",
     "api/backgrounds/file/",
     "backgrounds/file/",
+    "/api/gallery/file/",
+    "api/gallery/file/",
+    "gallery/file/",
     "/api/sprites/file/",
     "api/sprites/file/",
     "sprites/file/",
@@ -559,6 +562,14 @@ pub(super) fn normalize_legacy_profile_asset_paths(
     }
 }
 
+pub(super) fn legacy_profile_asset_url_for_path(
+    state: &AppState,
+    staging_root: Option<&Path>,
+    value: &str,
+) -> Option<String> {
+    legacy_profile_asset_for_path(state, staging_root, value).map(|asset| asset.value)
+}
+
 fn legacy_profile_asset_for_path(
     state: &AppState,
     staging_root: Option<&Path>,
@@ -641,6 +652,9 @@ fn legacy_profile_asset_relative_path(value: &str) -> Option<PathBuf> {
         ("api/backgrounds/file/", "backgrounds"),
         ("backgrounds/file/", "backgrounds"),
         ("backgrounds/", "backgrounds"),
+        ("api/gallery/file/", "gallery"),
+        ("gallery/file/", "gallery"),
+        ("gallery/", "gallery"),
         ("api/sprites/file/", "sprites"),
         ("sprites/file/", "sprites"),
         ("sprites/", "sprites"),

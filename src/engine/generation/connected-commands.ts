@@ -1,6 +1,7 @@
 import type { StorageGateway } from "../capabilities/storage";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway } from "../capabilities/llm";
+import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import {
   parseCharacterCommands,
   parseDirectMessageCommands,
@@ -99,7 +100,10 @@ function roleplayDirectMessageCommandsEnabled(chat: JsonRecord): boolean {
   return mode === "roleplay" && boolish(parseRecord(chat.metadata).roleplayDmCommandsEnabled, false);
 }
 
-function parseConnectedCommands(chat: JsonRecord, content: string): {
+function parseConnectedCommands(
+  chat: JsonRecord,
+  content: string,
+): {
   cleanContent: string;
   commands: CharacterCommand[];
   parseEvents: ConnectedCommandEvent[];
@@ -132,7 +136,8 @@ function parseConnectedCommands(chat: JsonRecord, content: string): {
     cleanContent: parsed.cleanContent,
     commands: [...parsed.commands, ...directMessages.commands],
     parseEvents,
-    strippedHiddenContent: directMessages.cleanContent !== content || parsed.cleanContent !== directMessages.cleanContent,
+    strippedHiddenContent:
+      directMessages.cleanContent !== content || parsed.cleanContent !== directMessages.cleanContent,
   };
 }
 
@@ -478,6 +483,7 @@ function eventsPushCommandError(events: ConnectedCommandEvent[], command: string
 async function createSceneFromCommand(args: {
   storage: StorageGateway;
   llm?: LlmGateway;
+  visuals?: VisualAssetGateway;
   chat: JsonRecord;
   command: Extract<CharacterCommand, { type: "scene" }>;
   events: ConnectedCommandEvent[];
@@ -486,7 +492,7 @@ async function createSceneFromCommand(args: {
   if (!args.llm) return false;
   const chatId = readString(args.chat.id);
   const planResult = await planRoleplayScene(
-    { storage: args.storage, llm: args.llm },
+    { storage: args.storage, llm: args.llm, visuals: args.visuals },
     {
       chatId,
       prompt: [args.command.scenario, args.command.plan].filter(Boolean).join("\n\n"),
@@ -498,12 +504,16 @@ async function createSceneFromCommand(args: {
     ...planResult.plan,
     background: args.command.background || planResult.plan.background,
   };
-  const created = await createRoleplayScene(args.storage, {
-    originChatId: chatId,
-    initiatorCharId: activeCharacterId(args.chat),
-    plan,
-    connectionId: args.llmConnectionId ?? null,
-  });
+  const created = await createRoleplayScene(
+    args.storage,
+    {
+      originChatId: chatId,
+      initiatorCharId: activeCharacterId(args.chat),
+      plan,
+      connectionId: args.llmConnectionId ?? null,
+    },
+    args.visuals,
+  );
   args.events.push({
     type: "scene_created",
     data: {
@@ -655,6 +665,7 @@ async function executeCommand(
   assistantAttachments: JsonRecord[],
   visibleContent: string,
   imagePromptSettings?: ImagePromptSettings,
+  visuals?: VisualAssetGateway,
 ): Promise<{ name: string; suppressSourceMessage?: boolean } | null> {
   const chatId = readString(chat.id);
   switch (command.type) {
@@ -843,7 +854,11 @@ async function executeCommand(
       }
       const targetChatId = readString(targetChat.id);
       if (!targetChatId) {
-        eventsPushCommandError(events, command.type, "Could not resolve a conversation for the direct-message command.");
+        eventsPushCommandError(
+          events,
+          command.type,
+          "Could not resolve a conversation for the direct-message command.",
+        );
         return null;
       }
       const targetChatName = readString(targetChat.name) || nameOf(character) || command.character;
@@ -878,7 +893,7 @@ async function executeCommand(
         ? { name: "selfie" }
         : null;
     case "scene":
-      return (await createSceneFromCommand({ storage, llm, chat, command, events, llmConnectionId }))
+      return (await createSceneFromCommand({ storage, llm, visuals, chat, command, events, llmConnectionId }))
         ? { name: "scene" }
         : null;
   }
@@ -892,6 +907,7 @@ export async function persistConnectedCommandTags(
   llm?: LlmGateway,
   llmConnectionId?: string | null,
   imagePromptSettings?: ImagePromptSettings,
+  visuals?: VisualAssetGateway,
 ): Promise<ConnectedCommandResult> {
   const createdNotes: JsonRecord[] = [];
   const pendingNoteWrites: Array<{ chatId: string; note: JsonRecord }> = [];
@@ -916,6 +932,7 @@ export async function persistConnectedCommandTags(
         assistantAttachments,
         parsed.cleanContent,
         imagePromptSettings,
+        visuals,
       );
       if (executed) {
         executedCommands.push(executed.name);

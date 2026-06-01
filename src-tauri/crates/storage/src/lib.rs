@@ -165,6 +165,50 @@ impl FileStorage {
         self.patch_with(collection, id, patch, |_, _| Ok(()))
     }
 
+    pub fn patch_many(
+        &self,
+        collection: &str,
+        patches: Vec<(String, Value)>,
+    ) -> AppResult<Vec<Value>> {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        let normalized_patches = patches
+            .into_iter()
+            .map(|(id, patch)| Ok((id, ensure_object(patch)?)))
+            .collect::<AppResult<Vec<_>>>()?;
+        let mut rows = self.read_collection(collection)?;
+        for (id, _) in &normalized_patches {
+            if !rows
+                .iter()
+                .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+            {
+                return Err(AppError::not_found(format!(
+                    "{collection}/{id} was not found"
+                )));
+            }
+        }
+        let now = now_iso();
+        let mut updated = Vec::with_capacity(normalized_patches.len());
+        for (id, patch) in normalized_patches {
+            let row = rows
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+                .ok_or_else(|| AppError::not_found(format!("{collection}/{id} was not found")))?;
+            let Some(object) = row.as_object_mut() else {
+                return Err(AppError::invalid_input("Stored record is not an object"));
+            };
+            for (key, value) in patch {
+                object.insert(key, value);
+            }
+            object.insert("updatedAt".to_string(), Value::String(now.clone()));
+            updated.push(Value::Object(object.clone()));
+        }
+        self.write_collection(collection, &rows)?;
+        Ok(updated)
+    }
+
     pub fn patch_if<F>(&self, collection: &str, id: &str, mut patch_row: F) -> AppResult<Option<Value>>
     where
         F: FnMut(&mut Map<String, Value>) -> AppResult<bool>,

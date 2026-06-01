@@ -198,6 +198,8 @@ pub fn run() {
             storage_commands::entity_commands::storage_update,
             storage_commands::entity_commands::storage_delete,
             storage_commands::entity_commands::storage_duplicate,
+            storage_commands::entity_commands::connection_folder_reorder,
+            storage_commands::entity_commands::connection_move,
             storage_commands::game_state_snapshot_commands::tracker_snapshot_latest,
             storage_commands::game_state_snapshot_commands::tracker_snapshot_get,
             storage_commands::game_state_snapshot_commands::tracker_snapshot_save,

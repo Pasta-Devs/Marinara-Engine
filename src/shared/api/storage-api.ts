@@ -249,6 +249,7 @@ export const storageApi: StorageGateway = {
     Promise.all(entries.map((entry) => storageApi.create("lorebook-entries", { ...entry, lorebookId }))) as Promise<
       never[]
     >,
+  knowledgeSourceText: <T = unknown>(id: string) => invokeTauri<T>("knowledge_source_text", { id }),
   promptFull: async (presetId) => {
     const preset = await storageApi.get<Record<string, unknown>>("prompts", presetId);
     if (!preset) return null;

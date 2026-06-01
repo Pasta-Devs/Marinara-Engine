@@ -1,8 +1,176 @@
 use super::shared::*;
 use super::*;
 use marinara_security::is_allowed_outbound_url;
+use std::collections::HashMap;
 
 const LEGACY_LOCAL_SIDECAR_CONNECTION_ID: &str = "__local_sidecar__";
+
+pub(crate) fn duplicate_prompt_preset(state: &AppState, preset_id: &str) -> AppResult<Value> {
+    let mut preset = get_required(state, "prompts", preset_id)?;
+    let preset_object = preset
+        .as_object_mut()
+        .ok_or_else(|| AppError::invalid_input("Prompt preset is not an object"))?;
+    preset_object.remove("id");
+    if let Some(name) = preset_object
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    {
+        preset_object.insert("name".to_string(), Value::String(format!("{name} Copy")));
+    }
+    preset_object.insert("isDefault".to_string(), Value::Bool(false));
+    preset_object.insert("default".to_string(), Value::Bool(false));
+    preset_object.insert("groupOrder".to_string(), json!([]));
+    preset_object.insert("sectionOrder".to_string(), json!([]));
+    preset_object.insert("variableOrder".to_string(), json!([]));
+
+    let created_preset = state.storage.create("prompts", preset)?;
+    let new_preset_id = value_id(&created_preset, "duplicated prompt preset")?;
+
+    let (group_id_map, group_order) =
+        duplicate_prompt_child_collection(state, "prompt-groups", preset_id, &new_preset_id, None)?;
+    let (section_id_map, section_order) = duplicate_prompt_child_collection(
+        state,
+        "prompt-sections",
+        preset_id,
+        &new_preset_id,
+        Some(&group_id_map),
+    )?;
+    let (variable_id_map, variable_order) = duplicate_prompt_child_collection(
+        state,
+        "prompt-variables",
+        preset_id,
+        &new_preset_id,
+        None,
+    )?;
+
+    let source_preset = get_required(state, "prompts", preset_id)?;
+    state.storage.patch(
+        "prompts",
+        &new_preset_id,
+        json!({
+            "groupOrder": remap_prompt_order(source_preset.get("groupOrder"), &group_id_map, &group_order),
+            "sectionOrder": remap_prompt_order(source_preset.get("sectionOrder"), &section_id_map, &section_order),
+            "variableOrder": remap_prompt_order(source_preset.get("variableOrder"), &variable_id_map, &variable_order)
+        }),
+    )
+}
+
+pub(crate) fn delete_prompt_preset_children(state: &AppState, preset_id: &str) -> AppResult<()> {
+    let mut filters = Map::new();
+    filters.insert("presetId".to_string(), Value::String(preset_id.to_string()));
+    state.storage.delete_where("prompt-variables", &filters)?;
+    state.storage.delete_where("prompt-sections", &filters)?;
+    state.storage.delete_where("prompt-groups", &filters)?;
+    Ok(())
+}
+
+fn duplicate_prompt_child_collection(
+    state: &AppState,
+    collection: &str,
+    source_preset_id: &str,
+    new_preset_id: &str,
+    group_id_map: Option<&HashMap<String, String>>,
+) -> AppResult<(HashMap<String, String>, Vec<String>)> {
+    let Value::Array(rows) =
+        list_collection(state, collection, Some(("presetId", source_preset_id)))?
+    else {
+        return Ok((HashMap::new(), Vec::new()));
+    };
+    let mut id_map = HashMap::new();
+    let mut created_order = Vec::new();
+    let mut pending_group_parents: Vec<(String, Option<String>)> = Vec::new();
+
+    for row in rows {
+        let old_id = value_id(&row, collection)?;
+        let mut object = row.as_object().cloned().ok_or_else(|| {
+            AppError::invalid_input(format!("{collection} child is not an object"))
+        })?;
+        object.remove("id");
+        object.insert(
+            "presetId".to_string(),
+            Value::String(new_preset_id.to_string()),
+        );
+
+        if collection == "prompt-groups" {
+            let old_parent = object
+                .get("parentGroupId")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            object.insert("parentGroupId".to_string(), Value::Null);
+            let created = state.storage.create(collection, Value::Object(object))?;
+            let new_id = value_id(&created, collection)?;
+            pending_group_parents.push((new_id.clone(), old_parent));
+            created_order.push(new_id.clone());
+            id_map.insert(old_id, new_id);
+            continue;
+        }
+
+        if collection == "prompt-sections" {
+            if let Some(old_group_id) = object.get("groupId").and_then(Value::as_str) {
+                let remapped = group_id_map
+                    .and_then(|ids| ids.get(old_group_id))
+                    .map(|id| Value::String(id.clone()))
+                    .unwrap_or(Value::Null);
+                object.insert("groupId".to_string(), remapped);
+            }
+        }
+
+        let created = state.storage.create(collection, Value::Object(object))?;
+        let new_id = value_id(&created, collection)?;
+        created_order.push(new_id.clone());
+        id_map.insert(old_id, new_id);
+    }
+
+    if collection == "prompt-groups" {
+        for (new_id, old_parent) in pending_group_parents {
+            let remapped = old_parent
+                .and_then(|parent_id| id_map.get(&parent_id).cloned())
+                .map(Value::String)
+                .unwrap_or(Value::Null);
+            state
+                .storage
+                .patch(collection, &new_id, json!({ "parentGroupId": remapped }))?;
+        }
+    }
+
+    Ok((id_map, created_order))
+}
+
+fn remap_prompt_order(
+    value: Option<&Value>,
+    id_map: &HashMap<String, String>,
+    fallback: &[String],
+) -> Vec<String> {
+    let mut ordered = Vec::new();
+    if let Some(items) = value.and_then(Value::as_array) {
+        for item in items {
+            let Some(old_id) = item.as_str() else {
+                continue;
+            };
+            let Some(new_id) = id_map.get(old_id) else {
+                continue;
+            };
+            if !ordered.iter().any(|id| id == new_id) {
+                ordered.push(new_id.clone());
+            }
+        }
+    }
+    for new_id in fallback {
+        if !ordered.iter().any(|id| id == new_id) {
+            ordered.push(new_id.clone());
+        }
+    }
+    ordered
+}
+
+fn value_id(value: &Value, label: &str) -> AppResult<String> {
+    value
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| AppError::invalid_input(format!("{label} is missing an id")))
+}
 
 pub(crate) async fn vectorize_lorebook(
     state: &AppState,
@@ -104,7 +272,7 @@ pub(crate) fn resolve_embedding_connection_for_id(
     if is_legacy_local_sidecar_connection_id(connection_id) {
         return Err(legacy_local_sidecar_embedding_error());
     }
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     if let Some(embedding_connection_id) = connection
         .get("embeddingConnectionId")
         .and_then(Value::as_str)
@@ -114,7 +282,8 @@ pub(crate) fn resolve_embedding_connection_for_id(
         if is_legacy_local_sidecar_connection_id(embedding_connection_id) {
             return Err(legacy_local_sidecar_embedding_error());
         }
-        let embedding_connection = get_required(state, "connections", embedding_connection_id)?;
+        let embedding_connection =
+            connection_secrets::connection_for_runtime(state, embedding_connection_id)?;
         if is_openai_chatgpt_connection(&embedding_connection) {
             return Err(openai_chatgpt_embedding_error());
         }
@@ -127,7 +296,7 @@ pub(crate) fn resolve_embedding_connection_for_id(
 }
 
 pub(crate) fn resolve_default_embedding_connection(state: &AppState) -> AppResult<(String, Value)> {
-    let connections = state.storage.list("connections")?;
+    let connections = connection_secrets::connections_for_runtime(state)?;
     let embedding_candidates = connections
         .iter()
         .filter(|connection| !is_legacy_local_sidecar_connection(connection))

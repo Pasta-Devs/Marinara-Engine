@@ -1,4 +1,5 @@
 use super::game_state_snapshots;
+use super::media_uploads::remove_managed_record_file;
 use super::prompts;
 use super::shared::*;
 use super::*;
@@ -976,12 +977,32 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
 
     game_state_snapshots::delete_tracker_snapshots_for_chats(state, &delete_ids)?;
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
+    delete_gallery_for_chats(state, &delete_id_set)?;
     state.storage.delete_messages_for_chats(&delete_id_set)?;
 
     for delete_id in &delete_ids {
         state.storage.delete("chats", delete_id)?;
     }
     Ok(delete_ids)
+}
+
+fn delete_gallery_for_chats(state: &AppState, chat_ids: &HashSet<String>) -> AppResult<usize> {
+    if chat_ids.is_empty() {
+        return Ok(0);
+    }
+    let rows = state.storage.list("gallery")?;
+    for row in rows.iter().filter(|row| {
+        row.get("chatId")
+            .and_then(Value::as_str)
+            .is_some_and(|chat_id| chat_ids.contains(chat_id))
+    }) {
+        remove_managed_record_file(state, "gallery", row, "filePath", "filename");
+    }
+    state.storage.delete_where_matching("gallery", |row| {
+        row.get("chatId")
+            .and_then(Value::as_str)
+            .is_some_and(|chat_id| chat_ids.contains(chat_id))
+    })
 }
 
 fn chat_game_state_is_bootstrap(chat: &Value) -> bool {
@@ -1227,6 +1248,55 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp chat delete dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn delete_chat_removes_gallery_records_and_managed_files() {
+        let state = test_state("gallery-delete");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Gallery chat"
+                }),
+            )
+            .expect("chat should be created");
+        let gallery_dir = state.data_dir.join("gallery");
+        std::fs::create_dir_all(&gallery_dir).expect("gallery dir should be created");
+        let image_path = gallery_dir.join("managed.png");
+        std::fs::write(&image_path, b"managed").expect("managed image should be written");
+        state
+            .storage
+            .create(
+                "gallery",
+                json!({
+                    "id": "image-1",
+                    "chatId": "chat-1",
+                    "filePath": "managed.png",
+                    "filename": "managed.png",
+                    "url": "data:image/png;base64,bWFuYWdlZA=="
+                }),
+            )
+            .expect("gallery row should be created");
+
+        delete_chat_with_messages(&state, "chat-1").expect("chat delete should succeed");
+
+        let mut filters = Map::new();
+        filters.insert("chatId".to_string(), Value::String("chat-1".to_string()));
+        assert!(
+            state
+                .storage
+                .list_where("gallery", &filters)
+                .expect("gallery should be readable")
+                .is_empty(),
+            "chat gallery rows should be removed"
+        );
+        assert!(
+            !image_path.exists(),
+            "managed gallery file should be removed"
+        );
     }
 
     #[test]

@@ -92,5 +92,6 @@ export interface StorageGateway {
   saveTrackerSnapshot<T = unknown>(chatId: string, snapshot: Record<string, unknown>): Promise<T>;
   listLorebookEntries<T = unknown>(lorebookId: string): Promise<T[]>;
   createLorebookEntries<T = unknown>(lorebookId: string, entries: Array<Record<string, unknown>>): Promise<T[]>;
+  knowledgeSourceText?<T = unknown>(id: string): Promise<T | null>;
   promptFull<T = unknown>(presetId: string): Promise<T | null>;
 }

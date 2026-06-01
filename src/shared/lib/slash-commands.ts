@@ -5,6 +5,7 @@ import { chatBackgroundMetadataToUrl } from "./backgrounds";
 import { planRoleplayScene, createRoleplayScene } from "../../engine/modes/roleplay/scene/scene-service";
 import { llmApi } from "../api/llm-api";
 import { storageApi } from "../api/storage-api";
+import { visualAssetsApi } from "../api/visual-assets-api";
 import { spriteApi } from "../api/image-generation-api";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
@@ -676,7 +677,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
       let planRes: ScenePlanResponse;
       try {
         planRes = await planRoleplayScene(
-          { storage: storageApi, llm: llmApi },
+          { storage: storageApi, llm: llmApi, visuals: visualAssetsApi },
           {
             chatId: ctx.chatId,
             prompt,
@@ -696,12 +697,16 @@ const SLASH_COMMANDS: SlashCommand[] = [
       // Step 2: Create the scene chat using the full plan
       toast.loading("Creating scene...", { id: planToastId, icon: "🎬" });
       try {
-        const res: SceneCreateResponse = await createRoleplayScene(storageApi, {
-          originChatId: ctx.chatId,
-          initiatorCharId: null, // user-initiated
-          plan: planRes.plan,
-          connectionId: null,
-        });
+        const res: SceneCreateResponse = await createRoleplayScene(
+          storageApi,
+          {
+            originChatId: ctx.chatId,
+            initiatorCharId: null, // user-initiated
+            plan: planRes.plan,
+            connectionId: null,
+          },
+          visualAssetsApi,
+        );
 
         // Invalidate chats so the new scene appears + navigate to it
         ctx.invalidate();

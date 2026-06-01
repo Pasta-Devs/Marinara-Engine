@@ -181,7 +181,17 @@ pub(crate) fn managed_record_file_path(
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
     {
-        return managed_file_candidate(PathBuf::from(path), &managed_dir);
+        let raw_path = PathBuf::from(path);
+        if let Some(candidate) = managed_file_candidate(raw_path.clone(), &managed_dir)? {
+            return Ok(Some(candidate));
+        }
+        if raw_path.is_relative() {
+            if let Some(candidate) =
+                managed_file_candidate(managed_dir.join(safe_filename(path)), &managed_dir)?
+            {
+                return Ok(Some(candidate));
+            }
+        }
     }
     let Some(filename) = record
         .get(filename_key)

@@ -1,9 +1,10 @@
 use crate::state::AppState;
 use crate::storage_commands::{
-    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
-    entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
-    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
-    profile_commands, prompts, shared, sprites, translation, updates,
+    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats,
+    connection_secrets, custom_tools, entity_commands, exports, fonts, game_assets,
+    game_state_snapshots, generation, http, images, imports, integrations, knowledge, llm,
+    lorebook_images, mari, personas, profile, profile_commands, prompts, shared, sprites,
+    translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -502,6 +503,8 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "storage_update" => storage_update(state, &args),
         "storage_delete" => storage_delete(state, &args),
         "storage_duplicate" => storage_duplicate(state, &args),
+        "connection_folder_reorder" => connection_folder_reorder(state, &args),
+        "connection_move" => connection_move(state, &args),
         "chat_message_add_swipe" => chat_message_add_swipe(state, &args),
         "chat_message_update_content_if_unchanged" => {
             chat_message_update_content_if_unchanged(state, &args)
@@ -955,6 +958,10 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
         return Ok(Value::Array(shared::project_list_rows(rows, options)));
     }
 
+    if entity == "connections" {
+        connection_secrets::mask_connection_rows_for_read(&mut rows);
+    }
+
     if let Some(limit) = options
         .and_then(|value| value.get("limit"))
         .and_then(Value::as_u64)
@@ -985,17 +992,25 @@ fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> 
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
+    if entity == "connections" {
+        connection_secrets::mask_connection_for_read(&mut value);
+    }
     Ok(shared::project_record(value, args.get("options")))
 }
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     let entity = required_string(args, "entity")?;
-    let created = state.storage.create(
-        entity,
-        shared::with_entity_defaults(entity, optional_value(args, "value"))?,
-    )?;
+    let value = optional_value(args, "value");
+    entity_commands::validate_connection_folder_for_create(state, entity, &value)?;
+    let value = entity_commands::prepare_entity_for_create(state, entity, value)?;
+    let created = state.storage.create(entity, value)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(created));
+    }
+    if entity == "connections" {
+        let mut masked = created;
+        connection_secrets::mask_connection_for_read(&mut masked);
+        return Ok(masked);
     }
     Ok(created)
 }
@@ -1011,11 +1026,13 @@ fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Valu
     if entity == "characters" {
         return characters::update_character(state, id, optional_value(args, "patch"));
     }
-    state.storage.patch(
-        entity,
-        id,
-        shared::normalize_update_patch(entity, optional_value(args, "patch"))?,
-    )
+    let raw_patch = optional_value(args, "patch");
+    entity_commands::validate_connection_folder_for_patch(state, entity, &raw_patch)?;
+    let patch = shared::normalize_update_patch(entity, raw_patch)?;
+    if entity == "connections" {
+        return connection_secrets::patch_connection(state, id, patch);
+    }
+    state.storage.patch(entity, id, patch)
 }
 
 fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1030,10 +1047,27 @@ fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Valu
 }
 
 fn storage_duplicate(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    shared::duplicate_record(
+    entity_commands::duplicate_entity(
         state,
         required_string(args, "entity")?,
         required_string(args, "id")?,
+    )
+}
+
+fn connection_folder_reorder(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    entity_commands::connection_folder_reorder_inner(
+        state,
+        required_string_vec(args, "orderedIds")?,
+    )
+}
+
+fn connection_move(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    entity_commands::connection_move_inner(
+        state,
+        required_string(args, "connectionId")?,
+        args.get("folderId")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     )
 }
 

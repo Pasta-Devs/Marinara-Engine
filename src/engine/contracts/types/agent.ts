@@ -528,6 +528,10 @@ export function getDefaultBuiltInAgentSettings(agentType: string): Record<string
     settings.useAvatarReferences = true;
   }
 
+  if (agentType === "knowledge-retrieval" || agentType === "knowledge-router") {
+    settings.useChatActiveLorebooks = true;
+  }
+
   return settings;
 }
 

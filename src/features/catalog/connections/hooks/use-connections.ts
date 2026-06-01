@@ -120,7 +120,15 @@ export function useFetchModels() {
   return useMutation({
     mutationFn: (id: string) =>
       connectionCommandApi.models<{
-        models: Array<{ id: string; name: string; fallback?: boolean; fromProvider?: boolean; providerError?: string }>;
+        models: Array<{
+          id: string;
+          name: string;
+          context?: number;
+          maxOutput?: number;
+          fallback?: boolean;
+          fromProvider?: boolean;
+          providerError?: string;
+        }>;
         fromProvider: boolean;
         fallback?: boolean;
         providerError?: string;

@@ -107,7 +107,7 @@ pub(crate) async fn generate_sprite_sheet_preview(
 ) -> AppResult<Value> {
     validate_sprite_generation_body(state, &body)?;
     let connection_id = required_string(&body, "connectionId")?;
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     let plan = build_sprite_plan(&body, Some(&connection));
     if plan.should_generate_individually() {
         let items = plan
@@ -171,7 +171,7 @@ pub(crate) async fn generate_sprite_sheet_preview(
 pub(crate) async fn generate_sprite_sheet(state: &AppState, body: Value) -> AppResult<Value> {
     validate_sprite_generation_body(state, &body)?;
     let connection_id = required_string(&body, "connectionId")?;
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     let image_options = image_generation_options(&body);
     let plan = build_sprite_plan(&body, Some(&connection));
     let reference_note = if image_options.reference_images.is_empty() {
@@ -627,7 +627,7 @@ pub(crate) fn delete_sprite(
 
 fn validate_sprite_generation_body(state: &AppState, body: &Value) -> AppResult<()> {
     let connection_id = required_string(body, "connectionId")?;
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     if connection.get("provider").and_then(Value::as_str) != Some("image_generation") {
         return Err(AppError::invalid_input(
             "Image generation connection not found or could not be decrypted",

@@ -234,6 +234,12 @@ where
             unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
         }
         normalize_profile_json_fields(collection, &mut rows)?;
+        if *collection == "connections" {
+            rows = rows
+                .into_iter()
+                .map(|row| connection_secrets::prepare_connection_for_create(state, row))
+                .collect::<AppResult<Vec<_>>>()?;
+        }
         imported.insert((*collection).to_string(), json!(rows.len()));
         replacements.push((*collection, rows));
     }
@@ -354,10 +360,12 @@ fn insert_profile_import_aliases(imported: &mut Map<String, Value>) {
 fn profile_collections(state: &AppState) -> AppResult<Map<String, Value>> {
     let mut collections = Map::new();
     for collection in PROFILE_COLLECTIONS {
-        collections.insert(
-            (*collection).to_string(),
-            Value::Array(state.storage.list(collection)?),
-        );
+        let rows = if *collection == "connections" {
+            connection_secrets::connections_for_export(state)?
+        } else {
+            state.storage.list(collection)?
+        };
+        collections.insert((*collection).to_string(), Value::Array(rows));
     }
     Ok(collections)
 }
@@ -669,14 +677,19 @@ mod tests {
             .upsert_with_id(
                 "connections",
                 "conn-1",
-                json!({
-                    "id": "conn-1",
-                    "name": "OpenAI",
-                    "provider": "openai",
-                    "model": "gpt-4.1",
-                    "folderId": "folder-1",
-                    "sortOrder": 7
-                }),
+                connection_secrets::prepare_connection_for_create(
+                    &source,
+                    json!({
+                        "id": "conn-1",
+                        "name": "OpenAI",
+                        "provider": "openai",
+                        "model": "gpt-4.1",
+                        "folderId": "folder-1",
+                        "sortOrder": 7,
+                        "apiKey": "sk-export-secret"
+                    }),
+                )
+                .expect("connection secret should encrypt"),
             )
             .expect("connection should write");
 
@@ -689,6 +702,13 @@ mod tests {
             snapshot["data"]["collections"]["connections"][0]["folderId"],
             "folder-1"
         );
+        assert_eq!(
+            snapshot["data"]["collections"]["connections"][0]["apiKey"],
+            "sk-export-secret"
+        );
+        assert!(snapshot["data"]["collections"]["connections"][0]
+            .get("apiKeyEncrypted")
+            .is_none());
 
         let target = test_state("connection-folders-export-target");
         import_profile(&target, snapshot).expect("native profile import should succeed");
@@ -708,6 +728,11 @@ mod tests {
             .expect("imported connection should exist");
         assert_eq!(connection["folderId"], "folder-1");
         assert_eq!(connection["sortOrder"], 7);
+        assert!(connection.get("apiKey").is_none());
+        assert!(connection.get("apiKeyEncrypted").is_some());
+        let runtime_connection = connection_secrets::connection_for_runtime(&target, "conn-1")
+            .expect("imported connection secret should decrypt");
+        assert_eq!(runtime_connection["apiKey"], "sk-export-secret");
     }
 
     #[test]

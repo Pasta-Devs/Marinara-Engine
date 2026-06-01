@@ -39,6 +39,7 @@ devtools = ["dep:tauri-plugin-devtools"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+aes-gcm = "0.10"
 autoagents = "0.3.7"
 axum = "0.7"
 base64 = "0.22"
@@ -51,6 +52,7 @@ log = "0.4"
 pdf-extract = "0.10"
 png = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+rand = "0.8"
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-devtools = { version = "2", optional = true }
 tauri-plugin-dialog = "2"

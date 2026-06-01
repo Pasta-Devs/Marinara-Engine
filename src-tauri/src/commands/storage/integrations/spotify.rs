@@ -896,9 +896,9 @@ fn resolve_dj_mari_llm_connection(state: &AppState) -> AppResult<Value> {
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
     {
-        return get_required(state, "connections", connection_id);
+        return connection_secrets::connection_for_runtime(state, connection_id);
     }
-    let connections = state.storage.list("connections")?;
+    let connections = connection_secrets::connections_for_runtime(state)?;
     connections
         .iter()
         .find(|connection| {

@@ -1,5 +1,4 @@
 use super::prompts;
-use super::shared::*;
 use super::*;
 use marinara_security::{is_allowed_outbound_url, redact_sensitive_text};
 
@@ -15,12 +14,12 @@ pub(crate) fn resolve_llm_connection_for_request(
         .and_then(Value::as_str)
         .filter(|id| !id.is_empty())
     {
-        return get_required(state, "connections", connection_id);
+        return connection_secrets::connection_for_runtime(state, connection_id);
     }
     if body.get("provider").is_some() && body.get("model").is_some() {
         return Ok(body.clone());
     }
-    let connections = state.storage.list("connections")?;
+    let connections = connection_secrets::connections_for_runtime(state)?;
     if let Some(default) = connections
         .iter()
         .find(|connection| {
@@ -223,15 +222,13 @@ async fn lookup_llm_models(
     state: &AppState,
     connection_id: Option<&str>,
 ) -> AppResult<ModelLookupResult> {
-    let connection = connection_id
-        .and_then(|id| state.storage.get("connections", id).ok().flatten())
-        .or_else(|| {
-            state
-                .storage
-                .list("connections")
-                .ok()
-                .and_then(|rows| rows.into_iter().next())
-        });
+    let connection = if let Some(id) = connection_id {
+        Some(connection_secrets::connection_for_runtime(state, id)?)
+    } else {
+        connection_secrets::connections_for_runtime(state)?
+            .into_iter()
+            .next()
+    };
     let provider = connection
         .as_ref()
         .and_then(|value| value.get("provider"))
@@ -373,7 +370,7 @@ pub(crate) async fn connection_models(state: &AppState, id: &str) -> AppResult<V
 
 pub(crate) async fn connection_auth_check(state: &AppState, id: &str) -> AppResult<Value> {
     let started = std::time::Instant::now();
-    let connection = get_required(state, "connections", id)?;
+    let connection = connection_secrets::connection_for_runtime(state, id)?;
     let model_name = connection
         .get("model")
         .and_then(Value::as_str)
@@ -406,7 +403,7 @@ pub(crate) async fn connection_diagnose_claude_subscription(
     state: &AppState,
     id: &str,
 ) -> AppResult<Value> {
-    let connection = get_required(state, "connections", id)?;
+    let connection = connection_secrets::connection_for_runtime(state, id)?;
     if connection.get("provider").and_then(Value::as_str) != Some("claude_subscription") {
         return Err(AppError::invalid_input(
             "Not a Claude (Subscription) connection",
@@ -1065,7 +1062,9 @@ fn normalize_models_response(provider: &str, json: &Value) -> Vec<Value> {
                     .get("supportedGenerationMethods")
                     .and_then(Value::as_array)
                     .is_none_or(|methods| {
-                        methods.iter().any(|method| method.as_str() == Some("generateContent"))
+                        methods
+                            .iter()
+                            .any(|method| method.as_str() == Some("generateContent"))
                     })
             })
             .filter_map(|model| {
@@ -1075,7 +1074,15 @@ fn normalize_models_response(provider: &str, json: &Value) -> Vec<Value> {
                     .unwrap_or("")
                     .trim_start_matches("models/");
                 (!id.is_empty()).then(|| {
-                    json!({ "id": id, "name": model.get("displayName").and_then(Value::as_str).unwrap_or(id), "provider": provider })
+                    model_info(
+                        id,
+                        model
+                            .get("displayName")
+                            .and_then(Value::as_str)
+                            .unwrap_or(id),
+                        provider,
+                        model,
+                    )
                 })
             })
             .collect(),
@@ -1093,7 +1100,15 @@ fn normalize_models_response(provider: &str, json: &Value) -> Vec<Value> {
                     .next()
                     .unwrap_or("");
                 (!id.is_empty()).then(|| {
-                    json!({ "id": id, "name": model.get("displayName").and_then(Value::as_str).unwrap_or(id), "provider": provider })
+                    model_info(
+                        id,
+                        model
+                            .get("displayName")
+                            .and_then(Value::as_str)
+                            .unwrap_or(id),
+                        provider,
+                        model,
+                    )
                 })
             })
             .collect(),
@@ -1104,7 +1119,15 @@ fn normalize_models_response(provider: &str, json: &Value) -> Vec<Value> {
             .flatten()
             .filter_map(|model| model_id(model).map(|id| (id, model)))
             .map(|(id, model)| {
-                json!({ "id": id, "name": model.get("display_name").and_then(Value::as_str).unwrap_or(id), "provider": provider })
+                model_info(
+                    id,
+                    model
+                        .get("display_name")
+                        .and_then(Value::as_str)
+                        .unwrap_or(id),
+                    provider,
+                    model,
+                )
             })
             .collect(),
         "cohere" => {
@@ -1137,9 +1160,75 @@ fn normalize_openai_data_models(json: &Value, provider: &str) -> Vec<Value> {
         .flatten()
         .filter_map(|model| model_id(model).map(|id| (id, model)))
         .map(|(id, model)| {
-            json!({ "id": id, "name": model.get("name").and_then(Value::as_str).unwrap_or(id), "provider": provider })
+            model_info(
+                id,
+                model.get("name").and_then(Value::as_str).unwrap_or(id),
+                provider,
+                model,
+            )
         })
         .collect()
+}
+
+fn model_info(id: &str, name: &str, provider: &str, source: &Value) -> Value {
+    let mut model = json!({ "id": id, "name": name, "provider": provider });
+    if let Some(context) = model_number(
+        source,
+        &[
+            "context",
+            "context_length",
+            "contextLength",
+            "context_window",
+            "contextWindow",
+            "maxContext",
+            "max_context",
+            "inputTokenLimit",
+            "input_token_limit",
+        ],
+    ) {
+        model["context"] = json!(context);
+    }
+    if let Some(max_output) = model_number(
+        source,
+        &[
+            "maxOutput",
+            "max_output",
+            "maxOutputTokens",
+            "max_output_tokens",
+            "maxCompletionTokens",
+            "max_completion_tokens",
+            "outputTokenLimit",
+            "output_token_limit",
+            "max_tokens",
+        ],
+    )
+    .or_else(|| {
+        source.get("top_provider").and_then(|value| {
+            model_number(
+                value,
+                &[
+                    "max_completion_tokens",
+                    "maxCompletionTokens",
+                    "max_output_tokens",
+                    "maxOutputTokens",
+                ],
+            )
+        })
+    }) {
+        model["maxOutput"] = json!(max_output);
+    }
+    model
+}
+
+fn model_number(source: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| {
+        source.get(*key).and_then(|value| {
+            value
+                .as_u64()
+                .or_else(|| value.as_i64().and_then(|value| u64::try_from(value).ok()))
+                .or_else(|| value.as_str()?.trim().parse::<u64>().ok())
+        })
+    })
 }
 
 fn model_id(model: &Value) -> Option<&str> {
@@ -1365,6 +1454,25 @@ mod tests {
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("[REDACTED]"));
         assert!(!error.message.contains("AIzaSecretValue123"));
+    }
+
+    #[test]
+    fn openai_compatible_model_metadata_preserves_context_and_output_limits() {
+        let models = normalize_openai_data_models(
+            &json!({
+                "data": [{
+                    "id": "remote-model",
+                    "name": "Remote Model",
+                    "context_length": 1048576,
+                    "top_provider": { "max_completion_tokens": 65536 }
+                }]
+            }),
+            "openrouter",
+        );
+
+        assert_eq!(models[0]["id"], "remote-model");
+        assert_eq!(models[0]["context"], 1048576);
+        assert_eq!(models[0]["maxOutput"], 65536);
     }
 
     #[tokio::test]

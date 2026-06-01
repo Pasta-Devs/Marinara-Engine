@@ -55,6 +55,7 @@ interface RoleplayHUDProps {
   /** Re-run one tracker agent only (same pipeline as full tracker run). */
   onRerunSingleTracker?: (agentType: string) => void;
   onRetryFailedAgents?: () => void;
+  onRetryAgent?: (agentType: string) => void;
   /** When true, tracker agents are manual — show a trigger button in the widget strip */
   manualTrackers?: boolean;
   /** When provided, overrides the globally-computed set so that only per-chat agents show widgets. */
@@ -88,6 +89,7 @@ export function RoleplayHUD({
   onRetriggerTrackers,
   onRerunSingleTracker,
   onRetryFailedAgents,
+  onRetryAgent,
   manualTrackers,
   mobileCompact,
   enabledAgentTypes: enabledAgentTypesProp,
@@ -283,6 +285,7 @@ export function RoleplayHUD({
         clearGameState={clearGameState}
         onRetriggerTrackers={onRetriggerTrackers}
         onRetryFailedAgents={onRetryFailedAgents}
+        onRetryAgent={onRetryAgent}
         failedAgentTypes={failedAgentTypes}
         failedAgentFailures={failedAgentFailures}
         showInjectionsTab={showInjectionsTab}

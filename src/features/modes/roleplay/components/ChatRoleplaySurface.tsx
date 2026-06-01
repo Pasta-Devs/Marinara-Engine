@@ -566,6 +566,7 @@ type RoleplaySurfaceProps = {
   onRerunTrackers: () => void;
   onRerunSingleTracker: (agentType: string) => void;
   onRetryFailedAgents?: () => void;
+  onRetryAgent?: (agentType: string) => void;
   onStartEncounter: () => void;
   onConcludeScene: () => void;
   onAbandonScene: () => void;
@@ -666,6 +667,7 @@ export function ChatRoleplaySurface({
   onRerunTrackers,
   onRerunSingleTracker,
   onRetryFailedAgents,
+  onRetryAgent,
   onStartEncounter,
   onConcludeScene,
   onAbandonScene,
@@ -810,6 +812,7 @@ export function ChatRoleplaySurface({
                         isStreaming={isStreaming}
                         onRetriggerTrackers={onRerunTrackers}
                         onRetryFailedAgents={onRetryFailedAgents}
+                        onRetryAgent={onRetryAgent}
                         onRerunSingleTracker={onRerunSingleTracker}
                         enabledAgentTypes={enabledAgentTypes}
                         manualTrackers={!!chatMeta.manualTrackers}
@@ -879,6 +882,7 @@ export function ChatRoleplaySurface({
                         isStreaming={isStreaming}
                         onRetriggerTrackers={onRerunTrackers}
                         onRetryFailedAgents={onRetryFailedAgents}
+                        onRetryAgent={onRetryAgent}
                         onRerunSingleTracker={onRerunSingleTracker}
                         enabledAgentTypes={enabledAgentTypes}
                         manualTrackers={!!chatMeta.manualTrackers}

@@ -575,7 +575,7 @@ pub(crate) fn normalize_typed_json_fields(
             normalize_nullable_json_object_fields(object, &["snapshot", "metadata"])?;
         }
         "chat-presets" => {
-            normalize_json_object_fields(object, &["parameters"])?;
+            normalize_json_object_fields(object, &["parameters", "settings"])?;
             normalize_boolish_fields(object, &["isDefault", "default", "isActive", "active"]);
         }
         "prompts" => {
@@ -741,6 +741,16 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
                 .entry("enabled".to_string())
                 .or_insert(Value::Bool(true));
         }
+        "connection-folders" => {
+            object
+                .entry("color".to_string())
+                .or_insert_with(|| Value::String("#38bdf8".to_string()));
+            object
+                .entry("collapsed".to_string())
+                .or_insert(Value::Bool(false));
+            object.entry("sortOrder".to_string()).or_insert(json!(0));
+            object.entry("order".to_string()).or_insert(json!(0));
+        }
         "characters" => {
             if let Some(data) = object.get("data") {
                 normalize_character_data_for_storage(data)?;
@@ -886,6 +896,24 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
                 .or_insert_with(|| json!({}));
             object
                 .entry("isDefault".to_string())
+                .or_insert(Value::Bool(false));
+        }
+        "chat-presets" => {
+            normalize_typed_json_fields(collection, &mut object)?;
+            object
+                .entry("settings".to_string())
+                .or_insert_with(|| json!({}));
+            object
+                .entry("isDefault".to_string())
+                .or_insert(Value::Bool(false));
+            object
+                .entry("default".to_string())
+                .or_insert(Value::Bool(false));
+            object
+                .entry("isActive".to_string())
+                .or_insert(Value::Bool(false));
+            object
+                .entry("active".to_string())
                 .or_insert(Value::Bool(false));
         }
         "prompt-sections" | "prompt-variables" => {

@@ -428,6 +428,15 @@ export function useChatTimelineActions({
     await retryAgents(activeChatId, failedAgentTypes);
   }, [activeChatId, agentProcessing, failedAgentTypes, isStreaming, retryAgents]);
 
+  const handleRetryAgent = useCallback(
+    async (agentType: string) => {
+      const type = agentType.trim();
+      if (!activeChatId || !type || isStreaming || agentProcessing) return;
+      await retryAgents(activeChatId, [type]);
+    },
+    [activeChatId, agentProcessing, isStreaming, retryAgents],
+  );
+
   const handleRerunTrackers = useCallback(async () => {
     if (!activeChatId || isStreaming || agentProcessing) return;
     const types = Array.from(enabledAgentTypes).filter((type) => TRACKER_AGENT_IDS.has(type));
@@ -663,6 +672,7 @@ export function useChatTimelineActions({
     handleBranch,
     handlePeekPrompt,
     closePeekPrompt,
+    handleRetryAgent,
     closeDeleteDialog: () => setDeleteDialogMessageId(null),
   };
 }

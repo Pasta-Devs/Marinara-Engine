@@ -38,6 +38,7 @@ interface ActionsGroupProps {
   clearGameState: () => void;
   onRetriggerTrackers?: () => void;
   onRetryFailedAgents?: () => void;
+  onRetryAgent?: (agentType: string) => void;
   failedAgentTypes: string[];
   failedAgentFailures: AgentFailure[];
   showInjectionsTab?: boolean;
@@ -60,6 +61,7 @@ export function ActionsGroup({
   clearGameState,
   onRetriggerTrackers,
   onRetryFailedAgents,
+  onRetryAgent,
   failedAgentTypes,
   failedAgentFailures,
   showInjectionsTab,
@@ -161,6 +163,7 @@ export function ActionsGroup({
             clearGameState={clearGameState}
             onRetriggerTrackers={onRetriggerTrackers}
             onRetryFailedAgents={onRetryFailedAgents}
+            onRetryAgent={onRetryAgent}
             failedAgentTypes={failedAgentTypes}
             failedAgentFailures={failedAgentFailures}
             onClose={() => setAgentsOpen(false)}

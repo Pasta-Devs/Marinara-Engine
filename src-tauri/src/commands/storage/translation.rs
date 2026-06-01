@@ -31,7 +31,7 @@ async fn translate_with_ai(
     body: &Value,
 ) -> AppResult<String> {
     let connection_id = required_string(body, "connectionId")?;
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     let request = marinara_llm::LlmRequest {
         connection: llm_connection_from_value(&connection)?,
         messages: vec![

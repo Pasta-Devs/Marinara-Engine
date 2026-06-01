@@ -10,6 +10,13 @@ function imageCreatedAt(image: ChatImage) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function normalizeGalleryImage(image: ChatImage): ChatImage {
+  return {
+    ...image,
+    url: readTrimmed(image.url) || readTrimmed(image.filePath),
+  };
+}
+
 function readTrimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -60,7 +67,10 @@ async function listGalleryImagesForChatIds(
     storageApi.list<ChatImage>("gallery", { filters: { chatId } }),
 ): Promise<ChatImage[]> {
   const batches = await Promise.all(galleryChatIds.map((chatId) => listByChatId(chatId)));
-  return batches.flat().sort((a, b) => imageCreatedAt(b) - imageCreatedAt(a));
+  return batches
+    .flat()
+    .map(normalizeGalleryImage)
+    .sort((a, b) => imageCreatedAt(b) - imageCreatedAt(a));
 }
 
 export function useGalleryImages(chat: Chat | null) {

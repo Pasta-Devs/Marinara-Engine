@@ -58,6 +58,7 @@ interface RoleplayHUDActionsMenuProps {
   clearGameState: () => void;
   onRetriggerTrackers?: () => void;
   onRetryFailedAgents?: () => void;
+  onRetryAgent?: (agentType: string) => void;
   failedAgentTypes?: string[];
   failedAgentFailures?: AgentFailure[];
   onClose: () => void;
@@ -84,6 +85,7 @@ export function RoleplayHUDActionsMenu({
   clearGameState,
   onRetriggerTrackers,
   onRetryFailedAgents,
+  onRetryAgent,
   failedAgentTypes,
   failedAgentFailures,
   onClose,
@@ -97,11 +99,21 @@ export function RoleplayHUDActionsMenu({
     () => getLatestInjectableCustomRuns(customAgentRuns, agentConfigs ?? [], enabledAgentTypes),
     [customAgentRuns, agentConfigs, enabledAgentTypes],
   );
+  const runnableCustomAgents = useMemo(
+    () => getRunnableCustomAgents(agentConfigs ?? [], enabledAgentTypes),
+    [agentConfigs, enabledAgentTypes],
+  );
   const hasActiveCustomPromptAgent = useMemo(
     () => hasActiveInjectableCustomAgent(agentConfigs ?? [], enabledAgentTypes),
     [agentConfigs, enabledAgentTypes],
   );
-  const hasAnyActivity = isAgentProcessing || thoughtBubbles.length > 0 || hasCustomRuns || customAgentRunsLoading;
+  const showCustomAgentRetrySection = !!onRetryAgent && runnableCustomAgents.length > 0;
+  const hasAnyActivity =
+    isAgentProcessing ||
+    thoughtBubbles.length > 0 ||
+    hasCustomRuns ||
+    customAgentRunsLoading ||
+    showCustomAgentRetrySection;
   const tabs = [
     { id: "activity" as const, label: "Activity" },
     ...(showInjectionsTab ? [{ id: "injections" as const, label: "Injections" }] : []),
@@ -112,7 +124,11 @@ export function RoleplayHUDActionsMenu({
   const currentTab = tabs[safeTabIndex] ?? tabs[0];
   const activeTab = currentTab.id;
   const showTrackerActions = activeTab === "activity";
-  const showRetryFailedAction = !!(onRetryFailedAgents && failedAgentTypes && failedAgentTypes.length > 0);
+  const showRetryFailedAction = !!(
+    (onRetryFailedAgents || onRetryAgent) &&
+    failedAgentTypes &&
+    failedAgentTypes.length > 0
+  );
   const displayedFailures = useMemo(
     () =>
       failedAgentFailures && failedAgentFailures.length > 0
@@ -219,6 +235,18 @@ export function RoleplayHUDActionsMenu({
               loading={customAgentRunsLoading}
               title="Custom outputs"
               countMode="all"
+              onRetryAgent={onRetryAgent}
+              retryBusy={isGenerationBusy}
+              onClose={onClose}
+            />
+          )}
+
+          {onRetryAgent && runnableCustomAgents.length > 0 && (
+            <CustomAgentsRetrySection
+              agents={runnableCustomAgents}
+              retryBusy={isGenerationBusy}
+              onRetryAgent={onRetryAgent}
+              onClose={onClose}
             />
           )}
         </>
@@ -242,6 +270,9 @@ export function RoleplayHUDActionsMenu({
               emptyText="No saved prompt-section output yet."
               countMode="latest"
               collapsible
+              onRetryAgent={onRetryAgent}
+              retryBusy={isGenerationBusy}
+              onClose={onClose}
             />
           )}
         </>
@@ -272,13 +303,30 @@ export function RoleplayHUDActionsMenu({
                 {displayedFailures.map((failure) => (
                   <div
                     key={failure.agentType}
-                    className="rounded-md border border-amber-400/15 bg-amber-500/10 px-2 py-1.5 text-[0.625rem]"
+                    className="flex items-start gap-2 rounded-md border border-amber-400/15 bg-amber-500/10 px-2 py-1.5 text-[0.625rem]"
                     title={failure.error ?? undefined}
                   >
-                    <div className="font-semibold text-amber-200">{formatAgentFailureTitle(failure)}</div>
-                    <div className="mt-0.5 max-h-8 overflow-hidden break-words text-amber-100/65">
-                      {formatAgentFailureDetail(failure)}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-amber-200">{formatAgentFailureTitle(failure)}</div>
+                      <div className="mt-0.5 max-h-8 overflow-hidden break-words text-amber-100/65">
+                        {formatAgentFailureDetail(failure)}
+                      </div>
                     </div>
+                    {onRetryAgent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRetryAgent(failure.agentType);
+                          onClose();
+                        }}
+                        disabled={isGenerationBusy}
+                        className="mt-0.5 rounded p-1 text-amber-200/75 transition-colors hover:bg-amber-400/15 hover:text-amber-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-200/60 disabled:opacity-45"
+                        title={isGenerationBusy ? "Agents are busy" : `Retry ${failure.agentName}`}
+                        aria-label={`Retry ${failure.agentName}`}
+                      >
+                        <RefreshCw size="0.6875rem" className={isGenerationBusy ? "animate-spin" : ""} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -325,16 +373,16 @@ export function RoleplayHUDActionsMenu({
               {isGenerationBusy ? "Running..." : "Re-run Trackers"}
             </button>
           )}
-          {showRetryFailedAction && (
+          {showRetryFailedAction && onRetryFailedAgents && (
             <button
               onClick={() => {
                 onRetryFailedAgents();
                 onClose();
               }}
-              disabled={isAgentProcessing}
+              disabled={isGenerationBusy}
               className="flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-amber-300 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
             >
-              <AlertTriangle size="0.6875rem" className={isAgentProcessing ? "animate-pulse" : ""} />
+              <AlertTriangle size="0.6875rem" className={isGenerationBusy ? "animate-pulse" : ""} />
               {isAgentProcessing ? "Retrying..." : `Retry Failed Agents (${failedAgentTypes?.length ?? 0})`}
             </button>
           )}
@@ -351,6 +399,9 @@ function CustomAgentRunsSection({
   emptyText,
   countMode,
   collapsible,
+  onRetryAgent,
+  retryBusy,
+  onClose,
 }: {
   runs: AgentRunRow[];
   loading: boolean;
@@ -358,6 +409,9 @@ function CustomAgentRunsSection({
   emptyText?: string;
   countMode: "all" | "latest";
   collapsible?: boolean;
+  onRetryAgent?: (agentType: string) => void;
+  retryBusy?: boolean;
+  onClose?: () => void;
 }) {
   const [open, setOpen] = useState(!collapsible);
   const countLabel = loading ? "Loading..." : runs.length > 0 ? String(runs.length) : "";
@@ -398,7 +452,13 @@ function CustomAgentRunsSection({
       {open && (
         <div className="flex flex-col gap-1 p-2 pt-0">
           {runs.map((run) => (
-            <CustomAgentRunItem key={run.id} run={run} />
+            <CustomAgentRunItem
+              key={run.id}
+              run={run}
+              onRetryAgent={onRetryAgent}
+              retryBusy={retryBusy}
+              onClose={onClose}
+            />
           ))}
           {!loading && runs.length === 0 && emptyText && (
             <div className="px-2 py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">{emptyText}</div>
@@ -414,12 +474,68 @@ function CustomAgentRunsSection({
   );
 }
 
+function CustomAgentsRetrySection({
+  agents,
+  retryBusy,
+  onRetryAgent,
+  onClose,
+}: {
+  agents: AgentConfigRow[];
+  retryBusy: boolean;
+  onRetryAgent: (agentType: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="border-t border-white/5">
+      <div className="flex items-center gap-1.5 px-3 py-1.5">
+        <span className="flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          <Sparkles size="0.6875rem" className="text-[var(--primary)]" />
+          Custom agents
+        </span>
+        <span className="ml-auto text-[0.5625rem] text-[var(--muted-foreground)]/70">{agents.length}</span>
+      </div>
+      <div className="flex flex-col gap-1 p-2 pt-0">
+        {agents.map((agent) => (
+          <button
+            key={agent.id || agent.type}
+            type="button"
+            onClick={() => {
+              onRetryAgent(agent.type);
+              onClose();
+            }}
+            disabled={retryBusy}
+            className="flex min-h-8 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/55 px-2 py-1.5 text-left text-[0.625rem] transition-colors hover:bg-[var(--accent)]/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:opacity-50"
+            title={retryBusy ? "Agents are busy" : `Re-run ${agent.name}`}
+          >
+            <RefreshCw size="0.6875rem" className={retryBusy ? "animate-spin" : "text-[var(--primary)]"} />
+            <span className="min-w-0 flex-1 truncate text-[var(--popover-foreground)]">{agent.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function isCustomAgentConfig(config: AgentConfigRow): boolean {
+  return !BUILT_IN_AGENTS.some((agent) => agent.id === config.type);
+}
+
+function isAgentConfigActiveForMenu(config: AgentConfigRow, enabledAgentTypes?: Set<string>): boolean {
+  if (!agentConfigEnabled(config.enabled, true)) return false;
+  if (enabledAgentTypes && enabledAgentTypes.size > 0) {
+    return enabledAgentTypes.has(config.type) || enabledAgentTypes.has(config.id);
+  }
+  return true;
+}
+
+function getRunnableCustomAgents(configs: AgentConfigRow[], enabledAgentTypes?: Set<string>): AgentConfigRow[] {
+  return configs.filter((config) => isCustomAgentConfig(config) && isAgentConfigActiveForMenu(config, enabledAgentTypes));
+}
+
 function hasActiveInjectableCustomAgent(configs: AgentConfigRow[], enabledAgentTypes?: Set<string>): boolean {
-  const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   return configs.some((config) => {
-    if (builtInTypes.has(config.type)) return false;
-    if (!agentConfigEnabled(config.enabled, true)) return false;
-    if (enabledAgentTypes && !enabledAgentTypes.has(config.type)) return false;
+    if (!isCustomAgentConfig(config)) return false;
+    if (!isAgentConfigActiveForMenu(config, enabledAgentTypes)) return false;
     const settings = parseAgentSettings(config.settings);
     return settings.injectAsSection === true;
   });
@@ -430,13 +546,11 @@ function getLatestInjectableCustomRuns(
   configs: AgentConfigRow[],
   enabledAgentTypes?: Set<string>,
 ): AgentRunRow[] {
-  const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   const injectableTypes = new Set(
     configs
       .filter((config) => {
-        if (builtInTypes.has(config.type)) return false;
-        if (!agentConfigEnabled(config.enabled, true)) return false;
-        if (enabledAgentTypes && !enabledAgentTypes.has(config.type)) return false;
+        if (!isCustomAgentConfig(config)) return false;
+        if (!isAgentConfigActiveForMenu(config, enabledAgentTypes)) return false;
         const settings = parseAgentSettings(config.settings);
         return settings.injectAsSection === true;
       })
@@ -512,7 +626,17 @@ function formatRunTime(value: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
+function CustomAgentRunItem({
+  run,
+  onRetryAgent,
+  retryBusy,
+  onClose,
+}: {
+  run: AgentRunRow;
+  onRetryAgent?: (agentType: string) => void;
+  retryBusy?: boolean;
+  onClose?: () => void;
+}) {
   const updateRun = useUpdateAgentRunData();
   const mode = getEditableMode(run.resultData);
   const initialDraft = useMemo(() => getEditorValue(run.resultData, mode), [run.resultData, mode]);
@@ -555,17 +679,34 @@ function CustomAgentRunItem({ run }: { run: AgentRunRow }) {
             </pre>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing((value) => !value);
-            setError(null);
-          }}
-          className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--accent-foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
-          title={editing ? "Close editor" : "Edit output"}
-        >
-          {editing ? <X size="0.6875rem" /> : <Pencil size="0.6875rem" />}
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {onRetryAgent && run.agentType && (
+            <button
+              type="button"
+              onClick={() => {
+                onRetryAgent(run.agentType);
+                onClose?.();
+              }}
+              disabled={retryBusy}
+              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--accent-foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:opacity-45"
+              title={retryBusy ? "Agents are busy" : `Re-run ${run.agentName}`}
+              aria-label={`Re-run ${run.agentName}`}
+            >
+              <RefreshCw size="0.6875rem" className={retryBusy ? "animate-spin" : ""} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditing((value) => !value);
+              setError(null);
+            }}
+            className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/45 hover:text-[var(--accent-foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+            title={editing ? "Close editor" : "Edit output"}
+          >
+            {editing ? <X size="0.6875rem" /> : <Pencil size="0.6875rem" />}
+          </button>
+        </div>
       </div>
 
       {editing && (

@@ -137,6 +137,7 @@ import {
   useImportChatPreset,
   useSetActiveChatPreset,
   sanitizeChatPresetSettings,
+  createChatPresetExportEnvelope,
 } from "../../../../catalog/chat-presets/index";
 import type { AgentPhase } from "../../../../../engine/contracts/types/agent";
 import type { Chat, ChatMode, ChatMemoryChunk, ConversationNote } from "../../../../../engine/contracts/types/chat";
@@ -621,10 +622,7 @@ function ChatSettingsDrawerInner({
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
   const { data: allRegexScripts } = useRegexScripts(chatCharIds);
   const updateRegexScript = useUpdateRegexScript();
-  const scopedRegexScripts = useMemo(
-    () => (allRegexScripts ?? []).filter((s) => !!s.characterId),
-    [allRegexScripts],
-  );
+  const scopedRegexScripts = useMemo(() => (allRegexScripts ?? []).filter((s) => !!s.characterId), [allRegexScripts]);
   const scopedRegexCount = scopedRegexScripts.length;
   const spotifyActive = activeAgentIds.includes("spotify");
   const hapticAgentActive = activeAgentIds.includes(HAPTIC_AGENT_ID);
@@ -925,7 +923,9 @@ function ChatSettingsDrawerInner({
         if (!notes) continue;
         const { css } = extractCreatorNotesCss(notes);
         if (css.trim()) result.push({ id, name: charNameMap.get(id) ?? "Unknown" });
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
     return result;
   }, [chatCharIds, characters, charNameMap]);
@@ -1671,12 +1671,15 @@ function ChatSettingsDrawerInner({
     : null;
 
   const snapshotCurrentPresetSettings = useCallback((): ChatPresetSettings => {
-    return sanitizeChatPresetSettings({
-      connectionId: chat.connectionId ?? null,
-      promptPresetId: isConversation ? null : (chat.promptPresetId ?? null),
-      metadata: { ...metadata },
-    });
-  }, [chat.connectionId, chat.promptPresetId, isConversation, metadata]);
+    return sanitizeChatPresetSettings(
+      {
+        connectionId: chat.connectionId ?? null,
+        promptPresetId: isConversation ? null : (chat.promptPresetId ?? null),
+        metadata: { ...metadata },
+      },
+      chatMode,
+    );
+  }, [chat.connectionId, chat.promptPresetId, chatMode, isConversation, metadata]);
 
   const handleSelectPreset = (id: string) => {
     if (!id || id === selectedChatPreset?.id) return;
@@ -1764,8 +1767,9 @@ function ChatSettingsDrawerInner({
 
   const handleExportPreset = () => {
     if (!selectedChatPreset) return;
+    const envelope = createChatPresetExportEnvelope(selectedChatPreset);
     exportApi.triggerDownload({
-      blob: new Blob([JSON.stringify(selectedChatPreset, null, 2)], { type: "application/json" }),
+      blob: new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" }),
       filename: `${selectedChatPreset.name}.marinara-chat-preset.json`,
     });
   };
@@ -3939,10 +3943,17 @@ function ChatSettingsDrawerInner({
                 </p>
                 {cardCssMode !== "disabled" && (
                   <div className="space-y-1">
-                    <span className="block px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">Characters with CSS:</span>
+                    <span className="block px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      Characters with CSS:
+                    </span>
                     {cardCssCharacters.map((char) => (
-                      <div key={char.id} className="flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]">
-                        <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">{char.name}</span>
+                      <div
+                        key={char.id}
+                        className="flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-[var(--border)] bg-[var(--card)]"
+                      >
+                        <span className="flex-1 text-[0.6875rem] font-medium text-[var(--foreground)] truncate">
+                          {char.name}
+                        </span>
                       </div>
                     ))}
                   </div>

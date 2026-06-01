@@ -22,6 +22,8 @@ pub(crate) mod bot_browser;
 pub(crate) mod characters;
 #[path = "storage/chats.rs"]
 pub(crate) mod chats;
+#[path = "storage/connection_secrets.rs"]
+pub(crate) mod connection_secrets;
 #[path = "storage/custom_tools.rs"]
 pub(crate) mod custom_tools;
 #[path = "storage/exports.rs"]

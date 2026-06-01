@@ -2354,6 +2354,7 @@ export async function* startGeneration(
       deps.llm,
       readString(connection.id) || input.connectionId || null,
       input.imagePromptSettings,
+      deps.visuals,
     );
     throwIfAborted(signal);
     for (const event of connected.events) yield event;
@@ -2526,6 +2527,7 @@ export async function* startGeneration(
     deps.llm,
     readString(connection.id) || input.connectionId || null,
     input.imagePromptSettings,
+    deps.visuals,
   );
   throwIfAborted(signal);
   for (const event of connected.events) yield event;

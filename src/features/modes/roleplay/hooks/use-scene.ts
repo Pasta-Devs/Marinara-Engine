@@ -8,6 +8,7 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { chatKeys } from "../../../catalog/chats/index";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import {
   abandonRoleplayScene,
   concludeRoleplayScene,
@@ -56,7 +57,7 @@ export function useScene() {
     async (prompt: string, connectionId?: string | null): Promise<ScenePlanResponse | null> => {
       if (!activeChatId) return null;
       try {
-        return await planRoleplayScene({ storage: storageApi, llm: llmApi }, {
+        return await planRoleplayScene({ storage: storageApi, llm: llmApi, visuals: visualAssetsApi }, {
           chatId: activeChatId,
           prompt,
           connectionId: connectionId ?? null,
@@ -79,12 +80,16 @@ export function useScene() {
     }): Promise<SceneCreateResponse | null> => {
       if (!activeChatId) return null;
       try {
-        const res = await createRoleplayScene(storageApi, {
-          originChatId: activeChatId,
-          initiatorCharId: opts.initiatorCharId ?? null,
-          plan: opts.plan,
-          connectionId: opts.connectionId ?? null,
-        } satisfies SceneCreateRequest);
+        const res = await createRoleplayScene(
+          storageApi,
+          {
+            originChatId: activeChatId,
+            initiatorCharId: opts.initiatorCharId ?? null,
+            plan: opts.plan,
+            connectionId: opts.connectionId ?? null,
+          } satisfies SceneCreateRequest,
+          visualAssetsApi,
+        );
 
         // Invalidate chats so the new scene appears in the sidebar
         qc.invalidateQueries({ queryKey: chatKeys.all });
@@ -109,7 +114,7 @@ export function useScene() {
       try {
         toast("Generating scene summary...", { icon: "✍️" });
 
-        const res = await concludeRoleplayScene({ storage: storageApi, llm: llmApi }, {
+        const res = await concludeRoleplayScene({ storage: storageApi, llm: llmApi, visuals: visualAssetsApi }, {
           sceneChatId,
           connectionId: connectionId ?? null,
         } satisfies SceneConcludeRequest);

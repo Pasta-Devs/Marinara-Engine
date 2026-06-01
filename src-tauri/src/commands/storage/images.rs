@@ -153,7 +153,7 @@ pub(crate) fn percent_encode_component(value: &str) -> String {
 
 pub(crate) async fn avatar_generation(state: &AppState, body: Value) -> AppResult<Value> {
     let connection_id = required_string(&body, "connectionId")?;
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     if connection.get("provider").and_then(Value::as_str) != Some("image_generation") {
         return Err(AppError::invalid_input(
             "Selected connection is not an image-generation connection",
@@ -187,7 +187,7 @@ pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<V
     let prompt = required_string(&body, "prompt")?;
     let width = image_dimension(&body, "width", 1024);
     let height = image_dimension(&body, "height", 1024);
-    let connection = get_required(state, "connections", connection_id)?;
+    let connection = connection_secrets::connection_for_runtime(state, connection_id)?;
     let provider = image_generation_source(&connection);
     let model = image_generation_model(&connection, &provider);
     let (base64, mime_type) = generate_image_with_options(
@@ -208,7 +208,7 @@ pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<V
 }
 
 pub(crate) async fn test_image_generation(state: &AppState, id: &str) -> AppResult<Value> {
-    let connection = get_required(state, "connections", id)?;
+    let connection = connection_secrets::connection_for_runtime(state, id)?;
     if connection.get("provider").and_then(Value::as_str) != Some("image_generation") {
         return Err(AppError::invalid_input(
             "Not an image-generation connection",

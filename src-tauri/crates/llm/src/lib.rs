@@ -1921,13 +1921,14 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
         })
         .collect::<Vec<_>>();
     let response = claude_subscription_text_from_json(&value).unwrap_or_default();
+    let downgraded = !model_usage.is_empty() && !model_usage.contains_key(requested_model);
     Ok(json!({
-        "success": true,
+        "success": !downgraded,
         "requestedModel": requested_model,
         "modelsBilled": models_billed,
         "modelUsageDetail": model_usage_detail,
         "fastModeState": value.get("fast_mode_state").and_then(Value::as_str),
-        "downgraded": !model_usage.is_empty() && !model_usage.contains_key(requested_model),
+        "downgraded": downgraded,
         "response": response,
         "latencyMs": started.elapsed().as_millis(),
     }))

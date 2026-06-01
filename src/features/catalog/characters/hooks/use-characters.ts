@@ -74,6 +74,10 @@ function normalizeSearchQuery(search: string | null | undefined): string {
   return search?.trim() ?? "";
 }
 
+function readTrimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 async function listCharacterSummaries(search?: string): Promise<CharacterSummary[]> {
   const query = normalizeSearchQuery(search);
   const characters = await storageApi.list<CharacterSummary>("characters", {
@@ -301,6 +305,7 @@ export interface CharacterGalleryImage {
   id: string;
   characterId: string;
   filePath: string;
+  filename?: string | null;
   prompt: string;
   provider: string;
   model: string;
@@ -310,10 +315,20 @@ export interface CharacterGalleryImage {
   url: string;
 }
 
+function normalizeCharacterGalleryImage(image: CharacterGalleryImage): CharacterGalleryImage {
+  return {
+    ...image,
+    url: readTrimmed(image.url) || readTrimmed(image.filePath),
+  };
+}
+
 export function useCharacterGalleryImages(characterId: string | null) {
   return useQuery({
     queryKey: characterKeys.gallery(characterId ?? ""),
-    queryFn: () => storageApi.list<CharacterGalleryImage>("character-gallery", { filters: { characterId } }),
+    queryFn: async () =>
+      (await storageApi.list<CharacterGalleryImage>("character-gallery", { filters: { characterId } })).map(
+        normalizeCharacterGalleryImage,
+      ),
     enabled: !!characterId,
     staleTime: 5 * 60_000,
   });

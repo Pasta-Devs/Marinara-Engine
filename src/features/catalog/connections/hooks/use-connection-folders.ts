@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateConnectionSchema } from "../../../../engine/contracts/schemas/connection.schema";
+import { connectionCommandApi } from "../../../../shared/api/connection-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { ConnectionFolder } from "../../../../engine/contracts/types/connection";
 import { connectionKeys } from "./use-connections";
@@ -60,11 +61,7 @@ export function useDeleteConnectionFolder() {
 export function useReorderConnectionFolders() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      await Promise.all(
-        orderedIds.map((id, index) => storageApi.update("connection-folders", id, { sortOrder: index, order: index })),
-      );
-    },
+    mutationFn: (orderedIds: string[]) => connectionCommandApi.reorderFolders<ConnectionFolder[]>(orderedIds),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionFolderKeys.list() }),
   });
 }
@@ -73,7 +70,10 @@ export function useMoveConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { connectionId: string; folderId: string | null }) =>
-      storageApi.update("connections", data.connectionId, updateConnectionSchema.parse({ folderId: data.folderId })),
+      connectionCommandApi.move(
+        data.connectionId,
+        updateConnectionSchema.parse({ folderId: data.folderId }).folderId ?? null,
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }
