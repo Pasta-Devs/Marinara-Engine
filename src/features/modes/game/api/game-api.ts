@@ -345,19 +345,37 @@ async function createGameCheckpoint(data: {
     gameState: (chat as { gameState?: unknown }).gameState ?? {},
     metadata: chatMeta(chat),
   });
-  const record = await storageApi.create<{ id: string }>("game-checkpoints", {
-    chatId: data.chatId,
-    snapshotId: snapshot.id,
-    messageId: "",
-    label: data.label || "Checkpoint",
-    triggerType: data.triggerType || "manual",
-    location: null,
-    gameState: null,
-    weather: null,
-    timeOfDay: null,
-    turnNumber: null,
-  });
+  let record: { id: string };
+  try {
+    record = await storageApi.create<{ id: string }>("game-checkpoints", {
+      chatId: data.chatId,
+      snapshotId: snapshot.id,
+      messageId: "",
+      label: data.label || "Checkpoint",
+      triggerType: data.triggerType || "manual",
+      location: null,
+      gameState: null,
+      weather: null,
+      timeOfDay: null,
+      turnNumber: null,
+    });
+  } catch (error) {
+    await storageApi.delete("game-state-snapshots", snapshot.id).catch((cleanupError) => {
+      console.warn("[game] Failed to clean up checkpoint snapshot after checkpoint creation failed", cleanupError);
+    });
+    throw error;
+  }
   return { id: record.id };
+}
+
+async function createAutomaticGameCheckpoint(data: { chatId: string; label: string; triggerType: string }): Promise<void> {
+  await createGameCheckpoint(data).catch((error) => {
+    console.warn("[game] Automatic checkpoint failed", {
+      chatId: data.chatId,
+      triggerType: data.triggerType,
+      error,
+    });
+  });
 }
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
@@ -1698,7 +1716,7 @@ export const gameApi = {
       gameSessionStatus: "active",
       gameActiveState: "exploration",
     });
-    await createGameCheckpoint({ chatId: data.chatId, label: "Session started", triggerType: "session_start" });
+    await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Session started", triggerType: "session_start" });
     return { status: "active", alreadyStarted: false, sessionChat };
   },
 
@@ -1766,7 +1784,7 @@ export const gameApi = {
       });
       mirrorGameMessageToDiscord(chatMeta(sessionChat), recap.trim(), "Narrator");
     }
-    await createGameCheckpoint({ chatId: sessionChat.id, label: "Session started", triggerType: "session_start" });
+    await createAutomaticGameCheckpoint({ chatId: sessionChat.id, label: "Session started", triggerType: "session_start" });
     return { sessionChat, sessionNumber, recap };
   },
 
@@ -1839,7 +1857,7 @@ export const gameApi = {
       gameCampaignProgression: campaignProgression,
       gameCharacterCards: characterCards,
     });
-    await createGameCheckpoint({ chatId: data.chatId, label: "Session ended", triggerType: "session_end" });
+    await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Session ended", triggerType: "session_end" });
     return { summary, sessionChat };
   },
 
@@ -2035,9 +2053,9 @@ export const gameApi = {
     const sessionChat = await patchChatMetadata(data.chatId, { gameActiveState: newState });
     if (previousState !== newState) {
       if (newState === "combat") {
-        await createGameCheckpoint({ chatId: data.chatId, label: "Combat started", triggerType: "combat_start" });
+        await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Combat started", triggerType: "combat_start" });
       } else if (previousState === "combat") {
-        await createGameCheckpoint({ chatId: data.chatId, label: "Combat ended", triggerType: "combat_end" });
+        await createAutomaticGameCheckpoint({ chatId: data.chatId, label: "Combat ended", triggerType: "combat_end" });
       }
     }
     return { previousState, newState, sessionChat };
