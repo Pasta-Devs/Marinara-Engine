@@ -133,43 +133,53 @@ export function AgentsPanel() {
     event.target.value = ""; // reset file input
   };
 
-  // Custom agents = DB entries whose type doesn't match any built-in
-  const customAgents = ((agentConfigs ?? []) as AgentConfigRow[]).filter(
-    (c) => !BUILT_IN_AGENTS.some((b) => b.id === c.type),
-  );
-  const configByType = new Map(((agentConfigs ?? []) as AgentConfigRow[]).map((config) => [config.type, config]));
+  const agentConfigRows = useMemo(() => ((agentConfigs ?? []) as AgentConfigRow[]), [agentConfigs]);
+  const builtInAgentTypes = useMemo(() => new Set(BUILT_IN_AGENTS.map((agent) => agent.id)), []);
 
-  const statusAgents: AgentPanelRow[] = [
-    ...BUILT_IN_AGENTS.map((agent) => {
-      const config = configByType.get(agent.id);
-      return {
+  // Custom agents = DB entries whose type doesn't match any built-in
+  const customAgents = useMemo(
+    () => agentConfigRows.filter((config) => !builtInAgentTypes.has(config.type)),
+    [agentConfigRows, builtInAgentTypes],
+  );
+  const configByType = useMemo(
+    () => new Map(agentConfigRows.map((config) => [config.type, config])),
+    [agentConfigRows],
+  );
+
+  const statusAgents: AgentPanelRow[] = useMemo(
+    () => [
+      ...BUILT_IN_AGENTS.map((agent) => {
+        const config = configByType.get(agent.id);
+        return {
+          id: agent.id,
+          type: agent.id,
+          name: agent.name,
+          description: agent.description,
+          category: agent.category,
+          phase: agent.phase,
+          enabled: config ? agentConfigEnabled(config.enabled, true) : true,
+          configId: config?.id,
+          custom: false,
+        };
+      }),
+      ...customAgents.map((agent) => ({
         id: agent.id,
-        type: agent.id,
+        type: agent.type,
         name: agent.name,
         description: agent.description,
-        category: agent.category,
-        phase: agent.phase,
-        enabled: config ? agentConfigEnabled(config.enabled, true) : true,
-        configId: config?.id,
-        custom: false,
-      };
-    }),
-    ...customAgents.map((agent) => ({
-      id: agent.id,
-      type: agent.type,
-      name: agent.name,
-      description: agent.description,
-      category: "custom" as const,
-      phase: agent.phase as AgentPhase,
-      enabled: agentConfigEnabled(agent.enabled, true),
-      configId: agent.id,
-      custom: true,
-    })),
-  ];
-  const statusAgentByType = new Map(statusAgents.map((agent) => [agent.type, agent]));
+        category: "custom" as const,
+        phase: agent.phase as AgentPhase,
+        enabled: agentConfigEnabled(agent.enabled, true),
+        configId: agent.id,
+        custom: true,
+      })),
+    ],
+    [configByType, customAgents],
+  );
+  const statusAgentByType = useMemo(() => new Map(statusAgents.map((agent) => [agent.type, agent])), [statusAgents]);
 
-  const activeAgents = statusAgents.filter((agent) => agent.enabled);
-  const inactiveAgents = statusAgents.filter((agent) => !agent.enabled);
+  const activeAgents = useMemo(() => statusAgents.filter((agent) => agent.enabled), [statusAgents]);
+  const inactiveAgents = useMemo(() => statusAgents.filter((agent) => !agent.enabled), [statusAgents]);
 
   const handleCreateAgent = () => {
     // Create a new custom agent immediately in DB then open editor
@@ -187,12 +197,13 @@ export function AgentsPanel() {
   const handleToggleAgentEnabled = async (agent: AgentPanelRow) => {
     const enabled = !agent.enabled;
     const config = agent.configId
-      ? ((agentConfigs ?? []) as AgentConfigRow[]).find((row) => row.id === agent.configId)
+      ? agentConfigRows.find((row) => row.id === agent.configId)
       : null;
     if (config) {
       await updateAgent.mutateAsync({ id: config.id, enabled });
       return;
     }
+    // Custom agents are persisted rows, so this handler should never synthesize them.
     if (agent.custom) return;
     await createAgent.mutateAsync({
       type: agent.type,
@@ -537,6 +548,8 @@ export function AgentsPanel() {
                   <button
                     className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] disabled:opacity-50"
                     title={agentConfigEnabled(agent.enabled, true) ? "Disable agent" : "Enable agent"}
+                    aria-label={agentConfigEnabled(agent.enabled, true) ? "Disable agent" : "Enable agent"}
+                    aria-pressed={agentConfigEnabled(agent.enabled, true)}
                     disabled={updateAgent.isPending}
                     onClick={() =>
                       void handleToggleAgentEnabled({
@@ -719,6 +732,8 @@ function renderAgentCard({
       <button
         className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] disabled:opacity-50"
         title={enabled ? "Disable agent" : "Enable agent"}
+        aria-label={enabled ? "Disable agent" : "Enable agent"}
+        aria-pressed={enabled}
         disabled={toggleDisabled}
         onClick={() =>
           void onToggleEnabled({

@@ -89,7 +89,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     // Fallback: check global agent config
     if (!agentConfigs) return false;
     const cfg = (agentConfigs as Array<{ type: string; enabled?: unknown }>).find((a) => a.type === "echo-chamber");
-    return agentConfigEnabled(cfg?.enabled, false);
+    return cfg ? agentConfigEnabled(cfg.enabled, true) : false;
   }, [chat, agentConfigs]);
 
   // ── Timed reveal: show one more message every 30 s ──
