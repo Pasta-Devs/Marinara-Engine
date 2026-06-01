@@ -449,6 +449,56 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number, max: numb
   return Math.max(0, Math.min(max, Math.trunc(value)));
 }
 
+type ChoiceSelections = Record<string, string | string[]>;
+type TranslationProvider = "ai" | "deeplx" | "deepl" | "google";
+type ScopedRegexModeValue = "disabled" | "exclusive" | "chat";
+type CharacterScheduleMap = Record<
+  string,
+  {
+    weekStart: string;
+    days: Record<string, ScheduleBlock[]>;
+    inactivityThresholdMinutes: number;
+    idleResponseDelayMinutes?: number;
+    dndResponseDelayMinutes?: number;
+    talkativeness: number;
+  }
+>;
+
+function metadataString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function metadataStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function metadataNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function metadataChoiceSelections(value: unknown): ChoiceSelections {
+  const record = metadataRecord(value);
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      (entry): entry is [string, string | string[]] =>
+        typeof entry[1] === "string" || (Array.isArray(entry[1]) && entry[1].every((item) => typeof item === "string")),
+    ),
+  );
+}
+
+function metadataTranslationProvider(value: unknown): TranslationProvider {
+  return value === "ai" || value === "deeplx" || value === "deepl" || value === "google" ? value : "google";
+}
+
+function metadataScopedRegexMode(value: unknown): ScopedRegexModeValue {
+  return value === "disabled" || value === "exclusive" || value === "chat" ? value : "chat";
+}
+
 function getChatActiveAgentIds(chat: Chat): string[] {
   const metadata =
     chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {};
@@ -559,20 +609,18 @@ function ChatSettingsDrawerInner({
   const { data: allChats } = useChatSummaries();
   const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
 
-  const metadata = useMemo<Record<string, any>>(
+  const metadata = useMemo<Record<string, unknown>>(
     () => (chat.metadata && typeof chat.metadata === "object" && !Array.isArray(chat.metadata) ? chat.metadata : {}),
     [chat.metadata],
   );
+  const characterSchedules = metadataRecord(metadata.characterSchedules) as unknown as CharacterScheduleMap;
   const isSceneChat = metadata.sceneStatus === "active" || typeof metadata.sceneOriginChatId === "string";
-  const hasGeneratedConversationSchedules =
-    !!metadata.characterSchedules &&
-    typeof metadata.characterSchedules === "object" &&
-    Object.keys(metadata.characterSchedules).length > 0;
+  const hasGeneratedConversationSchedules = Object.keys(characterSchedules).length > 0;
   const conversationSchedulesEnabled =
     metadata.conversationSchedulesEnabled === true ||
     (metadata.conversationSchedulesEnabled == null && hasGeneratedConversationSchedules);
   const activeLorebookIds = useMemo<string[]>(
-    () => (Array.isArray(metadata.activeLorebookIds) ? metadata.activeLorebookIds : []),
+    () => metadataStringArray(metadata.activeLorebookIds),
     [metadata.activeLorebookIds],
   );
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
@@ -604,7 +652,7 @@ function ChatSettingsDrawerInner({
     typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
       ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
       : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
-  const activeAgentIds = useMemo<string[]>(() => metadata.activeAgentIds ?? [], [metadata.activeAgentIds]);
+  const activeAgentIds = useMemo<string[]>(() => metadataStringArray(metadata.activeAgentIds), [metadata.activeAgentIds]);
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
       Array.isArray(metadata.inactiveCharacterIds)
@@ -619,7 +667,31 @@ function ChatSettingsDrawerInner({
     () => chatCharIds.filter((id) => !inactiveCharacterIdSet.has(id)).length,
     [chatCharIds, inactiveCharacterIdSet],
   );
-  const activeToolIds: string[] = metadata.activeToolIds ?? [];
+  const activeToolIds = metadataStringArray(metadata.activeToolIds);
+  const agentsEnabled = isEnabledFlag(metadata.enableAgents, false);
+  const toolsEnabled = isEnabledFlag(metadata.enableTools, false);
+  const manualTrackersEnabled = isEnabledFlag(metadata.manualTrackers, false);
+  const hapticFeedbackEnabled = isEnabledFlag(metadata.enableHapticFeedback, false);
+  const spriteGenerationEnabled = isEnabledFlag(metadata.enableSpriteGeneration, false);
+  const autonomousMessagesEnabled = isEnabledFlag(metadata.autonomousMessages, false);
+  const characterExchangesEnabled = isEnabledFlag(metadata.characterExchanges, false);
+  const groupSpeakerColorsEnabled = isEnabledFlag(metadata.groupSpeakerColors, false);
+  const autoTranslateEnabled = isEnabledFlag(metadata.autoTranslate, false);
+  const translateInputEnabled = isEnabledFlag(metadata.translateInput, false);
+  const inputTranslateButtonVisible = isEnabledFlag(metadata.showInputTranslateButton, false);
+  const contextMessageLimit = metadataNumber(metadata.contextMessageLimit, 0);
+  const hasContextMessageLimit = contextMessageLimit > 0;
+  const discordWebhookUrl = metadataString(metadata.discordWebhookUrl);
+  const translationProvider = metadataTranslationProvider(metadata.translationProvider);
+  const translationTargetLang = metadataString(metadata.translationTargetLang, "en");
+  const translationConnectionId = metadataString(metadata.translationConnectionId);
+  const translationDeeplApiKey = metadataString(metadata.translationDeeplApiKey);
+  const translationDeeplxUrl = metadataString(metadata.translationDeeplxUrl);
+  const sceneSystemPrompt = metadataString(metadata.sceneSystemPrompt);
+  const groupScenarioText = metadataString(metadata.groupScenarioText);
+  const gameExtraPrompt = metadataString(metadata.gameExtraPrompt);
+  const gameImagePromptInstructions = metadataString(metadata.gameImagePromptInstructions);
+  const presetChoices = metadataChoiceSelections(metadata.presetChoices);
   const { data: allRegexScripts } = useRegexScripts(chatCharIds);
   const updateRegexScript = useUpdateRegexScript();
   const scopedRegexScripts = useMemo(() => (allRegexScripts ?? []).filter((s) => !!s.characterId), [allRegexScripts]);
@@ -640,7 +712,7 @@ function ChatSettingsDrawerInner({
     typeof metadata.gameSpotifyPlaylistId === "string" ? metadata.gameSpotifyPlaylistId : "";
   const gameSpotifyArtist = typeof metadata.gameSpotifyArtist === "string" ? metadata.gameSpotifyArtist : "";
   const gameAgentFeatureCount =
-    (metadata.enableAgents ? 1 : 0) + (gameLorebookKeeperEnabled ? 1 : 0) + (gameUseSpotifyMusic ? 1 : 0);
+    (agentsEnabled ? 1 : 0) + (gameLorebookKeeperEnabled ? 1 : 0) + (gameUseSpotifyMusic ? 1 : 0);
   const spriteCharacterIds = useMemo<string[]>(
     () => (Array.isArray(metadata.spriteCharacterIds) ? metadata.spriteCharacterIds : []),
     [metadata.spriteCharacterIds],
@@ -668,7 +740,7 @@ function ChatSettingsDrawerInner({
     enabled:
       open &&
       ((isGame && gameUseSpotifyMusic && gameSpotifySourceType === "playlist") ||
-        (isRoleplayMode && metadata.enableAgents && spotifyActive && spotifySourceType === "playlist")),
+        (isRoleplayMode && agentsEnabled && spotifyActive && spotifySourceType === "playlist")),
     staleTime: 60_000,
     retry: false,
   });
@@ -1438,17 +1510,17 @@ function ChatSettingsDrawerInner({
     [chat.id, chatCharIds, qc],
   );
   const [scenePromptExpanded, setScenePromptExpanded] = useState(false);
-  const [scenePromptDraft, setScenePromptDraft] = useState(metadata.sceneSystemPrompt ?? "");
-  const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
+  const [scenePromptDraft, setScenePromptDraft] = useState(sceneSystemPrompt);
+  const [groupScenarioDraft, setGroupScenarioDraft] = useState(groupScenarioText);
   const [groupScenarioExpanded, setGroupScenarioExpanded] = useState(false);
   const gameAgentPool = useMemo(
     () => Array.from(new Set(activeAgentIds.filter((id) => id !== "spotify" && id !== "lorebook-keeper"))),
     [activeAgentIds],
   );
-  const [extraPromptDraft, setExtraPromptDraft] = useState((metadata.gameExtraPrompt as string) ?? "");
+  const [extraPromptDraft, setExtraPromptDraft] = useState(gameExtraPrompt);
   const [extraPromptExpanded, setExtraPromptExpanded] = useState(false);
   const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
-    (metadata.gameImagePromptInstructions as string) ?? "",
+    gameImagePromptInstructions,
   );
   const [spotifyArtistDraft, setSpotifyArtistDraft] = useState(spotifyArtist);
   const [gameSpotifyArtistDraft, setGameSpotifyArtistDraft] = useState(gameSpotifyArtist);
@@ -1489,8 +1561,8 @@ function ChatSettingsDrawerInner({
   }, [open]);
 
   useEffect(() => {
-    setGameImagePromptInstructionsDraft((metadata.gameImagePromptInstructions as string) ?? "");
-  }, [chat.id, metadata.gameImagePromptInstructions]);
+    setGameImagePromptInstructionsDraft(gameImagePromptInstructions);
+  }, [chat.id, gameImagePromptInstructions]);
 
   useEffect(() => {
     setSpotifyArtistDraft(spotifyArtist);
@@ -2102,7 +2174,7 @@ function ChatSettingsDrawerInner({
           </Section>
 
           {/* Preset — hidden for conversation mode and game mode */}
-          {!isConversation && !isGame && !metadata.sceneSystemPrompt && (
+          {!isConversation && !isGame && !sceneSystemPrompt && (
             <Section
               label="Prompt Preset"
               icon={<Sliders size="0.875rem" />}
@@ -2153,7 +2225,7 @@ function ChatSettingsDrawerInner({
                     value={extraPromptDraft}
                     onChange={(e) => setExtraPromptDraft(e.target.value)}
                     onBlur={() => {
-                      const stored = (metadata.gameExtraPrompt as string) ?? "";
+                      const stored = gameExtraPrompt;
                       if (extraPromptDraft !== stored) {
                         updateMeta.mutate({ id: chat.id, gameExtraPrompt: extraPromptDraft || null });
                       }
@@ -2189,7 +2261,7 @@ function ChatSettingsDrawerInner({
                 open={extraPromptExpanded}
                 onClose={() => {
                   setExtraPromptExpanded(false);
-                  const stored = (metadata.gameExtraPrompt as string) ?? "";
+                  const stored = gameExtraPrompt;
                   if (extraPromptDraft !== stored) {
                     updateMeta.mutate({ id: chat.id, gameExtraPrompt: extraPromptDraft || null });
                   }
@@ -2203,7 +2275,7 @@ function ChatSettingsDrawerInner({
           )}
 
           {/* Scene System Prompt — shown only for scene-created chats */}
-          {metadata.sceneSystemPrompt && (
+          {sceneSystemPrompt && (
             <Section
               label="Scene Instructions"
               icon={<Sparkles size="0.875rem" />}
@@ -2214,7 +2286,7 @@ function ChatSettingsDrawerInner({
                   value={scenePromptDraft}
                   onChange={(e) => setScenePromptDraft(e.target.value)}
                   onBlur={() => {
-                    if (scenePromptDraft !== metadata.sceneSystemPrompt) {
+                    if (scenePromptDraft !== sceneSystemPrompt) {
                       updateMeta.mutate({ id: chat.id, sceneSystemPrompt: scenePromptDraft });
                     }
                   }}
@@ -2234,7 +2306,7 @@ function ChatSettingsDrawerInner({
                 open={scenePromptExpanded}
                 onClose={() => {
                   setScenePromptExpanded(false);
-                  if (scenePromptDraft !== metadata.sceneSystemPrompt) {
+                  if (scenePromptDraft !== sceneSystemPrompt) {
                     updateMeta.mutate({ id: chat.id, sceneSystemPrompt: scenePromptDraft });
                   }
                 }}
@@ -3003,10 +3075,10 @@ function ChatSettingsDrawerInner({
               {!isConversation && (metadata.groupChatMode ?? "merged") === "merged" && (
                 <div className="mt-2">
                   <button
-                    onClick={() => updateMeta.mutate({ id: chat.id, groupSpeakerColors: !metadata.groupSpeakerColors })}
+                    onClick={() => updateMeta.mutate({ id: chat.id, groupSpeakerColors: !groupSpeakerColorsEnabled })}
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupSpeakerColors
+                      groupSpeakerColorsEnabled
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                         : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                     )}
@@ -3021,13 +3093,13 @@ function ChatSettingsDrawerInner({
                     <div
                       className={cn(
                         "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.groupSpeakerColors ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                        groupSpeakerColorsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                       )}
                     >
                       <div
                         className={cn(
                           "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                          metadata.groupSpeakerColors && "translate-x-3.5",
+                          groupSpeakerColorsEnabled && "translate-x-3.5",
                         )}
                       />
                     </div>
@@ -3133,7 +3205,7 @@ function ChatSettingsDrawerInner({
                       value={groupScenarioDraft}
                       onChange={(e) => setGroupScenarioDraft(e.target.value)}
                       onBlur={() => {
-                        if (groupScenarioDraft !== (metadata.groupScenarioText ?? "")) {
+                        if (groupScenarioDraft !== groupScenarioText) {
                           updateMeta.mutate({ id: chat.id, groupScenarioText: groupScenarioDraft });
                         }
                       }}
@@ -3153,7 +3225,7 @@ function ChatSettingsDrawerInner({
                     open={groupScenarioExpanded}
                     onClose={() => {
                       setGroupScenarioExpanded(false);
-                      if (groupScenarioDraft !== (metadata.groupScenarioText ?? "")) {
+                      if (groupScenarioDraft !== groupScenarioText) {
                         updateMeta.mutate({ id: chat.id, groupScenarioText: groupScenarioDraft });
                       }
                     }}
@@ -3178,11 +3250,11 @@ function ChatSettingsDrawerInner({
                 {/* Enable autonomous messages toggle */}
                 <button
                   onClick={() => {
-                    updateMeta.mutate({ id: chat.id, autonomousMessages: !metadata.autonomousMessages });
+                    updateMeta.mutate({ id: chat.id, autonomousMessages: !autonomousMessagesEnabled });
                   }}
                   className={cn(
                     "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.autonomousMessages
+                    autonomousMessagesEnabled
                       ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                       : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                   )}
@@ -3196,13 +3268,13 @@ function ChatSettingsDrawerInner({
                   <div
                     className={cn(
                       "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      metadata.autonomousMessages ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      autonomousMessagesEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                     )}
                   >
                     <div
                       className={cn(
                         "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        metadata.autonomousMessages && "translate-x-3.5",
+                        autonomousMessagesEnabled && "translate-x-3.5",
                       )}
                     />
                   </div>
@@ -3212,11 +3284,11 @@ function ChatSettingsDrawerInner({
                 {chatCharIds.length > 1 && (
                   <button
                     onClick={() => {
-                      updateMeta.mutate({ id: chat.id, characterExchanges: !metadata.characterExchanges });
+                      updateMeta.mutate({ id: chat.id, characterExchanges: !characterExchangesEnabled });
                     }}
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.characterExchanges
+                      characterExchangesEnabled
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                         : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                     )}
@@ -3230,13 +3302,13 @@ function ChatSettingsDrawerInner({
                     <div
                       className={cn(
                         "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.characterExchanges ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                        characterExchangesEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                       )}
                     >
                       <div
                         className={cn(
                           "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                          metadata.characterExchanges && "translate-x-3.5",
+                          characterExchangesEnabled && "translate-x-3.5",
                         )}
                       />
                     </div>
@@ -3325,7 +3397,7 @@ function ChatSettingsDrawerInner({
                 {/* Schedule editor per character */}
                 {conversationSchedulesEnabled && hasGeneratedConversationSchedules && (
                   <ScheduleEditor
-                    characterSchedules={metadata.characterSchedules}
+                    characterSchedules={characterSchedules}
                     chatCharIds={chatCharIds}
                     charNameMap={charNameMap}
                     onSave={(updated) => {
@@ -3911,7 +3983,7 @@ function ChatSettingsDrawerInner({
             help="Character-scoped regex scripts imported from ST cards. Control how they interact with global regex scripts."
           >
             <ScopedRegexModeSelector
-              mode={(metadata.scopedRegexMode as "disabled" | "exclusive" | "chat" | undefined) ?? "chat"}
+              mode={metadataScopedRegexMode(metadata.scopedRegexMode)}
               onChange={(mode) => updateMeta.mutate({ id: chat.id, scopedRegexMode: mode })}
             />
             <ScopedRegexCharacterGroups
@@ -3971,7 +4043,7 @@ function ChatSettingsDrawerInner({
               help="When enabled, AI agents run automatically during generation to enrich the chat with world state tracking, expression detection, and more."
             >
               <div className="space-y-2">
-                {isGame && metadata.enableAgents && (
+                {isGame && agentsEnabled && (
                   <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
                     Toggle agents for this game session. Only the ones below are allowed to ensure the game's format
                     doesn't break.
@@ -3979,11 +4051,11 @@ function ChatSettingsDrawerInner({
                 )}
                 <button
                   onClick={() => {
-                    updateMeta.mutate({ id: chat.id, enableAgents: !metadata.enableAgents });
+                    updateMeta.mutate({ id: chat.id, enableAgents: !agentsEnabled });
                   }}
                   className={cn(
                     "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.enableAgents
+                    agentsEnabled
                       ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                       : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                   )}
@@ -3996,7 +4068,7 @@ function ChatSettingsDrawerInner({
                         : "Run AI agents during generation (world state, expressions, etc.)"}
                     </p>
                     {isGame &&
-                      metadata.enableAgents &&
+                      agentsEnabled &&
                       (() => {
                         const setupCfg = metadata.gameSetupConfig as Record<string, unknown> | undefined;
                         const sceneConnId =
@@ -4015,18 +4087,18 @@ function ChatSettingsDrawerInner({
                   <div
                     className={cn(
                       "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      metadata.enableAgents ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      agentsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                     )}
                   >
                     <div
                       className={cn(
                         "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        metadata.enableAgents && "translate-x-3.5",
+                        agentsEnabled && "translate-x-3.5",
                       )}
                     />
                   </div>
                 </button>
-                {isGame && metadata.enableAgents && (
+                {isGame && agentsEnabled && (
                   <div className="mt-1.5 px-3">
                     <select
                       value={(metadata.gameSceneConnectionId as string) ?? ""}
@@ -4238,7 +4310,7 @@ function ChatSettingsDrawerInner({
                   </div>
                 )}
 
-                {metadata.enableAgents && !isGame && (
+                {agentsEnabled && !isGame && (
                   <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
@@ -4350,7 +4422,7 @@ function ChatSettingsDrawerInner({
                   </div>
                 )}
 
-                {metadata.enableAgents && !isGame && (
+                {agentsEnabled && !isGame && (
                   <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
                     <div className="flex items-start gap-2">
                       <Image size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
@@ -4585,7 +4657,7 @@ function ChatSettingsDrawerInner({
                   </div>
                 )}
 
-                {metadata.enableAgents && isRoleplayMode && spotifyActive && (
+                {agentsEnabled && isRoleplayMode && spotifyActive && (
                   <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
                     <div className="flex items-start gap-2">
                       <Music2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
@@ -4710,12 +4782,12 @@ function ChatSettingsDrawerInner({
                 )}
 
                 {/* Manual trackers toggle — not for game mode */}
-                {metadata.enableAgents && !isGame && (
+                {agentsEnabled && !isGame && (
                   <button
-                    onClick={() => updateMeta.mutate({ id: chat.id, manualTrackers: !metadata.manualTrackers })}
+                    onClick={() => updateMeta.mutate({ id: chat.id, manualTrackers: !manualTrackersEnabled })}
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.manualTrackers
+                      manualTrackersEnabled
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                         : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                     )}
@@ -4723,7 +4795,7 @@ function ChatSettingsDrawerInner({
                     <div>
                       <span className="text-[0.6875rem] font-medium">Manual Trackers</span>
                       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {metadata.manualTrackers
+                        {manualTrackersEnabled
                           ? "Trackers won't run automatically — use the button in the HUD to trigger them."
                           : "Trackers run automatically after every generation."}
                       </p>
@@ -4731,13 +4803,13 @@ function ChatSettingsDrawerInner({
                     <div
                       className={cn(
                         "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors shrink-0",
-                        metadata.manualTrackers ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                        manualTrackersEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                       )}
                     >
                       <div
                         className={cn(
                           "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                          metadata.manualTrackers && "translate-x-3.5",
+                          manualTrackersEnabled && "translate-x-3.5",
                         )}
                       />
                     </div>
@@ -4745,15 +4817,15 @@ function ChatSettingsDrawerInner({
                 )}
 
                 {/* Love Toys Control — not for game mode */}
-                {metadata.enableAgents && !isGame && hapticAgentActive && (
+                {agentsEnabled && !isGame && hapticAgentActive && (
                   <div className="space-y-1.5">
                     <button
                       onClick={() => {
-                        updateMeta.mutate({ id: chat.id, enableHapticFeedback: !metadata.enableHapticFeedback });
+                        updateMeta.mutate({ id: chat.id, enableHapticFeedback: !hapticFeedbackEnabled });
                       }}
                       className={cn(
                         "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                        metadata.enableHapticFeedback
+                        hapticFeedbackEnabled
                           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                           : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                       )}
@@ -4769,18 +4841,18 @@ function ChatSettingsDrawerInner({
                       <div
                         className={cn(
                           "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          metadata.enableHapticFeedback ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                          hapticFeedbackEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                         )}
                       >
                         <div
                           className={cn(
                             "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                            metadata.enableHapticFeedback && "translate-x-3.5",
+                            hapticFeedbackEnabled && "translate-x-3.5",
                           )}
                         />
                       </div>
                     </button>
-                    {metadata.enableHapticFeedback && (
+                    {hapticFeedbackEnabled && (
                       <HapticConnectionPanel
                         intifaceUrl={
                           typeof metadata.hapticIntifaceUrl === "string" ? metadata.hapticIntifaceUrl : undefined
@@ -4798,11 +4870,11 @@ function ChatSettingsDrawerInner({
                   <div>
                     <button
                       onClick={() =>
-                        updateMeta.mutate({ id: chat.id, enableSpriteGeneration: !metadata.enableSpriteGeneration })
+                        updateMeta.mutate({ id: chat.id, enableSpriteGeneration: !spriteGenerationEnabled })
                       }
                       className={cn(
                         "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                        metadata.enableSpriteGeneration
+                        spriteGenerationEnabled
                           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                           : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                       )}
@@ -4818,18 +4890,18 @@ function ChatSettingsDrawerInner({
                       <div
                         className={cn(
                           "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          metadata.enableSpriteGeneration ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                          spriteGenerationEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                         )}
                       >
                         <div
                           className={cn(
                             "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                            metadata.enableSpriteGeneration && "translate-x-3.5",
+                            spriteGenerationEnabled && "translate-x-3.5",
                           )}
                         />
                       </div>
                     </button>
-                    {metadata.enableSpriteGeneration && (
+                    {spriteGenerationEnabled && (
                       <div className="mt-1.5 space-y-2 px-3">
                         <select
                           value={(metadata.gameImageConnectionId as string) ?? ""}
@@ -4874,7 +4946,7 @@ function ChatSettingsDrawerInner({
                 )}
 
                 {/* Categorized agent sub-sections */}
-                {metadata.enableAgents && (
+                {agentsEnabled && (
                   <>
                     {isGame ? (
                       <div className="space-y-1">
@@ -5380,16 +5452,16 @@ function ChatSettingsDrawerInner({
               <input
                 type="url"
                 placeholder="https://discord.com/api/webhooks/..."
-                value={(metadata.discordWebhookUrl as string) ?? ""}
+                value={discordWebhookUrl}
                 onChange={(e) => {
                   updateMeta.mutate({ id: chat.id, discordWebhookUrl: e.target.value.trim() || undefined });
                 }}
                 className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-[0.6875rem] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 ring-1 ring-transparent focus:ring-[var(--primary)]/40 focus:outline-none transition-all"
               />
-              {metadata.discordWebhookUrl &&
-                !/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(
-                  (metadata.discordWebhookUrl as string).trim(),
-                ) && <p className="text-[0.625rem] text-red-400">Invalid webhook URL format</p>}
+              {discordWebhookUrl &&
+                !/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(discordWebhookUrl.trim()) && (
+                  <p className="text-[0.625rem] text-red-400">Invalid webhook URL format</p>
+                )}
             </div>
           </Section>
 
@@ -5403,11 +5475,11 @@ function ChatSettingsDrawerInner({
             <div className="space-y-2">
               <button
                 onClick={() => {
-                  updateMeta.mutate({ id: chat.id, enableTools: !metadata.enableTools });
+                  updateMeta.mutate({ id: chat.id, enableTools: !toolsEnabled });
                 }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.enableTools
+                  toolsEnabled
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
@@ -5421,25 +5493,25 @@ function ChatSettingsDrawerInner({
                 <div
                   className={cn(
                     "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                    metadata.enableTools ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    toolsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.enableTools && "translate-x-3.5",
+                      toolsEnabled && "translate-x-3.5",
                     )}
                   />
                 </div>
               </button>
               <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
-                {metadata.enableTools
+                {toolsEnabled
                   ? "If enabled, this chat can use globally enabled tools (or any tools you add below)."
                   : "If disabled, no functions will be available."}
               </p>
 
               {/* Per-chat tool list */}
-              {metadata.enableTools && (
+              {toolsEnabled && (
                 <>
                   {activeToolIds.length === 0 ? (
                     <p className="text-[0.6875rem] text-[var(--muted-foreground)] px-1">
@@ -5585,7 +5657,7 @@ function ChatSettingsDrawerInner({
               <div>
                 <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Provider</label>
                 <select
-                  value={metadata.translationProvider ?? "google"}
+                  value={translationProvider}
                   onChange={(e) => updateMeta.mutate({ id: chat.id, translationProvider: e.target.value })}
                   className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                 >
@@ -5602,7 +5674,7 @@ function ChatSettingsDrawerInner({
                   Target Language
                   <HelpTooltip
                     text={
-                      metadata.translationProvider === "ai"
+                      translationProvider === "ai"
                         ? "Language name (e.g. English, Japanese, Spanish)"
                         : "Language code (e.g. en, ja, es, de, fr, zh, ko)"
                     }
@@ -5611,22 +5683,22 @@ function ChatSettingsDrawerInner({
                 </label>
                 <input
                   type="text"
-                  value={metadata.translationTargetLang ?? "en"}
+                  value={translationTargetLang}
                   onChange={(e) => updateMeta.mutate({ id: chat.id, translationTargetLang: e.target.value })}
-                  placeholder={metadata.translationProvider === "ai" ? "English" : "en"}
+                  placeholder={translationProvider === "ai" ? "English" : "en"}
                   className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                 />
               </div>
 
               {/* AI-specific: connection selector */}
-              {metadata.translationProvider === "ai" && (
+              {translationProvider === "ai" && (
                 <div>
                   <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                     Connection
                     <HelpTooltip text="Which AI connection to use for translation" size="0.625rem" />
                   </label>
                   <select
-                    value={metadata.translationConnectionId ?? ""}
+                    value={translationConnectionId}
                     onChange={(e) =>
                       updateMeta.mutate({ id: chat.id, translationConnectionId: e.target.value || undefined })
                     }
@@ -5643,12 +5715,12 @@ function ChatSettingsDrawerInner({
               )}
 
               {/* DeepL API key */}
-              {metadata.translationProvider === "deepl" && (
+              {translationProvider === "deepl" && (
                 <div>
                   <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">DeepL API Key</label>
                   <input
                     type="password"
-                    value={metadata.translationDeeplApiKey ?? ""}
+                    value={translationDeeplApiKey}
                     onChange={(e) => updateMeta.mutate({ id: chat.id, translationDeeplApiKey: e.target.value })}
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
                     className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
@@ -5657,7 +5729,7 @@ function ChatSettingsDrawerInner({
               )}
 
               {/* DeepLX URL */}
-              {metadata.translationProvider === "deeplx" && (
+              {translationProvider === "deeplx" && (
                 <div>
                   <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                     DeepLX URL
@@ -5668,7 +5740,7 @@ function ChatSettingsDrawerInner({
                   </label>
                   <input
                     type="text"
-                    value={metadata.translationDeeplxUrl ?? ""}
+                    value={translationDeeplxUrl}
                     onChange={(e) => updateMeta.mutate({ id: chat.id, translationDeeplxUrl: e.target.value })}
                     placeholder="http://localhost:1188"
                     className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
@@ -5679,11 +5751,11 @@ function ChatSettingsDrawerInner({
               {/* Auto-translate toggle */}
               <button
                 onClick={() => {
-                  updateMeta.mutate({ id: chat.id, autoTranslate: !metadata.autoTranslate });
+                  updateMeta.mutate({ id: chat.id, autoTranslate: !autoTranslateEnabled });
                 }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.autoTranslate
+                  autoTranslateEnabled
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
@@ -5697,13 +5769,13 @@ function ChatSettingsDrawerInner({
                 <div
                   className={cn(
                     "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                    metadata.autoTranslate ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    autoTranslateEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.autoTranslate && "translate-x-3.5",
+                      autoTranslateEnabled && "translate-x-3.5",
                     )}
                   />
                 </div>
@@ -5712,11 +5784,11 @@ function ChatSettingsDrawerInner({
               {/* Translate input toggle */}
               <button
                 onClick={() => {
-                  updateMeta.mutate({ id: chat.id, translateInput: !metadata.translateInput });
+                  updateMeta.mutate({ id: chat.id, translateInput: !translateInputEnabled });
                 }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.translateInput
+                  translateInputEnabled
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
@@ -5730,13 +5802,13 @@ function ChatSettingsDrawerInner({
                 <div
                   className={cn(
                     "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                    metadata.translateInput ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    translateInputEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.translateInput && "translate-x-3.5",
+                      translateInputEnabled && "translate-x-3.5",
                     )}
                   />
                 </div>
@@ -5745,11 +5817,11 @@ function ChatSettingsDrawerInner({
               {/* Draft translate button toggle */}
               <button
                 onClick={() => {
-                  updateMeta.mutate({ id: chat.id, showInputTranslateButton: !metadata.showInputTranslateButton });
+                  updateMeta.mutate({ id: chat.id, showInputTranslateButton: !inputTranslateButtonVisible });
                 }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.showInputTranslateButton
+                  inputTranslateButtonVisible
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
@@ -5763,13 +5835,13 @@ function ChatSettingsDrawerInner({
                 <div
                   className={cn(
                     "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                    metadata.showInputTranslateButton ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    inputTranslateButtonVisible ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.showInputTranslateButton && "translate-x-3.5",
+                      inputTranslateButtonVisible && "translate-x-3.5",
                     )}
                   />
                 </div>
@@ -5798,7 +5870,7 @@ function ChatSettingsDrawerInner({
             <div className="space-y-2">
               <button
                 onClick={() => {
-                  if (metadata.contextMessageLimit) {
+                  if (hasContextMessageLimit) {
                     updateMeta.mutate({ id: chat.id, contextMessageLimit: null });
                   } else {
                     updateMeta.mutate({ id: chat.id, contextMessageLimit: 50 });
@@ -5806,7 +5878,7 @@ function ChatSettingsDrawerInner({
                 }}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.contextMessageLimit
+                  hasContextMessageLimit
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
@@ -5820,24 +5892,24 @@ function ChatSettingsDrawerInner({
                 <div
                   className={cn(
                     "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                    metadata.contextMessageLimit ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    hasContextMessageLimit ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
                       "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.contextMessageLimit && "translate-x-3.5",
+                      hasContextMessageLimit && "translate-x-3.5",
                     )}
                   />
                 </div>
               </button>
-              {metadata.contextMessageLimit && (
+              {hasContextMessageLimit && (
                 <div className="flex items-center gap-2 px-1">
                   <input
                     type="number"
                     min={1}
                     max={9999}
-                    value={metadata.contextMessageLimit}
+                    value={contextMessageLimit}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
                       if (val > 0) {
@@ -5904,7 +5976,7 @@ function ChatSettingsDrawerInner({
         onClose={() => setChoiceModalPresetId(null)}
         presetId={choiceModalPresetId}
         chatId={chat.id}
-        existingChoices={metadata.presetChoices ?? {}}
+        existingChoices={presetChoices}
       />
 
       {/* Automatic summarization editor */}
