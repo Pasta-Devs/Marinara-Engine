@@ -22,6 +22,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Workflow metadata name check
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+        run: pnpm check:workflow-names
       - run: pnpm check:line-endings
       - run: pnpm check:architecture
       - run: pnpm lint

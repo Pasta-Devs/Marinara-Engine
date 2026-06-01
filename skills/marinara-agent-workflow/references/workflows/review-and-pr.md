@@ -16,14 +16,15 @@ Before push or PR creation:
 
 1. Check dirty tree and include only intentional files.
 2. Read `CONTRIBUTING.md` and verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
-3. Confirm only intentional files will ship.
-4. Verify evidence exists for the PR claim.
-5. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
+3. Confirm the branch name, commit subject or label, trailers, and PR title or body do not self-name AI/tool/provider authorship. Rename or reword them before pushing or opening the PR.
+4. Confirm only intentional files will ship.
+5. Verify evidence exists for the PR claim.
+6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
    If it cannot run, record the exact blocker and why the PR is still being handed off.
-6. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
-7. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
-8. If the work came from or references a GitHub issue, put a GitHub closing keyword in the linked-issue field, such as `Closes #123`, so GitHub links the PR to the issue and automatically closes the issue when the PR merges.
-9. Draft external text exactly.
+7. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
+8. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
+9. If the work came from or references a GitHub issue, put a GitHub closing keyword in the linked-issue field, such as `Closes #123`, so GitHub links the PR to the issue and automatically closes the issue when the PR merges.
+10. Draft external text exactly.
 
 `pnpm check` is the general pre-PR gate. It does not replace targeted proof
 such as focused tests, lint, build, size checks, clippy, native Tauri QA, or

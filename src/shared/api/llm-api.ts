@@ -11,7 +11,7 @@ function createStreamId(): string {
 
 const activeTauriStreamIds = new Set<string>();
 let unloadCancellationInstalled = false;
-export const TAURI_STREAM_TERMINAL_CLEANUP_GRACE_MS = 250;
+const TAURI_STREAM_TERMINAL_CLEANUP_GRACE_MS = 250;
 
 function wait(ms: number): Promise<false> {
   return new Promise((resolve) => {
