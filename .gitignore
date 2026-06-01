@@ -15,6 +15,11 @@ dist-ssr
 *.test.ts
 .eslint-reports/
 
+# Bunny Review local output artifacts
+/inline-comments.json
+/review.json
+/review.md
+
 # Local environment and app/runtime data
 .env
 .marinara-legacy-profile-import.json

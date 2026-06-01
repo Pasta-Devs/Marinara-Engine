@@ -1,8 +1,0 @@
-[
-  {
-    "body": "**[nitpick] Nitpick severity survives validation**\n\nThis is optional polish, not a wound worth cauterizing. The schema now preserves nitpick findings rather than mutating them into medium severity.\n\nSuggested fix: Keep the nitpick severity intact and sort it after stronger findings.\n\n<details>\n<summary>Prompt for AI Agents</summary>\n\n```text\nVerify each Bunny finding against current code. Fix only still-valid issues, skip the rest with a brief reason, keep changes minimal, and validate.\n\nIn `@.github/bunny-review/reviewer-prompt.md` around line 45:\n- Nitpick severity survives validation\n\nThis is optional polish, not a wound worth cauterizing. The schema now preserves nitpick findings rather than mutating them into medium severity.\n\nSuggested fix: Keep the nitpick severity intact and sort it after stronger findings.\n```\n\n</details>",
-    "line": 45,
-    "path": ".github/bunny-review/reviewer-prompt.md",
-    "side": "RIGHT"
-  }
-]
