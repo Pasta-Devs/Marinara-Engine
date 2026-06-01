@@ -90,16 +90,18 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
 
   const connectedChatId = (data.chat as unknown as { connectedChatId?: string | null } | null | undefined)
     ?.connectedChatId;
-  const activeSceneChat = data.chatMeta.activeSceneChatId
-    ? data.chatList.find((item) => item.id === data.chatMeta.activeSceneChatId)
+  const activeSceneChatId =
+    typeof data.chatMeta.activeSceneChatId === "string" ? data.chatMeta.activeSceneChatId : null;
+  const activeSceneChat = activeSceneChatId
+    ? data.chatList.find((item) => item.id === activeSceneChatId)
     : undefined;
   const activeSceneMeta = parseChatMetadata(activeSceneChat?.metadata);
   const hasActiveLinkedScene = activeSceneChat && activeSceneMeta.sceneStatus === "active";
   const sceneInfo =
-    data.chatMeta.activeSceneChatId && hasActiveLinkedScene
+    activeSceneChatId && hasActiveLinkedScene
       ? {
           variant: "origin" as const,
-          sceneChatId: data.chatMeta.activeSceneChatId,
+          sceneChatId: activeSceneChatId,
           sceneChatName: getChatDisplayName(activeSceneChat),
         }
       : undefined;

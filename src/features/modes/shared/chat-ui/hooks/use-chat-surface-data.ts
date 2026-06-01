@@ -14,7 +14,7 @@ import { useActivePersona, usePersona } from "../../../../catalog/personas/index
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
-import { parseAvatarCropJson } from "../../../../../shared/lib/utils";
+import { parseAvatarCropJson, type AvatarCropValue } from "../../../../../shared/lib/utils";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import type { CharacterMap, MessageWithSwipes, PersonaInfo } from "../types";
 
@@ -31,7 +31,7 @@ type UseChatSurfaceDataOptions = {
 
 type CharacterRow = {
   id: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   comment?: string | null;
   avatarPath: string | null;
   avatarFilePath?: string | null;
@@ -69,8 +69,27 @@ function parseChatCharacterIds(chat: Chat | null | undefined): string[] {
   return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
 }
 
-function parseCharacterData(data: Record<string, any>): Record<string, any> {
+function parseCharacterData(data: Record<string, unknown>): Record<string, unknown> {
   return data && typeof data === "object" ? data : {};
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readAvatarCrop(value: unknown): AvatarCropValue | null {
+  if (!value) return null;
+  if (typeof value === "string") return parseAvatarCropJson(value);
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    return parseAvatarCropJson(JSON.stringify(value));
+  } catch {
+    return null;
+  }
 }
 
 function normalizeIds(ids: Array<string | null | undefined>): string[] {
@@ -105,9 +124,11 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function collectGameCharacterIds(chatMeta: Record<string, any>): string[] {
+function collectGameCharacterIds(chatMeta: Record<string, unknown>): string[] {
   const setup =
-    chatMeta.gameSetupConfig && typeof chatMeta.gameSetupConfig === "object" ? chatMeta.gameSetupConfig : {};
+    chatMeta.gameSetupConfig && typeof chatMeta.gameSetupConfig === "object" && !Array.isArray(chatMeta.gameSetupConfig)
+      ? (chatMeta.gameSetupConfig as Record<string, unknown>)
+      : {};
   const ids: Array<string | null | undefined> = [
     typeof setup.gmCharacterId === "string" ? setup.gmCharacterId : null,
     ...stringArray(setup.partyCharacterIds),
@@ -249,23 +270,31 @@ export function useChatSurfaceData({
     for (const character of (characterRows ?? []) as CharacterRow[]) {
       try {
         const parsed = parseCharacterData(character.data);
+        const extensions = readRecord(parsed.extensions);
+        const conversationStatus = readString(extensions.conversationStatus);
         map.set(character.id, {
-          name: parsed.name ?? "Unknown",
-          description: parsed.description ?? "",
-          personality: parsed.personality ?? "",
-          backstory: parsed.extensions?.backstory ?? "",
-          appearance: parsed.extensions?.appearance ?? "",
-          scenario: parsed.scenario ?? "",
-          example: parsed.mes_example ?? "",
-          systemPrompt: parsed.system_prompt ?? parsed.systemPrompt ?? "",
-          postHistoryInstructions: parsed.post_history_instructions ?? parsed.postHistoryInstructions ?? "",
+          name: readString(parsed.name, "Unknown"),
+          description: readString(parsed.description),
+          personality: readString(parsed.personality),
+          backstory: readString(extensions.backstory),
+          appearance: readString(extensions.appearance),
+          scenario: readString(parsed.scenario),
+          example: readString(parsed.mes_example),
+          systemPrompt: readString(parsed.system_prompt) || readString(parsed.systemPrompt),
+          postHistoryInstructions:
+            readString(parsed.post_history_instructions) || readString(parsed.postHistoryInstructions),
           avatarUrl: characterAvatarUrl(character),
-          nameColor: parsed.extensions?.nameColor || undefined,
-          dialogueColor: parsed.extensions?.dialogueColor || undefined,
-          boxColor: parsed.extensions?.boxColor || undefined,
-          avatarCrop: parsed.extensions?.avatarCrop || null,
-          conversationStatus: parsed.extensions?.conversationStatus || undefined,
-          conversationActivity: parsed.extensions?.conversationActivity || undefined,
+          nameColor: readString(extensions.nameColor) || undefined,
+          dialogueColor: readString(extensions.dialogueColor) || undefined,
+          boxColor: readString(extensions.boxColor) || undefined,
+          avatarCrop: readAvatarCrop(extensions.avatarCrop),
+          conversationStatus:
+            conversationStatus === "idle" || conversationStatus === "dnd" || conversationStatus === "offline"
+              ? conversationStatus
+              : conversationStatus === "online"
+                ? "online"
+                : undefined,
+          conversationActivity: readString(extensions.conversationActivity) || undefined,
         });
       } catch {
         map.set(character.id, { name: "Unknown", avatarUrl: null });
@@ -303,20 +332,21 @@ export function useChatSurfaceData({
         ? (characterRows as CharacterRow[]).map((character) => {
             try {
               const parsed = parseCharacterData(character.data);
+              const extensions = readRecord(parsed.extensions);
               const display = parseCharacterDisplayData(character);
               return {
                 id: character.id,
                 name: display.name,
                 comment: display.comment,
                 avatarUrl: characterAvatarUrl(character) ?? undefined,
-                avatarCrop: parsed.extensions?.avatarCrop || null,
-                nameColor: parsed.extensions?.nameColor || undefined,
-                dialogueColor: parsed.extensions?.dialogueColor || undefined,
-                description: parsed.description ?? "",
-                personality: parsed.personality ?? "",
-                backstory: parsed.extensions?.backstory ?? "",
-                appearance: parsed.extensions?.appearance ?? "",
-                tags: parsed.tags ?? [],
+                avatarCrop: readAvatarCrop(extensions.avatarCrop),
+                nameColor: readString(extensions.nameColor) || undefined,
+                dialogueColor: readString(extensions.dialogueColor) || undefined,
+                description: readString(parsed.description),
+                personality: readString(parsed.personality),
+                backstory: readString(extensions.backstory),
+                appearance: readString(extensions.appearance),
+                tags: stringArray(parsed.tags),
               };
             } catch {
               return { id: character.id, name: "Unknown" };

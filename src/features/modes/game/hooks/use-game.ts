@@ -489,8 +489,25 @@ function finiteNumber(value: unknown): number | null {
   return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 }
 
-type LegacyInventoryItem = { name: string; slot?: string | number; quantity?: number };
-type LegacyInventoryConfig = Omit<HudWidget["config"], "items"> & { items?: LegacyInventoryItem[] };
+type LegacyInventoryGridItem = { name: string; slot?: string; quantity?: number };
+
+function legacyInventoryGridItems(value: unknown): LegacyInventoryGridItem[] | null {
+  if (!Array.isArray(value)) return null;
+  const items: LegacyInventoryGridItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const record = item as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name : "";
+    if (!name) continue;
+    const slot = typeof record.slot === "string" ? record.slot : undefined;
+    items.push({
+      name,
+      ...(slot ? { slot } : {}),
+      quantity: finiteNumber(record.quantity) ?? 1,
+    });
+  }
+  return items;
+}
 
 function normalizeHudWidgets(widgets: readonly HudWidget[]): HudWidget[] {
   return widgets.map((w) => {
@@ -512,18 +529,13 @@ function normalizeHudWidgets(widgets: readonly HudWidget[]): HudWidget[] {
       }
     }
 
-    const inventoryConfig = w.config as LegacyInventoryConfig;
-    if (w.type === "inventory_grid" && !w.config.contents && Array.isArray(inventoryConfig.items)) {
-      const items = inventoryConfig.items;
+    const legacyItems = legacyInventoryGridItems((w.config as HudWidget["config"] & { items?: unknown }).items);
+    if (w.type === "inventory_grid" && !w.config.contents && legacyItems) {
       return {
         ...w,
         config: {
           ...w.config,
-          contents: items.map((i) => ({
-            name: i.name,
-            slot: typeof i.slot === "string" ? i.slot : undefined,
-            quantity: i.quantity ?? 1,
-          })),
+          contents: legacyItems,
         },
       };
     }
@@ -680,7 +692,7 @@ export function useUpdateReputation() {
     mutationFn: (data: { chatId: string; actions: Array<{ npcId: string; action: string; modifier?: number }> }) =>
       gameApi.updateReputation(data),
     onSuccess: (res, variables) => {
-      store.getState().setNpcs(res.npcs as GameNpc[]);
+      store.getState().setNpcs(res.npcs);
       publishSessionChat(qc, res.sessionChat);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: [...gameKeys.all, "journal", variables.chatId] });

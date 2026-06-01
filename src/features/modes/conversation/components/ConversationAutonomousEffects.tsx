@@ -12,7 +12,7 @@ type ConversationAutonomousEffectsProps = {
   chatId: string;
   messages: Message[] | undefined;
   characterMap: CharacterMap;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
 };
 
 export function ConversationAutonomousEffects({

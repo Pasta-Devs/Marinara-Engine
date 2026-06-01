@@ -62,6 +62,10 @@ function normalizeMessageSpriteExpressions(value: unknown): Record<string, strin
   return expressions;
 }
 
+function metadataString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 function resolveExpressionAvatarSpriteUrl(sprites: Map<string, string> | undefined, expression: string): string | null {
   const normalizedExpression = expression.trim().toLowerCase();
   if (!normalizedExpression) return null;
@@ -191,7 +195,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
   if (renderMessages?.length) hasAnimatedRef.current = true;
 
   const groupChatMode: string | undefined =
-    data.chatCharIds.length > 1 ? (data.chatMeta.groupChatMode ?? "merged") : undefined;
+    data.chatCharIds.length > 1 ? metadataString(data.chatMeta.groupChatMode, "merged") : undefined;
   const msgPayload = useMemo(() => {
     const messages = renderMessages ?? [];
     const start = Math.max(0, messages.length - SPRITE_OVERLAY_MESSAGE_SCAN_LIMIT);

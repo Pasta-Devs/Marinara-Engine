@@ -39,16 +39,20 @@ export function RecentChats() {
     if (!recentCharacters) return map;
     for (const char of recentCharacters as Array<{
       id: string;
-      data: Record<string, any>;
+      data: Record<string, unknown>;
       avatarPath?: string | null;
       avatarFilePath?: string | null;
       avatarFilename?: string | null;
     }>) {
       const parsed = char.data ?? {};
+      const extensions =
+        parsed.extensions && typeof parsed.extensions === "object" && !Array.isArray(parsed.extensions)
+          ? (parsed.extensions as Record<string, unknown>)
+          : {};
       map.set(char.id, {
-        name: parsed.name ?? "Unknown",
+        name: typeof parsed.name === "string" ? parsed.name : "Unknown",
         avatarUrl: characterAvatarUrl(char),
-        avatarCrop: parsed.extensions?.avatarCrop ?? null,
+        avatarCrop: (extensions.avatarCrop as AvatarCropValue | undefined) ?? null,
       });
     }
     return map;

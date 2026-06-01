@@ -7,10 +7,18 @@ import type { MessageWithSwipes } from "../types";
 
 type UseChatMetadataSyncOptions = {
   chat: Chat | null | undefined;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
   messages: MessageWithSwipes[] | undefined;
   messagePageCount: number;
 };
+
+function metadataString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function metadataTranslationProvider(value: unknown): "ai" | "deeplx" | "deepl" | "google" {
+  return value === "ai" || value === "deeplx" || value === "deepl" || value === "google" ? value : "google";
+}
 
 export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount }: UseChatMetadataSyncOptions) {
   const chatBackground = useUIStore((state) => state.chatBackground);
@@ -19,11 +27,11 @@ export function useChatMetadataSync({ chat, chatMeta, messages, messagePageCount
   useEffect(() => {
     if (!chat?.id) return;
     useTranslationStore.getState().setConfig({
-      provider: chatMeta.translationProvider ?? "google",
-      targetLanguage: chatMeta.translationTargetLang ?? "en",
-      connectionId: chatMeta.translationConnectionId,
-      deeplApiKey: chatMeta.translationDeeplApiKey,
-      deeplxUrl: chatMeta.translationDeeplxUrl,
+      provider: metadataTranslationProvider(chatMeta.translationProvider),
+      targetLanguage: metadataString(chatMeta.translationTargetLang) ?? "en",
+      connectionId: metadataString(chatMeta.translationConnectionId),
+      deeplApiKey: metadataString(chatMeta.translationDeeplApiKey),
+      deeplxUrl: metadataString(chatMeta.translationDeeplxUrl),
     });
   }, [
     chat?.id,

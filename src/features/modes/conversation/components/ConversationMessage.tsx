@@ -258,20 +258,10 @@ function groupConsecutiveSegments(segments: SpeakerSegment[]): GroupedSegment[] 
   return groups;
 }
 
-interface MessageData {
-  id: string;
-  chatId: string;
-  role: "user" | "assistant" | "system" | "narrator";
-  characterId: string | null;
-  content: string;
-  activeSwipeIndex: number;
-  swipeCount?: number;
-  extra: ConversationMessageExtra | string;
-  createdAt: string;
-}
+type ConversationMessageData = Omit<Message, "extra"> & { extra: ConversationMessageExtra | string };
 
 interface ConversationMessageProps {
-  message: MessageData;
+  message: ConversationMessageData;
   isStreaming?: boolean;
   isGrouped?: boolean;
   hideActions?: boolean;

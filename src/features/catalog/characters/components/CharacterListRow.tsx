@@ -20,6 +20,10 @@ export type CharacterListRowAssigningGroup = {
   memberIds: string[];
 };
 
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
 export function CharacterListRow({
   character,
   hasActiveChat,
@@ -56,7 +60,8 @@ export function CharacterListRow({
   const charName = getText(character.parsed.name) || "Unnamed";
   const charTitle = getCharacterTitle({ name: charName, comment: character.comment });
   const charTags = getCharacterTags(character);
-  const charNameColor = (character.parsed.extensions?.nameColor as string) || undefined;
+  const extensions = readRecord(character.parsed.extensions);
+  const charNameColor = typeof extensions.nameColor === "string" ? extensions.nameColor : undefined;
   const avatarUrl = characterAvatarUrl(character);
   const isInTargetGroup = assigningGroup?.memberIds.includes(character.id) ?? false;
   const previewMetadata = getCharacterPreviewMetadata(character);
@@ -136,7 +141,7 @@ export function CharacterListRow({
               avatarFilePath={character.avatarFilePath}
               avatarFilename={character.avatarFilename}
               alt={charName}
-              crop={character.parsed.extensions?.avatarCrop}
+              crop={extensions.avatarCrop}
             />
           </div>
         ) : (

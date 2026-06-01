@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { PenLine, X } from "lucide-react";
 import { useUpdateChatMetadata } from "../../../catalog/chats/index";
 
+function readAuthorNotesDepth(value: unknown): number {
+  const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 4;
+}
+
 export function AuthorNotesPanel({
   chatId,
   chatMeta,
@@ -9,31 +14,33 @@ export function AuthorNotesPanel({
   onClose,
 }: {
   chatId: string;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
   isMobile: boolean;
   onClose: () => void;
 }) {
-  const [notes, setNotes] = useState((chatMeta.authorNotes as string) ?? "");
-  const [depthStr, setDepthStr] = useState(String((chatMeta.authorNotesDepth as number) ?? 4));
+  const authorNotes = typeof chatMeta.authorNotes === "string" ? chatMeta.authorNotes : "";
+  const authorNotesDepth = readAuthorNotesDepth(chatMeta.authorNotesDepth);
+  const [notes, setNotes] = useState(authorNotes);
+  const [depthStr, setDepthStr] = useState(String(authorNotesDepth));
   const updateMeta = useUpdateChatMetadata();
 
   const latestRef = useRef({ notes, depthStr });
   latestRef.current = { notes, depthStr };
   const baselineRef = useRef({
-    notes: (chatMeta.authorNotes as string) ?? "",
-    depth: (chatMeta.authorNotesDepth as number) ?? 4,
+    notes: authorNotes,
+    depth: authorNotesDepth,
   });
   const mutateRef = useRef(updateMeta.mutate);
   mutateRef.current = updateMeta.mutate;
 
   useEffect(() => {
-    setNotes((chatMeta.authorNotes as string) ?? "");
-    setDepthStr(String((chatMeta.authorNotesDepth as number) ?? 4));
+    setNotes(authorNotes);
+    setDepthStr(String(authorNotesDepth));
     baselineRef.current = {
-      notes: (chatMeta.authorNotes as string) ?? "",
-      depth: (chatMeta.authorNotesDepth as number) ?? 4,
+      notes: authorNotes,
+      depth: authorNotesDepth,
     };
-  }, [chatMeta.authorNotes, chatMeta.authorNotesDepth]);
+  }, [authorNotes, authorNotesDepth]);
 
   // Outside-click closes the popover via mousedown, which unmounts the
   // textarea before its onBlur (the only save trigger) can fire. Flush

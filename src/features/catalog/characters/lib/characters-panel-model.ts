@@ -10,7 +10,7 @@ import {
 
 export type CharacterRow = {
   id: string;
-  data: CharacterSearchData & Record<string, any>;
+  data: CharacterSearchData & Record<string, unknown>;
   comment?: string | null;
   avatarPath?: string | null;
   avatarFilePath?: string | null;
@@ -27,7 +27,7 @@ type GroupRow = {
   avatarPath?: string | null;
 };
 
-export type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
+export type ParsedCharacterRow = CharacterRow & { parsed: Record<string, unknown> };
 
 export type ParsedGroupRow = Omit<GroupRow, "characterIds"> & {
   characterIds: string[];
@@ -39,6 +39,18 @@ export type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favor
 export type FavoriteFilter = "all" | "favorites" | "non-favorites";
 
 const UNGROUPED_CHARACTER_GROUP_ID = "__ungrouped-characters__";
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function characterExtensions(char: ParsedCharacterRow): Record<string, unknown> {
+  return readRecord(char.parsed.extensions);
+}
 
 export function parseCharacterRows(characters: unknown): ParsedCharacterRow[] {
   if (!characters) return [];
@@ -56,10 +68,8 @@ export function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | 
   const parts: string[] = [];
   const creator = typeof char.parsed.creator === "string" ? char.parsed.creator.trim() : "";
   const version = typeof char.parsed.character_version === "string" ? char.parsed.character_version.trim() : "";
-  const importMetadata =
-    char.parsed.extensions?.importMetadata && typeof char.parsed.extensions.importMetadata === "object"
-      ? (char.parsed.extensions.importMetadata as Record<string, unknown>)
-      : {};
+  const extensions = characterExtensions(char);
+  const importMetadata = readRecord(extensions.importMetadata);
   const cardMetadata =
     importMetadata.card && typeof importMetadata.card === "object"
       ? (importMetadata.card as Record<string, unknown>)
@@ -94,9 +104,9 @@ export function filterCharacterRows({
 }): ParsedCharacterRow[] {
   let list = characters;
   if (favoriteFilter === "favorites") {
-    list = list.filter((c) => c.parsed.extensions?.fav);
+    list = list.filter((c) => characterExtensions(c).fav);
   } else if (favoriteFilter === "non-favorites") {
-    list = list.filter((c) => !c.parsed.extensions?.fav);
+    list = list.filter((c) => !characterExtensions(c).fav);
   }
   if (includedTags.size > 0) {
     list = list.filter((c) => countIncludedTagMatches(c.parsed, includedTags) > 0);
@@ -139,11 +149,11 @@ export function sortCharacterRows(
   switch (sort) {
     case "name-asc":
       return list.sort(
-        (a, b) => compareIncludedTagMatches(a, b) || (a.parsed.name ?? "").localeCompare(b.parsed.name ?? ""),
+        (a, b) => compareIncludedTagMatches(a, b) || readString(a.parsed.name).localeCompare(readString(b.parsed.name)),
       );
     case "name-desc":
       return list.sort(
-        (a, b) => compareIncludedTagMatches(a, b) || (b.parsed.name ?? "").localeCompare(a.parsed.name ?? ""),
+        (a, b) => compareIncludedTagMatches(a, b) || readString(b.parsed.name).localeCompare(readString(a.parsed.name)),
       );
     case "newest":
       return list.sort(
@@ -155,12 +165,12 @@ export function sortCharacterRows(
       );
     case "favorites":
       return list.sort((a, b) => {
-        const aFav = a.parsed.extensions?.fav ? 1 : 0;
-        const bFav = b.parsed.extensions?.fav ? 1 : 0;
+        const aFav = characterExtensions(a).fav ? 1 : 0;
+        const bFav = characterExtensions(b).fav ? 1 : 0;
         if (bFav !== aFav) return bFav - aFav;
         const tagMatchDiff = compareIncludedTagMatches(a, b);
         if (tagMatchDiff !== 0) return tagMatchDiff;
-        return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
+        return readString(a.parsed.name).localeCompare(readString(b.parsed.name));
       });
     default:
       return list;
@@ -181,7 +191,7 @@ export function parseCharacterGroups(groups: unknown, parsedCharacters: ParsedCh
   });
   const ungroupedMemberIds = parsedCharacters
     .filter((char) => !assignedIds.has(char.id))
-    .sort((a, b) => (a.parsed.name ?? "").localeCompare(b.parsed.name ?? ""))
+    .sort((a, b) => readString(a.parsed.name).localeCompare(readString(b.parsed.name)))
     .map((char) => char.id);
   if (ungroupedMemberIds.length === 0) return realGroups;
   return [

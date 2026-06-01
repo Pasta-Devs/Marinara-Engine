@@ -37,7 +37,7 @@ type ConversationSurfaceProps = {
   characterMap: CharacterMap;
   characterNames: string[];
   personaInfo?: PersonaInfo;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
   chatCharIds: string[];
   enabledAgentTypes?: Set<string>;
   connectedChatName?: string;

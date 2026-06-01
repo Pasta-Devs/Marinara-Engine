@@ -38,9 +38,9 @@ type UseChatTimelineActionsOptions = {
   refreshWorldStateOnTimelineChange?: boolean;
 };
 
-function readMessageExtra(message: MessageWithSwipes): Record<string, any> {
+function readMessageExtra(message: MessageWithSwipes): Record<string, unknown> {
   return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
-    ? (message.extra as Record<string, any>)
+    ? (message.extra as unknown as Record<string, unknown>)
     : {};
 }
 
@@ -625,8 +625,10 @@ export function useChatTimelineActions({
       if (!prev || !curr) return false;
       if (prev.role !== curr.role || prev.characterId !== curr.characterId) return false;
       if (prev.role === "user" && curr.role === "user") {
-        const prevId = readMessageExtra(prev).personaSnapshot?.personaId;
-        const currId = readMessageExtra(curr).personaSnapshot?.personaId;
+        const prevSnapshot = readRecord(readMessageExtra(prev).personaSnapshot);
+        const currSnapshot = readRecord(readMessageExtra(curr).personaSnapshot);
+        const prevId = readString(prevSnapshot.personaId);
+        const currId = readString(currSnapshot.personaId);
         if (prevId && currId && prevId !== currId) return false;
       }
       return true;

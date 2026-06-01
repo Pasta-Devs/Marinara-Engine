@@ -379,7 +379,7 @@ function buildCompactInventoryLine(items: Array<{ name: string; quantity: number
 
 function buildWidgetSummaryLines(widgets: HudWidget[]): string[] {
   return widgets.map((widget) => {
-    const config = (widget.config ?? {}) as Record<string, any>;
+    const config = widget.config ?? {};
     if (widget.type === "stat_block" && Array.isArray(config.stats) && config.stats.length > 0) {
       const stats = config.stats.map((stat) => `${stat.name}=${stat.value}`).join(", ");
       return `- ${widget.id} (${widget.type}): ${stats}`;

@@ -8,7 +8,7 @@ import type { MessageWithSwipes } from "../types";
 
 type UseSpriteMetadataStateOptions = {
   chat: Chat | null | undefined;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
   messages?: MessageWithSwipes[] | undefined;
 };
 
@@ -18,10 +18,16 @@ function normalizeSpriteDisplayValue(value: unknown, fallback: number, min: numb
   return Math.max(min, Math.min(max, numeric));
 }
 
-function readMessageExtra(message: MessageWithSwipes): Record<string, any> {
+function readMessageExtra(message: MessageWithSwipes): Record<string, unknown> {
   return message.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
-    ? (message.extra as Record<string, any>)
+    ? (message.extra as unknown as Record<string, unknown>)
     : {};
+}
+
+function stringRecord(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string");
+  return entries.length ? Object.fromEntries(entries) : null;
 }
 
 export function useSpriteMetadataState({ chat, chatMeta, messages }: UseSpriteMetadataStateOptions) {
@@ -48,8 +54,9 @@ export function useSpriteMetadataState({ chat, chatMeta, messages }: UseSpriteMe
         const message = messages[index]!;
         if (message.role === "assistant") {
           const extra = readMessageExtra(message);
-          if (extra.spriteExpressions && Object.keys(extra.spriteExpressions).length > 0) {
-            return extra.spriteExpressions as Record<string, string>;
+          const spriteExpressions = stringRecord(extra.spriteExpressions);
+          if (spriteExpressions && Object.keys(spriteExpressions).length > 0) {
+            return spriteExpressions;
           }
           break;
         }

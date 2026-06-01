@@ -247,6 +247,29 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function sheetAttributes(value: unknown): ReadonlyArray<{ name: string; value: number }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const attrs = value
+    .map((item) => {
+      const record = asRecord(item);
+      const name = typeof record.name === "string" ? record.name : "";
+      const parsedValue = Number(record.value);
+      return name && Number.isFinite(parsedValue) ? { name, value: parsedValue } : null;
+    })
+    .filter((item): item is { name: string; value: number } => item !== null);
+  return attrs.length ? attrs : undefined;
+}
+
+const WEATHER_SEASONS = new Set<Season>(["spring", "summer", "autumn", "winter"]);
+
+function isWeatherSeason(value: unknown): value is Season {
+  return typeof value === "string" && WEATHER_SEASONS.has(value as Season);
+}
+
+function weatherSeason(value: unknown): Season {
+  return isWeatherSeason(value) ? value : "summer";
+}
+
 function chatMeta(chat: Chat | null | undefined): Record<string, unknown> {
   return asRecord(chat?.metadata);
 }
@@ -1045,15 +1068,7 @@ function playerAttributes(meta: Record<string, unknown>): Partial<RPGAttributes>
   const cards = Array.isArray(meta.gameCharacterCards) ? meta.gameCharacterCards : [];
   const first = asRecord(cards[0]);
   const rpgStats = asRecord(first.rpgStats);
-  return mapSheetAttributesToRPG(
-    Array.isArray(rpgStats.attributes)
-      ? (rpgStats.attributes as ReadonlyArray<{ name: string; value: number }>)
-      : undefined,
-  );
-}
-
-function isWeatherSeason(value: unknown): value is Season {
-  return value === "spring" || value === "summer" || value === "autumn" || value === "winter";
+  return mapSheetAttributesToRPG(sheetAttributes(rpgStats.attributes));
 }
 
 function replaceFirstUnresolvedSkillCheckTag(content: string, resolvedTag: string): string {
@@ -1969,7 +1984,7 @@ export const gameApi = {
       forced = { type: data.type, temperature: 20, description: "", wind: "calm", visibility: "clear" } as WeatherState;
     } else {
       const biome = inferBiome(data.location ?? "");
-      const season = isWeatherSeason(data.season) ? data.season : "summer";
+      const season = weatherSeason(data.season);
       if (data.season && season === "summer" && data.season !== "summer") {
         console.warn("[game] Invalid weather season; defaulting to summer", {
           season: data.season,

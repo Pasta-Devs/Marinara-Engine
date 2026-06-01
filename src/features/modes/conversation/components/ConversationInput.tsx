@@ -26,7 +26,7 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGenerate } from "../../../runtime/generation/index";
-import { useApplyRegex } from "../../../catalog/agents/regex-application";
+import { useApplyRegex, type ScopedRegexMode } from "../../../catalog/agents/regex-application";
 import {
   useCreateMessage,
   useDeleteMessage,
@@ -87,6 +87,10 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "yaml",
   "yml",
 ]);
+
+function readScopedRegexMode(value: unknown): ScopedRegexMode | undefined {
+  return value === "disabled" || value === "exclusive" || value === "chat" ? value : undefined;
+}
 
 const SAVED_STATUS_LIMIT = 12;
 const SAVED_STATUS_MAX_LENGTH = 120;
@@ -568,7 +572,10 @@ export function ConversationInput({
       const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
       const streamMeta = parseChatMetadata(activeChatData?.metadata);
       // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-      let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: streamMeta.scopedRegexMode });
+      let message = applyToUserInput(raw, {
+        resolveMacros: resolveInputMacros,
+        scopedMode: readScopedRegexMode(streamMeta.scopedRegexMode),
+      });
       // Input translation for streaming path too
       if (streamMeta.translateInput && message.trim()) {
         try {
@@ -673,7 +680,10 @@ export function ConversationInput({
     const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
     const chatMeta = parseChatMetadata(activeChat?.metadata);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-    let message = applyToUserInput(raw, { resolveMacros: resolveInputMacros, scopedMode: chatMeta.scopedRegexMode });
+    let message = applyToUserInput(raw, {
+      resolveMacros: resolveInputMacros,
+      scopedMode: readScopedRegexMode(chatMeta.scopedRegexMode),
+    });
 
     // Input translation: translate user's message before sending
     if (chatMeta.translateInput && message.trim()) {
@@ -872,7 +882,7 @@ export function ConversationInput({
     const postOnlyMeta = parseChatMetadata(activeChatData?.metadata);
     let message = applyToUserInput(raw, {
       resolveMacros: resolveInputMacros,
-      scopedMode: postOnlyMeta.scopedRegexMode,
+      scopedMode: readScopedRegexMode(postOnlyMeta.scopedRegexMode),
     });
 
     if (postOnlyMeta.translateInput && message.trim()) {

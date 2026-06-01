@@ -38,6 +38,14 @@ import type { Lorebook } from "../../../../engine/contracts/types/lorebook";
 // Sub-components
 // ──────────────────────────────────────────────
 
+const NARRATIVE_TENSE_OPTIONS = ["present", "past"] as const satisfies readonly NarrativeStyle["tense"][];
+const NARRATIVE_PERSON_OPTIONS = ["first", "second", "third"] as const satisfies readonly NarrativeStyle["person"][];
+const NARRATIVE_MODE_OPTIONS = ["omniscient", "limited"] as const satisfies readonly NarrativeStyle["narration"][];
+
+function selectNarrativeOption<T extends string>(nextValue: string, options: readonly T[], fallback: T): T {
+  return (options as readonly string[]).includes(nextValue) ? (nextValue as T) : fallback;
+}
+
 function HPBar({ current, max, isParty }: { current: number; max: number; isParty?: boolean }) {
   const pct = Math.max(0, Math.min(100, (current / max) * 100));
   const isDead = current <= 0;
@@ -286,7 +294,12 @@ function NarrativeSelect({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select
           value={value.tense}
-          onChange={(e) => onChange({ ...value, tense: e.target.value as any })}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              tense: selectNarrativeOption(e.target.value, NARRATIVE_TENSE_OPTIONS, value.tense),
+            })
+          }
           className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="present">Present Tense</option>
@@ -294,7 +307,12 @@ function NarrativeSelect({
         </select>
         <select
           value={value.person}
-          onChange={(e) => onChange({ ...value, person: e.target.value as any })}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              person: selectNarrativeOption(e.target.value, NARRATIVE_PERSON_OPTIONS, value.person),
+            })
+          }
           className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="first">First Person</option>
@@ -303,7 +321,12 @@ function NarrativeSelect({
         </select>
         <select
           value={value.narration}
-          onChange={(e) => onChange({ ...value, narration: e.target.value as any })}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              narration: selectNarrativeOption(e.target.value, NARRATIVE_MODE_OPTIONS, value.narration),
+            })
+          }
           className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
         >
           <option value="omniscient">Omniscient</option>

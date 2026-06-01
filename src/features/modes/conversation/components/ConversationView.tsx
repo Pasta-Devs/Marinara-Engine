@@ -58,7 +58,7 @@ interface ConversationViewProps {
   characterMap: CharacterMap;
   characterNames: string[];
   personaInfo?: PersonaInfo;
-  chatMeta: Record<string, any>;
+  chatMeta: Record<string, unknown>;
   chatName?: string;
   chatGroupId?: string | null;
   chatCharIds: string[];
@@ -105,6 +105,10 @@ function formatDaySeparator(dateStr: string): string {
 function getDayKey(dateStr: string): string {
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function chatMetaString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
 }
 
 /** Check if a message's content uses "Name: text" format with known chat-member character names */
@@ -1035,7 +1039,7 @@ export function ConversationView({
             elements.push(
               <ConversationMessage
                 key={item.key}
-                message={displayMsg as any}
+                message={displayMsg}
                 isStreaming={hasStreamContent}
                 isGrouped={isGrouped}
                 onDelete={onDelete}
@@ -1046,7 +1050,7 @@ export function ConversationView({
                 onToggleHiddenFromAI={onToggleHiddenFromAI}
                 isLastAssistantMessage={msg.id === lastAssistantMessageId}
                 characterMap={characterMap}
-                personaInfo={personaInfo as any}
+                personaInfo={personaInfo}
                 chatCharacterIds={chatCharIds}
                 messageIndex={item.index + 1}
                 messageOrderIndex={item.index}
@@ -1133,7 +1137,7 @@ export function ConversationView({
           activeChatCharIds.length > 1
             ? chatMeta.groupResponseOrder === "manual"
               ? "manual"
-              : (chatMeta.groupResponseOrder ?? "sequential")
+              : chatMetaString(chatMeta.groupResponseOrder, "sequential")
             : undefined
         }
         chatCharacters={
@@ -1222,7 +1226,7 @@ function SplitMessageGroup({
       <div className="group relative">
         <ConversationMessage
           key={firstItem.key}
-          message={{ ...msg, content: "" } as any}
+          message={{ ...msg, content: "" }}
           isStreaming={false}
           isGrouped={firstItem.isGrouped}
           noHoverGroup
@@ -1236,7 +1240,7 @@ function SplitMessageGroup({
           isLastAssistantMessage={false}
           characterMap={characterMap}
           chatCharacterIds={chatCharacterIds}
-          personaInfo={personaInfo as any}
+          personaInfo={personaInfo}
         />
         <div className="space-y-2 pl-14 pr-4 -mt-1">
           <textarea
@@ -1298,7 +1302,7 @@ function SplitMessageGroup({
             return (
               <ConversationMessage
                 key={firstItem.key}
-                message={{ ...firstItem.msg, content: "", extra: regenExtra } as any}
+                message={{ ...firstItem.msg, content: "", extra: regenExtra }}
                 isStreaming={false}
                 isGrouped={firstItem.isGrouped}
                 hideActions
@@ -1312,7 +1316,7 @@ function SplitMessageGroup({
                 isLastAssistantMessage={false}
                 characterMap={characterMap}
                 chatCharacterIds={chatCharacterIds}
-                personaInfo={personaInfo as any}
+                personaInfo={personaInfo}
               />
             );
           }
@@ -1324,7 +1328,7 @@ function SplitMessageGroup({
           return (
             <ConversationMessage
               key={firstItem.key}
-              message={dMsg as any}
+              message={dMsg}
               isStreaming
               isGrouped={firstItem.isGrouped}
               hideActions={false}
@@ -1340,7 +1344,7 @@ function SplitMessageGroup({
               isLastAssistantMessage={firstItem.msg.id === lastAssistantMessageId}
               characterMap={characterMap}
               chatCharacterIds={chatCharacterIds}
-              personaInfo={personaInfo as any}
+              personaInfo={personaInfo}
               messageIndex={firstItem.index + 1}
             />
           );
@@ -1352,7 +1356,7 @@ function SplitMessageGroup({
           return (
             <ConversationMessage
               key={gi.key}
-              message={msg as any}
+              message={msg}
               isStreaming={false}
               isGrouped={grp}
               hideActions={isChild}
@@ -1368,7 +1372,7 @@ function SplitMessageGroup({
               isLastAssistantMessage={msg.id === lastAssistantMessageId}
               characterMap={characterMap}
               chatCharacterIds={chatCharacterIds}
-              personaInfo={personaInfo as any}
+              personaInfo={personaInfo}
               messageIndex={gi.index + 1}
             />
           );

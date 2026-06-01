@@ -7,17 +7,19 @@ export type ChatDisplaySource = {
 
 const PLACEHOLDER_BRANCH_NAME = "New Branch";
 
-export function parseChatMetadata(raw: unknown): Record<string, any> {
+export function parseChatMetadata(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, any>) : {};
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
     } catch {
       return {};
     }
   }
-  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, any>) : {};
+  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 }
 
 export function getChatDisplayName(chat: ChatDisplaySource | null | undefined): string {

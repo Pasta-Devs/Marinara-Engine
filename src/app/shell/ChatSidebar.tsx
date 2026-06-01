@@ -60,6 +60,10 @@ import { useStartNewChat } from "./useStartNewChat";
 
 type ChatSortOption = "newest" | "oldest" | "name-asc" | "name-desc";
 export type ChatSidebarTab = "conversation" | "roleplay" | "game";
+type ChatSidebarRow = {
+  chat: NonNullable<ReturnType<typeof useChatSummaries>["data"]>[number];
+  branchCount: number;
+};
 
 function getChatTags(chat: { metadata?: { tags?: unknown } | null }): string[] {
   return Array.isArray(chat.metadata?.tags)
@@ -351,7 +355,7 @@ export function ChatSidebar({
     });
 
     const seenGroups = new Set<string>();
-    const result: { chat: (typeof sorted)[number]; branchCount: number }[] = [];
+    const result: ChatSidebarRow[] = [];
     const activeFilteredChat = activeChat ? sorted.find((chat) => chat.id === activeChat.id) : undefined;
 
     for (const chat of sorted) {
@@ -625,7 +629,7 @@ export function ChatSidebar({
   );
 
   // ── Chat row renderer (shared between unfiled + folder sections) ──
-  const renderChatRow = ({ chat, branchCount }: (typeof displayChats)[number]) => {
+  const renderChatRow = ({ chat, branchCount }: ChatSidebarRow) => {
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
     const isActive = activeChatId === chat.id || (chat.groupId != null && chat.groupId === activeGroupId);
     const isSelected = selectedChatIds.has(chat.id);
@@ -1369,8 +1373,8 @@ function FolderRow({
   onDelete,
 }: {
   folder: ChatFolder;
-  entries: { chat: any; branchCount: number }[];
-  renderChatRow: (entry: any) => React.ReactNode;
+  entries: ChatSidebarRow[];
+  renderChatRow: (entry: ChatSidebarRow) => React.ReactNode;
   onToggleCollapse: (folder: ChatFolder) => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;

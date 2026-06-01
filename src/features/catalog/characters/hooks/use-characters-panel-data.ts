@@ -11,6 +11,10 @@ import {
 } from "../lib/characters-panel-model";
 import type { CharacterScopedSearchTerm } from "../lib/character-search";
 
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
 export function useCharactersPanelData({
   assigningToGroup,
   excludedTags,
@@ -38,11 +42,12 @@ export function useCharactersPanelData({
       { name: string; comment?: string | null; avatarPath: string | null; avatarCrop?: unknown }
     >();
     for (const character of parsedCharacters) {
+      const extensions = readRecord(character.parsed.extensions);
       map.set(character.id, {
-        name: character.parsed.name ?? "Unknown",
+        name: typeof character.parsed.name === "string" ? character.parsed.name : "Unknown",
         comment: character.comment,
         avatarPath: characterAvatarUrl(character),
-        avatarCrop: character.parsed.extensions?.avatarCrop,
+        avatarCrop: extensions.avatarCrop,
       });
     }
     return map;
