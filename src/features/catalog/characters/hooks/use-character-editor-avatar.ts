@@ -234,9 +234,7 @@ export function useCharacterEditorAvatar({
     if (shouldClearAvatarCrop) {
       setExtensionValue("avatarCrop", undefined);
     }
-    if (fallbackDirty || shouldClearAvatarCrop) {
-      setDirtyState(fallbackDirty);
-    }
+    setDirtyState(true);
     try {
       await removeAvatar.mutateAsync(uploadCharacterId);
       if (isCurrentAvatarUpload(uploadToken, uploadCharacterId)) {

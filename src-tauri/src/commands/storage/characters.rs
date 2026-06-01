@@ -1,3 +1,4 @@
+use super::media_uploads::{managed_record_file_path, persist_image_file_copy};
 use super::shared::*;
 use super::*;
 
@@ -157,6 +158,7 @@ pub(crate) fn restore_character_version(
 
 pub(crate) fn duplicate_character(state: &AppState, character_id: &str) -> AppResult<Value> {
     let mut record = get_required(state, "characters", character_id)?;
+    let duplicate_avatar = duplicate_managed_character_avatar(state, character_id, &record)?;
     let object = record
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_input("Record is not an object"))?;
@@ -166,7 +168,75 @@ pub(crate) fn duplicate_character(state: &AppState, character_id: &str) -> AppRe
             data.insert("name".to_string(), Value::String(format!("{name} (Copy)")));
         }
     }
+    match duplicate_avatar {
+        DuplicateAvatar::Copied {
+            asset_url,
+            absolute_path,
+            filename,
+        } => {
+            if object.contains_key("avatar") {
+                object.insert("avatar".to_string(), Value::String(asset_url.clone()));
+            }
+            object.insert("avatarPath".to_string(), Value::String(asset_url));
+            object.insert("avatarFilePath".to_string(), Value::String(absolute_path));
+            object.insert("avatarFilename".to_string(), Value::String(filename));
+        }
+        DuplicateAvatar::MissingManagedMetadata => {
+            object.insert("avatarFilePath".to_string(), Value::Null);
+            object.insert("avatarFilename".to_string(), Value::Null);
+        }
+        DuplicateAvatar::None => {}
+    }
     state.storage.create("characters", record)
+}
+
+enum DuplicateAvatar {
+    Copied {
+        asset_url: String,
+        absolute_path: String,
+        filename: String,
+    },
+    MissingManagedMetadata,
+    None,
+}
+
+fn duplicate_managed_character_avatar(
+    state: &AppState,
+    character_id: &str,
+    record: &Value,
+) -> AppResult<DuplicateAvatar> {
+    let avatar_path = managed_record_file_path(
+        state,
+        "avatars/characters",
+        record,
+        "avatarFilePath",
+        "avatarFilename",
+    )?;
+    let Some(avatar_path) = avatar_path else {
+        return Ok(if has_managed_avatar_metadata(record) {
+            DuplicateAvatar::MissingManagedMetadata
+        } else {
+            DuplicateAvatar::None
+        });
+    };
+
+    let filename_hint = record
+        .get("avatarFilename")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(character_id);
+    let stored = persist_image_file_copy(state, "avatars/characters", filename_hint, &avatar_path)?;
+    Ok(DuplicateAvatar::Copied {
+        asset_url: stored.asset_url,
+        absolute_path: stored.absolute_path,
+        filename: stored.filename,
+    })
+}
+
+fn has_managed_avatar_metadata(record: &Value) -> bool {
+    ["avatarFilePath", "avatarFilename"]
+        .iter()
+        .any(|field| record.get(*field).is_some_and(|value| !value.is_null()))
 }
 
 fn take_version_snapshot_options(
@@ -258,6 +328,7 @@ fn non_empty_or_default(value: &str, fallback: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_state(label: &str) -> AppState {
@@ -300,6 +371,68 @@ mod tests {
             .storage
             .list("character-versions")
             .expect("versions should list")
+    }
+
+    #[test]
+    fn duplicate_character_copies_managed_avatar_file() {
+        let state = test_state("duplicate-avatar");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let source_path = avatar_dir.join("rina.png");
+        std::fs::write(&source_path, b"avatar bytes").expect("source avatar should be written");
+        let source_path_string = source_path.to_string_lossy().to_string();
+
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Original description",
+                        "tags": [],
+                        "character_version": "1.0"
+                    },
+                    "comment": "Original title",
+                    "avatar": "http://asset.localhost/rina.png",
+                    "avatarPath": "http://asset.localhost/rina.png",
+                    "avatarFilePath": source_path_string,
+                    "avatarFilename": "rina.png"
+                }),
+            )
+            .expect("character should be created");
+
+        let duplicate = duplicate_character(&state, "char-1").expect("character should duplicate");
+        let duplicate_path = PathBuf::from(
+            duplicate
+                .get("avatarFilePath")
+                .and_then(Value::as_str)
+                .expect("duplicate should have cloned avatar path"),
+        );
+
+        assert_ne!(duplicate["id"], "char-1");
+        assert_eq!(duplicate["data"]["name"], "Rina (Copy)");
+        assert_ne!(duplicate_path, source_path);
+        assert_eq!(
+            std::fs::read(&duplicate_path).expect("duplicate avatar should exist"),
+            b"avatar bytes".to_vec()
+        );
+        assert_eq!(
+            std::fs::read(&source_path).expect("source avatar should still exist"),
+            b"avatar bytes".to_vec()
+        );
+
+        super::super::avatars::remove_avatar_file(&state, "characters", &duplicate);
+
+        assert!(
+            !duplicate_path.exists(),
+            "removing the duplicate avatar should delete only the duplicate file"
+        );
+        assert!(
+            source_path.exists(),
+            "removing the duplicate avatar must not delete the original file"
+        );
     }
 
     #[test]

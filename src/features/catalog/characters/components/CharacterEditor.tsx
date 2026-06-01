@@ -181,7 +181,6 @@ export function CharacterEditor() {
   };
 
   const handleRemoveAvatar = async () => {
-    if (!avatarPreview && formData?.extensions.avatarCrop === undefined) return;
     if (
       !(await showConfirmDialog({
         title: "Remove Avatar",

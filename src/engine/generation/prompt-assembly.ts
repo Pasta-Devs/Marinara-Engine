@@ -1671,10 +1671,7 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
       }
 
       result.push(message);
-      expectedRole = message.role === "assistant" ? "user" : "assistant";
-      if (message.role === "system") {
-        expectedRole = "user";
-      }
+      expectedRole = message.role === "user" ? "assistant" : "user";
       continue;
     }
 
