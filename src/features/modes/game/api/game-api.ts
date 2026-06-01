@@ -1358,7 +1358,8 @@ function fullBodySpriteReference(sprites: Array<Record<string, unknown>>): strin
 }
 
 async function gameIllustrationTurnNumber(chatId: string): Promise<number> {
-  const messages = await listMessages(chatId);
+  const messages = await listMessages(chatId).catch(() => []);
+  if (!Array.isArray(messages)) return 0;
   return messages.filter((message) => message.role === "assistant" || message.role === "narrator").length;
 }
 
@@ -2656,7 +2657,7 @@ export const gameApi = {
           referenceImageCount: item.referenceImages?.length ?? 0,
           gameAssetTag: tag,
         });
-        generatedIllustration.galleryId = gallery.id ?? null;
+        generatedIllustration.galleryId = gallery?.id ?? null;
         sessionChat = await patchChatMetadata(chatId, {
           gameLastIllustrationTurn: illustrationTurnNumber,
           gameLastIllustrationSessionNumber: Number(meta.gameSessionNumber ?? 1),
