@@ -119,6 +119,7 @@ pub(crate) fn image_source(connection: &Value) -> String {
 fn infer_image_source(model_or_source: &str, base_url: &str) -> String {
     let model = model_or_source.trim().to_ascii_lowercase();
     let url = base_url.trim().to_ascii_lowercase();
+    let parsed_url = reqwest::Url::parse(base_url.trim()).ok();
     match model.as_str() {
         "openai" | "stability" | "togetherai" | "novelai" | "pollinations" | "horde"
         | "blockentropy" | "openrouter" | "xai" | "comfyui" | "automatic1111"
@@ -172,7 +173,19 @@ fn infer_image_source(model_or_source: &str, base_url: &str) -> String {
     if url.contains("runpod.ai") {
         return "runpod_comfyui".to_string();
     }
-    if url.contains("arliai.com") || url.contains("/sdapi/v1") {
+    let is_arliai_host = parsed_url
+        .as_ref()
+        .and_then(|url| url.host_str())
+        .map(|host| {
+            let host = host.to_ascii_lowercase();
+            host == "arliai.com" || host.ends_with(".arliai.com")
+        })
+        .unwrap_or(false);
+    let has_sdapi_path = parsed_url
+        .as_ref()
+        .map(|url| url.path().to_ascii_lowercase().contains("/sdapi/v1"))
+        .unwrap_or_else(|| url.contains("/sdapi/v1"));
+    if is_arliai_host || has_sdapi_path {
         return "automatic1111".to_string();
     }
     if url.contains(":7860") && !url.contains("drawthings") {
@@ -2908,5 +2921,7 @@ mod tests {
             infer_image_source("", "https://api.example.test/sdapi/v1/txt2img"),
             "automatic1111"
         );
+        assert_eq!(infer_image_source("", "https://notarliai.com"), "openai");
+        assert_eq!(infer_image_source("", "https://evilarliai.com"), "openai");
     }
 }
