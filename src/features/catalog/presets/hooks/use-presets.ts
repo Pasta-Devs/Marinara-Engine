@@ -197,11 +197,16 @@ export function usePresetFull(id: string | null) {
     queryFn: async (): Promise<PresetFullData> => {
       const preset = await storageApi.get<PromptPreset>("prompts", id!);
       if (!preset) throw new Error("Preset not found");
+      const [sections, groups, choiceBlocks] = await Promise.all([
+        listPromptNested<PromptSection>(id!, "sections"),
+        listPromptNested<PromptGroup>(id!, "groups"),
+        listPromptNested<ChoiceBlock>(id!, "variables"),
+      ]);
       return {
         preset,
-        sections: await listPromptNested<PromptSection>(id!, "sections"),
-        groups: await listPromptNested<PromptGroup>(id!, "groups"),
-        choiceBlocks: await listPromptNested<ChoiceBlock>(id!, "variables"),
+        sections,
+        groups,
+        choiceBlocks,
       };
     },
     enabled: !!id,

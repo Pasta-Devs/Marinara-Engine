@@ -11,6 +11,7 @@ import { useUpdateChatMetadata } from "../../chats/index";
 import { CheckCircle2, Circle, CheckSquare2, Square, Sparkles, ListChecks, Shuffle, Save } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import type { ChoiceBlock, ChoiceOption } from "../../../../engine/contracts/types/prompt";
+import { isRecord, normalizeChoiceSelections, type ChoiceSelections } from "../lib/choice-selections";
 
 interface ChoiceSelectionModalProps {
   open: boolean;
@@ -18,7 +19,7 @@ interface ChoiceSelectionModalProps {
   presetId: string | null;
   chatId: string;
   /** Existing selections to pre-populate (variableName → value or values) */
-  existingChoices?: Record<string, string | string[]>;
+  existingChoices?: ChoiceSelections;
 }
 
 interface VariableData {
@@ -28,12 +29,6 @@ interface VariableData {
   options: ChoiceOption[];
   multiSelect: boolean;
   randomPick: boolean;
-}
-
-type ChoiceSelections = Record<string, string | string[]>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function stringField(value: unknown, fallback: string): string {
@@ -57,16 +52,6 @@ function legacyField(block: ChoiceBlock, field: string): unknown {
   return (block as unknown as Record<string, unknown>)[field];
 }
 
-function normalizeChoiceSelections(value: unknown): ChoiceSelections {
-  if (!isRecord(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string | string[]] =>
-        typeof entry[1] === "string" || (Array.isArray(entry[1]) && entry[1].every((item) => typeof item === "string")),
-    ),
-  );
-}
-
 export function ChoiceSelectionModal({
   open,
   onClose,
@@ -74,8 +59,7 @@ export function ChoiceSelectionModal({
   chatId,
   existingChoices = {},
 }: ChoiceSelectionModalProps) {
-  const { data } = usePresetFull(presetId);
-  const isLoading = !data && !!presetId;
+  const { data, isError, isLoading } = usePresetFull(presetId);
   const updateMetadata = useUpdateChatMetadata();
   const updatePreset = useUpdatePreset();
 
@@ -99,7 +83,7 @@ export function ChoiceSelectionModal({
   }, [data?.choiceBlocks]);
 
   // Parse saved default choices from preset
-  const defaultChoices = useMemo<Record<string, string | string[]>>(() => {
+  const defaultChoices = useMemo<ChoiceSelections>(() => {
     if (!data?.preset) return {};
     const preset = data.preset as unknown as Record<string, unknown>;
     return normalizeChoiceSelections(preset.defaultChoices ?? preset.default_choices);
@@ -107,9 +91,9 @@ export function ChoiceSelectionModal({
 
   // Base selections derived from existing choices / defaults / first option.
   // Pure derivation — no setState, no flicker on open.
-  const baseSelections = useMemo<Record<string, string | string[]>>(() => {
+  const baseSelections = useMemo<ChoiceSelections>(() => {
     if (!variables.length) return {};
-    const initial: Record<string, string | string[]> = {};
+    const initial: ChoiceSelections = {};
     for (const v of variables) {
       const existing = existingChoices[v.variableName];
       const saved = defaultChoices[v.variableName];
@@ -128,7 +112,7 @@ export function ChoiceSelectionModal({
 
   // User overrides (only written when user clicks an option).
   // Reset when modal re-opens so stale overrides don't persist.
-  const [overrides, setOverrides] = useState<Record<string, string | string[]>>({});
+  const [overrides, setOverrides] = useState<ChoiceSelections>({});
   const prevOpenRef = useRef(false);
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -138,11 +122,11 @@ export function ChoiceSelectionModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open || isLoading || !presetId) return;
-    if (variables.length === 0) {
+    if (!open || !presetId || isLoading) return;
+    if (isError || variables.length === 0) {
       onClose();
     }
-  }, [open, isLoading, onClose, presetId, variables.length]);
+  }, [isError, isLoading, onClose, open, presetId, variables.length]);
 
   // Merged view: base + user overrides
   const selections = useMemo(() => ({ ...baseSelections, ...overrides }), [baseSelections, overrides]);

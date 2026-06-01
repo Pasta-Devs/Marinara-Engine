@@ -33,7 +33,8 @@ type CachedChatWithLegacyMetadata = Omit<Chat, "metadata"> & {
 };
 
 function parseMetadataRecord(metadata: CachedChatWithLegacyMetadata["metadata"]): Record<string, unknown> {
-  if (typeof metadata !== "string") return { ...metadata };
+  if (typeof metadata === "object" && metadata !== null && !Array.isArray(metadata)) return { ...metadata };
+  if (typeof metadata !== "string") return {};
   try {
     const parsed = JSON.parse(metadata);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};

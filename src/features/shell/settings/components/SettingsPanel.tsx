@@ -3161,7 +3161,7 @@ function ImportButton({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      let data: { success?: boolean; error?: string; chatId?: string };
+      let data: ImportButtonResult;
       let importEmbeddedLorebook: boolean | undefined;
 
       // "auto" mode: send binary files (PNG) as multipart, JSON files as JSON body

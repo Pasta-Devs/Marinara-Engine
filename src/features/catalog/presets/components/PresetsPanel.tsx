@@ -14,6 +14,7 @@ import { ChoiceSelectionModal } from "./ChoiceSelectionModal";
 import { Plus, Download, FileText, Trash2, Check, Copy, Search, Code2, Hash, Star } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
 import { boolish } from "../../../../engine/generation/runtime-records";
+import { isRecord, normalizeChoiceSelections, type ChoiceSelections } from "../lib/choice-selections";
 
 type PresetRow = {
   id: string;
@@ -25,21 +26,7 @@ type PresetRow = {
   sectionOrder?: string | string[];
 };
 
-type PresetChoices = Record<string, string | string[]>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizePresetChoices(value: unknown): PresetChoices {
-  if (!isRecord(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string | string[]] =>
-        typeof entry[1] === "string" || (Array.isArray(entry[1]) && entry[1].every((item) => typeof item === "string")),
-    ),
-  );
-}
+type PresetChoices = ChoiceSelections;
 
 function getPresetChoices(metadata: unknown): PresetChoices {
   if (typeof metadata === "string") {
@@ -49,7 +36,7 @@ function getPresetChoices(metadata: unknown): PresetChoices {
       return {};
     }
   }
-  return normalizePresetChoices(isRecord(metadata) ? metadata.presetChoices : undefined);
+  return normalizeChoiceSelections(isRecord(metadata) ? metadata.presetChoices : undefined);
 }
 
 export function PresetsPanel() {
