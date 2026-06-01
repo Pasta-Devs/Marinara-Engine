@@ -1917,10 +1917,14 @@ async function successfulLorebookKeeperMessageIds(storage: StorageGateway, chatI
   const runs = await storage.list<JsonRecord>("agent-runs").catch(() => []);
   return new Set(
     runs
-      .filter((run) => readString(run.chatId).trim() === chatId)
-      .filter((run) => readString(run.agentType).trim() === LOREBOOK_KEEPER_AGENT_TYPE)
+      .filter((run) => readString(run.chatId || run.chat_id).trim() === chatId)
+      .filter((run) => {
+        const type = readString(run.agentType || run.agent_type || run.type).trim();
+        const configId = readString(run.agentConfigId || run.agent_config_id).trim();
+        return type === LOREBOOK_KEEPER_AGENT_TYPE || configId === `builtin:${LOREBOOK_KEEPER_AGENT_TYPE}`;
+      })
       .filter((run) => boolish(run.success, false))
-      .map((run) => readString(run.messageId).trim())
+      .map((run) => readString(run.messageId || run.message_id).trim())
       .filter(Boolean),
   );
 }

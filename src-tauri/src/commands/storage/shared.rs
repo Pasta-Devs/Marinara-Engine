@@ -1983,6 +1983,129 @@ pub(crate) fn string_array_from_value(value: Option<&Value>) -> Vec<String> {
     }
 }
 
+pub(crate) struct AgentRunConfigInfo {
+    pub(crate) agent_type: String,
+    pub(crate) agent_name: String,
+}
+
+const AGENT_RUN_FIELD_ALIASES: &[(&str, &str)] = &[
+    ("agentConfigId", "agent_config_id"),
+    ("chatId", "chat_id"),
+    ("messageId", "message_id"),
+    ("resultType", "result_type"),
+    ("resultData", "result_data"),
+    ("tokensUsed", "tokens_used"),
+    ("durationMs", "duration_ms"),
+    ("createdAt", "created_at"),
+];
+
+pub(crate) fn agent_run_config_info_from_rows(
+    rows: Vec<Value>,
+) -> HashMap<String, AgentRunConfigInfo> {
+    let mut by_id = HashMap::new();
+    for row in rows {
+        let Some(object) = row.as_object() else {
+            continue;
+        };
+        let Some(id) = trimmed_record_string(object.get("id")) else {
+            continue;
+        };
+        let Some(agent_type) = trimmed_record_string(object.get("type"))
+            .or_else(|| trimmed_record_string(object.get("agentType")))
+        else {
+            continue;
+        };
+        let agent_name =
+            trimmed_record_string(object.get("name")).unwrap_or_else(|| agent_type.clone());
+        by_id.insert(
+            id,
+            AgentRunConfigInfo {
+                agent_type,
+                agent_name,
+            },
+        );
+    }
+    by_id
+}
+
+pub(crate) fn normalize_agent_run_row_fields(
+    row: &mut Value,
+    configs: &HashMap<String, AgentRunConfigInfo>,
+) {
+    for (target, legacy) in AGENT_RUN_FIELD_ALIASES {
+        if let Some(object) = row.as_object_mut() {
+            move_record_alias(object, target, legacy);
+        }
+    }
+    normalize_legacy_text_bool_fields(row, &["success"]);
+    let Some(object) = row.as_object_mut() else {
+        return;
+    };
+    parse_json_string_field(object, "resultData");
+    normalize_non_negative_number_field(object, "tokensUsed");
+    normalize_non_negative_number_field(object, "durationMs");
+
+    let agent_config_id = trimmed_record_string(object.get("agentConfigId"));
+    let config = agent_config_id.as_ref().and_then(|id| configs.get(id));
+    let agent_type = trimmed_record_string(object.get("agentType"))
+        .or_else(|| config.map(|config| config.agent_type.clone()))
+        .or_else(|| {
+            agent_config_id
+                .as_deref()
+                .and_then(builtin_agent_type_from_config_id)
+        });
+    if let Some(agent_type) = agent_type {
+        object.insert("agentType".to_string(), Value::String(agent_type.clone()));
+        if trimmed_record_string(object.get("agentName")).is_none() {
+            let name = config
+                .map(|config| config.agent_name.clone())
+                .unwrap_or(agent_type);
+            object.insert("agentName".to_string(), Value::String(name));
+        }
+    }
+}
+
+fn move_record_alias(object: &mut Map<String, Value>, target: &str, legacy: &str) {
+    let legacy_value = object.remove(legacy);
+    if let Some(value) = legacy_value {
+        if target == "createdAt" || !object.contains_key(target) {
+            object.insert(target.to_string(), value);
+        }
+    }
+}
+
+fn trimmed_record_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn builtin_agent_type_from_config_id(agent_config_id: &str) -> Option<String> {
+    agent_config_id
+        .strip_prefix("builtin:")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn parse_json_string_field(object: &mut Map<String, Value>, field: &str) {
+    let parsed = object
+        .get(field)
+        .and_then(Value::as_str)
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
+    if let Some(parsed) = parsed {
+        object.insert(field.to_string(), parsed);
+    }
+}
+
+fn normalize_non_negative_number_field(object: &mut Map<String, Value>, field: &str) {
+    if let Some(value) = non_negative_i64_value(object.get(field)) {
+        object.insert(field.to_string(), json!(value));
+    }
+}
+
 /// Replace any text-encoded boolean field on a record object with a real
 /// JSON boolean. The pre-refactor server stored bool columns as TEXT
 /// (`"true"` / `"false"` strings); the refactor frontend reads these

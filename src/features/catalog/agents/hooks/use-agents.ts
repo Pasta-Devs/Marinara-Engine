@@ -45,6 +45,73 @@ export interface AgentRunRow {
 
 const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : fallback;
+}
+
+function readBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function parseStoredResultData(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function builtinAgentTypeFromConfigId(agentConfigId: string): string {
+  return agentConfigId.startsWith("builtin:") ? agentConfigId.slice("builtin:".length).trim() : "";
+}
+
+function normalizeAgentRunRow(
+  raw: Record<string, unknown>,
+  configsById: Map<string, AgentConfigRow>,
+): AgentRunRow | null {
+  const id = readString(raw.id);
+  const agentConfigId = readString(raw.agentConfigId) || readString(raw.agent_config_id);
+  const config = agentConfigId ? configsById.get(agentConfigId) : undefined;
+  const agentType =
+    readString(raw.agentType) ||
+    readString(raw.agent_type) ||
+    readString(raw.type) ||
+    config?.type ||
+    builtinAgentTypeFromConfigId(agentConfigId);
+  const chatId = readString(raw.chatId) || readString(raw.chat_id);
+  const messageId = readString(raw.messageId) || readString(raw.message_id);
+  if (!id || !agentType || !chatId) return null;
+
+  return {
+    id,
+    agentConfigId,
+    agentType,
+    agentName: readString(raw.agentName) || config?.name || agentType,
+    chatId,
+    messageId,
+    resultType: readString(raw.resultType) || readString(raw.result_type) || agentType,
+    resultData: parseStoredResultData(raw.resultData ?? raw.result_data),
+    tokensUsed: readNumber(raw.tokensUsed ?? raw.tokens_used),
+    durationMs: readNumber(raw.durationMs ?? raw.duration_ms),
+    success: readBoolean(raw.success),
+    error: readString(raw.error) || null,
+    createdAt: readString(raw.created_at) || readString(raw.createdAt),
+  };
+}
+
 export function agentCreditLabel(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : DEFAULT_AGENT_CREDIT;
 }
@@ -82,10 +149,22 @@ export function useAgentConfigs(enabled = true) {
 export function useCustomAgentRuns(chatId: string | null, enabled = true) {
   return useQuery({
     queryKey: agentKeys.customRuns(chatId ?? ""),
-    queryFn: async () =>
-      (await storageApi.list<AgentRunRow>("agent-runs", { filters: { chatId } })).filter(
-        (run) => !!run.agentType && !builtInAgentTypes.has(run.agentType),
-      ),
+    queryFn: async () => {
+      const [currentRuns, legacyRuns, configs] = await Promise.all([
+        storageApi.list<Record<string, unknown>>("agent-runs", { filters: { chatId } }),
+        storageApi.list<Record<string, unknown>>("agent-runs", { filters: { chat_id: chatId } }),
+        storageApi.list<AgentConfigRow>("agents"),
+      ]);
+      const runsById = new Map<string, Record<string, unknown>>();
+      for (const run of [...currentRuns, ...legacyRuns]) {
+        const id = readString(run.id);
+        runsById.set(id || JSON.stringify(run), run);
+      }
+      const configsById = new Map(configs.map((config) => [config.id, config]));
+      return [...runsById.values()]
+        .map((run) => normalizeAgentRunRow(run, configsById))
+        .filter((run): run is AgentRunRow => !!run && !builtInAgentTypes.has(run.agentType));
+    },
     enabled: !!chatId && enabled,
     staleTime: 15_000,
   });

@@ -1,9 +1,9 @@
 use super::super::{
     game_state_snapshots, new_id, now_iso,
     shared::{
-        materialize_message_swipe_fields, non_negative_i64_value,
-        normalize_legacy_text_array_fields, normalize_legacy_text_bool_fields,
-        normalize_typed_json_fields, string_array_from_value,
+        agent_run_config_info_from_rows, materialize_message_swipe_fields, non_negative_i64_value,
+        normalize_agent_run_row_fields, normalize_legacy_text_array_fields,
+        normalize_legacy_text_bool_fields, normalize_typed_json_fields, string_array_from_value,
     },
 };
 use super::assets::{
@@ -126,6 +126,7 @@ where
             "prompt-overrides" => {
                 unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)
             }
+            "agent-runs" => normalize_legacy_agent_runs(&mut rows, tables),
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
             "lorebook-entries" => normalize_legacy_lorebook_entries(&mut rows),
             "chats" => {
@@ -252,6 +253,13 @@ fn gallery_image_url_from_legacy_row(
         }
     }
     None
+}
+
+fn normalize_legacy_agent_runs(rows: &mut [Value], tables: &Map<String, Value>) {
+    let configs = agent_run_config_info_from_rows(table_rows(tables, "agent_configs"));
+    for row in rows {
+        normalize_agent_run_row_fields(row, &configs);
+    }
 }
 
 fn gallery_filename_from_legacy_row(object: &Map<String, Value>) -> Option<String> {
@@ -847,6 +855,66 @@ mod tests {
             .get("app-settings", "ui")
             .expect("ui settings lookup should not fail")
             .is_none());
+    }
+
+    #[test]
+    fn legacy_agent_runs_import_with_config_metadata() {
+        let state = test_state("agent-run-metadata");
+        let mut tables = Map::new();
+        tables.insert(
+            "agent_configs".to_string(),
+            json!([
+                {
+                    "id": "custom-agent-1",
+                    "type": "custom-prophet",
+                    "name": "Custom Prophet",
+                    "description": "Imported custom agent",
+                    "phase": "pre_generation",
+                    "enabled": "true",
+                    "settings": "{}",
+                    "createdAt": "2026-05-20T00:00:00Z",
+                    "updatedAt": "2026-05-20T00:00:00Z"
+                }
+            ]),
+        );
+        tables.insert(
+            "agent_runs".to_string(),
+            json!([
+                {
+                    "id": "agent-run-1",
+                    "agent_config_id": "custom-agent-1",
+                    "chat_id": "chat-1",
+                    "message_id": "message-1",
+                    "result_type": "context_injection",
+                    "result_data": "{\"text\":\"Imported guidance\"}",
+                    "tokens_used": "42",
+                    "duration_ms": "1200",
+                    "success": "true",
+                    "created_at": "2026-05-20T00:01:00Z"
+                }
+            ]),
+        );
+
+        import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+            .expect("legacy agent run import should succeed");
+
+        let run = state
+            .storage
+            .get("agent-runs", "agent-run-1")
+            .expect("agent run lookup should not fail")
+            .expect("imported agent run should be addressable by id");
+        assert_eq!(run["agentConfigId"], "custom-agent-1");
+        assert_eq!(run["agentType"], "custom-prophet");
+        assert_eq!(run["agentName"], "Custom Prophet");
+        assert_eq!(run["chatId"], "chat-1");
+        assert_eq!(run["messageId"], "message-1");
+        assert_eq!(run["resultType"], "context_injection");
+        assert_eq!(run["resultData"]["text"], "Imported guidance");
+        assert_eq!(run["tokensUsed"], 42);
+        assert_eq!(run["durationMs"], 1200);
+        assert_eq!(run["success"], true);
+        assert_eq!(run["createdAt"], "2026-05-20T00:01:00Z");
+        assert!(!run.as_object().unwrap().contains_key("agent_config_id"));
     }
 
     #[test]

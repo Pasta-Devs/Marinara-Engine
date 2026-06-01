@@ -119,12 +119,21 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       clearEchoMessages();
     }
 
-    storageApi
-      .list<unknown>("agent-runs", {
-        filters: { chatId: activeChatId, resultType: "echo_message" },
-      })
-      .then((rows) => {
+    Promise.all([
+      storageApi.list<Record<string, unknown>>("agent-runs", { filters: { chatId: activeChatId } }),
+      storageApi.list<Record<string, unknown>>("agent-runs", { filters: { chat_id: activeChatId } }),
+    ])
+      .then(([currentRuns, legacyRuns]) => {
         if (useAgentStore.getState().echoLoadedChatId !== activeChatId) return; // stale
+        const runsById = new Map<string, Record<string, unknown>>();
+        for (const run of [...currentRuns, ...legacyRuns]) {
+          const id = readEchoText(run.id);
+          runsById.set(id || JSON.stringify(run), run);
+        }
+        const rows = [...runsById.values()].filter((run) => {
+          const resultType = readEchoText(run.resultType) || readEchoText(run.result_type);
+          return resultType === "echo_message";
+        });
         const msgs = normalizeEchoMessages(rows);
         if (msgs.length > 0) {
           // If real-time messages already arrived (via addEchoMessage from SSE),

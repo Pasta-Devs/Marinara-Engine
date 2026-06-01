@@ -14,7 +14,10 @@ use crate::seed_defaults::seed_bundled_defaults;
 use crate::storage_commands::{
     images::percent_encode_component,
     media_uploads::{file_path_asset_url, safe_filename, unique_file_path},
-    shared::normalize_typed_json_fields,
+    shared::{
+        agent_run_config_info_from_rows, normalize_agent_run_row_fields,
+        normalize_typed_json_fields,
+    },
 };
 
 #[derive(Clone)]
@@ -65,6 +68,7 @@ impl AppState {
         let backgrounds = AssetService::new(data_dir.join("backgrounds"))?;
         Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
         migrate_storage_json_fields(&storage)?;
+        migrate_agent_run_rows(&storage)?;
         migrate_legacy_chat_group_roots(&storage)?;
         migrate_local_media_references(&storage, &data_dir)?;
 
@@ -232,6 +236,23 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
     }
     if changed {
         storage.replace_all(collection, normalized_rows)?;
+    }
+    Ok(())
+}
+
+fn migrate_agent_run_rows(storage: &FileStorage) -> AppResult<()> {
+    let configs = agent_run_config_info_from_rows(storage.list("agents")?);
+    let rows = storage.list("agent-runs")?;
+    let mut changed = false;
+    let mut normalized_rows = Vec::with_capacity(rows.len());
+    for mut row in rows {
+        let before = row.clone();
+        normalize_agent_run_row_fields(&mut row, &configs);
+        changed = changed || row != before;
+        normalized_rows.push(row);
+    }
+    if changed {
+        storage.replace_all("agent-runs", normalized_rows)?;
     }
     Ok(())
 }
@@ -819,6 +840,70 @@ mod tests {
         for row in rows {
             assert!(row["personaStats"].is_null());
         }
+    }
+
+    #[test]
+    fn app_state_startup_normalizes_legacy_agent_run_rows() {
+        let root = temp_root("agent-run-normalization");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .replace_all(
+                "agents",
+                vec![json!({
+                    "id": "custom-agent-1",
+                    "type": "custom-prophet",
+                    "name": "Custom Prophet",
+                    "settings": "{}"
+                })],
+            )
+            .expect("agent config should be seeded");
+        storage
+            .replace_all(
+                "agent-runs",
+                vec![json!({
+                    "id": "agent-run-1",
+                    "agent_config_id": "custom-agent-1",
+                    "chat_id": "chat-1",
+                    "message_id": "message-1",
+                    "result_type": "context_injection",
+                    "result_data": "{\"text\":\"Imported guidance\"}",
+                    "tokens_used": "42",
+                    "duration_ms": "1200",
+                    "success": "true",
+                    "createdAt": "storage-row-created-at",
+                    "created_at": "2026-05-20T00:01:00Z"
+                })],
+            )
+            .expect("legacy agent run should be seeded");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let run = state
+            .storage
+            .get("agent-runs", "agent-run-1")
+            .expect("agent run lookup should not fail")
+            .expect("agent run should still exist");
+        assert_eq!(run["agentConfigId"], "custom-agent-1");
+        assert_eq!(run["agentType"], "custom-prophet");
+        assert_eq!(run["agentName"], "Custom Prophet");
+        assert_eq!(run["chatId"], "chat-1");
+        assert_eq!(run["messageId"], "message-1");
+        assert_eq!(run["resultType"], "context_injection");
+        assert_eq!(run["resultData"]["text"], "Imported guidance");
+        assert_eq!(run["tokensUsed"], 42);
+        assert_eq!(run["durationMs"], 1200);
+        assert_eq!(run["success"], true);
+        assert_eq!(run["createdAt"], "2026-05-20T00:01:00Z");
+
+        let mut filters = Map::new();
+        filters.insert("chatId".to_string(), Value::String("chat-1".to_string()));
+        assert_eq!(
+            state
+                .storage
+                .list_where("agent-runs", &filters)
+                .expect("normalized agent run should be queryable by chatId")
+                .len(),
+            1
+        );
     }
 
     #[test]

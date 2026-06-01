@@ -29,7 +29,7 @@ export function normalizeEchoMessages(rows: unknown[]): EchoMessage[] {
   const messages: EchoMessage[] = [];
   for (const row of rows) {
     const record = readEchoRecord(row);
-    const timestamp = readTimestamp(record.timestamp ?? record.createdAt);
+    const timestamp = readTimestamp(record.timestamp ?? record.created_at ?? record.createdAt);
     const directName = readEchoText(record.characterName);
     const directReaction = readEchoText(record.reaction);
     if (directName && directReaction) {
@@ -37,7 +37,7 @@ export function normalizeEchoMessages(rows: unknown[]): EchoMessage[] {
       continue;
     }
 
-    const resultData = readEchoRecord(record.resultData);
+    const resultData = readEchoRecord(record.result_data ?? record.resultData);
     const reactions = Array.isArray(resultData.reactions) ? resultData.reactions : [];
     for (const item of reactions) {
       const reactionRecord = readEchoRecord(item);

@@ -113,10 +113,12 @@ interface ResolvedAgentsResult {
 }
 
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
+const DIRECTOR_AGENT_TYPE = "director";
 const ILLUSTRATOR_AGENT_TYPE = "illustrator";
 const KNOWLEDGE_RETRIEVAL_AGENT_TYPE = "knowledge-retrieval";
 const KNOWLEDGE_ROUTER_AGENT_TYPE = "knowledge-router";
 const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE_ROUTER_AGENT_TYPE]);
+const ASSISTANT_INTERVAL_AGENT_TYPES = new Set([DIRECTOR_AGENT_TYPE, ILLUSTRATOR_AGENT_TYPE]);
 const MAX_ASSISTANT_RUN_INTERVAL = 100;
 const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event"]);
@@ -628,7 +630,7 @@ function automaticIntervalGate(
   builtInAgent: boolean,
 ): AutomaticIntervalGate | null {
   if (input.agentTypes && input.agentTypes.size > 0) return null;
-  if (type === ILLUSTRATOR_AGENT_TYPE) {
+  if (builtInAgent && ASSISTANT_INTERVAL_AGENT_TYPES.has(type)) {
     const fallback = positiveInteger(BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[type], 5, MAX_ASSISTANT_RUN_INTERVAL);
     const runInterval = positiveInteger(settings.runInterval, fallback, MAX_ASSISTANT_RUN_INTERVAL);
     return runInterval > 1
@@ -657,11 +659,23 @@ function automaticIntervalGate(
 }
 
 function runAgentType(run: JsonRecord): string {
-  return readString(run.agentType || run.type).trim();
+  return readString(run.agentType || run.agent_type || run.type).trim();
 }
 
 function runAgentId(run: JsonRecord): string {
-  return readString(run.agentId || run.agentConfigId).trim();
+  return readString(run.agentId || run.agentConfigId || run.agent_config_id).trim();
+}
+
+function runChatId(run: JsonRecord): string {
+  return readString(run.chatId || run.chat_id).trim();
+}
+
+function runMessageId(run: JsonRecord): string {
+  return readString(run.messageId || run.message_id).trim();
+}
+
+function runCreatedAt(run: JsonRecord): string {
+  return readString(run.created_at || run.createdAt).trim();
 }
 
 function runMatchesAgent(run: JsonRecord, agentType: string, agentId: string): boolean {
@@ -672,9 +686,9 @@ function runMatchesAgent(run: JsonRecord, agentType: string, agentId: string): b
 }
 
 function illustratorRunCountsTowardInterval(run: JsonRecord): boolean {
-  const resultType = readString(run.resultType).trim();
+  const resultType = readString(run.resultType || run.result_type).trim();
   if (resultType && resultType !== "image_prompt") return false;
-  const data = parseRecord(run.resultData);
+  const data = parseRecord(run.resultData ?? run.result_data);
   if (boolish(data.parseError, false)) return false;
   if (data.shouldGenerate !== true) return false;
   return readString(data.prompt).trim().length > 0;
@@ -700,15 +714,15 @@ function intervalAnchorRun(
   const indexes = messageIndexById(input);
   return (
     runs
-      .filter((run) => readString(run.chatId).trim() === chatId)
+      .filter((run) => runChatId(run) === chatId)
       .filter((run) => runMatchesAgent(run, agentType, agentId))
       .filter((run) => boolish(run.success, false))
       .filter((run) => agentType !== ILLUSTRATOR_AGENT_TYPE || illustratorRunCountsTowardInterval(run))
-      .map((run) => ({ run, messageIndex: indexes.get(readString(run.messageId).trim()) ?? -1 }))
+      .map((run) => ({ run, messageIndex: indexes.get(runMessageId(run)) ?? -1 }))
       .filter((entry) => entry.messageIndex >= 0)
       .sort(
         (a, b) =>
-          b.messageIndex - a.messageIndex || readString(b.run.createdAt).localeCompare(readString(a.run.createdAt)),
+          b.messageIndex - a.messageIndex || runCreatedAt(b.run).localeCompare(runCreatedAt(a.run)),
       )[0]?.run ?? null
   );
 }
@@ -742,7 +756,7 @@ async function automaticIntervalAllowsRun(
     gate.agentId,
   );
   if (!lastRun) return true;
-  const messageId = readString(lastRun.messageId).trim();
+  const messageId = runMessageId(lastRun);
   if (!messageId) return true;
   const messagesSince = visibleMessagesSinceRun(input, messageId, gate.messageRole);
   if (messagesSince === null) return true;
