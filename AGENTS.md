@@ -58,7 +58,7 @@ For code changes, final responses must include behavior changed, primary files/m
 - `src/shared/api`: Embedded Tauri and hostable runtime wrappers. Feature code should call these wrappers instead of raw Tauri or raw remote-runtime fetch.
 - `src-tauri`: Rust command facades, hostable runtime dispatch, storage, LLM/provider transport, assets, imports, integrations, and other privileged capabilities.
 - `public/sprites/mari`: Professor Mari visual assets used by onboarding, FAQ, title controls, and the Mari shell surface.
-- `.github/workflows/bunny-review.yml`, `.github/bunny-review`: Bunny Review PR comment automation, review packet builder, CI dependencies, path rules, and model reviewer prompt.
+- `.github/workflows/bunny-review.yml`, `.github/workflows/bunny-review-auto.yml`, `.github/workflows/bunny-review-command.yml`, `.github/bunny-review`: Bunny Review PR comment automation, trusted auto and slash-command dispatchers, review packet builder, CI dependencies, path rules, and model reviewer prompt.
 - `skills/frontend-design`: Repo-local frontend concept, layout, visual direction, and first-pass UI implementation workflow that pairs with Impeccable.
 - `skills/impeccable`: Repo-local frontend design, critique, polish, accessibility, responsive, and live-iteration workflow for UI craft passes.
 - `skills/bunny-style-review`: Repo-local branch and PR review workflow for failure-path review and actionable nitpicks.
