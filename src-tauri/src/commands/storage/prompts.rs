@@ -1,7 +1,7 @@
 use super::shared::*;
 use super::*;
 use marinara_security::is_allowed_outbound_url;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const LEGACY_LOCAL_SIDECAR_CONNECTION_ID: &str = "__local_sidecar__";
 
@@ -177,9 +177,12 @@ pub(crate) async fn vectorize_lorebook(
     lorebook_id: &str,
     body: Value,
 ) -> AppResult<Value> {
-    let connection_id = required_string(&body, "connectionId")?;
     let (embedding_connection_id, mut connection) =
-        resolve_embedding_connection_for_id(state, connection_id)?;
+        if let Some(connection_id) = optional_body_string(&body, "connectionId") {
+            resolve_embedding_connection_for_id(state, connection_id)?
+        } else {
+            resolve_default_configured_embedding_connection(state)?
+        };
     let model = embedding_model(&connection, body.get("model").and_then(Value::as_str))?;
     if let Some(object) = connection.as_object_mut() {
         object.insert("model".to_string(), Value::String(model.clone()));
@@ -193,6 +196,14 @@ pub(crate) async fn vectorize_lorebook(
             Value::Array(rows) => rows,
             _ => Vec::new(),
         };
+    if let Some(entry_ids) = optional_body_string_set(&body, "entryIds") {
+        entries.retain(|entry| {
+            entry
+                .get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|id| entry_ids.contains(id))
+        });
+    }
     for entry in &mut entries {
         normalize_legacy_text_bool_fields(entry, &["excludeFromVectorization"]);
     }
@@ -263,6 +274,67 @@ pub(crate) async fn vectorize_lorebook(
         "vectorized": vectorized,
         "skipped": skipped
     }))
+}
+
+fn optional_body_string<'a>(body: &'a Value, key: &str) -> Option<&'a str> {
+    body.get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn optional_body_string_set(body: &Value, key: &str) -> Option<HashSet<String>> {
+    let ids = body
+        .get(key)
+        .and_then(Value::as_array)?
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
+    (!ids.is_empty()).then_some(ids)
+}
+
+fn resolve_default_configured_embedding_connection(state: &AppState) -> AppResult<(String, Value)> {
+    let connections = connection_secrets::connections_for_runtime(state)?;
+    let embedding_candidates = connections
+        .iter()
+        .filter(|connection| !is_legacy_local_sidecar_connection(connection))
+        .collect::<Vec<_>>();
+    let mut ranked = embedding_candidates
+        .iter()
+        .copied()
+        .filter(|connection| {
+            connection
+                .get("isDefault")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .chain(embedding_candidates.iter().copied().filter(|connection| {
+            !connection
+                .get("isDefault")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        }));
+
+    for candidate in ranked.by_ref() {
+        let Some(connection_id) = candidate.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let Ok((embedding_connection_id, embedding_connection)) =
+            resolve_embedding_connection_for_id(state, connection_id)
+        else {
+            continue;
+        };
+        if has_embedding_model(&embedding_connection) {
+            return Ok((embedding_connection_id, embedding_connection));
+        }
+    }
+
+    Err(AppError::invalid_input(
+        "No embedding connection with an embedding model is configured",
+    ))
 }
 
 pub(crate) fn resolve_embedding_connection_for_id(
@@ -1199,5 +1271,88 @@ mod tests {
         assert_eq!(result["total"], json!(1));
         assert_eq!(result["vectorized"], json!(0));
         assert_eq!(result["skipped"], json!(2));
+    }
+
+    #[tokio::test]
+    async fn vectorize_lorebook_can_target_entry_ids_with_default_connection() {
+        let state = test_state("targeted-default-connection");
+        create_connection(&state);
+        let lorebook_id = create_lorebook(&state, json!(false));
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "target-entry",
+                    "lorebookId": lorebook_id,
+                    "name": "Already vectorized target",
+                    "keys": ["target"],
+                    "content": "This should be counted and skipped.",
+                    "embedding": [0.1, 0.2]
+                }),
+            )
+            .expect("target entry should be stored");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "untouched-entry",
+                    "lorebookId": lorebook_id,
+                    "name": "Missing embedding outside target set",
+                    "keys": ["outside"],
+                    "content": "This would call the provider if not filtered.",
+                    "embedding": null
+                }),
+            )
+            .expect("untouched entry should be stored");
+
+        let result = vectorize_lorebook(
+            &state,
+            &lorebook_id,
+            json!({
+                "onlyMissing": true,
+                "entryIds": ["target-entry"]
+            }),
+        )
+        .await
+        .expect("targeted vectorization should use the configured default connection");
+
+        assert_eq!(result["total"], json!(1));
+        assert_eq!(result["vectorized"], json!(0));
+        assert_eq!(result["skipped"], json!(1));
+    }
+
+    #[tokio::test]
+    async fn vectorize_lorebook_default_connection_requires_embedding_model() {
+        let state = test_state("default-connection-without-embedding-model");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "isDefault": true
+                }),
+            )
+            .expect("chat connection should be stored");
+        let lorebook_id = create_lorebook(&state, json!(false));
+        create_entry(&state, &lorebook_id, json!(false), Value::Null);
+
+        let error = vectorize_lorebook(
+            &state,
+            &lorebook_id,
+            json!({
+                "onlyMissing": true
+            }),
+        )
+        .await
+        .expect_err("auto/default vectorization should require an embedding model");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("embedding model is configured"));
     }
 }

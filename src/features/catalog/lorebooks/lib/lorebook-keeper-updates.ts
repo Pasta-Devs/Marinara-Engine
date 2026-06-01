@@ -6,11 +6,24 @@ import {
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { Lorebook, LorebookEntry } from "../../../../engine/contracts/types/lorebook";
 import { resolveLorebookKeeperTarget } from "../../../../engine/generation-core/lorebooks/lorebook-keeper-target";
+import { lorebookCommandApi } from "../../../../shared/api/lorebook-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { parseChatMetadata } from "../../../../shared/lib/chat-display";
 import type { PendingLorebookUpdate } from "../../../../shared/stores/agent.store";
 import { chatKeys } from "../../chats/query-keys";
 import { lorebookKeys } from "../query-keys";
+
+type LorebookKeeperVectorizationResult =
+  | { status: "not-applicable" }
+  | { status: "vectorized"; vectorized: number; skipped: number }
+  | { status: "failed"; error: string };
+
+interface LorebookKeeperApplyResult {
+  applied: boolean;
+  lorebookId: string;
+  entryId: string | null;
+  vectorization: LorebookKeeperVectorizationResult;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
@@ -201,23 +214,63 @@ function appendLoreFacts(existingContent: string, update: PendingLorebookUpdate)
   return [existingContent.trim(), additionText].filter(Boolean).join("\n\n");
 }
 
-export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): Promise<void> {
+function vectorizationErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Lorebook Keeper auto-vectorization failed.";
+}
+
+async function autoVectorizeKeeperEntry(
+  lorebookId: string,
+  entryId: string | null,
+): Promise<LorebookKeeperVectorizationResult> {
+  if (!entryId) return { status: "not-applicable" };
+  try {
+    const result = await lorebookCommandApi.vectorize<{ vectorized?: number; skipped?: number }>(lorebookId, {
+      onlyMissing: true,
+      entryIds: [entryId],
+    });
+    return {
+      status: "vectorized",
+      vectorized: typeof result.vectorized === "number" ? result.vectorized : 0,
+      skipped: typeof result.skipped === "number" ? result.skipped : 0,
+    };
+  } catch (error) {
+    const message = vectorizationErrorMessage(error);
+    console.warn("[lorebook-keeper] Auto-vectorization failed", { lorebookId, entryId, error });
+    return { status: "failed", error: message };
+  }
+}
+
+function applyResult(
+  update: PendingLorebookUpdate,
+  applied: boolean,
+  entryId: string | null,
+  vectorization: LorebookKeeperVectorizationResult = { status: "not-applicable" },
+): LorebookKeeperApplyResult {
+  return {
+    applied,
+    lorebookId: update.lorebookId,
+    entryId,
+    vectorization,
+  };
+}
+
+export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): Promise<LorebookKeeperApplyResult> {
   if (update.action === "create") {
-    await storageApi.create<LorebookEntry>(
+    const created = await storageApi.create<LorebookEntry>(
       "lorebook-entries",
       createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
     );
-    return;
+    return applyResult(update, true, created.id, await autoVectorizeKeeperEntry(update.lorebookId, created.id));
   }
 
   const existing = await findExistingEntry(update);
   if (!existing) {
-    if (update.action === "delete") return;
-    await storageApi.create<LorebookEntry>(
+    if (update.action === "delete") return applyResult(update, false, null);
+    const created = await storageApi.create<LorebookEntry>(
       "lorebook-entries",
       createLorebookEntrySchema.parse(entryDefaults(update.lorebookId, update)),
     );
-    return;
+    return applyResult(update, true, created.id, await autoVectorizeKeeperEntry(update.lorebookId, created.id));
   }
 
   if (existing.locked) {
@@ -226,7 +279,7 @@ export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): 
 
   if (update.action === "delete") {
     await storageApi.delete("lorebook-entries", existing.id);
-    return;
+    return applyResult(update, true, existing.id);
   }
 
   const nextContent = appendLoreFacts(existing.content ?? "", update);
@@ -238,5 +291,7 @@ export async function applyLorebookKeeperUpdate(update: PendingLorebookUpdate): 
   if (Object.keys(patch).length > 0) {
     patch.embedding = null;
     await storageApi.update<LorebookEntry>("lorebook-entries", existing.id, updateLorebookEntrySchema.parse(patch));
+    return applyResult(update, true, existing.id, await autoVectorizeKeeperEntry(update.lorebookId, existing.id));
   }
+  return applyResult(update, false, existing.id);
 }
