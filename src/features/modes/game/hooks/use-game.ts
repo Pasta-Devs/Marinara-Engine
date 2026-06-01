@@ -491,6 +491,11 @@ function finiteNumber(value: unknown): number | null {
 
 type LegacyInventoryGridItem = { name: string; slot?: string; quantity?: number };
 
+function positiveInventoryQuantity(value: unknown): number {
+  const quantity = finiteNumber(value) ?? 1;
+  return Math.max(1, Math.floor(quantity));
+}
+
 function legacyInventoryGridItems(value: unknown): LegacyInventoryGridItem[] | null {
   if (!Array.isArray(value)) return null;
   const items: LegacyInventoryGridItem[] = [];
@@ -503,7 +508,7 @@ function legacyInventoryGridItems(value: unknown): LegacyInventoryGridItem[] | n
     items.push({
       name,
       ...(slot ? { slot } : {}),
-      quantity: finiteNumber(record.quantity) ?? 1,
+      quantity: positiveInventoryQuantity(record.quantity),
     });
   }
   return items;

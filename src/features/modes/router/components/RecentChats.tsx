@@ -7,7 +7,7 @@ import { MessageSquare, BookOpen } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
 import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
   conversation: {
@@ -21,6 +21,17 @@ const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: str
     label: "Roleplay",
   },
 };
+
+function readAvatarCrop(value: unknown): AvatarCropValue | null {
+  if (!value) return null;
+  if (typeof value === "string") return parseAvatarCropJson(value);
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    return parseAvatarCropJson(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
 
 export function RecentChats() {
   const { data: recentChats } = useRecentChatSummaries(3);
@@ -52,7 +63,7 @@ export function RecentChats() {
       map.set(char.id, {
         name: typeof parsed.name === "string" ? parsed.name : "Unknown",
         avatarUrl: characterAvatarUrl(char),
-        avatarCrop: (extensions.avatarCrop as AvatarCropValue | undefined) ?? null,
+        avatarCrop: readAvatarCrop(extensions.avatarCrop),
       });
     }
     return map;

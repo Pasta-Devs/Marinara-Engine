@@ -6,6 +6,10 @@ type RegexPlacement = "ai_output" | "user_input";
 
 export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
 
+export function readScopedRegexMode(value: unknown): ScopedRegexMode | undefined {
+  return value === "disabled" || value === "exclusive" || value === "chat" ? value : undefined;
+}
+
 interface ApplyRegexOptions {
   depth?: number;
   resolveMacros?: (value: string) => string;

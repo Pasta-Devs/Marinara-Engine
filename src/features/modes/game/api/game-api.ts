@@ -252,7 +252,7 @@ function sheetAttributes(value: unknown): ReadonlyArray<{ name: string; value: n
   const attrs = value
     .map((item) => {
       const record = asRecord(item);
-      const name = typeof record.name === "string" ? record.name : "";
+      const name = typeof record.name === "string" ? record.name.trim() : "";
       const parsedValue = Number(record.value);
       return name && Number.isFinite(parsedValue) ? { name, value: parsedValue } : null;
     })
@@ -262,12 +262,14 @@ function sheetAttributes(value: unknown): ReadonlyArray<{ name: string; value: n
 
 const WEATHER_SEASONS = new Set<Season>(["spring", "summer", "autumn", "winter"]);
 
-function isWeatherSeason(value: unknown): value is Season {
-  return typeof value === "string" && WEATHER_SEASONS.has(value as Season);
+function isWeatherSeason(value: unknown): boolean {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return WEATHER_SEASONS.has(normalized as Season);
 }
 
 function weatherSeason(value: unknown): Season {
-  return isWeatherSeason(value) ? value : "summer";
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return isWeatherSeason(normalized) ? (normalized as Season) : "summer";
 }
 
 function chatMeta(chat: Chat | null | undefined): Record<string, unknown> {

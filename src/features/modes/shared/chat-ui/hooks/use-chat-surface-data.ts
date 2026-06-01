@@ -69,8 +69,8 @@ function parseChatCharacterIds(chat: Chat | null | undefined): string[] {
   return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
 }
 
-function parseCharacterData(data: Record<string, unknown>): Record<string, unknown> {
-  return data && typeof data === "object" ? data : {};
+function parseCharacterData(data: unknown): Record<string, unknown> {
+  return data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

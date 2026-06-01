@@ -62,7 +62,7 @@ function nameColorStyle(color?: string): CSSProperties | undefined {
 const IMAGE_URL_RE = /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?[^\s]*)?$/i;
 const MESSAGE_EDIT_GESTURE_IGNORE_SELECTOR =
   "button, a, textarea, input, select, label, [role='button'], [contenteditable='true'], .mari-message-actions";
-type ConversationMessageExtra = Partial<MessageExtra> & { hiddenFromAi?: unknown };
+type ConversationMessageExtra = Partial<MessageExtra> & { hiddenFromAI?: unknown; hiddenFromAi?: unknown };
 const EMPTY_MESSAGE_EXTRA: ConversationMessageExtra = {};
 
 function HiddenFromAIConversationButton({

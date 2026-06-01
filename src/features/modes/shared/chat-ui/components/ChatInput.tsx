@@ -21,7 +21,7 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useGenerate } from "../../../../runtime/generation/index";
-import { useApplyRegex, type ScopedRegexMode } from "../../../../catalog/agents/regex-application";
+import { readScopedRegexMode, useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../../../catalog/chats/index";
 import { characterKeys } from "../../../../catalog/characters/index";
 import { personaKeys } from "../../../../catalog/personas/index";
@@ -74,10 +74,6 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "yaml",
   "yml",
 ]);
-
-function readScopedRegexMode(value: unknown): ScopedRegexMode | undefined {
-  return value === "disabled" || value === "exclusive" || value === "chat" ? value : undefined;
-}
 
 function getFileExtension(fileName: string): string {
   const match = fileName.toLowerCase().match(/\.([a-z0-9]+)$/);

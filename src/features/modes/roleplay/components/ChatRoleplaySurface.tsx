@@ -404,7 +404,9 @@ function metadataString(value: unknown, fallback = ""): string {
 
 function metadataStringArray(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    ? value
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter((item): item is string => item.length > 0)
     : [];
 }
 

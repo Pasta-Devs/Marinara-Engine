@@ -26,7 +26,7 @@ import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useGenerate } from "../../../runtime/generation/index";
-import { useApplyRegex, type ScopedRegexMode } from "../../../catalog/agents/regex-application";
+import { readScopedRegexMode, useApplyRegex } from "../../../catalog/agents/regex-application";
 import {
   useCreateMessage,
   useDeleteMessage,
@@ -87,10 +87,6 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "yaml",
   "yml",
 ]);
-
-function readScopedRegexMode(value: unknown): ScopedRegexMode | undefined {
-  return value === "disabled" || value === "exclusive" || value === "chat" ? value : undefined;
-}
 
 const SAVED_STATUS_LIMIT = 12;
 const SAVED_STATUS_MAX_LENGTH = 120;
