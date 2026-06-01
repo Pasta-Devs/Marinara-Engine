@@ -7,7 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearChatActivity } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { storageApi } from "../../../../shared/api/storage-api";
-import { chatKeys, useCreateChat, useDeleteChat, useDeleteChatGroup, useSetActiveSwipe } from "./use-chats";
+import {
+  chatKeys,
+  readChatMemoryRecallImportFile,
+  useCreateChat,
+  useDeleteChat,
+  useDeleteChatGroup,
+  useSetActiveSwipe,
+} from "./use-chats";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -243,5 +250,40 @@ describe("chat deletion mutations", () => {
       });
       await swipePromise;
     });
+  });
+});
+
+describe("Memory Recall import parsing", () => {
+  it("rejects oversized imports before reading the file", async () => {
+    const text = vi.fn();
+    const oversized = { size: 25 * 1024 * 1024 + 1, text } as unknown as File;
+
+    await expect(readChatMemoryRecallImportFile(oversized)).rejects.toThrow("under 25 MB");
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-Memory Recall envelopes", async () => {
+    const file = new File([JSON.stringify({ type: "marinara_character", version: 1, data: {} })], "character.json", {
+      type: "application/json",
+    });
+
+    await expect(readChatMemoryRecallImportFile(file)).rejects.toThrow("Memory Recall export");
+  });
+
+  it("accepts valid Memory Recall JSON from .marinara files", async () => {
+    const payload = {
+      type: "marinara_memory_recall",
+      version: 1,
+      exportedAt: "2026-06-01T00:00:00.000Z",
+      data: {
+        sourceChat: { id: "chat-1", name: "Chat", mode: "conversation", memoryCount: 1 },
+        chunks: [],
+      },
+    };
+    const file = new File([JSON.stringify(payload)], "memory-recall.marinara", {
+      type: "application/octet-stream",
+    });
+
+    await expect(readChatMemoryRecallImportFile(file)).resolves.toEqual(payload);
   });
 });

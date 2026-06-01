@@ -100,7 +100,7 @@ function sourceFromOrigin(origin: ChatSummaryEntryOrigin): ChatSummaryEntrySourc
 }
 
 /** Cheap token approximation for UI and metadata. */
-function estimateChatSummaryTokens(content: string): number {
+export function estimateChatSummaryTokens(content: string): number {
   const normalized = content.trim();
   if (!normalized) return 0;
   return Math.max(1, Math.ceil(normalized.length / 4));

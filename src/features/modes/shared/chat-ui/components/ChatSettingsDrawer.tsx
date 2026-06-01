@@ -6455,7 +6455,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
             <input
               ref={importInputRef}
               type="file"
-              accept="application/json,.json"
+              accept="application/json,.json,.marinara"
               className="hidden"
               onChange={(event) => void handleImportFile(event.currentTarget.files?.[0])}
             />

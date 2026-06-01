@@ -45,7 +45,11 @@ import type {
   DaySummaryEntry,
   WeekSummaryEntry,
 } from "../../../../engine/contracts/types/chat";
-import type { ChatMemoryRecallImportResult } from "../../../../engine/contracts/types/export";
+import type {
+  ChatMemoryRecallExportPayload,
+  ChatMemoryRecallImportResult,
+  ExportEnvelope,
+} from "../../../../engine/contracts/types/export";
 
 export { chatKeys } from "../query-keys";
 export { useCreateChat, useDeleteChat, useDeleteChatGroup, useUpdateChatMetadata } from "./use-chat-lifecycle";
@@ -55,6 +59,7 @@ export type { ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
 
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 20;
+const MAX_MEMORY_RECALL_IMPORT_BYTES = 25 * 1024 * 1024;
 
 type MessageCountResult = { count: number };
 
@@ -132,6 +137,37 @@ function assertDeletedMessages(result: unknown, expectedCount: number) {
   if (deletedCount !== null && deletedCount < expectedCount) {
     throw new Error(expectedCount === 1 ? "Message was not found." : "Some selected messages were not found.");
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isMemoryRecallExportEnvelope(value: unknown): value is ExportEnvelope<ChatMemoryRecallExportPayload> {
+  if (!isRecord(value) || value.type !== "marinara_memory_recall" || value.version !== 1) return false;
+  const data = value.data;
+  return isRecord(data) && Array.isArray(data.chunks);
+}
+
+export async function readChatMemoryRecallImportFile(
+  file: File,
+): Promise<ExportEnvelope<ChatMemoryRecallExportPayload>> {
+  if (file.size > MAX_MEMORY_RECALL_IMPORT_BYTES) {
+    throw new Error("Memory Recall import is too large. Choose a file under 25 MB.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(await file.text()) as unknown;
+  } catch {
+    throw new Error("Memory Recall import must be valid JSON.");
+  }
+
+  if (!isMemoryRecallExportEnvelope(payload)) {
+    throw new Error("Choose a Memory Recall export from Marinara Engine.");
+  }
+
+  return payload;
 }
 
 function rememberRecentMessageContentEdit(
@@ -284,8 +320,7 @@ export function useImportChatMemories(chatId: string | null) {
   return useMutation({
     mutationFn: async (file: File) => {
       if (!chatId) throw new Error("No chat selected.");
-      const text = await file.text();
-      const payload = JSON.parse(text) as unknown;
+      const payload = await readChatMemoryRecallImportFile(file);
       return chatCommandApi.memoriesImport<ChatMemoryRecallImportResult>(chatId, payload);
     },
     onSuccess: () => {

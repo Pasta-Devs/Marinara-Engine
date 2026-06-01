@@ -10,15 +10,30 @@ import {
   useGenerateSummary,
   useUpdateChatMetadata,
 } from "../../../../catalog/chats/index";
-import { Check, Info, Loader2, Save, ScrollText, Settings2, Sparkles, X } from "lucide-react";
-import { cn } from "../../../../../shared/lib/utils";
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  Info,
+  Loader2,
+  PenLine,
+  Plus,
+  Save,
+  ScrollText,
+  Settings2,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
+import { cn, generateClientId } from "../../../../../shared/lib/utils";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import {
   appendChatSummaryEntryToMetadata,
   compileChatSummaryEntries,
+  estimateChatSummaryTokens,
   normalizeChatSummaryMetadata,
 } from "../../../../../engine/shared/text/chat-summary-entries";
-import type { ChatSummaryEntry } from "../../../../../engine/contracts/types/chat";
+import type { ChatSummaryEntry, ChatSummaryPromptTemplate } from "../../../../../engine/contracts/types/chat";
 import type { SummaryPopoverSourceMode } from "../../../../../shared/stores/ui.store";
 
 interface SummaryPopoverProps {
@@ -32,6 +47,7 @@ interface SummaryPopoverProps {
 
 const MIN_SUMMARY_MESSAGES = 5;
 const MAX_SUMMARY_MESSAGES = 200;
+const SUMMARY_TOKEN_WARNING_THRESHOLD = 1800;
 
 function clampSummaryCount(value: number) {
   return Math.max(MIN_SUMMARY_MESSAGES, Math.min(MAX_SUMMARY_MESSAGES, Math.round(value)));
@@ -40,6 +56,27 @@ function clampSummaryCount(value: number) {
 function parsePositiveInteger(value: string): number | null {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1000) {
+    const rounded = Math.round(tokens / 100) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}k`;
+  }
+  return String(tokens);
+}
+
+function summaryEntryMetaLine(entry: ChatSummaryEntry): string {
+  const details: string[] = [];
+  if (entry.sourceMode === "range" && entry.rangeStartIndex && entry.rangeEndIndex) {
+    details.push(`Messages ${entry.rangeStartIndex}-${entry.rangeEndIndex}`);
+  } else if (entry.sourceMode === "last" && entry.messageCount) {
+    details.push(`${entry.messageCount} ${entry.messageCount === 1 ? "message" : "messages"}`);
+  } else if (entry.sourceMode === "agent") {
+    details.push("Agent");
+  }
+  details.push(`~${formatTokenCount(entry.tokenEstimate)} tokens`);
+  return details.join(" | ");
 }
 
 export function SummaryPopover({
@@ -55,6 +92,10 @@ export function SummaryPopover({
   const [draft, setDraft] = useState(summary ?? "");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [templatePromptDraft, setTemplatePromptDraft] = useState("");
   const summaryPopoverSettings = useUIStore((s) => s.summaryPopoverSettings);
   const setSummaryPopoverSettings = useUIStore((s) => s.setSummaryPopoverSettings);
   const chatQuery = useChat(chatId);
@@ -158,18 +199,110 @@ export function SummaryPopover({
         : "No messages yet";
   const chatMetadata: Record<string, unknown> =
     chatQuery.data?.metadata && typeof chatQuery.data.metadata === "object" ? chatQuery.data.metadata : {};
-  const promptTemplates = Array.isArray(chatMetadata.summaryPromptTemplates)
-    ? chatMetadata.summaryPromptTemplates.filter(
-        (template: unknown): template is { id: string; name: string; prompt: string } => {
-          if (!template || typeof template !== "object" || Array.isArray(template)) return false;
-          const record = template as Record<string, unknown>;
-          return typeof record.id === "string" && typeof record.name === "string" && typeof record.prompt === "string";
-        },
-      )
+  const promptTemplates: ChatSummaryPromptTemplate[] = Array.isArray(chatMetadata.summaryPromptTemplates)
+    ? chatMetadata.summaryPromptTemplates.filter((template: unknown): template is ChatSummaryPromptTemplate => {
+        if (!template || typeof template !== "object" || Array.isArray(template)) return false;
+        const record = template as Record<string, unknown>;
+        return (
+          typeof record.id === "string" &&
+          record.id.trim().length > 0 &&
+          typeof record.name === "string" &&
+          record.name.trim().length > 0 &&
+          typeof record.prompt === "string" &&
+          record.prompt.trim().length > 0
+        );
+      })
     : [];
   const activeSummaryPromptTemplateId =
     typeof chatMetadata.activeSummaryPromptTemplateId === "string" ? chatMetadata.activeSummaryPromptTemplateId : "";
   const summaryEntries = normalizeChatSummaryMetadata(chatMetadata).entries;
+  const enabledTokenEstimate = summaryEntries.reduce(
+    (total, entry) => (entry.enabled ? total + entry.tokenEstimate : total),
+    0,
+  );
+  const disabledEntryCount = summaryEntries.filter((entry) => !entry.enabled).length;
+  const tokenWarning = enabledTokenEstimate > SUMMARY_TOKEN_WARNING_THRESHOLD;
+  const hasTemplateDraft = templateNameDraft.trim().length > 0 && templatePromptDraft.trim().length > 0;
+
+  const resetTemplateDraft = useCallback(() => {
+    setEditingTemplateId(null);
+    setTemplateNameDraft("");
+    setTemplatePromptDraft("");
+  }, []);
+
+  const persistPromptTemplates = useCallback(
+    (templates: ChatSummaryPromptTemplate[], activeId: string | null) => {
+      updateMeta.mutate({
+        id: chatId,
+        summaryPromptTemplates: templates,
+        activeSummaryPromptTemplateId: activeId,
+      });
+    },
+    [chatId, updateMeta],
+  );
+
+  const startNewPromptTemplate = useCallback(() => {
+    resetTemplateDraft();
+    setTemplateEditorOpen(true);
+  }, [resetTemplateDraft]);
+
+  const startEditPromptTemplate = useCallback((template: ChatSummaryPromptTemplate) => {
+    setEditingTemplateId(template.id);
+    setTemplateNameDraft(template.name);
+    setTemplatePromptDraft(template.prompt);
+    setTemplateEditorOpen(true);
+  }, []);
+
+  const duplicatePromptTemplate = useCallback(
+    (template: ChatSummaryPromptTemplate) => {
+      const nextTemplate = {
+        id: generateClientId(),
+        name: `${template.name} Copy`,
+        prompt: template.prompt,
+      };
+      persistPromptTemplates([...promptTemplates, nextTemplate], nextTemplate.id);
+      startEditPromptTemplate(nextTemplate);
+    },
+    [persistPromptTemplates, promptTemplates, startEditPromptTemplate],
+  );
+
+  const savePromptTemplate = useCallback(() => {
+    const name = templateNameDraft.trim();
+    const prompt = templatePromptDraft.trim();
+    if (!name || !prompt) {
+      setErrorText("Summary prompt templates need a name and prompt.");
+      return;
+    }
+    const id = editingTemplateId ?? generateClientId();
+    const nextTemplate = { id, name, prompt };
+    const nextTemplates = editingTemplateId
+      ? promptTemplates.map((template) => (template.id === editingTemplateId ? nextTemplate : template))
+      : [...promptTemplates, nextTemplate];
+    persistPromptTemplates(nextTemplates, id);
+    resetTemplateDraft();
+    setTemplateEditorOpen(false);
+    setErrorText(null);
+  }, [
+    editingTemplateId,
+    persistPromptTemplates,
+    promptTemplates,
+    resetTemplateDraft,
+    templateNameDraft,
+    templatePromptDraft,
+  ]);
+
+  const deletePromptTemplate = useCallback(
+    (templateId: string) => {
+      const nextTemplates = promptTemplates.filter((template) => template.id !== templateId);
+      const nextActiveId = activeSummaryPromptTemplateId === templateId ? null : activeSummaryPromptTemplateId || null;
+      persistPromptTemplates(nextTemplates, nextActiveId);
+      if (editingTemplateId === templateId) {
+        resetTemplateDraft();
+        setTemplateEditorOpen(false);
+      }
+    },
+    [activeSummaryPromptTemplateId, editingTemplateId, persistPromptTemplates, promptTemplates, resetTemplateDraft],
+  );
 
   const maybeHideSummarizedMessages = useCallback(
     (messageIds: string[]) => {
@@ -255,7 +388,7 @@ export function SummaryPopover({
       const nextEntries = content
         ? summaryEntries.map((entry) =>
             entry.id === editingEntryId
-              ? { ...entry, content, tokenEstimate: Math.max(1, Math.ceil(content.length / 4)), updatedAt: now }
+              ? { ...entry, content, tokenEstimate: estimateChatSummaryTokens(content), updatedAt: now }
               : entry,
           )
         : summaryEntries.filter((entry) => entry.id !== editingEntryId);
@@ -437,22 +570,129 @@ export function SummaryPopover({
 
             <div className="space-y-2">
               <label className="block space-y-1">
-                <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Prompt</span>
-                <select
-                  value={activeSummaryPromptTemplateId}
-                  onChange={(e) =>
-                    updateMeta.mutate({ id: chatId, activeSummaryPromptTemplateId: e.target.value || null })
-                  }
-                  className="w-full rounded-md bg-[var(--secondary)] px-2 py-1 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                >
-                  <option value="">Default chat-summary prompt</option>
-                  {promptTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
+                <span className="flex items-center justify-between gap-2 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                  Prompt
+                  <button
+                    type="button"
+                    onClick={startNewPromptTemplate}
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] text-[var(--foreground)] hover:bg-[var(--accent)]"
+                    title="Create summary prompt template"
+                  >
+                    <Plus size="0.625rem" />
+                    New
+                  </button>
+                </span>
+                <div className="flex gap-1.5">
+                  <select
+                    value={activeSummaryPromptTemplateId}
+                    onChange={(e) => persistPromptTemplates(promptTemplates, e.target.value || null)}
+                    className="min-w-0 flex-1 rounded-md bg-[var(--secondary)] px-2 py-1 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  >
+                    <option value="">Default chat-summary prompt</option>
+                    {promptTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  {activeSummaryPromptTemplateId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const template = promptTemplates.find((item) => item.id === activeSummaryPromptTemplateId);
+                        if (template) startEditPromptTemplate(template);
+                      }}
+                      className="rounded-md p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                      title="Edit selected prompt template"
+                    >
+                      <PenLine size="0.75rem" />
+                    </button>
+                  )}
+                </div>
               </label>
+              {(promptTemplates.length > 0 || templateEditorOpen) && (
+                <div className="space-y-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-2">
+                  {promptTemplates.map((template) => (
+                    <div key={template.id} className="flex items-center gap-1 rounded-md px-1 py-1">
+                      <button
+                        type="button"
+                        onClick={() => persistPromptTemplates(promptTemplates, template.id)}
+                        className="min-w-0 flex-1 text-left"
+                        title={`Use ${template.name}`}
+                      >
+                        <span className="block truncate text-[0.6875rem] font-semibold text-[var(--foreground)]/90">
+                          {template.name}
+                        </span>
+                        <span className="block truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                          {template.prompt}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => duplicatePromptTemplate(template)}
+                        className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                        title="Duplicate prompt template"
+                      >
+                        <Copy size="0.625rem" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditPromptTemplate(template)}
+                        className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                        title="Edit prompt template"
+                      >
+                        <PenLine size="0.625rem" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deletePromptTemplate(template.id)}
+                        className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                        title="Delete prompt template"
+                      >
+                        <Trash2 size="0.625rem" />
+                      </button>
+                    </div>
+                  ))}
+                  {templateEditorOpen && (
+                    <div className="space-y-1.5 border-t border-[var(--border)] pt-2">
+                      <input
+                        value={templateNameDraft}
+                        onChange={(e) => setTemplateNameDraft(e.target.value)}
+                        className="w-full rounded-md bg-[var(--card)] px-2 py-1 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        placeholder="Template name"
+                      />
+                      <textarea
+                        value={templatePromptDraft}
+                        onChange={(e) => setTemplatePromptDraft(e.target.value)}
+                        rows={4}
+                        className="max-h-36 min-h-20 w-full resize-y rounded-md bg-[var(--card)] p-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        placeholder="Write a summary prompt template..."
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetTemplateDraft();
+                            setTemplateEditorOpen(false);
+                          }}
+                          className="rounded-md px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={savePromptTemplate}
+                          disabled={!hasTemplateDraft || updateMeta.isPending}
+                          className="inline-flex items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-1 text-[0.625rem] font-semibold text-[var(--foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Save size="0.625rem" />
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--foreground)]/80">
                 <input
                   type="checkbox"
@@ -487,6 +727,24 @@ export function SummaryPopover({
             <div className="mb-2 flex items-center gap-1.5 rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[0.6875rem] text-amber-300">
               <Check size="0.6875rem" />
               Summarized messages hidden from AI.
+            </div>
+          )}
+          {summaryEntries.length > 0 && (
+            <div
+              className={cn(
+                "mb-2 flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[0.6875rem]",
+                tokenWarning
+                  ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                  : "border-[var(--border)] bg-[var(--secondary)]/50 text-[var(--muted-foreground)]",
+              )}
+            >
+              <span>
+                {summaryEntries.length} summary {summaryEntries.length === 1 ? "entry" : "entries"}
+                {disabledEntryCount > 0 ? `, ${disabledEntryCount} disabled` : ""}
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 tabular-nums">
+                {tokenWarning && <AlertTriangle size="0.6875rem" />}~{formatTokenCount(enabledTokenEstimate)} tokens
+              </span>
             </div>
           )}
           {editing ? (
@@ -551,10 +809,16 @@ export function SummaryPopover({
                             setEditingEntryId(entry.id);
                             setEditing(true);
                           }}
-                          className="min-w-0 flex-1 truncate text-left text-[0.6875rem] font-medium text-[var(--foreground)]/85 hover:underline"
+                          className={cn(
+                            "min-w-0 flex-1 text-left hover:underline",
+                            entry.enabled ? "text-[var(--foreground)]/85" : "text-[var(--muted-foreground)]",
+                          )}
                           title="Edit summary entry"
                         >
-                          {entry.title}
+                          <span className="block truncate text-[0.6875rem] font-medium">{entry.title}</span>
+                          <span className="block truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                            {summaryEntryMetaLine(entry)}
+                          </span>
                         </button>
                         <button
                           type="button"
