@@ -391,7 +391,7 @@ export function LorebookOverviewTab({
             type="number"
             value={scanDepth}
             onChange={(event) => {
-              onScanDepthChange(parseInt(event.target.value) || 0);
+              onScanDepthChange(Math.max(0, parseInt(event.target.value, 10) || 0));
               onDirty();
             }}
             min={0}
@@ -407,7 +407,7 @@ export function LorebookOverviewTab({
             type="number"
             value={tokenBudget}
             onChange={(event) => {
-              onTokenBudgetChange(parseInt(event.target.value) || 0);
+              onTokenBudgetChange(Math.max(0, parseInt(event.target.value, 10) || 0));
               onDirty();
             }}
             min={0}
