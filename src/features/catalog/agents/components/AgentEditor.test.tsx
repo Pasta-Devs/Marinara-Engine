@@ -42,7 +42,19 @@ vi.mock("../hooks/use-agents", () => {
       detail: (id: string) => ["agents", id],
       customRuns: (id: string) => ["agents", "runs", "custom", id],
     },
-    agentCreditLabel: (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : "Marinara Dev Team"),
+    agentConfigEnabled: (value: unknown, fallback = true) => {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["true", "1", "yes", "on"].includes(normalized)) return true;
+        if (["false", "0", "no", "off"].includes(normalized)) return false;
+        if (!normalized) return fallback;
+      }
+      return fallback;
+    },
+    agentCreditLabel: (value: unknown) =>
+      typeof value === "string" && value.trim() ? value.trim() : "Marinara Dev Team",
     useAgentConfigs: () => ({ data: agentHookMocks.configs }),
     useUpdateAgent: () => agentHookMocks.updateAgent,
     useCreateAgent: () => agentHookMocks.createAgent,

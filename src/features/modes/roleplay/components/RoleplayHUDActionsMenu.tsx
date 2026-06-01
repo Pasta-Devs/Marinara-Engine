@@ -13,7 +13,12 @@ import {
 } from "lucide-react";
 import { BUILT_IN_AGENTS } from "../../../../engine/contracts/types/agent";
 import type { Message } from "../../../../engine/contracts/types/chat";
-import { useUpdateAgentRunData, type AgentConfigRow, type AgentRunRow } from "../../../catalog/agents/index";
+import {
+  agentConfigEnabled,
+  useUpdateAgentRunData,
+  type AgentConfigRow,
+  type AgentRunRow,
+} from "../../../catalog/agents/index";
 import {
   formatAgentFailureDetail,
   formatAgentFailureTitle,
@@ -413,7 +418,8 @@ function hasActiveInjectableCustomAgent(configs: AgentConfigRow[], enabledAgentT
   const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   return configs.some((config) => {
     if (builtInTypes.has(config.type)) return false;
-    if (enabledAgentTypes ? !enabledAgentTypes.has(config.type) : config.enabled !== "true") return false;
+    if (!agentConfigEnabled(config.enabled, true)) return false;
+    if (enabledAgentTypes && !enabledAgentTypes.has(config.type)) return false;
     const settings = parseAgentSettings(config.settings);
     return settings.injectAsSection === true;
   });
@@ -429,7 +435,8 @@ function getLatestInjectableCustomRuns(
     configs
       .filter((config) => {
         if (builtInTypes.has(config.type)) return false;
-        if (enabledAgentTypes ? !enabledAgentTypes.has(config.type) : config.enabled !== "true") return false;
+        if (!agentConfigEnabled(config.enabled, true)) return false;
+        if (enabledAgentTypes && !enabledAgentTypes.has(config.type)) return false;
         const settings = parseAgentSettings(config.settings);
         return settings.injectAsSection === true;
       })

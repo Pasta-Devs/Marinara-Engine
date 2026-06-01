@@ -9,7 +9,7 @@ import { X, Trash2 } from "lucide-react";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import type { EchoChamberSide } from "../../../../../shared/stores/ui.store";
-import { useAgentConfigs } from "../../../../catalog/agents/index";
+import { agentConfigEnabled, useAgentConfigs } from "../../../../catalog/agents/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useChat } from "../../../../catalog/chats/index";
 import { agentApi } from "../../../../../shared/api/agent-api";
@@ -88,8 +88,8 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     }
     // Fallback: check global agent config
     if (!agentConfigs) return false;
-    const cfg = (agentConfigs as Array<{ type: string; enabled: string }>).find((a) => a.type === "echo-chamber");
-    return cfg?.enabled === "true";
+    const cfg = (agentConfigs as Array<{ type: string; enabled?: unknown }>).find((a) => a.type === "echo-chamber");
+    return agentConfigEnabled(cfg?.enabled, false);
   }, [chat, agentConfigs]);
 
   // ── Timed reveal: show one more message every 30 s ──

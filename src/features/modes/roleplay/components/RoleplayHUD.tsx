@@ -11,7 +11,7 @@ import { agentApi } from "../../../../shared/api/agent-api";
 import { roleplayTrackerApi } from "../api/roleplay-tracker-api";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
-import { useAgentConfigs } from "../../../catalog/agents/index";
+import { agentConfigEnabled, useAgentConfigs } from "../../../catalog/agents/index";
 import { useChat } from "../../../catalog/chats/index";
 import { useTrackerStateController } from "../../../runtime/world-state/index";
 import { discardPendingGameStatePatch } from "../../../runtime/world-state/index";
@@ -99,8 +99,8 @@ export function RoleplayHUD({
   const globalEnabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
     if (agentConfigs) {
-      for (const a of agentConfigs as Array<{ type: string; enabled: string }>) {
-        if (a.enabled === "true") set.add(a.type);
+      for (const a of agentConfigs as Array<{ type: string; enabled?: unknown }>) {
+        if (agentConfigEnabled(a.enabled, true)) set.add(a.type);
       }
     }
     return set;

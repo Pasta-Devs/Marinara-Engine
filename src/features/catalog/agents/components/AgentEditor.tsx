@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import {
+  agentConfigEnabled,
   agentCreditLabel,
   agentKeys,
   useAgentConfigs,
@@ -200,6 +201,7 @@ export function AgentEditor() {
   // ── Local editable state ──
   const [localName, setLocalName] = useState("");
   const [localDescription, setLocalDescription] = useState("");
+  const [localEnabled, setLocalEnabled] = useState(true);
   const [localPhase, setLocalPhase] = useState<AgentPhase>("post_processing");
   const [localConnectionId, setLocalConnectionId] = useState("");
   const [localImageConnectionId, setLocalImageConnectionId] = useState("");
@@ -255,6 +257,7 @@ export function AgentEditor() {
     if (dbConfig) {
       setLocalName(builtIn ? builtIn.name : dbConfig.name);
       setLocalDescription(dbConfig.description);
+      setLocalEnabled(agentConfigEnabled(dbConfig.enabled, true));
       setLocalPhase(dbConfig.phase as AgentPhase);
       setLocalConnectionId(dbConfig.connectionId ?? "");
       const settings = dbConfig.settings
@@ -291,6 +294,7 @@ export function AgentEditor() {
     } else if (builtIn) {
       setLocalName(builtIn.name);
       setLocalDescription(builtIn.description);
+      setLocalEnabled(true);
       setLocalPhase(builtIn.phase);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -317,6 +321,7 @@ export function AgentEditor() {
       // Brand new custom agent — start empty
       setLocalName("New Agent");
       setLocalDescription("");
+      setLocalEnabled(true);
       setLocalPhase("post_processing");
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -374,7 +379,7 @@ export function AgentEditor() {
     if (!agentConfigs) return false;
     if (!isKnowledgeRouterAgent && !isKnowledgeRetrievalAgent) return false;
     const rows = agentConfigs as AgentConfigRow[];
-    const enabledTypes = new Set(rows.filter((c) => c.enabled === "true").map((c) => c.type));
+    const enabledTypes = new Set(rows.filter((c) => agentConfigEnabled(c.enabled, true)).map((c) => c.type));
     return enabledTypes.has("knowledge-router") && enabledTypes.has("knowledge-retrieval");
   }, [agentConfigs, isKnowledgeRetrievalAgent, isKnowledgeRouterAgent]);
 
@@ -497,7 +502,7 @@ export function AgentEditor() {
       description: localDescription,
       credit: agentCreditLabel(dbConfig?.credit ?? builtIn?.credit ?? DEFAULT_AGENT_CREDIT),
       phase: savedPhase,
-      enabled: true,
+      enabled: localEnabled,
       connectionId: localConnectionId || null,
       promptTemplate: localPrompt,
       settings: {
@@ -560,6 +565,7 @@ export function AgentEditor() {
     agentDetailId,
     localName,
     localDescription,
+    localEnabled,
     localPhase,
     localResultType,
     localActivationKeywordsText,
@@ -775,6 +781,41 @@ export function AgentEditor() {
             <div className="rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)]">
               {displayedCredit}
             </div>
+          </FieldGroup>
+
+          <FieldGroup
+            label="Agent Status"
+            icon={<Sparkles size="0.875rem" className="text-[var(--primary)]" />}
+            help="Disabled agents stay configured but do not run globally or when selected for a chat."
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setLocalEnabled((value) => !value);
+                markDirty();
+              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl p-3 text-left text-sm ring-1 transition-all",
+                localEnabled
+                  ? "bg-emerald-500/10 text-[var(--foreground)] ring-emerald-400/35"
+                  : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+              )}
+              aria-pressed={localEnabled}
+            >
+              {localEnabled ? (
+                <ToggleRight size="1.25rem" className="shrink-0 text-emerald-400" />
+              ) : (
+                <ToggleLeft size="1.25rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{localEnabled ? "Enabled" : "Disabled"}</span>
+                <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+                  {localEnabled
+                    ? "This agent can run when generation allows it."
+                    : "This agent is preserved but skipped."}
+                </span>
+              </span>
+            </button>
           </FieldGroup>
 
           {/* ── Pipeline Phase ── */}

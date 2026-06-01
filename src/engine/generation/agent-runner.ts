@@ -605,6 +605,10 @@ function builtInAgentFallback(type: string): JsonRecord | null {
   };
 }
 
+function agentConfigEnabled(agent: JsonRecord): boolean {
+  return boolish(agent.enabled, true);
+}
+
 function positiveInteger(value: unknown, fallback: number, max: number): number {
   const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
@@ -832,9 +836,14 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   const activationMessages = activationScanMessages(input);
   const requestedAgentTypes = input.agentTypes ?? null;
   const explicitAgentTypes = requestedAgentTypes ?? scopedAgentIds;
-  const rows = (await deps.storage.list<JsonRecord>("agents")).filter((agent) => {
+  const agentRows = await deps.storage.list<JsonRecord>("agents");
+  const configuredBuiltInTypes = new Set(
+    agentRows.map(builtInAgentType).filter((type) => BUILT_IN_AGENT_TYPES.has(type)),
+  );
+  const rows = agentRows.filter((agent) => {
     const type = builtInAgentType(agent);
     const id = readString(agent.id);
+    if (!agentConfigEnabled(agent)) return false;
     const requestedExplicitly = requestedAgentTypes && (requestedAgentTypes.has(type) || requestedAgentTypes.has(id));
     const scopedToChat = scopedAgentIds.size > 0 && (scopedAgentIds.has(type) || scopedAgentIds.has(id));
     if (
@@ -846,12 +855,13 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     }
     if (requestedAgentTypes && requestedAgentTypes.size > 0) return Boolean(requestedExplicitly);
     if (scopedAgentIds.size > 0) return scopedToChat;
-    return boolish(agent.enabled, false);
+    return true;
   });
   const resolvedBuiltInTypes = new Set(rows.map(builtInAgentType).filter((type) => BUILT_IN_AGENT_TYPES.has(type)));
   const fallbackRows = [...explicitAgentTypes]
     .filter((type) => BUILT_IN_AGENT_TYPES.has(type))
     .filter((type) => !resolvedBuiltInTypes.has(type))
+    .filter((type) => !configuredBuiltInTypes.has(type))
     .filter((type) => requestedAgentTypes || type !== "lorebook-keeper")
     .map(builtInAgentFallback)
     .filter((agent): agent is JsonRecord => !!agent);
