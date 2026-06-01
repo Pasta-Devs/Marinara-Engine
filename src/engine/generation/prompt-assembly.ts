@@ -108,6 +108,7 @@ export interface PromptAssemblyResult {
     constant: boolean;
   }>;
   lorebookTimingStates: Record<string, LorebookEntryTimingState> | null;
+  lorebookEntryStateOverrides: Record<string, { ephemeral?: number | null; enabled?: boolean }> | null;
   budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   chatSummary: string | null;
   chatSummaryFingerprint: string | null;
@@ -2245,25 +2246,6 @@ export async function assembleGenerationPrompt(
   const characters = await loadCharacters(storage, input.chat);
   const persona = await loadPersona(storage, input.chat);
   const embeddingSource = memoizedEmbeddingSource(input.embeddingSource);
-  const loreScan = await scanActiveLorebooks({
-    storage,
-    chat: input.chat,
-    characters,
-    persona,
-    storedMessages: input.storedMessages,
-    request: input.request,
-    latestUserInput: input.latestUserInput,
-    embeddingSource,
-  });
-  const processedLore = loreScan.processedLore;
-  const summary = chatSummaryForGeneration(input.chat);
-  const memoryRecallBlock = await buildMemoryRecallBlock(
-    storage,
-    input.chat,
-    input.latestUserInput,
-    readNumber(input.connection.maxContext, 0) || undefined,
-    embeddingSource,
-  );
   const selectedPreset = await loadSelectedPromptPreset(storage, {
     chat: input.chat,
     connection: input.connection,
@@ -2279,14 +2261,6 @@ export async function assembleGenerationPrompt(
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
   const promptCharacters = promptCharactersForGeneration(input, characters);
-  const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
-  const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
-  const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
-  const history = historyMessages(
-    input.storedMessages,
-    compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
-    chatMeta.excludePastReasoning === false,
-  );
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,
@@ -2297,6 +2271,36 @@ export async function assembleGenerationPrompt(
     variables: selectedPreset?.variables,
     request: input.request,
   });
+  const loreScan = await scanActiveLorebooks({
+    storage,
+    chat: input.chat,
+    characters,
+    persona,
+    storedMessages: input.storedMessages,
+    request: input.request,
+    latestUserInput: input.latestUserInput,
+    embeddingSource,
+    contentResolver: {
+      resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
+    },
+  });
+  const processedLore = loreScan.processedLore;
+  const summary = chatSummaryForGeneration(input.chat);
+  const memoryRecallBlock = await buildMemoryRecallBlock(
+    storage,
+    input.chat,
+    input.latestUserInput,
+    readNumber(input.connection.maxContext, 0) || undefined,
+    embeddingSource,
+  );
+  const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
+  const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
+  const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
+  const history = historyMessages(
+    input.storedMessages,
+    compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
+    chatMeta.excludePastReasoning === false,
+  );
   const agentData = input.agentData ?? {};
   let messages: ChatMLMessage[] = [];
   let insertedHistory = false;
@@ -2469,6 +2473,7 @@ export async function assembleGenerationPrompt(
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(lorebookActivatedEntryForEvent),
     lorebookTimingStates: loreScan.lorebookTimingStates,
+    lorebookEntryStateOverrides: loreScan.lorebookEntryStateOverrides,
     budgetSkippedLorebookEntries: loreScan.budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,

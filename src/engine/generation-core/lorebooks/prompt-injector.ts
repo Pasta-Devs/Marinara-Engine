@@ -76,31 +76,27 @@ export function injectAtDepth(
 ): PromptMessage[] {
   if (depthEntries.length === 0) return messages;
 
-  const result = [...messages];
-
-  // Group entries by depth
-  const byDepth = new Map<number, Array<{ content: string; role: LorebookRole }>>();
+  const byInsertionIndex = new Map<number, Array<{ content: string; role: LorebookRole }>>();
   for (const entry of depthEntries) {
-    const list = byDepth.get(entry.depth) ?? [];
+    const insertionIndex = Math.max(0, messages.length - entry.depth);
+    const list = byInsertionIndex.get(insertionIndex) ?? [];
     list.push({ content: entry.content, role: entry.role });
-    byDepth.set(entry.depth, list);
+    byInsertionIndex.set(insertionIndex, list);
   }
 
-  // Process depths from highest to lowest (to preserve indices)
-  const depths = [...byDepth.keys()].sort((a, b) => b - a);
+  const result: PromptMessage[] = [];
+  for (let index = 0; index <= messages.length; index += 1) {
+    const entries = byInsertionIndex.get(index) ?? [];
+    result.push(
+      ...entries.map((entry) => ({
+        role: entry.role,
+        content: entry.content,
+        contextKind: "injection" as const,
+      })),
+    );
 
-  for (const depth of depths) {
-    const entries = byDepth.get(depth) ?? [];
-    const insertionIndex = Math.max(0, result.length - depth);
-
-    // Insert all entries for this depth at the same position
-    const toInsert: PromptMessage[] = entries.map((e) => ({
-      role: e.role,
-      content: e.content,
-      contextKind: "injection",
-    }));
-
-    result.splice(insertionIndex, 0, ...toInsert);
+    const message = messages[index];
+    if (message) result.push(message);
   }
 
   return result;
@@ -117,6 +113,23 @@ export interface BudgetSkippedActivatedEntry {
   usedTokensBefore: number;
 }
 
+export interface LorebookContentResolver {
+  resolve(content: string): string;
+}
+
+function withResolvedContent(entry: ActivatedEntry, resolver?: LorebookContentResolver): ActivatedEntry {
+  if (!resolver) return entry;
+  const content = resolver.resolve(entry.entry.content);
+  return {
+    ...entry,
+    rawContent: entry.rawContent ?? entry.entry.content,
+    entry: {
+      ...entry.entry,
+      content,
+    },
+  };
+}
+
 /**
  * Apply token-budget ordering while preserving the
  * entries that were dropped so callers can surface budget diagnostics.
@@ -124,15 +137,17 @@ export interface BudgetSkippedActivatedEntry {
 export function applyTokenBudgetWithSkipped(
   activatedEntries: ActivatedEntry[],
   tokenBudget: number,
+  resolver?: LorebookContentResolver,
 ): {
   includedEntries: ActivatedEntry[];
   skippedEntries: BudgetSkippedActivatedEntry[];
   totalTokensEstimate: number;
 } {
   if (tokenBudget <= 0) {
-    const totalChars = activatedEntries.reduce((sum, entry) => sum + entry.entry.content.length, 0);
+    const includedEntries = activatedEntries.map((entry) => withResolvedContent(entry, resolver));
+    const totalChars = includedEntries.reduce((sum, entry) => sum + entry.entry.content.length, 0);
     return {
-      includedEntries: activatedEntries,
+      includedEntries,
       skippedEntries: [],
       totalTokensEstimate: Math.ceil(totalChars / 4),
     };
@@ -152,14 +167,15 @@ export function applyTokenBudgetWithSkipped(
   });
 
   for (const entry of sorted) {
-    const estimatedTokens = Math.ceil(entry.entry.content.length / CHARS_PER_TOKEN);
+    const resolvedEntry = withResolvedContent(entry, resolver);
+    const estimatedTokens = Math.ceil(resolvedEntry.entry.content.length / CHARS_PER_TOKEN);
     if (budgetExhausted || totalTokens + estimatedTokens > tokenBudget) {
       budgetExhausted = true;
-      skippedEntries.push({ activatedEntry: entry, estimatedTokens, usedTokensBefore: totalTokens });
+      skippedEntries.push({ activatedEntry: resolvedEntry, estimatedTokens, usedTokensBefore: totalTokens });
       continue;
     }
     totalTokens += estimatedTokens;
-    includedEntries.push(entry);
+    includedEntries.push(resolvedEntry);
   }
 
   return {
@@ -175,6 +191,7 @@ export function applyTokenBudgetWithSkipped(
 export function processActivatedEntries(
   activatedEntries: ActivatedEntry[],
   tokenBudget: number = 0,
+  resolver?: LorebookContentResolver,
 ): {
   worldInfoBefore: string;
   worldInfoAfter: string;
@@ -185,7 +202,7 @@ export function processActivatedEntries(
   totalTokensEstimate: number;
 } {
   // Apply budget
-  const budgeted = applyTokenBudgetWithSkipped(activatedEntries, tokenBudget);
+  const budgeted = applyTokenBudgetWithSkipped(activatedEntries, tokenBudget, resolver);
   const includedEntries = budgeted.includedEntries;
 
   // Build blocks

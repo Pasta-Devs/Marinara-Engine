@@ -40,6 +40,40 @@ fn uploaded_bytes(name: &str, content_type: &str, bytes: Vec<u8>) -> Value {
 }
 
 #[test]
+fn normalizes_sillytavern_selective_logic_numbers() {
+    let entry = normalize_lorebook_entry(
+        "book-1",
+        &json!({
+            "content": "Lore",
+            "key": ["moon"],
+            "selectiveLogic": 1
+        }),
+        0,
+    );
+
+    assert_eq!(entry["selectiveLogic"], "or");
+}
+
+#[test]
+fn normalizes_imported_lorebook_entry_after_raw_field_merge() {
+    let entry = normalize_imported_lorebook_entry(
+        "book-1",
+        &json!({
+            "content": "Lore",
+            "key": ["moon"],
+            "selectiveLogic": 2,
+            "useProbability": false,
+            "probability": 25
+        }),
+        0,
+    );
+
+    assert_eq!(entry["selectiveLogic"], "not");
+    assert!(entry["probability"].is_null());
+    assert!(entry.get("useProbability").is_none());
+}
+
+#[test]
 fn import_st_character_batch_rejects_wrong_route_lorebook_json() {
     let app_root = temp_path("wrong-route-lorebook");
     let state =

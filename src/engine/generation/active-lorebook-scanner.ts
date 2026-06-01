@@ -5,6 +5,7 @@ import {
   applyTokenBudgetWithSkipped,
   processActivatedEntries,
   type BudgetSkippedActivatedEntry,
+  type LorebookContentResolver,
 } from "../generation-core/lorebooks/prompt-injector";
 import {
   resolveGameLorebookScopeExclusions,
@@ -101,6 +102,7 @@ interface LoadedActivatedLore {
   activeLorebookReasons: ActiveLorebookScopeReason[];
   scopeExclusions: LorebookScopeExclusions;
   semanticStatus: LorebookSemanticScanStatus;
+  previousEntryStateOverrides: Map<string, LorebookEntryStateOverride>;
 }
 
 export interface ActiveLorebookScannerInput {
@@ -113,6 +115,7 @@ export interface ActiveLorebookScannerInput {
   latestUserInput?: string;
   embeddingSource?: LorebookEmbeddingSource | null;
   ignoreTiming?: boolean;
+  contentResolver?: LorebookContentResolver;
 }
 
 export interface ActiveLorebookScannerResult {
@@ -122,12 +125,18 @@ export interface ActiveLorebookScannerResult {
   previousTimingStates: Map<string, EntryTimingState>;
   nextTimingStates: Map<string, EntryTimingState>;
   lorebookTimingStates: Record<string, LorebookEntryTimingState> | null;
+  lorebookEntryStateOverrides: Record<string, { ephemeral?: number | null; enabled?: boolean }> | null;
   budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   lorebookNamesById: Map<string, string>;
   currentMessageIndex: number;
   activeLorebookReasons: ActiveLorebookScopeReason[];
   scopeExclusions: LorebookScopeExclusions;
   semanticStatus: LorebookSemanticScanStatus;
+}
+
+interface LorebookEntryStateOverride {
+  ephemeral?: number | null;
+  enabled?: boolean;
 }
 
 const MAX_LOREBOOK_RECURSION_DEPTH = 10;
@@ -271,6 +280,93 @@ function normalizeLorebookTimingState(value: unknown): EntryTimingState | null {
   };
 }
 
+function normalizeLorebookEntryStateOverride(value: unknown): LorebookEntryStateOverride | null {
+  if (!isRecord(value)) return null;
+  const state: LorebookEntryStateOverride = {};
+  if (typeof value.enabled === "boolean") state.enabled = value.enabled;
+  if (value.ephemeral === null) {
+    state.ephemeral = null;
+  } else if (value.ephemeral !== undefined) {
+    const ephemeral = readNumber(value.ephemeral, Number.NaN);
+    if (Number.isFinite(ephemeral)) state.ephemeral = Math.max(0, Math.trunc(ephemeral));
+  }
+  return Object.keys(state).length > 0 ? state : null;
+}
+
+function lorebookEntryStateOverrideMap(value: unknown): Map<string, LorebookEntryStateOverride> {
+  const states = new Map<string, LorebookEntryStateOverride>();
+  for (const [entryId, state] of Object.entries(parseRecord(value))) {
+    const normalizedId = entryId.trim();
+    const normalizedState = normalizeLorebookEntryStateOverride(state);
+    if (normalizedId && normalizedState) states.set(normalizedId, normalizedState);
+  }
+  return states;
+}
+
+function entryWithChatState(entry: LorebookEntry, overrides: Map<string, LorebookEntryStateOverride>): LorebookEntry {
+  const override = overrides.get(entry.id);
+  if (!override) return entry;
+  const ephemeral = override.ephemeral === undefined ? entry.ephemeral : override.ephemeral;
+  return {
+    ...entry,
+    enabled: entry.enabled && override.enabled !== false && !(typeof ephemeral === "number" && ephemeral <= 0),
+    ephemeral,
+  };
+}
+
+function serializeLorebookEntryStateOverrides(
+  states: Map<string, LorebookEntryStateOverride>,
+): Record<string, LorebookEntryStateOverride> {
+  return Object.fromEntries(
+    [...states.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([entryId, state]) => [
+        entryId,
+        {
+          ...(state.ephemeral !== undefined ? { ephemeral: state.ephemeral } : {}),
+          ...(state.enabled !== undefined ? { enabled: state.enabled } : {}),
+        },
+      ]),
+  );
+}
+
+function lorebookEntryStateOverridesChanged(
+  previous: Map<string, LorebookEntryStateOverride>,
+  next: Map<string, LorebookEntryStateOverride>,
+): boolean {
+  if (previous.size !== next.size) return true;
+  for (const [entryId, previousState] of previous) {
+    const nextState = next.get(entryId);
+    if (!nextState) return true;
+    if (previousState.ephemeral !== nextState.ephemeral || previousState.enabled !== nextState.enabled) return true;
+  }
+  return false;
+}
+
+function updateEntryStateOverridesForScan(
+  entries: LorebookEntry[],
+  activatedEntries: ActivatedEntry[],
+  previousStates: Map<string, LorebookEntryStateOverride>,
+): Map<string, LorebookEntryStateOverride> {
+  const nextStates = new Map(previousStates);
+  const activatedIds = new Set(activatedEntries.filter((entry) => !entry.sticky).map((entry) => entry.entry.id));
+
+  for (const entry of entries) {
+    if (entry.ephemeral === null) continue;
+    const previous = nextStates.get(entry.id);
+    const remaining = previous?.ephemeral === undefined ? entry.ephemeral : previous.ephemeral;
+    if (typeof remaining !== "number") continue;
+    const nextRemaining = activatedIds.has(entry.id) ? Math.max(0, remaining - 1) : Math.max(0, remaining);
+    nextStates.set(entry.id, {
+      ...previous,
+      ephemeral: nextRemaining,
+      enabled: nextRemaining > 0,
+    });
+  }
+
+  return nextStates;
+}
+
 function lorebookTimingStateMap(value: unknown): Map<string, EntryTimingState> {
   const states = new Map<string, EntryTimingState>();
   for (const [entryId, state] of Object.entries(parseRecord(value))) {
@@ -352,6 +448,7 @@ function scanLorebookEntries(
   entries: LorebookEntry[],
   lorebook: JsonRecord,
   options: ScanOptions,
+  contentResolver?: LorebookContentResolver,
 ): ScannedLorebookEntries {
   const activated = boolish(lorebook.recursiveScanning, false)
     ? recursiveScan(messages, entries, options, resolveLorebookRecursionDepth(lorebook))
@@ -359,7 +456,7 @@ function scanLorebookEntries(
   const lorebookId = readString(lorebook.id);
   const lorebookName = readString(lorebook.name, lorebookId || "Lorebook");
   const lorebookBudget = nonNegativeInteger(lorebook.tokenBudget, 0);
-  const budgeted = applyTokenBudgetWithSkipped(activated, lorebookBudget);
+  const budgeted = applyTokenBudgetWithSkipped(activated, lorebookBudget, contentResolver);
   return {
     activatedEntries: budgeted.includedEntries,
     budgetSkippedEntries: budgeted.skippedEntries.map((skipped) => ({
@@ -441,6 +538,7 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
   const activeCharacterTags = input.characters.flatMap((character) => character.tags);
   const gameState = parseRecord(input.chat.gameState ?? meta.gameState);
   const previousTimingStates = lorebookTimingStateMap(meta.entryTimingStates);
+  const previousEntryStateOverrides = lorebookEntryStateOverrideMap(meta.entryStateOverrides);
   const messages = input.storedMessages
     .filter((message) => !hiddenFromAi(message))
     .map((message) => ({
@@ -455,7 +553,12 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
     }),
   );
   const entriesByBook = await Promise.all(
-    lorebooks.map(async (book) => ({ book, entries: await loadLorebookEntriesForActivation(input.storage, book) })),
+    lorebooks.map(async (book) => ({
+      book,
+      entries: (await loadLorebookEntriesForActivation(input.storage, book)).map((entry) =>
+        entryWithChatState(entry, previousEntryStateOverrides),
+      ),
+    })),
   );
   const vectorizedEntryCount = entriesByBook.reduce(
     (sum, item) => sum + countSemanticCandidateEntries(item.entries),
@@ -478,7 +581,9 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
     chatEmbedding: semantic.chatEmbedding,
     ignoreTiming: input.ignoreTiming,
   };
-  const scanned = entriesByBook.map(({ book, entries }) => scanLorebookEntries(messages, entries, book, options));
+  const scanned = entriesByBook.map(({ book, entries }) =>
+    scanLorebookEntries(messages, entries, book, options, input.contentResolver),
+  );
   return {
     activatedEntries: scanned
       .flatMap((result) => result.activatedEntries)
@@ -486,6 +591,7 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
     budgetSkippedEntries: scanned.flatMap((result) => result.budgetSkippedEntries),
     entriesForTiming: scanned.flatMap((result) => result.entriesForTiming),
     previousTimingStates,
+    previousEntryStateOverrides,
     lorebookNamesById,
     currentMessageIndex: messages.length,
     activeLorebookReasons,
@@ -551,7 +657,11 @@ export function lorebookActivatedEntryForEvent(entry: ActivatedEntry) {
 export async function scanActiveLorebooks(input: ActiveLorebookScannerInput): Promise<ActiveLorebookScannerResult> {
   const loadedLore = await loadActivatedLore(input);
   const lorebookTokenBudget = resolveLorebookTokenBudget(input.chat, input.request ?? {});
-  const processedLore = processActivatedEntries(loadedLore.activatedEntries, lorebookTokenBudget);
+  const processedLore = processActivatedEntries(
+    loadedLore.activatedEntries,
+    lorebookTokenBudget,
+    input.contentResolver,
+  );
   const nextTimingStates = updateTimingStatesForScan(
     loadedLore.entriesForTiming,
     processedLore.includedEntries,
@@ -560,6 +670,17 @@ export async function scanActiveLorebooks(input: ActiveLorebookScannerInput): Pr
   );
   const lorebookTimingStates = lorebookTimingStatesChanged(loadedLore.previousTimingStates, nextTimingStates)
     ? serializeLorebookTimingStates(nextTimingStates)
+    : null;
+  const nextEntryStateOverrides = updateEntryStateOverridesForScan(
+    loadedLore.entriesForTiming,
+    processedLore.includedEntries,
+    loadedLore.previousEntryStateOverrides,
+  );
+  const lorebookEntryStateOverrides = lorebookEntryStateOverridesChanged(
+    loadedLore.previousEntryStateOverrides,
+    nextEntryStateOverrides,
+  )
+    ? serializeLorebookEntryStateOverrides(nextEntryStateOverrides)
     : null;
   const budgetSkippedLorebookEntries = [
     ...loadedLore.budgetSkippedEntries.map((entry) => lorebookBudgetSkippedLoreForEvent(entry, lorebookTokenBudget)),
@@ -574,6 +695,7 @@ export async function scanActiveLorebooks(input: ActiveLorebookScannerInput): Pr
     previousTimingStates: loadedLore.previousTimingStates,
     nextTimingStates,
     lorebookTimingStates,
+    lorebookEntryStateOverrides,
     budgetSkippedLorebookEntries,
     lorebookNamesById: loadedLore.lorebookNamesById,
     currentMessageIndex: loadedLore.currentMessageIndex,

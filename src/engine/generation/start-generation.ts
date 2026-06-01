@@ -1556,12 +1556,16 @@ async function persistLorebookTimingStatesSafely(
   storage: StorageGateway,
   chatId: string,
   timingStates: Record<string, unknown> | null,
+  entryStateOverrides?: Record<string, unknown> | null,
 ): Promise<void> {
-  if (!timingStates) return;
+  const patch: Record<string, unknown> = {};
+  if (timingStates) patch.entryTimingStates = timingStates;
+  if (entryStateOverrides) patch.entryStateOverrides = entryStateOverrides;
+  if (Object.keys(patch).length === 0) return;
   try {
-    await storage.patchChatMetadata(chatId, { entryTimingStates: timingStates });
+    await storage.patchChatMetadata(chatId, patch);
   } catch (error) {
-    console.warn("[generation] lorebook timing state persist failed", error);
+    console.warn("[generation] lorebook runtime state persist failed", error);
   }
 }
 
@@ -2694,7 +2698,12 @@ export async function* startGeneration(
         });
     let latestSaved = saved;
     if (saved) {
-      await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+      await persistLorebookTimingStatesSafely(
+        deps.storage,
+        chatId,
+        assembly.lorebookTimingStates,
+        assembly.lorebookEntryStateOverrides,
+      );
     }
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
@@ -2867,7 +2876,12 @@ export async function* startGeneration(
         promptSnapshot: promptSnapshotDirect,
       });
   if (saved) {
-    await persistLorebookTimingStatesSafely(deps.storage, chatId, assembly.lorebookTimingStates);
+    await persistLorebookTimingStatesSafely(
+      deps.storage,
+      chatId,
+      assembly.lorebookTimingStates,
+      assembly.lorebookEntryStateOverrides,
+    );
   }
   throwIfAborted(signal);
   if (saved && input.impersonate !== true) {

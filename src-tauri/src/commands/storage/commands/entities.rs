@@ -495,6 +495,7 @@ pub(crate) fn delete_entity(
     if deleted {
         if entity == "lorebooks" {
             delete_lorebook_children(state, id)?;
+            clear_deleted_lorebook_references(state, id)?;
         }
         if entity == "prompts" {
             prompts::delete_prompt_preset_children(state, id)?;
@@ -603,6 +604,90 @@ fn delete_lorebook_children(state: &AppState, lorebook_id: &str) -> Result<(), A
     );
     state.storage.delete_where("lorebook-entries", &filters)?;
     state.storage.delete_where("lorebook-folders", &filters)?;
+    Ok(())
+}
+
+fn remove_string_from_json_array(value: Option<&Value>, removed_id: &str) -> Option<Value> {
+    let array = value?.as_array()?;
+    let filtered = array
+        .iter()
+        .filter_map(Value::as_str)
+        .filter(|id| *id != removed_id)
+        .map(|id| Value::String(id.to_string()))
+        .collect::<Vec<_>>();
+    (filtered.len() != array.len()).then_some(Value::Array(filtered))
+}
+
+fn clear_deleted_lorebook_from_chats(state: &AppState, lorebook_id: &str) -> Result<(), AppError> {
+    for chat in state.storage.list("chats")? {
+        let Some(chat_id) = chat.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let mut patch = Map::new();
+        if let Some(active_ids) =
+            remove_string_from_json_array(chat.get("activeLorebookIds"), lorebook_id)
+        {
+            patch.insert("activeLorebookIds".to_string(), active_ids);
+        }
+
+        let mut metadata = chat
+            .get("metadata")
+            .and_then(|value| shared::json_object_value(Some(value)))
+            .and_then(|value| value.as_object().cloned())
+            .unwrap_or_default();
+        if let Some(active_ids) =
+            remove_string_from_json_array(metadata.get("activeLorebookIds"), lorebook_id)
+        {
+            metadata.insert("activeLorebookIds".to_string(), active_ids);
+            patch.insert("metadata".to_string(), Value::Object(metadata));
+        }
+
+        if !patch.is_empty() {
+            state
+                .storage
+                .patch("chats", chat_id, Value::Object(patch))?;
+        }
+    }
+    Ok(())
+}
+
+fn embedded_lorebook_id(data: &Value) -> Option<&str> {
+    data.pointer("/extensions/importMetadata/embeddedLorebook/lorebookId")
+        .and_then(Value::as_str)
+}
+
+fn clear_deleted_lorebook_from_characters(
+    state: &AppState,
+    lorebook_id: &str,
+) -> Result<(), AppError> {
+    for character in state.storage.list("characters")? {
+        let Some(character_id) = character.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let mut data = character.get("data").cloned().unwrap_or_else(|| json!({}));
+        if embedded_lorebook_id(&data) != Some(lorebook_id) {
+            continue;
+        }
+        let Some(data_object) = data.as_object_mut() else {
+            continue;
+        };
+        data_object.insert("character_book".to_string(), Value::Null);
+        if let Some(import_metadata) = data
+            .pointer_mut("/extensions/importMetadata")
+            .and_then(Value::as_object_mut)
+        {
+            import_metadata.remove("embeddedLorebook");
+        }
+        state
+            .storage
+            .patch("characters", character_id, json!({ "data": data }))?;
+    }
+    Ok(())
+}
+
+fn clear_deleted_lorebook_references(state: &AppState, lorebook_id: &str) -> Result<(), AppError> {
+    clear_deleted_lorebook_from_chats(state, lorebook_id)?;
+    clear_deleted_lorebook_from_characters(state, lorebook_id)?;
     Ok(())
 }
 
@@ -1027,6 +1112,75 @@ mod tests {
             ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
             vec!["folder-keep".to_string()]
         );
+    }
+
+    #[test]
+    fn deleting_lorebook_clears_chat_and_embedded_character_refs() {
+        let state = test_state("lorebook-delete-refs");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({ "id": "book-delete", "name": "Delete me" }),
+            )
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep me" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Chat",
+                    "activeLorebookIds": ["book-delete", "book-keep"],
+                    "metadata": { "activeLorebookIds": ["book-delete", "book-keep"] }
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": {
+                        "name": "Character",
+                        "character_book": { "entries": [{ "content": "legacy" }] },
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "book-delete"
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("character should be created");
+
+        delete_entity(&state, "lorebooks", "book-delete", false).expect("delete should succeed");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert_eq!(chat["activeLorebookIds"], json!(["book-keep"]));
+        assert_eq!(chat["metadata"]["activeLorebookIds"], json!(["book-keep"]));
+
+        let character = state
+            .storage
+            .get("characters", "char-1")
+            .expect("character should read")
+            .expect("character should remain");
+        assert!(character["data"]["character_book"].is_null());
+        assert!(character
+            .pointer("/data/extensions/importMetadata/embeddedLorebook")
+            .is_none());
     }
 
     #[test]
