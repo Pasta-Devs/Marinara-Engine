@@ -84,14 +84,8 @@ pub(crate) fn connections_for_export(state: &AppState) -> AppResult<Vec<Value>> 
         .storage
         .list("connections")?
         .into_iter()
-        .map(|row| {
-            let mut connection = materialize_connection_for_runtime(state, row)?;
-            if let Some(object) = connection.as_object_mut() {
-                object.remove("apiKeyEncrypted");
-                object.remove("apiKeyHash");
-                object.remove("apiKeyMasked");
-                object.remove("hasApiKey");
-            }
+        .map(|mut connection| {
+            mask_connection_for_read(&mut connection);
             Ok(connection)
         })
         .collect()

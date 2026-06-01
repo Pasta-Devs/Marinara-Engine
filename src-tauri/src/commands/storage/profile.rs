@@ -704,7 +704,11 @@ mod tests {
         );
         assert_eq!(
             snapshot["data"]["collections"]["connections"][0]["apiKey"],
-            "sk-export-secret"
+            connection_secrets::API_KEY_MASK
+        );
+        assert_eq!(
+            snapshot["data"]["collections"]["connections"][0]["hasApiKey"],
+            true
         );
         assert!(snapshot["data"]["collections"]["connections"][0]
             .get("apiKeyEncrypted")
@@ -729,10 +733,7 @@ mod tests {
         assert_eq!(connection["folderId"], "folder-1");
         assert_eq!(connection["sortOrder"], 7);
         assert!(connection.get("apiKey").is_none());
-        assert!(connection.get("apiKeyEncrypted").is_some());
-        let runtime_connection = connection_secrets::connection_for_runtime(&target, "conn-1")
-            .expect("imported connection secret should decrypt");
-        assert_eq!(runtime_connection["apiKey"], "sk-export-secret");
+        assert!(connection.get("apiKeyEncrypted").is_none());
     }
 
     #[test]
