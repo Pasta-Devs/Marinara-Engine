@@ -5,7 +5,8 @@ use buttplug::{
     ButtplugClient, ButtplugClientDevice, ButtplugWebsocketClientTransport,
 };
 use buttplug_core::message::OutputType;
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
+use tauri::async_runtime::JoinHandle;
 use tokio::sync::Mutex;
 
 const DEFAULT_INTIFACE_URL: &str = "ws://127.0.0.1:12345";
@@ -21,6 +22,9 @@ struct HapticRuntime {
     preferred_server_url: Option<String>,
     scanning: bool,
     last_command_at: u128,
+    stop_tasks: HashMap<u32, JoinHandle<()>>,
+    stop_task_generations: HashMap<u32, u64>,
+    next_stop_task_generation: u64,
 }
 
 pub(crate) async fn haptic_call(rest: &[&str], body: Value) -> AppResult<Value> {
@@ -100,6 +104,7 @@ async fn disconnect() -> AppResult<Value> {
             let _ = client.disconnect().await;
         }
     }
+    clear_stop_tasks(&mut runtime);
     runtime.server_url = None;
     runtime.scanning = false;
     Ok(status_value(&runtime))
@@ -130,7 +135,8 @@ async fn stop_scan() -> AppResult<Value> {
 }
 
 async fn stop_all() -> AppResult<Value> {
-    let runtime = runtime().lock().await;
+    let mut runtime = runtime().lock().await;
+    clear_stop_tasks(&mut runtime);
     if let Some(client) = runtime.client.as_ref().filter(|client| client.connected()) {
         client
             .stop_all_devices()
@@ -165,20 +171,89 @@ async fn command(body: Value) -> AppResult<Value> {
     let targets = command_targets(client, &body)?;
     let intensity = clamp_unit(body.get("intensity"), 0.5);
     let duration = clamp_duration(body.get("duration"));
+    if targets.is_empty() {
+        return Err(AppError::invalid_input("No connected haptic devices"));
+    }
 
+    let mut successes = Vec::new();
+    let mut failures = Vec::new();
     for device in &targets {
-        run_device_command(device, action, intensity, duration).await?;
+        let index = device.index();
+        if action == "stop" {
+            cancel_stop_task(&mut runtime, index);
+        }
+        match run_device_command(device, action, intensity, duration).await {
+            Ok(()) => {
+                if action != "stop" && (duration <= 0.0 || action == "position") {
+                    cancel_stop_task(&mut runtime, index);
+                }
+                successes.push(index);
+            }
+            Err(error) => failures.push(json!({
+                "deviceIndex": index,
+                "deviceName": device.display_name().as_deref().unwrap_or(device.name()),
+                "error": error.message,
+            })),
+        }
+    }
+    if successes.is_empty() {
+        let error = failures
+            .first()
+            .and_then(|failure| failure.get("error"))
+            .and_then(Value::as_str)
+            .unwrap_or("Haptic command failed");
+        return Err(AppError::new("haptic_command_failed", error));
     }
     if duration > 0.0 && action != "position" && action != "stop" {
-        let stop_targets = targets.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs_f64(duration)).await;
-            for device in stop_targets {
-                let _ = device.stop().await;
-            }
-        });
+        for device in targets
+            .iter()
+            .filter(|device| successes.contains(&device.index()))
+            .cloned()
+        {
+            schedule_stop_task(&mut runtime, device, duration);
+        }
     }
-    Ok(json!({ "ok": true }))
+    Ok(json!({
+        "ok": failures.is_empty(),
+        "successes": successes,
+        "failures": failures
+    }))
+}
+
+fn clear_stop_tasks(runtime: &mut HapticRuntime) {
+    for (_, task) in runtime.stop_tasks.drain() {
+        task.abort();
+    }
+    runtime.stop_task_generations.clear();
+}
+
+fn cancel_stop_task(runtime: &mut HapticRuntime, device_index: u32) {
+    if let Some(task) = runtime.stop_tasks.remove(&device_index) {
+        task.abort();
+    }
+    runtime.stop_task_generations.remove(&device_index);
+}
+
+fn schedule_stop_task(state: &mut HapticRuntime, device: ButtplugClientDevice, duration: f64) {
+    let device_index = device.index();
+    cancel_stop_task(state, device_index);
+    state.next_stop_task_generation = state.next_stop_task_generation.saturating_add(1);
+    let generation = state.next_stop_task_generation;
+    state.stop_task_generations.insert(device_index, generation);
+    let task = tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs_f64(duration)).await;
+        let _ = device.stop().await;
+        let mut state = runtime().lock().await;
+        if state
+            .stop_task_generations
+            .get(&device_index)
+            .is_some_and(|current| *current == generation)
+        {
+            state.stop_tasks.remove(&device_index);
+            state.stop_task_generations.remove(&device_index);
+        }
+    });
+    state.stop_tasks.insert(device_index, task);
 }
 
 fn enforce_command_rate_limit(

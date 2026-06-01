@@ -19,6 +19,8 @@ export const integrationGateway: IntegrationGateway = {
     volume: <T = unknown>(input: Record<string, unknown>) => spotifyApi.volume(input) as Promise<T>,
   },
   haptic: {
+    status: <T = unknown>() => hapticsApi.status<T>(),
+    connect: <T = unknown>(input?: { url?: string | null }) => hapticsApi.connect<T>(input?.url ?? undefined),
     command: <T = unknown>(input: Record<string, unknown>) => hapticsApi.command<T>(input),
     stopAll: <T = unknown>() => hapticsApi.stopAll<T>(),
   },

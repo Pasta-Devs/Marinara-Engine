@@ -2,8 +2,8 @@ import type { HapticDeviceCommand, HapticStatus } from "../../engine/contracts/t
 import { invokeTauri } from "./tauri-client";
 
 export const hapticsApi = {
-  status: () => invokeTauri<HapticStatus>("haptic_status"),
-  connect: (url?: string) => invokeTauri<HapticStatus>("haptic_connect", { body: url ? { url } : null }),
+  status: <T = HapticStatus>() => invokeTauri<T>("haptic_status"),
+  connect: <T = HapticStatus>(url?: string) => invokeTauri<T>("haptic_connect", { body: url ? { url } : null }),
   disconnect: () => invokeTauri<HapticStatus>("haptic_disconnect"),
   startScan: <T = unknown>() => invokeTauri<T>("haptic_start_scan"),
   stopScan: <T = unknown>() => invokeTauri<T>("haptic_stop_scan"),

@@ -6,6 +6,7 @@ import {
   type AgentContext,
   type AgentResult,
 } from "../contracts/types/agent";
+import type { HapticDevice, HapticStatus } from "../contracts/types/haptic";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
@@ -115,6 +116,7 @@ interface ResolvedAgentsResult {
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const DIRECTOR_AGENT_TYPE = "director";
 const ILLUSTRATOR_AGENT_TYPE = "illustrator";
+const HAPTIC_AGENT_TYPE = "haptic";
 const KNOWLEDGE_RETRIEVAL_AGENT_TYPE = "knowledge-retrieval";
 const KNOWLEDGE_ROUTER_AGENT_TYPE = "knowledge-router";
 const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE_ROUTER_AGENT_TYPE]);
@@ -834,7 +836,9 @@ function skippedLorebookKeeperTargetResult(agent: JsonRecord): AgentResult {
 
 function suppressAgentForTurn(input: GenerationAgentRuntimeInput, type: string): boolean {
   const isRegeneration = !!readString(input.regenerateMessageId).trim();
-  return isRegeneration && type === "echo-chamber";
+  if (isRegeneration && type === "echo-chamber") return true;
+  if (type === HAPTIC_AGENT_TYPE) return !boolish(chatMetadata(input).enableHapticFeedback, false);
+  return false;
 }
 
 async function resolveLorebookKeeperRuntimeTarget(
@@ -1183,6 +1187,51 @@ async function populateAgentVisualContext(
   }
 }
 
+function hapticAgentActive(agents: ResolvedAgent[]): boolean {
+  return agents.some((agent) => agent.type === HAPTIC_AGENT_TYPE);
+}
+
+function normalizedHapticDevices(status: HapticStatus | null): HapticDevice[] {
+  if (!status?.connected || !Array.isArray(status.devices)) return [];
+  return status.devices
+    .filter((device): device is HapticDevice => {
+      return (
+        typeof device.index === "number" &&
+        typeof device.name === "string" &&
+        Array.isArray(device.capabilities)
+      );
+    })
+    .map((device) => ({
+      index: device.index,
+      name: device.name,
+      capabilities: device.capabilities.filter((capability): capability is HapticDevice["capabilities"][number] =>
+        typeof capability === "string",
+      ),
+    }));
+}
+
+async function hapticStatusWithAutoConnect(
+  integrations: IntegrationGateway,
+  chatMeta: JsonRecord,
+): Promise<HapticStatus | null> {
+  const current = await integrations.haptic.status<HapticStatus>().catch(() => null);
+  if (current?.connected && normalizedHapticDevices(current).length > 0) return current;
+  const url = readString(chatMeta.hapticIntifaceUrl).trim();
+  return integrations.haptic.connect<HapticStatus>(url ? { url } : undefined).catch(() => current);
+}
+
+async function populateHapticDeviceContext(
+  integrations: IntegrationGateway,
+  agents: ResolvedAgent[],
+  memory: Record<string, unknown>,
+  chatMeta: JsonRecord,
+): Promise<void> {
+  if (!hapticAgentActive(agents) || !boolish(chatMeta.enableHapticFeedback, false)) return;
+  const status = await hapticStatusWithAutoConnect(integrations, chatMeta);
+  const devices = normalizedHapticDevices(status);
+  if (devices.length > 0) memory._connectedDevices = devices;
+}
+
 async function buildAgentContext(
   deps: AgentDeps,
   input: GenerationAgentRuntimeInput,
@@ -1205,6 +1254,7 @@ async function buildAgentContext(
     const existingLorebookEntries = await loadLorebookKeeperEntries(deps.storage, input);
     if (existingLorebookEntries) memory._existingLorebookEntries = existingLorebookEntries;
   }
+  await populateHapticDeviceContext(deps.integrations, agents, memory, chatMeta);
   const context: AgentContext = {
     chatId,
     chatMode,

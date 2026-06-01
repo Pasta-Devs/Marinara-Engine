@@ -90,7 +90,7 @@ export interface DirectMessageCommand {
 interface HapticCommand {
   type: "haptic";
   /** Device action */
-  action: "vibrate" | "oscillate" | "rotate" | "position" | "stop";
+  action: "vibrate" | "oscillate" | "rotate" | "constrict" | "position" | "stop";
   /** Intensity / speed (0.0-1.0) */
   intensity?: number;
   /** Duration in seconds */
@@ -628,7 +628,7 @@ export function parseCharacterCommands(content: string): {
     const actionMatch = params.match(/action="([^"]+)"/);
     if (actionMatch) {
       const a = actionMatch[1]!.toLowerCase();
-      if (["vibrate", "oscillate", "rotate", "position", "stop"].includes(a)) {
+      if (["vibrate", "oscillate", "rotate", "constrict", "position", "stop"].includes(a)) {
         cmd.action = a as HapticCommand["action"];
       }
     }

@@ -480,6 +480,14 @@ function eventsPushCommandError(events: ConnectedCommandEvent[], command: string
   events.push({ type: "command_error", data: { command, error } });
 }
 
+function characterCommandsEnabled(chat: JsonRecord): boolean {
+  return boolish(parseRecord(chat.metadata).characterCommands, true);
+}
+
+function hapticFeedbackEnabled(chat: JsonRecord): boolean {
+  return boolish(parseRecord(chat.metadata).enableHapticFeedback, false);
+}
+
 async function createSceneFromCommand(args: {
   storage: StorageGateway;
   llm?: LlmGateway;
@@ -700,6 +708,9 @@ async function executeCommand(
       return { name: "memory" };
     }
     case "haptic":
+      if (!characterCommandsEnabled(chat) || !hapticFeedbackEnabled(chat)) {
+        return null;
+      }
       if (integrations) {
         await integrations.haptic.command({
           action: command.action,

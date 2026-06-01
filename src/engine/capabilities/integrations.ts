@@ -9,6 +9,8 @@ export interface SpotifyGateway {
 }
 
 export interface HapticGateway {
+  status<T = unknown>(): Promise<T>;
+  connect<T = unknown>(input?: { url?: string | null }): Promise<T>;
   command<T = unknown>(input: Record<string, unknown>): Promise<T>;
   stopAll<T = unknown>(): Promise<T>;
 }
