@@ -1272,7 +1272,8 @@ async function resolveIndividualGroupTurnIds(args: {
       selectionMode: "multi",
     });
   }
-  return [...activeIds];
+  const sequential = sequentialGroupTarget(args.storedMessages, activeIds);
+  return sequential ? [sequential] : [];
 }
 
 async function* runIndividualGroupTurnLoop(args: {
@@ -1303,6 +1304,11 @@ async function* runIndividualGroupTurnLoop(args: {
 
     for await (const event of startGeneration(args.deps, childInput, args.signal)) {
       if (event.type === "user_message" || event.type === "done") continue;
+      if (event.type === "agent_injection_review") {
+        yield event;
+        yield { type: "done" };
+        return;
+      }
       yield event;
     }
   }
@@ -2484,16 +2490,18 @@ export async function* startGeneration(
         prepared: preparedUserInput,
         persona: savedUserPersonaContext(savedUserMessage),
       });
-      yield { type: "offline", characters: characterNames };
+      yield { type: "offline", data: { characters: characterNames } };
       yield { type: "done" };
       return;
     }
     if (availability && availability.delayMs > 0 && !regenerateMessageId) {
       yield {
         type: "delayed",
-        characters: characterNames,
-        status: availability.delayStatus,
-        delayMs: availability.delayMs,
+        data: {
+          characters: characterNames,
+          status: availability.delayStatus,
+          delayMs: availability.delayMs,
+        },
       };
       await abortableDelay(availability.delayMs, signal);
       throwIfAborted(signal);
@@ -2501,7 +2509,7 @@ export async function* startGeneration(
       generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
     }
     if (characterNames.length > 0) {
-      yield { type: "typing", characters: characterNames };
+      yield { type: "typing", data: { characters: characterNames } };
     }
   }
   const agentEvents: AgentResult[] = [];

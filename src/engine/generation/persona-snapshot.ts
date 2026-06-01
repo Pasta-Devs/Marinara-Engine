@@ -37,11 +37,11 @@ function personaSnapshotFromRecord(value: unknown): PersonaMessageSnapshot | nul
   return {
     personaId,
     name,
-    description: readString(field(value, data, "description")),
-    personality: readString(field(value, data, "personality")),
-    scenario: readString(field(value, data, "scenario")),
-    backstory: readString(field(value, data, "backstory")),
-    appearance: readString(field(value, data, "appearance")),
+    description: optionalString(field(value, data, "description")),
+    personality: optionalString(field(value, data, "personality")),
+    scenario: optionalString(field(value, data, "scenario")),
+    backstory: optionalString(field(value, data, "backstory")),
+    appearance: optionalString(field(value, data, "appearance")),
     avatarUrl:
       optionalString(field(value, data, "avatarPath")) ??
       optionalString(field(value, data, "avatarUrl")) ??
