@@ -56,39 +56,43 @@ export const ResolvedAvatarImage = forwardRef<
     if (!syncUrl || isLikelyFilesystemPath(syncUrl)) return fallbackSrc;
     return syncUrl;
   }, [avatarFilePath, avatarFilename, fallbackSrc, hasManagedAvatar]);
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(immediateSrc);
+  const resolutionKey = JSON.stringify([src ?? "", avatarFilename ?? "", avatarFilePath ?? ""]);
+  const [resolvedState, setResolvedState] = useState<{ key: string; src: string | null }>({
+    key: resolutionKey,
+    src: immediateSrc,
+  });
 
   useEffect(() => {
     let cancelled = false;
     if (!hasManagedAvatar) {
-      setResolvedSrc(fallbackSrc);
+      setResolvedState({ key: resolutionKey, src: fallbackSrc });
       onResolvedSrc?.(fallbackSrc);
       return () => {
         cancelled = true;
       };
     }
 
-    setResolvedSrc(immediateSrc);
+    setResolvedState({ key: resolutionKey, src: immediateSrc });
     if (immediateSrc) onResolvedSrc?.(immediateSrc);
     resolveAvatarFileUrl(avatarFilename, avatarFilePath)
       .then((url) => {
         if (cancelled) return;
         const next = url ?? fallbackSrc;
-        setResolvedSrc(next);
+        setResolvedState({ key: resolutionKey, src: next });
         onResolvedSrc?.(next);
       })
       .catch(() => {
         if (cancelled) return;
-        setResolvedSrc(fallbackSrc);
+        setResolvedState({ key: resolutionKey, src: fallbackSrc });
         onResolvedSrc?.(fallbackSrc);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [avatarFilePath, avatarFilename, fallbackSrc, hasManagedAvatar, immediateSrc, onResolvedSrc]);
+  }, [avatarFilePath, avatarFilename, fallbackSrc, hasManagedAvatar, immediateSrc, onResolvedSrc, resolutionKey]);
 
-  const imageSrc = resolvedSrc ?? immediateSrc;
+  const imageSrc = resolvedState.key === resolutionKey ? (resolvedState.src ?? immediateSrc) : immediateSrc;
   if (!imageSrc) return null;
 
   return (
