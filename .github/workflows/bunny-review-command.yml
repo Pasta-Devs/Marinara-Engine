@@ -35,6 +35,7 @@ jobs:
           fi
 
           gh workflow run bunny-review.yml \
+            --repo "${{ github.repository }}" \
             --ref "$TARGET_REF" \
             -f pr_number="$PR_NUM" \
             -f comment_body="$COMMENT_BODY" \
