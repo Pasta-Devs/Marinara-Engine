@@ -1964,9 +1964,21 @@ export const gameApi = {
     type?: string;
   }): Promise<{ changed: boolean; weather: WeatherState; sessionChat: Chat }> {
     const chat = await getChat(data.chatId);
-    const forced = data.type
-      ? ({ type: data.type, temperature: 20, description: "", wind: "calm", visibility: "clear" } as WeatherState)
-      : generateWeather(inferBiome(data.location ?? ""), isWeatherSeason(data.season) ? data.season : "summer");
+    let forced: WeatherState;
+    if (data.type) {
+      forced = { type: data.type, temperature: 20, description: "", wind: "calm", visibility: "clear" } as WeatherState;
+    } else {
+      const biome = inferBiome(data.location ?? "");
+      const season = isWeatherSeason(data.season) ? data.season : "summer";
+      if (data.season && season === "summer" && data.season !== "summer") {
+        console.warn("[game] Invalid weather season; defaulting to summer", {
+          season: data.season,
+          biome,
+          location: data.location ?? "",
+        });
+      }
+      forced = generateWeather(biome, season);
+    }
     const changed =
       Boolean(data.type) ||
       Math.random() <
