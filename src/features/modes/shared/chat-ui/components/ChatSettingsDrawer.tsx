@@ -512,7 +512,10 @@ function metadataCharacterSchedules(value: unknown): CharacterScheduleMap {
   const rawSchedules = metadataRecord(value);
   const characterSchedules: CharacterScheduleMap = {};
   for (const [characterId, rawSchedule] of Object.entries(rawSchedules)) {
+    if (!characterId.trim()) continue;
     const schedule = metadataRecord(rawSchedule);
+    const weekStart = metadataString(schedule.weekStart);
+    if (!weekStart) continue;
     const rawDays = metadataRecord(schedule.days);
     const days: Record<string, ScheduleBlock[]> = {};
     for (const day of SCHEDULE_DAYS) {
@@ -522,7 +525,7 @@ function metadataCharacterSchedules(value: unknown): CharacterScheduleMap {
       if (!(day in days)) days[day] = metadataScheduleBlocks(blocks);
     }
     characterSchedules[characterId] = {
-      weekStart: metadataString(schedule.weekStart),
+      weekStart,
       days,
       inactivityThresholdMinutes: metadataClampedNumber(schedule.inactivityThresholdMinutes, 120, 15, 360),
       talkativeness: metadataClampedNumber(schedule.talkativeness, 50, 0, 100),
