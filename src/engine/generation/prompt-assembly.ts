@@ -11,7 +11,7 @@ import { stripConversationPromptTimestamps } from "../modes/chat/core/summaries/
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { cleanPromptText, stripPromptComments } from "../shared/text/prompt-comments";
-import { normalizeUserTimeZone } from "../shared/time/timezone";
+import { formatZonedDate, formatZonedTime, getZonedWeekdayName, normalizeUserTimeZone } from "../shared/time/timezone";
 import type {
   GameActiveState,
   GameCampaignPlan,
@@ -1486,6 +1486,279 @@ function buildConnectedConversationBlocks(chat: JsonRecord): ChatMLMessage[] {
   return blocks;
 }
 
+function characterNameLookup(characters: GenerationCharacterContext[]): Map<string, string> {
+  return new Map(characters.map((character) => [character.id, character.name]));
+}
+
+function promptSnippet(value: unknown, limit = 900): string {
+  const text = collapseExcessBlankLines(readString(value)).replace(/\s+/g, " ").trim();
+  return text.length > limit ? `${text.slice(0, limit - 3).trimEnd()}...` : text;
+}
+
+function modeOf(chat: JsonRecord | null | undefined): string {
+  return readString(chat?.mode || chat?.chatMode, "conversation");
+}
+
+function historyLine(message: JsonRecord, characterNames: Map<string, string>): string {
+  const role = readString(message.role, "message");
+  const characterId = readString(message.characterId).trim();
+  const name =
+    readString(message.name || message.displayName || message.characterName).trim() ||
+    (characterId ? characterNames.get(characterId) : "") ||
+    role;
+  return `${name}: ${promptSnippet(message.content, 700)}`;
+}
+
+function recentVisibleMessageLines(messages: JsonRecord[], characterNames: Map<string, string>, limit = 6): string[] {
+  return messages
+    .filter((message) => !hiddenFromAi(message) && readString(message.content).trim())
+    .slice(-limit)
+    .map((message) => historyLine(message, characterNames));
+}
+
+function buildConversationPresenceBlock(input: PromptAssemblyInput, wrapFormat: WrapFormat): ChatMLMessage | null {
+  const chatMode = modeOf(input.chat);
+  if (chatMode !== "conversation") return null;
+  const status = readString(input.request.userStatus).trim();
+  const activity = readString(input.request.userActivity).trim();
+  const timeZone = resolvePromptTimeZone(input.chat, input.request);
+  const now = new Date();
+  const parts = [
+    status ? `User status: ${status}` : "",
+    activity ? `User activity: ${activity}` : "",
+    `Current date: ${formatZonedDate(now, timeZone)}`,
+    `Current time: ${formatZonedTime(now, timeZone)}`,
+    `Current weekday: ${getZonedWeekdayName(now, timeZone)}`,
+    timeZone ? `Time zone: ${timeZone}` : "",
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return {
+    role: "system",
+    contextKind: "prompt",
+    content: wrapContent(
+      [
+        "Use this live conversation presence context to judge availability, timing, and whether proactive or casual replies make sense.",
+        ...parts,
+      ].join("\n"),
+      "conversation_presence",
+      wrapFormat,
+    ),
+  };
+}
+
+function scheduleLine(block: JsonRecord): string {
+  const time = readString(block.time).trim();
+  const status = readString(block.status).trim();
+  const activity = readString(block.activity).trim();
+  const prefix = [time, status].filter(Boolean).join(" ");
+  if (!prefix) return activity;
+  return activity ? `${prefix} - ${activity}` : prefix;
+}
+
+function buildConversationScheduleBlock(
+  chat: JsonRecord,
+  characters: GenerationCharacterContext[],
+  wrapFormat: WrapFormat,
+): ChatMLMessage | null {
+  if (modeOf(chat) !== "conversation") return null;
+  const meta = parseRecord(chat.metadata);
+  const schedules = parseRecord(meta.characterSchedules);
+  if (!boolish(meta.conversationSchedulesEnabled, Object.keys(schedules).length > 0)) return null;
+  const names = characterNameLookup(characters);
+  const sections: string[] = [];
+  for (const characterId of activeCharacterIds(chat)) {
+    const schedule = parseRecord(schedules[characterId]);
+    const days = parseRecord(schedule.days);
+    const lines = Object.entries(days).flatMap(([day, rawBlocks]) => {
+      const blocks = parseArray(rawBlocks).filter(isRecord).map(scheduleLine).filter((line) => line.trim());
+      return blocks.length > 0 ? [`${day}:`, ...blocks.map((line) => `- ${line}`)] : [];
+    });
+    if (lines.length === 0) continue;
+    sections.push([names.get(characterId) ?? characterId, ...lines.slice(0, 28)].join("\n"));
+  }
+  if (sections.length === 0) return null;
+  return {
+    role: "system",
+    contextKind: "prompt",
+    content: wrapContent(
+      [
+        "Generated weekly availability for conversation characters. Use it as soft context for whether a character is available, busy, or likely to reply.",
+        sections.join("\n\n"),
+      ].join("\n\n"),
+      "character_schedules",
+      wrapFormat,
+    ),
+  };
+}
+
+function sharesConversationCharacter(source: JsonRecord, candidate: JsonRecord): boolean {
+  const sourceIds = new Set(activeCharacterIds(source));
+  if (sourceIds.size === 0) return false;
+  return activeCharacterIds(candidate).some((id) => sourceIds.has(id));
+}
+
+async function buildCrossChatAwarenessBlock(
+  storage: StorageGateway,
+  chat: JsonRecord,
+  characters: GenerationCharacterContext[],
+  wrapFormat: WrapFormat,
+): Promise<ChatMLMessage | null> {
+  if (modeOf(chat) !== "conversation") return null;
+  const meta = parseRecord(chat.metadata);
+  if (meta.crossChatAwareness === false) return null;
+  const chatId = readString(chat.id).trim();
+  if (!chatId) return null;
+  const characterNames = characterNameLookup(characters);
+  const chats = await storage.list<JsonRecord>("chats").catch(() => []);
+  const siblingChats = chats
+    .filter((candidate) => readString(candidate.id).trim() !== chatId)
+    .filter((candidate) => modeOf(candidate) === "conversation")
+    .filter((candidate) => sharesConversationCharacter(chat, candidate))
+    .slice(0, 6);
+  const sections: string[] = [];
+  for (const sibling of siblingChats) {
+    const siblingId = readString(sibling.id).trim();
+    if (!siblingId) continue;
+    const lines = recentVisibleMessageLines(
+      await storage.listChatMessages<JsonRecord>(siblingId, { limit: 8 }).catch(() => []),
+      characterNames,
+      4,
+    );
+    if (lines.length === 0) continue;
+    const title = readString(sibling.name).trim() || siblingId;
+    sections.push([`Chat: ${title}`, ...lines.map((line) => `- ${line}`)].join("\n"));
+  }
+  if (sections.length === 0) return null;
+  return {
+    role: "system",
+    contextKind: "prompt",
+    content: wrapContent(
+      [
+        "Recent sibling conversation context for shared characters. Use it for continuity only; do not quote it as a system artifact.",
+        sections.join("\n\n"),
+      ].join("\n\n"),
+      "cross_chat_awareness",
+      wrapFormat,
+    ),
+  };
+}
+
+function connectedSummaryLines(chat: JsonRecord): string[] {
+  const meta = parseRecord(chat.metadata);
+  const mode = modeOf(chat);
+  const summaryValues = [
+    meta.conversationSummary,
+    meta.summary,
+    meta.lastRoleplaySceneSummary,
+    meta.sceneDescription,
+    meta.sceneScenario,
+  ]
+    .map((value) => promptSnippet(value, 900))
+    .filter(Boolean);
+  const gameState = mode === "game" ? parseRecord(chat.gameState ?? meta.gameState) : {};
+  return [
+    ...summaryValues.map((summary) => `Summary: ${summary}`),
+    Object.keys(gameState).length > 0 ? `Game state: ${JSON.stringify(gameState).slice(0, 1800)}` : "",
+  ].filter(Boolean);
+}
+
+async function buildConversationLinkedChatBlock(
+  storage: StorageGateway,
+  chat: JsonRecord,
+  characters: GenerationCharacterContext[],
+  wrapFormat: WrapFormat,
+): Promise<{ block: ChatMLMessage | null; connectedMode: string | null }> {
+  if (modeOf(chat) !== "conversation") return { block: null, connectedMode: null };
+  const connectedChatId = readString(chat.connectedChatId).trim();
+  if (!connectedChatId) return { block: null, connectedMode: null };
+  const connected = await storage.get<JsonRecord>("chats", connectedChatId).catch(() => null);
+  const connectedMode = modeOf(connected);
+  if (!connected || (connectedMode !== "roleplay" && connectedMode !== "game")) {
+    return { block: null, connectedMode: null };
+  }
+  const characterNames = characterNameLookup(characters);
+  const recentLines = recentVisibleMessageLines(
+    await storage.listChatMessages<JsonRecord>(connectedChatId, { limit: 10 }).catch(() => []),
+    characterNames,
+    6,
+  );
+  const title = readString(connected.name).trim() || connectedChatId;
+  const lines = [
+    `Linked ${connectedMode}: ${title}`,
+    ...connectedSummaryLines(connected),
+    ...(recentLines.length > 0 ? ["Recent linked messages:", ...recentLines.map((line) => `- ${line}`)] : []),
+  ].filter(Boolean);
+  if (lines.length <= 1) return { block: null, connectedMode };
+  return {
+    connectedMode,
+    block: {
+      role: "system",
+      contextKind: "prompt",
+      content: wrapContent(
+        [
+          `This conversation is linked to a ${connectedMode} chat. Use the linked context when the user or character refers to that shared situation, without turning the conversation reply into a full ${connectedMode} turn unless asked.`,
+          lines.join("\n"),
+        ].join("\n\n"),
+        connectedMode === "game" ? "connected_game" : "connected_roleplay",
+        wrapFormat,
+      ),
+    },
+  };
+}
+
+function buildConversationCommandBlock(
+  chat: JsonRecord,
+  characters: GenerationCharacterContext[],
+  connectedMode: string | null,
+  wrapFormat: WrapFormat,
+): ChatMLMessage | null {
+  if (modeOf(chat) !== "conversation") return null;
+  const meta = parseRecord(chat.metadata);
+  if (meta.characterCommands === false) return null;
+  const schedules = parseRecord(meta.characterSchedules);
+  const hasSchedules = boolish(meta.conversationSchedulesEnabled, Object.keys(schedules).length > 0);
+  const hasCharacters = characters.length > 0;
+  const hasConnectedRoleplayOrGame = connectedMode === "roleplay" || connectedMode === "game";
+  const instructions = [
+    "When useful, append one hidden command tag after the visible reply. Hidden tags are parsed by Marinara and stripped before the user sees the message. Never describe the tag in visible prose.",
+    hasSchedules
+      ? '- Update availability with [schedule_update: status="online|idle|dnd|offline", activity="short activity"] when the character is correcting their current status or plans.'
+      : "",
+    '- Cross-post a message with [cross_post: target="group or chat name"] when the character naturally wants to move or share a message across conversations.',
+    '- Request an image with [selfie] or [selfie: context="brief visual context"] when a casual conversation selfie is appropriate and image generation is configured.',
+    hasCharacters
+      ? '- Save a durable character memory with [memory: target="Character Name", summary="brief memory"] when the character learns something they should remember later.'
+      : "",
+    '- Start a linked roleplay scene with [scene: scenario="what happens", background="optional setting", plan="optional short plan"] when the conversation clearly calls for a scene.',
+    hasConnectedRoleplayOrGame
+      ? "- Send linked-chat context with <influence>one-shot OOC steering note</influence> or <note>durable fact for the linked prompt</note> when this conversation should affect the linked roleplay/game."
+      : "",
+  ].filter(Boolean);
+  if (instructions.length <= 1) return null;
+  return {
+    role: "system",
+    contextKind: "prompt",
+    content: wrapContent(instructions.join("\n"), "conversation_commands", wrapFormat),
+  };
+}
+
+async function buildConversationContextBlocks(
+  storage: StorageGateway,
+  input: PromptAssemblyInput,
+  characters: GenerationCharacterContext[],
+  wrapFormat: WrapFormat,
+): Promise<ChatMLMessage[]> {
+  if (modeOf(input.chat) !== "conversation") return [];
+  const linked = await buildConversationLinkedChatBlock(storage, input.chat, characters, wrapFormat);
+  return [
+    buildConversationPresenceBlock(input, wrapFormat),
+    buildConversationScheduleBlock(input.chat, characters, wrapFormat),
+    await buildCrossChatAwarenessBlock(storage, input.chat, characters, wrapFormat),
+    linked.block,
+    buildConversationCommandBlock(input.chat, characters, linked.connectedMode, wrapFormat),
+  ].filter((block): block is ChatMLMessage => block !== null);
+}
+
 function buildRoleplayDirectMessageCommandReminder(chat: JsonRecord): ChatMLMessage[] {
   const mode = readString(chat.mode || chat.chatMode, "conversation");
   const meta = parseRecord(chat.metadata);
@@ -2021,6 +2294,7 @@ export async function assembleGenerationPrompt(
   }
 
   insertBeforeLastUser(messages, [
+    ...(await buildConversationContextBlocks(storage, input, characters, wrapFormat)),
     ...buildConnectedConversationBlocks(input.chat),
     ...buildRoleplayDirectMessageCommandReminder(input.chat),
   ]);
