@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { QuestProgress } from "../../../../engine/contracts/types/game-state";
+import type { TrackerPanelSizeProfile } from "../../../../shared/stores/ui.store";
 import { TrackerReadabilityVeil } from "./tracker-data-sidebar.controls";
 import { QuestBoard } from "./quest-tracker/QuestBoard";
 
@@ -11,6 +12,7 @@ export function QuestTrackerPanel({
   onRemoveQuest,
   deleteMode,
   addMode,
+  trackerPanelSizeProfile,
   collapsed = false,
   onToggleCollapsed,
 }: {
@@ -21,6 +23,7 @@ export function QuestTrackerPanel({
   onRemoveQuest: (questEntryId: string) => void;
   deleteMode: boolean;
   addMode: boolean;
+  trackerPanelSizeProfile: TrackerPanelSizeProfile;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
@@ -38,6 +41,7 @@ export function QuestTrackerPanel({
         onRemoveQuest={onRemoveQuest}
         deleteMode={deleteMode}
         addMode={addMode}
+        trackerPanelSizeProfile={trackerPanelSizeProfile}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
       />

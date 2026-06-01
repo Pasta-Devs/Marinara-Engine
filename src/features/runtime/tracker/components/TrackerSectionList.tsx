@@ -218,6 +218,7 @@ export function TrackerSectionList({
             onRemoveQuest={removeQuest}
             deleteMode={deleteMode}
             addMode={addMode}
+            trackerPanelSizeProfile={trackerPanelSizeProfile}
             collapsed={isPanelCollapsed("quests")}
             onToggleCollapsed={() => toggleTrackerPanelSectionCollapsed("quests")}
           />
@@ -231,6 +232,7 @@ export function TrackerSectionList({
             onUpdateFields={updateCustomFields}
             deleteMode={deleteMode}
             addMode={addMode}
+            trackerPanelSizeProfile={trackerPanelSizeProfile}
             collapsed={isPanelCollapsed("custom")}
             onToggleCollapsed={() => toggleTrackerPanelSectionCollapsed("custom")}
           />

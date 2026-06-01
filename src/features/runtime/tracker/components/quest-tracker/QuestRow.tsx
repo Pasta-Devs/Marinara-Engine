@@ -11,6 +11,7 @@ import { TRACKER_BAR } from "../tracker-data-sidebar.constants";
 import { InlineEdit } from "../tracker-data-sidebar.controls";
 import { visibleText } from "../tracker-display.helpers";
 import { QuestObjectiveRow } from "./QuestObjectiveRow";
+import { getQuestTextWrapClass, type QuestTextLineCount } from "./quest-layout";
 import "./QuestRow.css";
 
 export function QuestRow({
@@ -19,12 +20,14 @@ export function QuestRow({
   onRemove,
   deleteMode = false,
   addMode = false,
+  textLineCount = 1,
 }: {
   quest: QuestProgress;
   onUpdate?: (quest: QuestProgress) => void;
   onRemove?: () => void;
   deleteMode?: boolean;
   addMode?: boolean;
+  textLineCount?: QuestTextLineCount;
 }) {
   const completed = quest.objectives.filter((objective) => objective.completed).length;
   const totalObjectives = quest.objectives.length;
@@ -34,6 +37,9 @@ export function QuestRow({
     ? "grid-cols-[0.875rem_minmax(0,1fr)_1rem]"
     : "grid-cols-[0.875rem_minmax(0,1fr)]";
   const questTitle = visibleText(quest.name, "Quest");
+  const wrapsText = textLineCount > 1;
+  const previewLineCount: 2 | 3 | undefined = textLineCount === 1 ? undefined : textLineCount;
+  const wrapClass = getQuestTextWrapClass(textLineCount);
   const updateObjective = (index: number, nextText: string) => {
     if (!onUpdate) return;
     onUpdate(updateQuestObjectiveText(quest, index, nextText));
@@ -82,8 +88,14 @@ export function QuestRow({
             placeholder="Quest"
             title={`Quest: ${questTitle}`}
             showEditHint={false}
+            fitPreview={!wrapsText}
+            previewLineCount={previewLineCount}
+            editHintMode={wrapsText ? "overlay" : "inline"}
             className={cn(
               "tracker-quest-row__title-edit",
+              wrapsText
+                ? "tracker-quest-row__title-edit--wrapped"
+                : "tracker-quest-row__title-edit--single-line",
               quest.completed && "tracker-quest-row__title-edit--completed",
             )}
           />
@@ -91,6 +103,7 @@ export function QuestRow({
           <div
             className={cn(
               "tracker-quest-row__title-static",
+              wrapClass,
               quest.completed && "tracker-quest-row__title-static--completed",
             )}
           >
@@ -136,6 +149,9 @@ export function QuestRow({
               key={objective.objectiveId || `${objective.text}-${index}`}
               objective={objective}
               objectiveGridColumns={objectiveGridColumns}
+              previewLineCount={previewLineCount}
+              wrapClass={wrapClass}
+              wrapsText={wrapsText}
               onToggle={onUpdate ? () => toggleObjective(index) : undefined}
               onUpdate={onUpdate ? (text) => updateObjective(index, text) : undefined}
               onRemove={onUpdate ? () => removeObjective(index) : undefined}

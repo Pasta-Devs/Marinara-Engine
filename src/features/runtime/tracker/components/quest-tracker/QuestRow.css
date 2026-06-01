@@ -69,13 +69,23 @@
 .tracker-quest-row__title-edit {
   width: 100%;
   min-width: 0;
-  height: 1.25rem;
   overflow: hidden;
   padding: 0 0.125rem;
   color: color-mix(in srgb, var(--foreground) 92%, transparent);
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.tracker-quest-row__title-edit--single-line {
+  height: 1.25rem;
   line-height: 1.25rem;
+}
+
+.tracker-quest-row__title-edit--wrapped {
+  min-height: 1.25rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  line-height: 1.12;
 }
 
 .tracker-quest-row__title-edit:hover,
@@ -88,8 +98,32 @@
   overflow: hidden;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.tracker-quest-row__text--single-line {
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tracker-quest-row__text--wrap-2,
+.tracker-quest-row__text--wrap-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+}
+
+.tracker-quest-row__text--wrap-2 {
+  line-height: 1.15;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.tracker-quest-row__text--wrap-3 {
+  line-height: 1.12;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .tracker-quest-row__title-edit--completed,
@@ -216,7 +250,6 @@
   position: relative;
   display: grid;
   min-height: 1rem;
-  align-items: center;
   gap: 0.25rem;
   border-radius: 2px;
   padding-right: 0.125rem;
@@ -227,24 +260,50 @@
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 }
 
+.tracker-quest-objective-row--single-line {
+  align-items: center;
+  line-height: 1rem;
+}
+
+.tracker-quest-objective-row--wrapped {
+  align-items: start;
+  min-height: 1.25rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  line-height: 1.15;
+}
+
 .tracker-quest-objective-row:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.tracker-quest-objective-row__toggle--wrapped,
+.tracker-quest-objective-row--wrapped .tracker-quest-objective-row__status {
+  margin-top: 1px;
 }
 
 .tracker-quest-objective-row__edit {
   width: 100%;
   min-width: 0;
-  height: 1rem;
   overflow: hidden;
   padding: 0 0.125rem;
   font-size: 0.6875rem;
+}
+
+.tracker-quest-objective-row__edit--single-line {
+  height: 1rem;
   line-height: 1rem;
+}
+
+.tracker-quest-objective-row__edit--wrapped {
+  min-height: 1rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  line-height: 1.15;
 }
 
 .tracker-quest-objective-row__text {
   min-width: 0;
   overflow: hidden;
   color: var(--foreground);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

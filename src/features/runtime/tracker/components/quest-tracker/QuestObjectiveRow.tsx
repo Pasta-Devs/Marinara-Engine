@@ -9,6 +9,9 @@ type QuestObjective = QuestProgress["objectives"][number];
 export function QuestObjectiveRow({
   objective,
   objectiveGridColumns,
+  previewLineCount,
+  wrapClass,
+  wrapsText,
   onRemove,
   onToggle,
   onUpdate,
@@ -16,19 +19,29 @@ export function QuestObjectiveRow({
 }: {
   objective: QuestObjective;
   objectiveGridColumns: string;
+  previewLineCount: 2 | 3 | undefined;
+  wrapClass: string;
+  wrapsText: boolean;
   onRemove?: () => void;
   onToggle?: () => void;
   onUpdate?: (text: string) => void;
   deleteMode: boolean;
 }) {
   return (
-    <div className={cn("tracker-quest-objective-row", objectiveGridColumns)}>
+    <div
+      className={cn(
+        "tracker-quest-objective-row",
+        wrapsText ? "tracker-quest-objective-row--wrapped" : "tracker-quest-objective-row--single-line",
+        objectiveGridColumns,
+      )}
+    >
       {onToggle ? (
         <button
           type="button"
           onClick={onToggle}
           className={cn(
             "tracker-quest-objective-row__toggle",
+            wrapsText && "tracker-quest-objective-row__toggle--wrapped",
             objective.completed && "tracker-quest-objective-row__toggle--completed",
           )}
           title={objective.completed ? "Mark incomplete" : "Mark complete"}
@@ -52,8 +65,13 @@ export function QuestObjectiveRow({
           placeholder="Objective"
           title={`Objective: ${visibleText(objective.text, "Objective")}`}
           showEditHint={false}
+          previewLineCount={previewLineCount}
+          editHintMode={wrapsText ? "overlay" : "inline"}
           className={cn(
             "tracker-quest-objective-row__edit",
+            wrapsText
+              ? "tracker-quest-objective-row__edit--wrapped"
+              : "tracker-quest-objective-row__edit--single-line",
             objective.completed && "tracker-quest-objective-row__edit--completed",
           )}
         />
@@ -61,6 +79,7 @@ export function QuestObjectiveRow({
         <span
           className={cn(
             "tracker-quest-objective-row__text",
+            wrapClass,
             objective.completed && "tracker-quest-objective-row__text--completed",
           )}
         >

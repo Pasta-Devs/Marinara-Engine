@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { PresentCharacter } from "../../../../engine/contracts/types/game-state";
 import { npcAvatarApi } from "../../../../shared/api/avatar-api";
 import { useAgentConfigs, useUpdateAgent, type AgentConfigRow } from "../../../catalog/agents/index";
@@ -47,6 +47,8 @@ export function useTrackerCharacterAvatarActions({
   onUpdateCharacters,
   agentConfigLookupEnabled = true,
 }: UseTrackerCharacterAvatarActionsOptions) {
+  const avatarUploadSerialRef = useRef(0);
+  const avatarUploadTokenByCharacterRef = useRef(new Map<string, number>());
   const { data: agentConfigs } = useAgentConfigs(agentConfigLookupEnabled);
   const updateAgent = useUpdateAgent();
   const characterTrackerConfig = useMemo(() => {
@@ -83,19 +85,30 @@ export function useTrackerCharacterAvatarActions({
 
       const targetCharacterId = character.characterId;
       const fallbackIndex = index;
+      const uploadKey = `${chatId}:${targetCharacterId || `${fallbackIndex}:${character.name}`}`;
+      const uploadToken = avatarUploadSerialRef.current + 1;
+      avatarUploadSerialRef.current = uploadToken;
+      avatarUploadTokenByCharacterRef.current.set(uploadKey, uploadToken);
+      const isLatestUpload = () => avatarUploadTokenByCharacterRef.current.get(uploadKey) === uploadToken;
+      const clearUploadToken = () => {
+        if (isLatestUpload()) {
+          avatarUploadTokenByCharacterRef.current.delete(uploadKey);
+        }
+      };
 
       try {
         const dataUrl = await readFileAsDataUrl(file);
+        if (!isLatestUpload()) return;
         const response = await npcAvatarApi.upload(chatId, character.name, dataUrl);
+        if (!isLatestUpload()) return;
         const latestState = useGameStateStore.getState().current;
         const latestCharacters =
           latestState?.chatId === chatId ? (latestState.presentCharacters ?? []) : currentCharacters;
-        let targetIndex = targetCharacterId
+        const targetIndex = targetCharacterId
           ? latestCharacters.findIndex((candidate) => candidate.characterId === targetCharacterId)
-          : -1;
-        if (targetIndex < 0 && latestCharacters[fallbackIndex]?.name === character.name) {
-          targetIndex = fallbackIndex;
-        }
+          : latestCharacters[fallbackIndex]?.name === character.name
+            ? fallbackIndex
+            : -1;
         const latestCharacter = latestCharacters[targetIndex];
         if (!latestCharacter) return;
 
@@ -107,6 +120,8 @@ export function useTrackerCharacterAvatarActions({
         );
       } catch {
         // Avatar uploads are an optional tracker enhancement; failed uploads leave tracker data unchanged.
+      } finally {
+        clearUploadToken();
       }
     },
     [characters, chatId, onUpdateCharacters],

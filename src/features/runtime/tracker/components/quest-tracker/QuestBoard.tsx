@@ -1,9 +1,11 @@
 import { Target } from "lucide-react";
 import type { ReactNode } from "react";
+import type { TrackerPanelSizeProfile } from "../../../../../shared/stores/ui.store";
 import type { QuestProgress } from "../../../../../engine/contracts/types/game-state";
 import { cn } from "../../../../../shared/lib/utils";
 import { AddRowButton, SectionHeader } from "../tracker-data-sidebar.controls";
 import { TRACKER_TEXT_ROW } from "../tracker-data-sidebar.constants";
+import { getQuestTextLineCount } from "./quest-layout";
 import { QuestRow } from "./QuestRow";
 
 export function QuestBoard({
@@ -14,6 +16,7 @@ export function QuestBoard({
   onRemoveQuest,
   deleteMode,
   addMode,
+  trackerPanelSizeProfile,
   collapsed = false,
   onToggleCollapsed,
 }: {
@@ -24,18 +27,20 @@ export function QuestBoard({
   onRemoveQuest: (questEntryId: string) => void;
   deleteMode: boolean;
   addMode: boolean;
+  trackerPanelSizeProfile: TrackerPanelSizeProfile;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
   const completedQuests = quests.filter((quest) => quest.completed).length;
   const activeQuests = quests.length - completedQuests;
+  const questTextLineCount = getQuestTextLineCount(trackerPanelSizeProfile, quests.length);
 
   return (
     <div className="relative z-10 overflow-hidden pb-0.5">
       <SectionHeader
         icon={<Target size="0.6875rem" />}
         title="Quest Board"
-        badge={`${completedQuests}/${activeQuests}`}
+        badge={`${completedQuests}/${quests.length}`}
         badgeTitle={`${completedQuests} done, ${activeQuests} active`}
         action={action}
         addAction={
@@ -60,6 +65,7 @@ export function QuestBoard({
                 onRemove={() => onRemoveQuest(quest.questEntryId)}
                 deleteMode={deleteMode}
                 addMode={addMode}
+                textLineCount={questTextLineCount}
               />
             ))}
           </div>
