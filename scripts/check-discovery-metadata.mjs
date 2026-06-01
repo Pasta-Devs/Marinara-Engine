@@ -137,6 +137,70 @@ function getArgValue(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+async function readPullRequestBodyFromEvent() {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) return "";
+
+  try {
+    const event = JSON.parse((await readFile(eventPath, "utf8")).replace(/^\uFEFF/, ""));
+    return typeof event.pull_request?.body === "string" ? event.pull_request.body : "";
+  } catch {
+    return "";
+  }
+}
+
+function checkboxChecked(line) {
+  return /\[\s*x\s*\]/i.test(line);
+}
+
+function cleanReasonLine(line) {
+  return line
+    .replace(/^[-*]\s*/, "")
+    .replace(/^<!--.*-->$/, "")
+    .trim();
+}
+
+function readFeatureDiscoverabilityReason(body) {
+  const lines = body.split(/\r?\n/);
+  const reasonIndex = lines.findIndex((line) => /^#{0,6}\s*(feature discoverability\s+)?reason\s*:/i.test(line.trim()));
+  if (reasonIndex < 0) return "";
+
+  const inlineReason = cleanReasonLine(lines[reasonIndex].replace(/^#{0,6}\s*(feature discoverability\s+)?reason\s*:/i, ""));
+  if (inlineReason && inlineReason !== "-") return inlineReason;
+
+  for (const line of lines.slice(reasonIndex + 1)) {
+    if (/^#{1,6}\s+/.test(line)) break;
+    const reason = cleanReasonLine(line);
+    if (reason && reason !== "-") return reason;
+  }
+  return "";
+}
+
+function parseFeatureDiscoverabilityDecision(body) {
+  const decision = { updated: false, na: false, reason: readFeatureDiscoverabilityReason(body) };
+  const lines = body.split(/\r?\n/);
+  let inFeatureDiscoverabilitySection = false;
+  for (const line of lines) {
+    if (/^#{1,6}\s+feature discoverability\s*$/i.test(line.trim())) {
+      inFeatureDiscoverabilitySection = true;
+      continue;
+    }
+    if (inFeatureDiscoverabilitySection && /^#{1,6}\s+/.test(line.trim())) {
+      inFeatureDiscoverabilitySection = false;
+    }
+    if (!/\[\s*[ x]\s*\]/i.test(line)) continue;
+    const normalized = line.toLowerCase();
+    const isFeatureDiscoverabilityLine =
+      inFeatureDiscoverabilitySection ||
+      normalized.includes("feature discoverability") ||
+      normalized.includes("src/features/shell/discovery");
+    if (!isFeatureDiscoverabilityLine || !checkboxChecked(line)) continue;
+    if (/\bn\/?a\b/i.test(line)) decision.na = true;
+    else decision.updated = true;
+  }
+  return decision;
+}
+
 function gitChangedFiles(base) {
   const output = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" });
   return output
@@ -175,18 +239,46 @@ if (errors.length > 0) {
 
 const prAware = process.argv.includes("--pr-aware");
 const changedFrom = getArgValue("--changed-from") ?? (prAware ? `origin/${process.env.GITHUB_BASE_REF || "refactor"}` : undefined);
+const pullRequestBody = await readPullRequestBodyFromEvent();
+const featureDiscoverabilityDecision = parseFeatureDiscoverabilityDecision(pullRequestBody);
+const featureDiscoverabilityDecisionCount =
+  Number(featureDiscoverabilityDecision.updated) + Number(featureDiscoverabilityDecision.na);
+const allowMissingDiscovery =
+  process.argv.includes("--allow-missing") ||
+  process.env.DISCOVERY_CHECK_ALLOW_MISSING === "1" ||
+  (featureDiscoverabilityDecision.na && hasText(featureDiscoverabilityDecision.reason));
 
 if (changedFrom) {
   const changed = gitChangedFiles(changedFrom);
   const userFacing = changed.filter(isLikelyUserFacingPath);
   const discoveryTouched = changed.some(isDiscoveryMetadataPath);
-  if (userFacing.length > 0 && !discoveryTouched && process.env.DISCOVERY_CHECK_ALLOW_MISSING !== "1") {
+  if (userFacing.length > 0 && pullRequestBody && featureDiscoverabilityDecisionCount !== 1) {
+    console.error("Feature Discoverability must check exactly one option in the PR body.");
+    console.error("- Updated src/features/shell/discovery/ metadata");
+    console.error("- N/A with a short reason");
+    process.exit(1);
+  }
+  if (
+    userFacing.length > 0 &&
+    !discoveryTouched &&
+    featureDiscoverabilityDecision.na &&
+    !hasText(featureDiscoverabilityDecision.reason)
+  ) {
+    console.error("Feature Discoverability N/A requires a non-empty Reason in the PR body.");
+    process.exit(1);
+  }
+  if (userFacing.length > 0 && !discoveryTouched && !allowMissingDiscovery) {
     console.error(
       `Discovery metadata was not updated, but ${userFacing.length} likely user-facing file(s) changed relative to ${changedFrom}.`,
     );
     for (const path of userFacing.slice(0, 12)) console.error(`- ${path}`);
-    console.error("Update src/features/shell/discovery/ or rerun with DISCOVERY_CHECK_ALLOW_MISSING=1 for an intentional N/A.");
+    console.error(
+      "Update src/features/shell/discovery/ or mark Feature Discoverability as N/A in the PR body with a reason.",
+    );
     process.exit(1);
+  }
+  if (userFacing.length > 0 && !discoveryTouched && allowMissingDiscovery) {
+    console.log("Discovery metadata not updated; accepted explicit Feature Discoverability N/A marker.");
   }
   console.log(`Checked ${registry.length} discovery entries and ${changed.length} changed file(s).`);
 } else {

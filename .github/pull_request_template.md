@@ -63,6 +63,16 @@ Pressure points touched:
 
 -
 
+## Feature Discoverability
+
+Check exactly one:
+
+- [ ] Updated `src/features/shell/discovery/` because this PR adds or materially changes a user-discoverable feature, workflow, setting, mode, panel, import path, agent, media capability, or advanced tool.
+- [ ] N/A because this PR is only a bugfix, refactor, test, docs, internal wiring, visual polish, copy edit, or compatibility fix and does not add a new thing users need to find.
+
+Reason:
+-
+
 ## Docs and release impact
 
 - [ ] No docs changes needed
@@ -70,7 +80,6 @@ Pressure points touched:
 - [ ] Updated `CONTRIBUTING.md`
 - [ ] Updated `docs/developer/`
 - [ ] Updated repo skills or `AGENTS.md`
-- [ ] Updated Feature Discoverability / marked N/A in notes
 - [ ] Confirmed this PR does not restore old staging/package-workspace/release claims
 
 ## UI evidence
