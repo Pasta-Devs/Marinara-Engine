@@ -160,6 +160,7 @@ const REMOTE_COMMANDS = new Set([
   "connection_save_default_parameters",
   "persona_activate",
   "character_avatar_upload",
+  "character_avatar_remove",
   "character_restore_version",
   "persona_avatar_upload",
   "npc_avatar_upload",

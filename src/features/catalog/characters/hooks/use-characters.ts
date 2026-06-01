@@ -251,7 +251,17 @@ export function useUploadAvatar() {
   return useMutation({
     mutationFn: ({ id, avatar }: { id: string; avatar: string }) => characterApi.uploadAvatar(id, avatar),
     onSuccess: (_data, variables) => {
-      invalidateCharacterRecordQueries(qc, variables.id);
+      invalidateCharacterRecordQueries(qc, variables.id, { includeVersions: true });
+    },
+  });
+}
+
+export function useRemoveAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => characterApi.removeAvatar(id),
+    onSuccess: (_data, id) => {
+      invalidateCharacterRecordQueries(qc, id, { includeVersions: true });
     },
   });
 }

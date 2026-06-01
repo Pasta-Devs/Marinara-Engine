@@ -15,6 +15,7 @@ export const characterApi = {
   restoreVersion: (characterId: string, versionId: string) =>
     invokeTauri("character_restore_version", { characterId, versionId }),
   uploadAvatar: (id: string, avatar: string) => invokeTauri("character_avatar_upload", { id, body: { avatar } }),
+  removeAvatar: (id: string) => invokeTauri("character_avatar_remove", { id }),
   importEmbeddedLorebook: (id: string) =>
     invokeTauri<EmbeddedLorebookImportResult>("character_embedded_lorebook_import", { id }),
 };

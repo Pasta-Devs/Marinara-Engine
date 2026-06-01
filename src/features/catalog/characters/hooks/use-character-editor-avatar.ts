@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import { toast } from "sonner";
 
 import { generateClientId } from "../../../../shared/lib/utils";
-import { useUploadAvatar } from "./use-characters";
+import { useRemoveAvatar, useUploadAvatar } from "./use-characters";
 
 type MutableRef<T> = {
   current: T;
@@ -26,6 +26,7 @@ export function useCharacterEditorAvatar({
   setExtensionValue: (key: string, value: unknown) => void;
 }) {
   const uploadAvatar = useUploadAvatar();
+  const removeAvatar = useRemoveAvatar();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const activeCharacterIdRef = useRef<string | null>(characterId);
@@ -79,7 +80,7 @@ export function useCharacterEditorAvatar({
       }
       if (!beginAvatarUpload()) {
         event.target.value = "";
-        toast.error("Wait for the current avatar upload to finish.");
+        toast.error("Wait for the current avatar change to finish.");
         return;
       }
 
@@ -156,7 +157,7 @@ export function useCharacterEditorAvatar({
         throw new Error("Wait for the current save to finish before uploading an avatar.");
       }
       if (!beginAvatarUpload()) {
-        throw new Error("Wait for the current avatar upload to finish.");
+        throw new Error("Wait for the current avatar change to finish.");
       }
       const uploadCharacterId = characterId;
       const uploadToken = generateClientId();
@@ -210,11 +211,71 @@ export function useCharacterEditorAvatar({
     ],
   );
 
+  const handleRemoveAvatar = useCallback(async () => {
+    if (!characterId) return;
+    if (saving) {
+      toast.error("Wait for the current save to finish before removing the avatar.");
+      return;
+    }
+    if (!beginAvatarUpload()) {
+      toast.error("Wait for the current avatar change to finish.");
+      return;
+    }
+    const uploadCharacterId = characterId;
+    const uploadToken = generateClientId();
+    latestAvatarUploadRef.current = { token: uploadToken, characterId: uploadCharacterId };
+    const fallbackAvatarPreview = avatarPreview;
+    const fallbackAvatarCrop = currentAvatarCrop;
+    const shouldClearAvatarCrop = fallbackAvatarCrop !== undefined;
+    const fallbackDirty = dirtyRef.current;
+    const editRevisionAtRemoveStart = editRevisionRef.current;
+
+    setAvatarPreview(null);
+    if (shouldClearAvatarCrop) {
+      setExtensionValue("avatarCrop", undefined);
+    }
+    if (fallbackDirty || shouldClearAvatarCrop) {
+      setDirtyState(fallbackDirty);
+    }
+    try {
+      await removeAvatar.mutateAsync(uploadCharacterId);
+      if (isCurrentAvatarUpload(uploadToken, uploadCharacterId)) {
+        toast.success("Character avatar removed.");
+      }
+    } catch (error) {
+      if (!isCurrentAvatarUpload(uploadToken, uploadCharacterId)) return;
+      toast.error(error instanceof Error ? error.message : "Failed to remove avatar.");
+      setAvatarPreview(fallbackAvatarPreview);
+      if (shouldClearAvatarCrop) {
+        setExtensionValue("avatarCrop", fallbackAvatarCrop);
+      }
+      if (editRevisionRef.current === editRevisionAtRemoveStart) {
+        setDirtyState(fallbackDirty);
+      }
+    } finally {
+      finishAvatarUpload(uploadToken, uploadCharacterId);
+    }
+  }, [
+    avatarPreview,
+    beginAvatarUpload,
+    characterId,
+    currentAvatarCrop,
+    dirtyRef,
+    editRevisionRef,
+    finishAvatarUpload,
+    isCurrentAvatarUpload,
+    removeAvatar,
+    saving,
+    setDirtyState,
+    setExtensionValue,
+  ]);
+
   return {
     avatarPreview,
     avatarUploading,
     handleAvatarUpload,
     handleGeneratedAvatar,
+    handleRemoveAvatar,
     isAvatarUploadInFlight,
     setAvatarPreview,
   };

@@ -168,7 +168,7 @@ pub(crate) fn remove_managed_record_file(
     }
 }
 
-fn managed_record_file_path(
+pub(crate) fn managed_record_file_path(
     state: &AppState,
     folder: &str,
     record: &Value,
@@ -176,25 +176,28 @@ fn managed_record_file_path(
     filename_key: &str,
 ) -> AppResult<Option<PathBuf>> {
     let managed_dir = state.data_dir.join(folder);
-    let candidate = record
+    if let Some(path) = record
+        .get(path_key)
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        return managed_file_candidate(PathBuf::from(path), &managed_dir);
+    }
+    let Some(filename) = record
         .get(filename_key)
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
-        .map(|filename| managed_dir.join(safe_filename(filename)))
-        .or_else(|| {
-            record
-                .get(path_key)
-                .and_then(Value::as_str)
-                .filter(|value| !value.trim().is_empty())
-                .map(PathBuf::from)
-        });
-    let Some(candidate) = candidate else {
+    else {
         return Ok(None);
     };
+    managed_file_candidate(managed_dir.join(safe_filename(filename)), &managed_dir)
+}
+
+fn managed_file_candidate(candidate: PathBuf, managed_dir: &Path) -> AppResult<Option<PathBuf>> {
     if !candidate.exists() {
         return Ok(None);
     }
-    if !is_path_inside_dir(&candidate, &managed_dir)? {
+    if !is_path_inside_dir(&candidate, managed_dir)? {
         return Ok(None);
     }
     Ok(Some(candidate))

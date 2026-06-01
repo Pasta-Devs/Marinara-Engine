@@ -1,4 +1,6 @@
-use super::media_uploads::{persist_image_upload, remove_managed_record_file, safe_filename};
+use super::media_uploads::{
+    managed_record_file_path, persist_image_upload, remove_managed_record_file, safe_filename,
+};
 use super::*;
 
 pub(crate) fn update_character_avatar(
@@ -16,7 +18,7 @@ pub(crate) fn update_character_avatar(
         "avatar",
     )?;
     if collection == "characters" {
-        let snapshot_record = character_avatar_snapshot_record(&previous);
+        let snapshot_record = character_avatar_snapshot_record(state, collection, &previous);
         super::characters::create_character_version_snapshot_from_record(
             state,
             id,
@@ -40,10 +42,72 @@ pub(crate) fn update_character_avatar(
     Ok(updated)
 }
 
-fn character_avatar_snapshot_record(record: &Value) -> Value {
+pub(crate) fn remove_character_avatar(state: &AppState, id: &str) -> AppResult<Value> {
+    let previous = shared::get_required(state, "characters", id)?;
+    let patch = character_avatar_remove_patch(&previous)?;
+    if patch.is_empty() {
+        return Ok(previous);
+    }
+
+    let snapshot_record = character_avatar_snapshot_record(state, "characters", &previous);
+    super::characters::create_character_version_snapshot_from_record(
+        state,
+        id,
+        &snapshot_record,
+        "manual",
+        "Avatar removal",
+    )?;
+    let updated = state
+        .storage
+        .patch("characters", id, Value::Object(patch))?;
+    remove_avatar_file(state, "characters", &previous);
+    Ok(updated)
+}
+
+fn character_avatar_remove_patch(record: &Value) -> AppResult<Map<String, Value>> {
+    let mut patch = Map::new();
+    for field in [
+        "avatar",
+        "avatarPath",
+        "avatarFilePath",
+        "avatarFilename",
+        "avatarUpdatedAt",
+    ] {
+        if record.get(field).is_some_and(|value| !value.is_null()) {
+            patch.insert(field.to_string(), Value::Null);
+        }
+    }
+    if let Some(data) = character_data_without_avatar_crop(record)? {
+        patch.insert("data".to_string(), data);
+    }
+    Ok(patch)
+}
+
+fn character_data_without_avatar_crop(record: &Value) -> AppResult<Option<Value>> {
+    let Some(data) = record.get("data") else {
+        return Ok(None);
+    };
+    let mut data = shared::normalize_character_data_for_storage(data)?;
+    let Some(data_object) = data.as_object_mut() else {
+        unreachable!("character data normalizer only returns objects");
+    };
+    let Some(extensions) = data_object
+        .get_mut("extensions")
+        .and_then(Value::as_object_mut)
+    else {
+        return Ok(None);
+    };
+    if extensions.remove("avatarCrop").is_some() {
+        Ok(Some(data))
+    } else {
+        Ok(None)
+    }
+}
+
+fn character_avatar_snapshot_record(state: &AppState, collection: &str, record: &Value) -> Value {
     let mut snapshot = record.clone();
     if let Some(object) = snapshot.as_object_mut() {
-        if let Some(data_url) = managed_avatar_data_url(record) {
+        if let Some(data_url) = managed_avatar_data_url(state, collection, record) {
             object.insert("avatar".to_string(), Value::String(data_url.clone()));
             object.insert("avatarPath".to_string(), Value::String(data_url));
         }
@@ -53,18 +117,22 @@ fn character_avatar_snapshot_record(record: &Value) -> Value {
     snapshot
 }
 
-fn managed_avatar_data_url(record: &Value) -> Option<String> {
-    let path = record.get("avatarFilePath").and_then(Value::as_str)?;
-    let bytes = fs::read(path).ok()?;
+fn managed_avatar_data_url(state: &AppState, collection: &str, record: &Value) -> Option<String> {
+    let path = managed_record_file_path(
+        state,
+        &format!("avatars/{}", safe_filename(collection)),
+        record,
+        "avatarFilePath",
+        "avatarFilename",
+    )
+    .ok()
+    .flatten()?;
+    let bytes = fs::read(&path).ok()?;
     let mime = avatar_mime_type(
         record
             .get("avatarFilename")
             .and_then(Value::as_str)
-            .or_else(|| {
-                std::path::Path::new(path)
-                    .file_name()
-                    .and_then(|value| value.to_str())
-            }),
+            .or_else(|| path.file_name().and_then(|value| value.to_str())),
     );
     Some(format!(
         "data:{mime};base64,{}",

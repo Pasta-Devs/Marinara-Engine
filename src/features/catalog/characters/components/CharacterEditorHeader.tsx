@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Camera,
   Copy,
+  ImageOff,
   Loader2,
   MessageCircle,
   Save,
@@ -37,6 +38,7 @@ export function CharacterEditorHeader({
   onGenerateAvatar,
   onImportAsPersona,
   onNameChange,
+  onRemoveAvatar,
   onSave,
   onStartChat,
   onToggleFavorite,
@@ -60,6 +62,7 @@ export function CharacterEditorHeader({
   onGenerateAvatar: () => void;
   onImportAsPersona: () => void;
   onNameChange: (name: string) => void;
+  onRemoveAvatar: () => void;
   onSave: () => void | Promise<unknown>;
   onStartChat: () => void;
   onToggleFavorite: () => void;
@@ -188,6 +191,20 @@ export function CharacterEditorHeader({
               <Wand2 size="0.75rem" />
             </button>
           )}
+          {avatarPreview && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemoveAvatar();
+              }}
+              disabled={avatarUploading || saving}
+              className="absolute bottom-0.5 right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--card)]/95 text-[var(--destructive)] opacity-0 shadow-md ring-1 ring-[var(--border)] transition-opacity hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50 group-hover:opacity-100 max-md:opacity-100"
+              title="Remove avatar"
+            >
+              <ImageOff size="0.75rem" />
+            </button>
+          )}
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onAvatarUpload} />
         </div>
 
@@ -224,7 +241,7 @@ export function CharacterEditorHeader({
         )}
       >
         <Save size="0.8125rem" />
-        <span className="max-md:hidden">{avatarUploading ? "Uploading…" : saving ? "Saving…" : "Save"}</span>
+        <span className="max-md:hidden">{avatarUploading ? "Updating…" : saving ? "Saving…" : "Save"}</span>
       </button>
 
       <div className="flex w-full items-center justify-end gap-1 md:hidden">{headerActions}</div>

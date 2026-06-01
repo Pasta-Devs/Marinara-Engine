@@ -201,6 +201,11 @@ pub fn character_avatar_upload(
 }
 
 #[tauri::command]
+pub fn character_avatar_remove(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    avatars::remove_character_avatar(&state, &id)
+}
+
+#[tauri::command]
 pub fn character_restore_version(
     state: State<'_, AppState>,
     character_id: String,

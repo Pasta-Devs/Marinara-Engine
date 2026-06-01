@@ -678,6 +678,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             required_string(&args, "id")?,
             optional_value(&args, "body"),
         ),
+        "character_avatar_remove" => {
+            avatars::remove_character_avatar(state, required_string(&args, "id")?)
+        }
         "character_restore_version" => characters::restore_character_version(
             state,
             required_string(&args, "characterId")?,

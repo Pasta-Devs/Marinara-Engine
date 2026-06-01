@@ -62,7 +62,14 @@ export interface GenerationCharacterContext {
   mesExample?: string;
   firstMes?: string;
   postHistoryInstructions?: string;
+  depthPrompt?: GenerationCharacterDepthPrompt;
   tags: string[];
+}
+
+interface GenerationCharacterDepthPrompt {
+  prompt: string;
+  depth: number;
+  role: "system" | "user" | "assistant";
 }
 
 export interface GenerationPersonaContext {
@@ -237,7 +244,30 @@ function loadCharacterContext(record: JsonRecord): GenerationCharacterContext {
     firstMes: field(data, "first_mes") || field(data, "firstMes") || undefined,
     postHistoryInstructions:
       field(data, "post_history_instructions") || field(data, "postHistoryInstructions") || undefined,
+    depthPrompt: characterDepthPrompt(data, extensions),
     tags: stringArray(data.tags ?? record.tags),
+  };
+}
+
+function normalizeDepthPromptRole(value: unknown): "system" | "user" | "assistant" {
+  return value === "user" || value === "assistant" ? value : "system";
+}
+
+function normalizeDepthPromptDepth(value: unknown): number {
+  return Math.max(0, Math.floor(readNumber(value, 4)));
+}
+
+function characterDepthPrompt(data: JsonRecord, extensions: JsonRecord): GenerationCharacterDepthPrompt | undefined {
+  const promptValue = extensions.depth_prompt ?? data.depth_prompt;
+  const depthPrompt = parseRecord(promptValue);
+  const objectPrompt = readString(depthPrompt.prompt).trim();
+  const stringPrompt = typeof promptValue === "string" ? promptValue.trim() : "";
+  const prompt = cleanPromptText(objectPrompt || stringPrompt);
+  if (!prompt) return undefined;
+  return {
+    prompt,
+    depth: normalizeDepthPromptDepth(depthPrompt.depth ?? extensions.depth_prompt_depth ?? data.depth_prompt_depth),
+    role: normalizeDepthPromptRole(depthPrompt.role ?? extensions.depth_prompt_role ?? data.depth_prompt_role),
   };
 }
 
@@ -1633,6 +1663,21 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   let expectedRole: "user" | "assistant" = "user";
   for (; index < messages.length; index += 1) {
     const message = messages[index]!;
+    if (message.contextKind === "injection") {
+      const previous = result[result.length - 1];
+      if (message.role !== "system" && previous?.role === message.role) {
+        mergeIntoPreviousPromptMessage(previous, message);
+        continue;
+      }
+
+      result.push(message);
+      expectedRole = message.role === "assistant" ? "user" : "assistant";
+      if (message.role === "system") {
+        expectedRole = "user";
+      }
+      continue;
+    }
+
     if (message.role === "system") {
       result.push(message);
       expectedRole = "user";
@@ -1679,6 +1724,55 @@ function authorNotesDepthEntry(chat: JsonRecord): { content: string; role: "syst
   if (!content) return null;
   const depth = Math.max(0, readNumber(meta.authorNotesDepth, 4));
   return { content, role: "system", depth };
+}
+
+function macroProfileForCharacter(
+  character: GenerationCharacterContext,
+): NonNullable<MacroContext["characterProfiles"]>[number] {
+  return {
+    name: character.name,
+    description: character.description,
+    personality: character.personality,
+    backstory: character.backstory,
+    appearance: character.appearance,
+    scenario: character.scenario,
+    example: character.mesExample,
+    systemPrompt: character.systemPrompt,
+    postHistoryInstructions: character.postHistoryInstructions,
+  };
+}
+
+function macroContextForCharacter(base: MacroContext, character: GenerationCharacterContext): MacroContext {
+  const profile = macroProfileForCharacter(character);
+  return {
+    ...base,
+    char: character.name,
+    characters: [character.name],
+    characterProfiles: [profile],
+    characterFields: {
+      description: character.description,
+      personality: character.personality,
+      backstory: character.backstory,
+      appearance: character.appearance,
+      scenario: character.scenario,
+      example: character.mesExample,
+      systemPrompt: character.systemPrompt,
+      postHistoryInstructions: character.postHistoryInstructions,
+    },
+  };
+}
+
+function characterDepthPromptEntries(
+  characters: GenerationCharacterContext[],
+  macros: MacroContext,
+): Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }> {
+  return characters.flatMap((character) => {
+    const depthPrompt = character.depthPrompt;
+    if (!depthPrompt) return [];
+    const content = cleanPromptText(resolveMacros(depthPrompt.prompt, macroContextForCharacter(macros, character)));
+    if (!content.trim()) return [];
+    return [{ content, role: depthPrompt.role, depth: depthPrompt.depth }];
+  });
 }
 
 function sectionContent(args: {
@@ -1901,9 +1995,13 @@ export async function assembleGenerationPrompt(
   ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
+  const characterDepthEntries =
+    chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros);
   messages = injectAtDepth(
     messages,
-    authorNotesEntry ? [...processedLore.depthEntries, authorNotesEntry] : processedLore.depthEntries,
+    authorNotesEntry
+      ? [...processedLore.depthEntries, ...characterDepthEntries, authorNotesEntry]
+      : [...processedLore.depthEntries, ...characterDepthEntries],
   );
   const regexScripts = await storage.list<JsonRecord>("regex-scripts");
   applyRegexScriptsToPromptMessages(messages, regexScripts, {

@@ -28,6 +28,7 @@ vi.mock("../hooks/use-characters", () => {
     useCharacter: vi.fn(),
     useUpdateCharacter: noopMutation,
     useUploadAvatar: noopMutation,
+    useRemoveAvatar: noopMutation,
     useDeleteCharacter: noopMutation,
     useDuplicateCharacter: noopMutation,
     useCharacterGalleryImages: emptyQuery,

@@ -155,6 +155,20 @@ pub(crate) fn restore_character_version(
         .patch("characters", character_id, Value::Object(patch))
 }
 
+pub(crate) fn duplicate_character(state: &AppState, character_id: &str) -> AppResult<Value> {
+    let mut record = get_required(state, "characters", character_id)?;
+    let object = record
+        .as_object_mut()
+        .ok_or_else(|| AppError::invalid_input("Record is not an object"))?;
+    object.remove("id");
+    if let Some(data) = object.get_mut("data").and_then(Value::as_object_mut) {
+        if let Some(name) = data.get("name").and_then(Value::as_str).map(str::to_string) {
+            data.insert("name".to_string(), Value::String(format!("{name} (Copy)")));
+        }
+    }
+    state.storage.create("characters", record)
+}
+
 fn take_version_snapshot_options(
     patch: &mut Map<String, Value>,
 ) -> CharacterVersionSnapshotOptions {

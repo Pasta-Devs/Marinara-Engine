@@ -414,9 +414,16 @@ pub async fn storage_duplicate(
     id: String,
 ) -> Result<Value, AppError> {
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || shared::duplicate_record(&state, &entity, &id))
+    tauri::async_runtime::spawn_blocking(move || duplicate_entity(&state, &entity, &id))
         .await
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+fn duplicate_entity(state: &AppState, entity: &str, id: &str) -> Result<Value, AppError> {
+    if entity == "characters" {
+        return characters::duplicate_character(state, id);
+    }
+    shared::duplicate_record(state, entity, id)
 }
 
 fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> std::cmp::Ordering {

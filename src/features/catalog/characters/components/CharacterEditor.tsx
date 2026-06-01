@@ -104,6 +104,7 @@ export function CharacterEditor() {
     avatarUploading,
     handleAvatarUpload,
     handleGeneratedAvatar,
+    handleRemoveAvatar: removeAvatar,
     isAvatarUploadInFlight,
     setAvatarPreview,
   } = useCharacterEditorAvatar({
@@ -139,7 +140,7 @@ export function CharacterEditor() {
   const handleSave = async () => {
     if (!characterId || !formData) return false;
     if (isAvatarUploadInFlight()) {
-      toast.error("Wait for the current avatar upload to finish before saving.");
+      toast.error("Wait for the current avatar change to finish before saving.");
       return false;
     }
     setSaving(true);
@@ -179,9 +180,24 @@ export function CharacterEditor() {
     closeDetail();
   };
 
+  const handleRemoveAvatar = async () => {
+    if (!avatarPreview && formData?.extensions.avatarCrop === undefined) return;
+    if (
+      !(await showConfirmDialog({
+        title: "Remove Avatar",
+        message: "Remove this character's avatar?",
+        confirmLabel: "Remove",
+        tone: "destructive",
+      }))
+    ) {
+      return;
+    }
+    await removeAvatar();
+  };
+
   const handleClose = useCallback(() => {
     if (avatarUploading) {
-      toast.error("Wait for the current avatar upload to finish.");
+      toast.error("Wait for the current avatar change to finish.");
       return;
     }
     if (dirty) {
@@ -193,7 +209,7 @@ export function CharacterEditor() {
 
   const forceClose = useCallback(() => {
     if (avatarUploading) {
-      toast.error("Wait for the current avatar upload to finish.");
+      toast.error("Wait for the current avatar change to finish.");
       return;
     }
     setShowUnsavedWarning(false);
@@ -290,6 +306,7 @@ export function CharacterEditor() {
         onGenerateAvatar={() => setAvatarGeneratorOpen(true)}
         onImportAsPersona={handleImportAsPersona}
         onNameChange={(name) => updateField("name", name)}
+        onRemoveAvatar={handleRemoveAvatar}
         onSave={handleSave}
         onStartChat={handleStartChat}
         onToggleFavorite={() => updateExtension("fav", !formData.extensions.fav)}
