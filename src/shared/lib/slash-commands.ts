@@ -12,7 +12,11 @@ import { useUIStore } from "../stores/ui.store";
 import { toast } from "sonner";
 import type { SceneCreateResponse, ScenePlanResponse } from "../../engine/contracts/types/scene";
 import { SUPPORTED_MACROS } from "../../engine/shared/macros/macro-engine";
-import { buildNarratorInstructionMessage } from "../../engine/shared/text/generation-guide";
+import {
+  buildAmendGenerationInstructionMessage,
+  buildNarratorInstructionMessage,
+  type GenerationGuideSource,
+} from "../../engine/shared/text/generation-guide";
 
 export interface SlashCommand {
   name: string;
@@ -34,7 +38,8 @@ export interface SlashCommandContext {
     connectionId: string | null;
     userMessage?: string;
     generationGuide?: string;
-    generationGuideSource?: "narrator" | "guide" | "game_start" | "game_turn" | "game_retry";
+    generationGuideSource?: GenerationGuideSource;
+    regenerateMessageId?: string;
     impersonate?: boolean;
     attachments?: { type: string; data: string }[];
     impersonatePresetId?: string;
@@ -48,6 +53,8 @@ export interface SlashCommandContext {
   invalidate: () => void;
   /** Character names in the current chat */
   characterNames: string[];
+  /** Latest visible assistant message, used by commands that target the current response. */
+  latestAssistantMessage?: { id: string; content: string } | null;
   /** Characters available in the current roleplay scene */
   characters?: Array<{ id: string; name: string }>;
   /** Apply a manual sprite expression override */
@@ -349,6 +356,40 @@ const SLASH_COMMANDS: SlashCommand[] = [
         connectionId: null,
         generationGuide: buildNarratorInstructionMessage(args),
         generationGuideSource: "narrator",
+      });
+      return { handled: true };
+    },
+  },
+  {
+    name: "amend",
+    aliases: ["revise"],
+    description: "Revise the latest AI response as a new swipe",
+    usage: "/amend <revision instruction>",
+    async execute(args, ctx) {
+      const instruction = args.trim();
+      if (!instruction) {
+        return {
+          handled: true,
+          feedback: "Usage: /amend <what should change in the latest AI response>",
+        };
+      }
+
+      const target = ctx.latestAssistantMessage;
+      const messageId = target?.id?.trim() ?? "";
+      const previousResponse = target?.content?.trim() ?? "";
+      if (!messageId || !previousResponse) {
+        return {
+          handled: true,
+          feedback: "There is no assistant response to amend yet.",
+        };
+      }
+
+      await ctx.generate({
+        chatId: ctx.chatId,
+        connectionId: null,
+        regenerateMessageId: messageId,
+        generationGuide: buildAmendGenerationInstructionMessage(instruction, previousResponse),
+        generationGuideSource: "amend",
       });
       return { handled: true };
     },

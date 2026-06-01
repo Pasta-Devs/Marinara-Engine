@@ -11,6 +11,7 @@ type GuideSource = NonNullable<GenerationReplay["generationGuideSource"]>;
 const GUIDE_SOURCE_LABELS: Record<GuideSource, string> = {
   narrator: "/guided",
   guide: "Guided regenerate",
+  amend: "/amend",
   game_start: "Game start",
   game_turn: "Game turn",
   game_retry: "Game retry",
@@ -23,7 +24,9 @@ function storedText(value: unknown): string | null {
 function visibleGenerationGuide(replay: GenerationReplay | null): string | null {
   const guide = storedText(replay?.generationGuide);
   if (!guide) return null;
-  return replay?.generationGuideSource === "narrator" || replay?.generationGuideSource === "guide"
+  return replay?.generationGuideSource === "narrator" ||
+    replay?.generationGuideSource === "guide" ||
+    replay?.generationGuideSource === "amend"
     ? stripGenerationGuideInstruction(guide)
     : guide;
 }
@@ -122,6 +125,10 @@ export function GenerationReplayDetailsModal({
     (replay?.generationGuideSource === "narrator" || replay?.generationGuideSource === "guide")
       ? `/guided ${generationGuide.trim()}`
       : null;
+  const amendCopyCommand =
+    generationGuide && !hasImpersonate && replay?.generationGuideSource === "amend"
+      ? `/amend ${generationGuide.trim()}`
+      : null;
 
   return (
     <Modal open={open} onClose={onClose} title="Stored guidance" width="max-w-xl">
@@ -130,8 +137,8 @@ export function GenerationReplayDetailsModal({
           <TextBlock
             label={guideLabel(replay?.generationGuideSource)}
             value={generationGuide}
-            copyValue={guidedCopyCommand}
-            copyLabel="Copy /guided"
+            copyValue={amendCopyCommand ?? guidedCopyCommand}
+            copyLabel={amendCopyCommand ? "Copy /amend" : "Copy /guided"}
           />
         )}
 

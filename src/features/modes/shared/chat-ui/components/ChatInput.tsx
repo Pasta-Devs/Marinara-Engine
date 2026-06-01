@@ -329,6 +329,16 @@ export const ChatInput = memo(function ChatInput({
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1]?.role ?? null;
   }, [messagesData]);
+  const latestAssistantMessage = useMemo(() => {
+    const allMessages = messagesData?.pages?.flat() ?? [];
+    for (let index = allMessages.length - 1; index >= 0; index -= 1) {
+      const message = allMessages[index];
+      if (message?.role === "assistant" && message.id && message.content.trim()) {
+        return { id: message.id, content: message.content };
+      }
+    }
+    return null;
+  }, [messagesData]);
 
   const canRetry = !isStreaming && lastMessageRole === "user";
   const canContinue = !isStreaming && mode === "roleplay" && lastMessageRole === "assistant";
@@ -455,12 +465,23 @@ export const ChatInput = memo(function ChatInput({
       createMessage: (data) => createMessage.mutate(data),
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames,
+      latestAssistantMessage,
       characters: chatCharacters,
       setSpriteExpression: onExpressionChange
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
     };
-  }, [activeChatId, mode, generate, createMessage, characterNames, chatCharacters, onExpressionChange, qc]);
+  }, [
+    activeChatId,
+    mode,
+    generate,
+    createMessage,
+    characterNames,
+    latestAssistantMessage,
+    chatCharacters,
+    onExpressionChange,
+    qc,
+  ]);
 
   const handleSend = useCallback(async () => {
     const raw = getValue();

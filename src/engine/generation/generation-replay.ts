@@ -27,6 +27,7 @@ export interface GenerationReplayInput {
 const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>([
   "narrator",
   "guide",
+  "amend",
   "game_start",
   "game_turn",
   "game_retry",

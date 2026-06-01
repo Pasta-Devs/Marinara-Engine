@@ -265,6 +265,16 @@ export function ConversationInput({
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1]?.role ?? null;
   }, [messagesData]);
+  const latestAssistantMessage = useMemo(() => {
+    const allMessages = messagesData?.pages?.flat() ?? [];
+    for (let index = allMessages.length - 1; index >= 0; index -= 1) {
+      const message = allMessages[index];
+      if (message?.role === "assistant" && message.id && message.content.trim()) {
+        return { id: message.id, content: message.content };
+      }
+    }
+    return null;
+  }, [messagesData]);
   const canRetry = !isStreaming && groupResponseOrder !== "manual" && lastMessageRole === "user";
   const canSubmit = hasInput || attachments.length > 0 || canRetry;
   const showRetrySendState = canRetry && !hasInput && attachments.length === 0;
@@ -616,10 +626,12 @@ export function ConversationInput({
     if (matched) {
       const slashCtx: SlashCommandContext = {
         chatId: activeChatId,
+        mode: "conversation",
         generate,
         createMessage: (data) => createMessage.mutate(data),
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames,
+        latestAssistantMessage,
       };
       const submittedDraft = textareaRef.current?.value ?? "";
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
@@ -747,6 +759,7 @@ export function ConversationInput({
     createMessage,
     updateMessageExtra,
     characterNames,
+    latestAssistantMessage,
     completions,
     _mentionQuery,
     mentionCompletions,
@@ -769,6 +782,7 @@ export function ConversationInput({
       const generationStatus: { succeeded?: boolean } = {};
       const slashCtx: SlashCommandContext = {
         chatId: submittingChatId,
+        mode: "conversation",
         generate: async (params) => {
           const succeeded = await generate(params);
           if (succeeded !== undefined) generationStatus.succeeded = succeeded;
@@ -777,6 +791,7 @@ export function ConversationInput({
         createMessage: (data) => createMessage.mutate(data),
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames,
+        latestAssistantMessage,
       };
 
       const previousDraft = textareaRef.current?.value ?? "";
@@ -837,6 +852,7 @@ export function ConversationInput({
       mentionCompletions,
       createMessage,
       generate,
+      latestAssistantMessage,
       qc,
       setInputDraft,
       syncInputState,
