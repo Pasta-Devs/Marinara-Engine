@@ -32,6 +32,15 @@ vi.mock("../../../../shared/lib/notification-sound", () => ({
   playNotificationPing: vi.fn(),
 }));
 
+vi.mock("../../world-state/index", () => ({
+  useGameStateStore: {
+    getState: () => ({ setGameState: vi.fn() }),
+  },
+  worldStateApi: {
+    get: vi.fn().mockResolvedValue(null),
+  },
+}));
+
 const markAutonomousUnreadMock = vi.mocked(chatCommandApi.markAutonomousUnread);
 const storageGetMock = vi.mocked(storageApi.get);
 const showConversationLocalNotificationMock = vi.mocked(showConversationLocalNotification);
@@ -115,7 +124,8 @@ describe("runGenerationWithUi notifications", () => {
     showConversationLocalNotificationMock.mockResolvedValue(true);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
     queryClient.clear();
     useChatStore.getState().reset();
     vi.clearAllMocks();
