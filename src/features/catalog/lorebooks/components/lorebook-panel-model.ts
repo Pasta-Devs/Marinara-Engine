@@ -7,12 +7,20 @@ import type { LorebookPanelCategory } from "./lorebook-panel-config";
 
 export type LorebookPanelSort = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
 
+function readTagArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((tag): tag is string => typeof tag === "string") : [];
+}
+
+function readParsedTagArray(value: unknown): string[] {
+  return Array.isArray(value) && value.every((tag) => typeof tag === "string") ? value : [];
+}
+
 export function parseLorebookTags(lorebook: Pick<Lorebook, "tags">): string[] {
   const raw = lorebook.tags;
-  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw)) return readTagArray(raw);
   if (typeof raw === "string")
     try {
-      return JSON.parse(raw);
+      return readParsedTagArray(JSON.parse(raw));
     } catch {
       return [];
     }
