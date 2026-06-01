@@ -246,6 +246,34 @@ describe("analyzeGameScene", () => {
     expect(result.directions).toEqual([]);
   });
 
+  it("surfaces provider failures so the UI can run inline tag fallback", async () => {
+    const llm = {
+      complete: vi.fn(async () => {
+        throw new Error("scene provider unavailable");
+      }),
+      stream: emptyStream,
+      listModels: vi.fn(async () => []),
+    } satisfies LlmGateway;
+    const storage = {
+      get: vi.fn(async () => ({ id: "chat-1", metadata: { gameSceneConnectionId: "scene-conn" } })),
+      list: vi.fn(async () => []),
+    } as unknown as StorageGateway;
+
+    await expect(
+      analyzeGameScene(
+        { storage, llm },
+        {
+          chatId: "chat-1",
+          narration: "The party enters the cave. [background: cave]",
+          context: {
+            availableBackgrounds: ["backgrounds:cave"],
+            availableSfx: [],
+          },
+        },
+      ),
+    ).rejects.toThrow("scene provider unavailable");
+  });
+
   it("does not fall back to Spotify candidates when Spotify music is disabled", async () => {
     const llm = {
       complete: vi.fn(async () => "{ not valid json"),

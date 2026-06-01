@@ -265,6 +265,22 @@ function isPartyTurnMessage(message: Message): boolean {
   );
 }
 
+function gameSceneTurnNumber(messages: Message[]): number {
+  return messages.filter((message) => message.role === "assistant" || message.role === "narrator").length;
+}
+
+function canRequestGameSceneIllustration(
+  chatMeta: Record<string, unknown>,
+  sessionNumber: number,
+  turnNumber: number,
+): boolean {
+  const lastSessionNumber = Number(chatMeta.gameLastIllustrationSessionNumber ?? Number.NaN);
+  const lastTurnNumber = Number(chatMeta.gameLastIllustrationTurn ?? Number.NaN);
+  if (!Number.isFinite(lastSessionNumber) || !Number.isFinite(lastTurnNumber)) return true;
+  if (lastSessionNumber !== sessionNumber) return true;
+  return turnNumber - lastTurnNumber >= GAME_SCENE_ILLUSTRATION_COOLDOWN_TURNS;
+}
+
 function stripPartyTurnMarker(content: string): string {
   return content.trimStart().replace(PARTY_TURN_MESSAGE_RE, "").trim();
 }
@@ -285,6 +301,7 @@ function getConfiguredGameAssetImageSizes(): NonNullable<GameAssetGenerationPayl
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 240_000;
 const GAME_ASSET_PREVIEW_TIMEOUT_MS = 180_000;
 const GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS = 180_000;
+const GAME_SCENE_ILLUSTRATION_COOLDOWN_TURNS = 8;
 const IMAGE_PROMPT_REVIEW_TIMED_OUT = Symbol("IMAGE_PROMPT_REVIEW_TIMED_OUT");
 
 class TimeoutError extends Error {
@@ -1756,6 +1773,11 @@ export function GameSurface({
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
+  const sceneTurnNumber = useMemo(() => gameSceneTurnNumber(messages), [messages]);
+  const gameSceneIllustrationAllowed =
+    !!chatMeta.enableSpriteGeneration &&
+    !!chatMeta.gameImageConnectionId &&
+    canRequestGameSceneIllustration(chatMeta as Record<string, unknown>, sessionNumber, sceneTurnNumber);
   const { patchField: patchVisibleGameStateField, flushPatch: flushVisibleGameStatePatch } = useGameStatePatcher(
     activeChatId,
     "game-surface",
@@ -3862,8 +3884,9 @@ export function GameSurface({
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? null,
+      turnNumber: sceneTurnNumber,
       canGenerateBackgrounds: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
-      canGenerateIllustrations: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
+      canGenerateIllustrations: gameSceneIllustrationAllowed,
       artStylePrompt:
         ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.artStylePrompt as string | undefined) ??
         null,
@@ -4699,8 +4722,9 @@ export function GameSurface({
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? null,
+      turnNumber: sceneTurnNumber,
       canGenerateBackgrounds: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
-      canGenerateIllustrations: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
+      canGenerateIllustrations: gameSceneIllustrationAllowed,
       artStylePrompt:
         ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.artStylePrompt as string | undefined) ??
         null,
@@ -7602,8 +7626,9 @@ export function GameSurface({
       currentAmbient: useGameAssetStore.getState().currentAmbient,
       currentWeather: gameSnapshot?.weather ?? null,
       currentTimeOfDay: gameSnapshot?.time ?? null,
+      turnNumber: sceneTurnNumber,
       canGenerateBackgrounds: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
-      canGenerateIllustrations: !!chatMeta.enableSpriteGeneration && !!chatMeta.gameImageConnectionId,
+      canGenerateIllustrations: gameSceneIllustrationAllowed,
       artStylePrompt: (setupConfig?.artStylePrompt as string | undefined) ?? null,
       imagePromptInstructions:
         typeof chatMeta.gameImagePromptInstructions === "string" ? chatMeta.gameImagePromptInstructions : null,
@@ -7645,6 +7670,8 @@ export function GameSurface({
     sceneAnalysis,
     sceneWrapCharacterNames,
     sceneAnalysisEnabled,
+    sceneTurnNumber,
+    gameSceneIllustrationAllowed,
   ]);
 
   const normalizedWidgets = hudWidgets;

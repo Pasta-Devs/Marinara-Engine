@@ -259,7 +259,7 @@ export async function analyzeGameScene(
     const parsed = parseObject(raw);
     const analysis = parsed ? sanitizeGameSceneAnalysis(parsed) : malformedJsonFallback(sceneContext);
     return postProcessSceneResult(analysis, scenePostProcessContext(sceneContext));
-  } catch {
-    return defaultGameSceneAnalysis();
+  } catch (error) {
+    throw error;
   }
 }
