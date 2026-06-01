@@ -16,7 +16,7 @@ export interface SpriteExpressionEntry {
   transition?: unknown;
 }
 
-export interface ExpressionValidationWarning {
+interface ExpressionValidationWarning {
   message: string;
 }
 
