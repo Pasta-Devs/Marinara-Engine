@@ -4,8 +4,28 @@ name: Bunny Review
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review.
+        required: true
+      comment_body:
+        description: Slash command body that requested the review.
+        required: false
+        default: ""
+      review_mode:
+        description: Review mode for the requested pass.
+        required: false
+        type: choice
+        options:
+          - auto
+          - full
+          - incremental
+        default: auto
+      requested_by:
+        description: GitHub login that requested the dispatch.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -14,22 +34,16 @@ permissions:
   actions: read # needed to read CI status
 
 concurrency:
-  group: bunny-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: bunny-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: >
-      github.event_name == 'pull_request' ||
-      (
-        github.event.issue.pull_request &&
-        startsWith(github.event.comment.body, '/bunny-review') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association)
-      )
     runs-on: ubuntu-latest
     env:
-      PR_NUM: ${{ github.event.pull_request.number || github.event.issue.number }}
+      PR_NUM: ${{ github.event.pull_request.number || inputs.pr_number }}
+      BUNNY_COMMENT_BODY: ${{ inputs.comment_body || '' }}
+      BUNNY_REVIEW_MODE: ${{ inputs.review_mode || 'auto' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -83,7 +97,6 @@ jobs:
           CI_STATUS: CI checks are still running; final CI results will be appended before posting.
           BUNNY_REVIEW_PROMPT_PATH: /tmp/bunny-review-tool/.github/bunny-review/reviewer-prompt.md
           BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
-          BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py produce &
@@ -119,7 +132,6 @@ jobs:
       - name: Render review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUNNY_COMMENT_BODY: ${{ github.event.comment.body }}
         run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py render
 
       - name: Post the review

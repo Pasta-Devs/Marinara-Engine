@@ -1,0 +1,42 @@
+name: Bunny Review Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  dispatch:
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/bunny-review') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+               github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted Bunny reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          TARGET_REF: refactor
+        run: |
+          # Keep this bootstrap deliberately inert: it only authorizes the slash command
+          # and dispatches the trusted reviewer workflow on the stable target ref.
+          REVIEW_MODE=auto
+          if [[ "$COMMENT_BODY" =~ ^/bunny-review[[:space:]]+full([[:space:]]|$) ]]; then
+            REVIEW_MODE=full
+          fi
+
+          gh workflow run bunny-review.yml \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="$COMMENT_BODY" \
+            -f review_mode="$REVIEW_MODE" \
+            -f requested_by="$COMMENT_AUTHOR"
