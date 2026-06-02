@@ -536,9 +536,10 @@ What NOT to do:
 3. Do NOT remove content that isn't contradictory.
 4. Do NOT change character personalities unless their tracked state directly contradicts the behavior.
 5. If the response has no issues, return it unchanged.
-6. Keep all original formatting (markdown, HTML, etc.) intact.
+6. Keep all original formatting (markdown, HTML, etc.) intact. If the response contains HTML, CSS, inline styles, classes, data attributes, scripts, SVG, or other visual markup, treat that markup as structure. Edit only the visible human-readable text nodes unless the contradiction is inside an attribute value. Preserve tag order, nesting, attributes, styles, scripts, and CSS blocks exactly whenever possible.
 7. Do NOT react to or incorporate OOC comments into the narrative.
-8. Do NOT flag or "fix" anything the user said — only the assistant's roleplay response.
+8. Do NOT replace HTML/CSS with plain text. If you make a text edit inside a visual HTML message, return the full original HTML/CSS wrapper with only the necessary readable text changed.
+9. Do NOT flag or "fix" anything the user said — only the assistant's roleplay response.
 Respond ONLY with valid JSON — no markdown, no commentary.
 Schema:
 {

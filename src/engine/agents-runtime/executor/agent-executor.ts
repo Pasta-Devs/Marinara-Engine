@@ -931,6 +931,10 @@ function truncateAgentText(text: string, maxChars: number): string {
   return chars.slice(0, head).join("") + marker + chars.slice(-tail).join("");
 }
 
+function formatMainResponseForAgent(agentType: string, text: string): string {
+  return agentType === "editor" ? text.trim() : stripHtmlTags(text);
+}
+
 function findLatestAssistantMessage(context: AgentContext): { index: number; content: string } | null {
   for (let index = context.recentMessages.length - 1; index >= 0; index--) {
     const message = context.recentMessages[index]!;
@@ -1214,7 +1218,7 @@ function buildAgentMessages(
 
   if (context.mainResponse) {
     finalParts.push(`<assistant_response>`);
-    finalParts.push(stripHtmlTags(context.mainResponse));
+    finalParts.push(formatMainResponseForAgent(agentType, context.mainResponse));
     finalParts.push(`</assistant_response>`);
   }
 
