@@ -1541,10 +1541,10 @@ async fn datacat_fresh_recent_fallback(state: &AppState, route: &ParsedPath) -> 
 }
 
 fn datacat_recent_as_fresh_response(mut recent: Value) -> AppResult<Value> {
-    if recent.get("success").and_then(Value::as_bool) == Some(false) {
+    if recent.get("success").and_then(Value::as_bool) != Some(true) {
         return Err(AppError::new(
             "upstream_response_error",
-            "DataCat recent fallback was unsuccessful",
+            "DataCat recent fallback did not report success",
         ));
     }
     let characters = recent
@@ -1743,6 +1743,16 @@ mod tests {
             "items": []
         }))
         .expect_err("missing character array should stay an upstream error");
+
+        assert_eq!(error.code, "upstream_response_error");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_missing_success_flag() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "characters": []
+        }))
+        .expect_err("missing success flag should stay an upstream error");
 
         assert_eq!(error.code, "upstream_response_error");
     }
