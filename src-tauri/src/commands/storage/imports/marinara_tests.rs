@@ -1,6 +1,8 @@
 use super::*;
 use crate::state::AppState;
+use base64::engine::general_purpose;
 use std::fs;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn test_state(label: &str) -> AppState {
@@ -44,6 +46,38 @@ fn block_collection_writes(state: &AppState, collection: &str) {
     fs::create_dir(collection_path).expect("collection path should block file writes");
 }
 
+fn embedded_avatar() -> String {
+    format!(
+        "data:image/png;base64,{}",
+        general_purpose::STANDARD.encode(b"native-avatar-bytes")
+    )
+}
+
+fn assert_managed_character_avatar(character: &Value) {
+    let avatar_path = test_string(character, "avatarPath");
+    assert!(
+        !avatar_path.starts_with("data:image/"),
+        "native character imports should store managed avatar asset URLs, not inline data"
+    );
+    let avatar_file_path = test_string(character, "avatarFilePath");
+    assert!(
+        avatar_file_path.contains("avatars") && avatar_file_path.contains("characters"),
+        "managed avatar path should stay under character avatar storage"
+    );
+    assert!(
+        Path::new(avatar_file_path).exists(),
+        "managed avatar file should exist"
+    );
+    assert!(
+        test_string(character, "avatarFilename").ends_with(".png"),
+        "embedded PNG avatar should persist with a PNG filename"
+    );
+    assert!(
+        character.get("avatar").is_none(),
+        "native character import should not duplicate avatar bytes into the avatar field"
+    );
+}
+
 #[test]
 fn created_record_id_rejects_missing_or_blank_ids() {
     let missing = created_record_id(&json!({ "name": "No id" }), "record")
@@ -73,6 +107,87 @@ fn generic_marinara_import_directs_profile_exports_to_profile_import() {
     assert_eq!(error.code, "invalid_input");
     assert!(error.message.contains("Import Profile"));
     assert!(!error.message.contains("Unknown Marinara import type"));
+}
+
+#[test]
+fn native_marinara_character_import_materializes_embedded_avatar() {
+    let state = test_state("native-character-avatar");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "spec": "chara_card_v2",
+                "data": {
+                    "name": "Native Avatar Character",
+                    "description": "Has an embedded avatar"
+                },
+                "avatar": embedded_avatar()
+            }
+        }),
+    )
+    .expect("native character import should succeed");
+
+    assert_managed_character_avatar(&imported["character"]);
+}
+
+#[test]
+fn native_marinara_storage_record_import_materializes_embedded_avatar() {
+    let state = test_state("native-storage-avatar");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "data": {
+                    "name": "Native Storage Avatar Character",
+                    "description": "Has an embedded avatar"
+                },
+                "format": "chara_card_v2",
+                "avatar": embedded_avatar()
+            }
+        }),
+    )
+    .expect("native storage-record import should succeed");
+
+    assert_managed_character_avatar(&imported["character"]);
+}
+
+#[test]
+fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
+    let state = test_state("native-character-avatar-rollback");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "spec": "chara_card_v2",
+                "data": {
+                    "name": "Rollback Native Avatar Character",
+                    "description": "Should be removed"
+                },
+                "avatar": embedded_avatar(),
+                "sprites": [
+                    { "data": "data:image/png;base64,not-valid-base64!" }
+                ]
+            }
+        }),
+    )
+    .expect_err("sprite decode failure should reject character import");
+
+    assert_eq!(error.code, "invalid_input");
+    assert!(
+        state.storage.list("characters").unwrap().is_empty(),
+        "failed native character import must remove the created character"
+    );
+    assert!(
+        !state.data_dir.join("avatars").join("characters").exists(),
+        "failed native character import must remove the managed avatar file"
+    );
 }
 
 #[test]
