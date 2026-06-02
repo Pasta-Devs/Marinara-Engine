@@ -6,6 +6,9 @@ use marinara_security::redact_sensitive_text;
 const TTS_SETTINGS_KEY: &str = "tts";
 const TTS_API_KEY_MASK: &str = "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}";
 const MAX_TTS_AUDIO_BYTES: usize = 20 * 1024 * 1024;
+const DEFAULT_TTS_REQUEST_TIMEOUT_MS: u64 = 60_000;
+const MIN_TTS_REQUEST_TIMEOUT_MS: u64 = 1_000;
+const MAX_TTS_REQUEST_TIMEOUT_MS: u64 = 30 * 60_000;
 
 const OPENAI_FALLBACK_VOICES: &[&str] = &[
     "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
@@ -119,6 +122,7 @@ fn default_config() -> Value {
         "voice": "alloy",
         "model": "tts-1",
         "audioFormat": "mp3",
+        "requestTimeoutMs": DEFAULT_TTS_REQUEST_TIMEOUT_MS,
         "speed": 1.0,
         "elevenLabsStability": 0.5,
         "elevenLabsLanguageCode": "",
@@ -182,6 +186,14 @@ fn put_config(state: &AppState, body: Value) -> AppResult<Value> {
         .storage
         .upsert_with_id("app-settings", TTS_SETTINGS_KEY, json!({ "value": config }))?;
     Ok(Value::Null)
+}
+
+fn tts_request_timeout_ms(config: &Value) -> u64 {
+    config
+        .get("requestTimeoutMs")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_TTS_REQUEST_TIMEOUT_MS)
+        .clamp(MIN_TTS_REQUEST_TIMEOUT_MS, MAX_TTS_REQUEST_TIMEOUT_MS)
 }
 
 async fn voices(state: &AppState) -> AppResult<Value> {
@@ -341,7 +353,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
     };
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
+        .timeout(Duration::from_millis(tts_request_timeout_ms(&config)))
         .build()
         .map_err(|error| AppError::new("tts_client_error", error.to_string()))?;
     let provider_text = if source == "elevenlabs" {
@@ -1098,6 +1110,32 @@ mod tests {
         assert!(result["audioBase64"]
             .as_str()
             .is_some_and(|audio| !audio.is_empty()));
+    }
+
+    #[test]
+    fn tts_request_timeout_defaults_to_sixty_seconds() {
+        assert_eq!(tts_request_timeout_ms(&json!({})), 60_000);
+        assert_eq!(config_with_defaults(json!({}))["requestTimeoutMs"], 60_000);
+    }
+
+    #[test]
+    fn tts_request_timeout_uses_configured_value() {
+        assert_eq!(
+            tts_request_timeout_ms(&json!({ "requestTimeoutMs": 180_000 })),
+            180_000
+        );
+    }
+
+    #[test]
+    fn tts_request_timeout_clamps_extreme_values() {
+        assert_eq!(
+            tts_request_timeout_ms(&json!({ "requestTimeoutMs": 0 })),
+            MIN_TTS_REQUEST_TIMEOUT_MS
+        );
+        assert_eq!(
+            tts_request_timeout_ms(&json!({ "requestTimeoutMs": 60 * 60_000 })),
+            MAX_TTS_REQUEST_TIMEOUT_MS
+        );
     }
 
     #[test]

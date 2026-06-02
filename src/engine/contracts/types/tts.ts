@@ -112,6 +112,8 @@ export const ttsConfigSchema = z.object({
   narratorVoice: z.string().default(""),
   model: z.string().default("tts-1"),
   audioFormat: ttsAudioFormatSchema.default("mp3"),
+  /** Provider request timeout per generated TTS chunk, in milliseconds. */
+  requestTimeoutMs: z.number().int().min(1000).max(30 * 60_000).default(60_000),
   /** 0.25 – 4.0 */
   speed: z.number().min(0.25).max(4.0).default(1.0),
   /** ElevenLabs only: 0.0 = more expressive/creative, 1.0 = more stable/robust */

@@ -53,6 +53,10 @@ function FieldRow({ label, help, children }: { label: string; help?: string; chi
 const INPUT_CLS =
   "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
 
+const DEFAULT_TTS_REQUEST_TIMEOUT_MS = 60_000;
+const MIN_TTS_REQUEST_TIMEOUT_MS = 1_000;
+const MAX_TTS_REQUEST_TIMEOUT_MS = 30 * 60_000;
+
 const TTS_SOURCE_DEFAULTS: Record<
   TTSSource,
   { label: string; baseUrl: string; model: string; voice: string; idleText: string }
@@ -228,6 +232,11 @@ function sameStringSet(left: string[], right: string[]): boolean {
   return left.every((value) => rightSet.has(value));
 }
 
+function normalizeRequestTimeoutMs(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TTS_REQUEST_TIMEOUT_MS;
+  return Math.min(MAX_TTS_REQUEST_TIMEOUT_MS, Math.max(MIN_TTS_REQUEST_TIMEOUT_MS, Math.round(value)));
+}
+
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex cursor-pointer items-center justify-between rounded-lg p-1.5 transition-colors hover:bg-[var(--secondary)]/50">
@@ -311,6 +320,7 @@ export function TTSConfigCard() {
   const [npcDefaultVoicesEnabled, setNpcDefaultVoicesEnabled] = useState(false);
   const [npcDefaultMaleVoices, setNpcDefaultMaleVoices] = useState<string[]>([]);
   const [npcDefaultFemaleVoices, setNpcDefaultFemaleVoices] = useState<string[]>([]);
+  const [requestTimeoutMs, setRequestTimeoutMs] = useState(DEFAULT_TTS_REQUEST_TIMEOUT_MS);
   const [speed, setSpeed] = useState(1.0);
   const [elevenLabsStability, setElevenLabsStability] = useState(0.5);
   const [elevenLabsLanguageCode, setElevenLabsLanguageCode] = useState("");
@@ -358,6 +368,7 @@ export function TTSConfigCard() {
     setNpcDefaultVoicesEnabled(savedConfig.npcDefaultVoicesEnabled ?? false);
     setNpcDefaultMaleVoices(savedConfig.npcDefaultMaleVoices ?? []);
     setNpcDefaultFemaleVoices(savedConfig.npcDefaultFemaleVoices ?? []);
+    setRequestTimeoutMs(savedConfig.requestTimeoutMs ?? DEFAULT_TTS_REQUEST_TIMEOUT_MS);
     setSpeed(savedConfig.speed);
     setElevenLabsStability(savedConfig.elevenLabsStability ?? 0.5);
     setElevenLabsLanguageCode(savedConfig.elevenLabsLanguageCode ?? "");
@@ -405,6 +416,7 @@ export function TTSConfigCard() {
     npcDefaultVoicesEnabled,
     npcDefaultMaleVoices,
     npcDefaultFemaleVoices,
+    requestTimeoutMs,
     speed,
     elevenLabsStability,
     elevenLabsLanguageCode,
@@ -869,6 +881,28 @@ export function TTSConfigCard() {
               </select>
             </FieldRow>
           )}
+
+          <FieldRow
+            label="Request Timeout"
+            help="Provider request timeout per generated TTS chunk. Raise this for slower self-hosted voice models."
+          >
+            <input
+              type="number"
+              min={MIN_TTS_REQUEST_TIMEOUT_MS}
+              max={MAX_TTS_REQUEST_TIMEOUT_MS}
+              step={1000}
+              value={requestTimeoutMs}
+              onChange={(e) => {
+                const nextTimeout = normalizeRequestTimeoutMs(Number(e.target.value));
+                setRequestTimeoutMs(nextTimeout);
+                mark({ requestTimeoutMs: nextTimeout });
+              }}
+              className={INPUT_CLS}
+            />
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              Default is 60000 ms. Maximum is 1800000 ms.
+            </p>
+          </FieldRow>
 
           {/* Voice assignment mode */}
           <FieldRow

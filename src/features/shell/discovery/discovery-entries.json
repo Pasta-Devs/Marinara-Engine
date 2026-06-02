@@ -180,7 +180,7 @@
     "title": "Text-to-Speech",
     "category": "Media",
     "summary": "Configure voice providers and let chats, narration, or characters speak with assigned voices.",
-    "keywords": ["voice", "tts", "speech", "audio", "narrator", "character voices", "elevenlabs", "openai"],
+    "keywords": ["voice", "tts", "speech", "audio", "narrator", "character voices", "elevenlabs", "openai", "timeout", "self-hosted tts"],
     "audience": "Users who want voiced messages, narration, or more immersive scenes.",
     "where": "Settings and connection/provider configuration, with chat-specific voice options where available.",
     "actions": [{ "type": "open-panel", "panel": "settings", "label": "Open Settings" }],
