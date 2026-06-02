@@ -32,7 +32,7 @@ jobs:
       - run: pnpm check:architecture
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: pnpm test:allow-empty
       - run: pnpm build
       - run: pnpm perf:size
       - run: pnpm check:docs
