@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, type ReactNode } from "react";
-import { useChat, type ChatMode } from "../../../catalog/chats/index";
+import { useChat, useChatSummaries, type ChatMode } from "../../../catalog/chats/index";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ModeHomeSurface } from "./ModeHomeSurface";
@@ -23,6 +23,8 @@ export function ModeSurface({ homeDiscoverySurface = null }: { homeDiscoverySurf
   const activeChatId = useChatStore((state) => state.activeChatId);
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const { data: chat, error: chatError, isLoading: isChatLoading, isFetching: isChatFetching } = useChat(activeChatId);
+  const { data: chatSummaries } = useChatSummaries();
+  const cachedChat = activeChatId ? chatSummaries?.find((item) => item.id === activeChatId) : undefined;
   const lastChatRef = useRef<{ id: string; mode: ChatMode } | null>(null);
 
   useEffect(() => {
@@ -33,9 +35,10 @@ export function ModeSurface({ homeDiscoverySurface = null }: { homeDiscoverySurf
   if (!activeChatId) return <ModeHomeSurface discoverySurface={homeDiscoverySurface} />;
 
   const fallback = <div className="flex flex-1 overflow-hidden" />;
-  if (chat?.mode) lastChatRef.current = { id: activeChatId, mode: chat.mode };
+  const resolvedChatMode = chat?.mode ?? cachedChat?.mode;
+  if (resolvedChatMode) lastChatRef.current = { id: activeChatId, mode: resolvedChatMode };
 
-  const chatMode = chat?.mode ?? (lastChatRef.current?.id === activeChatId ? lastChatRef.current.mode : null);
+  const chatMode = resolvedChatMode ?? (lastChatRef.current?.id === activeChatId ? lastChatRef.current.mode : null);
   if (!chatMode && (isChatLoading || isChatFetching)) return fallback;
   if (!chatMode) return <ModeHomeSurface discoverySurface={homeDiscoverySurface} />;
 

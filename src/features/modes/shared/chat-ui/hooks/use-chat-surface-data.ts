@@ -193,7 +193,7 @@ export function useChatSurfaceData({
     hasNextPage,
     isFetchingNextPage,
     refetch: refetchMessages,
-  } = useChatMessages(activeChatId, resolvedMessagePageSize, !!chat);
+  } = useChatMessages(activeChatId, resolvedMessagePageSize, !!activeChatId);
 
   useEffect(() => {
     if (!(chatError instanceof ApiError) || chatError.status !== 404) return;
