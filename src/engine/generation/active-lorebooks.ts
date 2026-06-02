@@ -35,12 +35,13 @@ function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord
       break;
     }
   }
-  return lastGeneratedIndex >= 0 ? visibleMessages.slice(0, lastGeneratedIndex) : [];
+  return lastGeneratedIndex >= 0 ? visibleMessages.slice(0, lastGeneratedIndex) : visibleMessages;
 }
 
 function activeInfoGenerationTriggers(chat: JsonRecord): string[] {
-  const mode = readString(chat.mode || chat.chatMode).trim() || "roleplay";
-  return Array.from(new Set(["chat", mode]));
+  const mode = readString(chat.mode || chat.chatMode).trim();
+  const modeTrigger = mode === "game" ? "game" : mode || "roleplay";
+  return Array.from(new Set(["test_scan", modeTrigger, "chat"]));
 }
 
 export async function scanActiveLorebookEntries(
