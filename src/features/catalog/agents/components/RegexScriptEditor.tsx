@@ -30,7 +30,7 @@ import { cn } from "../../../../shared/lib/utils";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 import type { RegexPlacement } from "../../../../engine/contracts/types/regex";
 import { resolveMacros, type MacroContext } from "../../../../engine/shared/macros/macro-engine";
-import { applyRegexReplacement } from "../../../../engine/shared/regex/regex-replacement";
+import { applyRegexScriptReplacement } from "../../../../engine/shared/regex/regex-script-application";
 
 // ═══════════════════════════════════════════════
 //  Placement metadata
@@ -194,13 +194,7 @@ export function RegexScriptEditor() {
       const findRegex = resolveTestMacros(localFindRegex);
       if (!findRegex) return testInput;
       const re = new RegExp(findRegex, localFlags);
-      let result = applyRegexReplacement(testInput, re, localReplaceString, resolveTestMacros);
-      // Apply trim strings
-      for (const trim of localTrimStrings) {
-        const resolvedTrim = resolveTestMacros(trim);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
-      return result;
+      return applyRegexScriptReplacement(testInput, re, localReplaceString, localTrimStrings, resolveTestMacros);
     } catch {
       return testInput;
     }
