@@ -419,7 +419,7 @@ export function LorebookEditor() {
       };
       const { matched } = testPrimaryKeys(entry.keys, text, opts);
       if (!matched) continue;
-      if (entry.secondaryKeys.length > 0) {
+      if (entry.selective && entry.secondaryKeys.length > 0) {
         if (!testSecondaryKeys(entry.secondaryKeys, text, entry.selectiveLogic, opts)) continue;
       }
       result.set(entry.id, "matched");
