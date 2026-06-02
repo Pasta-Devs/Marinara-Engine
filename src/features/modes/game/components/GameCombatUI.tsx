@@ -107,6 +107,11 @@ function numberFromUnknown(value: unknown, fallback: number): number {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function clampUnitScale(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
 function normalizeCombatSkillType(value: unknown): CombatSkillType {
   return value === "heal" || value === "buff" || value === "debuff" ? value : "attack";
 }
@@ -2705,8 +2710,10 @@ function CombatantCard({
   onSelect?: () => void;
   damagePopups: DamagePopup[];
 }) {
-  const hpPercent = combatant.maxHp > 0 ? (combatant.hp / combatant.maxHp) * 100 : 0;
-  const mpPercent = combatant.maxMp && combatant.maxMp > 0 ? ((combatant.mp ?? 0) / combatant.maxMp) * 100 : null;
+  const hpScale = clampUnitScale(combatant.maxHp > 0 ? combatant.hp / combatant.maxHp : 0);
+  const mpScale = combatant.maxMp && combatant.maxMp > 0 ? clampUnitScale((combatant.mp ?? 0) / combatant.maxMp) : null;
+  const hpPercent = hpScale * 100;
+  const mpPercent = mpScale === null ? null : mpScale * 100;
   const isKo = combatant.hp <= 0;
 
   const hpColor = hpPercent > 60 ? "bg-emerald-500" : hpPercent > 25 ? "bg-amber-500" : "bg-red-500";
@@ -2831,7 +2838,7 @@ function CombatantCard({
                 "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out",
                 hpColor,
               )}
-              style={{ transform: `scaleX(${hpPercent / 100})` }}
+              style={{ transform: `scaleX(${hpScale})` }}
             />
           </div>
           <span className="min-w-[2.5rem] text-right text-[0.55rem] tabular-nums text-white/50">
@@ -2846,7 +2853,7 @@ function CombatantCard({
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full w-full origin-left rounded-full bg-blue-500 transition-transform duration-500"
-                style={{ transform: `scaleX(${mpPercent / 100})` }}
+                style={{ transform: `scaleX(${mpScale})` }}
               />
             </div>
             <span className="min-w-[2.5rem] text-right text-[0.55rem] tabular-nums text-white/40">
@@ -2894,7 +2901,8 @@ function MobileCombatantChip({
   onSelect?: () => void;
   damagePopups: DamagePopup[];
 }) {
-  const hpPercent = combatant.maxHp > 0 ? (combatant.hp / combatant.maxHp) * 100 : 0;
+  const hpScale = clampUnitScale(combatant.maxHp > 0 ? combatant.hp / combatant.maxHp : 0);
+  const hpPercent = hpScale * 100;
   const isKo = combatant.hp <= 0;
   const hpColor = hpPercent > 60 ? "bg-emerald-500" : hpPercent > 25 ? "bg-amber-500" : "bg-red-500";
   const latestPopup = damagePopups[damagePopups.length - 1] ?? null;
@@ -2957,7 +2965,7 @@ function MobileCombatantChip({
                 "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out",
                 hpColor,
               )}
-              style={{ transform: `scaleX(${hpPercent / 100})` }}
+              style={{ transform: `scaleX(${hpScale})` }}
             />
           </div>
           <span className="shrink-0 text-[0.5rem] tabular-nums text-white/55">{combatant.hp}</span>

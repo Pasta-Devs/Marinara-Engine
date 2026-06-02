@@ -1051,6 +1051,22 @@ const GameTutorial = lazy(async () => {
   return { default: module.GameTutorial };
 });
 
+function GameOverlayLoadingFallback({ label, zClassName = "z-40" }: { label: string; zClassName?: string }) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-auto absolute inset-0 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm",
+        zClassName,
+      )}
+    >
+      <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/70 px-3 py-2 text-xs font-semibold text-white/80 shadow-xl">
+        <Loader2 size={14} className="animate-spin" />
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
 type InventoryNotificationKind = "gain" | "loss" | "use-pending" | "use-kept" | "use-consumed" | "error";
 
 interface InventoryNotification {
@@ -9038,7 +9054,7 @@ export function GameSurface({
                 )}
 
                 {/* Session history panel (full overlay) */}
-                <Suspense fallback={null}>
+                <Suspense fallback={<GameOverlayLoadingFallback label="Loading history..." />}>
                   {historyOpen && (
                     <GameSessionHistory
                       summaries={sessionSummaries}
@@ -9088,7 +9104,7 @@ export function GameSurface({
                   )}
                 </Suspense>
 
-                <Suspense fallback={null}>
+                <Suspense fallback={<GameOverlayLoadingFallback label="Loading checkpoints..." />}>
                   {checkpointsOpen && (
                     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
                       <div className="h-[82vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/15 bg-[var(--card)] shadow-2xl">
@@ -9184,7 +9200,7 @@ export function GameSurface({
               </div>
 
               {/* Journal overlay — positioned on the outer column so it covers state indicator + content */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading journal..." />}>
                 {journalOpen && (
                   <GameJournal
                     chatId={activeChatId}
@@ -9218,7 +9234,7 @@ export function GameSurface({
               />
 
               {/* Gallery drawer */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading gallery..." />}>
                 {galleryOpen && (
                   <ChatGalleryDrawer
                     chat={chat}
@@ -9230,7 +9246,7 @@ export function GameSurface({
               </Suspense>
 
               {/* Inventory overlay */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading inventory..." />}>
                 {inventoryOpen && (
                   <GameInventory
                     items={inventoryItems}
@@ -9249,7 +9265,7 @@ export function GameSurface({
               </Suspense>
 
               {/* Readable document display (Notes / Books) */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading document..." />}>
                 {activeReadable && (
                   <GameReadableDisplay
                     type={activeReadable.type}
@@ -9263,7 +9279,7 @@ export function GameSurface({
               </Suspense>
 
               {/* First-game spotlight tutorial (auto-opens once; (?) button re-opens) */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading tutorial..." zClassName="z-[9999]" />}>
                 {tutorialOpen && <GameTutorial open={tutorialOpen} onClose={handleCloseTutorial} />}
               </Suspense>
 
