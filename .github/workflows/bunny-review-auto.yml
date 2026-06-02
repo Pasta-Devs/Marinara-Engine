@@ -2,7 +2,7 @@ name: Bunny Review Auto Dispatch
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
 
 permissions:
   actions: write
@@ -16,8 +16,7 @@ concurrency:
 jobs:
   dispatch:
     if: >
-      github.event.pull_request.base.ref == 'refactor' &&
-      github.event.pull_request.draft == false
+      github.event.pull_request.base.ref == 'refactor'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch trusted Bunny reviewer
