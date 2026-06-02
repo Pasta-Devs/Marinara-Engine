@@ -390,6 +390,7 @@ pub(super) fn import_st_preset_payload(
             "groupOrder": group_ids
         }),
     )?;
+    flush_import_writes(state)?;
 
     Ok(json!({
         "success": true,

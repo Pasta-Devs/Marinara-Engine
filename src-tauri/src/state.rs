@@ -698,6 +698,10 @@ mod tests {
         TempRoot(std::env::temp_dir().join(format!("marinara-state-{test_name}-{suffix}")))
     }
 
+    fn persist_fixture_storage(storage: &FileStorage) {
+        storage.flush().expect("fixture writes should persist");
+    }
+
     #[test]
     fn llm_stream_pending_cancellations_inside_ttl_are_retained() {
         let now = Instant::now();
@@ -775,6 +779,7 @@ mod tests {
                 }),
             )
             .expect("snapshot should be inserted");
+        persist_fixture_storage(&storage);
 
         let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
         let rows = state
@@ -811,6 +816,7 @@ mod tests {
                 )
                 .expect("snapshot should be inserted");
         }
+        persist_fixture_storage(&storage);
 
         let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
         let rows = state
@@ -933,6 +939,7 @@ mod tests {
                 }),
             )
             .expect("character should be inserted");
+        persist_fixture_storage(&storage);
 
         let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
         let character = state
@@ -979,6 +986,7 @@ mod tests {
                 }),
             )
             .expect("chat should be inserted");
+        persist_fixture_storage(&storage);
 
         let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
         let chat = state
@@ -1040,6 +1048,7 @@ mod tests {
                 .create("chats", chat)
                 .expect("chat row should be inserted");
         }
+        persist_fixture_storage(&storage);
 
         let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
         let root_chat = state
