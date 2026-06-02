@@ -1760,8 +1760,11 @@ impl<'de, 'a> Visitor<'de> for ProjectedNestedVisitor<'a> {
     where
         A: SeqAccess<'de>,
     {
-        while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
-        Ok(Value::Array(Vec::new()))
+        let mut values = Vec::new();
+        while let Some(value) = seq.next_element::<Value>()? {
+            values.push(value);
+        }
+        Ok(Value::Array(values))
     }
 }
 
@@ -2483,10 +2486,6 @@ fn read_pretty_projected_nested_value<R: BufRead>(
     fields: &HashSet<String>,
 ) -> AppResult<Value> {
     let trimmed = first_value.trim();
-    if trimmed.starts_with('[') {
-        skip_pretty_json_value(reader, first_value)?;
-        return Ok(Value::Array(Vec::new()));
-    }
     if !trimmed.starts_with('{') || json_container_depth_delta(trimmed) <= 0 {
         return read_pretty_json_value(reader, first_value)
             .map(|value| project_nested_value(value, fields));
@@ -3102,6 +3101,95 @@ mod tests {
         assert_eq!(
             record,
             json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_preserves_selected_array_fields() {
+        let root = temp_storage_root("get-projected-preserves-selected-arrays");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "alternateGreetings": [
+                        {
+                            "content": "hello",
+                            "metadata": { "tone": "warm" }
+                        }
+                    ],
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "alternateGreetings".to_string()];
+        let mut selections = Map::new();
+        selections.insert("alternateGreetings".to_string(), json!(["content"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({
+                "id": "target",
+                "alternateGreetings": [
+                    {
+                        "content": "hello",
+                        "metadata": { "tone": "warm" }
+                    }
+                ]
+            })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_projected_preserves_selected_array_fields() {
+        let root = temp_storage_root("list-projected-preserves-selected-arrays");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "alternateGreetings": [
+                        {
+                            "content": "hello",
+                            "metadata": { "tone": "warm" }
+                        }
+                    ],
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "alternateGreetings".to_string()];
+        let mut selections = Map::new();
+        selections.insert("alternateGreetings".to_string(), json!(["content"]));
+
+        let rows = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should read");
+
+        assert_eq!(
+            rows,
+            vec![json!({
+                "id": "target",
+                "alternateGreetings": [
+                    {
+                        "content": "hello",
+                        "metadata": { "tone": "warm" }
+                    }
+                ]
+            })]
         );
 
         fs::remove_dir_all(root).unwrap();
