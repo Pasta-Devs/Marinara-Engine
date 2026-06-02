@@ -865,6 +865,7 @@ pub(crate) fn duplicate_entity(
     entity: &str,
     id: &str,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(entity)?;
     if entity == "characters" {
         return characters::duplicate_character(state, id);
     }
@@ -1174,6 +1175,25 @@ mod tests {
         )
         .expect("supported get should succeed");
         assert_eq!(read["id"], "char-1");
+    }
+
+    #[test]
+    fn generic_storage_duplicate_rejects_unsupported_entities() {
+        let state = test_state("unsupported-duplicate-entity");
+
+        let error = duplicate_entity(&state, "typo-collection", "row-1")
+            .expect_err("unsupported duplicate should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
     }
 
     #[test]
