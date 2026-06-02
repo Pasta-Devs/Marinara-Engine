@@ -308,6 +308,14 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
     let avatar_payload = native_character_avatar_payload(&data);
     let avatar_absolute_path = imported_avatar_reference(state, &avatar_payload, None, None)?
         .map(|avatar| apply_imported_character_avatar_metadata(&mut record_value, avatar));
+    if avatar_absolute_path.is_none() {
+        if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
+            if let Some(record) = record_value.as_object_mut() {
+                record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
+                record.insert("avatar".to_string(), Value::String(avatar.to_string()));
+            }
+        }
+    }
     apply_import_timestamps(&mut record_value, &data);
     let mut created_character_id = None;
     let result = (|| -> AppResult<Value> {

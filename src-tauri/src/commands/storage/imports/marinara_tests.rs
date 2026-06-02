@@ -156,6 +156,36 @@ fn native_marinara_storage_record_import_materializes_embedded_avatar() {
 }
 
 #[test]
+fn native_marinara_storage_record_import_preserves_plain_avatar_string() {
+    let state = test_state("native-storage-plain-avatar");
+    let avatar = "/assets/imported/native-avatar.png";
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "data": {
+                    "name": "Native Plain Avatar Character",
+                    "description": "Has a legacy avatar reference"
+                },
+                "format": "chara_card_v2",
+                "avatar": avatar
+            }
+        }),
+    )
+    .expect("native storage-record import with plain avatar should succeed");
+
+    let character = &imported["character"];
+    assert_eq!(test_string(character, "avatarPath"), avatar);
+    assert_eq!(test_string(character, "avatar"), avatar);
+    assert!(
+        character.get("avatarFilePath").is_none(),
+        "plain avatar strings should not be materialized as managed files"
+    );
+}
+
+#[test]
 fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
     let state = test_state("native-character-avatar-rollback");
 
