@@ -176,6 +176,7 @@ fn create_st_prompt_groups(
     state: &AppState,
     preset_id: &str,
     prompts: &[Value],
+    created_group_ids: &mut Vec<String>,
 ) -> AppResult<(HashMap<String, String>, Vec<String>)> {
     let mut identifier_group_map = HashMap::new();
     let mut group_ids = Vec::new();
@@ -204,10 +205,12 @@ fn create_st_prompt_groups(
                 }),
             )?;
             if let Some(group_id) = created.get("id").and_then(Value::as_str) {
-                group_ids.push(group_id.to_string());
+                let group_id = group_id.to_string();
+                created_group_ids.push(group_id.clone());
+                group_ids.push(group_id.clone());
                 for inner in prompts.iter().take(index).skip(start_index + 1) {
                     if let Some(identifier) = inner.get("identifier").and_then(Value::as_str) {
-                        identifier_group_map.insert(identifier.to_string(), group_id.to_string());
+                        identifier_group_map.insert(identifier.to_string(), group_id.clone());
                     }
                 }
             }
@@ -256,149 +259,182 @@ pub(super) fn import_st_preset_payload(
         .round()
         .max(1.0);
 
-    let preset = state.storage.create(
-        "prompts",
-        with_entity_defaults(
+    let mut created_preset_id = None;
+    let mut created_group_ids = Vec::new();
+    let mut created_section_ids = Vec::new();
+
+    let result = (|| -> AppResult<Value> {
+        let preset = state.storage.create(
             "prompts",
-            json!({
-                "name": format!("Imported: {}", st_prompt_name(&raw, file_name)),
-                "description": "Imported from SillyTavern",
-                "variableGroups": st_variable_groups(&prompts),
-                "variableValues": {},
-                "defaultChoices": {},
-                "wrapFormat": "xml",
-                "sectionOrder": [],
-                "groupOrder": [],
-                "parameters": {
-                    "temperature": clamp_number(raw.get("temperature").and_then(Value::as_f64), 1.0, 0.0, 2.0),
-                    "topP": normalize_top_p(raw.get("top_p").and_then(Value::as_f64)),
-                    "topK": top_k,
-                    "minP": clamp_number(raw.get("min_p").and_then(Value::as_f64), 0.0, 0.0, 1.0),
-                    "maxTokens": max_tokens,
-                    "maxContext": max_context,
-                    "frequencyPenalty": clamp_number(raw.get("frequency_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
-                    "presencePenalty": clamp_number(raw.get("presence_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
-                    "reasoningEffort": st_reasoning_effort(raw.get("reasoning_effort")),
-                    "verbosity": Value::Null,
-                    "assistantPrefill": "",
-                    "customParameters": {},
-                    "squashSystemMessages": raw.get("squash_system_messages").and_then(Value::as_bool).unwrap_or(true),
-                    "showThoughts": raw.get("show_thoughts").and_then(Value::as_bool).unwrap_or(true),
-                    "useMaxContext": false,
-                    "stopSequences": [],
-                    "strictRoleFormatting": true,
-                    "singleUserMessage": false
-                }
-            }),
-        )?,
-    )?;
-    let preset_id = preset
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| AppError::new("storage_error", "Created preset is missing an id"))?
-        .to_string();
+            with_entity_defaults(
+                "prompts",
+                json!({
+                    "name": format!("Imported: {}", st_prompt_name(&raw, file_name)),
+                    "description": "Imported from SillyTavern",
+                    "variableGroups": st_variable_groups(&prompts),
+                    "variableValues": {},
+                    "defaultChoices": {},
+                    "wrapFormat": "xml",
+                    "sectionOrder": [],
+                    "groupOrder": [],
+                    "parameters": {
+                        "temperature": clamp_number(raw.get("temperature").and_then(Value::as_f64), 1.0, 0.0, 2.0),
+                        "topP": normalize_top_p(raw.get("top_p").and_then(Value::as_f64)),
+                        "topK": top_k,
+                        "minP": clamp_number(raw.get("min_p").and_then(Value::as_f64), 0.0, 0.0, 1.0),
+                        "maxTokens": max_tokens,
+                        "maxContext": max_context,
+                        "frequencyPenalty": clamp_number(raw.get("frequency_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
+                        "presencePenalty": clamp_number(raw.get("presence_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
+                        "reasoningEffort": st_reasoning_effort(raw.get("reasoning_effort")),
+                        "verbosity": Value::Null,
+                        "assistantPrefill": "",
+                        "customParameters": {},
+                        "squashSystemMessages": raw.get("squash_system_messages").and_then(Value::as_bool).unwrap_or(true),
+                        "showThoughts": raw.get("show_thoughts").and_then(Value::as_bool).unwrap_or(true),
+                        "useMaxContext": false,
+                        "stopSequences": [],
+                        "strictRoleFormatting": true,
+                        "singleUserMessage": false
+                    }
+                }),
+            )?,
+        )?;
+        let preset_id = created_record_id(&preset, "preset")?;
+        created_preset_id = Some(preset_id.clone());
 
-    let (group_id_map, group_ids) = create_st_prompt_groups(state, &preset_id, &sorted_prompts)?;
-    let mut section_ids = Vec::new();
-    let mut emitted_markers: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let (group_id_map, group_ids) =
+            create_st_prompt_groups(state, &preset_id, &sorted_prompts, &mut created_group_ids)?;
+        let mut section_ids = Vec::new();
+        let mut emitted_markers: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
 
-    for prompt in &sorted_prompts {
-        let identifier = prompt
-            .get("identifier")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        let name = prompt
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or("Prompt");
-        let content = prompt.get("content").and_then(Value::as_str).unwrap_or("");
-        if starts_with_any(name, &['┌', '└', '┎', '┖', '⌈', '⌊', '⌜', '⌞'])
-            && content.trim().is_empty()
-        {
-            continue;
-        }
-
-        let marker_config = if prompt
-            .get("marker")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-        {
-            st_marker_config(&identifier)
-        } else {
-            None
-        };
-        if let Some(marker_type) = marker_config
-            .as_ref()
-            .and_then(|marker| marker.get("type"))
-            .and_then(Value::as_str)
-        {
-            if emitted_markers.contains(marker_type) {
+        for prompt in &sorted_prompts {
+            let identifier = prompt
+                .get("identifier")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let name = prompt
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("Prompt");
+            let content = prompt.get("content").and_then(Value::as_str).unwrap_or("");
+            if starts_with_any(name, &['┌', '└', '┎', '┖', '⌈', '⌊', '⌜', '⌞'])
+                && content.trim().is_empty()
+            {
                 continue;
             }
-            emitted_markers.insert(marker_type.to_string());
+
+            let marker_config = if prompt
+                .get("marker")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                st_marker_config(&identifier)
+            } else {
+                None
+            };
+            if let Some(marker_type) = marker_config
+                .as_ref()
+                .and_then(|marker| marker.get("type"))
+                .and_then(Value::as_str)
+            {
+                if emitted_markers.contains(marker_type) {
+                    continue;
+                }
+                emitted_markers.insert(marker_type.to_string());
+            }
+
+            let role = match prompt.get("role").and_then(Value::as_str) {
+                Some("user") => "user",
+                Some("assistant") => "assistant",
+                _ => "system",
+            };
+            let enabled = order_map
+                .get(&identifier)
+                .map(|(_, enabled)| *enabled)
+                .or_else(|| prompt.get("enabled").and_then(Value::as_bool))
+                .unwrap_or(true);
+            let marker_type = marker_config
+                .as_ref()
+                .and_then(|marker| marker.get("type"))
+                .and_then(Value::as_str);
+            let section_name = marker_type
+                .map(|marker_type| st_marker_display_name(marker_type, name))
+                .unwrap_or_else(|| name.to_string());
+            let order = section_ids.len();
+            let created = state.storage.create(
+                "prompt-sections",
+                json!({
+                    "presetId": preset_id,
+                    "identifier": if identifier.is_empty() { format!("imported-section-{order}") } else { identifier.clone() },
+                    "name": section_name,
+                    "content": content,
+                    "role": role,
+                    "enabled": enabled,
+                    "isMarker": marker_config.is_some(),
+                    "injectionPosition": if prompt.get("injection_position").and_then(Value::as_i64) == Some(1) { "depth" } else { "ordered" },
+                    "injectionDepth": prompt.get("injection_depth").and_then(Value::as_i64).unwrap_or(0),
+                    "injectionOrder": prompt.get("injection_order").and_then(Value::as_i64).unwrap_or(100),
+                    "groupId": group_id_map.get(&identifier).map(|id| Value::String(id.clone())).unwrap_or(Value::Null),
+                    "markerConfig": marker_config.unwrap_or(Value::Null),
+                    "forbidOverrides": prompt.get("forbid_overrides").and_then(Value::as_bool).unwrap_or(false),
+                    "order": order,
+                    "sortOrder": order
+                }),
+            )?;
+            if let Some(section_id) = created.get("id").and_then(Value::as_str) {
+                let section_id = section_id.to_string();
+                created_section_ids.push(section_id.clone());
+                section_ids.push(section_id);
+            }
         }
 
-        let role = match prompt.get("role").and_then(Value::as_str) {
-            Some("user") => "user",
-            Some("assistant") => "assistant",
-            _ => "system",
-        };
-        let enabled = order_map
-            .get(&identifier)
-            .map(|(_, enabled)| *enabled)
-            .or_else(|| prompt.get("enabled").and_then(Value::as_bool))
-            .unwrap_or(true);
-        let marker_type = marker_config
-            .as_ref()
-            .and_then(|marker| marker.get("type"))
-            .and_then(Value::as_str);
-        let section_name = marker_type
-            .map(|marker_type| st_marker_display_name(marker_type, name))
-            .unwrap_or_else(|| name.to_string());
-        let order = section_ids.len();
-        let created = state.storage.create(
-            "prompt-sections",
+        state.storage.patch(
+            "prompts",
+            &preset_id,
             json!({
-                "presetId": preset_id,
-                "identifier": if identifier.is_empty() { format!("imported-section-{order}") } else { identifier.clone() },
-                "name": section_name,
-                "content": content,
-                "role": role,
-                "enabled": enabled,
-                "isMarker": marker_config.is_some(),
-                "injectionPosition": if prompt.get("injection_position").and_then(Value::as_i64) == Some(1) { "depth" } else { "ordered" },
-                "injectionDepth": prompt.get("injection_depth").and_then(Value::as_i64).unwrap_or(0),
-                "injectionOrder": prompt.get("injection_order").and_then(Value::as_i64).unwrap_or(100),
-                "groupId": group_id_map.get(&identifier).map(|id| Value::String(id.clone())).unwrap_or(Value::Null),
-                "markerConfig": marker_config.unwrap_or(Value::Null),
-                "forbidOverrides": prompt.get("forbid_overrides").and_then(Value::as_bool).unwrap_or(false),
-                "order": order,
-                "sortOrder": order
+                "sectionOrder": section_ids,
+                "groupOrder": group_ids
             }),
         )?;
-        if let Some(section_id) = created.get("id").and_then(Value::as_str) {
-            section_ids.push(section_id.to_string());
+        flush_import_writes(state)?;
+
+        Ok(json!({
+            "success": true,
+            "type": "st_preset",
+            "presetId": preset_id,
+            "id": preset_id,
+            "sectionsImported": section_ids.len(),
+            "groupsImported": group_ids.len(),
+            "variableGroups": st_variable_groups(&prompts).as_array().map(Vec::len).unwrap_or(0),
+            "preset": preset
+        }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        rollback_created_records(
+            state,
+            "prompt-sections",
+            &created_section_ids,
+            &mut rollback_errors,
+        );
+        rollback_created_records(
+            state,
+            "prompt-groups",
+            &created_group_ids,
+            &mut rollback_errors,
+        );
+        if let Some(preset_id) = created_preset_id.as_deref() {
+            rollback_created_records(
+                state,
+                "prompts",
+                &[preset_id.to_string()],
+                &mut rollback_errors,
+            );
         }
-    }
-
-    state.storage.patch(
-        "prompts",
-        &preset_id,
-        json!({
-            "sectionOrder": section_ids,
-            "groupOrder": group_ids
-        }),
-    )?;
-
-    Ok(json!({
-        "success": true,
-        "type": "st_preset",
-        "presetId": preset_id,
-        "id": preset_id,
-        "sectionsImported": section_ids.len(),
-        "groupsImported": group_ids.len(),
-        "variableGroups": st_variable_groups(&prompts).as_array().map(Vec::len).unwrap_or(0),
-        "preset": preset
-    }))
+        append_rollback_errors(error, "ST preset import", rollback_errors)
+    })
 }
