@@ -2324,6 +2324,26 @@ function sectionContent(args: {
   }
 }
 
+function agentDataPromptBlock(
+  agentData: Record<string, string>,
+  wrapFormat: WrapFormat,
+  consumed: { all: boolean; types: Set<string> },
+): string {
+  if (consumed.all) return "";
+  const entries = Object.entries(agentData)
+    .map(([type, text]) => ({ type, text: cleanPromptText(text) }))
+    .filter((entry) => !consumed.types.has(entry.type))
+    .filter((entry) => entry.type.trim() && entry.text.trim());
+  if (entries.length === 0) return "";
+  const content = entries.map((entry) => `${entry.type}:\n${entry.text}`).join("\n\n");
+  return wrapContent(content, "Agent Instructions", wrapFormat);
+}
+
+function insertBeforeFirstHistory(messages: ChatMLMessage[], message: ChatMLMessage): void {
+  const insertAt = messages.findIndex((entry) => entry.contextKind === "history");
+  messages.splice(insertAt >= 0 ? insertAt : messages.length, 0, message);
+}
+
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
   rawInput: PromptAssemblyInput,
@@ -2398,6 +2418,7 @@ export async function assembleGenerationPrompt(
   let messages: ChatMLMessage[] = [];
   let insertedHistory = false;
   let insertedSummary = false;
+  const insertedAgentData = { all: false, types: new Set<string>() };
   let usedFallbackSystemPrompt = false;
 
   if (selectedPreset) {
@@ -2432,6 +2453,14 @@ export async function assembleGenerationPrompt(
       const resolved = cleanPromptText(resolveMacros(rawContent, macros));
       if (!resolved.trim()) continue;
       if (marker?.type === "chat_summary" && summary?.trim()) insertedSummary = true;
+      if (marker?.type === "agent_data") {
+        const agentType = readString(marker.agentType).trim();
+        if (agentType) {
+          insertedAgentData.types.add(agentType);
+        } else {
+          insertedAgentData.all = true;
+        }
+      }
       const name = readString(section.name) || readString(section.identifier) || marker?.type || "Prompt";
       const group = promptGroupForSection(section, groupsById);
       promptEntries.push({
@@ -2464,6 +2493,16 @@ export async function assembleGenerationPrompt(
 
   if (!usedFallbackSystemPrompt && !insertedSummary && shouldForceRoleplaySummaryIntoSystem(input.chat)) {
     appendSummaryToSystemPrompt(messages, summary, wrapFormat);
+  }
+
+  const agentDataBlock = agentDataPromptBlock(agentData, wrapFormat, insertedAgentData);
+  if (agentDataBlock) {
+    insertBeforeFirstHistory(messages, {
+      role: "system",
+      content: agentDataBlock,
+      contextKind: "injection",
+      displayName: "Agent Instructions",
+    });
   }
 
   if (!insertedHistory) {

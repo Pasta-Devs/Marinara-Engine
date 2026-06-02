@@ -1,11 +1,13 @@
 import {
   BUILT_IN_AGENTS,
+  BUILT_IN_AGENT_IDS,
   BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS,
   DEFAULT_AGENT_TOOLS,
   getDefaultBuiltInAgentSettings,
   type AgentContext,
   type AgentResult,
 } from "../contracts/types/agent";
+import { getDefaultAgentPrompt } from "../contracts/constants/agent-prompts";
 import type { HapticDevice, HapticStatus } from "../contracts/types/haptic";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
@@ -112,6 +114,7 @@ interface AgentDeps {
 interface ResolvedAgentsResult {
   agents: ResolvedAgent[];
   skippedResults: AgentResult[];
+  staticInjections: AgentInjection[];
 }
 
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
@@ -122,6 +125,7 @@ const KNOWLEDGE_RETRIEVAL_AGENT_TYPE = "knowledge-retrieval";
 const KNOWLEDGE_ROUTER_AGENT_TYPE = "knowledge-router";
 const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE_ROUTER_AGENT_TYPE]);
 const ASSISTANT_INTERVAL_AGENT_TYPES = new Set([DIRECTOR_AGENT_TYPE, ILLUSTRATOR_AGENT_TYPE]);
+const STATIC_CONTEXT_INJECTION_AGENT_TYPES = new Set<string>([BUILT_IN_AGENT_IDS.HTML]);
 const MAX_ASSISTANT_RUN_INTERVAL = 100;
 const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 const MAX_AGENT_PARALLEL_JOBS = 16;
@@ -167,6 +171,26 @@ function agentDataFromInjections(injections: AgentInjection[]): Record<string, s
     if (injection.text.trim()) data[injection.agentType] = injection.text.trim();
   }
   return data;
+}
+
+function mergeAgentInjections(...groups: AgentInjection[][]): AgentInjection[] {
+  const merged: AgentInjection[] = [];
+  const indexByType = new Map<string, number>();
+  for (const group of groups) {
+    for (const injection of group) {
+      const text = injection.text.trim();
+      if (!injection.agentType || !text) continue;
+      const next = { ...injection, text };
+      const index = indexByType.get(injection.agentType);
+      if (index == null) {
+        indexByType.set(injection.agentType, merged.length);
+        merged.push(next);
+      } else {
+        merged[index] = next;
+      }
+    }
+  }
+  return merged;
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -862,7 +886,7 @@ async function resolveLorebookKeeperRuntimeTarget(
 }
 
 async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput): Promise<ResolvedAgentsResult> {
-  if (!chatAgentsEnabled(input)) return { agents: [], skippedResults: [] };
+  if (!chatAgentsEnabled(input)) return { agents: [], skippedResults: [], staticInjections: [] };
   const scopedAgentIds = chatActiveAgentIds(input);
   const activationMessages = activationScanMessages(input);
   const requestedAgentTypes = input.agentTypes ?? null;
@@ -900,6 +924,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   let customTools: Map<string, CustomToolRecord> | null = null;
   const resolved: ResolvedAgent[] = [];
   const skippedResults: AgentResult[] = [];
+  const staticInjections: AgentInjection[] = [];
   let defaultAgentConnection: JsonRecord | null | undefined;
   for (const agent of rows) {
     const type = readString(agent.type || agent.agentType) || "agent";
@@ -917,6 +942,17 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     }
     const intervalGate = automaticIntervalGate(input, id, type, settings, builtInAgent);
     if (intervalGate && !(await automaticIntervalAllowsRun(deps.storage, input, intervalGate))) {
+      continue;
+    }
+    if (STATIC_CONTEXT_INJECTION_AGENT_TYPES.has(type) && normalizePhase(agent) === "pre_generation") {
+      const text = readString(agent.promptTemplate).trim() || getDefaultAgentPrompt(type).trim();
+      if (text) {
+        staticInjections.push({
+          agentType: type,
+          agentName: readString(agent.name).trim() || readString(agent.type).trim() || type,
+          text,
+        });
+      }
       continue;
     }
     const requestedConnectionId = readString(agent.connectionId).trim();
@@ -955,7 +991,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
       toolContext: buildAgentToolContext(deps, input, agent, settings, customTools),
     });
   }
-  return { agents: resolved, skippedResults };
+  return { agents: resolved, skippedResults, staticInjections };
 }
 
 type SpotifyDjSourceType = "liked" | "playlist" | "artist" | "any";
@@ -1324,16 +1360,17 @@ export async function createGenerationAgentRuntime(
   input: GenerationAgentRuntimeInput,
   onResult?: (result: AgentResult) => void,
 ): Promise<GenerationAgentRuntime> {
-  const { agents, skippedResults } = await resolveAgents(deps, input);
+  const { agents, skippedResults, staticInjections } = await resolveAgents(deps, input);
   const preResults: AgentResult[] = [...skippedResults];
   const overrideInjections = normalizedAgentInjectionOverrides(input.agentInjectionOverrides);
-  const agentData: Record<string, string> = agentDataFromInjections(overrideInjections);
+  const initialInjections = mergeAgentInjections(staticInjections, overrideInjections);
+  const agentData: Record<string, string> = agentDataFromInjections(initialInjections);
   for (const result of skippedResults) {
     onResult?.(result);
   }
   if (agents.length === 0) {
     return {
-      preInjections: overrideInjections,
+      preInjections: initialInjections,
       preResults,
       agentData,
       availableSprites: [],
@@ -1353,12 +1390,12 @@ export async function createGenerationAgentRuntime(
 
   if (overrideInjections.length > 0) {
     return {
-      preInjections: overrideInjections,
+      preInjections: initialInjections,
       preResults,
       agentData,
       availableSprites,
       runParallel: async () => pipeline.runParallel(),
-      runPost: async (mainResponse) => pipeline.postGenerate(mainResponse, { preGenInjections: overrideInjections }),
+      runPost: async (mainResponse) => pipeline.postGenerate(mainResponse, { preGenInjections: initialInjections }),
     };
   }
 
@@ -1370,7 +1407,7 @@ export async function createGenerationAgentRuntime(
       onResult?.(resultEventData(result));
     }),
   ]);
-  const preInjections = [...pipelinePreInjections, ...knowledgePre.injections];
+  const preInjections = mergeAgentInjections(initialInjections, pipelinePreInjections, knowledgePre.injections);
   for (const result of pipeline.results) {
     if (result.agentType && !preResults.includes(result)) preResults.push(result);
   }
