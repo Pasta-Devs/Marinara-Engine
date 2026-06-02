@@ -12,6 +12,7 @@ use tokio::sync::watch;
 
 use crate::seed_defaults::seed_bundled_defaults;
 use crate::storage_commands::{
+    contracts,
     images::percent_encode_component,
     media_uploads::{file_path_asset_url, safe_filename, unique_file_path},
     shared::{
@@ -178,26 +179,7 @@ fn prune_expired_llm_stream_cancellations_with_now(
 }
 
 fn migrate_storage_json_fields(storage: &FileStorage) -> AppResult<()> {
-    for collection in [
-        "characters",
-        "character-groups",
-        "personas",
-        "persona-groups",
-        "lorebooks",
-        "lorebook-entries",
-        "prompts",
-        "prompt-sections",
-        "prompt-variables",
-        "chat-presets",
-        "agents",
-        "connections",
-        "chats",
-        "messages",
-        "custom-tools",
-        "regex-scripts",
-        "game-state-snapshots",
-        "game-checkpoints",
-    ] {
+    for collection in contracts::startup_json_repair_collections() {
         migrate_collection_json_fields(storage, collection)?;
     }
     Ok(())

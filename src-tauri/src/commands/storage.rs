@@ -24,6 +24,8 @@ pub(crate) mod characters;
 pub(crate) mod chats;
 #[path = "storage/connection_secrets.rs"]
 pub(crate) mod connection_secrets;
+#[path = "storage/contracts.rs"]
+pub(crate) mod contracts;
 #[path = "storage/custom_tools.rs"]
 pub(crate) mod custom_tools;
 #[path = "storage/exports.rs"]

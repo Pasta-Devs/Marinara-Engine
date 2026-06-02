@@ -261,7 +261,11 @@ pub async fn storage_create(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
+pub(crate) fn storage_create_inner(
+    state: &AppState,
+    entity: String,
+    value: Value,
+) -> Result<Value, AppError> {
     validate_connection_folder_for_create(state, &entity, &value)?;
     let created = state
         .storage
@@ -291,7 +295,7 @@ pub async fn storage_update(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_update_inner(
+pub(crate) fn storage_update_inner(
     state: &AppState,
     entity: String,
     id: String,
