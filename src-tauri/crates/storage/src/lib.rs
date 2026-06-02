@@ -131,6 +131,11 @@ impl FileStorage {
             .filter(|id| !id.trim().is_empty())
             .map(ToOwned::to_owned)
             .unwrap_or_else(new_id);
+        if had_id && self.read_collection_find_by_id(collection, &id)?.is_some() {
+            return Err(AppError::invalid_input(format!(
+                "{collection}/{id} already exists"
+            )));
+        }
         let now = now_iso();
         object.insert("id".to_string(), Value::String(id.clone()));
         object
@@ -2498,6 +2503,54 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<Value>(&fs::read_to_string(&backup).unwrap()).unwrap(),
             json!([{ "id": "second" }])
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn create_rejects_duplicate_caller_provided_id_without_mutating_existing_row() {
+        let root = temp_storage_root("create-rejects-duplicate-id");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .create(
+                "characters",
+                json!({
+                    "id": "duplicate-test",
+                    "name": "Original"
+                }),
+            )
+            .expect("initial create should succeed");
+
+        let error = storage
+            .create(
+                "characters",
+                json!({
+                    "id": "duplicate-test",
+                    "name": "Replacement"
+                }),
+            )
+            .expect_err("duplicate create should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "characters/duplicate-test already exists");
+        let original = storage
+            .get("characters", "duplicate-test")
+            .unwrap()
+            .expect("original row should remain");
+        assert_eq!(original["name"], "Original");
+        assert_eq!(original["id"], "duplicate-test");
+        assert!(original.get("createdAt").is_some());
+        assert!(original.get("updatedAt").is_some());
+        assert_eq!(
+            storage.list("characters").unwrap(),
+            vec![json!({
+                "id": original["id"].clone(),
+                "name": original["name"].clone(),
+                "createdAt": original["createdAt"].clone(),
+                "updatedAt": original["updatedAt"].clone()
+            })]
         );
 
         fs::remove_dir_all(root).unwrap();
