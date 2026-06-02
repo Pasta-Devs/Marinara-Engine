@@ -18,6 +18,11 @@ import {
   parseStat,
 } from "../shared/game-state/player-stats";
 import { normalizeGameStateTrackerRows } from "../shared/game-state/tracker-row-ids";
+import {
+  filterPlayerPersonaPresentCharacters,
+  type TrackerPersonaIdentity,
+} from "../shared/game-state/present-character-filter";
+import { loadPersonaSnapshotForChat } from "./persona-snapshot";
 
 export interface TrackerSnapshotTurnTarget {
   messageId: string;
@@ -157,7 +162,12 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
   };
 }
 
-function normalizeGameState(value: unknown, chatId: string, target: TrackerSnapshotTurnTarget): GameState {
+function normalizeGameState(
+  value: unknown,
+  chatId: string,
+  target: TrackerSnapshotTurnTarget,
+  persona?: TrackerPersonaIdentity | null,
+): GameState {
   const record = parseRecord(value);
   const manualOverrides = parseManualOverrides(record.manualOverrides);
   return normalizeGameStateTrackerRows({
@@ -171,9 +181,12 @@ function normalizeGameState(value: unknown, chatId: string, target: TrackerSnaps
     weather: manualOverrideValue(manualOverrides, "weather") ?? readNullableString(record.weather),
     temperature: manualOverrideValue(manualOverrides, "temperature") ?? readNullableString(record.temperature),
     presentCharacters: Array.isArray(record.presentCharacters)
-      ? record.presentCharacters
-          .map(parsePresentCharacter)
-          .filter((character): character is PresentCharacter => !!character)
+      ? filterPlayerPersonaPresentCharacters(
+          record.presentCharacters
+            .map(parsePresentCharacter)
+            .filter((character): character is PresentCharacter => !!character),
+          persona,
+        )
       : [],
     recentEvents: Array.isArray(record.recentEvents)
       ? record.recentEvents.map(readNullableString).filter((event): event is string => !!event)
@@ -407,6 +420,7 @@ function gameStatePatchFromAgentResult(
   result: AgentResult,
   snapshot: GameState,
   previousWorldState: GameState,
+  persona?: TrackerPersonaIdentity | null,
   sourceText?: string | null,
 ): TrackerStatePatch | null {
   if (!result.success) return null;
@@ -424,9 +438,12 @@ function gameStatePatchFromAgentResult(
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)
-      ? data.presentCharacters
-          .map(parsePresentCharacter)
-          .filter((character): character is PresentCharacter => !!character)
+      ? filterPlayerPersonaPresentCharacters(
+          data.presentCharacters
+            .map(parsePresentCharacter)
+            .filter((character): character is PresentCharacter => !!character),
+          persona,
+        )
       : [];
     preserveTrackerCharacterUiFields(
       presentCharacters as unknown as Array<Record<string, unknown>>,
@@ -474,9 +491,16 @@ export async function persistTrackerSnapshotForTurn(
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
   const existing = await getTrackerSnapshotForTarget(storage, chatId, target);
+  const hasCharacterTrackerResult = results.some(
+    (result) => result.agentType === "character-tracker" || result.type === "character_tracker_update",
+  );
+  const needsChatBaseline = !existing && !options.baseSnapshot;
   const chat =
-    existing || options.baseSnapshot ? null : parseRecord(await storage.get("chats", chatId).catch(() => null));
-  let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target);
+    needsChatBaseline || hasCharacterTrackerResult
+      ? parseRecord(await storage.get("chats", chatId).catch(() => null))
+      : null;
+  const persona = hasCharacterTrackerResult ? await loadPersonaSnapshotForChat(storage, chat).catch(() => null) : null;
+  let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target, persona);
   if (!existing) {
     snapshot = { ...snapshot, id: "", committed: false, manualOverrides: null, createdAt: nowIso() };
   }
@@ -484,9 +508,9 @@ export async function persistTrackerSnapshotForTurn(
 
   for (const result of results) {
     const previousWorldState = options.baseSnapshot ?? snapshot;
-    const patch = gameStatePatchFromAgentResult(result, snapshot, previousWorldState, options.sourceText);
+    const patch = gameStatePatchFromAgentResult(result, snapshot, previousWorldState, persona, options.sourceText);
     if (!patch) continue;
-    snapshot = normalizeGameState({ ...snapshot, ...patch }, chatId, target);
+    snapshot = normalizeGameState({ ...snapshot, ...patch }, chatId, target, persona);
     changed = true;
   }
 
