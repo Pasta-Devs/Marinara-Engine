@@ -9,6 +9,7 @@ Current development targets `refactor`.
 - Base feature, bug fix, and documentation branches on `refactor`.
 - Open pull requests against `refactor`.
 - Do not target `main` unless a maintainer explicitly asks for a mainline or release change.
+- Treat `refactor` docs as the only authoritative docs for current work. Do not use `main` or historical `staging` docs for refactor implementation, integrations, or release guidance unless a maintainer explicitly asks for that branch context.
 - Keep PRs focused. Separate architecture moves, product behavior, UI polish, and docs-only work when they can be reviewed independently.
 
 ## Development Setup

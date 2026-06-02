@@ -817,9 +817,9 @@ export function GameCharacterSheet({
                       </div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-[var(--secondary)] ring-1 ring-[var(--border)]">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full w-full origin-left rounded-full transition-transform"
                           style={{
-                            width: `${(hpValue / hpMax) * 100}%`,
+                            transform: `scaleX(${hpValue / hpMax})`,
                             background: "#ef4444",
                           }}
                         />
@@ -848,9 +848,9 @@ export function GameCharacterSheet({
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-[var(--secondary)] ring-1 ring-[var(--border)]">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full w-full origin-left rounded-full transition-transform"
                           style={{
-                            width: `${width}%`,
+                            transform: `scaleX(${width / 100})`,
                             background: stat.color || "var(--primary)",
                           }}
                         />

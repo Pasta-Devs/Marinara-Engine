@@ -2827,8 +2827,11 @@ function CombatantCard({
           <Heart size={9} className={cn(isKo ? "text-white/20" : "text-red-400")} />
           <div className={cn("h-2 flex-1 overflow-hidden rounded-full bg-white/10", !isKo && `shadow-sm ${hpGlow}`)}>
             <div
-              className={cn("h-full rounded-full transition-all duration-500 ease-out", hpColor)}
-              style={{ width: `${hpPercent}%` }}
+              className={cn(
+                "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out",
+                hpColor,
+              )}
+              style={{ transform: `scaleX(${hpPercent / 100})` }}
             />
           </div>
           <span className="min-w-[2.5rem] text-right text-[0.55rem] tabular-nums text-white/50">
@@ -2842,8 +2845,8 @@ function CombatantCard({
             <Droplets size={9} className="text-blue-400" />
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${mpPercent}%` }}
+                className="h-full w-full origin-left rounded-full bg-blue-500 transition-transform duration-500"
+                style={{ transform: `scaleX(${mpPercent / 100})` }}
               />
             </div>
             <span className="min-w-[2.5rem] text-right text-[0.55rem] tabular-nums text-white/40">
@@ -2950,8 +2953,11 @@ function MobileCombatantChip({
           <Heart size={8} className={cn(isKo ? "text-white/20" : "text-red-400")} />
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
             <div
-              className={cn("h-full rounded-full transition-all duration-500 ease-out", hpColor)}
-              style={{ width: `${hpPercent}%` }}
+              className={cn(
+                "h-full w-full origin-left rounded-full transition-transform duration-500 ease-out",
+                hpColor,
+              )}
+              style={{ transform: `scaleX(${hpPercent / 100})` }}
             />
           </div>
           <span className="shrink-0 text-[0.5rem] tabular-nums text-white/55">{combatant.hp}</span>

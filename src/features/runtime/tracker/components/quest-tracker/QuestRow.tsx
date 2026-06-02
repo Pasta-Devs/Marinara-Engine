@@ -93,9 +93,7 @@ export function QuestRow({
             editHintMode={wrapsText ? "overlay" : "inline"}
             className={cn(
               "tracker-quest-row__title-edit",
-              wrapsText
-                ? "tracker-quest-row__title-edit--wrapped"
-                : "tracker-quest-row__title-edit--single-line",
+              wrapsText ? "tracker-quest-row__title-edit--wrapped" : "tracker-quest-row__title-edit--single-line",
               quest.completed && "tracker-quest-row__title-edit--completed",
             )}
           />
@@ -130,7 +128,7 @@ export function QuestRow({
             "tracker-quest-row__progress-fill",
             quest.completed && "tracker-quest-row__progress-fill--complete",
           )}
-          style={{ width: `${completionPercent}%` }}
+          style={{ transform: `scaleX(${completionPercent / 100})` }}
         />
       </div>
 

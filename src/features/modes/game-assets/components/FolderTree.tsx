@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { Check, ChevronDown, ChevronRight, Folder, Minus } from "lucide-react";
 import type { TreeNode } from "../hooks/use-game-assets";
-import type { GameAssetSelectionStatus } from "../../game/index";
+import type { GameAssetSelectionStatus } from "../../game/assets";
 import { cn } from "../../../../shared/lib/utils";
 import { CATEGORY_ICONS } from "./constants";
 

@@ -46,16 +46,6 @@ vi.mock("../../../catalog/chats/index", () => ({
   useUpdateChatMetadata: () => mutationStub(),
 }));
 
-// game/index re-exports heavy GameSurface/GameModeRoute components; the view
-// only needs the pure folder-selection helpers.
-vi.mock("../../game/index", () => ({
-  excludeGameAssetFolder: (_path: string, folders: string[]) => folders,
-  includeGameAssetFolder: (_path: string, folders: string[]) => folders,
-  getGameAssetFolderSelectionStatus: () => "included",
-  parseGameAssetExcludedFolders: () => [],
-  serializeGameAssetSelection: () => undefined,
-}));
-
 // local-file-api imports @tauri-apps/api at module load.
 vi.mock("../../../../shared/api/local-file-api", () => ({
   resolveGameAssetFileUrl: vi.fn(async (path: string) => path),
