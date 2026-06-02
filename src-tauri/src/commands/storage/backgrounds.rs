@@ -1,5 +1,6 @@
 use super::shared::*;
 use super::*;
+use crate::storage_commands::images::percent_encode_component;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn backgrounds_call(
@@ -68,6 +69,18 @@ fn list_backgrounds(state: &AppState) -> AppResult<Value> {
             .cloned()
             .unwrap_or_else(|| json!({ "filename": filename, "originalName": filename, "tags": [], "source": "user" }));
         rows.push(background_item(state, &filename, &meta)?);
+    }
+    let manifest = state.game_assets.manifest()?;
+    if let Some(game_backgrounds) = manifest
+        .get("byCategory")
+        .and_then(|by_category| by_category.get("backgrounds"))
+        .and_then(Value::as_array)
+    {
+        for item in game_backgrounds {
+            if let Some(row) = game_asset_background_item(item) {
+                rows.push(row);
+            }
+        }
     }
     Ok(Value::Array(rows))
 }
@@ -165,6 +178,37 @@ fn background_item(state: &AppState, filename: &str, meta: &Value) -> AppResult<
         "isDirectory": false,
         "size": metadata.len(),
         "modified": now_iso()
+    }))
+}
+
+fn game_asset_background_item(item: &Value) -> Option<Value> {
+    let path = item.get("path").and_then(Value::as_str)?.trim();
+    if path.is_empty() {
+        return None;
+    }
+    let name = item
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| path.rsplit('/').next())
+        .unwrap_or(path);
+    let tag = item.get("tag").and_then(Value::as_str);
+    Some(json!({
+        "id": tag.unwrap_or(path),
+        "filename": name,
+        "name": name,
+        "path": path,
+        "absolutePath": item.get("absolutePath").cloned().unwrap_or(Value::Null),
+        "url": format!("marinara-game-asset:{}", percent_encode_component(path)),
+        "originalName": name,
+        "tags": [],
+        "source": "game_asset",
+        "tag": tag,
+        "type": "file",
+        "isDirectory": false,
+        "ext": item.get("ext").cloned().unwrap_or(Value::Null),
+        "editable": false,
+        "deletable": false,
+        "renameable": false
     }))
 }
 
@@ -275,4 +319,89 @@ fn unique_background_path(path: PathBuf) -> AppResult<PathBuf> {
     Err(AppError::invalid_input(
         "Could not find an available background filename",
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::AppState;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_state(label: &str) -> AppState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("marinara-backgrounds-{label}-{nonce}"));
+        if path.exists() {
+            std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
+        }
+        AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn list_backgrounds_includes_non_editable_game_asset_backgrounds() {
+        let state = test_state("game-asset-list");
+        std::fs::write(state.backgrounds.root().join("uploaded.png"), b"user")
+            .expect("user background should be written");
+        let game_background_path = state
+            .game_assets
+            .root()
+            .join("backgrounds")
+            .join("fantasy")
+            .join("castle.png");
+        std::fs::create_dir_all(
+            game_background_path
+                .parent()
+                .expect("background has parent"),
+        )
+        .expect("game background folder should be created");
+        std::fs::write(&game_background_path, b"game").expect("game background should be written");
+        let game_music_path = state.game_assets.root().join("music").join("theme.mp3");
+        std::fs::create_dir_all(game_music_path.parent().expect("music has parent"))
+            .expect("game music folder should be created");
+        std::fs::write(&game_music_path, b"music").expect("game music should be written");
+
+        let rows = backgrounds_call(&state, "GET", &[], Value::Null)
+            .expect("background list should be returned");
+        let rows = rows.as_array().expect("background list should be an array");
+
+        let user_row = rows
+            .iter()
+            .find(|row| row.get("filename").and_then(Value::as_str) == Some("uploaded.png"))
+            .expect("user background row should still be listed");
+        assert_eq!(user_row.get("source").and_then(Value::as_str), Some("user"));
+
+        let game_row = rows
+            .iter()
+            .find(|row| {
+                row.get("path").and_then(Value::as_str) == Some("backgrounds/fantasy/castle.png")
+            })
+            .expect("game asset background row should be listed");
+        assert_eq!(
+            game_row.get("source").and_then(Value::as_str),
+            Some("game_asset")
+        );
+        assert_eq!(
+            game_row.get("editable").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            game_row.get("deletable").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            game_row.get("renameable").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            game_row.get("url").and_then(Value::as_str),
+            Some("marinara-game-asset:backgrounds%2Ffantasy%2Fcastle.png")
+        );
+        assert!(
+            rows.iter()
+                .all(|row| row.get("path").and_then(Value::as_str) != Some("music/theme.mp3")),
+            "non-background game assets should not be listed as picker backgrounds"
+        );
+    }
 }
