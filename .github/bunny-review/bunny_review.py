@@ -794,12 +794,12 @@ def commit_subject(head_sha):
     return " ".join(result.stdout.split())
 
 
-def commit_line(head_sha, message=None):
+def commit_line(head_sha, message=None, label="Commit"):
     subject = " ".join(str(message or "").split()) or commit_subject(head_sha)
     ref = short_ref(head_sha)
     if subject:
-        return f"Commit: {ref} - {subject}"
-    return f"Commit: {ref}"
+        return f"{label}: {ref} - {subject}"
+    return f"{label}: {ref}"
 
 
 def md_cell(value):
@@ -924,8 +924,8 @@ def render_review_metadata(review_obj, head_sha):
         [
             "> [!NOTE]",
             f"> Mode: `{mode}`  ",
-            f"> {commit_line(head_sha, commit_message)}  ",
-            f"> Base: `{short_ref(base)}`",
+            f"> {commit_line(head_sha, commit_message, label='Head')}  ",
+            f"> {commit_line(base, label='Base')}",
         ]
     )
 
