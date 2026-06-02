@@ -1,10 +1,9 @@
 use crate::state::AppState;
 use crate::storage_commands::{
-    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats,
-    connection_secrets, custom_tools, entity_commands, exports, fonts, game_assets,
-    game_state_snapshots, generation, http, images, imports, integrations, knowledge, llm,
-    lorebook_images, mari, personas, profile, profile_commands, prompts, shared, sprites,
-    translation, updates,
+    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
+    entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
+    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
+    profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -877,53 +876,31 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
 }
 
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let id = required_string(args, "id")?;
-    let mut value = state.storage.get(entity, id)?.unwrap_or(Value::Null);
-    if entity == "messages" {
-        shared::materialize_message_swipe_fields(&mut value);
-    }
-    if entity == "connections" {
-        connection_secrets::mask_connection_for_read(&mut value);
-    }
-    Ok(shared::project_record(value, args.get("options")))
+    entity_commands::storage_get_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        required_string(args, "id")?.to_string(),
+        args.get("options")
+            .filter(|value| !value.is_null())
+            .cloned(),
+    )
 }
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let value = optional_value(args, "value");
-    entity_commands::validate_connection_folder_for_create(state, entity, &value)?;
-    let value = entity_commands::prepare_entity_for_create(state, entity, value)?;
-    let created = state.storage.create(entity, value)?;
-    if entity == "messages" {
-        return Ok(shared::project_timeline_message(created));
-    }
-    if entity == "connections" {
-        let mut masked = created;
-        connection_secrets::mask_connection_for_read(&mut masked);
-        return Ok(masked);
-    }
-    Ok(created)
+    entity_commands::storage_create_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        optional_value(args, "value"),
+    )
 }
 
 fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let id = required_string(args, "id")?;
-    if entity == "messages" {
-        return Ok(shared::project_timeline_message(
-            shared::patch_message_update(state, id, optional_value(args, "patch"))?,
-        ));
-    }
-    if entity == "characters" {
-        return characters::update_character(state, id, optional_value(args, "patch"));
-    }
-    let raw_patch = optional_value(args, "patch");
-    entity_commands::validate_connection_folder_for_patch(state, entity, &raw_patch)?;
-    let patch = shared::normalize_update_patch(entity, raw_patch)?;
-    if entity == "connections" {
-        return connection_secrets::patch_connection(state, id, patch);
-    }
-    state.storage.patch(entity, id, patch)
+    entity_commands::storage_update_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        required_string(args, "id")?.to_string(),
+        optional_value(args, "patch"),
+    )
 }
 
 fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1167,6 +1144,15 @@ mod tests {
         })
     }
 
+    fn default_for_agents(state: &AppState, id: &str) -> bool {
+        state
+            .storage
+            .get("connections", id)
+            .expect("connection should read")
+            .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
+            .unwrap_or(false)
+    }
+
     fn quoted_commands(source: &str) -> BTreeSet<String> {
         source
             .split('"')
@@ -1327,6 +1313,110 @@ mod tests {
                 "extra": { "thinking": "swipe thought" }
             }])
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_create_connection_clears_previous_agent_default() {
+        let state = test_state("storage-create-connection-agent-default");
+        for (id, provider) in [("language-a", "anthropic"), ("language-b", "openai")] {
+            dispatch(
+                &state,
+                InvokeRequest {
+                    command: "storage_create".to_string(),
+                    args: Some(json!({
+                        "entity": "connections",
+                        "value": {
+                            "id": id,
+                            "name": id,
+                            "provider": provider,
+                            "defaultForAgents": true
+                        }
+                    })),
+                },
+            )
+            .await
+            .expect("remote connection create should dispatch");
+        }
+
+        assert!(!default_for_agents(&state, "language-a"));
+        assert!(default_for_agents(&state, "language-b"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_update_connection_clears_previous_agent_default() {
+        let state = test_state("storage-update-connection-agent-default");
+        for (id, default_for_agents) in [("language-a", true), ("language-b", false)] {
+            state
+                .storage
+                .create(
+                    "connections",
+                    json!({
+                        "id": id,
+                        "name": id,
+                        "provider": "openai",
+                        "defaultForAgents": default_for_agents
+                    }),
+                )
+                .expect("connection should be seeded");
+        }
+
+        dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_update".to_string(),
+                args: Some(json!({
+                    "entity": "connections",
+                    "id": "language-b",
+                    "patch": { "defaultForAgents": true }
+                })),
+            },
+        )
+        .await
+        .expect("remote connection update should dispatch");
+
+        assert!(!default_for_agents(&state, "language-a"));
+        assert!(default_for_agents(&state, "language-b"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_update_protects_default_chat_preset_fields() {
+        let state = test_state("storage-update-default-chat-preset");
+        state
+            .storage
+            .create(
+                "chat-presets",
+                json!({
+                    "id": "default-chat-preset",
+                    "name": "Default Chat",
+                    "mode": "chat",
+                    "isDefault": true,
+                    "isActive": true
+                }),
+            )
+            .expect("default chat preset should be seeded");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_update".to_string(),
+                args: Some(json!({
+                    "entity": "chat-presets",
+                    "id": "default-chat-preset",
+                    "patch": { "name": "Mutated Default" }
+                })),
+            },
+        )
+        .await
+        .expect_err("default chat preset field mutations should be rejected remotely");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "Default chat presets cannot be updated");
+        let preset = state
+            .storage
+            .get("chat-presets", "default-chat-preset")
+            .expect("chat preset should read")
+            .expect("chat preset should still exist");
+        assert_eq!(preset["name"], "Default Chat");
     }
 
     #[tokio::test]
