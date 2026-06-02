@@ -1,10 +1,9 @@
 use crate::state::AppState;
 use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats,
-    connection_secrets, custom_tools, entity_commands, exports, fonts, game_assets,
-    game_state_snapshots, generation, http, images, imports, integrations, knowledge, llm,
-    lorebook_images, mari, personas, profile, profile_commands, prompts, shared, sprites,
-    translation, updates,
+    custom_tools, entity_commands, exports, fonts, game_assets, game_state_snapshots, generation,
+    http, images, imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
+    profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -877,16 +876,14 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
 }
 
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let id = required_string(args, "id")?;
-    let mut value = state.storage.get(entity, id)?.unwrap_or(Value::Null);
-    if entity == "messages" {
-        shared::materialize_message_swipe_fields(&mut value);
-    }
-    if entity == "connections" {
-        connection_secrets::mask_connection_for_read(&mut value);
-    }
-    Ok(shared::project_record(value, args.get("options")))
+    entity_commands::storage_get_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        required_string(args, "id")?.to_string(),
+        args.get("options")
+            .filter(|value| !value.is_null())
+            .cloned(),
+    )
 }
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1188,6 +1185,35 @@ mod tests {
                 (!command.is_empty()).then_some(command)
             })
             .collect()
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_create_rejects_unsupported_entity() {
+        let state = test_state("storage-create-unsupported-entity");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_create".to_string(),
+                args: Some(json!({
+                    "entity": "typo-collection",
+                    "value": { "id": "row-1" }
+                })),
+            },
+        )
+        .await
+        .expect_err("remote storage_create should reject unsupported entities");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
     }
 
     #[test]
