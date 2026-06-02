@@ -1,0 +1,38 @@
+name: Bunny Review Auto Dispatch
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: bunny-review-auto-dispatch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    if: >
+      github.event.pull_request.base.ref == 'refactor' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted Bunny reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REQUESTED_BY: ${{ github.event.sender.login }}
+          TARGET_REF: refactor
+        run: |
+          # This pull_request_target workflow is intentionally a dispatcher only.
+          # It must not checkout, install, or execute code from the pull request.
+          gh workflow run bunny-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="auto pull_request_target dispatch" \
+            -f review_mode="auto" \
+            -f requested_by="$REQUESTED_BY"
