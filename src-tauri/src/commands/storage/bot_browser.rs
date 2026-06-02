@@ -1537,21 +1537,33 @@ async fn datacat_fresh_recent_fallback(state: &AppState, route: &ParsedPath) -> 
         ),
     )
     .await?;
-    Ok(datacat_recent_as_fresh_response(recent))
+    datacat_recent_as_fresh_response(recent)
 }
 
-fn datacat_recent_as_fresh_response(mut recent: Value) -> Value {
+fn datacat_recent_as_fresh_response(mut recent: Value) -> AppResult<Value> {
+    if recent.get("success").and_then(Value::as_bool) == Some(false) {
+        return Err(AppError::new(
+            "upstream_response_error",
+            "DataCat recent fallback was unsuccessful",
+        ));
+    }
     let characters = recent
         .get_mut("characters")
         .and_then(Value::as_array_mut)
         .map(|items| Value::Array(std::mem::take(items)))
-        .unwrap_or_else(|| json!([]));
+        .ok_or_else(|| {
+            AppError::new(
+                "upstream_response_error",
+                "DataCat recent fallback did not include characters",
+            )
+        })?;
     let count = characters.as_array().map(Vec::len).unwrap_or_default();
-    json!({
-        "success": recent
-            .get("success")
-            .and_then(Value::as_bool)
-            .unwrap_or(true),
+    let empty_week = json!({
+        "count": 0,
+        "characters": []
+    });
+    Ok(json!({
+        "success": true,
         "sortBy": "recent-public",
         "fallback": {
             "source": "recent-public",
@@ -1561,12 +1573,15 @@ fn datacat_recent_as_fresh_response(mut recent: Value) -> Value {
             "last24h": {
                 "count": count,
                 "characters": characters
-            }
+            },
+            "thisWeek": empty_week.clone()
         },
         "last24h": {
-            "count": count
-        }
-    })
+            "count": count,
+            "characters": characters
+        },
+        "thisWeek": empty_week
+    }))
 }
 
 async fn datacat_tags(state: &AppState, route: &ParsedPath) -> AppResult<Value> {
@@ -1696,11 +1711,39 @@ mod tests {
                 { "characterId": "alpha", "chatName": "Alpha" },
                 { "characterId": "beta", "chatName": "Beta" }
             ]
-        }));
+        }))
+        .expect("valid recent data should become a fresh fallback");
 
         let last24h = &fallback["windows"]["last24h"];
         assert_eq!(last24h["count"], 2);
         assert_eq!(last24h["characters"][0]["characterId"], "alpha");
+        assert_eq!(fallback["last24h"]["characters"][1]["characterId"], "beta");
+        assert_eq!(fallback["windows"]["thisWeek"]["count"], 0);
+        assert!(fallback["windows"]["thisWeek"]["characters"]
+            .as_array()
+            .is_some_and(Vec::is_empty));
         assert_eq!(fallback["fallback"]["source"], "recent-public");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_unsuccessful_recent_payload() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "success": false,
+            "characters": []
+        }))
+        .expect_err("unsuccessful recent payload should not become a success");
+
+        assert_eq!(error.code, "upstream_response_error");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_missing_characters() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "success": true,
+            "items": []
+        }))
+        .expect_err("missing character array should stay an upstream error");
+
+        assert_eq!(error.code, "upstream_response_error");
     }
 }
