@@ -2344,6 +2344,20 @@ function insertBeforeFirstHistory(messages: ChatMLMessage[], message: ChatMLMess
   messages.splice(insertAt >= 0 ? insertAt : messages.length, 0, message);
 }
 
+function chatHistoryDepthInjectionBounds(
+  messages: ChatMLMessage[],
+): { minIndex: number; anchorIndex: number } | undefined {
+  const minIndex = messages.findIndex((message) => message.contextKind === "history");
+  if (minIndex < 0) return undefined;
+
+  let lastHistoryIndex = minIndex;
+  for (let index = minIndex + 1; index < messages.length; index += 1) {
+    if (messages[index]?.contextKind === "history") lastHistoryIndex = index;
+  }
+
+  return { minIndex, anchorIndex: lastHistoryIndex + 1 };
+}
+
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
   rawInput: PromptAssemblyInput,
@@ -2561,6 +2575,7 @@ export async function assembleGenerationPrompt(
     authorNotesEntry
       ? [...processedLore.depthEntries, ...characterDepthEntries, authorNotesEntry]
       : [...processedLore.depthEntries, ...characterDepthEntries],
+    chatHistoryDepthInjectionBounds(messages),
   );
   const regexScripts = await storage.list<JsonRecord>("regex-scripts");
   applyRegexScriptsToPromptMessages(messages, regexScripts, {

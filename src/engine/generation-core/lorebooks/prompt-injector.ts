@@ -10,6 +10,13 @@ export interface PromptMessage {
   name?: string;
 }
 
+export interface InjectAtDepthOptions {
+  /** Lowest prompt index a depth entry may be inserted at. */
+  minIndex?: number;
+  /** Prompt index depth entries count back from. Defaults to the full prompt length. */
+  anchorIndex?: number;
+}
+
 /**
  * Build the World Info content blocks from activated entries.
  * Position 0 = WORLD_INFO_BEFORE (before character defs)
@@ -73,12 +80,16 @@ function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Array<{
 export function injectAtDepth(
   messages: PromptMessage[],
   depthEntries: Array<{ content: string; role: LorebookRole; depth: number }>,
+  options: InjectAtDepthOptions = {},
 ): PromptMessage[] {
   if (depthEntries.length === 0) return messages;
 
+  const anchorIndex = Math.max(0, Math.min(messages.length, Math.floor(options.anchorIndex ?? messages.length)));
+  const minIndex = Math.max(0, Math.min(anchorIndex, Math.floor(options.minIndex ?? 0)));
   const byInsertionIndex = new Map<number, Array<{ content: string; role: LorebookRole }>>();
   for (const entry of depthEntries) {
-    const insertionIndex = Math.max(0, messages.length - entry.depth);
+    const depth = Math.max(0, Math.floor(entry.depth));
+    const insertionIndex = Math.max(minIndex, anchorIndex - depth);
     const list = byInsertionIndex.get(insertionIndex) ?? [];
     list.push({ content: entry.content, role: entry.role });
     byInsertionIndex.set(insertionIndex, list);
