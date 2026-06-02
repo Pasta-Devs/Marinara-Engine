@@ -21,7 +21,7 @@ pub async fn storage_list(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_list_inner(
+pub(crate) fn storage_list_inner(
     state: &AppState,
     entity: String,
     options: Option<Value>,
@@ -48,7 +48,10 @@ fn storage_list_inner(
                         .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
                 } else if message_id_projection_only(options.as_ref()) {
                     state.storage.list_message_ids_for_chat(chat_id)?
-                } else if let Some(fields) = projection_fields.as_ref().filter(|fields| !fields.is_empty()) {
+                } else if let Some(fields) = projection_fields
+                    .as_ref()
+                    .filter(|fields| !fields.is_empty())
+                {
                     state.storage.list_messages_for_chat_projected(
                         chat_id,
                         &message_projection_fields_for_materialization(fields),

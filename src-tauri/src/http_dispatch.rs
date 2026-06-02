@@ -867,129 +867,13 @@ fn chat_disconnect(state: &AppState, args: &Map<String, Value>) -> AppResult<Val
 }
 
 fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let options = args.get("options").filter(|value| !value.is_null());
-    let filters = options
-        .and_then(|value| value.get("filters"))
-        .and_then(Value::as_object);
-    let projection_fields = shared::projection_fields(options);
-    let empty_filters = filters.is_none_or(|filters| filters.is_empty());
-    let has_search = shared::has_storage_search(options);
-    let mut rows = match (entity, filters) {
-        ("messages", Some(filters))
-            if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
-        {
-            let chat_id = filters
-                .get("chatId")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            if !has_search {
-                if let Some((limit, before)) = message_page_options(options) {
-                    state
-                        .storage
-                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
-                } else {
-                    state.storage.list_messages_for_chat(chat_id)?
-                }
-            } else {
-                state.storage.list_messages_for_chat(chat_id)?
-            }
-        }
-        (_, _)
-            if empty_filters
-                && has_search
-                && projection_fields
-                    .as_ref()
-                    .is_some_and(|fields| !fields.is_empty()) =>
-        {
-            let search_projection_fields = shared::search_projection_fields(options);
-            let search_projection_field_selections =
-                shared::search_projection_field_selections(options);
-            state.storage.list_projected(
-                entity,
-                &search_projection_fields,
-                &search_projection_field_selections,
-            )?
-        }
-        (_, _)
-            if empty_filters
-                && !has_search
-                && projection_fields
-                    .as_ref()
-                    .is_some_and(|fields| !fields.is_empty()) =>
-        {
-            state.storage.list_projected(
-                entity,
-                projection_fields.as_deref().unwrap_or(&[]),
-                shared::projection_field_selections(options),
-            )?
-        }
-        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
-        _ => state.storage.list(entity)?,
-    };
-    shared::apply_storage_search(&mut rows, options);
-
-    let order_by = options
-        .and_then(|value| value.get("orderBy"))
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty());
-    let descending = options
-        .and_then(|value| value.get("descending"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-
-    rows.sort_by(|a, b| {
-        let ordering = match order_by {
-            Some(field) => compare_json_values(a.get(field), b.get(field)),
-            None => compare_json_values(
-                a.get("sortOrder")
-                    .or_else(|| a.get("order"))
-                    .or_else(|| a.get("createdAt")),
-                b.get("sortOrder")
-                    .or_else(|| b.get("order"))
-                    .or_else(|| b.get("createdAt")),
-            ),
-        };
-        if descending {
-            ordering.reverse()
-        } else {
-            ordering
-        }
-    });
-
-    if entity == "messages" {
-        apply_message_pagination(&mut rows, options);
-        for row in &mut rows {
-            shared::materialize_message_swipe_fields(row);
-        }
-        return Ok(Value::Array(shared::project_list_rows(rows, options)));
-    }
-
-    if entity == "connections" {
-        connection_secrets::mask_connection_rows_for_read(&mut rows);
-    }
-
-    if let Some(limit) = options
-        .and_then(|value| value.get("limit"))
-        .and_then(Value::as_u64)
-        .map(|value| value as usize)
-    {
-        rows.truncate(limit);
-    }
-
-    Ok(Value::Array(shared::project_list_rows(rows, options)))
-}
-
-fn message_page_options(options: Option<&Value>) -> Option<(usize, Option<String>)> {
-    let options = options?;
-    let limit = options.get("limit").and_then(Value::as_u64)? as usize;
-    let before = options
-        .get("before")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    Some((limit, before))
+    entity_commands::storage_list_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        args.get("options")
+            .filter(|value| !value.is_null())
+            .cloned(),
+    )
 }
 
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1120,10 +1004,7 @@ fn chat_message_delete_swipe(state: &AppState, args: &Map<String, Value>) -> App
 }
 
 fn chat_evict_prompt_snapshots(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let keep_last = args
-        .get("keepLast")
-        .and_then(Value::as_u64)
-        .unwrap_or(2) as usize;
+    let keep_last = args.get("keepLast").and_then(Value::as_u64).unwrap_or(2) as usize;
     chats::evict_prompt_snapshots(state, required_string(args, "chatId")?, keep_last)
 }
 
@@ -1230,74 +1111,6 @@ async fn sprite_generate_sheet_preview(
 
 fn llm_stream_cancel(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     llm::llm_stream_cancel(state, required_string(args, "streamId")?)
-}
-
-fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> std::cmp::Ordering {
-    match (left, right) {
-        (Some(Value::Number(a)), Some(Value::Number(b))) => a
-            .as_f64()
-            .partial_cmp(&b.as_f64())
-            .unwrap_or(std::cmp::Ordering::Equal),
-        (Some(Value::String(a)), Some(Value::String(b))) => a.cmp(b),
-        (Some(Value::Bool(a)), Some(Value::Bool(b))) => a.cmp(b),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        _ => std::cmp::Ordering::Equal,
-    }
-}
-
-fn apply_message_pagination(rows: &mut Vec<Value>, options: Option<&Value>) {
-    rows.sort_by(|a, b| {
-        let (a_created_at, a_id) = message_cursor(a);
-        let (b_created_at, b_id) = message_cursor(b);
-        a_created_at.cmp(b_created_at).then_with(|| a_id.cmp(b_id))
-    });
-
-    let before = options
-        .and_then(|value| value.get("before"))
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .map(parse_message_cursor);
-
-    if let Some((before_created_at, before_id)) = before {
-        rows.retain(|row| {
-            let (created_at, id) = message_cursor(row);
-            created_at < before_created_at.as_str()
-                || (created_at == before_created_at.as_str()
-                    && before_id.as_deref().is_some_and(|cursor_id| id < cursor_id))
-        });
-    }
-
-    let Some(limit) = options
-        .and_then(|value| value.get("limit"))
-        .and_then(Value::as_u64)
-        .map(|value| value as usize)
-    else {
-        return;
-    };
-
-    if rows.len() > limit {
-        let keep_from = rows.len() - limit;
-        rows.drain(0..keep_from);
-    }
-}
-
-fn parse_message_cursor(cursor: &str) -> (String, Option<String>) {
-    let mut parts = cursor.splitn(2, '|');
-    let created_at = parts.next().unwrap_or_default().to_string();
-    let id = parts
-        .next()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    (created_at, id)
-}
-
-fn message_cursor(row: &Value) -> (&str, &str) {
-    (
-        row.get("createdAt").and_then(Value::as_str).unwrap_or(""),
-        row.get("id").and_then(Value::as_str).unwrap_or(""),
-    )
 }
 
 #[cfg(test)]
@@ -1459,6 +1272,60 @@ mod tests {
         assert_eq!(
             result.get("mimeType"),
             Some(&Value::String("image/png".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_list_uses_projected_message_reads() {
+        let state = test_state("storage-list-projected-messages");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "chatId": "chat-b",
+                        "content": "skip",
+                        "extra": { "large": "ignored" },
+                        "swipes": [{ "content": "skip swipe", "extra": { "thinking": "skip thought" } }]
+                    }),
+                    json!({
+                        "id": "message-1",
+                        "chatId": "chat-a",
+                        "content": "stored content",
+                        "extra": { "thinking": "visible thought", "large": "ignored" },
+                        "swipes": [{ "content": "active swipe", "extra": { "thinking": "swipe thought", "large": "ignored" } }]
+                    }),
+                ],
+            )
+            .expect("messages should be installed");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_list".to_string(),
+                args: Some(json!({
+                    "entity": "messages",
+                    "options": {
+                        "filters": { "chatId": "chat-a" },
+                        "fields": ["id", "chatId", "content", "extra"],
+                        "fieldSelections": { "extra": ["thinking"] }
+                    }
+                })),
+            },
+        )
+        .await
+        .expect("remote storage_list should dispatch");
+
+        assert_eq!(
+            result,
+            json!([{
+                "id": "message-1",
+                "chatId": "chat-a",
+                "content": "active swipe",
+                "extra": { "thinking": "swipe thought" }
+            }])
         );
     }
 
