@@ -15,6 +15,15 @@ function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
   }
 }
 
+function isLikelyFilesystemPath(value: string): boolean {
+  const normalized = value.replace(/\\/g, "/");
+  return (
+    /^[a-z]:\//i.test(normalized) ||
+    normalized.startsWith("//") ||
+    /^\/(Users|home|var|data|tmp|opt|private)\//i.test(normalized)
+  );
+}
+
 export function CharacterAvatarImage({
   src,
   avatarFilePath,
@@ -36,6 +45,11 @@ export function CharacterAvatarImage({
   useEffect(() => {
     let cancelled = false;
     setAsyncSrc(initialSrc);
+    if (initialSrc && !isLikelyFilesystemPath(initialSrc)) {
+      return () => {
+        cancelled = true;
+      };
+    }
     resolveAvatarFileUrl(avatarFilename, avatarFilePath)
       .then((url) => {
         if (!cancelled) setAsyncSrc(url ?? src ?? null);
