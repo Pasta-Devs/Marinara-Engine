@@ -48,6 +48,7 @@ import type {
   PeekPromptData,
   PeekPromptOptions,
   PersonaInfo,
+  RegenerateOptions,
 } from "../../shared/chat-ui/types";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
@@ -564,7 +565,7 @@ type RoleplaySurfaceProps = {
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onLoadMore: () => void;
   onDelete: (messageId: string) => void;
-  onRegenerate: (messageId: string) => void;
+  onRegenerate: (messageId: string, options?: RegenerateOptions) => void;
   onEdit: (messageId: string, content: string) => void | Promise<void>;
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onToggleConversationStart: (messageId: string, current: boolean) => void;

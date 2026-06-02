@@ -35,7 +35,9 @@ import { triggerDownload } from "../../../../shared/api/download-payload";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../../../shared/lib/backgrounds";
 import {
   backgroundFileUrlFromPath,
+  gameAssetFileUrlFromPath,
   resolveBackgroundFileUrl,
+  resolveGameAssetFileUrl,
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
@@ -2152,10 +2154,27 @@ type BackgroundUploadResponse = {
 
 function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
   const filename = item.filename ?? item.path ?? item.id;
-  const [src, setSrc] = useState(() => (filename ? backgroundFileUrlFromPath(filename, item.absolutePath) : ""));
+  const gameAssetPath = item.source === "game_asset" ? (item.path ?? filename) : null;
+  const [src, setSrc] = useState(() => {
+    if (gameAssetPath) return gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath);
+    return filename ? backgroundFileUrlFromPath(filename, item.absolutePath) : "";
+  });
 
   useEffect(() => {
     let cancelled = false;
+    if (gameAssetPath) {
+      setSrc(gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath));
+      resolveGameAssetFileUrl(gameAssetPath)
+        .then((url) => {
+          if (!cancelled) setSrc(url || gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath));
+        })
+        .catch(() => {
+          if (!cancelled) setSrc(gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath));
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
     if (filename) {
       setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
       resolveBackgroundFileUrl(filename)
@@ -2179,7 +2198,7 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
     return () => {
       cancelled = true;
     };
-  }, [filename, item.absolutePath, item.url]);
+  }, [filename, gameAssetPath, item.absolutePath, item.url]);
 
   return <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />;
 }

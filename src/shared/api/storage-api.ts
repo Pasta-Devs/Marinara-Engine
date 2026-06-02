@@ -128,6 +128,9 @@ function chatMessageSwipeBody(content: string, options?: AddChatMessageSwipeOpti
   const body: Record<string, unknown> = { content: collapseExcessBlankLines(content) };
   if (options?.extra) body.extra = options.extra;
   if (typeof options?.activate === "boolean") body.activate = options.activate;
+  if (Object.prototype.hasOwnProperty.call(options ?? {}, "characterId")) {
+    body.characterId = options?.characterId ?? null;
+  }
   return body;
 }
 

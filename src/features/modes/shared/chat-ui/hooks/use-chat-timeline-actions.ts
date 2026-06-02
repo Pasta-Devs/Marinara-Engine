@@ -19,16 +19,18 @@ import { formatTextQuotes } from "../../../../../shared/lib/dialogue-quotes";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
-import type { MessageSelectionToggle, MessageWithSwipes, PeekPromptData, PeekPromptOptions } from "../types";
+import type {
+  MessageSelectionToggle,
+  MessageWithSwipes,
+  PeekPromptData,
+  PeekPromptOptions,
+  RegenerateOptions,
+} from "../types";
 import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 
 const TRACKER_AGENT_IDS = new Set(
   BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
 );
-
-type RegenerateOptions = {
-  skipTouchConfirm?: boolean;
-};
 
 type UseChatTimelineActionsOptions = {
   activeChatId: string;
@@ -396,16 +398,21 @@ export function useChatTimelineActions({
         const currentInput = useChatStore.getState().currentInput;
         const generationGuide = currentInput.trim();
         const hasInput = generationGuide.length > 0;
+        const forCharacterId = readString(options?.forCharacterId).trim() || null;
+        const regenerateArgs = {
+          chatId: activeChatId,
+          connectionId: null,
+          regenerateMessageId: messageId,
+          forCharacterId,
+        };
         await generate(
           guideGenerations && hasInput
             ? {
-                chatId: activeChatId,
-                connectionId: null,
-                regenerateMessageId: messageId,
+                ...regenerateArgs,
                 generationGuide: buildGuidedGenerationInstructionMessage(generationGuide),
                 generationGuideSource: "guide",
               }
-            : { chatId: activeChatId, connectionId: null, regenerateMessageId: messageId },
+            : regenerateArgs,
         );
       } catch {
         /* Error toast is shown by the generate hook. */

@@ -979,6 +979,7 @@ fn import_st_chat_text(
             created_message_ids.push(created_record_id(&message, "message")?);
             imported += 1;
         }
+        flush_import_writes(state)?;
         Ok(
             json!({ "success": true, "chatId": chat_id, "chat": chat_record, "messagesImported": imported }),
         )
@@ -1086,10 +1087,24 @@ fn import_persona_payload(
             );
         }
     }
-    state
-        .storage
-        .create("personas", with_entity_defaults("personas", Value::Object(object))?)
-        .map(|record| json!({ "success": true, "id": record.get("id").cloned().unwrap_or(Value::Null), "name": record.get("name").cloned().unwrap_or(Value::Null), "persona": record }))
+    let mut created_persona_id = None;
+    let result = (|| -> AppResult<Value> {
+        let record = state
+            .storage
+            .create("personas", with_entity_defaults("personas", Value::Object(object))?)?;
+        let persona_id = created_record_id(&record, "persona")?;
+        created_persona_id = Some(persona_id.clone());
+        flush_import_writes(state)?;
+        Ok(json!({ "success": true, "id": persona_id, "name": record.get("name").cloned().unwrap_or(Value::Null), "persona": record }))
+    })();
+
+    result.map_err(|error| {
+        let mut rollback_errors = Vec::new();
+        if let Some(persona_id) = created_persona_id.as_deref() {
+            rollback_created_records(state, "personas", &[persona_id.to_string()], &mut rollback_errors);
+        }
+        append_rollback_errors(error, "persona import", rollback_errors)
+    })
 }
 
 fn import_persona_file(state: &AppState, path: &Path) -> AppResult<Value> {
@@ -2269,6 +2284,10 @@ mod tests {
         assert!(
             !app_root.join("avatars").join("personas").exists(),
             "failed persona avatar import must remove the managed avatar file"
+        );
+        assert!(
+            state.storage.list("personas").unwrap().is_empty(),
+            "failed persona avatar import must remove the created persona row"
         );
 
         let _ = fs::remove_dir_all(app_root);

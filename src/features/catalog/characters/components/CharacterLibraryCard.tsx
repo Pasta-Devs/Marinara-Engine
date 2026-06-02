@@ -47,6 +47,7 @@ export function CharacterLibraryCard({ character, active, onSelect }: CharacterL
             alt={characterName}
             crop={character.parsed.extensions?.avatarCrop}
             className="transition-transform duration-300 group-hover:scale-[1.03]"
+            thumbnailSize={256}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-white/85">

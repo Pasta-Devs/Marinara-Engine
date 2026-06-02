@@ -4,7 +4,7 @@ import type { GameState } from "../contracts/types/game-state";
 import type { EventGateway } from "../capabilities/events";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
-import type { StorageGateway } from "../capabilities/storage";
+import type { AddChatMessageSwipeOptions, StorageGateway } from "../capabilities/storage";
 import type { SpriteOwnerType, VisualAssetGateway } from "../capabilities/visual-assets";
 import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
@@ -988,6 +988,20 @@ function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): str
   return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
 }
 
+function activeSwipeCharacterId(message: JsonRecord | undefined): string | null {
+  if (!message) return null;
+  const rawSwipes = Array.isArray(message.swipes)
+    ? message.swipes
+    : Array.isArray(message.swipePreviews)
+      ? message.swipePreviews
+      : [];
+  if (rawSwipes.length === 0) return null;
+  const requestedIndex = Math.max(0, Math.trunc(readNumber(message.activeSwipeIndex, 0)));
+  const activeIndex = Math.min(requestedIndex, rawSwipes.length - 1);
+  const characterId = readString(parseRecord(rawSwipes[activeIndex]).characterId).trim();
+  return characterId || null;
+}
+
 function explicitGroupTarget(
   input: StartGenerationInput,
   storedMessages: JsonRecord[],
@@ -1000,7 +1014,7 @@ function explicitGroupTarget(
   const regenerateMessageId = readString(input.regenerateMessageId).trim();
   if (!regenerateMessageId) return null;
   const target = storedMessages.find((message) => readString(message.id) === regenerateMessageId);
-  const targetCharacterId = readString(target?.characterId).trim();
+  const targetCharacterId = readString(activeSwipeCharacterId(target) ?? target?.characterId).trim();
   return active.has(targetCharacterId) ? targetCharacterId : null;
 }
 
@@ -1773,6 +1787,17 @@ function agentExtraFromResults(args: {
   return extra;
 }
 
+function assistantMessageCharacterId(chat: JsonRecord, input: StartGenerationInput): string | null {
+  const requestedCharacterId = readString(input.forCharacterId).trim();
+  const chatCharacterIdList = activeCharacterIds(chat);
+  const chatCharacterIds = new Set(chatCharacterIdList);
+  return requestedCharacterId && (chatCharacterIds.size === 0 || chatCharacterIds.has(requestedCharacterId))
+    ? requestedCharacterId
+    : chatCharacterIdList.length === 1
+      ? chatCharacterIdList[0]!
+      : null;
+}
+
 async function saveAssistantMessage(args: {
   storage: StorageGateway;
   chat: JsonRecord;
@@ -1811,6 +1836,7 @@ async function saveAssistantMessage(args: {
         chatId: args.input.chatId,
         messageId: regenerateMessageId,
         content,
+        characterId: null,
         thinking: thinking || undefined,
         generationReplay,
         chatSummaryFingerprint: args.chatSummaryFingerprint,
@@ -1842,11 +1868,13 @@ async function saveAssistantMessage(args: {
   }
 
   if (regenerateMessageId) {
+    const characterId = assistantMessageCharacterId(args.chat, args.input);
     return saveRegeneratedMessage({
       storage: args.storage,
       chatId: args.input.chatId,
       messageId: regenerateMessageId,
       content,
+      ...(characterId ? { characterId } : {}),
       thinking: thinking || undefined,
       generationReplay,
       chatSummaryFingerprint: args.chatSummaryFingerprint,
@@ -1856,15 +1884,7 @@ async function saveAssistantMessage(args: {
     });
   }
 
-  const requestedCharacterId = readString(args.input.forCharacterId).trim();
-  const chatCharacterIdList = activeCharacterIds(args.chat);
-  const chatCharacterIds = new Set(chatCharacterIdList);
-  const characterId =
-    requestedCharacterId && (chatCharacterIds.size === 0 || chatCharacterIds.has(requestedCharacterId))
-      ? requestedCharacterId
-      : chatCharacterIdList.length === 1
-        ? chatCharacterIdList[0]!
-        : null;
+  const characterId = assistantMessageCharacterId(args.chat, args.input);
 
   return args.storage.createChatMessage(args.input.chatId, {
     role: "assistant",
@@ -1899,6 +1919,7 @@ async function saveRegeneratedMessage(args: {
   chatId: string;
   messageId: string;
   content: string;
+  characterId?: string | null;
   thinking?: string | null;
   generationReplay: GenerationReplay | null;
   chatSummaryFingerprint: string | null;
@@ -1918,7 +1939,7 @@ async function saveRegeneratedMessage(args: {
     args.chatId,
     args.messageId,
     collapseExcessBlankLines(args.content),
-    { extra: swipeExtra },
+    swipeOptionsWithCharacterId(swipeExtra, args),
   );
   const updatedRecord = isRecord(updated) ? updated : {};
   const activeSwipeIndex = Math.max(0, Math.trunc(readNumber(updatedRecord.activeSwipeIndex, 0)));
@@ -1933,6 +1954,17 @@ async function saveRegeneratedMessage(args: {
     existingExtra: parseRecord(updatedRecord.extra),
   });
   return args.storage.patchChatMessageExtra(args.messageId, extraPatch);
+}
+
+function swipeOptionsWithCharacterId(
+  extra: Record<string, unknown>,
+  args: { characterId?: string | null },
+): AddChatMessageSwipeOptions {
+  const options: AddChatMessageSwipeOptions = { extra };
+  if (Object.prototype.hasOwnProperty.call(args, "characterId")) {
+    options.characterId = args.characterId ?? null;
+  }
+  return options;
 }
 
 function swipeScopedGenerationExtra(args: {

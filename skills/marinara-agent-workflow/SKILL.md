@@ -7,9 +7,10 @@ description: "Apply Marinara's repo-local version of the Chai agent workflow pac
 
 ## Overview
 
-Use this skill as a workflow overlay, not a replacement for `AGENTS.md` or the more specific Marinara skills. It adapts the cloned Chai Agent Workflow Pack to this repo so agents can keep proof, review, risk, and communication discipline while still obeying Marinara's layered Tauri architecture.
-
-Source context: adapted from `cha1latte/chai-agent-workflow-pack`. Keep only the repo-specific workflow here; update this skill when the repo's agent workflow changes.
+Use this as a repo-specific workflow overlay, not a replacement for `AGENTS.md`
+or more specific Marinara skills. It keeps proof, review, risk, and
+communication discipline aligned with Marinara's layered Tauri architecture.
+Source context: adapted from `cha1latte/chai-agent-workflow-pack`.
 
 ## Priority
 

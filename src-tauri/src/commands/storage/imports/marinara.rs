@@ -220,6 +220,7 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
             let sprites_imported = restore_sprites(state, &character_id, data.get("sprites"))?;
             let gallery_imported =
                 restore_character_gallery(state, &character_id, data.get("gallery"))?;
+            flush_import_writes(state)?;
             Ok(json!({
                 "success": true,
                 "type": "marinara_character",
@@ -295,6 +296,7 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
                     .map(ToOwned::to_owned)
             })
             .unwrap_or_else(|| "Imported Character".to_string());
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "type": "marinara_character",
@@ -345,6 +347,7 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
         let persona_id = created_record_id(&record, "persona")?;
         created_persona_id = Some(persona_id.clone());
         let sprites_imported = restore_persona_sprites(state, &persona_id, data.get("sprites"))?;
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "type": "marinara_persona",
@@ -444,6 +447,7 @@ fn import_marinara_lorebook(
             created_entry_ids.push(created_record_id(&entry_record, "lorebook entry")?);
         }
 
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "type": "marinara_lorebook",
@@ -553,6 +557,7 @@ fn import_marinara_preset(
             variables_imported += 1;
         }
 
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "type": "marinara_preset",

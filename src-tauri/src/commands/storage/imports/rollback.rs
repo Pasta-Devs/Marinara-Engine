@@ -9,6 +9,10 @@ pub(super) fn created_record_id(record: &Value, label: &str) -> AppResult<String
         .ok_or_else(|| AppError::new("storage_error", format!("Created {label} is missing an id")))
 }
 
+pub(super) fn flush_import_writes(state: &AppState) -> AppResult<()> {
+    state.storage.flush()
+}
+
 pub(super) fn append_rollback_errors(
     error: AppError,
     context: &str,

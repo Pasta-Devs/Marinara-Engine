@@ -2,6 +2,10 @@ use super::media_uploads::{
     managed_record_file_path, persist_image_upload, remove_managed_record_file, safe_filename,
 };
 use super::*;
+use image::ImageFormat;
+use std::path::{Path, PathBuf};
+
+const AVATAR_THUMBNAIL_SIZES: &[u32] = &[64, 96, 128, 256];
 
 pub(crate) fn update_character_avatar(
     state: &AppState,
@@ -159,6 +163,7 @@ fn avatar_mime_type(filename: Option<&str>) -> &'static str {
 }
 
 pub(crate) fn remove_avatar_file(state: &AppState, collection: &str, record: &Value) {
+    remove_avatar_thumbnail_files(state, collection, record);
     remove_managed_record_file(
         state,
         &format!("avatars/{}", safe_filename(collection)),
@@ -166,6 +171,211 @@ pub(crate) fn remove_avatar_file(state: &AppState, collection: &str, record: &Va
         "avatarFilePath",
         "avatarFilename",
     )
+}
+
+fn remove_avatar_thumbnail_files(state: &AppState, collection: &str, record: &Value) {
+    let Ok(Some(path)) = managed_record_file_path(
+        state,
+        &format!("avatars/{}", safe_filename(collection)),
+        record,
+        "avatarFilePath",
+        "avatarFilename",
+    ) else {
+        return;
+    };
+    let Ok(source) = fs::canonicalize(path) else {
+        return;
+    };
+    let Ok(avatars_root) = canonical_avatar_root(state) else {
+        return;
+    };
+    let Ok(relative) = source.strip_prefix(avatars_root) else {
+        return;
+    };
+    for size in AVATAR_THUMBNAIL_SIZES {
+        for target in avatar_thumbnail_removal_targets(state, *size, relative) {
+            if target.is_file() {
+                let _ = fs::remove_file(target);
+            }
+        }
+    }
+}
+
+pub(crate) fn avatar_thumbnail_file_path(
+    state: &AppState,
+    filename: Option<&str>,
+    absolute_path: Option<&str>,
+    size: Option<u32>,
+) -> AppResult<Value> {
+    let source = avatar_source_path(state, filename, absolute_path)?;
+    let thumbnail = avatar_thumbnail_path_for_source(state, &source, size.unwrap_or(128))?;
+    Ok(json!({ "path": thumbnail.to_string_lossy() }))
+}
+
+pub(crate) fn avatar_thumbnail_path_for_source(
+    state: &AppState,
+    source: &Path,
+    size: u32,
+) -> AppResult<PathBuf> {
+    if !AVATAR_THUMBNAIL_SIZES.contains(&size) {
+        return Err(AppError::invalid_input("Unsupported avatar thumbnail size"));
+    }
+    let source = fs::canonicalize(source).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => AppError::not_found("Avatar asset was not found"),
+        _ => AppError::from(error),
+    })?;
+    let avatars_root = canonical_avatar_root(state)?;
+    if !source.starts_with(&avatars_root) {
+        return Err(AppError::invalid_input(
+            "Avatar thumbnail source is outside managed avatars",
+        ));
+    }
+    if !is_resizable_avatar_file(&source) {
+        return Ok(source);
+    }
+
+    let relative = source.strip_prefix(&avatars_root).map_err(|_| {
+        AppError::invalid_input("Avatar thumbnail source is outside managed avatars")
+    })?;
+    let target = avatar_thumbnail_target_path(state, size, relative);
+
+    if avatar_thumbnail_is_fresh(&source, &target)? {
+        return Ok(target);
+    }
+
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    write_avatar_thumbnail(&source, &target, size)?;
+    Ok(target)
+}
+
+fn avatar_thumbnail_target_path(state: &AppState, size: u32, relative: &Path) -> PathBuf {
+    let mut target = state
+        .data_dir
+        .join(".avatar-thumbnails")
+        .join(size.to_string())
+        .join(relative);
+    let filename = target
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "avatar".to_string());
+    target.set_file_name(format!("{filename}.thumb.png"));
+    target
+}
+
+fn legacy_avatar_thumbnail_target_path(state: &AppState, size: u32, relative: &Path) -> PathBuf {
+    let mut target = state
+        .data_dir
+        .join(".avatar-thumbnails")
+        .join(size.to_string())
+        .join(relative);
+    target.set_extension("png");
+    target
+}
+
+fn avatar_thumbnail_removal_targets(state: &AppState, size: u32, relative: &Path) -> [PathBuf; 2] {
+    [
+        avatar_thumbnail_target_path(state, size, relative),
+        legacy_avatar_thumbnail_target_path(state, size, relative),
+    ]
+}
+
+fn write_avatar_thumbnail(source: &Path, target: &Path, size: u32) -> AppResult<()> {
+    let image = image::open(source).map_err(|error| {
+        AppError::invalid_input(format!("Avatar thumbnail could not be decoded: {error}"))
+    })?;
+    let temp = avatar_thumbnail_temp_path(target);
+    image
+        .thumbnail(size, size)
+        .save_with_format(&temp, ImageFormat::Png)
+        .map_err(|error| {
+            let _ = fs::remove_file(&temp);
+            AppError::new("avatar_thumbnail_error", error.to_string())
+        })?;
+    replace_avatar_thumbnail_file(&temp, target).map_err(|error| {
+        let _ = fs::remove_file(&temp);
+        AppError::from(error)
+    })
+}
+
+fn avatar_thumbnail_temp_path(target: &Path) -> PathBuf {
+    let filename = target
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "avatar.thumb.png".to_string());
+    target.with_file_name(format!(".{filename}.{}.tmp", new_id()))
+}
+
+fn replace_avatar_thumbnail_file(temp: &Path, target: &Path) -> std::io::Result<()> {
+    match fs::rename(temp, target) {
+        Ok(()) => Ok(()),
+        Err(_) if target.exists() => {
+            let _ = fs::remove_file(target);
+            fs::rename(temp, target)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn avatar_source_path(
+    state: &AppState,
+    filename: Option<&str>,
+    absolute_path: Option<&str>,
+) -> AppResult<PathBuf> {
+    if let Some(path) = absolute_path.filter(|value| !value.trim().is_empty()) {
+        return avatar_source_candidate(state, PathBuf::from(path));
+    }
+    let filename = filename
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError::invalid_input("Avatar filename or path is required"))?;
+    avatar_source_candidate(
+        state,
+        state
+            .data_dir
+            .join("avatars")
+            .join("characters")
+            .join(safe_filename(filename)),
+    )
+}
+
+fn avatar_source_candidate(state: &AppState, candidate: PathBuf) -> AppResult<PathBuf> {
+    let source = fs::canonicalize(candidate).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => AppError::not_found("Avatar asset was not found"),
+        _ => AppError::from(error),
+    })?;
+    let avatars_root = canonical_avatar_root(state)?;
+    if !source.starts_with(avatars_root) {
+        return Err(AppError::invalid_input(
+            "Avatar asset path is outside managed avatars",
+        ));
+    }
+    Ok(source)
+}
+
+fn canonical_avatar_root(state: &AppState) -> AppResult<PathBuf> {
+    let root = state.data_dir.join("avatars");
+    fs::create_dir_all(&root)?;
+    fs::canonicalize(root).map_err(AppError::from)
+}
+
+fn is_resizable_avatar_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "png" | "jpg" | "jpeg" | "webp" | "gif"
+    )
+}
+
+fn avatar_thumbnail_is_fresh(source: &Path, target: &Path) -> AppResult<bool> {
+    let source_modified = fs::metadata(source)?.modified()?;
+    let Ok(target_modified) = fs::metadata(target).and_then(|metadata| metadata.modified()) else {
+        return Ok(false);
+    };
+    Ok(target_modified >= source_modified)
 }
 
 pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) -> AppResult<Value> {
@@ -265,5 +475,139 @@ mod tests {
         assert_eq!(restored["avatarPath"], "data:image/png;base64,b2xk");
         assert_eq!(restored["avatarFilePath"], Value::Null);
         assert_eq!(restored["avatarFilename"], Value::Null);
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_creates_managed_cache_without_overwriting_source() {
+        let state = test_state("thumbnail");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("large.png");
+        let image = image::RgbaImage::from_pixel(320, 240, image::Rgba([255, 0, 0, 255]));
+        image
+            .save(&avatar_path)
+            .expect("avatar fixture should write");
+
+        let response = avatar_thumbnail_file_path(
+            &state,
+            Some("large.png"),
+            Some(&avatar_path.to_string_lossy()),
+            Some(128),
+        )
+        .expect("thumbnail should be generated");
+        let thumbnail = PathBuf::from(response["path"].as_str().expect("path should be returned"));
+
+        assert!(thumbnail.starts_with(state.data_dir.join(".avatar-thumbnails/128/characters")));
+        assert!(thumbnail.is_file());
+        assert_eq!(
+            image::image_dimensions(&thumbnail).expect("thumbnail should decode"),
+            (128, 96)
+        );
+        assert_eq!(
+            image::image_dimensions(&avatar_path).expect("source should decode"),
+            (320, 240)
+        );
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_keeps_source_extension_in_cache_key() {
+        let state = test_state("thumbnail-extension-key");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let png_path = avatar_dir.join("same-name.png");
+        let jpg_path = avatar_dir.join("same-name.jpg");
+        image::RgbImage::from_pixel(320, 240, image::Rgb([255, 0, 0]))
+            .save(&png_path)
+            .expect("png fixture should write");
+        image::RgbImage::from_pixel(240, 320, image::Rgb([0, 0, 255]))
+            .save(&jpg_path)
+            .expect("jpg fixture should write");
+
+        let png_response = avatar_thumbnail_file_path(
+            &state,
+            Some("same-name.png"),
+            Some(&png_path.to_string_lossy()),
+            Some(128),
+        )
+        .expect("png thumbnail should be generated");
+        let jpg_response = avatar_thumbnail_file_path(
+            &state,
+            Some("same-name.jpg"),
+            Some(&jpg_path.to_string_lossy()),
+            Some(128),
+        )
+        .expect("jpg thumbnail should be generated");
+        let png_thumbnail = PathBuf::from(
+            png_response["path"]
+                .as_str()
+                .expect("png path should be returned"),
+        );
+        let jpg_thumbnail = PathBuf::from(
+            jpg_response["path"]
+                .as_str()
+                .expect("jpg path should be returned"),
+        );
+
+        assert_ne!(png_thumbnail, jpg_thumbnail);
+        assert_eq!(
+            png_thumbnail.file_name().and_then(|value| value.to_str()),
+            Some("same-name.png.thumb.png")
+        );
+        assert_eq!(
+            jpg_thumbnail.file_name().and_then(|value| value.to_str()),
+            Some("same-name.jpg.thumb.png")
+        );
+        assert_eq!(
+            image::image_dimensions(&png_thumbnail).expect("png thumbnail should decode"),
+            (128, 96)
+        );
+        assert_eq!(
+            image::image_dimensions(&jpg_thumbnail).expect("jpg thumbnail should decode"),
+            (96, 128)
+        );
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_resizes_gif_avatar() {
+        let state = test_state("thumbnail-gif");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("animated.gif");
+        image::RgbaImage::from_pixel(320, 240, image::Rgba([255, 0, 255, 255]))
+            .save(&avatar_path)
+            .expect("gif fixture should write");
+
+        let response = avatar_thumbnail_file_path(
+            &state,
+            Some("animated.gif"),
+            Some(&avatar_path.to_string_lossy()),
+            Some(128),
+        )
+        .expect("gif thumbnail should be generated");
+        let thumbnail = PathBuf::from(response["path"].as_str().expect("path should be returned"));
+
+        assert_ne!(thumbnail, avatar_path);
+        assert_eq!(
+            thumbnail.file_name().and_then(|value| value.to_str()),
+            Some("animated.gif.thumb.png")
+        );
+        assert_eq!(
+            image::image_dimensions(&thumbnail).expect("gif thumbnail should decode"),
+            (128, 96)
+        );
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_rejects_sources_outside_managed_avatars() {
+        let state = test_state("thumbnail-outside");
+        let outside = state.data_dir.join("outside.png");
+        let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
+        image.save(&outside).expect("outside fixture should write");
+
+        let error =
+            avatar_thumbnail_file_path(&state, None, Some(&outside.to_string_lossy()), Some(128))
+                .expect_err("outside source should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
     }
 }

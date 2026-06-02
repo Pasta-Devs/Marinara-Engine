@@ -219,6 +219,8 @@ export interface ChatMetadata {
   showInputTranslateButton?: boolean;
   /** Allow roleplay characters to create direct-message conversation chats with hidden [dm] commands. */
   roleplayDmCommandsEnabled?: boolean;
+  /** Per-chat roleplay narration voice/style guidance. */
+  narratorStyleInstructions?: string | null;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
   /** Music source constraint for Spotify DJ in roleplay and visual novel chats. */
@@ -525,6 +527,7 @@ export interface MessageSwipe {
   messageId: string;
   index: number;
   content: string;
+  characterId?: string | null;
   createdAt: string;
   extra?: MessageSwipeExtra;
 }

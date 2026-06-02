@@ -1252,6 +1252,21 @@ function buildRoleplayScenePromptBlock(chat: JsonRecord, wrapFormat: WrapFormat)
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
+function buildRoleplayNarratorStylePromptBlock(chat: JsonRecord, wrapFormat: WrapFormat): string | null {
+  if (readString(chat.mode || chat.chatMode) !== "roleplay") return null;
+  const style = readString(parseRecord(chat.metadata).narratorStyleInstructions).trim().slice(0, 2000);
+  if (!style) return null;
+  return wrapContent(
+    [
+      "Use these narrator style instructions for narration and descriptive prose in this chat.",
+      "Do not treat them as character facts, player persona facts, or world lore.",
+      style,
+    ].join("\n\n"),
+    "narrator_style",
+    wrapFormat,
+  );
+}
+
 export function chatSummaryForGeneration(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
   const mode = readString(chat.mode || chat.chatMode, "conversation");
@@ -2472,12 +2487,14 @@ export async function assembleGenerationPrompt(
     }
     messages.push(gameReminder!);
   } else {
+    const narratorStyleBlock = buildRoleplayNarratorStylePromptBlock(input.chat, wrapFormat);
     const sceneBlock = buildRoleplayScenePromptBlock(input.chat, wrapFormat);
-    if (sceneBlock) {
+    const roleplayBlocks = [narratorStyleBlock, sceneBlock].filter((block): block is string => !!block);
+    if (roleplayBlocks.length > 0) {
       const firstSystemIndex = messages.findIndex((message) => message.role === "system");
       messages.splice(firstSystemIndex >= 0 ? firstSystemIndex + 1 : 0, 0, {
         role: "system",
-        content: sceneBlock,
+        content: roleplayBlocks.join("\n\n"),
         contextKind: "prompt",
       });
     }

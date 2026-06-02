@@ -756,6 +756,13 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     swipe && typeof swipe === "object" && !Array.isArray(swipe) && Object.prototype.hasOwnProperty.call(swipe, "extra")
       ? parseRecord((swipe as { extra?: unknown }).extra)
       : null;
+  const swipeCharacterId =
+    swipe &&
+    typeof swipe === "object" &&
+    !Array.isArray(swipe) &&
+    Object.prototype.hasOwnProperty.call(swipe, "characterId")
+      ? ((swipe as { characterId?: unknown }).characterId ?? null)
+      : undefined;
   const nextExtra = swipeExtra
     ? extraForActiveSwipe(message.extra, swipeExtra)
     : swipeCount > 1
@@ -767,6 +774,9 @@ function messageWithOptimisticActiveSwipe(message: Message, requestedIndex: numb
     activeSwipeIndex,
     swipeCount: swipeCount || message.swipeCount,
     content: swipeContent ?? message.content,
+    ...(swipeCharacterId !== undefined
+      ? { characterId: typeof swipeCharacterId === "string" ? swipeCharacterId : null }
+      : {}),
     ...(nextExtra ? { extra: nextExtra as unknown as Message["extra"] } : {}),
   };
 }

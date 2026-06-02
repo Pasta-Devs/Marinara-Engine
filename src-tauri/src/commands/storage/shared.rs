@@ -73,21 +73,40 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     let Some(object) = message.as_object_mut() else {
         return;
     };
-    let Some((swipe_count, active_index, active_content, active_extra, swipe_previews)) = object
+    let Some((
+        swipe_count,
+        active_index,
+        active_content,
+        active_extra,
+        active_character_id,
+        swipe_previews,
+    )) = object
         .get("swipes")
         .and_then(Value::as_array)
         .map(|swipes| {
             let swipe_count = swipes.len();
             if swipe_count == 0 {
-                return (0, 0, None, None, Vec::new());
+                return (0, 0, None, None, None, Vec::new());
             }
 
             let swipe_previews = swipes
                 .iter()
                 .map(|swipe| {
-                    json!({
-                        "content": swipe.get("content").and_then(Value::as_str).unwrap_or("")
-                    })
+                    let mut preview = Map::new();
+                    preview.insert(
+                        "content".to_string(),
+                        Value::String(
+                            swipe
+                                .get("content")
+                                .and_then(Value::as_str)
+                                .unwrap_or("")
+                                .to_string(),
+                        ),
+                    );
+                    if let Some(character_id) = swipe.get("characterId") {
+                        preview.insert("characterId".to_string(), character_id.clone());
+                    }
+                    Value::Object(preview)
                 })
                 .collect::<Vec<_>>();
 
@@ -103,11 +122,15 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
             let active_extra = json_object_value(active_swipe.and_then(|swipe| swipe.get("extra")));
+            let active_character_id = active_swipe
+                .and_then(|swipe| swipe.get("characterId"))
+                .cloned();
             (
                 swipe_count,
                 active_index,
                 active_content,
                 active_extra,
+                active_character_id,
                 swipe_previews,
             )
         })
@@ -130,6 +153,9 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
             "extra".to_string(),
             merge_active_swipe_extra(object.get("extra"), extra),
         );
+    }
+    if let Some(character_id) = active_character_id {
+        object.insert("characterId".to_string(), character_id);
     }
 }
 

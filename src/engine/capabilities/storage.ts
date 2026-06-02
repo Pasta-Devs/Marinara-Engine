@@ -49,6 +49,7 @@ export interface StorageListOptions {
 export interface AddChatMessageSwipeOptions {
   extra?: Record<string, unknown>;
   activate?: boolean;
+  characterId?: string | null;
 }
 
 export interface StorageGateway {

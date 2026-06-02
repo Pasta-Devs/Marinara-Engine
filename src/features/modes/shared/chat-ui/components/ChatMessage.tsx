@@ -74,6 +74,7 @@ import type {
   MessageSelectionToggle,
   PeekPromptOptions,
   PersonaInfo,
+  RegenerateOptions,
 } from "../types";
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -380,10 +381,12 @@ const EditTextarea = memo(function EditTextarea({
 
 /** Props for a single rendered chat message, including optional scene fork actions. */
 interface ChatMessageProps {
-  message: Message & { swipes?: Array<{ id?: string; content: string; extra?: MessageSwipe["extra"] }> };
+  message: Message & {
+    swipes?: Array<{ id?: string; content: string; characterId?: string | null; extra?: MessageSwipe["extra"] }>;
+  };
   isStreaming?: boolean;
   onDelete?: (messageId: string) => void;
-  onRegenerate?: (messageId: string) => void;
+  onRegenerate?: (messageId: string, options?: RegenerateOptions) => void;
   onEdit?: (messageId: string, content: string) => void | Promise<void>;
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onToggleConversationStart?: (messageId: string, current: boolean) => void;
@@ -2211,7 +2214,11 @@ export const ChatMessage = memo(function ChatMessage({
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
                 onSetActiveSwipe={(index) => onSetActiveSwipe?.(message.id, index)}
-                onCreateNextSwipe={onRegenerate ? () => onRegenerate(message.id) : undefined}
+                onCreateNextSwipe={
+                  onRegenerate
+                    ? () => onRegenerate(message.id, { forCharacterId: message.characterId ?? null })
+                    : undefined
+                }
                 className="px-1 text-[0.75rem] text-white/40"
                 buttonClassName="rounded-md p-[0.25em] transition-colors hover:bg-white/10 disabled:opacity-30"
                 iconSize={MESSAGE_SWIPE_ICON_SIZE}
@@ -2253,7 +2260,7 @@ export const ChatMessage = memo(function ChatMessage({
               {onRegenerate && (
                 <ActionBtn
                   icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onRegenerate(message.id)}
+                  onClick={() => onRegenerate(message.id, { forCharacterId: message.characterId ?? null })}
                   title={regenerateButtonTitle}
                   className={regenerateGuidedClass}
                   dark
@@ -2680,7 +2687,11 @@ export const ChatMessage = memo(function ChatMessage({
               activeSwipeIndex={message.activeSwipeIndex}
               swipeCount={swipeCount}
               onSetActiveSwipe={(index) => onSetActiveSwipe?.(message.id, index)}
-              onCreateNextSwipe={onRegenerate ? () => onRegenerate(message.id) : undefined}
+              onCreateNextSwipe={
+                onRegenerate
+                  ? () => onRegenerate(message.id, { forCharacterId: message.characterId ?? null })
+                  : undefined
+              }
               className="px-2 text-[0.75rem] text-[var(--muted-foreground)]"
               buttonClassName="rounded p-[0.25em] transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
               iconSize={MESSAGE_SWIPE_ICON_SIZE}
@@ -2719,7 +2730,7 @@ export const ChatMessage = memo(function ChatMessage({
             {onRegenerate && (
               <ActionBtn
                 icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onRegenerate(message.id)}
+                onClick={() => onRegenerate(message.id, { forCharacterId: message.characterId ?? null })}
                 title={regenerateButtonTitle}
                 className={regenerateGuidedClass}
               />

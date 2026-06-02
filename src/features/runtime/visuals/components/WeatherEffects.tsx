@@ -750,6 +750,13 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true }: Wea
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            resize();
+          })
+        : null;
+    resizeObserver?.observe(canvas);
     window.addEventListener("resize", resize);
 
     // Initialize particles — use CSS pixel dimensions (not canvas resolution)
@@ -874,6 +881,7 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true }: Wea
     return () => {
       running = false;
       cancelAnimationFrame(frameRef.current);
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
@@ -881,5 +889,5 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true }: Wea
 
   if (!shouldRender) return null;
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute -inset-px z-0" />;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-0 h-full w-full" />;
 }

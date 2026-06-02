@@ -11,6 +11,7 @@
 ## Credit And Workflow Budget
 
 - Preserve coding quality: use high/adaptive reasoning for code edits, reviews, risky debugging, and architecture. Save credits by avoiding unnecessary agents, browser proof, and PR loops rather than weakening coding reasoning.
+- Default to brief unless precision requires detail. Expand for proof, risk, exact external text, approval gates, repo boundaries, or user-facing tone.
 - Ordinary bugfix language means local fix and verification by default. Commit, push, draft PR creation, CodeRabbit, CI polling, ready marking, and merge require an explicit shipping request such as "ship it", "open a PR", "push this", or "ready for review".
 - Use the tiny local bug path for narrow, low-risk, machine-provable fixes: no full ledger by default, just a short claim/proof/validation/files/risk/vault receipt. Escalate to the full workflow as soon as the bug is nontrivial, PR-affecting, cross-boundary, storage/import/export/prompt/provider/security-sensitive, browser-evidence-dependent, or uncertain.
 - Before local bugfix edits, name only the cheap gate: core claim, likely owner/lane, risk level, and proof target. Broaden the gate only after a hypothesis is falsified or a risk boundary appears.

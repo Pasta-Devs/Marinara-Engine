@@ -23,6 +23,8 @@ export type CharacterGroupMemberPreview = {
   name: string;
   comment?: string | null;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: unknown;
 };
 
@@ -271,8 +273,11 @@ export function CharacterGroupsSection({
                               {member.avatarPath ? (
                                 <CharacterAvatarImage
                                   src={member.avatarPath}
+                                  avatarFilePath={member.avatarFilePath}
+                                  avatarFilename={member.avatarFilename}
                                   alt={member.name}
                                   crop={member.avatarCrop}
+                                  thumbnailSize={128}
                                 />
                               ) : (
                                 <User size="0.75rem" />

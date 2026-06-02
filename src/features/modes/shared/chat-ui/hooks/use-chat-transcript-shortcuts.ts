@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
-import type { MessageWithSwipes } from "../types";
+import type { MessageWithSwipes, RegenerateOptions } from "../types";
 
 const INTUITIVE_SWIPE_MIN_DISTANCE = 56;
 const INTUITIVE_SWIPE_MAX_VERTICAL_DRIFT = 44;
@@ -33,7 +33,7 @@ type UseChatTranscriptShortcutsOptions = {
   latestMessageForEdit: MessageWithSwipes | null;
   touchSurfaceRef?: RefObject<HTMLElement | null>;
   onSetActiveSwipe: (messageId: string, index: number) => void;
-  onRegenerate: (messageId: string, options?: { skipTouchConfirm?: boolean }) => void | Promise<void>;
+  onRegenerate: (messageId: string, options?: RegenerateOptions) => void | Promise<void>;
 };
 
 export function useChatTranscriptShortcuts({
@@ -72,7 +72,10 @@ export function useChatTranscriptShortcuts({
       }
 
       if (!intuitiveSwipeRerollLatest) return false;
-      void onRegenerate(latestAssistantMessageForSwipes.id, { skipTouchConfirm: true });
+      void onRegenerate(latestAssistantMessageForSwipes.id, {
+        skipTouchConfirm: true,
+        forCharacterId: latestAssistantMessageForSwipes.characterId ?? null,
+      });
       return true;
     },
     [

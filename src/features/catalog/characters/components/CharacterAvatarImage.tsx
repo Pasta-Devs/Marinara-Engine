@@ -1,5 +1,11 @@
 import type { AvatarCropValue } from "../../../../shared/lib/utils";
-import { avatarFileUrlFromPath, resolveAvatarFileUrl } from "../../../../shared/api/local-file-api";
+import {
+  avatarFileUrlFromPath,
+  avatarThumbnailFileUrlFromPath,
+  canGenerateAvatarThumbnail,
+  resolveAvatarFileUrl,
+  resolveAvatarThumbnailFileUrl,
+} from "../../../../shared/api/local-file-api";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { getCharacterAvatarLoadingMode } from "../lib/character-avatar-loading";
 import { useEffect, useState } from "react";
@@ -31,6 +37,7 @@ export function CharacterAvatarImage({
   alt,
   crop,
   className,
+  thumbnailSize,
 }: {
   src?: string | null;
   avatarFilePath?: string | null;
@@ -38,21 +45,29 @@ export function CharacterAvatarImage({
   alt: string;
   crop?: unknown;
   className?: string;
+  thumbnailSize?: 64 | 96 | 128 | 256;
 }) {
-  const managedInitialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath);
+  const effectiveThumbnailSize =
+    thumbnailSize && canGenerateAvatarThumbnail(avatarFilename, avatarFilePath) ? thumbnailSize : undefined;
+  const managedInitialSrc = effectiveThumbnailSize
+    ? avatarThumbnailFileUrlFromPath(avatarFilename, avatarFilePath, effectiveThumbnailSize)
+    : avatarFileUrlFromPath(avatarFilename, avatarFilePath);
   const hasManagedAvatarInput = Boolean(avatarFilename || avatarFilePath);
-  const initialSrc = managedInitialSrc ?? src ?? null;
+  const initialSrc = managedInitialSrc ?? (effectiveThumbnailSize && hasManagedAvatarInput ? null : src) ?? null;
   const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
 
   useEffect(() => {
     let cancelled = false;
     setAsyncSrc(initialSrc);
-    if (!hasManagedAvatarInput || (managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
+    if (!hasManagedAvatarInput || (!effectiveThumbnailSize && managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
       return () => {
         cancelled = true;
       };
     }
-    resolveAvatarFileUrl(avatarFilename, avatarFilePath)
+    const resolveUrl = effectiveThumbnailSize
+      ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize)
+      : resolveAvatarFileUrl(avatarFilename, avatarFilePath);
+    resolveUrl
       .then((url) => {
         if (!cancelled) setAsyncSrc(url ?? src ?? null);
       })
@@ -62,7 +77,7 @@ export function CharacterAvatarImage({
     return () => {
       cancelled = true;
     };
-  }, [avatarFilename, avatarFilePath, hasManagedAvatarInput, initialSrc, managedInitialSrc, src]);
+  }, [avatarFilename, avatarFilePath, effectiveThumbnailSize, hasManagedAvatarInput, initialSrc, managedInitialSrc, src]);
 
   const resolvedSrc = asyncSrc ?? initialSrc;
   if (!resolvedSrc) return null;
@@ -72,6 +87,8 @@ export function CharacterAvatarImage({
       src={resolvedSrc}
       alt={alt}
       loading={getCharacterAvatarLoadingMode(resolvedSrc)}
+      decoding="async"
+      fetchPriority={effectiveThumbnailSize ? "low" : undefined}
       draggable={false}
       className={cn("h-full w-full object-cover", className)}
       style={getAvatarCropStyle(resolveAvatarCrop(crop))}

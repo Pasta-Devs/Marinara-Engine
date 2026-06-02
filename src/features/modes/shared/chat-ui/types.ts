@@ -40,9 +40,14 @@ export type PeekPromptOptions = {
   promptSnapshot?: Message["extra"]["generationPromptSnapshot"] | null;
 };
 
+export type RegenerateOptions = {
+  skipTouchConfirm?: boolean;
+  forCharacterId?: string | null;
+};
+
 export type MessageWithSwipes = Message & {
-  swipes?: Array<Pick<MessageSwipe, "content" | "extra"> & { id?: string }>;
-  swipePreviews?: Array<Pick<MessageSwipe, "content"> & { id?: string }>;
+  swipes?: Array<Pick<MessageSwipe, "content" | "extra" | "characterId"> & { id?: string }>;
+  swipePreviews?: Array<Pick<MessageSwipe, "content" | "characterId"> & { id?: string }>;
 };
 
 export type ExpressionAvatarResolver = (message: MessageWithSwipes, characterId: string) => string | null;

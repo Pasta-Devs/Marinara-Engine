@@ -280,6 +280,7 @@ fn active_swipe_update_response(message: &Value) -> Value {
     for field in [
         "id",
         "content",
+        "characterId",
         "activeSwipeIndex",
         "swipeCount",
         "extra",
@@ -367,27 +368,57 @@ pub(crate) fn message_swipes(
         .cloned()
         .unwrap_or_else(|| Value::String(String::new()));
     let current_extra = object_extra(object.get("extra"));
+    let current_character_id = object.get("characterId").cloned();
+    let new_character_id = if body
+        .as_object()
+        .map(|body| body.contains_key("characterId"))
+        .unwrap_or(false)
+    {
+        body.get("characterId").cloned()
+    } else {
+        current_character_id.clone()
+    };
     let current_active_index = object
         .get("activeSwipeIndex")
         .and_then(Value::as_u64)
         .map(|value| value as usize)
         .unwrap_or(0);
     let activate_new_swipe = should_activate_new_swipe(&body);
-    let (active_index, swipe_count, active_content, active_extra) = {
+    let (active_index, swipe_count, active_content, active_extra, active_character_id) = {
         let swipes = object
             .entry("swipes".to_string())
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .ok_or_else(|| AppError::invalid_input("Message swipes is not an array"))?;
         if swipes.is_empty() && !activate_new_swipe {
-            swipes.push(json!({ "content": current_content, "createdAt": now_iso() }));
+            let mut original_swipe = Map::new();
+            original_swipe.insert("content".to_string(), current_content);
+            original_swipe.insert("createdAt".to_string(), Value::String(now_iso()));
+            if let Some(character_id) = current_character_id.clone() {
+                original_swipe.insert("characterId".to_string(), character_id);
+            }
+            swipes.push(Value::Object(original_swipe));
         }
         let previous_swipe_count = swipes.len();
         if !swipes.is_empty() {
             let preserve_index = current_active_index.min(swipes.len().saturating_sub(1));
             preserve_active_swipe_extra(swipes, preserve_index, current_extra.clone());
+            if let Some(Value::Object(swipe)) = swipes.get_mut(preserve_index) {
+                if let Some(character_id) = current_character_id.clone() {
+                    swipe
+                        .entry("characterId".to_string())
+                        .or_insert(character_id);
+                }
+            }
         }
-        swipes.push(json!({ "content": content, "createdAt": now_iso(), "extra": new_extra }));
+        let mut new_swipe = Map::new();
+        new_swipe.insert("content".to_string(), content);
+        new_swipe.insert("createdAt".to_string(), Value::String(now_iso()));
+        new_swipe.insert("extra".to_string(), new_extra);
+        if let Some(character_id) = new_character_id {
+            new_swipe.insert("characterId".to_string(), character_id);
+        }
+        swipes.push(Value::Object(new_swipe));
         let appended_index = swipes.len().saturating_sub(1);
         let active_index = if activate_new_swipe || previous_swipe_count == 0 {
             appended_index
@@ -399,6 +430,7 @@ pub(crate) fn message_swipes(
             swipes.len(),
             swipes[active_index]["content"].clone(),
             swipes[active_index]["extra"].clone(),
+            swipes[active_index].get("characterId").cloned(),
         )
     };
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
@@ -408,6 +440,9 @@ pub(crate) fn message_swipes(
         "extra".to_string(),
         merge_active_swipe_extra(object.get("extra"), active_extra),
     );
+    if let Some(character_id) = active_character_id {
+        object.insert("characterId".to_string(), character_id);
+    }
     let updated = state.storage.patch("messages", message_id, message)?;
     Ok(updated)
 }
@@ -462,28 +497,32 @@ pub(crate) fn set_active_swipe(
         .and_then(Value::as_u64)
         .map(|value| value as usize)
         .unwrap_or(0);
-    let Some((active_index, swipe_count, active_content, active_extra)) = object
-        .get_mut("swipes")
-        .and_then(Value::as_array_mut)
-        .map(|swipes| {
-            if swipes.is_empty() {
-                (0, 0, None, None)
-            } else {
-                let preserve_index = current_active_index.min(swipes.len().saturating_sub(1));
-                preserve_active_swipe_extra(swipes, preserve_index, current_extra);
-                let active_index = requested_index.min(swipes.len().saturating_sub(1));
-                let active_swipe = swipes.get(active_index);
-                (
-                    active_index,
-                    swipes.len(),
-                    active_swipe.and_then(|swipe| swipe.get("content")).cloned(),
-                    active_swipe
-                        .and_then(|swipe| swipe.get("extra"))
-                        .filter(|extra| extra.is_object())
-                        .cloned(),
-                )
-            }
-        })
+    let Some((active_index, swipe_count, active_content, active_extra, active_character_id)) =
+        object
+            .get_mut("swipes")
+            .and_then(Value::as_array_mut)
+            .map(|swipes| {
+                if swipes.is_empty() {
+                    (0, 0, None, None, None)
+                } else {
+                    let preserve_index = current_active_index.min(swipes.len().saturating_sub(1));
+                    preserve_active_swipe_extra(swipes, preserve_index, current_extra);
+                    let active_index = requested_index.min(swipes.len().saturating_sub(1));
+                    let active_swipe = swipes.get(active_index);
+                    (
+                        active_index,
+                        swipes.len(),
+                        active_swipe.and_then(|swipe| swipe.get("content")).cloned(),
+                        active_swipe
+                            .and_then(|swipe| swipe.get("extra"))
+                            .filter(|extra| extra.is_object())
+                            .cloned(),
+                        active_swipe
+                            .and_then(|swipe| swipe.get("characterId"))
+                            .cloned(),
+                    )
+                }
+            })
     else {
         let updated = state.storage.patch(
             "messages",
@@ -496,6 +535,9 @@ pub(crate) fn set_active_swipe(
     object.insert("swipeCount".to_string(), json!(swipe_count));
     if let Some(content) = active_content {
         object.insert("content".to_string(), content);
+    }
+    if let Some(character_id) = active_character_id {
+        object.insert("characterId".to_string(), character_id);
     }
     if let Some(extra) = active_extra {
         object.insert(

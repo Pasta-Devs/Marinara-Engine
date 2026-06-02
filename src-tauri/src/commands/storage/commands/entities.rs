@@ -210,7 +210,12 @@ fn message_projection_fields_for_materialization(
     let needs_swipes = fields.iter().any(|field| {
         matches!(
             field.as_str(),
-            "content" | "extra" | "activeSwipeIndex" | "swipeCount" | "swipePreviews"
+            "content"
+                | "characterId"
+                | "extra"
+                | "activeSwipeIndex"
+                | "swipeCount"
+                | "swipePreviews"
         )
     });
     if needs_swipes {

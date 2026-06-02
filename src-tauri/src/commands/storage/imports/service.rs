@@ -51,6 +51,7 @@ fn create_lorebook_from_payload(
             )?;
             created_entry_ids.push(created_record_id(&entry, "lorebook entry")?);
         }
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "lorebookId": lorebook_id,
@@ -211,6 +212,7 @@ fn import_st_character_payload(
             }
         }
 
+        flush_import_writes(state)?;
         Ok(json!({
             "success": true,
             "characterId": character.get("id").cloned().unwrap_or(Value::Null),
