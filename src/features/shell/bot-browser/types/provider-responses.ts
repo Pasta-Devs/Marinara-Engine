@@ -229,13 +229,24 @@ export interface DatacatCharacter {
 interface DatacatFreshWindow {
   count?: number;
   characters?: DatacatCharacter[];
+  available?: boolean;
+  unavailable?: boolean;
+  reason?: string;
 }
 
 export interface DatacatFreshResponse {
   windows?: {
     last24h?: DatacatFreshWindow | DatacatCharacter[];
+    thisWeek?: DatacatFreshWindow | DatacatCharacter[];
   };
   last24h?: DatacatFreshWindow | DatacatCharacter[];
+  thisWeek?: DatacatFreshWindow | DatacatCharacter[];
+  fallback?: {
+    source?: string;
+    reason?: string;
+    partial?: boolean;
+    unavailableWindows?: string[];
+  };
 }
 
 export interface DatacatRecentResponse {
