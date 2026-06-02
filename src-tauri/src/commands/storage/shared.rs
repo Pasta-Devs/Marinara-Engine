@@ -954,6 +954,34 @@ mod tests {
     }
 
     #[test]
+    fn upload_gallery_image_removes_managed_file_when_row_create_fails() {
+        let root = temp_root("gallery-upload-managed-file-rollback");
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        std::fs::create_dir_all(root.0.join("data").join("collections").join("gallery.json"))
+            .expect("collection path should be made unwritable as a file");
+
+        upload_gallery_image(
+            &state,
+            "gallery",
+            "chatId",
+            "chat-1",
+            json!({
+                "file": {
+                    "name": "rollback.png",
+                    "type": "image/png",
+                    "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg=="
+                }
+            }),
+        )
+        .expect_err("gallery upload row create should fail");
+
+        assert!(
+            !state.data_dir.join("gallery").join("rollback.png").exists(),
+            "failed gallery upload should remove the managed file it wrote"
+        );
+    }
+
+    #[test]
     fn apply_storage_search_matches_character_prompt_fields() {
         let rows = vec![
             json!({
@@ -2313,7 +2341,16 @@ pub(crate) fn upload_gallery_image(
     record.insert("model".to_string(), Value::Null);
     record.insert("width".to_string(), Value::Null);
     record.insert("height".to_string(), Value::Null);
-    state.storage.create(collection, Value::Object(record))
+    let record = Value::Object(record);
+    match state.storage.create(collection, record.clone()) {
+        Ok(created) => Ok(created),
+        Err(error) => {
+            media_uploads::remove_managed_record_file(
+                state, "gallery", &record, "filePath", "filename",
+            );
+            Err(error)
+        }
+    }
 }
 
 pub(crate) fn project_list_rows(rows: Vec<Value>, options: Option<&Value>) -> Vec<Value> {
