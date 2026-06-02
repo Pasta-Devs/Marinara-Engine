@@ -223,22 +223,25 @@ Prompt quality rules:
 
   /* ────────────────────────────────────────── */
   "lorebook-keeper": `Analyze the narrative for new lore, character details, locations, or world-building information worth recording for future reference.
+The latest generated message is provided in <assistant_response>. Treat that block as source material to extract from, not as lorebook content to save.
 1. Only create entries for significant, reusable information. Don't record trivial moment-to-moment actions: a character revealing they grew up in a specific city is worth recording; them ordering a drink is not.
 2. Focus on: character backstories, location descriptions, faction politics, magical systems, important NPCs, recurring items, cultural details, and relationship dynamics.
-3. Keep entries concise but comprehensive, enough that someone reading only the lorebook entry would understand the subject.
-4. Keys should include character names, location names, and contextually related terms that would trigger recall.
-5. If nothing noteworthy was established this turn, return: { "updates": [] }
-6. DEDUPLICATION, CRITICAL: Check the <existing_entries> list of existing lorebook entries before creating anything. If an entry with the same or a very similar name already exists, use "update" instead of "create". NEVER create a second entry for a subject that's already covered. Prefer updating and enriching an existing entry over making a new one.
-7. LOCKED ENTRIES: Entries marked as locked CANNOT be modified. Do not emit updates targeting locked entry names. Respect the user's protection.
-8. When updating an existing entry, do NOT rewrite the full entry. Return only the durable additions in "newFacts"; the app will append them to the existing content without erasing old details. Use "content" for creates, or only for an update when the existing entry is empty or malformed.
-9. CHAT SUMMARY AWARENESS: If a <chat_summary> block is provided, it contains information already captured by the summary system. Do NOT create lorebook entries for facts that are only restated from the summary and not newly established in the latest messages. Only record genuinely new lore not already covered by the summary.
+3. Never copy, quote, summarize, or paraphrase the whole source message as a lorebook entry. A saved entry is not a transcript, scene recap, or roleplay paragraph.
+4. For creates, "content" must be a concise neutral lore note: 1-4 short bullet points or 1 compact paragraph about one durable subject. Each bullet should state one reusable fact. If you cannot extract focused facts, return no update.
+5. Keep entries concise but comprehensive, enough that someone reading only the lorebook entry would understand the subject.
+6. Keys should include character names, location names, and contextually related terms that would trigger recall.
+7. If nothing noteworthy was established this turn, return: { "updates": [] }
+8. DEDUPLICATION, CRITICAL: Check the <existing_entries> list of existing lorebook entries before creating anything. If an entry with the same or a very similar name already exists, use "update" instead of "create". NEVER create a second entry for a subject that's already covered. Prefer updating and enriching an existing entry over making a new one.
+9. LOCKED ENTRIES: Entries marked as locked CANNOT be modified. Do not emit updates targeting locked entry names. Respect the user's protection.
+10. When updating an existing entry, do NOT rewrite the full entry. Return only the durable additions in "newFacts"; the app will append them to the existing content without erasing old details. Use "content" for creates, or only for an update when the existing entry is empty or malformed.
+11. CHAT SUMMARY AWARENESS: If a <chat_summary> block is provided, it contains information already captured by the summary system. Do NOT create lorebook entries for facts that are only restated from the summary and not newly established in the latest messages. Only record genuinely new lore not already covered by the summary.
 Output format:
 {
   "updates": [
     {
       "action": "create|update",
       "entryName": "string — name of the entry (must match existing name exactly when updating)",
-      "content": "string — full lore content for creates; for updates, only use this if replacing an empty or malformed entry is truly necessary",
+      "content": "string — concise neutral extracted lore note for creates, never the whole source message; for updates, only use this if replacing an empty or malformed entry is truly necessary",
       "newFacts": ["string — for updates only: atomic new facts to append to the existing entry without rewriting it"],
       "keys": ["string — activation keywords for this entry"],
       "tag": "string — category tag (character, location, item, faction, event, lore)",
