@@ -164,7 +164,7 @@ function isMemoryRecallExportEnvelope(value: unknown): value is ExportEnvelope<C
   return isRecord(data) && Array.isArray(data.chunks);
 }
 
-export async function readChatMemoryRecallImportFile(
+async function readChatMemoryRecallImportFile(
   file: File,
 ): Promise<ExportEnvelope<ChatMemoryRecallExportPayload>> {
   if (file.size > MAX_MEMORY_RECALL_IMPORT_BYTES) {

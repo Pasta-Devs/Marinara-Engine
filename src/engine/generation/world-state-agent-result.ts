@@ -3,7 +3,7 @@ import { isRecord, parseRecord } from "./runtime-records";
 const WORLD_STATE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 const TEXT_FALLBACK_KEYS = ["text", "summary", "value", "content", "result"] as const;
 
-export type WorldStateAgentField = (typeof WORLD_STATE_FIELDS)[number];
+type WorldStateAgentField = (typeof WORLD_STATE_FIELDS)[number];
 export type WorldStateAgentPatch = Partial<Record<WorldStateAgentField, string | null>>;
 
 function readNullableWorldStateString(value: unknown): string | null {
