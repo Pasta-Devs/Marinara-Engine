@@ -7,7 +7,7 @@ import {
 } from "./active-lorebook-scanner";
 import { loadChatMessages, requireRecord } from "./context";
 import { loadCharacters, loadPersona } from "./prompt-assembly";
-import { readString, type JsonRecord } from "./runtime-records";
+import { hiddenFromAi, readString, type JsonRecord } from "./runtime-records";
 
 export interface ActiveLorebookScanResult {
   entries: Array<{
@@ -26,20 +26,21 @@ export interface ActiveLorebookScanResult {
 }
 
 function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord[] {
+  const visibleMessages = messages.filter((message) => !hiddenFromAi(message));
   let lastGeneratedIndex = -1;
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const role = readString(messages[index]?.role);
+  for (let index = visibleMessages.length - 1; index >= 0; index--) {
+    const role = readString(visibleMessages[index]?.role);
     if (role === "assistant" || role === "narrator") {
       lastGeneratedIndex = index;
       break;
     }
   }
-  return lastGeneratedIndex >= 0 ? messages.slice(0, lastGeneratedIndex) : messages;
+  return lastGeneratedIndex >= 0 ? visibleMessages.slice(0, lastGeneratedIndex) : [];
 }
 
 function activeInfoGenerationTriggers(chat: JsonRecord): string[] {
   const mode = readString(chat.mode || chat.chatMode).trim() || "roleplay";
-  return Array.from(new Set(["test_scan", mode, "chat"]));
+  return Array.from(new Set(["chat", mode]));
 }
 
 export async function scanActiveLorebookEntries(
