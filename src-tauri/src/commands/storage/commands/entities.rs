@@ -54,9 +54,27 @@ pub(crate) fn storage_list_inner(
                 .unwrap_or_default();
             if !has_search {
                 if let Some((limit, before)) = message_page_options(options.as_ref()) {
-                    state
-                        .storage
-                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
+                    if let Some(fields) = projection_fields
+                        .as_ref()
+                        .filter(|fields| !fields.is_empty())
+                    {
+                        state.storage.list_messages_for_chat_page_projected(
+                            chat_id,
+                            limit,
+                            before.as_deref(),
+                            &message_projection_fields_for_materialization(
+                                fields,
+                                options.as_ref(),
+                            ),
+                            shared::projection_field_selections(options.as_ref()),
+                        )?
+                    } else {
+                        state.storage.list_messages_for_chat_page(
+                            chat_id,
+                            limit,
+                            before.as_deref(),
+                        )?
+                    }
                 } else if message_id_projection_only(options.as_ref()) {
                     state.storage.list_message_ids_for_chat(chat_id)?
                 } else if let Some(fields) = projection_fields
@@ -1708,6 +1726,121 @@ mod tests {
         .expect("projected message list should succeed");
 
         assert_eq!(result, json!([{ "id": "older", "content": "older" }]));
+    }
+
+    #[test]
+    fn storage_list_projected_paged_messages_skips_unrequested_payloads_before_parsing() {
+        let state = test_state("message-projection-paged-skips-payloads");
+        state
+            .storage
+            .clear_all()
+            .expect("storage cache should be cleared");
+        let collection = state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("messages.json");
+        std::fs::write(
+            &collection,
+            r#"[
+  {
+    "id": "older",
+    "chatId": "chat-1",
+    "createdAt": "2026-01-01T00:00:01Z",
+    "content": "stored older",
+    "activeSwipeIndex": 0,
+    "swipes": [
+      {
+        "content": "older swipe",
+        "extra": {
+          "thinking": "older thought"
+        }
+      }
+    ],
+    "extra": {
+      "thinking": "parent older",
+      "large": {
+        "unrequested": invalid
+      }
+    },
+    "attachments": [
+      {
+        "unrequested": invalid
+      }
+    ]
+  },
+  {
+    "id": "target",
+    "chatId": "chat-1",
+    "createdAt": "2026-01-01T00:00:02Z",
+    "content": "stored target",
+    "activeSwipeIndex": 0,
+    "swipes": [
+      {
+        "content": "target swipe",
+        "extra": {
+          "thinking": "target thought"
+        }
+      }
+    ],
+    "extra": {
+      "thinking": "parent target",
+      "large": {
+        "unrequested": invalid
+      }
+    },
+    "promptSnapshot": {
+      "unrequested": invalid
+    }
+  },
+  {
+    "id": "newer",
+    "chatId": "chat-1",
+    "createdAt": "2026-01-01T00:00:03Z",
+    "content": "stored newer",
+    "extra": {
+      "thinking": "newer",
+      "large": {
+        "unrequested": invalid
+      }
+    }
+  }
+]"#,
+        )
+        .expect("messages should be written");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["thinking"] },
+                "limit": 2,
+                "before": "2026-01-01T00:00:03Z|newer"
+            })),
+        )
+        .expect("projected paged message list should skip unrequested payload fields");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "id": "older",
+                    "content": "older swipe",
+                    "extra": { "thinking": "older thought" },
+                    "swipeCount": 1,
+                    "swipePreviews": [{ "content": "older swipe" }]
+                },
+                {
+                    "id": "target",
+                    "content": "target swipe",
+                    "extra": { "thinking": "target thought" },
+                    "swipeCount": 1,
+                    "swipePreviews": [{ "content": "target swipe" }]
+                }
+            ])
+        );
     }
 
     #[test]

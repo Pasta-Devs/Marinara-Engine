@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -131,6 +131,36 @@ impl FileStorage {
         self.read_locked_or_recover(
             || self.read_messages_for_chat_page_no_recovery(chat_id, limit, before),
             || self.read_messages_for_chat_page(chat_id, limit, before),
+        )
+    }
+
+    pub fn list_messages_for_chat_page_projected(
+        &self,
+        chat_id: &str,
+        limit: usize,
+        before: Option<&str>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_locked_or_recover(
+            || {
+                self.read_messages_for_chat_page_projected_no_recovery(
+                    chat_id,
+                    limit,
+                    before,
+                    fields,
+                    field_selections,
+                )
+            },
+            || {
+                self.read_messages_for_chat_page_projected(
+                    chat_id,
+                    limit,
+                    before,
+                    fields,
+                    field_selections,
+                )
+            },
         )
     }
 
@@ -1123,6 +1153,99 @@ impl FileStorage {
         };
         apply_message_page(&mut rows, limit, before);
         Ok(rows)
+    }
+
+    fn read_messages_for_chat_page_projected(
+        &self,
+        chat_id: &str,
+        limit: usize,
+        before: Option<&str>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_page_projected_inner(
+            chat_id,
+            limit,
+            before,
+            fields,
+            field_selections,
+            true,
+        )
+    }
+
+    fn read_messages_for_chat_page_projected_no_recovery(
+        &self,
+        chat_id: &str,
+        limit: usize,
+        before: Option<&str>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_page_projected_inner(
+            chat_id,
+            limit,
+            before,
+            fields,
+            field_selections,
+            false,
+        )
+    }
+
+    fn read_messages_for_chat_page_projected_inner(
+        &self,
+        chat_id: &str,
+        limit: usize,
+        before: Option<&str>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Vec<Value>> {
+        if limit == 0 || fields.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        if let Some(rows) = self.cached_rows("messages")? {
+            let mut rows = rows
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .collect::<Vec<_>>();
+            apply_message_page(&mut rows, limit, before);
+            return Ok(rows
+                .into_iter()
+                .map(|row| project_row(row, &field_set, &nested_field_sets))
+                .collect());
+        }
+
+        let path = self.collection_path("messages")?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+
+        match read_pretty_projected_message_page_from_file(
+            &path,
+            chat_id,
+            limit,
+            before,
+            &field_set,
+            &nested_field_sets,
+        ) {
+            Ok(Some(rows)) => return Ok(rows),
+            Ok(None) => {}
+            Err(_) => {}
+        }
+
+        let mut rows = if recover_on_fallback {
+            self.read_messages_for_chat(chat_id)?
+        } else {
+            self.read_messages_for_chat_no_recovery(chat_id)?
+        };
+        apply_message_page(&mut rows, limit, before);
+        Ok(rows
+            .into_iter()
+            .map(|row| project_row(row, &field_set, &nested_field_sets))
+            .collect())
     }
 
     fn write_collection(&self, collection: &str, rows: &[Value]) -> AppResult<()> {
@@ -2379,6 +2502,177 @@ fn read_pretty_message_page_from_file(
     Ok(Some(rows_newest_first))
 }
 
+fn read_pretty_projected_message_page_from_file(
+    path: &Path,
+    chat_id: &str,
+    limit: usize,
+    before: Option<&str>,
+    fields: &HashSet<String>,
+    field_selections: &HashMap<String, HashSet<String>>,
+) -> AppResult<Option<Vec<Value>>> {
+    let mut file = fs::File::open(path)?;
+    let mut position = file.metadata()?.len();
+    let before_cursor = before.map(parse_storage_message_cursor);
+    let mut rows_newest_first = Vec::new();
+    let mut record_lines_newest_first: Vec<Vec<u8>> = Vec::new();
+    let mut in_record = false;
+    let mut saw_record = false;
+
+    let mut carry = Vec::new();
+    while position > 0 {
+        let read_len = position.min(MESSAGE_REVERSE_READ_CHUNK_SIZE) as usize;
+        position -= read_len as u64;
+
+        let mut block = vec![0_u8; read_len];
+        file.seek(SeekFrom::Start(position))?;
+        file.read_exact(&mut block)?;
+        block.extend_from_slice(&carry);
+
+        let mut line_ranges = Vec::new();
+        let mut line_start = 0;
+        for (index, byte) in block.iter().enumerate() {
+            if *byte == b'\n' {
+                line_ranges.push(line_start..index);
+                line_start = index + 1;
+            }
+        }
+        line_ranges.push(line_start..block.len());
+
+        let first_line_is_partial = position > 0;
+        for line_index in (0..line_ranges.len()).rev() {
+            if first_line_is_partial && line_index == 0 {
+                continue;
+            }
+            let line = &block[line_ranges[line_index].clone()];
+            if !in_record {
+                if is_top_level_message_record_end(line) {
+                    saw_record = true;
+                    in_record = true;
+                    record_lines_newest_first.clear();
+                    record_lines_newest_first.push(line.to_vec());
+                }
+                continue;
+            }
+
+            record_lines_newest_first.push(line.to_vec());
+            if !is_top_level_message_record_start(line) {
+                continue;
+            }
+
+            let mut record_bytes = join_reverse_lines(&record_lines_newest_first);
+            strip_trailing_json_comma(&mut record_bytes);
+            if let Some((row, created_at, id)) =
+                read_projected_pretty_message_record(&record_bytes, chat_id, fields, field_selections)?
+            {
+                if message_parts_are_before_cursor(&created_at, &id, before_cursor.as_ref()) {
+                    rows_newest_first.push(row);
+                    if rows_newest_first.len() >= limit {
+                        rows_newest_first.reverse();
+                        return Ok(Some(rows_newest_first));
+                    }
+                }
+            }
+
+            in_record = false;
+            record_lines_newest_first.clear();
+        }
+
+        carry = if first_line_is_partial {
+            block[line_ranges[0].clone()].to_vec()
+        } else {
+            Vec::new()
+        };
+    }
+
+    if in_record || !saw_record {
+        return Ok(None);
+    }
+
+    rows_newest_first.reverse();
+    Ok(Some(rows_newest_first))
+}
+
+fn read_projected_pretty_message_record(
+    record_bytes: &[u8],
+    chat_id: &str,
+    fields: &HashSet<String>,
+    field_selections: &HashMap<String, HashSet<String>>,
+) -> AppResult<Option<(Value, String, String)>> {
+    let mut reader = BufReader::new(Cursor::new(record_bytes));
+    let mut in_record = false;
+    let mut matches_chat = None;
+    let mut projected = Map::new();
+    let mut id = String::new();
+    let mut created_at = String::new();
+
+    while let Some(line) = read_json_line(&mut reader)? {
+        let trimmed = line.trim_start();
+
+        if !in_record {
+            if trimmed.starts_with('{') {
+                in_record = true;
+                continue;
+            }
+            if trimmed.trim().is_empty() {
+                continue;
+            }
+            return Ok(None);
+        }
+
+        if is_pretty_top_level_record_end(&line) {
+            return Ok(matches_chat
+                .unwrap_or(false)
+                .then_some((Value::Object(projected), created_at, id)));
+        }
+
+        let Some((field, value_start)) = pretty_json_field(&line, 4)? else {
+            continue;
+        };
+
+        match field.as_str() {
+            "chatId" => {
+                let value = read_pretty_json_value(&mut reader, value_start)?;
+                matches_chat = Some(value.as_str() == Some(chat_id));
+                if matches_chat == Some(true) && fields.contains(&field) {
+                    projected.insert(field, value);
+                } else if matches_chat == Some(false) {
+                    projected.clear();
+                }
+            }
+            "id" => {
+                let value = read_pretty_json_value(&mut reader, value_start)?;
+                id = value.as_str().unwrap_or_default().to_string();
+                if matches_chat != Some(false) && fields.contains(&field) {
+                    projected.insert(field, value);
+                }
+            }
+            "createdAt" => {
+                let value = read_pretty_json_value(&mut reader, value_start)?;
+                created_at = value.as_str().unwrap_or_default().to_string();
+                if matches_chat != Some(false) && fields.contains(&field) {
+                    projected.insert(field, value);
+                }
+            }
+            _ if matches_chat == Some(false) => {
+                skip_pretty_json_value(&mut reader, value_start)?;
+            }
+            _ if fields.contains(&field) => {
+                let value = if let Some(nested_fields) = field_selections.get(&field) {
+                    read_pretty_projected_nested_value(&mut reader, value_start, nested_fields)?
+                } else {
+                    read_pretty_json_value(&mut reader, value_start)?
+                };
+                projected.insert(field, value);
+            }
+            _ => {
+                skip_pretty_json_value(&mut reader, value_start)?;
+            }
+        }
+    }
+
+    Ok(None)
+}
+
 fn join_reverse_lines(lines_newest_first: &[Vec<u8>]) -> Vec<u8> {
     let mut bytes = Vec::new();
     for line in lines_newest_first.iter().rev() {
@@ -2674,7 +2968,10 @@ fn pretty_json_field(line: &str, indent: usize) -> AppResult<Option<(String, Str
 }
 
 fn is_pretty_nested_object_end(line: &str) -> bool {
-    line.starts_with("    }") && matches!(line.trim(), "}" | "},")
+    let bytes = line.as_bytes();
+    bytes.get(..5) == Some(b"    }")
+        && matches!(bytes.get(5), None | Some(b','))
+        && matches!(line.trim(), "}" | "},")
 }
 
 fn read_json_line<R: BufRead>(reader: &mut R) -> AppResult<Option<String>> {
@@ -2725,11 +3022,19 @@ fn parse_storage_message_cursor(cursor: &str) -> (String, Option<String>) {
 }
 
 fn message_is_before_cursor(row: &Value, before: Option<&(String, Option<String>)>) -> bool {
+    let created_at = row.get("createdAt").and_then(Value::as_str).unwrap_or("");
+    let id = row.get("id").and_then(Value::as_str).unwrap_or("");
+    message_parts_are_before_cursor(created_at, id, before)
+}
+
+fn message_parts_are_before_cursor(
+    created_at: &str,
+    id: &str,
+    before: Option<&(String, Option<String>)>,
+) -> bool {
     let Some((before_created_at, before_id)) = before else {
         return true;
     };
-    let created_at = row.get("createdAt").and_then(Value::as_str).unwrap_or("");
-    let id = row.get("id").and_then(Value::as_str).unwrap_or("");
     created_at < before_created_at.as_str()
         || (created_at == before_created_at.as_str()
             && before_id.as_deref().is_some_and(|cursor_id| id < cursor_id))

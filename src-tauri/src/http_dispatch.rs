@@ -1331,7 +1331,8 @@ mod tests {
                     "options": {
                         "filters": { "chatId": "chat-a" },
                         "fields": ["id", "chatId", "content", "extra"],
-                        "fieldSelections": { "extra": ["thinking"] }
+                        "fieldSelections": { "extra": ["thinking"] },
+                        "limit": 25
                     }
                 })),
             },
