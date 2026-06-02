@@ -1504,11 +1504,69 @@ async fn datacat_fresh(state: &AppState, route: &ParsedPath) -> AppResult<Value>
             query_param(route, "limitWeek", "20"),
         ),
     ];
-    datacat_json_get(
+    let fresh = datacat_json_get(
         state,
         &format!("/api/characters/fresh?{}", query_string_owned(&params)),
     )
-    .await
+    .await;
+
+    match fresh {
+        Ok(value) => Ok(value),
+        Err(error) if error.code == "upstream_json_error" => {
+            datacat_fresh_recent_fallback(state, route).await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn datacat_fresh_recent_fallback(state: &AppState, route: &ParsedPath) -> AppResult<Value> {
+    let params = vec![
+        ("limit".to_string(), query_param(route, "limit24", "80")),
+        ("offset".to_string(), "0".to_string()),
+        ("summary".to_string(), "1".to_string()),
+        (
+            "minTotalTokens".to_string(),
+            query_param(route, "min_tokens", DATACAT_DEFAULT_MIN_TOTAL_TOKENS),
+        ),
+    ];
+    let recent = datacat_json_get(
+        state,
+        &format!(
+            "/api/characters/recent-public?{}",
+            query_string_owned(&params)
+        ),
+    )
+    .await?;
+    Ok(datacat_recent_as_fresh_response(recent))
+}
+
+fn datacat_recent_as_fresh_response(mut recent: Value) -> Value {
+    let characters = recent
+        .get_mut("characters")
+        .and_then(Value::as_array_mut)
+        .map(|items| Value::Array(std::mem::take(items)))
+        .unwrap_or_else(|| json!([]));
+    let count = characters.as_array().map(Vec::len).unwrap_or_default();
+    json!({
+        "success": recent
+            .get("success")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "sortBy": "recent-public",
+        "fallback": {
+            "source": "recent-public",
+            "reason": "fresh endpoint returned invalid JSON"
+        },
+        "windows": {
+            "last24h": {
+                "count": count,
+                "characters": characters
+            }
+        },
+        "last24h": {
+            "count": count
+        }
+    })
 }
 
 async fn datacat_tags(state: &AppState, route: &ParsedPath) -> AppResult<Value> {
@@ -1623,4 +1681,26 @@ fn datacat_headers(token: &str) -> Vec<Header> {
         header("Referer", format!("{DATACAT_API_BASE}/")),
         header("X-Session-Token", token),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn datacat_recent_fallback_matches_fresh_shape() {
+        let fallback = datacat_recent_as_fresh_response(json!({
+            "success": true,
+            "totalCount": 2,
+            "characters": [
+                { "characterId": "alpha", "chatName": "Alpha" },
+                { "characterId": "beta", "chatName": "Beta" }
+            ]
+        }));
+
+        let last24h = &fallback["windows"]["last24h"];
+        assert_eq!(last24h["count"], 2);
+        assert_eq!(last24h["characters"][0]["characterId"], "alpha");
+        assert_eq!(fallback["fallback"]["source"], "recent-public");
+    }
 }
