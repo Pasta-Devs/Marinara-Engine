@@ -4,6 +4,7 @@ import { personaApi } from "../../../../shared/api/persona-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { personaAvatarUrl, type PersonaAvatarSource } from "../lib/persona-avatar-url";
+import { PERSONA_SUMMARY_FIELDS } from "../lib/persona-summary-fields";
 
 export { personaKeys } from "../query-keys";
 
@@ -12,6 +13,10 @@ export type PersonaSummary = {
   name?: string;
   comment?: string | null;
   description?: string;
+  personality?: string;
+  scenario?: string;
+  backstory?: string;
+  appearance?: string;
   tags?: string[];
   avatarPath?: string | null;
   avatarFilePath?: string | null;
@@ -26,23 +31,7 @@ export type PersonaSummary = {
 };
 
 const PERSONA_SUMMARY_OPTIONS = {
-  fields: [
-    "id",
-    "name",
-    "comment",
-    "description",
-    "tags",
-    "avatarPath",
-    "avatarFilePath",
-    "avatarFilename",
-    "avatarCrop",
-    "isActive",
-    "active",
-    "createdAt",
-    "nameColor",
-    "dialogueColor",
-    "boxColor",
-  ],
+  fields: [...PERSONA_SUMMARY_FIELDS],
 };
 
 function personaIsActive(persona: PersonaSummary): boolean {
