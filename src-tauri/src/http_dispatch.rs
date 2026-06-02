@@ -1196,6 +1196,35 @@ mod tests {
             .collect()
     }
 
+    #[tokio::test]
+    async fn dispatch_storage_create_rejects_unsupported_entity() {
+        let state = test_state("storage-create-unsupported-entity");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_create".to_string(),
+                args: Some(json!({
+                    "entity": "typo-collection",
+                    "value": { "id": "row-1" }
+                })),
+            },
+        )
+        .await
+        .expect_err("remote storage_create should reject unsupported entities");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
+    }
+
     #[test]
     fn remote_runtime_command_surfaces_match_desktop_minus_documented_non_remote_commands() {
         let mut expected_remote = desktop_commands();

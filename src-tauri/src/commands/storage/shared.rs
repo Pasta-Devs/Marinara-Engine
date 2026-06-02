@@ -1,4 +1,5 @@
 use super::*;
+use crate::storage_commands::contracts::{self, TypedJsonKind};
 
 pub(crate) struct ParsedPath {
     pub(crate) parts: Vec<String>,
@@ -474,138 +475,31 @@ pub(crate) fn normalize_typed_json_fields(
     collection: &str,
     object: &mut Map<String, Value>,
 ) -> AppResult<()> {
-    match collection {
-        "characters" => {
-            if let Some(data) = object.get("data") {
-                object.insert(
-                    "data".to_string(),
-                    normalize_character_data_for_storage(data)?,
-                );
+    if collection == "characters" {
+        if let Some(data) = object.get("data") {
+            object.insert(
+                "data".to_string(),
+                normalize_character_data_for_storage(data)?,
+            );
+        }
+    }
+    if let Some(contract) = contracts::collection_contract(collection) {
+        for field in contract.typed_json_fields {
+            match field.kind {
+                TypedJsonKind::JsonArray => normalize_json_array_fields(object, &[field.name])?,
+                TypedJsonKind::NullableJsonArray => {
+                    normalize_nullable_json_array_fields(object, &[field.name])?
+                }
+                TypedJsonKind::JsonObject => normalize_json_object_fields(object, &[field.name])?,
+                TypedJsonKind::NullableJsonObject => {
+                    normalize_nullable_json_object_fields(object, &[field.name])?
+                }
+                TypedJsonKind::Boolish => normalize_boolish_fields(object, &[field.name]),
             }
         }
-        "chats" => {
-            normalize_json_array_fields(
-                object,
-                &[
-                    "characterIds",
-                    "activeLorebookIds",
-                    "activeAgentIds",
-                    "activeToolIds",
-                    "memories",
-                    "notes",
-                ],
-            )?;
-            normalize_nullable_json_object_fields(object, &["metadata", "gameState"])?;
-        }
-        "messages" => {
-            normalize_json_array_fields(object, &["swipes", "images", "attachments"])?;
-            normalize_nullable_json_object_fields(object, &["extra"])?;
-            normalize_message_text_fields(object);
-        }
-        "character-groups" => {
-            normalize_json_array_fields(object, &["characterIds"])?;
-        }
-        "persona-groups" => {
-            normalize_json_array_fields(object, &["personaIds"])?;
-        }
-        "lorebooks" => {
-            normalize_json_array_fields(object, &["tags", "characterIds", "personaIds"])?;
-        }
-        "lorebook-entries" => {
-            // The generic storage boundary is the single contract every
-            // lorebook-entry write crosses (editor, bulk create, copy/move,
-            // tool-generated entries, remote runtime). Coerce every legacy-style
-            // shape - string booleans, JSON-string arrays, and JSON-string
-            // objects - to the native shape, or reject what cannot be coerced,
-            // so downstream UI/generation never has to guess the intended type.
-            normalize_json_array_fields(
-                object,
-                &[
-                    "keys",
-                    "secondaryKeys",
-                    "characterFilterIds",
-                    "characterTagFilters",
-                    "generationTriggerFilters",
-                    "additionalMatchingSources",
-                    "activationConditions",
-                ],
-            )?;
-            normalize_boolish_fields(
-                object,
-                &[
-                    "enabled",
-                    "constant",
-                    "selective",
-                    "matchWholeWords",
-                    "caseSensitive",
-                    "useRegex",
-                    "preventRecursion",
-                    "locked",
-                    "excludeFromVectorization",
-                ],
-            );
-            // Use the nullable object normalizer so a stored entry that already
-            // carries `null` (e.g. round-tripped through a copy/duplicate) is
-            // left untouched rather than rejected, while a JSON-string object is
-            // still parsed and a malformed value still rejected.
-            normalize_nullable_json_object_fields(
-                object,
-                &["relationships", "dynamicState", "schedule"],
-            )?;
-        }
-        "connections" => {
-            normalize_nullable_json_object_fields(
-                object,
-                &["defaultParameters", "capabilities", "providerMetadata"],
-            )?;
-            normalize_boolish_fields(
-                object,
-                &["isDefault", "default", "useForRandom", "defaultForAgents"],
-            );
-        }
-        "custom-tools" => {
-            normalize_json_object_fields(object, &["parametersSchema"])?;
-        }
-        "game-state-snapshots" => {
-            normalize_json_array_fields(object, &["presentCharacters", "recentEvents"])?;
-            normalize_nullable_json_object_fields(object, &["playerStats", "metadata"])?;
-            normalize_nullable_json_array_fields(object, &["personaStats"])?;
-        }
-        "game-checkpoints" => {
-            normalize_nullable_json_object_fields(object, &["snapshot", "metadata"])?;
-        }
-        "chat-presets" => {
-            normalize_json_object_fields(object, &["parameters", "settings"])?;
-            normalize_boolish_fields(object, &["isDefault", "default", "isActive", "active"]);
-        }
-        "prompts" => {
-            normalize_json_array_fields(object, &["sectionOrder", "groupOrder", "variableOrder"])?;
-            normalize_json_object_fields(
-                object,
-                &["variableValues", "parameters", "defaultChoices"],
-            )?;
-            normalize_json_array_fields(object, &["variableGroups"])?;
-        }
-        "prompt-sections" => {
-            normalize_nullable_json_object_fields(object, &["markerConfig"])?;
-        }
-        "prompt-variables" => {
-            normalize_json_array_fields(object, &["options"])?;
-        }
-        "personas" => {
-            normalize_json_array_fields(
-                object,
-                &["tags", "altDescriptions", "savedStatusOptions"],
-            )?;
-            normalize_nullable_json_object_fields(object, &["avatarCrop", "personaStats"])?;
-        }
-        "agents" => {
-            normalize_json_object_fields(object, &["settings"])?;
-        }
-        "regex-scripts" => {
-            normalize_json_array_fields(object, &["placement", "trimStrings"])?;
-        }
-        _ => {}
+    }
+    if collection == "messages" {
+        normalize_message_text_fields(object);
     }
     Ok(())
 }

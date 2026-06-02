@@ -10,6 +10,7 @@ use self::assets::{
 };
 use self::legacy::import_legacy_profile_tables;
 use self::zip_import::import_profile_zip;
+use super::contracts;
 use super::shared::*;
 use super::*;
 use base64::engine::general_purpose;
@@ -19,43 +20,6 @@ use std::path::{Path, PathBuf};
 
 const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE: &str = "PROFILE_EXPORT_JSON_TOO_LARGE";
-
-const PROFILE_COLLECTIONS: &[&str] = &[
-    "characters",
-    "character-groups",
-    "character-versions",
-    "personas",
-    "persona-groups",
-    "lorebooks",
-    "lorebook-entries",
-    "lorebook-folders",
-    "prompts",
-    "prompt-groups",
-    "prompt-sections",
-    "prompt-variables",
-    "prompt-overrides",
-    "chat-presets",
-    "agents",
-    "agent-runs",
-    "agent-memory",
-    "themes",
-    "extensions",
-    "connections",
-    "connection-folders",
-    "chats",
-    "chat-folders",
-    "messages",
-    "custom-tools",
-    "regex-scripts",
-    "app-settings",
-    "gallery",
-    "character-gallery",
-    "background-metadata",
-    "sprites",
-    "knowledge-sources",
-    "game-state-snapshots",
-    "game-checkpoints",
-];
 
 pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
     Ok(json!({
@@ -234,8 +198,8 @@ pub(super) fn validate_native_profile_import(
             ));
         }
     }
-    for collection in PROFILE_COLLECTIONS {
-        match collections.get(*collection) {
+    for collection in contracts::profile_collections() {
+        match collections.get(collection) {
             Some(Value::Array(_)) => {}
             Some(_) => {
                 return Err(AppError::invalid_input(format!(
@@ -264,14 +228,14 @@ where
     let mut imported = Map::new();
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
-    for collection in PROFILE_COLLECTIONS {
+    for collection in contracts::profile_collections() {
         // A partial modern profile (a hand-built export, or a file missing a
         // collection) must not wipe collections it does not carry. Skipping the
         // replacement leaves the user's existing collection untouched; a
         // collection that is present but empty is still an explicit clear and
         // falls through to a normal empty replacement. Mirrors the legacy table
         // path guard added in #1518.
-        let Some(collection_value) = collections.get(*collection) else {
+        let Some(collection_value) = collections.get(collection) else {
             continue;
         };
         // A present-but-non-array collection is malformed (e.g. `"characters": {}`).
@@ -284,18 +248,18 @@ where
             )));
         }
         let mut rows = collection_value.as_array().cloned().unwrap_or_default();
-        if *collection == "prompt-overrides" {
+        if collection == "prompt-overrides" {
             unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
         }
         normalize_profile_json_fields(collection, &mut rows)?;
-        if *collection == "connections" {
+        if collection == "connections" {
             rows = rows
                 .into_iter()
                 .map(|row| connection_secrets::prepare_connection_for_create(state, row))
                 .collect::<AppResult<Vec<_>>>()?;
         }
-        imported.insert((*collection).to_string(), json!(rows.len()));
-        replacements.push((*collection, rows));
+        imported.insert(collection.to_string(), json!(rows.len()));
+        replacements.push((collection, rows));
     }
     state
         .storage
@@ -419,13 +383,13 @@ fn insert_profile_import_aliases(imported: &mut Map<String, Value>) {
 
 fn profile_collections(state: &AppState) -> AppResult<Map<String, Value>> {
     let mut collections = Map::new();
-    for collection in PROFILE_COLLECTIONS {
-        let rows = if *collection == "connections" {
+    for collection in contracts::profile_collections() {
+        let rows = if collection == "connections" {
             connection_secrets::connections_for_export(state)?
         } else {
             state.storage.list(collection)?
         };
-        collections.insert((*collection).to_string(), Value::Array(rows));
+        collections.insert(collection.to_string(), Value::Array(rows));
     }
     Ok(collections)
 }
@@ -567,9 +531,8 @@ mod tests {
     }
 
     fn complete_empty_profile_collections() -> Map<String, Value> {
-        PROFILE_COLLECTIONS
-            .iter()
-            .map(|collection| ((*collection).to_string(), json!([])))
+        contracts::profile_collections()
+            .map(|collection| (collection.to_string(), json!([])))
             .collect()
     }
 
