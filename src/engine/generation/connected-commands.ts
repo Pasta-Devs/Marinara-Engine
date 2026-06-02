@@ -554,9 +554,17 @@ async function applyScheduleUpdate(
   if (characterId) {
     const row = await storage.get<JsonRecord>("characters", characterId);
     if (row?.id) {
+      const data = parseData(row);
+      const extensions = parseRecord(data.extensions);
       await storage.update("characters", characterId, {
-        conversationStatus: update.status,
-        conversationActivity: update.activity,
+        data: {
+          ...data,
+          extensions: {
+            ...extensions,
+            conversationStatus: update.status,
+            conversationActivity: update.activity,
+          },
+        },
       });
     }
   }

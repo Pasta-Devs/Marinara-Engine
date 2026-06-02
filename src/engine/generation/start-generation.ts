@@ -6,7 +6,7 @@ import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { AddChatMessageSwipeOptions, StorageGateway } from "../capabilities/storage";
 import type { SpriteOwnerType, VisualAssetGateway } from "../capabilities/visual-assets";
-import type { GenerationGuideSource } from "../shared/text/generation-guide";
+import { buildProseGuardianAvoidanceGuide, type GenerationGuideSource } from "../shared/text/generation-guide";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { buildImpersonateInstruction } from "../modes/chat/commands/impersonate-prompt";
@@ -1522,11 +1522,12 @@ async function persistTrackerSnapshotSafely(
   targetMessage: unknown,
   results: AgentResult[],
   baseSnapshot?: GameState | null,
+  sourceText?: string | null,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
   try {
-    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot });
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot, sourceText });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
   }
@@ -2345,7 +2346,7 @@ async function runGenerationAgentsForTarget(args: {
     runtime.availableSprites,
   );
   if (target) {
-    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
+    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
@@ -2672,7 +2673,7 @@ export async function* startGeneration(
       chatSummary: assembly.chatSummary,
       hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
     };
-    const baseMessages: LlmMessage[] = [...prompt, generationGuide(input)].filter(
+    const baseMessages: LlmMessage[] = [...prompt, generationGuide(input, runtime?.preInjections)].filter(
       (message): message is LlmMessage => !!message,
     );
     const {
@@ -2806,7 +2807,14 @@ export async function* startGeneration(
     }
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
-      await persistTrackerSnapshotSafely(deps.storage, chatId, latestSaved, allAgentResults, generationTrackerBaseline);
+      await persistTrackerSnapshotSafely(
+        deps.storage,
+        chatId,
+        latestSaved,
+        allAgentResults,
+        generationTrackerBaseline,
+        readString(parseRecord(latestSaved).content),
+      );
     }
     throwIfAborted(signal);
     await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
@@ -2956,9 +2964,15 @@ export async function* startGeneration(
   yield { type: "done" };
 }
 
-function generationGuide(input: StartGenerationInput): LlmMessage | null {
-  const guide = readString(input.generationGuide).trim();
-  return guide ? { role: "user", content: guide } : null;
+function generationGuide(
+  input: StartGenerationInput,
+  contextInjections: readonly AgentInjectionOverride[] | null | undefined = null,
+): LlmMessage | null {
+  const guides = [
+    readString(input.generationGuide).trim(),
+    buildProseGuardianAvoidanceGuide(contextInjections) ?? "",
+  ].filter((guide) => guide.length > 0);
+  return guides.length > 0 ? { role: "user", content: guides.join("\n\n") } : null;
 }
 
 function runtimeLlmParameters(
