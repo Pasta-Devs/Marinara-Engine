@@ -25,6 +25,7 @@ COPY src-tauri/tauri.conf.json ./src-tauri/tauri.conf.json
 COPY src-tauri/capabilities ./src-tauri/capabilities
 COPY src-tauri/icons ./src-tauri/icons
 COPY src-tauri/resources ./src-tauri/resources
+COPY src/engine/generation/prompt-overrides.manifest.json ./src/engine/generation/prompt-overrides.manifest.json
 
 RUN cargo build --manifest-path src-tauri/Cargo.toml --release --bin marinara-server
 
