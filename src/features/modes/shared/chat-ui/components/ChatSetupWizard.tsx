@@ -1206,29 +1206,27 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         if (!userEditedName) updateData.name = buildAutoName(current);
         updateChat.mutate(updateData, {
           onSuccess: () => {
-            const selectedCharacter = characters.find((character) => character.id === charId);
-            const { firstMes, altGreetings } = characterGreetingData(selectedCharacter);
-            if (!firstMes) return;
-            createMessage
-              .mutateAsync({ role: "assistant", content: firstMes, characterId: charId })
-              .then(async (msg) => {
-                if (msg?.id && altGreetings.length > 0) {
-                  for (const greeting of altGreetings) {
-                    if (greeting.trim()) {
-                      await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
-                    }
+            void (async () => {
+              const selectedCharacter = await storageApi.get<{ data?: unknown }>("characters", charId);
+              const { firstMes, altGreetings } = characterGreetingData(selectedCharacter);
+              if (!firstMes) return;
+              const msg = await createMessage.mutateAsync({ role: "assistant", content: firstMes, characterId: charId });
+              if (msg?.id && altGreetings.length > 0) {
+                for (const greeting of altGreetings) {
+                  if (greeting.trim()) {
+                    await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
                   }
-                  queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
                 }
-              })
-              .catch((error) => {
-                toast.error(error instanceof Error ? error.message : "Failed to add character greeting.");
-              });
+                queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
+              }
+            })().catch((error) => {
+              toast.error(error instanceof Error ? error.message : "Failed to add character greeting.");
+            });
           },
         });
       }
     },
-    [chat.id, chatCharIds, characters, createMessage, updateChat, queryClient, userEditedName, buildAutoName],
+    [chat.id, chatCharIds, createMessage, updateChat, queryClient, userEditedName, buildAutoName],
   );
 
   const toggleLorebook = useCallback(

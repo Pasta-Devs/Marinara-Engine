@@ -39,13 +39,15 @@ export function CharacterAvatarImage({
   crop?: unknown;
   className?: string;
 }) {
-  const initialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath) ?? src ?? null;
+  const managedInitialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath);
+  const hasManagedAvatarInput = Boolean(avatarFilename || avatarFilePath);
+  const initialSrc = managedInitialSrc ?? src ?? null;
   const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
 
   useEffect(() => {
     let cancelled = false;
     setAsyncSrc(initialSrc);
-    if (initialSrc && !isLikelyFilesystemPath(initialSrc)) {
+    if (!hasManagedAvatarInput || (managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
       return () => {
         cancelled = true;
       };
@@ -60,7 +62,7 @@ export function CharacterAvatarImage({
     return () => {
       cancelled = true;
     };
-  }, [avatarFilename, avatarFilePath, initialSrc, src]);
+  }, [avatarFilename, avatarFilePath, hasManagedAvatarInput, initialSrc, managedInitialSrc, src]);
 
   const resolvedSrc = asyncSrc ?? initialSrc;
   if (!resolvedSrc) return null;

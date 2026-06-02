@@ -2138,7 +2138,13 @@ fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option
                 if is_end {
                     let mut raw = record_lines.join("\n").into_bytes();
                     strip_trailing_json_comma(&mut raw);
-                    return serde_json::from_slice(&raw).map(Some).map_err(Into::into);
+                    let row: Value = serde_json::from_slice(&raw)?;
+                    if row.get("id").and_then(Value::as_str) == Some(id) {
+                        return Ok(Some(row));
+                    }
+                    in_record = false;
+                    record_lines.clear();
+                    break;
                 }
             }
         }
@@ -2693,6 +2699,41 @@ mod tests {
       "name": "Target"
     },
     "id": "target"
+  }
+]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_pretty_record_by_id_ignores_nested_id_matches() {
+        let root = temp_storage_root("get-pretty-record-ignore-nested-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "id": "owner",
+    "data": {
+      "book": {
+        "id": "target"
+      },
+      "name": "Wrong"
+    }
+  },
+  {
+    "id": "target",
+    "data": {
+      "name": "Target"
+    }
   }
 ]"#,
         )
