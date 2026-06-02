@@ -98,7 +98,7 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
             onClick={() => setSelectedOnly(true)}
             className="rounded-md bg-[var(--primary)] px-2 py-1 text-[0.5625rem] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-45"
           >
-            Hide unselected
+            {selectedOnly ? "Showing selected" : "Hide unselected"}
           </button>
         </div>
       </div>

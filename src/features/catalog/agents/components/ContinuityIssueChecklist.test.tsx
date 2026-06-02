@@ -73,5 +73,6 @@ describe("ContinuityIssueChecklist", () => {
     expect(view.textContent).toContain("Second continuity issue");
     expect(view.textContent).toContain("1 of 2 selected");
     expect(view.textContent).toContain("Review all");
+    expect(view.textContent).toContain("Showing selected");
   });
 });
