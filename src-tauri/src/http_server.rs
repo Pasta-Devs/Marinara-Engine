@@ -191,12 +191,13 @@ async fn managed_asset(
         }
     });
     let mut response = Body::from_stream(ReceiverStream::new(rx)).into_response();
-    apply_managed_asset_headers(response.headers_mut(), &path, &metadata);
+    apply_managed_asset_headers(response.headers_mut(), &kind, &path, &metadata);
     Ok(response)
 }
 
 fn apply_managed_asset_headers(
     headers: &mut HeaderMap,
+    kind: &str,
     path: &FsPath,
     metadata: &std::fs::Metadata,
 ) {
@@ -206,10 +207,17 @@ fn apply_managed_asset_headers(
     );
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=86400"),
+        HeaderValue::from_static(cache_control_for_managed_asset(kind)),
     );
-    if let Some(etag) = asset_etag(&metadata) {
+    if let Some(etag) = asset_etag(metadata) {
         headers.insert(header::ETAG, etag);
+    }
+}
+
+fn cache_control_for_managed_asset(kind: &str) -> &'static str {
+    match kind {
+        "avatar" | "avatar-thumbnail" => "no-cache",
+        _ => "public, max-age=86400",
     }
 }
 
@@ -1388,7 +1396,7 @@ mod tests {
         let metadata = std::fs::metadata(&asset_path).expect("asset metadata should load");
 
         let mut headers = HeaderMap::new();
-        apply_managed_asset_headers(&mut headers, &asset_path, &metadata);
+        apply_managed_asset_headers(&mut headers, "avatar", &asset_path, &metadata);
 
         assert_eq!(
             headers
@@ -1400,11 +1408,20 @@ mod tests {
             headers
                 .get(header::CACHE_CONTROL)
                 .and_then(|value| value.to_str().ok()),
-            Some("public, max-age=86400")
+            Some("no-cache")
         );
         assert!(
             headers.get(header::ETAG).is_some(),
             "managed assets should expose validation metadata"
+        );
+
+        let mut gallery_headers = HeaderMap::new();
+        apply_managed_asset_headers(&mut gallery_headers, "gallery", &asset_path, &metadata);
+        assert_eq!(
+            gallery_headers
+                .get(header::CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok()),
+            Some("public, max-age=86400")
         );
     }
 

@@ -479,7 +479,7 @@ export async function resolveAvatarThumbnailFileUrl(
     if (pendingAvatarThumbnailResolutions.get(cacheKey) === promise) {
       pendingAvatarThumbnailResolutions.delete(cacheKey);
     }
-  });
+  }).catch(() => {});
   return promise;
 }
 
