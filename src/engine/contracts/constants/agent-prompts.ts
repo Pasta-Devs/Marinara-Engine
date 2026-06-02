@@ -17,9 +17,10 @@ Schema:
   "temperature": "string|null"
 }
 Instructions:
-1. Always provide date, time, location, weather, and temperature. Infer sensible defaults from genre, setting, and context when the narrative doesn't spell them out (e.g., a medieval tavern at night → "Cool", "Clear skies", "Late evening").
-  1a. Set a field to null ONLY when there is genuinely no way to guess, and not because the text didn't say the exact word.
-2. Preserve continuity. Only change what the narrative changes. If the party entered a tavern two messages ago and hasn't left, they're still in the tavern.`,
+1. Treat explicit scene facts in the latest assistant message as authoritative. If the text states a day of week, exact clock time, or exact temperature, copy that value into date, time, or temperature even if older context differs.
+2. Preserve continuity. Only change what the narrative changes. If a field is not mentioned or changed in the latest assistant message, carry forward the prior value exactly instead of inventing, normalizing, or replacing it with a genre default.
+3. Use null only when there is no prior value and no grounded scene clue. Do not clear day, time, or temperature merely because the latest message did not repeat them.
+4. Still provide date, time, location, weather, and temperature keys in the JSON output.`,
 
   /* ────────────────────────────────────────── */
   "prose-guardian": `Study the last few assistant messages and produce concrete, actionable writing directives for the next generation. You do NOT write story content, only directives.

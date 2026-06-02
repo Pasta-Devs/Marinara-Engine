@@ -403,11 +403,18 @@ export async function commitTrackerSnapshotForTarget(
   return normalizeGameState(saved, chatId, { messageId: existing.messageId, swipeIndex: existing.swipeIndex });
 }
 
-function gameStatePatchFromAgentResult(result: AgentResult, snapshot: GameState): TrackerStatePatch | null {
+function gameStatePatchFromAgentResult(
+  result: AgentResult,
+  snapshot: GameState,
+  previousWorldState: GameState,
+  sourceText?: string | null,
+): TrackerStatePatch | null {
   if (!result.success) return null;
   if (result.agentType === "world-state" || result.type === "game_state_update") {
     const patch = worldStatePatchFromAgentData(result.data, {
       allowFreeform: result.agentType === "world-state",
+      previousWorldState,
+      sourceText,
     }) as TrackerStatePatch | null;
     return patch ? mergeWorldStatePatchWithManualOverrides(snapshot, patch) : null;
   }
@@ -463,7 +470,7 @@ export async function persistTrackerSnapshotForTurn(
   chatId: string,
   target: TrackerSnapshotTurnTarget | null,
   results: AgentResult[],
-  options: { baseSnapshot?: GameState | null } = {},
+  options: { baseSnapshot?: GameState | null; sourceText?: string | null } = {},
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
   const existing = await getTrackerSnapshotForTarget(storage, chatId, target);
@@ -476,7 +483,8 @@ export async function persistTrackerSnapshotForTurn(
   let changed = false;
 
   for (const result of results) {
-    const patch = gameStatePatchFromAgentResult(result, snapshot);
+    const previousWorldState = options.baseSnapshot ?? snapshot;
+    const patch = gameStatePatchFromAgentResult(result, snapshot, previousWorldState, options.sourceText);
     if (!patch) continue;
     snapshot = normalizeGameState({ ...snapshot, ...patch }, chatId, target);
     changed = true;

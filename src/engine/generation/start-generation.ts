@@ -1522,11 +1522,12 @@ async function persistTrackerSnapshotSafely(
   targetMessage: unknown,
   results: AgentResult[],
   baseSnapshot?: GameState | null,
+  sourceText?: string | null,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
   try {
-    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot });
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot, sourceText });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
   }
@@ -2345,7 +2346,7 @@ async function runGenerationAgentsForTarget(args: {
     runtime.availableSprites,
   );
   if (target) {
-    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
+    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
@@ -2806,7 +2807,14 @@ export async function* startGeneration(
     }
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
-      await persistTrackerSnapshotSafely(deps.storage, chatId, latestSaved, allAgentResults, generationTrackerBaseline);
+      await persistTrackerSnapshotSafely(
+        deps.storage,
+        chatId,
+        latestSaved,
+        allAgentResults,
+        generationTrackerBaseline,
+        readString(parseRecord(latestSaved).content),
+      );
     }
     throwIfAborted(signal);
     await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
