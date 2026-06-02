@@ -210,9 +210,16 @@ pub fn avatar_thumbnail_file_path(
     state: State<'_, AppState>,
     filename: Option<String>,
     absolute_path: Option<String>,
+    source_url: Option<String>,
     size: Option<u32>,
 ) -> Result<Value, AppError> {
-    avatars::avatar_thumbnail_file_path(&state, filename.as_deref(), absolute_path.as_deref(), size)
+    avatars::avatar_thumbnail_file_path(
+        &state,
+        filename.as_deref(),
+        absolute_path.as_deref(),
+        source_url.as_deref(),
+        size,
+    )
 }
 
 #[tauri::command]

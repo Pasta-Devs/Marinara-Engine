@@ -239,10 +239,37 @@ function pathExtension(value: string | null | undefined): string | null {
   return extension && extension !== filename?.toLowerCase() ? extension : null;
 }
 
-export function canGenerateAvatarThumbnail(filename: string | null | undefined, absolutePath?: string | null): boolean {
+function inlineImageDataUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(trimmed)) return trimmed;
+  const wrapped = trimmed.match(/^[a-z][a-z0-9+.-]*:\/\/(data:image\/(?:png|jpe?g|webp|gif);base64,.*)$/i);
+  return wrapped?.[1] ?? null;
+}
+
+function inlineAvatarThumbnailRemotePath(path: string | null | undefined, size: number): string | null {
+  const filename = path
+    ?.replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean)
+    .pop();
+  if (!filename || !/^[a-f0-9]{64}\.thumb\.png$/i.test(filename)) return null;
+  return `${size}/inline/${filename}`;
+}
+
+export function canGenerateAvatarThumbnail(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+  sourceUrl?: string | null,
+): boolean {
   const extension = pathExtension(filename) ?? pathExtension(absolutePath);
   return (
-    extension === "png" || extension === "jpg" || extension === "jpeg" || extension === "webp" || extension === "gif"
+    extension === "png" ||
+    extension === "jpg" ||
+    extension === "jpeg" ||
+    extension === "webp" ||
+    extension === "gif" ||
+    !!inlineImageDataUrl(sourceUrl)
   );
 }
 
@@ -278,9 +305,11 @@ export function avatarThumbnailFileUrlFromPath(
   filename: string | null | undefined,
   absolutePath?: string | null,
   size = 128,
+  sourceUrl?: string | null,
 ): string | null {
   const path = avatarRemoteManagedPath(filename, absolutePath);
   const remoteUrl = remoteManagedAssetUrl("avatar-thumbnail", path ? `${size}/${path}` : null);
+  if (!remoteUrl && inlineImageDataUrl(sourceUrl)) return null;
   return remoteUrl;
 }
 
@@ -367,6 +396,7 @@ export async function resolveAvatarThumbnailFileUrl(
   filename: string | null | undefined,
   absolutePath?: string | null,
   size = 128,
+  sourceUrl?: string | null,
 ): Promise<string | null> {
   const remotePath = avatarRemoteManagedPath(filename, absolutePath);
   const remoteUrl = await remoteManagedAssetResolvableUrl(
@@ -374,8 +404,21 @@ export async function resolveAvatarThumbnailFileUrl(
     remotePath ? `${size}/${remotePath}` : null,
   );
   if (remoteUrl) return remoteUrl;
-  if (!filename && !absolutePath) return null;
-  const response = await invokeTauri<PathResponse>("avatar_thumbnail_file_path", { filename, absolutePath, size });
+  const normalizedSourceUrl = inlineImageDataUrl(sourceUrl);
+  if (!filename && !absolutePath && !normalizedSourceUrl) return null;
+  const response = await invokeTauri<PathResponse>("avatar_thumbnail_file_path", {
+    filename,
+    absolutePath,
+    sourceUrl: normalizedSourceUrl,
+    size,
+  });
+  if (normalizedSourceUrl) {
+    const inlineRemoteUrl = await remoteManagedAssetResolvableUrl(
+      "avatar-thumbnail",
+      inlineAvatarThumbnailRemotePath(response.path, size),
+    );
+    if (inlineRemoteUrl) return inlineRemoteUrl;
+  }
   return filePathToAssetUrl(response.path ?? "");
 }
 

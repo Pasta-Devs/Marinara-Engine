@@ -48,24 +48,25 @@ export function CharacterAvatarImage({
   thumbnailSize?: 64 | 96 | 128 | 256;
 }) {
   const effectiveThumbnailSize =
-    thumbnailSize && canGenerateAvatarThumbnail(avatarFilename, avatarFilePath) ? thumbnailSize : undefined;
+    thumbnailSize && canGenerateAvatarThumbnail(avatarFilename, avatarFilePath, src) ? thumbnailSize : undefined;
   const managedInitialSrc = effectiveThumbnailSize
-    ? avatarThumbnailFileUrlFromPath(avatarFilename, avatarFilePath, effectiveThumbnailSize)
+    ? avatarThumbnailFileUrlFromPath(avatarFilename, avatarFilePath, effectiveThumbnailSize, src)
     : avatarFileUrlFromPath(avatarFilename, avatarFilePath);
   const hasManagedAvatarInput = Boolean(avatarFilename || avatarFilePath);
+  const hasResolvableAvatarInput = hasManagedAvatarInput || Boolean(effectiveThumbnailSize && src);
   const initialSrc = managedInitialSrc ?? (effectiveThumbnailSize && hasManagedAvatarInput ? null : src) ?? null;
   const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
 
   useEffect(() => {
     let cancelled = false;
     setAsyncSrc(initialSrc);
-    if (!hasManagedAvatarInput || (!effectiveThumbnailSize && managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
+    if (!hasResolvableAvatarInput || (!effectiveThumbnailSize && managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
       return () => {
         cancelled = true;
       };
     }
     const resolveUrl = effectiveThumbnailSize
-      ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize)
+      ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize, src)
       : resolveAvatarFileUrl(avatarFilename, avatarFilePath);
     resolveUrl
       .then((url) => {
@@ -77,7 +78,7 @@ export function CharacterAvatarImage({
     return () => {
       cancelled = true;
     };
-  }, [avatarFilename, avatarFilePath, effectiveThumbnailSize, hasManagedAvatarInput, initialSrc, managedInitialSrc, src]);
+  }, [avatarFilename, avatarFilePath, effectiveThumbnailSize, hasResolvableAvatarInput, initialSrc, managedInitialSrc, src]);
 
   const resolvedSrc = asyncSrc ?? initialSrc;
   if (!resolvedSrc) return null;

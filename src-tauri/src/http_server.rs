@@ -312,8 +312,37 @@ fn avatar_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> 
 
 fn avatar_thumbnail_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
     let (size, avatar_path) = avatar_thumbnail_request(path)?;
+    if let Some(filename) = avatar_path.strip_prefix("inline/") {
+        return inline_avatar_thumbnail_asset_path(state, size, filename);
+    }
     let source = avatar_asset_path(state, avatar_path)?;
     avatars::avatar_thumbnail_path_for_source(state, &source, size)
+}
+
+fn inline_avatar_thumbnail_asset_path(
+    state: &AppState,
+    size: u32,
+    filename: &str,
+) -> Result<PathBuf, AppError> {
+    if !matches!(size, 64 | 96 | 128 | 256) {
+        return Err(AppError::invalid_input("Unsupported avatar thumbnail size"));
+    }
+    if !is_inline_avatar_thumbnail_filename(filename) {
+        return Err(AppError::not_found("Avatar thumbnail asset was not found"));
+    }
+    Ok(state
+        .data_dir
+        .join(".avatar-thumbnails")
+        .join(size.to_string())
+        .join("inline")
+        .join(filename))
+}
+
+fn is_inline_avatar_thumbnail_filename(filename: &str) -> bool {
+    let Some(hash) = filename.strip_suffix(".thumb.png") else {
+        return false;
+    };
+    hash.len() == 64 && hash.as_bytes().iter().all(u8::is_ascii_hexdigit)
 }
 
 fn avatar_thumbnail_request(path: &str) -> Result<(u32, &str), AppError> {
@@ -1283,6 +1312,42 @@ mod tests {
                 general_purpose::STANDARD.encode(format!("{user}:{pass}"))
             )
             .into_bytes(),
+        }
+    }
+
+    #[test]
+    fn inline_avatar_thumbnail_asset_path_serves_cached_thumbnail() {
+        let state = test_state("inline-thumbnail-asset");
+        let filename = format!("{}.thumb.png", "a".repeat(64));
+
+        let path = avatar_thumbnail_asset_path(&state, &format!("128/inline/{filename}"))
+            .expect("inline thumbnail route should map to cache file");
+
+        assert_eq!(
+            path,
+            state
+                .data_dir
+                .join(".avatar-thumbnails")
+                .join("128")
+                .join("inline")
+                .join(filename)
+        );
+    }
+
+    #[test]
+    fn inline_avatar_thumbnail_asset_path_rejects_non_cache_names() {
+        let state = test_state("inline-thumbnail-asset-invalid");
+
+        for request_path in [
+            "128/inline/../avatar.thumb.png",
+            "128/inline/not-a-hash.thumb.png",
+            "128/inline/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png",
+            "512/inline/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.thumb.png",
+        ] {
+            assert!(
+                avatar_thumbnail_asset_path(&state, request_path).is_err(),
+                "{request_path} should be rejected"
+            );
         }
     }
 

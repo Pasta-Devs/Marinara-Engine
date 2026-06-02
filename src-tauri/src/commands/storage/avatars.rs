@@ -1,11 +1,14 @@
 use super::media_uploads::{
-    managed_record_file_path, persist_image_upload, remove_managed_record_file, safe_filename,
+    decode_image_payload, managed_record_file_path, persist_image_upload,
+    remove_managed_record_file, safe_filename,
 };
 use super::*;
 use image::ImageFormat;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 const AVATAR_THUMBNAIL_SIZES: &[u32] = &[64, 96, 128, 256];
+const MAX_INLINE_AVATAR_THUMBNAIL_BYTES: usize = 20 * 1024 * 1024;
 
 pub(crate) fn update_character_avatar(
     state: &AppState,
@@ -205,10 +208,21 @@ pub(crate) fn avatar_thumbnail_file_path(
     state: &AppState,
     filename: Option<&str>,
     absolute_path: Option<&str>,
+    source_url: Option<&str>,
     size: Option<u32>,
 ) -> AppResult<Value> {
-    let source = avatar_source_path(state, filename, absolute_path)?;
-    let thumbnail = avatar_thumbnail_path_for_source(state, &source, size.unwrap_or(128))?;
+    let thumbnail = if filename.is_some_and(|value| !value.trim().is_empty())
+        || absolute_path.is_some_and(|value| !value.trim().is_empty())
+    {
+        let source = avatar_source_path(state, filename, absolute_path)?;
+        avatar_thumbnail_path_for_source(state, &source, size.unwrap_or(128))?
+    } else if let Some(source_url) = source_url.filter(|value| !value.trim().is_empty()) {
+        avatar_thumbnail_path_for_inline_source(state, source_url, size.unwrap_or(128))?
+    } else {
+        return Err(AppError::invalid_input(
+            "Avatar filename or path is required",
+        ));
+    };
     Ok(json!({ "path": thumbnail.to_string_lossy() }))
 }
 
@@ -285,6 +299,14 @@ fn write_avatar_thumbnail(source: &Path, target: &Path, size: u32) -> AppResult<
     let image = image::open(source).map_err(|error| {
         AppError::invalid_input(format!("Avatar thumbnail could not be decoded: {error}"))
     })?;
+    write_avatar_thumbnail_image(image, target, size)
+}
+
+fn write_avatar_thumbnail_image(
+    image: image::DynamicImage,
+    target: &Path,
+    size: u32,
+) -> AppResult<()> {
     let temp = avatar_thumbnail_temp_path(target);
     image
         .thumbnail(size, size)
@@ -316,6 +338,66 @@ fn replace_avatar_thumbnail_file(temp: &Path, target: &Path) -> std::io::Result<
         }
         Err(error) => Err(error),
     }
+}
+
+fn avatar_thumbnail_path_for_inline_source(
+    state: &AppState,
+    source_url: &str,
+    size: u32,
+) -> AppResult<PathBuf> {
+    if !AVATAR_THUMBNAIL_SIZES.contains(&size) {
+        return Err(AppError::invalid_input("Unsupported avatar thumbnail size"));
+    }
+    let source_url = inline_avatar_data_url(source_url).ok_or_else(|| {
+        AppError::invalid_input("Avatar thumbnail source must be inline image data")
+    })?;
+    let (mime, bytes) = decode_image_payload(source_url, "avatarPath")?;
+    if !is_resizable_avatar_mime(&mime) {
+        return Err(AppError::invalid_input(
+            "Avatar thumbnail source uses an unsupported image type",
+        ));
+    }
+    if bytes.len() > MAX_INLINE_AVATAR_THUMBNAIL_BYTES {
+        return Err(AppError::invalid_input(
+            "Avatar thumbnail source is too large",
+        ));
+    }
+
+    let hash = inline_avatar_thumbnail_hash(source_url);
+    let target = state
+        .data_dir
+        .join(".avatar-thumbnails")
+        .join(size.to_string())
+        .join("inline")
+        .join(format!("{hash}.thumb.png"));
+    if target.is_file() {
+        return Ok(target);
+    }
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let image = image::load_from_memory(&bytes).map_err(|error| {
+        AppError::invalid_input(format!("Avatar thumbnail could not be decoded: {error}"))
+    })?;
+    write_avatar_thumbnail_image(image, &target, size)?;
+    Ok(target)
+}
+
+fn inline_avatar_data_url(value: &str) -> Option<&str> {
+    let trimmed = value.trim();
+    if trimmed.to_ascii_lowercase().starts_with("data:image/") {
+        return Some(trimmed);
+    }
+    let (_, rest) = trimmed.split_once("://")?;
+    if rest.to_ascii_lowercase().starts_with("data:image/") {
+        return Some(rest);
+    }
+    None
+}
+
+fn inline_avatar_thumbnail_hash(source_url: &str) -> String {
+    let digest = Sha256::digest(source_url.as_bytes());
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn avatar_source_path(
@@ -370,6 +452,13 @@ fn is_resizable_avatar_file(path: &Path) -> bool {
     )
 }
 
+fn is_resizable_avatar_mime(mime: &str) -> bool {
+    matches!(
+        mime.to_ascii_lowercase().as_str(),
+        "image/png" | "image/jpeg" | "image/jpg" | "image/webp" | "image/gif"
+    )
+}
+
 fn avatar_thumbnail_is_fresh(source: &Path, target: &Path) -> AppResult<bool> {
     let source_modified = fs::metadata(source)?.modified()?;
     let Ok(target_modified) = fs::metadata(target).and_then(|metadata| metadata.modified()) else {
@@ -404,6 +493,7 @@ pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_state(label: &str) -> AppState {
@@ -492,6 +582,7 @@ mod tests {
             &state,
             Some("large.png"),
             Some(&avatar_path.to_string_lossy()),
+            None,
             Some(128),
         )
         .expect("thumbnail should be generated");
@@ -527,6 +618,7 @@ mod tests {
             &state,
             Some("same-name.png"),
             Some(&png_path.to_string_lossy()),
+            None,
             Some(128),
         )
         .expect("png thumbnail should be generated");
@@ -534,6 +626,7 @@ mod tests {
             &state,
             Some("same-name.jpg"),
             Some(&jpg_path.to_string_lossy()),
+            None,
             Some(128),
         )
         .expect("jpg thumbnail should be generated");
@@ -581,6 +674,7 @@ mod tests {
             &state,
             Some("animated.gif"),
             Some(&avatar_path.to_string_lossy()),
+            None,
             Some(128),
         )
         .expect("gif thumbnail should be generated");
@@ -604,10 +698,72 @@ mod tests {
         let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
         image.save(&outside).expect("outside fixture should write");
 
-        let error =
-            avatar_thumbnail_file_path(&state, None, Some(&outside.to_string_lossy()), Some(128))
-                .expect_err("outside source should be rejected");
+        let error = avatar_thumbnail_file_path(
+            &state,
+            None,
+            Some(&outside.to_string_lossy()),
+            None,
+            Some(128),
+        )
+        .expect_err("outside source should be rejected");
 
         assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_resizes_inline_data_url_avatar() {
+        let state = test_state("thumbnail-inline");
+        let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            320,
+            240,
+            image::Rgba([0, 255, 0, 255]),
+        ));
+        let mut buffer = Cursor::new(Vec::new());
+        image
+            .write_to(&mut buffer, ImageFormat::Png)
+            .expect("inline fixture should encode");
+        let data_url = format!(
+            "data:image/png;base64,{}",
+            general_purpose::STANDARD.encode(buffer.into_inner())
+        );
+
+        let response = avatar_thumbnail_file_path(&state, None, None, Some(&data_url), Some(128))
+            .expect("inline thumbnail should be generated");
+        let thumbnail = PathBuf::from(response["path"].as_str().expect("path should be returned"));
+
+        assert!(thumbnail.starts_with(state.data_dir.join(".avatar-thumbnails/128/inline")));
+        assert!(thumbnail.is_file());
+        assert_eq!(
+            image::image_dimensions(&thumbnail).expect("thumbnail should decode"),
+            (128, 96)
+        );
+    }
+
+    #[test]
+    fn avatar_thumbnail_file_path_accepts_scheme_wrapped_inline_data_url_avatar() {
+        let state = test_state("thumbnail-wrapped-inline");
+        let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            240,
+            320,
+            image::Rgba([0, 0, 255, 255]),
+        ));
+        let mut buffer = Cursor::new(Vec::new());
+        image
+            .write_to(&mut buffer, ImageFormat::Png)
+            .expect("inline fixture should encode");
+        let data_url = format!(
+            "asset://data:image/png;base64,{}",
+            general_purpose::STANDARD.encode(buffer.into_inner())
+        );
+
+        let response = avatar_thumbnail_file_path(&state, None, None, Some(&data_url), Some(128))
+            .expect("wrapped inline thumbnail should be generated");
+        let thumbnail = PathBuf::from(response["path"].as_str().expect("path should be returned"));
+
+        assert!(thumbnail.starts_with(state.data_dir.join(".avatar-thumbnails/128/inline")));
+        assert_eq!(
+            image::image_dimensions(&thumbnail).expect("thumbnail should decode"),
+            (96, 128)
+        );
     }
 }

@@ -695,6 +695,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             state,
             optional_string(&args, "filename").as_deref(),
             optional_string(&args, "absolutePath").as_deref(),
+            optional_string(&args, "sourceUrl").as_deref(),
             optional_u32(&args, "size"),
         ),
         "character_restore_version" => characters::restore_character_version(
