@@ -8,7 +8,7 @@ import {
 } from "../../../../shared/api/local-file-api";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { getCharacterAvatarLoadingMode } from "../lib/character-avatar-loading";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
   if (!crop) return null;
@@ -30,6 +30,64 @@ function isLikelyFilesystemPath(value: string): boolean {
   );
 }
 
+function waitForImageResolveSlot(element: HTMLElement, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  const waitForViewport = new Promise<void>((resolve) => {
+    if (typeof IntersectionObserver !== "function") {
+      resolve();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          resolve();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+    signal.addEventListener(
+      "abort",
+      () => {
+        observer.disconnect();
+        resolve();
+      },
+      { once: true },
+    );
+    observer.observe(element);
+  });
+
+  return waitForViewport.then(
+    () =>
+      new Promise<void>((resolve) => {
+        if (signal.aborted) {
+          resolve();
+          return;
+        }
+        const idleWindow = window as Window & {
+          requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+          cancelIdleCallback?: (handle: number) => void;
+        };
+        const requestIdle = idleWindow.requestIdleCallback;
+        let handle: number | null = null;
+        const finish = () => {
+          if (handle !== null && typeof idleWindow.cancelIdleCallback === "function") {
+            idleWindow.cancelIdleCallback(handle);
+          } else if (handle !== null) {
+            window.clearTimeout(handle);
+          }
+          resolve();
+        };
+        signal.addEventListener("abort", finish, { once: true });
+        if (typeof requestIdle === "function") {
+          handle = requestIdle(finish, { timeout: 600 });
+          return;
+        }
+        handle = window.setTimeout(finish, 80);
+      }),
+  );
+}
+
 export function CharacterAvatarImage({
   src,
   avatarFilePath,
@@ -47,6 +105,7 @@ export function CharacterAvatarImage({
   className?: string;
   thumbnailSize?: 64 | 96 | 128 | 256;
 }) {
+  const imageRef = useRef<HTMLImageElement | null>(null);
   const effectiveThumbnailSize =
     thumbnailSize && canGenerateAvatarThumbnail(avatarFilename, avatarFilePath, src) ? thumbnailSize : undefined;
   const managedInitialSrc = effectiveThumbnailSize
@@ -54,21 +113,29 @@ export function CharacterAvatarImage({
     : avatarFileUrlFromPath(avatarFilename, avatarFilePath);
   const hasManagedAvatarInput = Boolean(avatarFilename || avatarFilePath);
   const hasResolvableAvatarInput = hasManagedAvatarInput || Boolean(effectiveThumbnailSize && src);
-  const initialSrc = managedInitialSrc ?? (effectiveThumbnailSize && hasManagedAvatarInput ? null : src) ?? null;
+  const initialSrc = managedInitialSrc ?? src ?? null;
   const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
 
   useEffect(() => {
     let cancelled = false;
+    const abort = new AbortController();
     setAsyncSrc(initialSrc);
     if (!hasResolvableAvatarInput || (!effectiveThumbnailSize && managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
       return () => {
         cancelled = true;
+        abort.abort();
       };
     }
-    const resolveUrl = effectiveThumbnailSize
-      ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize, src)
-      : resolveAvatarFileUrl(avatarFilename, avatarFilePath);
-    resolveUrl
+    const resolveUrl = async () => {
+      if (effectiveThumbnailSize && imageRef.current) {
+        await waitForImageResolveSlot(imageRef.current, abort.signal);
+      }
+      if (cancelled) return null;
+      return effectiveThumbnailSize
+        ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize, src)
+        : resolveAvatarFileUrl(avatarFilename, avatarFilePath);
+    };
+    resolveUrl()
       .then((url) => {
         if (!cancelled) setAsyncSrc(url ?? src ?? null);
       })
@@ -77,6 +144,7 @@ export function CharacterAvatarImage({
       });
     return () => {
       cancelled = true;
+      abort.abort();
     };
   }, [avatarFilename, avatarFilePath, effectiveThumbnailSize, hasResolvableAvatarInput, initialSrc, managedInitialSrc, src]);
 
@@ -85,6 +153,7 @@ export function CharacterAvatarImage({
 
   return (
     <img
+      ref={imageRef}
       src={resolvedSrc}
       alt={alt}
       loading={getCharacterAvatarLoadingMode(resolvedSrc)}

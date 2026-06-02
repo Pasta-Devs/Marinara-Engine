@@ -18,6 +18,10 @@ type RemoteAssetObjectUrlEntry = {
 };
 
 const remoteAssetObjectUrls = new Map<string, RemoteAssetObjectUrlEntry>();
+const pendingAvatarThumbnailResolutions = new Map<string, Promise<string | null>>();
+let activeAvatarThumbnailResolutions = 0;
+const queuedAvatarThumbnailResolutions: Array<() => void> = [];
+const MAX_ACTIVE_AVATAR_THUMBNAIL_RESOLUTIONS = 2;
 
 function hasScheme(value: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(value);
@@ -257,6 +261,51 @@ function inlineAvatarThumbnailRemotePath(path: string | null | undefined, size: 
   return `${size}/inline/${filename}`;
 }
 
+function hashCacheInput(value: string | null | undefined): string {
+  const input = value ?? "";
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${input.length}:${(hash >>> 0).toString(16)}`;
+}
+
+function avatarThumbnailResolutionCacheKey(
+  filename: string | null | undefined,
+  absolutePath: string | null | undefined,
+  size: number,
+  sourceUrl: string | null,
+): string {
+  const target = remoteRuntimeTarget();
+  return [
+    target ? `${target.baseUrl}\0${target.authorization ?? ""}` : "embedded",
+    filename?.trim() ?? "",
+    absolutePath?.trim() ?? "",
+    String(size),
+    hashCacheInput(sourceUrl),
+  ].join("\0");
+}
+
+function scheduleAvatarThumbnailResolution<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const run = () => {
+      activeAvatarThumbnailResolutions += 1;
+      task()
+        .then(resolve, reject)
+        .finally(() => {
+          activeAvatarThumbnailResolutions -= 1;
+          queuedAvatarThumbnailResolutions.shift()?.();
+        });
+    };
+    if (activeAvatarThumbnailResolutions < MAX_ACTIVE_AVATAR_THUMBNAIL_RESOLUTIONS) {
+      run();
+      return;
+    }
+    queuedAvatarThumbnailResolutions.push(run);
+  });
+}
+
 export function canGenerateAvatarThumbnail(
   filename: string | null | undefined,
   absolutePath?: string | null,
@@ -398,28 +447,40 @@ export async function resolveAvatarThumbnailFileUrl(
   size = 128,
   sourceUrl?: string | null,
 ): Promise<string | null> {
-  const remotePath = avatarRemoteManagedPath(filename, absolutePath);
-  const remoteUrl = await remoteManagedAssetResolvableUrl(
-    "avatar-thumbnail",
-    remotePath ? `${size}/${remotePath}` : null,
-  );
-  if (remoteUrl) return remoteUrl;
   const normalizedSourceUrl = inlineImageDataUrl(sourceUrl);
-  if (!filename && !absolutePath && !normalizedSourceUrl) return null;
-  const response = await invokeTauri<PathResponse>("avatar_thumbnail_file_path", {
-    filename,
-    absolutePath,
-    sourceUrl: normalizedSourceUrl,
-    size,
-  });
-  if (normalizedSourceUrl) {
-    const inlineRemoteUrl = await remoteManagedAssetResolvableUrl(
+  const cacheKey = avatarThumbnailResolutionCacheKey(filename, absolutePath, size, normalizedSourceUrl);
+  const pending = pendingAvatarThumbnailResolutions.get(cacheKey);
+  if (pending) return pending;
+  const promise = scheduleAvatarThumbnailResolution(async () => {
+    const remotePath = avatarRemoteManagedPath(filename, absolutePath);
+    const remoteUrl = await remoteManagedAssetResolvableUrl(
       "avatar-thumbnail",
-      inlineAvatarThumbnailRemotePath(response.path, size),
+      remotePath ? `${size}/${remotePath}` : null,
     );
-    if (inlineRemoteUrl) return inlineRemoteUrl;
-  }
-  return filePathToAssetUrl(response.path ?? "");
+    if (remoteUrl) return remoteUrl;
+    if (!filename && !absolutePath && !normalizedSourceUrl) return null;
+    const response = await invokeTauri<PathResponse>("avatar_thumbnail_file_path", {
+      filename,
+      absolutePath,
+      sourceUrl: normalizedSourceUrl,
+      size,
+    });
+    if (normalizedSourceUrl) {
+      const inlineRemoteUrl = await remoteManagedAssetResolvableUrl(
+        "avatar-thumbnail",
+        inlineAvatarThumbnailRemotePath(response.path, size),
+      );
+      if (inlineRemoteUrl) return inlineRemoteUrl;
+    }
+    return filePathToAssetUrl(response.path ?? "");
+  });
+  pendingAvatarThumbnailResolutions.set(cacheKey, promise);
+  promise.finally(() => {
+    if (pendingAvatarThumbnailResolutions.get(cacheKey) === promise) {
+      pendingAvatarThumbnailResolutions.delete(cacheKey);
+    }
+  });
+  return promise;
 }
 
 async function resolveLorebookImageFileUrl(filename: string): Promise<string> {
