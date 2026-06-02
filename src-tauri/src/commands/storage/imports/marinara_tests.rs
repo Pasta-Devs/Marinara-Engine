@@ -1,6 +1,5 @@
 use super::*;
 use crate::state::AppState;
-use base64::engine::general_purpose;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -47,10 +46,7 @@ fn block_collection_writes(state: &AppState, collection: &str) {
 }
 
 fn embedded_avatar() -> String {
-    format!(
-        "data:image/png;base64,{}",
-        general_purpose::STANDARD.encode(b"native-avatar-bytes")
-    )
+    "data:image/png;base64,bmF0aXZlLWF2YXRhci1ieXRlcw==".to_string()
 }
 
 fn assert_managed_character_avatar(character: &Value) {
