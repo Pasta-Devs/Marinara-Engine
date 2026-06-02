@@ -151,7 +151,8 @@ describe("runGenerationWithUi notifications", () => {
       avatarCrop: { x: 1, y: 2, scale: 3 },
       count: 1,
     });
-    expect(playNotificationPingMock).toHaveBeenCalledWith("refactor", null);
+    expect(playNotificationPingMock).toHaveBeenCalledTimes(1);
+    expect(playNotificationPingMock).toHaveBeenNthCalledWith(1, "refactor", null);
     expect(showConversationLocalNotificationMock).toHaveBeenCalledWith({
       enabled: true,
       characterName: "Mari",
@@ -179,7 +180,8 @@ describe("runGenerationWithUi notifications", () => {
 
     await runAssistantMessage(queryClient, { chatId: currentChat.id }, message);
 
-    expect(playNotificationPingMock).toHaveBeenCalledWith("custom", customNotificationSound);
+    expect(playNotificationPingMock).toHaveBeenCalledTimes(1);
+    expect(playNotificationPingMock).toHaveBeenNthCalledWith(1, "custom", customNotificationSound);
     expect(showConversationLocalNotificationMock).not.toHaveBeenCalled();
     expect(useChatStore.getState().unreadCounts.get(currentChat.id)).toBe(1);
   });
