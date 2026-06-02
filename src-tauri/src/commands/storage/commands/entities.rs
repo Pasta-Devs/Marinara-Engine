@@ -9,6 +9,52 @@ use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use tauri::State;
 
+const SUPPORTED_STORAGE_ENTITIES: &[&str] = &[
+    "agents",
+    "agent-memory",
+    "agent-runs",
+    "app-settings",
+    "characters",
+    "character-gallery",
+    "character-groups",
+    "character-versions",
+    "chat-folders",
+    "chat-presets",
+    "chats",
+    "connections",
+    "connection-folders",
+    "custom-tools",
+    "extensions",
+    "gallery",
+    "game-checkpoints",
+    "game-state-snapshots",
+    "knowledge-sources",
+    "lorebooks",
+    "lorebook-entries",
+    "lorebook-folders",
+    "messages",
+    "personas",
+    "persona-groups",
+    "prompts",
+    "prompt-groups",
+    "prompt-overrides",
+    "prompt-sections",
+    "prompt-variables",
+    "regex-scripts",
+    "sprites",
+    "themes",
+];
+
+fn validate_storage_entity(entity: &str) -> Result<(), AppError> {
+    if SUPPORTED_STORAGE_ENTITIES.contains(&entity) {
+        Ok(())
+    } else {
+        Err(AppError::invalid_input(format!(
+            "Unsupported storage entity: {entity}"
+        )))
+    }
+}
+
 #[tauri::command]
 pub async fn storage_list(
     state: State<'_, AppState>,
@@ -26,6 +72,7 @@ pub(crate) fn storage_list_inner(
     entity: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     let filters = options
         .as_ref()
         .and_then(|value| value.get("filters"))
@@ -233,12 +280,13 @@ pub async fn storage_get(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_get_inner(
+pub(crate) fn storage_get_inner(
     state: &AppState,
     entity: String,
     id: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
@@ -261,7 +309,12 @@ pub async fn storage_create(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
+pub(crate) fn storage_create_inner(
+    state: &AppState,
+    entity: String,
+    value: Value,
+) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
     let created = state
         .storage
@@ -291,12 +344,13 @@ pub async fn storage_update(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_update_inner(
+pub(crate) fn storage_update_inner(
     state: &AppState,
     entity: String,
     id: String,
     patch: Value,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
             shared::patch_message_update(state, &id, patch)?,
@@ -502,6 +556,7 @@ pub(crate) fn delete_entity(
     id: &str,
     force: bool,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(entity)?;
     if entity == "connections" {
         return crate::connection_refs::delete_connection(state, id, force);
     }
@@ -1057,6 +1112,68 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    #[test]
+    fn generic_storage_commands_reject_unsupported_entities() {
+        let state = test_state("unsupported-entity");
+
+        let create_error = storage_create_inner(
+            &state,
+            "typo-collection".to_string(),
+            json!({ "id": "row-1" }),
+        )
+        .expect_err("unsupported create should be rejected");
+        assert_eq!(create_error.code, "invalid_input");
+        assert!(create_error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
+
+        storage_list_inner(&state, "typo-collection".to_string(), None)
+            .expect_err("unsupported list should be rejected");
+        storage_get_inner(
+            &state,
+            "typo-collection".to_string(),
+            "row-1".to_string(),
+            None,
+        )
+        .expect_err("unsupported get should be rejected");
+        storage_update_inner(
+            &state,
+            "typo-collection".to_string(),
+            "row-1".to_string(),
+            json!({ "name": "Nope" }),
+        )
+        .expect_err("unsupported update should be rejected");
+        delete_entity(&state, "typo-collection", "row-1", false)
+            .expect_err("unsupported delete should be rejected");
+    }
+
+    #[test]
+    fn generic_storage_commands_still_accept_supported_entities() {
+        let state = test_state("supported-entity");
+
+        storage_create_inner(
+            &state,
+            "characters".to_string(),
+            json!({ "id": "char-1", "data": { "name": "Rina" } }),
+        )
+        .expect("supported create should succeed");
+
+        let read = storage_get_inner(
+            &state,
+            "characters".to_string(),
+            "char-1".to_string(),
+            None,
+        )
+        .expect("supported get should succeed");
+        assert_eq!(read["id"], "char-1");
     }
 
     #[test]
