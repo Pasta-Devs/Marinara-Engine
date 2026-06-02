@@ -54,7 +54,7 @@ pub(crate) fn storage_list_inner(
                 {
                     state.storage.list_messages_for_chat_projected(
                         chat_id,
-                        &message_projection_fields_for_materialization(fields),
+                        &message_projection_fields_for_materialization(fields, options.as_ref()),
                         shared::projection_field_selections(options.as_ref()),
                     )?
                 } else {
@@ -176,8 +176,26 @@ fn message_id_projection_only(options: Option<&Value>) -> bool {
     fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
 }
 
-fn message_projection_fields_for_materialization(fields: &[String]) -> Vec<String> {
+fn message_projection_fields_for_materialization(
+    fields: &[String],
+    options: Option<&Value>,
+) -> Vec<String> {
     let mut projection = fields.to_vec();
+    for field in ["id", "sortOrder", "order", "createdAt"] {
+        if !projection.iter().any(|existing| existing == field) {
+            projection.push(field.to_string());
+        }
+    }
+    if let Some(order_by) = options
+        .and_then(|value| value.get("orderBy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !projection.iter().any(|existing| existing == order_by) {
+            projection.push(order_by.to_string());
+        }
+    }
     let needs_swipes = fields.iter().any(|field| {
         matches!(
             field.as_str(),
@@ -1365,6 +1383,93 @@ mod tests {
             .expect("storage_list returns an array");
         assert_eq!(full_data_rows.len(), 1);
         assert_eq!(full_data_rows[0]["data"]["favorite_color"], "violet");
+    }
+
+    #[test]
+    fn storage_list_projected_messages_keeps_default_created_at_order() {
+        let state = test_state("message-projection-default-sort");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "new", "chatId": "chat-1", "createdAt": "2026-01-03T00:00:00Z", "content": "new" }),
+                    json!({ "id": "old", "chatId": "chat-1", "createdAt": "2026-01-01T00:00:00Z", "content": "old" }),
+                    json!({ "id": "other", "chatId": "chat-2", "createdAt": "2026-01-02T00:00:00Z", "content": "other" }),
+                ],
+            )
+            .expect("messages should be seeded");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content"]
+            })),
+        )
+        .expect("projected message list should succeed");
+
+        assert_eq!(
+            result,
+            json!([
+                { "id": "old", "content": "old" },
+                { "id": "new", "content": "new" }
+            ])
+        );
+    }
+
+    #[test]
+    fn storage_list_projected_messages_keeps_before_cursor_filter() {
+        let state = test_state("message-projection-before-cursor");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "older", "chatId": "chat-1", "createdAt": "2026-01-01T00:00:00Z", "content": "older" }),
+                    json!({ "id": "cursor", "chatId": "chat-1", "createdAt": "2026-01-02T00:00:00Z", "content": "cursor" }),
+                    json!({ "id": "newer", "chatId": "chat-1", "createdAt": "2026-01-03T00:00:00Z", "content": "newer" }),
+                ],
+            )
+            .expect("messages should be seeded");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content"],
+                "before": "2026-01-02T00:00:00Z|cursor"
+            })),
+        )
+        .expect("projected message list should succeed");
+
+        assert_eq!(result, json!([{ "id": "older", "content": "older" }]));
+    }
+
+    #[test]
+    fn message_projection_materialization_includes_internal_sort_fields() {
+        let fields = vec!["content".to_string()];
+        let projection = message_projection_fields_for_materialization(
+            &fields,
+            Some(&json!({ "orderBy": "score" })),
+        );
+
+        for field in [
+            "content",
+            "id",
+            "sortOrder",
+            "order",
+            "createdAt",
+            "score",
+            "swipes",
+        ] {
+            assert!(
+                projection.iter().any(|existing| existing == field),
+                "projection should include {field}"
+            );
+        }
     }
 
     #[test]
