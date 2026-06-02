@@ -30,6 +30,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: read # needed to read CI status
+  checks: write
 
 concurrency:
   group: bunny-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
@@ -79,6 +80,24 @@ jobs:
           git status
           git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
           git checkout "pr-$PR_NUM"
+          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+          echo "PR_HEAD_SHA=$HEAD_SHA" >> "$GITHUB_ENV"
+
+      - name: Mark Bunny check in progress
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/check-runs" \
+            -f name="Bunny Review" \
+            -f head_sha="$PR_HEAD_SHA" \
+            -f status="in_progress" \
+            -f details_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f external_id="bunny-review-${PR_NUM}" \
+            -f "output[title]=Bunny Review" \
+            -f "output[summary]=The trusted Bunny reviewer is inspecting this pull request." \
+            --jq .id > bunny-check-run-id.txt
 
       - uses: actions/setup-python@v5
         with:
@@ -162,3 +181,41 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py post
+
+      - name: Complete Bunny check
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHECK_RUN_ID=""
+          if [ -f bunny-check-run-id.txt ]; then
+            CHECK_RUN_ID="$(cat bunny-check-run-id.txt)"
+          fi
+          if [ -z "$CHECK_RUN_ID" ]; then
+            CHECK_RUN_ID="$(gh api "repos/${{ github.repository }}/commits/$PR_HEAD_SHA/check-runs" \
+              --jq '.check_runs[] | select(.name == "Bunny Review") | .id' | tail -n 1)"
+          fi
+          if [ -z "$CHECK_RUN_ID" ]; then
+            echo "::warning::No Bunny check run id found; unable to complete custom check."
+            exit 0
+          fi
+
+          if [ "${{ job.status }}" = "success" ]; then
+            CONCLUSION="success"
+            TITLE="Bunny Review Complete"
+            SUMMARY="Bunny posted or updated its review for this pull request."
+          else
+            CONCLUSION="failure"
+            TITLE="Bunny Review Failed"
+            SUMMARY="Bunny Review did not complete. Inspect the trusted workflow run for details."
+          fi
+
+          gh api \
+            --method PATCH \
+            "repos/${{ github.repository }}/check-runs/$CHECK_RUN_ID" \
+            -f status="completed" \
+            -f conclusion="$CONCLUSION" \
+            -f completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -f details_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f "output[title]=$TITLE" \
+            -f "output[summary]=$SUMMARY" >/dev/null
