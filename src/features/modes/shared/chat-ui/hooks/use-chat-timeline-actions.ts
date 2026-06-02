@@ -162,10 +162,6 @@ export function useChatTimelineActions({
     }
   }, []);
 
-  const beginRefreshingTimeline = useCallback(() => {
-    if (refreshWorldStateOnTimelineChange) useGameStateStore.getState().setRefreshingChat(activeChatId);
-  }, [activeChatId, refreshWorldStateOnTimelineChange]);
-
   const clearRefreshingTimeline = useCallback(
     (actionId: number) => {
       if (swipeActionSeq.current === actionId) {
@@ -173,6 +169,26 @@ export function useChatTimelineActions({
       }
     },
     [activeChatId],
+  );
+
+  const scheduleVisibleWorldStateRefresh = useCallback(
+    (actionId: number, target?: WorldStateTarget | null) => {
+      if (!refreshWorldStateOnTimelineChange) return;
+      const run = () => {
+        if (swipeActionSeq.current !== actionId) return;
+        useGameStateStore.getState().setRefreshingChat(activeChatId);
+        void refreshVisibleWorldState(target).finally(() => clearRefreshingTimeline(actionId));
+      };
+      const idleWindow = window as Window & {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      };
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleWindow.requestIdleCallback(run, { timeout: 500 });
+      } else {
+        window.setTimeout(run, 16);
+      }
+    },
+    [activeChatId, clearRefreshingTimeline, refreshVisibleWorldState, refreshWorldStateOnTimelineChange],
   );
 
   const handleDelete = useCallback((messageId: string) => {
@@ -185,7 +201,6 @@ export function useChatTimelineActions({
     if (!messageId) return;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
-      beginRefreshingTimeline();
       try {
         if (
           !(await flushTrackerPatchesForTimelineAction(
@@ -198,22 +213,13 @@ export function useChatTimelineActions({
         if (swipeActionSeq.current !== actionId) return;
         await deleteMessage.mutateAsync(messageId);
         if (swipeActionSeq.current !== actionId) return;
-        await refreshVisibleWorldState();
+        scheduleVisibleWorldStateRefresh(actionId);
       } catch {
         if (swipeActionSeq.current !== actionId) return;
         toast.error("Could not delete the message.");
-      } finally {
-        clearRefreshingTimeline(actionId);
       }
     })();
-  }, [
-    beginRefreshingTimeline,
-    clearRefreshingTimeline,
-    deleteDialogMessageId,
-    deleteMessage,
-    flushTrackerPatchesForTimelineAction,
-    refreshVisibleWorldState,
-  ]);
+  }, [deleteDialogMessageId, deleteMessage, flushTrackerPatchesForTimelineAction, scheduleVisibleWorldStateRefresh]);
 
   const handleDeleteSwipe = useCallback(() => {
     const messageId = deleteDialogMessageId;
@@ -222,7 +228,6 @@ export function useChatTimelineActions({
     if (!messageId || !deleteDialogCanDeleteSwipe) return;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
-      beginRefreshingTimeline();
       try {
         if (
           !(await flushTrackerPatchesForTimelineAction(
@@ -235,23 +240,19 @@ export function useChatTimelineActions({
         if (swipeActionSeq.current !== actionId) return;
         await deleteSwipe.mutateAsync({ messageId, index });
         if (swipeActionSeq.current !== actionId) return;
-        await refreshVisibleWorldState();
+        scheduleVisibleWorldStateRefresh(actionId);
       } catch {
         if (swipeActionSeq.current !== actionId) return;
         toast.error("Could not delete the swipe.");
-      } finally {
-        clearRefreshingTimeline(actionId);
       }
     })();
   }, [
-    beginRefreshingTimeline,
-    clearRefreshingTimeline,
     deleteDialogActiveSwipeIndex,
     deleteDialogCanDeleteSwipe,
     deleteDialogMessageId,
     deleteSwipe,
     flushTrackerPatchesForTimelineAction,
-    refreshVisibleWorldState,
+    scheduleVisibleWorldStateRefresh,
   ]);
 
   const handleDeleteMore = useCallback(() => {
@@ -301,7 +302,6 @@ export function useChatTimelineActions({
     if (messageIds.length === 0) return;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
-      beginRefreshingTimeline();
       try {
         if (
           !(await flushTrackerPatchesForTimelineAction(
@@ -314,7 +314,7 @@ export function useChatTimelineActions({
         if (swipeActionSeq.current !== actionId) return;
         await deleteMessages.mutateAsync(messageIds);
         if (swipeActionSeq.current !== actionId) return;
-        await refreshVisibleWorldState();
+        scheduleVisibleWorldStateRefresh(actionId);
         if (swipeActionSeq.current !== actionId) return;
         setMultiSelectMode(false);
         setSelectedMessageIds(new Set());
@@ -322,18 +322,9 @@ export function useChatTimelineActions({
       } catch {
         if (swipeActionSeq.current !== actionId) return;
         toast.error("Could not delete messages.");
-      } finally {
-        clearRefreshingTimeline(actionId);
       }
     })();
-  }, [
-    beginRefreshingTimeline,
-    clearRefreshingTimeline,
-    deleteMessages,
-    flushTrackerPatchesForTimelineAction,
-    refreshVisibleWorldState,
-    selectedMessageIds,
-  ]);
+  }, [deleteMessages, flushTrackerPatchesForTimelineAction, scheduleVisibleWorldStateRefresh, selectedMessageIds]);
 
   const handleCancelMultiSelect = useCallback(() => {
     setMultiSelectMode(false);

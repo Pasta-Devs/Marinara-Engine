@@ -9,6 +9,7 @@ import type {
 } from "../contracts/types/game-state";
 import { preserveTrackerCharacterUiFields } from "./generate-route-utils";
 import { boolish, isRecord, nowIso, parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
+import { worldStatePatchFromAgentData } from "./world-state-agent-result";
 import {
   applyQuestUpdatesToPlayerStats,
   clonePlayerStats,
@@ -362,16 +363,14 @@ export async function commitTrackerSnapshotForTarget(
 
 function gameStatePatchFromAgentResult(result: AgentResult, snapshot: GameState): TrackerStatePatch | null {
   if (!result.success) return null;
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    return worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    }) as TrackerStatePatch | null;
+  }
+
   const data = parseRecord(result.data);
   if (!Object.keys(data).length) return null;
-
-  if (result.agentType === "world-state" || result.type === "game_state_update") {
-    const patch: TrackerStatePatch = {};
-    for (const field of ["date", "time", "location", "weather", "temperature"] as const) {
-      if (Object.prototype.hasOwnProperty.call(data, field)) patch[field] = readNullableString(data[field]);
-    }
-    return Object.keys(patch).length ? patch : null;
-  }
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)

@@ -60,6 +60,7 @@ export type { ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 20;
 const MAX_MEMORY_RECALL_IMPORT_BYTES = 25 * 1024 * 1024;
+const scheduledDeleteRefreshTimers = new Map<string, number>();
 
 type MessageCountResult = { count: number };
 
@@ -78,6 +79,20 @@ function pruneRecentMessageContentEdits(now = Date.now()) {
       recentMessageContentEdits.delete(messageId);
     }
   }
+}
+
+function scheduleDeleteRefresh(qc: QueryClient, chatId: string) {
+  const previous = scheduledDeleteRefreshTimers.get(chatId);
+  if (previous) window.clearTimeout(previous);
+  const timer = window.setTimeout(() => {
+    scheduledDeleteRefreshTimers.delete(chatId);
+    void Promise.all([
+      qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }),
+      qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) }),
+      qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) }),
+    ]).catch((error) => console.warn("[chats] message delete refresh failed", error));
+  }, 75);
+  scheduledDeleteRefreshTimers.set(chatId, timer);
 }
 
 function findCachedMessage(data: InfiniteData<Message[]> | undefined, messageId: string): Message | null {
@@ -502,9 +517,7 @@ export function useDeleteMessage(chatId: string | null) {
     },
     onSettled: () => {
       if (chatId) {
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
-        qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
-        qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        scheduleDeleteRefresh(qc, chatId);
       }
     },
   });
@@ -539,9 +552,7 @@ export function useDeleteMessages(chatId: string | null) {
     },
     onSettled: () => {
       if (chatId) {
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
-        qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
-        qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        scheduleDeleteRefresh(qc, chatId);
       }
     },
   });

@@ -1648,7 +1648,10 @@ function buildConversationScheduleBlock(
     const schedule = parseRecord(schedules[characterId]);
     const days = parseRecord(schedule.days);
     const lines = Object.entries(days).flatMap(([day, rawBlocks]) => {
-      const blocks = parseArray(rawBlocks).filter(isRecord).map(scheduleLine).filter((line) => line.trim());
+      const blocks = parseArray(rawBlocks)
+        .filter(isRecord)
+        .map(scheduleLine)
+        .filter((line) => line.trim());
       return blocks.length > 0 ? [`${day}:`, ...blocks.map((line) => `- ${line}`)] : [];
     });
     if (lines.length === 0) continue;
@@ -1831,7 +1834,12 @@ function buildConversationCommandBlock(
   const hasCharacters = characters.length > 0;
   const hasConnectedRoleplayOrGame = connectedMode === "roleplay" || connectedMode === "game";
   const canCrossPost = commandCapabilityEnabled(capabilities, ["crossPost", "canCrossPost"]);
-  const canSelfie = commandCapabilityEnabled(capabilities, ["selfie", "canSelfie", "imageGeneration", "canGenerateImages"]);
+  const canSelfie = commandCapabilityEnabled(capabilities, [
+    "selfie",
+    "canSelfie",
+    "imageGeneration",
+    "canGenerateImages",
+  ]);
   const canMemory = commandCapabilityEnabled(capabilities, ["memory", "canSaveMemory"]);
   const canStartScene = commandCapabilityEnabled(capabilities, ["scene", "canStartScene", "canStartScenes"]);
   const instructions = [
@@ -2539,7 +2547,7 @@ export async function assembleGenerationPrompt(
     promptPresetId: presetId,
     parameters: selectedPreset?.parameters ?? null,
     wrapFormat,
-    characters,
+    characters: promptCharacters,
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(lorebookActivatedEntryForEvent),
     lorebookTimingStates: loreScan.lorebookTimingStates,

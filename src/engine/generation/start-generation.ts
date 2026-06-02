@@ -1287,7 +1287,7 @@ async function* runIndividualGroupTurnLoop(args: {
     throwIfAborted(args.signal);
     const characterId = args.turnIds[index]!;
     const characterName = (await characterNameById(args.deps.storage, [], characterId)) ?? "Character";
-    yield { type: "group_turn", data: { characterId, characterName, index } };
+    yield { type: "group_turn", data: { characterId, characterName, index, total: args.turnIds.length } };
 
     const childInput: StartGenerationInput = {
       ...args.input,

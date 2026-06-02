@@ -18,6 +18,7 @@ import {
 } from "../../contracts/types/agent";
 import { createAgentRuntimeDebug, type AgentRuntimeDebugEntry } from "../debug.js";
 import { stripAvatarPathsReplacer } from "../strip-avatar-paths";
+import { worldStatePatchFromAgentData } from "../../generation/world-state-agent-result";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -1604,6 +1605,7 @@ function parseAgentResponse(
 }
 
 function coerceMalformedJsonAgentResponse(agentType: string, responseText: string): unknown | null {
+  if (agentType === "world-state") return worldStatePatchFromAgentData(responseText);
   if (agentType !== "echo-chamber") return null;
   const lines = responseText
     .replace(/```[\s\S]*?```/g, "")

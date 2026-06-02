@@ -56,6 +56,7 @@ import {
 } from "../../../../engine/generation/generation-replay";
 import { findPersonaSnapshotForChat } from "../../../../engine/generation/persona-snapshot";
 import { readNonNegativeInteger } from "../../../../engine/generation/runtime-records";
+import { worldStatePatchFromAgentData } from "../../../../engine/generation/world-state-agent-result";
 import {
   applyQuestUpdatesToPlayerStats,
   parseCustomTrackerField,
@@ -375,7 +376,11 @@ async function characterNotificationInfo(characterId: string | null): Promise<{
   }
 }
 
-async function notifyOffChatAssistantMessage(queryClient: QueryClient, chatId: string, rawMessage: unknown): Promise<void> {
+async function notifyOffChatAssistantMessage(
+  queryClient: QueryClient,
+  chatId: string,
+  rawMessage: unknown,
+): Promise<void> {
   const state = useChatStore.getState();
   if (state.activeChatId === chatId) return;
 
@@ -573,6 +578,15 @@ async function buildPendingCardUpdates(
 }
 
 function formatAgentBubble(result: AgentResult, agentName: string): string | null {
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    const patch = worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    });
+    if (!patch) return null;
+    const parts = [patch.location, patch.time, patch.weather].map((part) => readString(part).trim()).filter(Boolean);
+    return parts.length ? parts.join(" - ") : null;
+  }
+
   const data = parseMaybeRecord(result.data);
   if (!Object.keys(data).length) return null;
 
@@ -629,10 +643,6 @@ function formatAgentBubble(result: AgentResult, agentName: string): string | nul
           .filter(Boolean)
           .join("\n") || null
       );
-    }
-    case "world-state": {
-      const parts = [data.location, data.time, data.weather].map((part) => readString(part).trim()).filter(Boolean);
-      return parts.length ? parts.join(" - ") : null;
     }
     case "character-tracker": {
       const present = Array.isArray(data.presentCharacters) ? data.presentCharacters : [];
@@ -842,16 +852,14 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
 }
 
 function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    return worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    });
+  }
+
   const data = parseMaybeRecord(result.data);
   if (!Object.keys(data).length) return null;
-
-  if (result.agentType === "world-state" || result.type === "game_state_update") {
-    const patch: Record<string, unknown> = {};
-    for (const field of ["date", "time", "location", "weather", "temperature"] as const) {
-      if (Object.prototype.hasOwnProperty.call(data, field)) patch[field] = readNullableString(data[field]);
-    }
-    return Object.keys(patch).length ? patch : null;
-  }
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)
@@ -1297,6 +1305,8 @@ export async function runGenerationWithUi(
 
   let foregroundGenerationReleased = false;
   let groupTurnActive = false;
+  let groupTurnIndex = -1;
+  let groupTurnTotal = 0;
 
   const releaseForegroundGenerationUi = () => {
     if (foregroundGenerationReleased) return;
@@ -1383,7 +1393,8 @@ export async function runGenerationWithUi(
             await notifyOffChatAssistantMessage(queryClient, chatId, event.data);
             const trackerTarget = trackerTargetFromMessagePayload(event.data);
             runDeferredGenerationWork("game state refresh", () => refreshGameStateFromStorage(chatId, trackerTarget));
-            if (groupTurnActive) {
+            const hasPendingGroupTurn = groupTurnActive && groupTurnIndex + 1 < groupTurnTotal;
+            if (hasPendingGroupTurn) {
               resetLiveGenerationBuffers();
             } else {
               releaseForegroundGenerationUi();
@@ -1398,6 +1409,8 @@ export async function runGenerationWithUi(
           const data = parseMaybeRecord(event.data);
           const characterId = readString(data.characterId).trim();
           const characterName = readString(data.characterName).trim();
+          groupTurnIndex = typeof data.index === "number" && Number.isFinite(data.index) ? data.index : 0;
+          groupTurnTotal = typeof data.total === "number" && Number.isFinite(data.total) ? Math.max(1, data.total) : 1;
           if (useChatStore.getState().activeChatId === chatId) {
             useChatStore.getState().setStreamingCharacterId(characterId || null);
           }
@@ -1733,19 +1746,16 @@ export function useGenerate() {
             toast.error(readString(data.error, "Illustration generation failed."));
           }
         }
-        const deferredTasks = results.map((result) =>
-          runDeferredGenerationWork("agent retry result effects", () =>
-            applyAgentResultEffects(queryClient, chatId, result),
-          ),
-        );
-        deferredTasks.push(
-          runDeferredGenerationWork("agent retry refresh", async () => {
-            await refreshGameStateFromStorage(chatId, refreshTarget);
-            await queryClient.invalidateQueries({ queryKey: ["agents"] });
-          }),
-        );
         scheduleChatQueryRefresh(queryClient, chatId);
-        await Promise.all(deferredTasks);
+        for (const result of results) {
+          await runDeferredGenerationWork("agent retry result effects", () =>
+            applyAgentResultEffects(queryClient, chatId, result),
+          );
+        }
+        await runDeferredGenerationWork("agent retry refresh", async () => {
+          await refreshGameStateFromStorage(chatId, refreshTarget);
+          await queryClient.invalidateQueries({ queryKey: ["agents"] });
+        });
       } catch (error) {
         toast.error(errorMessage(error));
         throw error;
