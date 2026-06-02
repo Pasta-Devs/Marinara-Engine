@@ -768,6 +768,8 @@ async function automaticIntervalAllowsRun(
   if (!lastRun) return true;
   const messageId = runMessageId(lastRun);
   if (!messageId) return true;
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  if (regenerateMessageId && regenerateMessageId === messageId) return true;
   const messagesSince = visibleMessagesSinceRun(input, messageId, gate.messageRole);
   if (messagesSince === null) return true;
   return messagesSince + (gate.includePendingMessage ? 1 : 0) >= gate.runInterval;
