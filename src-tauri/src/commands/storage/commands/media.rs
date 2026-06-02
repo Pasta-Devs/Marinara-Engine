@@ -206,6 +206,16 @@ pub fn character_avatar_remove(state: State<'_, AppState>, id: String) -> Result
 }
 
 #[tauri::command]
+pub fn avatar_thumbnail_file_path(
+    state: State<'_, AppState>,
+    filename: Option<String>,
+    absolute_path: Option<String>,
+    size: Option<u32>,
+) -> Result<Value, AppError> {
+    avatars::avatar_thumbnail_file_path(&state, filename.as_deref(), absolute_path.as_deref(), size)
+}
+
+#[tauri::command]
 pub fn character_restore_version(
     state: State<'_, AppState>,
     character_id: String,

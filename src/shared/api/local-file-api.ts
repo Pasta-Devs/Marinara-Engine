@@ -66,7 +66,7 @@ function filePathToAssetUrl(path: string | null | undefined): string {
   }
 }
 
-type RemoteManagedAssetKind = "avatar" | "background" | "font" | "game" | "lorebook";
+type RemoteManagedAssetKind = "avatar" | "avatar-thumbnail" | "background" | "font" | "game" | "lorebook";
 
 function remoteManagedAsset(kind: RemoteManagedAssetKind, path: string | null | undefined): RemoteManagedAsset | null {
   const target = remoteRuntimeTarget();
@@ -215,6 +215,20 @@ function avatarRemoteManagedPath(
   return managedAvatarPathFromAbsolutePath(absolutePath) ?? filename?.trim() ?? filenameFromPath(absolutePath);
 }
 
+function pathExtension(value: string | null | undefined): string | null {
+  const filename = filenameFromPath(value);
+  const extension = filename?.split(".").pop()?.trim().toLowerCase();
+  return extension && extension !== filename?.toLowerCase() ? extension : null;
+}
+
+export function canGenerateAvatarThumbnail(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+): boolean {
+  const extension = pathExtension(filename) ?? pathExtension(absolutePath);
+  return extension === "png" || extension === "jpg" || extension === "jpeg" || extension === "webp" || extension === "gif";
+}
+
 export function gameAssetFileUrlFromPath(path: string, absolutePath?: string | null): string {
   const remoteUrl = remoteManagedAssetUrl("game", path);
   if (remoteUrl) return remoteUrl;
@@ -234,6 +248,16 @@ export function avatarFileUrlFromPath(
   const remoteUrl = remoteManagedAssetUrl("avatar", avatarRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : null;
+}
+
+export function avatarThumbnailFileUrlFromPath(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+  size = 128,
+): string | null {
+  const path = avatarRemoteManagedPath(filename, absolutePath);
+  const remoteUrl = remoteManagedAssetUrl("avatar-thumbnail", path ? `${size}/${path}` : null);
+  return remoteUrl;
 }
 
 export async function resolveGameAssetFileUrl(path: string): Promise<string> {
@@ -263,6 +287,22 @@ export async function resolveAvatarFileUrl(
   const remoteUrl = await remoteManagedAssetResolvableUrl("avatar", avatarRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath ? filePathToAssetUrl(absolutePath) : null;
+}
+
+export async function resolveAvatarThumbnailFileUrl(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+  size = 128,
+): Promise<string | null> {
+  const remotePath = avatarRemoteManagedPath(filename, absolutePath);
+  const remoteUrl = await remoteManagedAssetResolvableUrl(
+    "avatar-thumbnail",
+    remotePath ? `${size}/${remotePath}` : null,
+  );
+  if (remoteUrl) return remoteUrl;
+  if (!filename && !absolutePath) return null;
+  const response = await invokeTauri<PathResponse>("avatar_thumbnail_file_path", { filename, absolutePath, size });
+  return filePathToAssetUrl(response.path ?? "");
 }
 
 async function resolveLorebookImageFileUrl(filename: string): Promise<string> {

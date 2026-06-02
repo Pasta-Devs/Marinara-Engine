@@ -691,6 +691,12 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "character_avatar_remove" => {
             avatars::remove_character_avatar(state, required_string(&args, "id")?)
         }
+        "avatar_thumbnail_file_path" => avatars::avatar_thumbnail_file_path(
+            state,
+            optional_string(&args, "filename").as_deref(),
+            optional_string(&args, "absolutePath").as_deref(),
+            optional_u32(&args, "size"),
+        ),
         "character_restore_version" => characters::restore_character_version(
             state,
             required_string(&args, "characterId")?,

@@ -39,7 +39,14 @@ export function useCharactersPanelData({
   const charMap = useMemo(() => {
     const map = new Map<
       string,
-      { name: string; comment?: string | null; avatarPath: string | null; avatarCrop?: unknown }
+      {
+        name: string;
+        comment?: string | null;
+        avatarPath: string | null;
+        avatarFilePath?: string | null;
+        avatarFilename?: string | null;
+        avatarCrop?: unknown;
+      }
     >();
     for (const character of parsedCharacters) {
       const extensions = readRecord(character.parsed.extensions);
@@ -47,6 +54,8 @@ export function useCharactersPanelData({
         name: typeof character.parsed.name === "string" ? character.parsed.name : "Unknown",
         comment: character.comment,
         avatarPath: characterAvatarUrl(character),
+        avatarFilePath: character.avatarFilePath,
+        avatarFilename: character.avatarFilename,
         avatarCrop: extensions.avatarCrop,
       });
     }

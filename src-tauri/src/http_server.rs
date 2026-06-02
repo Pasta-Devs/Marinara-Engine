@@ -1,6 +1,6 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::{fonts, imports, llm, lorebook_images, prompts};
+use crate::storage_commands::{avatars, fonts, imports, llm, lorebook_images, prompts};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
@@ -199,6 +199,7 @@ async fn managed_asset(
 fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBuf, AppError> {
     match kind {
         "avatar" => avatar_asset_path(state, path),
+        "avatar-thumbnail" => avatar_thumbnail_asset_path(state, path),
         "background" => Ok(PathBuf::from(state.backgrounds.absolute_path_string(path)?)),
         "font" => fonts::font_file_path(state, path),
         "game" => Ok(PathBuf::from(state.game_assets.absolute_path_string(path)?)),
@@ -231,6 +232,26 @@ fn avatar_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> 
         }
     }
     Ok(asset_path)
+}
+
+fn avatar_thumbnail_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
+    let (size, avatar_path) = avatar_thumbnail_request(path)?;
+    let source = avatar_asset_path(state, avatar_path)?;
+    avatars::avatar_thumbnail_path_for_source(state, &source, size)
+}
+
+fn avatar_thumbnail_request(path: &str) -> Result<(u32, &str), AppError> {
+    let (size, avatar_path) = path
+        .trim()
+        .split_once('/')
+        .ok_or_else(|| AppError::not_found("Avatar thumbnail asset was not found"))?;
+    let size = size
+        .parse::<u32>()
+        .map_err(|_| AppError::invalid_input("Unsupported avatar thumbnail size"))?;
+    if avatar_path.trim().is_empty() {
+        return Err(AppError::not_found("Avatar thumbnail asset was not found"));
+    }
+    Ok((size, avatar_path))
 }
 
 fn avatar_asset_filename(path: &str) -> Result<String, AppError> {

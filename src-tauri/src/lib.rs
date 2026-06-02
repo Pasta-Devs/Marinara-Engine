@@ -259,6 +259,7 @@ pub fn run() {
             storage_commands::media_commands::persona_activate,
             storage_commands::media_commands::character_avatar_upload,
             storage_commands::media_commands::character_avatar_remove,
+            storage_commands::media_commands::avatar_thumbnail_file_path,
             storage_commands::media_commands::character_restore_version,
             storage_commands::media_commands::persona_avatar_upload,
             storage_commands::media_commands::npc_avatar_upload,
