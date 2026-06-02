@@ -500,6 +500,7 @@ export function ConversationView({
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
   const userScrolledAtRef = useRef(0);
+  const openedAtBottomChatIdRef = useRef<string | null>(null);
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -544,6 +545,17 @@ export function ConversationView({
   // Auto-scroll on new messages / streaming / staggered reveals
   const newestMsgId = messages?.[messages.length - 1]?.id;
   const isOptimistic = newestMsgId?.startsWith("__optimistic_");
+  useLayoutEffect(() => {
+    if (openedAtBottomChatIdRef.current === chatId || !messages?.length || isLoadingMoreRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    lastScrollTopRef.current = el.scrollTop;
+    isNearBottomRef.current = true;
+    userScrolledAwayRef.current = false;
+    openedAtBottomChatIdRef.current = chatId;
+  }, [chatId, messages?.length, newestMsgId]);
+
   useEffect(() => {
     if (isLoadingMoreRef.current) return;
     // Always scroll when the user just sent a message (optimistic msg)
