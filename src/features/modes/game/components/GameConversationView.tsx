@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import type { Chat as EngineChat } from "../../../../engine/contracts/types/chat";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -79,15 +78,6 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
     messageIdByOrderIndex: data.messageIdByOrderIndex,
     refreshWorldStateOnTimelineChange: true,
   });
-  const { fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount } = data;
-
-  useEffect(() => {
-    if (loadedMessageCount <= 0) return;
-    if (totalMessageCount <= loadedMessageCount) return;
-    if (!hasNextPage || isFetchingNextPage) return;
-    void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, loadedMessageCount, totalMessageCount]);
-
   if (!data.chat) {
     if (data.chatError) {
       return <GameChatHydrationState status="error" onRetry={() => void data.refetchChat()} />;
