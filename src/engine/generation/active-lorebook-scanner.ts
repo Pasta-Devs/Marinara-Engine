@@ -113,6 +113,7 @@ export interface ActiveLorebookScannerInput {
   storedMessages: JsonRecord[];
   request?: JsonRecord;
   latestUserInput?: string;
+  generationTriggers?: string[];
   embeddingSource?: LorebookEmbeddingSource | null;
   ignoreTiming?: boolean;
   contentResolver?: LorebookContentResolver;
@@ -545,7 +546,8 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
       role: readString(message.role, "user"),
       content: readString(message.content),
     }));
-  const generationTriggers = ["chat", readString(input.chat.mode || input.chat.chatMode)].filter(Boolean);
+  const generationTriggers =
+    input.generationTriggers ?? ["chat", readString(input.chat.mode || input.chat.chatMode)].filter(Boolean);
   const lorebookNamesById = new Map(
     lorebooks.map((book) => {
       const id = readString(book.id);

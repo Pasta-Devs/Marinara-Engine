@@ -7,6 +7,7 @@ import {
 } from "./active-lorebook-scanner";
 import { loadChatMessages, requireRecord } from "./context";
 import { loadCharacters, loadPersona } from "./prompt-assembly";
+import { readString, type JsonRecord } from "./runtime-records";
 
 export interface ActiveLorebookScanResult {
   entries: Array<{
@@ -24,14 +25,26 @@ export interface ActiveLorebookScanResult {
   semanticStatus: LorebookSemanticScanStatus;
 }
 
-interface ActiveLorebookScanOptions {
-  embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
+function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord[] {
+  let lastGeneratedIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const role = readString(messages[index]?.role);
+    if (role === "assistant" || role === "narrator") {
+      lastGeneratedIndex = index;
+      break;
+    }
+  }
+  return lastGeneratedIndex >= 0 ? messages.slice(0, lastGeneratedIndex) : messages;
+}
+
+function activeInfoGenerationTriggers(chat: JsonRecord): string[] {
+  const mode = readString(chat.mode || chat.chatMode).trim() || "roleplay";
+  return Array.from(new Set(["test_scan", mode, "chat"]));
 }
 
 export async function scanActiveLorebookEntries(
   storage: StorageGateway,
   chatId: string,
-  options: ActiveLorebookScanOptions = {},
 ): Promise<ActiveLorebookScanResult> {
   const chat = requireRecord(await storage.get("chats", chatId), "Chat");
   const storedMessages = await loadChatMessages(storage, chatId);
@@ -42,10 +55,11 @@ export async function scanActiveLorebookEntries(
     chat,
     characters,
     persona,
-    storedMessages,
+    storedMessages: selectMessagesForLastGenerationScan(storedMessages),
     request: {},
     latestUserInput: "",
-    embeddingSource: options.embeddingSource,
+    generationTriggers: activeInfoGenerationTriggers(chat),
+    embeddingSource: null,
   });
   const entries = scan.processedLore.includedEntries.map((entry) => {
     const event = lorebookActivatedEntryForEvent(entry);
