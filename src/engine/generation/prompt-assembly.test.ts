@@ -142,6 +142,45 @@ async function promptText(storage: StorageGateway, chat: JsonRecord, request: Js
 }
 
 describe("assembleGenerationPrompt conversation parity", () => {
+  it("injects roleplay narrator style instructions without affecting other modes", async () => {
+    const preset = { id: "preset", isDefault: false };
+    const mainSection = {
+      id: "main-section",
+      presetId: "preset",
+      name: "Main",
+      identifier: "main",
+      role: "system",
+      content: "Main roleplay rules.",
+      enabled: true,
+      sortOrder: 0,
+    };
+    const storage = createStorage({ prompts: [preset], promptSections: [mainSection] });
+    const baseChat = {
+      id: "chat-1",
+      promptPresetId: "preset",
+      metadata: { narratorStyleInstructions: "Dry, theatrical, and lightly sardonic." },
+    };
+
+    const roleplay = await promptText(storage, { ...baseChat, mode: "roleplay" });
+    expect(roleplay).toContain("narrator_style");
+    expect(roleplay).toContain("Dry, theatrical, and lightly sardonic.");
+    expect(roleplay).toContain("Do not treat them as character facts");
+
+    const game = await promptText(storage, {
+      ...baseChat,
+      mode: "game",
+      metadata: { narratorStyleInstructions: "Should not enter game prompts." },
+    });
+    expect(game).not.toContain("Should not enter game prompts.");
+
+    const conversation = await promptText(storage, {
+      ...baseChat,
+      mode: "conversation",
+      metadata: { narratorStyleInstructions: "Should not enter conversation prompts." },
+    });
+    expect(conversation).not.toContain("Should not enter conversation prompts.");
+  });
+
   it("includes live user status, activity, and character schedules for conversation prompts", async () => {
     const chat = {
       id: "chat-1",

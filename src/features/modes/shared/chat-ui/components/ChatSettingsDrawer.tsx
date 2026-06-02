@@ -752,6 +752,7 @@ function ChatSettingsDrawerInner({
   const translationDeeplApiKey = metadataString(metadata.translationDeeplApiKey);
   const translationDeeplxUrl = metadataString(metadata.translationDeeplxUrl);
   const sceneSystemPrompt = metadataString(metadata.sceneSystemPrompt);
+  const narratorStyleInstructions = metadataString(metadata.narratorStyleInstructions);
   const groupScenarioText = metadataString(metadata.groupScenarioText);
   const gameExtraPrompt = metadataString(metadata.gameExtraPrompt);
   const gameImagePromptInstructions = metadataString(metadata.gameImagePromptInstructions);
@@ -1575,6 +1576,8 @@ function ChatSettingsDrawerInner({
   );
   const [scenePromptExpanded, setScenePromptExpanded] = useState(false);
   const [scenePromptDraft, setScenePromptDraft] = useState(sceneSystemPrompt);
+  const [narratorStyleDraft, setNarratorStyleDraft] = useState(narratorStyleInstructions);
+  const [narratorStyleExpanded, setNarratorStyleExpanded] = useState(false);
   const [groupScenarioDraft, setGroupScenarioDraft] = useState(groupScenarioText);
   const [groupScenarioExpanded, setGroupScenarioExpanded] = useState(false);
   const gameAgentPool = useMemo(
@@ -1626,10 +1629,18 @@ function ChatSettingsDrawerInner({
 
   useEffect(() => {
     setScenePromptDraft(sceneSystemPrompt);
+    setNarratorStyleDraft(narratorStyleInstructions);
     setGroupScenarioDraft(groupScenarioText);
     setExtraPromptDraft(gameExtraPrompt);
     setGameImagePromptInstructionsDraft(gameImagePromptInstructions);
-  }, [chat.id, sceneSystemPrompt, groupScenarioText, gameExtraPrompt, gameImagePromptInstructions]);
+  }, [
+    chat.id,
+    sceneSystemPrompt,
+    narratorStyleInstructions,
+    groupScenarioText,
+    gameExtraPrompt,
+    gameImagePromptInstructions,
+  ]);
 
   useEffect(() => {
     setSpotifyArtistDraft(spotifyArtist);
@@ -2276,6 +2287,71 @@ function ChatSettingsDrawerInner({
                   <span>This preset has active lorebooks available, but no lorebook marker.</span>
                 </div>
               )}
+            </Section>
+          )}
+
+          {/* Narrator Style — roleplay mode only */}
+          {isRoleplayMode && (
+            <Section
+              label="Narrator Style"
+              icon={<Feather size="0.875rem" />}
+              help="Optional per-chat instructions for the narration voice. This steers descriptive prose without creating an agent, changing character cards, or affecting Game Master behavior."
+            >
+              <div className="space-y-1.5">
+                <div className="relative">
+                  <textarea
+                    value={narratorStyleDraft}
+                    maxLength={2000}
+                    onChange={(e) => setNarratorStyleDraft(e.target.value)}
+                    onBlur={() => {
+                      const next = narratorStyleDraft.trim();
+                      if (next !== narratorStyleInstructions) {
+                        updateMeta.mutate({ id: chat.id, narratorStyleInstructions: next || null });
+                      }
+                    }}
+                    placeholder="e.g. Dry, theatrical, a little sardonic. Describe scenes with lush sensory detail but keep dialogue natural."
+                    rows={4}
+                    className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                  />
+                  <button
+                    onClick={() => setNarratorStyleExpanded(true)}
+                    className="absolute right-1.5 top-1.5 rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    title="Expand editor"
+                  >
+                    <Maximize2 size="0.75rem" />
+                  </button>
+                </div>
+                <p className="px-0.5 text-[0.5625rem] text-[var(--muted-foreground)]/70">
+                  {narratorStyleDraft
+                    ? `${narratorStyleDraft.length}/2000 characters`
+                    : "No narrator style set"}
+                </p>
+                {narratorStyleDraft && (
+                  <button
+                    onClick={() => {
+                      setNarratorStyleDraft("");
+                      updateMeta.mutate({ id: chat.id, narratorStyleInstructions: null });
+                    }}
+                    className="rounded-lg bg-[var(--secondary)] px-2.5 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <ExpandedTextarea
+                open={narratorStyleExpanded}
+                onClose={() => {
+                  setNarratorStyleExpanded(false);
+                  const next = narratorStyleDraft.trim();
+                  if (next !== narratorStyleInstructions) {
+                    updateMeta.mutate({ id: chat.id, narratorStyleInstructions: next || null });
+                  }
+                }}
+                title="Narrator Style"
+                value={narratorStyleDraft}
+                onChange={(value) => setNarratorStyleDraft(value.slice(0, 2000))}
+                placeholder="Optional narration voice and descriptive prose guidance for this roleplay chat..."
+              />
             </Section>
           )}
 
