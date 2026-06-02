@@ -10,7 +10,7 @@ export type CustomNotificationSound = {
   dataUrl: string;
 };
 
-export const DEFAULT_NOTIFICATION_SOUND_ID: NotificationSoundId = "refactor";
+const DEFAULT_NOTIFICATION_SOUND_ID: NotificationSoundId = "refactor";
 const CUSTOM_NOTIFICATION_SOUND_MAX_BYTES = 512 * 1024;
 export const CUSTOM_NOTIFICATION_SOUND_ACCEPT = "audio/*,.mp3,.wav,.ogg,.webm,.m4a,.aac,.flac";
 

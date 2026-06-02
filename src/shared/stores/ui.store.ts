@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../lib/dialogue-quotes";
-import { DEFAULT_NOTIFICATION_SOUND_ID, normalizeNotificationSoundId } from "../lib/notification-sound";
+import { normalizeNotificationSoundId } from "../lib/notification-sound";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
@@ -196,7 +196,7 @@ export const useUIStore = create<UIState>()(
       },
       convoNotificationSound: true,
       rpNotificationSound: true,
-      notificationSound: DEFAULT_NOTIFICATION_SOUND_ID,
+      notificationSound: "refactor",
       customNotificationSound: null,
       conversationBrowserNotifications: false,
       customConversationPrompt: null,

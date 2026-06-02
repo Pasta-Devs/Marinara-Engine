@@ -117,7 +117,7 @@
     "keywords": ["notification", "sound", "ping", "ding", "audio", "legacy", "custom sound", "alert"],
     "audience": "Users who want Conversation and Roleplay alerts to sound different or match older Marinara builds.",
     "where": "Settings > Appearance > Notifications.",
-    "actions": [{ "type": "open-settings", "tab": "appearance", "label": "Open Appearance" }],
+    "actions": [{ "type": "open-settings", "tab": "appearance", "label": "Open Notification Sounds" }],
     "coverage": "advanced"
   },
   {
