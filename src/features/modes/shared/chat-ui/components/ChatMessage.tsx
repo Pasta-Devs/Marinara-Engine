@@ -88,6 +88,7 @@ import {
 } from "../lib/message-attachments";
 import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 import { ResolvedAvatarImage } from "./ResolvedAvatarImage";
+import { resolveAvatarFileUrl } from "../../../../../shared/api/local-file-api";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
@@ -1461,7 +1462,17 @@ export const ChatMessage = memo(function ChatMessage({
   const avatarFilename = !isUser && !expressionAvatarUrl ? (charInfo?.avatarFilename ?? null) : null;
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null);
   useEffect(() => {
+    let cancelled = false;
     setResolvedAvatarUrl(null);
+    if (!avatarFilePath && !avatarFilename) return undefined;
+    resolveAvatarFileUrl(avatarFilename, avatarFilePath)
+      .then((url) => {
+        if (!cancelled) setResolvedAvatarUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [avatarFilePath, avatarFilename, avatarUrl]);
   const avatarLightboxUrl = resolvedAvatarUrl ?? avatarUrl;
   const handleResolvedAvatarSrc = useCallback((src: string | null) => {
@@ -1543,7 +1554,22 @@ export const ChatMessage = memo(function ChatMessage({
   const mergedAvatarTailRefs = useRef<(HTMLImageElement | null)[]>([]);
   const resolvedMergedAvatarUrlsRef = useRef(new Map<string, string>());
   useEffect(() => {
+    let cancelled = false;
     resolvedMergedAvatarUrlsRef.current.clear();
+    for (const avatar of mergedAvatars) {
+      if (!avatar.avatarFilePath && !avatar.avatarFilename) {
+        resolvedMergedAvatarUrlsRef.current.set(avatar.key, avatar.url);
+        continue;
+      }
+      resolveAvatarFileUrl(avatar.avatarFilename, avatar.avatarFilePath)
+        .then((url) => {
+          if (!cancelled && url) resolvedMergedAvatarUrlsRef.current.set(avatar.key, url);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [mergedAvatars]);
   const rememberMergedAvatarSrc = useCallback((key: string, src: string | null) => {
     if (src) {
@@ -1711,6 +1737,7 @@ export const ChatMessage = memo(function ChatMessage({
             aria-hidden="true"
             loading="lazy"
             decoding="async"
+            thumbnailSize={256}
             className="rpg-avatar-panel-tail-image absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-700"
             style={{ opacity: i === 0 ? 1 : 0, ...panelMergedAvatarCropStyle(avatar) }}
             onResolvedSrc={(src) => rememberMergedAvatarSrc(avatar.key, src)}
@@ -1727,6 +1754,7 @@ export const ChatMessage = memo(function ChatMessage({
           aria-hidden="true"
           loading="lazy"
           decoding="async"
+          thumbnailSize={256}
           className="rpg-avatar-panel-tail-image absolute inset-0 h-full w-full object-cover object-top"
           style={panelAvatarCropStyle}
           onResolvedSrc={handleResolvedAvatarSrc}
@@ -1952,6 +1980,7 @@ export const ChatMessage = memo(function ChatMessage({
                       alt="Group"
                       loading="lazy"
                       decoding="async"
+                      thumbnailSize={128}
                       className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700"
                       style={{ opacity: i === 0 ? 1 : 0, ...compactMergedAvatarCropStyle(avatar) }}
                       onResolvedSrc={(src) => rememberMergedAvatarSrc(avatar.key, src)}
@@ -1976,6 +2005,7 @@ export const ChatMessage = memo(function ChatMessage({
                       alt={displayName}
                       loading="lazy"
                       decoding="async"
+                      thumbnailSize={128}
                       className="h-full w-full object-cover"
                       style={compactAvatarCropStyle}
                       onResolvedSrc={handleResolvedAvatarSrc}
@@ -2100,6 +2130,7 @@ export const ChatMessage = memo(function ChatMessage({
                               alt="Group"
                               loading="lazy"
                               decoding="async"
+                              thumbnailSize={256}
                               className="absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-700"
                               style={{ opacity: i === 0 ? 1 : 0, ...panelMergedAvatarCropStyle(avatar) }}
                               onResolvedSrc={(src) => rememberMergedAvatarSrc(avatar.key, src)}
@@ -2123,6 +2154,7 @@ export const ChatMessage = memo(function ChatMessage({
                             alt={displayName}
                             loading="lazy"
                             decoding="async"
+                            thumbnailSize={256}
                             className="h-full w-full object-cover object-top"
                             style={panelAvatarCropStyle}
                             onResolvedSrc={handleResolvedAvatarSrc}
@@ -2498,6 +2530,7 @@ export const ChatMessage = memo(function ChatMessage({
                     alt="Group"
                     loading="lazy"
                     decoding="async"
+                    thumbnailSize={64}
                     className="absolute inset-0 h-8 w-8 object-cover transition-opacity duration-700"
                     style={{ opacity: i === 0 ? 1 : 0, ...getAvatarCropStyle(avatar.crop) }}
                     onResolvedSrc={(src) => rememberMergedAvatarSrc(avatar.key, src)}
@@ -2518,6 +2551,7 @@ export const ChatMessage = memo(function ChatMessage({
                   alt={displayName}
                   loading="lazy"
                   decoding="async"
+                  thumbnailSize={64}
                   className="h-full w-full object-cover"
                   style={avatarCropStyle}
                   onResolvedSrc={handleResolvedAvatarSrc}

@@ -171,6 +171,7 @@ async fn managed_asset(
             ErrorKind::NotFound => AppError::not_found("Managed asset was not found"),
             _ => AppError::from(error),
         })?;
+    let metadata = file.metadata().await.map_err(AppError::from)?;
     let (tx, rx) = mpsc::channel::<Result<Vec<u8>, std::io::Error>>(2);
     tokio::spawn(async move {
         let mut buffer = vec![0; 64 * 1024];
@@ -189,11 +190,37 @@ async fn managed_asset(
             }
         }
     });
-    Ok((
-        [(header::CONTENT_TYPE, content_type_for_path(&path))],
-        Body::from_stream(ReceiverStream::new(rx)),
-    )
-        .into_response())
+    let mut response = Body::from_stream(ReceiverStream::new(rx)).into_response();
+    apply_managed_asset_headers(response.headers_mut(), &path, &metadata);
+    Ok(response)
+}
+
+fn apply_managed_asset_headers(
+    headers: &mut HeaderMap,
+    path: &FsPath,
+    metadata: &std::fs::Metadata,
+) {
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(content_type_for_path(path)),
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=86400"),
+    );
+    if let Some(etag) = asset_etag(&metadata) {
+        headers.insert(header::ETAG, etag);
+    }
+}
+
+fn asset_etag(metadata: &std::fs::Metadata) -> Option<HeaderValue> {
+    let modified = metadata
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    HeaderValue::from_str(&format!("\"{:x}-{modified:x}\"", metadata.len())).ok()
 }
 
 fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBuf, AppError> {
@@ -1349,6 +1376,36 @@ mod tests {
                 "{request_path} should be rejected"
             );
         }
+    }
+
+    #[test]
+    fn managed_asset_headers_include_cache_and_validation_metadata() {
+        let state = test_state("managed-asset-headers");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let asset_path = avatar_dir.join("hero.png");
+        std::fs::write(&asset_path, b"avatar").expect("asset should be written");
+        let metadata = std::fs::metadata(&asset_path).expect("asset metadata should load");
+
+        let mut headers = HeaderMap::new();
+        apply_managed_asset_headers(&mut headers, &asset_path, &metadata);
+
+        assert_eq!(
+            headers
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/png")
+        );
+        assert_eq!(
+            headers
+                .get(header::CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok()),
+            Some("public, max-age=86400")
+        );
+        assert!(
+            headers.get(header::ETAG).is_some(),
+            "managed assets should expose validation metadata"
+        );
     }
 
     #[tokio::test]
