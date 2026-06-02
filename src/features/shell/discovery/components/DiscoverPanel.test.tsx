@@ -59,6 +59,17 @@ describe("DiscoverPanel", () => {
 
     expect(container.querySelectorAll("article")).toHaveLength(DISCOVERY_ENTRIES.length);
     expect(container.textContent).toContain("Show fewer");
+
+    const showFewerButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Show fewer"),
+    );
+    act(() => {
+      showFewerButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain(`${DISCOVERY_ENTRIES.length} features tracked`);
+    expect(container.textContent).toContain(`Browse all ${DISCOVERY_ENTRIES.length}`);
   });
 
   it("shows the empty state for unmatched searches", () => {
