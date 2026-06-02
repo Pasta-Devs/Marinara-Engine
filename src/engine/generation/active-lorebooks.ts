@@ -41,7 +41,7 @@ function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord
 function activeInfoGenerationTriggers(chat: JsonRecord): string[] {
   const mode = readString(chat.mode || chat.chatMode).trim();
   const modeTrigger = mode === "game" ? "game" : mode || "roleplay";
-  return Array.from(new Set([modeTrigger, "chat"]));
+  return Array.from(new Set(["test_scan", modeTrigger, "chat"]));
 }
 
 export async function scanActiveLorebookEntries(
