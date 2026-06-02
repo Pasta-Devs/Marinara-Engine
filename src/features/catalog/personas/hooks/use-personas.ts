@@ -100,7 +100,10 @@ export function usePersona(id: string | null, enabled = true) {
 export function useActivePersona(enabled = true) {
   return useQuery({
     queryKey: personaKeys.active,
-    queryFn: async () => (await listPersonaSummaries()).find(personaIsActive) ?? null,
+    queryFn: async () => {
+      const activePersona = (await listPersonaSummaries()).find(personaIsActive);
+      return activePersona?.id ? getPersona(activePersona.id) : null;
+    },
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,

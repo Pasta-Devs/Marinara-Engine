@@ -16,7 +16,11 @@ import type { CharacterData } from "../../../../engine/contracts/types/character
 import type { ImageGenerationConnectionOption } from "../../../../shared/types/image-generation";
 import { useCharacterEditorAvatar } from "../hooks/use-character-editor-avatar";
 import { useCharacterEditorImportPersona } from "../hooks/use-character-editor-import-persona";
-import { normalizeCharacterEditorData } from "../lib/character-editor-model";
+import {
+  formatCharacterEditorExtension,
+  formatCharacterEditorField,
+  normalizeCharacterEditorData,
+} from "../lib/character-editor-model";
 import { CharacterEditorDialogs } from "./CharacterEditorDialogs";
 import { CharacterEditorHeader } from "./CharacterEditorHeader";
 import { CharacterEditorTabContent } from "./CharacterEditorTabContent";
@@ -34,6 +38,7 @@ interface ParsedCharacter {
 export function CharacterEditor() {
   const characterId = useUIStore((s) => s.characterDetailId);
   const closeDetail = useUIStore((s) => s.closeCharacterDetail);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
   const { data: rawCharacter, isLoading } = useCharacter(characterId);
   const updateCharacter = useUpdateCharacter();
   const deleteCharacter = useDeleteCharacter();
@@ -79,18 +84,23 @@ export function CharacterEditor() {
 
   const updateField = useCallback(
     <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => {
-      setFormData((prev) => (prev ? { ...prev, [key]: value } : prev));
+      const nextValue = formatCharacterEditorField(key, value, quoteFormat);
+      setFormData((prev) => (prev ? { ...prev, [key]: nextValue } : prev));
       markDirty();
     },
-    [markDirty],
+    [markDirty, quoteFormat],
   );
 
-  const setExtensionValue = useCallback((key: string, value: unknown) => {
-    setFormData((prev) => {
-      if (!prev) return prev;
-      return { ...prev, extensions: { ...(prev.extensions ?? {}), [key]: value } };
-    });
-  }, []);
+  const setExtensionValue = useCallback(
+    (key: string, value: unknown) => {
+      const nextValue = formatCharacterEditorExtension(key, value, quoteFormat);
+      setFormData((prev) => {
+        if (!prev) return prev;
+        return { ...prev, extensions: { ...(prev.extensions ?? {}), [key]: nextValue } };
+      });
+    },
+    [quoteFormat],
+  );
 
   const updateExtension = useCallback(
     (key: string, value: unknown) => {

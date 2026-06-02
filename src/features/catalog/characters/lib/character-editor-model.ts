@@ -1,5 +1,6 @@
 import { characterDataSchema, characterExtensionsSchema } from "../../../../engine/contracts/schemas/character.schema";
 import type { CharacterCardVersion, CharacterData, RPGStatsConfig } from "../../../../engine/contracts/types/character";
+import { formatTextQuotes, type QuoteFormat } from "../../../../shared/lib/dialogue-quotes";
 
 export interface AltDescriptionEntry {
   id: string;
@@ -34,6 +35,51 @@ export const DEFAULT_RPG_STATS: RPGStatsConfig = {
   ],
   hp: { value: 100, max: 100 },
 };
+
+const QUOTE_FORMATTED_CHARACTER_FIELDS = new Set<keyof CharacterData>([
+  "description",
+  "personality",
+  "scenario",
+  "first_mes",
+  "mes_example",
+  "alternate_greetings",
+]);
+
+const QUOTE_FORMATTED_EXTENSION_FIELDS = new Set(["backstory", "appearance", "altDescriptions"]);
+
+function formatAltDescriptions(value: unknown, quoteFormat: QuoteFormat): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const record = entry as Record<string, unknown>;
+    return {
+      ...record,
+      content: typeof record.content === "string" ? formatTextQuotes(record.content, quoteFormat) : record.content,
+    };
+  });
+}
+
+export function formatCharacterEditorField<K extends keyof CharacterData>(
+  key: K,
+  value: CharacterData[K],
+  quoteFormat: QuoteFormat,
+): CharacterData[K] {
+  if (!QUOTE_FORMATTED_CHARACTER_FIELDS.has(key)) return value;
+  if (typeof value === "string") return formatTextQuotes(value, quoteFormat) as CharacterData[K];
+  if (key === "alternate_greetings" && Array.isArray(value)) {
+    return value.map((greeting) =>
+      typeof greeting === "string" ? formatTextQuotes(greeting, quoteFormat) : greeting,
+    ) as CharacterData[K];
+  }
+  return value;
+}
+
+export function formatCharacterEditorExtension(key: string, value: unknown, quoteFormat: QuoteFormat): unknown {
+  if (!QUOTE_FORMATTED_EXTENSION_FIELDS.has(key)) return value;
+  if (typeof value === "string") return formatTextQuotes(value, quoteFormat);
+  if (key === "altDescriptions") return formatAltDescriptions(value, quoteFormat);
+  return value;
+}
 
 export function normalizeAltDescriptions(value: unknown): AltDescriptionEntry[] {
   const raw = (() => {
