@@ -72,6 +72,7 @@ impl AppState {
         migrate_agent_run_rows(&storage)?;
         migrate_legacy_chat_group_roots(&storage)?;
         migrate_local_media_references(&storage, &data_dir)?;
+        recover_legacy_chat_gallery_files(&storage, &data_dir)?;
 
         Ok(Self {
             storage,
@@ -373,6 +374,154 @@ fn migrate_local_media_references(storage: &FileStorage, data_dir: &Path) -> App
         migrate_collection_media_references(storage, data_dir, migration)?;
     }
     migrate_chat_background_references(storage, data_dir)
+}
+
+fn recover_legacy_chat_gallery_files(storage: &FileStorage, data_dir: &Path) -> AppResult<()> {
+    let gallery_dir = data_dir.join("gallery");
+    if !gallery_dir.is_dir() {
+        return Ok(());
+    }
+
+    let chat_ids: HashSet<String> = storage
+        .list("chats")?
+        .into_iter()
+        .filter_map(|row| {
+            row.get("id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+    if chat_ids.is_empty() {
+        return Ok(());
+    }
+
+    let entries = match fs::read_dir(&gallery_dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            log::warn!(
+                "failed to scan legacy chat gallery directory {}: {error}",
+                gallery_dir.display()
+            );
+            return Ok(());
+        }
+    };
+
+    for entry in entries {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+        let chat_id = entry.file_name().to_string_lossy().trim().to_string();
+        if !chat_ids.contains(&chat_id) {
+            continue;
+        }
+        recover_legacy_chat_gallery_dir(storage, &gallery_dir, &chat_id, &entry.path())?;
+    }
+
+    storage.flush()?;
+    Ok(())
+}
+
+fn recover_legacy_chat_gallery_dir(
+    storage: &FileStorage,
+    gallery_dir: &Path,
+    chat_id: &str,
+    chat_gallery_dir: &Path,
+) -> AppResult<()> {
+    let mut filters = Map::new();
+    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
+    let existing = storage.list_where("gallery", &filters)?;
+    let entries = match fs::read_dir(chat_gallery_dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            log::warn!(
+                "failed to scan legacy gallery directory {}: {error}",
+                chat_gallery_dir.display()
+            );
+            return Ok(());
+        }
+    };
+
+    for entry in entries {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let source = entry.path();
+        if !file_type.is_file() || !is_supported_media_file(&source) {
+            continue;
+        }
+        let Some(filename) = source
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .filter(|value| !value.trim().is_empty())
+        else {
+            continue;
+        };
+        let legacy_path = format!("{chat_id}/{filename}");
+        let source_path = source.to_string_lossy().to_string();
+        if existing
+            .iter()
+            .any(|row| gallery_row_references_legacy_file(row, &legacy_path, &source_path))
+        {
+            continue;
+        }
+
+        let target_filename = safe_filename(&format!("{chat_id}-{filename}"));
+        let target = unique_file_path(&gallery_dir.join(target_filename))?;
+        fs::copy(&source, &target)?;
+        let recovered_filename = target
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .ok_or_else(|| {
+                AppError::invalid_input("Recovered gallery file is missing a filename")
+            })?;
+        let recovered_path = target.to_string_lossy().to_string();
+        let record = json!({
+            "chatId": chat_id,
+            "filePath": recovered_path,
+            "filename": recovered_filename,
+            "url": file_path_asset_url(&target),
+            "legacyFilePath": legacy_path,
+            "prompt": null,
+            "provider": null,
+            "model": null,
+            "width": null,
+            "height": null,
+        });
+        if let Err(error) = storage.create("gallery", record) {
+            let _ = fs::remove_file(&target);
+            return Err(error);
+        }
+        if let Err(error) = fs::remove_file(&source) {
+            log::warn!(
+                "failed to remove recovered legacy gallery file {}: {error}",
+                source.display()
+            );
+        }
+    }
+
+    let _ = fs::remove_dir(chat_gallery_dir);
+    Ok(())
+}
+
+fn gallery_row_references_legacy_file(row: &Value, legacy_path: &str, source_path: &str) -> bool {
+    ["legacyFilePath", "filePath"]
+        .into_iter()
+        .filter_map(|field| row.get(field).and_then(Value::as_str))
+        .any(|value| {
+            let normalized = value.trim().replace('\\', "/");
+            normalized == legacy_path || value.trim() == source_path
+        })
 }
 
 fn migrate_collection_media_references(
@@ -1001,6 +1150,78 @@ mod tests {
         assert_ne!(background, old_asset_url);
         assert_eq!(background, "chat-1.webp");
         assert!(root.0.join("backgrounds/chat-1.webp").is_file());
+    }
+
+    #[test]
+    fn app_state_startup_recovers_legacy_chat_gallery_files() {
+        let root = temp_root("legacy-chat-gallery-recovery");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "mode": "roleplay",
+                    "characterIds": [],
+                    "metadata": {}
+                }),
+            )
+            .expect("chat should be inserted");
+        persist_fixture_storage(&storage);
+        let legacy_gallery_dir = root.0.join("gallery").join("chat-1");
+        std::fs::create_dir_all(&legacy_gallery_dir).expect("gallery dir should exist");
+        std::fs::write(legacy_gallery_dir.join("orphan.png"), b"image-bytes")
+            .expect("legacy gallery image should be written");
+        std::fs::write(legacy_gallery_dir.join("notes.txt"), b"not an image")
+            .expect("unsupported gallery file should be written");
+        let missing_chat_gallery_dir = root.0.join("gallery").join("missing-chat");
+        std::fs::create_dir_all(&missing_chat_gallery_dir)
+            .expect("missing chat gallery dir should exist");
+        std::fs::write(
+            missing_chat_gallery_dir.join("orphan.png"),
+            b"missing chat image",
+        )
+        .expect("missing chat gallery image should be written");
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let rows = state
+            .storage
+            .list("gallery")
+            .expect("gallery rows should list");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["chatId"], "chat-1");
+        assert!(rows[0]["filename"]
+            .as_str()
+            .is_some_and(|value| value.ends_with(".png")));
+        assert!(
+            rows[0]["url"]
+                .as_str()
+                .is_some_and(|value| value.starts_with("asset://localhost")
+                    || value.starts_with("http://asset.localhost")),
+            "recovered gallery row should point at a managed asset URL"
+        );
+        let recovered_path = PathBuf::from(
+            rows[0]["filePath"]
+                .as_str()
+                .expect("recovered file path should be stored"),
+        );
+        assert!(recovered_path.is_file());
+        assert!(recovered_path.starts_with(root.0.join("gallery")));
+        assert!(!legacy_gallery_dir.join("orphan.png").exists());
+        assert!(legacy_gallery_dir.join("notes.txt").exists());
+        assert!(missing_chat_gallery_dir.join("orphan.png").exists());
+
+        let restarted = AppState::from_data_dir(&root.0, Vec::new()).expect("state should restart");
+        assert_eq!(
+            restarted
+                .storage
+                .list("gallery")
+                .expect("gallery rows should list")
+                .len(),
+            1,
+            "startup recovery should be idempotent"
+        );
     }
 
     #[test]
