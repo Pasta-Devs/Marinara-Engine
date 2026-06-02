@@ -467,10 +467,20 @@ interface ActiveLorebookScan {
   semanticStatus: LorebookSemanticScanStatus;
 }
 
-export function useActiveLorebookEntries(chatId: string | null, enabled = false) {
+interface ActiveLorebookEntriesOptions {
+  includeTestScanTrigger?: boolean;
+}
+
+export function useActiveLorebookEntries(
+  chatId: string | null,
+  enabled = false,
+  options: ActiveLorebookEntriesOptions = {},
+) {
+  const includeTestScanTrigger = options.includeTestScanTrigger === true;
   return useQuery({
-    queryKey: lorebookKeys.active(chatId),
-    queryFn: () => scanActiveLorebookEntries(storageApi, chatId!) as Promise<ActiveLorebookScan>,
+    queryKey: [...lorebookKeys.active(chatId), { includeTestScanTrigger }] as const,
+    queryFn: () =>
+      scanActiveLorebookEntries(storageApi, chatId!, { includeTestScanTrigger }) as Promise<ActiveLorebookScan>,
     enabled: !!chatId && enabled,
     staleTime: 30_000,
   });

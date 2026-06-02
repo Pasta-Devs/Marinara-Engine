@@ -128,7 +128,9 @@ export function WorldInfoPanel({
   isMobile: boolean;
   onClose: () => void;
 }) {
-  const { data, isLoading, isError, error } = useActiveLorebookEntries(chatId, true);
+  const { data, isLoading, isError, error } = useActiveLorebookEntries(chatId, true, {
+    includeTestScanTrigger: true,
+  });
   const entries = data?.entries ?? [];
   const skippedEntries = data?.budgetSkippedEntries ?? [];
   const errorMessage = error instanceof Error ? error.message : "The active world info scan could not complete.";

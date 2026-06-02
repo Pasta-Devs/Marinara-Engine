@@ -70,7 +70,7 @@ export function ActiveWorldInfoButton({
   title = "Active World Info",
 }: ActiveWorldInfoButtonProps) {
   const [open, setOpen] = useState(false);
-  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
+  const { data, isLoading } = useActiveLorebookEntries(chatId, true, { includeTestScanTrigger: true });
   const ref = useRef<HTMLDivElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const compact = useUIStore((s) => s.centerCompact);

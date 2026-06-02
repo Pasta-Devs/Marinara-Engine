@@ -25,6 +25,10 @@ export interface ActiveLorebookScanResult {
   semanticStatus: LorebookSemanticScanStatus;
 }
 
+interface ActiveLorebookScanOptions {
+  includeTestScanTrigger?: boolean;
+}
+
 function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord[] {
   const visibleMessages = messages.filter((message) => !hiddenFromAi(message));
   let lastGeneratedIndex = -1;
@@ -38,15 +42,17 @@ function selectMessagesForLastGenerationScan(messages: JsonRecord[]): JsonRecord
   return lastGeneratedIndex >= 0 ? visibleMessages.slice(0, lastGeneratedIndex) : visibleMessages;
 }
 
-function activeInfoGenerationTriggers(chat: JsonRecord): string[] {
+function activeInfoGenerationTriggers(chat: JsonRecord, options: ActiveLorebookScanOptions): string[] {
   const mode = readString(chat.mode || chat.chatMode).trim();
   const modeTrigger = mode === "game" ? "game" : mode || "roleplay";
-  return Array.from(new Set(["test_scan", modeTrigger, "chat"]));
+  const triggers = options.includeTestScanTrigger ? ["test_scan", modeTrigger, "chat"] : [modeTrigger, "chat"];
+  return Array.from(new Set(triggers));
 }
 
 export async function scanActiveLorebookEntries(
   storage: StorageGateway,
   chatId: string,
+  options: ActiveLorebookScanOptions = {},
 ): Promise<ActiveLorebookScanResult> {
   const chat = requireRecord(await storage.get("chats", chatId), "Chat");
   const storedMessages = await loadChatMessages(storage, chatId);
@@ -60,7 +66,7 @@ export async function scanActiveLorebookEntries(
     storedMessages: selectMessagesForLastGenerationScan(storedMessages),
     request: {},
     latestUserInput: "",
-    generationTriggers: activeInfoGenerationTriggers(chat),
+    generationTriggers: activeInfoGenerationTriggers(chat, options),
     embeddingSource: null,
   });
   const entries = scan.processedLore.includedEntries.map((entry) => {
