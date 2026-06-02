@@ -2519,9 +2519,21 @@ async fn stream_google(
         }
     }
     if !completed && !buffer.trim().is_empty() {
-        process_google_sse_block(&buffer, emit)?;
+        if process_google_sse_block(&buffer, emit)? == SseBlockStatus::Complete {
+            completed = true;
+        }
     }
-    Ok(())
+    ensure_google_stream_completed(completed)
+}
+
+fn ensure_google_stream_completed(completed: bool) -> AppResult<()> {
+    if completed {
+        return Ok(());
+    }
+    Err(AppError::new(
+        "llm_stream_incomplete",
+        "Google/Gemini stream ended before Gemini sent a finish reason. The provider response may be incomplete; retry the request.",
+    ))
 }
 
 fn process_google_sse_block(
@@ -2580,16 +2592,28 @@ fn process_google_sse_block(
                 }
             }
         }
-        if candidate
+        if let Some(reason) = candidate
             .get("finishReason")
             .and_then(Value::as_str)
             .filter(|reason| !reason.is_empty())
-            .is_some()
         {
+            ensure_google_finish_reason_allows_complete(reason)?;
             return Ok(SseBlockStatus::Complete);
         }
     }
     Ok(SseBlockStatus::Continue)
+}
+
+fn ensure_google_finish_reason_allows_complete(reason: &str) -> AppResult<()> {
+    if reason.eq_ignore_ascii_case("STOP") {
+        return Ok(());
+    }
+    Err(AppError::new(
+        "llm_stream_incomplete",
+        format!(
+            "Google/Gemini stopped before completing the response (finishReason: {reason}). The provider response may be incomplete; retry the request."
+        ),
+    ))
 }
 
 async fn read_error_response_details(response: reqwest::Response) -> AppResult<Value> {
@@ -3166,6 +3190,37 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
 
         assert_eq!(status, SseBlockStatus::Complete);
         assert_eq!(emitted[0], json!({ "type": "usage", "data": { "totalTokenCount": 3 } }));
+    }
+
+    #[test]
+    fn google_stream_max_tokens_finish_reason_is_incomplete() {
+        let mut emitted = Vec::new();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let error = process_google_sse_block(
+            r#"data: {"candidates":[{"content":{"parts":[{"text":"Above the Skyport, the great brass heating lens lets out a wet,"}]},"finishReason":"MAX_TOKENS"}]}"#,
+            &mut emit,
+        )
+        .expect_err("Gemini MAX_TOKENS finish reason should not be treated as complete");
+
+        assert_eq!(error.code, "llm_stream_incomplete");
+        assert!(error.message.contains("finishReason: MAX_TOKENS"));
+        assert_eq!(
+            emitted[0],
+            json!({ "type": "token", "text": "Above the Skyport, the great brass heating lens lets out a wet,", "data": "Above the Skyport, the great brass heating lens lets out a wet," })
+        );
+    }
+
+    #[test]
+    fn google_stream_requires_terminal_event() {
+        let error = ensure_google_stream_completed(false)
+            .expect_err("abrupt Gemini stream close should fail");
+
+        assert_eq!(error.code, "llm_stream_incomplete");
+        assert!(error.message.contains("ended before Gemini sent a finish reason"));
     }
 
     #[test]
