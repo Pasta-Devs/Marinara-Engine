@@ -2518,10 +2518,11 @@ async fn stream_google(
             break;
         }
     }
-    if !completed && !buffer.trim().is_empty() {
-        if process_google_sse_block(&buffer, emit)? == SseBlockStatus::Complete {
-            completed = true;
-        }
+    if !completed
+        && !buffer.trim().is_empty()
+        && process_google_sse_block(&buffer, emit)? == SseBlockStatus::Complete
+    {
+        completed = true;
     }
     ensure_google_stream_completed(completed)
 }
