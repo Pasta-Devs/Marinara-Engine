@@ -213,8 +213,12 @@ fn message_projection_fields_for_materialization(
             "content" | "extra" | "activeSwipeIndex" | "swipeCount" | "swipePreviews"
         )
     });
-    if needs_swipes && !projection.iter().any(|field| field == "swipes") {
-        projection.push("swipes".to_string());
+    if needs_swipes {
+        for field in ["activeSwipeIndex", "swipes"] {
+            if !projection.iter().any(|existing| existing == field) {
+                projection.push(field.to_string());
+            }
+        }
     }
     projection
 }
@@ -251,7 +255,24 @@ pub(crate) fn storage_get_inner(
     options: Option<Value>,
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
-    let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
+    let projection_fields = shared::projection_fields(options.as_ref());
+    let mut value = if let Some(fields) = projection_fields
+        .as_ref()
+        .filter(|fields| !fields.is_empty())
+    {
+        let read_fields = storage_get_projection_fields_for_read(&entity, fields, options.as_ref());
+        state
+            .storage
+            .get_projected(
+                &entity,
+                &id,
+                &read_fields,
+                shared::projection_field_selections(options.as_ref()),
+            )?
+            .unwrap_or(Value::Null)
+    } else {
+        state.storage.get(&entity, &id)?.unwrap_or(Value::Null)
+    };
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
@@ -259,6 +280,32 @@ pub(crate) fn storage_get_inner(
         connection_secrets::mask_connection_for_read(&mut value);
     }
     Ok(shared::project_record(value, options.as_ref()))
+}
+
+fn storage_get_projection_fields_for_read(
+    entity: &str,
+    fields: &[String],
+    options: Option<&Value>,
+) -> Vec<String> {
+    let mut projection = if entity == "messages" {
+        message_projection_fields_for_materialization(fields, options)
+    } else {
+        fields.to_vec()
+    };
+
+    if entity == "connections"
+        && fields
+            .iter()
+            .any(|field| matches!(field.as_str(), "apiKey" | "hasApiKey"))
+    {
+        for field in ["apiKey", "apiKeyEncrypted"] {
+            if !projection.iter().any(|existing| existing == field) {
+                projection.push(field.to_string());
+            }
+        }
+    }
+
+    projection
 }
 
 #[tauri::command]
@@ -1559,6 +1606,7 @@ mod tests {
             "order",
             "createdAt",
             "score",
+            "activeSwipeIndex",
             "swipes",
         ] {
             assert!(
@@ -1566,6 +1614,52 @@ mod tests {
                 "projection should include {field}"
             );
         }
+    }
+
+    #[test]
+    fn projected_message_get_materializes_active_swipe_fields() {
+        let state = test_state("message-projection-get-swipe-materialization");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "content": "stored parent content",
+                    "activeSwipeIndex": 1,
+                    "extra": { "thinking": "parent thought", "large": "parent payload" },
+                    "swipes": [
+                        { "content": "first swipe", "extra": { "thinking": "first thought" } },
+                        { "content": "active swipe", "extra": { "thinking": "active thought", "large": "ignored" } }
+                    ],
+                    "largePayload": "ignored"
+                })],
+            )
+            .expect("message should be seeded");
+
+        let read = storage_get_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            Some(json!({
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["thinking"] }
+            })),
+        )
+        .expect("projected message should read");
+
+        assert_eq!(read["id"], "message-1");
+        assert_eq!(read["content"], "active swipe");
+        assert_eq!(read["swipeCount"], 2);
+        assert_eq!(
+            read["swipePreviews"],
+            json!([{ "content": "first swipe" }, { "content": "active swipe" }])
+        );
+        assert_eq!(read["extra"], json!({ "thinking": "active thought" }));
+        assert!(read.get("swipes").is_none());
+        assert!(read.get("activeSwipeIndex").is_none());
+        assert!(read.get("largePayload").is_none());
     }
 
     #[test]
@@ -1691,6 +1785,38 @@ mod tests {
         let runtime = connection_secrets::connection_for_runtime(&state, "secure-connection")
             .expect("runtime connection should decrypt");
         assert_eq!(runtime["apiKey"], "sk-secret");
+    }
+
+    #[test]
+    fn projected_connection_get_preserves_secret_mask_fields() {
+        let state = test_state("connection-secret-projected-get");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "secure-connection",
+                "name": "Secure",
+                "provider": "anthropic",
+                "model": "claude-opus-4-8",
+                "apiKey": "sk-secret"
+            }),
+        )
+        .expect("connection should be created");
+
+        let read = storage_get_inner(
+            &state,
+            "connections".to_string(),
+            "secure-connection".to_string(),
+            Some(json!({
+                "fields": ["id", "hasApiKey", "apiKey", "apiKeyEncrypted"]
+            })),
+        )
+        .expect("projected masked connection should read");
+
+        assert_eq!(read["id"], "secure-connection");
+        assert_eq!(read["hasApiKey"], true);
+        assert_eq!(read["apiKey"], connection_secrets::API_KEY_MASK);
+        assert!(read.get("apiKeyEncrypted").is_none());
     }
 
     #[test]

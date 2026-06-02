@@ -115,6 +115,26 @@ impl FileStorage {
         )
     }
 
+    pub fn get_projected(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_locked_or_recover(
+            || {
+                self.read_collection_find_by_id_projected_no_recovery(
+                    collection,
+                    id,
+                    fields,
+                    field_selections,
+                )
+            },
+            || self.read_collection_find_by_id_projected(collection, id, fields, field_selections),
+        )
+    }
+
     pub fn create(&self, collection: &str, value: Value) -> AppResult<Value> {
         let _guard = self
             .lock
@@ -226,7 +246,12 @@ impl FileStorage {
         Ok(updated)
     }
 
-    pub fn patch_if<F>(&self, collection: &str, id: &str, mut patch_row: F) -> AppResult<Option<Value>>
+    pub fn patch_if<F>(
+        &self,
+        collection: &str,
+        id: &str,
+        mut patch_row: F,
+    ) -> AppResult<Option<Value>>
     where
         F: FnMut(&mut Map<String, Value>) -> AppResult<bool>,
     {
@@ -559,6 +584,38 @@ impl FileStorage {
         self.read_collection_find_by_id_inner(collection, id, false)
     }
 
+    fn read_collection_find_by_id_projected(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_collection_find_by_id_projected_inner(
+            collection,
+            id,
+            fields,
+            field_selections,
+            true,
+        )
+    }
+
+    fn read_collection_find_by_id_projected_no_recovery(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_collection_find_by_id_projected_inner(
+            collection,
+            id,
+            fields,
+            field_selections,
+            false,
+        )
+    }
+
     fn read_collection_find_by_id_inner(
         &self,
         collection: &str,
@@ -588,6 +645,58 @@ impl FileStorage {
                 Ok(rows
                     .into_iter()
                     .find(|row| row.get("id").and_then(Value::as_str) == Some(id)))
+            }
+        }
+    }
+
+    fn read_collection_find_by_id_projected_inner(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Option<Value>> {
+        if fields.is_empty() {
+            return self.read_collection_find_by_id_inner(collection, id, recover_on_fallback);
+        }
+
+        let path = self.collection_path(collection)?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(None);
+        }
+
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        match read_pretty_projected_record_by_id_from_file(
+            &path,
+            id,
+            &field_set,
+            &nested_field_sets,
+        ) {
+            Ok(Some(row)) => return Ok(Some(row)),
+            Ok(None) => {}
+            Err(_) => {}
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedRowByIdVisitor {
+            id,
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(row) => Ok(row),
+            Err(_) => {
+                let rows = if recover_on_fallback {
+                    self.read_collection(collection)?
+                } else {
+                    self.read_collection_no_recovery(collection)?
+                };
+                Ok(rows
+                    .into_iter()
+                    .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+                    .map(|row| project_row(row, &field_set, &nested_field_sets)))
             }
         }
     }
@@ -1268,6 +1377,120 @@ impl<'de, 'a> Visitor<'de> for FindRowByIdRowVisitor<'a> {
                     continue;
                 }
             }
+            object.insert(key, value);
+        }
+
+        Ok(matches_id.unwrap_or(false).then_some(Value::Object(object)))
+    }
+}
+
+struct ProjectedRowByIdVisitor<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowByIdVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut found = None;
+        while let Some(row) = seq.next_element_seed(ProjectedRowByIdSeed {
+            id: self.id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            if row.is_some() {
+                found = row;
+                break;
+            }
+        }
+        if found.is_some() {
+            while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+        }
+        Ok(found)
+    }
+}
+
+struct ProjectedRowByIdSeed<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedRowByIdSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedRowByIdRowVisitor {
+            id: self.id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedRowByIdRowVisitor<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowByIdRowVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a record object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_id = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if matches_id == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            if key == "id" {
+                let value = map.next_value::<Value>()?;
+                let is_match = value.as_str() == Some(self.id);
+                matches_id = Some(is_match);
+                if !is_match {
+                    object.clear();
+                    continue;
+                }
+                if self.fields.contains(&key) {
+                    object.insert(key, value);
+                }
+                continue;
+            }
+
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
             object.insert(key, value);
         }
 
@@ -2124,11 +2347,8 @@ fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option
             return Ok(None);
         }
 
-        let is_id_line = trimmed
-            .strip_suffix(',')
-            .unwrap_or(trimmed)
-            .trim_end()
-            == expected_id_line;
+        let is_id_line =
+            trimmed.strip_suffix(',').unwrap_or(trimmed).trim_end() == expected_id_line;
         record_lines.push(line);
         if is_id_line {
             loop {
@@ -2154,7 +2374,9 @@ fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option
             }
         }
 
-        if is_pretty_top_level_record_end(record_lines.last().map(String::as_str).unwrap_or_default()) {
+        if is_pretty_top_level_record_end(
+            record_lines.last().map(String::as_str).unwrap_or_default(),
+        ) {
             in_record = false;
             record_lines.clear();
         }
@@ -2164,6 +2386,228 @@ fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option
         return Ok(None);
     }
     Ok(None)
+}
+
+fn read_pretty_projected_record_by_id_from_file(
+    path: &Path,
+    id: &str,
+    fields: &HashSet<String>,
+    field_selections: &HashMap<String, HashSet<String>>,
+) -> AppResult<Option<Value>> {
+    let file = fs::File::open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut in_record = false;
+    let mut saw_array_start = false;
+    let mut saw_record = false;
+    let mut matches_id = None;
+    let mut projected = Map::new();
+
+    while let Some(line) = read_json_line(&mut reader)? {
+        let trimmed = line.trim_start();
+
+        if !in_record {
+            if trimmed.starts_with('[') {
+                saw_array_start = true;
+                continue;
+            }
+            if trimmed.starts_with(']') {
+                break;
+            }
+            if trimmed.trim().is_empty() {
+                continue;
+            }
+            if trimmed.starts_with('{') {
+                in_record = true;
+                saw_record = true;
+                matches_id = None;
+                projected.clear();
+                continue;
+            }
+            return Ok(None);
+        }
+
+        if is_pretty_top_level_record_end(&line) {
+            if matches_id == Some(true) {
+                return Ok(Some(Value::Object(projected)));
+            }
+            in_record = false;
+            matches_id = None;
+            projected.clear();
+            continue;
+        }
+
+        let Some((field, value_start)) = pretty_json_field(&line, 4)? else {
+            continue;
+        };
+
+        if field == "id" {
+            let value = read_pretty_json_value(&mut reader, value_start)?;
+            let is_match = value.as_str() == Some(id);
+            matches_id = Some(is_match);
+            if is_match {
+                if fields.contains(&field) {
+                    projected.insert(field, value);
+                }
+            } else {
+                projected.clear();
+            }
+            continue;
+        }
+
+        if matches_id == Some(false) {
+            skip_pretty_json_value(&mut reader, value_start)?;
+            continue;
+        }
+
+        if fields.contains(&field) {
+            let value = if let Some(nested_fields) = field_selections.get(&field) {
+                read_pretty_projected_nested_value(&mut reader, value_start, nested_fields)?
+            } else {
+                read_pretty_json_value(&mut reader, value_start)?
+            };
+            projected.insert(field, value);
+        } else {
+            skip_pretty_json_value(&mut reader, value_start)?;
+        }
+    }
+
+    if !saw_array_start || in_record || !saw_record {
+        return Ok(None);
+    }
+    Ok(None)
+}
+
+fn read_pretty_projected_nested_value<R: BufRead>(
+    reader: &mut R,
+    first_value: String,
+    fields: &HashSet<String>,
+) -> AppResult<Value> {
+    let trimmed = first_value.trim();
+    if trimmed.starts_with('[') {
+        skip_pretty_json_value(reader, first_value)?;
+        return Ok(Value::Array(Vec::new()));
+    }
+    if !trimmed.starts_with('{') || json_container_depth_delta(trimmed) <= 0 {
+        return read_pretty_json_value(reader, first_value)
+            .map(|value| project_nested_value(value, fields));
+    }
+
+    let mut projected = Map::new();
+    while let Some(line) = read_json_line(reader)? {
+        if is_pretty_nested_object_end(&line) {
+            return Ok(Value::Object(projected));
+        }
+
+        let Some((field, value_start)) = pretty_json_field(&line, 6)? else {
+            continue;
+        };
+        if fields.contains(&field) {
+            let value = read_pretty_json_value(reader, value_start)?;
+            projected.insert(field, value);
+        } else {
+            skip_pretty_json_value(reader, value_start)?;
+        }
+    }
+
+    Err(AppError::invalid_input(
+        "Projected pretty JSON object ended unexpectedly",
+    ))
+}
+
+fn read_pretty_json_value<R: BufRead>(reader: &mut R, first_value: String) -> AppResult<Value> {
+    let mut lines = vec![first_value];
+    let mut depth = json_container_depth_delta(lines[0].trim());
+    while depth > 0 {
+        let Some(line) = read_json_line(reader)? else {
+            return Err(AppError::invalid_input(
+                "Pretty JSON value ended unexpectedly",
+            ));
+        };
+        depth += json_container_depth_delta(line.trim());
+        lines.push(line);
+    }
+    parse_pretty_json_value(lines)
+}
+
+fn skip_pretty_json_value<R: BufRead>(reader: &mut R, first_value: String) -> AppResult<()> {
+    let mut depth = json_container_depth_delta(first_value.trim());
+    while depth > 0 {
+        let Some(line) = read_json_line(reader)? else {
+            return Err(AppError::invalid_input(
+                "Pretty JSON value ended unexpectedly",
+            ));
+        };
+        depth += json_container_depth_delta(line.trim());
+    }
+    Ok(())
+}
+
+fn parse_pretty_json_value(lines: Vec<String>) -> AppResult<Value> {
+    let mut raw = lines.join("\n").into_bytes();
+    strip_trailing_json_comma(&mut raw);
+    Ok(serde_json::from_slice(&raw)?)
+}
+
+fn pretty_json_field(line: &str, indent: usize) -> AppResult<Option<(String, String)>> {
+    if line.len() <= indent || !line.starts_with(&" ".repeat(indent)) {
+        return Ok(None);
+    }
+    if line
+        .as_bytes()
+        .get(indent)
+        .is_some_and(u8::is_ascii_whitespace)
+    {
+        return Ok(None);
+    }
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with('"') {
+        return Ok(None);
+    }
+    let Some((raw_key, raw_value)) = trimmed.split_once(':') else {
+        return Ok(None);
+    };
+    let key = serde_json::from_str::<String>(raw_key)?;
+    Ok(Some((key, raw_value.trim_start().to_string())))
+}
+
+fn is_pretty_nested_object_end(line: &str) -> bool {
+    line.starts_with("    }") && matches!(line.trim(), "}" | "},")
+}
+
+fn read_json_line<R: BufRead>(reader: &mut R) -> AppResult<Option<String>> {
+    let mut line = String::new();
+    if reader.read_line(&mut line)? == 0 {
+        return Ok(None);
+    }
+    Ok(Some(line.trim_end_matches(['\r', '\n']).to_string()))
+}
+
+fn json_container_depth_delta(value: &str) -> i32 {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    for byte in value.bytes() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match byte {
+                b'\\' => escaped = true,
+                b'"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
 }
 
 fn parse_storage_message_cursor(cursor: &str) -> (String, Option<String>) {
@@ -2577,6 +3021,88 @@ mod tests {
             .expect("matching row should be returned");
 
         assert_eq!(record["id"], "match");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_returns_matching_row_without_unrequested_fields() {
+        let root = temp_storage_root("get-projected-skips-unrequested-fields");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "data": { "name": "Skip", "description": "ignore" },
+                        "avatar": "ignore"
+                    }),
+                    json!({
+                        "id": "target",
+                        "data": {
+                            "name": "Rina",
+                            "description": "large prompt text",
+                            "extensions": { "depth_prompt": { "prompt": "large nested prompt" } }
+                        },
+                        "avatar": "large image payload"
+                    }),
+                ],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_uses_pretty_id_fast_path_before_trailing_rows() {
+        let root = temp_storage_root("get-projected-pretty-id-fast-path");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "id": "target",
+    "data": {
+      "name": "Rina",
+      "description": "large prompt text"
+    },
+    "avatar": "large image payload"
+  },
+  {
+    "id": "trailing-row",
+    "data":
+"#,
+        )
+        .unwrap();
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should use the pretty id fast path")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
