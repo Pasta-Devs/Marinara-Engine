@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
-import { SceneBanner, EndSceneBar } from "../../shared/scene-ui/SceneBanner";
+import { SceneBanner, EndSceneBar } from "../../shared/scene-ui";
 import { ChatBranchSelector } from "../../shared/chat-ui/index";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";

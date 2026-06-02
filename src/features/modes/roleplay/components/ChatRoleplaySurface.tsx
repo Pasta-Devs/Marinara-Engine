@@ -36,7 +36,7 @@ import { ChatMessage } from "../../shared/chat-ui/index";
 import { ChatInput } from "../../shared/chat-ui/index";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "../../shared/chat-ui/index";
-import { EndSceneBar, SceneBanner } from "../../shared/scene-ui/SceneBanner";
+import { EndSceneBar, SceneBanner } from "../../shared/scene-ui";
 import { ChatCommonOverlays } from "../../shared/chat-ui/index";
 import { ActiveWorldInfoButton } from "../../../runtime/visuals/index";
 import type { SpriteDisplayMode } from "../../../runtime/visuals/sprite-display-modes";
