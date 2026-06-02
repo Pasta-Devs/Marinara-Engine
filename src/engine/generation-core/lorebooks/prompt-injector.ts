@@ -159,10 +159,12 @@ export function applyTokenBudgetWithSkipped(
   const includedEntries: ActivatedEntry[] = [];
   const skippedEntries: BudgetSkippedActivatedEntry[] = [];
 
-  // Sort: constant entries first, then by order
+  // Sort: constant entries first, then fresh user-turn matches, then by order
   const sorted = [...activatedEntries].sort((a, b) => {
     if (a.entry.constant && !b.entry.constant) return -1;
     if (!a.entry.constant && b.entry.constant) return 1;
+    if (a.matchedLatestUserMessage && !b.matchedLatestUserMessage) return -1;
+    if (!a.matchedLatestUserMessage && b.matchedLatestUserMessage) return 1;
     return a.entry.order - b.entry.order;
   });
 

@@ -36,6 +36,8 @@ export interface ActivatedEntry {
   rawContent?: string;
   /** Which key(s) matched */
   matchedKeys: string[];
+  /** True when a primary key matched the latest user message in the chat. */
+  matchedLatestUserMessage?: boolean;
   /** Priority order for injection */
   injectionOrder: number;
   /** True when sticky state kept this entry active without a fresh keyword match */
@@ -329,6 +331,14 @@ function getAdditionalMatchingText(entry: LorebookEntry, sourceText: Partial<Rec
     .join("\n");
 }
 
+function latestUserMessageContent(messages: ScanMessage[]): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "user") return message.content;
+  }
+  return "";
+}
+
 /**
  * Group-based selection: within a group, only activate entries up to weight limits.
  */
@@ -426,6 +436,7 @@ export function scanForActivatedEntries(
   // Build the text to scan from recent messages
   const messagesToScan = scanDepth > 0 ? messages.slice(-scanDepth) : messages;
   const combinedText = messagesToScan.map((m) => m.content).join("\n");
+  const latestUserText = latestUserMessageContent(messages);
 
   const activated: ActivatedEntry[] = [];
   const activatedIds = new Set<string>();
@@ -489,6 +500,8 @@ export function scanForActivatedEntries(
     // Test primary keys
     const { matched, matchedKeys } = testPrimaryKeys(entry.keys, entryScanText, matchOptions);
     if (!matched) continue;
+    const matchedLatestUserMessage =
+      latestUserText.length > 0 && testPrimaryKeys(entry.keys, latestUserText, matchOptions).matched;
 
     // Test secondary keys. Older imports can carry secondary keys without the
     // selective flag, so the configured logic follows the keys themselves.
@@ -503,6 +516,7 @@ export function scanForActivatedEntries(
     activated.push({
       entry,
       matchedKeys,
+      matchedLatestUserMessage,
       injectionOrder: entry.order,
     });
     activatedIds.add(entry.id);
