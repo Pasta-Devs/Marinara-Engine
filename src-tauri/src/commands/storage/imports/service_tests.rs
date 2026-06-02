@@ -23,6 +23,12 @@ fn block_collection_writes(state: &AppState, collection: &str) {
     if let Some(parent) = collection_path.parent() {
         fs::create_dir_all(parent).expect("collection parent should be created");
     }
+    if collection_path.is_file() {
+        fs::remove_file(&collection_path).expect("collection file should be removed before block");
+    } else if collection_path.exists() {
+        fs::remove_dir_all(&collection_path)
+            .expect("collection directory should be reset before block");
+    }
     fs::create_dir(collection_path).expect("collection path should block file writes");
 }
 
@@ -37,6 +43,18 @@ fn uploaded_bytes(name: &str, content_type: &str, bytes: Vec<u8>) -> Value {
         "type": content_type,
         "base64": general_purpose::STANDARD.encode(bytes),
     })
+}
+
+fn collection_ids(state: &AppState, collection: &str) -> Vec<String> {
+    let mut ids = state
+        .storage
+        .list(collection)
+        .expect("collection should be readable")
+        .into_iter()
+        .filter_map(|row| row.get("id").and_then(Value::as_str).map(ToOwned::to_owned))
+        .collect::<Vec<_>>();
+    ids.sort();
+    ids
 }
 
 #[test]
@@ -220,6 +238,58 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
     assert!(
         !app_root.join("avatars").join("characters").exists(),
         "failed character import must remove the managed avatar file"
+    );
+
+    let _ = fs::remove_dir_all(app_root);
+}
+
+#[test]
+fn import_st_preset_rolls_back_prompt_tree_when_section_flush_fails() {
+    let app_root = temp_path("st-preset-rollback");
+    let state =
+        AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
+    let baseline_prompt_ids = collection_ids(&state, "prompts");
+    let baseline_group_ids = collection_ids(&state, "prompt-groups");
+    let baseline_section_ids = collection_ids(&state, "prompt-sections");
+    block_collection_writes(&state, "prompt-sections");
+
+    let error = import_call(
+        &state,
+        &["st-preset"],
+        json!({
+            "name": "Rollback Preset",
+            "prompts": [
+                { "identifier": "group-start", "name": "┌ Rollback Group", "content": "" },
+                { "identifier": "main", "name": "Main", "content": "hello", "role": "system" },
+                { "identifier": "group-end", "name": "└ Rollback Group", "content": "" }
+            ],
+            "prompt_order": [{
+                "character_id": 100001,
+                "order": [
+                    { "identifier": "group-start", "enabled": true },
+                    { "identifier": "main", "enabled": true },
+                    { "identifier": "group-end", "enabled": true }
+                ]
+            }]
+        }),
+    )
+    .expect_err("section flush failure should reject ST preset import");
+
+    assert_eq!(error.code, "io_error");
+    assert_eq!(
+        collection_ids(&state, "prompts"),
+        baseline_prompt_ids,
+        "failed preset import must remove the created prompt"
+    );
+    assert_eq!(
+        collection_ids(&state, "prompt-groups"),
+        baseline_group_ids,
+        "failed preset import must remove created prompt groups"
+    );
+    assert_eq!(
+        collection_ids(&state, "prompt-sections"),
+        baseline_section_ids,
+        "failed preset import must remove created prompt sections from the cache"
     );
 
     let _ = fs::remove_dir_all(app_root);
