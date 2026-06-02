@@ -70,6 +70,18 @@ impl FileStorage {
         )
     }
 
+    pub fn list_messages_for_chat_projected(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_locked_or_recover(
+            || self.read_messages_for_chat_projected_no_recovery(chat_id, fields, field_selections),
+            || self.read_messages_for_chat_projected(chat_id, fields, field_selections),
+        )
+    }
+
     pub fn list_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         self.read_locked_or_recover(
             || self.read_message_ids_for_chat_no_recovery(chat_id),
@@ -581,6 +593,64 @@ impl FileStorage {
 
     fn read_messages_for_chat_no_recovery(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         self.read_messages_for_chat_inner(chat_id, false)
+    }
+
+    fn read_messages_for_chat_projected(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_projected_inner(chat_id, fields, field_selections, true)
+    }
+
+    fn read_messages_for_chat_projected_no_recovery(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_projected_inner(chat_id, fields, field_selections, false)
+    }
+
+    fn read_messages_for_chat_projected_inner(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Vec<Value>> {
+        let path = self.collection_path("messages")?;
+        if fields.is_empty() {
+            return Ok(Vec::new());
+        }
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedMessageRowsForChatVisitor {
+            chat_id,
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => {
+                let rows = if recover_on_fallback {
+                    self.read_messages_for_chat(chat_id)?
+                } else {
+                    self.read_messages_for_chat_no_recovery(chat_id)?
+                };
+                Ok(rows
+                    .into_iter()
+                    .map(|row| project_row(row, &field_set, &nested_field_sets))
+                    .collect())
+            }
+        }
     }
 
     fn read_messages_for_chat_inner(
@@ -1552,6 +1622,113 @@ impl<'de, 'a> Visitor<'de> for MessageRowForChatVisitor<'a> {
     }
 }
 
+struct ProjectedMessageRowsForChatVisitor<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedMessageRowsForChatVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a messages JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(ProjectedMessageRowForChatSeed {
+            chat_id: self.chat_id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            if let Some(row) = row {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct ProjectedMessageRowForChatSeed<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedMessageRowForChatSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedMessageRowForChatVisitor {
+            chat_id: self.chat_id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedMessageRowForChatVisitor<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedMessageRowForChatVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a message object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_chat = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if key == "chatId" {
+                let value = map.next_value::<Value>()?;
+                matches_chat = Some(value.as_str() == Some(self.chat_id));
+                if matches_chat == Some(true) && self.fields.contains(&key) {
+                    object.insert(key, value);
+                }
+                continue;
+            }
+
+            if matches_chat == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
+            object.insert(key, value);
+        }
+
+        Ok(matches_chat
+            .unwrap_or(false)
+            .then_some(Value::Object(object)))
+    }
+}
+
 struct MessageIdRowsForChatVisitor<'a> {
     chat_id: &'a str,
 }
@@ -2420,6 +2597,54 @@ mod tests {
         let rows = storage.list_message_ids_for_chat("chat-a").unwrap();
 
         assert_eq!(rows, vec![json!({ "id": "a-1" }), json!({ "id": "a-2" })]);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_messages_for_chat_projected_skips_unrequested_fields() {
+        let root = temp_storage_root("list-messages-for-chat-projected");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "chatId": "chat-b",
+                        "content": "skip",
+                        "extra": { "large": "ignored" },
+                        "swipes": [{ "content": "skip swipe", "extra": { "thinking": "skip thought" } }]
+                    }),
+                    json!({
+                        "id": "target",
+                        "chatId": "chat-a",
+                        "content": "stored content",
+                        "extra": { "large": "ignored", "hiddenFromAI": true },
+                        "swipes": [{ "content": "active swipe", "extra": { "thinking": "visible thought", "large": "ignored" } }]
+                    }),
+                ],
+            )
+            .unwrap();
+        let fields = vec![
+            "id".to_string(),
+            "chatId".to_string(),
+            "content".to_string(),
+            "extra".to_string(),
+        ];
+        let mut selections = Map::new();
+        selections.insert("extra".to_string(), json!(["thinking", "hiddenFromAI"]));
+
+        let rows = storage
+            .list_messages_for_chat_projected("chat-a", &fields, &selections)
+            .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "target");
+        assert_eq!(rows[0]["chatId"], "chat-a");
+        assert_eq!(rows[0]["content"], "stored content");
+        assert_eq!(rows[0]["extra"], json!({ "hiddenFromAI": true }));
+        assert!(rows[0].get("swipes").is_none());
 
         fs::remove_dir_all(root).unwrap();
     }

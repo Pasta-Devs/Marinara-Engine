@@ -48,6 +48,12 @@ fn storage_list_inner(
                         .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
                 } else if message_id_projection_only(options.as_ref()) {
                     state.storage.list_message_ids_for_chat(chat_id)?
+                } else if let Some(fields) = projection_fields.as_ref().filter(|fields| !fields.is_empty()) {
+                    state.storage.list_messages_for_chat_projected(
+                        chat_id,
+                        &message_projection_fields_for_materialization(fields),
+                        shared::projection_field_selections(options.as_ref()),
+                    )?
                 } else {
                     state.storage.list_messages_for_chat(chat_id)?
                 }
@@ -165,6 +171,20 @@ fn message_id_projection_only(options: Option<&Value>) -> bool {
         return false;
     };
     fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
+}
+
+fn message_projection_fields_for_materialization(fields: &[String]) -> Vec<String> {
+    let mut projection = fields.to_vec();
+    let needs_swipes = fields.iter().any(|field| {
+        matches!(
+            field.as_str(),
+            "content" | "extra" | "activeSwipeIndex" | "swipeCount" | "swipePreviews"
+        )
+    });
+    if needs_swipes && !projection.iter().any(|field| field == "swipes") {
+        projection.push("swipes".to_string());
+    }
+    projection
 }
 
 fn message_page_options(options: Option<&Value>) -> Option<(usize, Option<String>)> {
