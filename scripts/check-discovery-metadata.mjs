@@ -171,11 +171,30 @@ function readInlineNaReason(line) {
   return match ? cleanReasonLine(match[1] ?? "") : "";
 }
 
+function isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection) {
+  const normalized = line.toLowerCase();
+  return (
+    inFeatureDiscoverabilitySection ||
+    normalized.includes("feature discoverability") ||
+    normalized.includes("src/features/shell/discovery") ||
+    normalized.includes("discovery metadata")
+  );
+}
+
 function readFeatureDiscoverabilityReason(body) {
   const lines = body.split(/\r?\n/);
   const reasonIndex = lines.findIndex((line) => /^#{0,6}\s*(feature discoverability\s+)?reason\s*:/i.test(line.trim()));
   if (reasonIndex < 0) {
+    let inFeatureDiscoverabilitySection = false;
     for (const line of lines) {
+      if (/^#{1,6}\s+feature discoverability\s*$/i.test(line.trim())) {
+        inFeatureDiscoverabilitySection = true;
+        continue;
+      }
+      if (inFeatureDiscoverabilitySection && /^#{1,6}\s+/.test(line.trim())) {
+        inFeatureDiscoverabilitySection = false;
+      }
+      if (!isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection)) continue;
       const reason = readInlineNaReason(line);
       if (reason && reason !== "-") return reason;
     }
@@ -205,13 +224,7 @@ export function parseFeatureDiscoverabilityDecision(body) {
     if (inFeatureDiscoverabilitySection && /^#{1,6}\s+/.test(line.trim())) {
       inFeatureDiscoverabilitySection = false;
     }
-    const normalized = line.toLowerCase();
-    const isFeatureDiscoverabilityLine =
-      inFeatureDiscoverabilitySection ||
-      normalized.includes("feature discoverability") ||
-      normalized.includes("src/features/shell/discovery") ||
-      normalized.includes("discovery metadata");
-    if (!isFeatureDiscoverabilityLine) continue;
+    if (!isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection)) continue;
 
     if (/\[\s*[ x]\s*\]/i.test(line)) {
       if (!checkboxChecked(line)) continue;
