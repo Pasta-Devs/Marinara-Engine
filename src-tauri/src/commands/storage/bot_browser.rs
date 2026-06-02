@@ -1558,29 +1558,34 @@ fn datacat_recent_as_fresh_response(mut recent: Value) -> AppResult<Value> {
             )
         })?;
     let count = characters.as_array().map(Vec::len).unwrap_or_default();
-    let empty_week = json!({
+    let unavailable_week = json!({
         "count": 0,
-        "characters": []
+        "characters": [],
+        "available": false,
+        "unavailable": true,
+        "reason": "fresh endpoint returned invalid JSON; recent-public fallback cannot provide thisWeek"
     });
     Ok(json!({
         "success": true,
         "sortBy": "recent-public",
         "fallback": {
             "source": "recent-public",
-            "reason": "fresh endpoint returned invalid JSON"
+            "reason": "fresh endpoint returned invalid JSON",
+            "partial": true,
+            "unavailableWindows": ["thisWeek"]
         },
         "windows": {
             "last24h": {
                 "count": count,
                 "characters": characters
             },
-            "thisWeek": empty_week.clone()
+            "thisWeek": unavailable_week.clone()
         },
         "last24h": {
             "count": count,
             "characters": characters
         },
-        "thisWeek": empty_week
+        "thisWeek": unavailable_week
     }))
 }
 
@@ -1722,7 +1727,11 @@ mod tests {
         assert!(fallback["windows"]["thisWeek"]["characters"]
             .as_array()
             .is_some_and(Vec::is_empty));
+        assert_eq!(fallback["windows"]["thisWeek"]["available"], false);
+        assert_eq!(fallback["windows"]["thisWeek"]["unavailable"], true);
         assert_eq!(fallback["fallback"]["source"], "recent-public");
+        assert_eq!(fallback["fallback"]["partial"], true);
+        assert_eq!(fallback["fallback"]["unavailableWindows"][0], "thisWeek");
     }
 
     #[test]
