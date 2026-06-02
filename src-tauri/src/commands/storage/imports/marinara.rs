@@ -230,15 +230,8 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
             "format": data.get("spec").and_then(Value::as_str).unwrap_or("chara_card_v2"),
         });
         let avatar_payload = native_character_avatar_payload(&data);
-        let avatar_absolute_path =
-            if let Some(avatar) = imported_avatar_reference(state, &avatar_payload, None, None)? {
-                Some(apply_imported_character_avatar_metadata(
-                    &mut record,
-                    avatar,
-                ))
-            } else {
-                None
-            };
+        let avatar_absolute_path = imported_avatar_reference(state, &avatar_payload, None, None)?
+            .map(|avatar| apply_imported_character_avatar_metadata(&mut record, avatar));
         apply_import_timestamps(&mut record, &data);
         let name = character_data
             .get("name")
@@ -313,15 +306,8 @@ fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> 
     }
     let mut record_value = with_entity_defaults("characters", source)?;
     let avatar_payload = native_character_avatar_payload(&data);
-    let avatar_absolute_path =
-        if let Some(avatar) = imported_avatar_reference(state, &avatar_payload, None, None)? {
-            Some(apply_imported_character_avatar_metadata(
-                &mut record_value,
-                avatar,
-            ))
-        } else {
-            None
-        };
+    let avatar_absolute_path = imported_avatar_reference(state, &avatar_payload, None, None)?
+        .map(|avatar| apply_imported_character_avatar_metadata(&mut record_value, avatar));
     apply_import_timestamps(&mut record_value, &data);
     let mut created_character_id = None;
     let result = (|| -> AppResult<Value> {
