@@ -17,22 +17,23 @@ function parseContinuityLines(content: string): string[] {
 export function ContinuityIssueChecklist({ content, compact = false }: ContinuityIssueChecklistProps) {
   const issues = useMemo(() => parseContinuityLines(content), [content]);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(issues.map((_, index) => index)));
-  const [acceptedOnly, setAcceptedOnly] = useState(false);
+  const [selectedOnly, setSelectedOnly] = useState(false);
 
   useEffect(() => {
     setSelected(new Set(issues.map((_, index) => index)));
-    setAcceptedOnly(false);
+    setSelectedOnly(false);
   }, [issues]);
 
   if (issues.length === 0) return null;
 
   const visibleIssues = issues
     .map((line, index) => ({ index, line }))
-    .filter(({ index }) => !acceptedOnly || selected.has(index));
+    .filter(({ index }) => !selectedOnly || selected.has(index));
   const selectedCount = issues.reduce((count, _, index) => (selected.has(index) ? count + 1 : count), 0);
+  const canHideUnselected = selectedCount > 0 && selectedCount < issues.length && !selectedOnly;
 
   const toggleIssue = (index: number) => {
-    setAcceptedOnly(false);
+    setSelectedOnly(false);
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(index)) {
@@ -46,7 +47,7 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
 
   const resetReview = () => {
     setSelected(new Set(issues.map((_, index) => index)));
-    setAcceptedOnly(false);
+    setSelectedOnly(false);
   };
 
   return (
@@ -81,7 +82,7 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
           {selectedCount} of {issues.length} selected
         </span>
         <div className="flex items-center gap-1">
-          {acceptedOnly && (
+          {selectedOnly && (
             <button
               type="button"
               onClick={resetReview}
@@ -93,11 +94,11 @@ export function ContinuityIssueChecklist({ content, compact = false }: Continuit
           )}
           <button
             type="button"
-            disabled={selectedCount === 0 || acceptedOnly}
-            onClick={() => setAcceptedOnly(true)}
+            disabled={!canHideUnselected}
+            onClick={() => setSelectedOnly(true)}
             className="rounded-md bg-[var(--primary)] px-2 py-1 text-[0.5625rem] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-45"
           >
-            Accept selected
+            Hide unselected
           </button>
         </div>
       </div>
