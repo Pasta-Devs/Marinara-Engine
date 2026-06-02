@@ -4,6 +4,7 @@ use super::images::{
 };
 use super::shared::*;
 use super::*;
+use crate::storage_commands::media_uploads::file_path_asset_url;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgba, RgbaImage};
 use std::collections::VecDeque;
@@ -11,6 +12,7 @@ use std::env;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::UNIX_EPOCH;
 
 const SPRITE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"];
 const CLEANUP_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
@@ -62,6 +64,13 @@ impl SpriteOwnerKind {
         match self {
             Self::Character => "character ID",
             Self::Persona => "persona ID",
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Character => "character",
+            Self::Persona => "persona",
         }
     }
 }
@@ -329,7 +338,7 @@ pub(crate) fn list_sprites(
     let owner_kind = SpriteOwnerKind::from_request(owner_type)?;
     let dir = sprites_dir(state, owner_kind, character_id)?;
     fs::create_dir_all(&dir)?;
-    list_sprites_for_dir(&dir)
+    list_sprites_for_dir(&dir, owner_kind, character_id)
 }
 
 pub(crate) fn upload_sprite(
@@ -354,7 +363,7 @@ pub(crate) fn upload_sprite(
     fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{expression}.{ext}"));
     fs::write(&path, bytes)?;
-    sprite_info_from_path(&path)
+    sprite_info_from_path(&path, owner_kind, character_id)
 }
 
 pub(crate) fn upload_sprites(
@@ -415,7 +424,7 @@ pub(crate) fn upload_sprites(
     Ok(json!({
         "imported": imported,
         "failed": failed,
-        "sprites": list_sprites_for_dir(&dir)?
+        "sprites": list_sprites_for_dir(&dir, owner_kind, character_id)?
     }))
 }
 
@@ -509,7 +518,7 @@ pub(crate) fn clean_saved_sprites(
         "externalCleanupProcessed": background_remover_processed,
         "backgroundRemoverProcessed": background_remover_processed,
         "builtinProcessed": builtin_processed,
-        "sprites": list_sprites_for_dir(&dir)?
+        "sprites": list_sprites_for_dir(&dir, owner_kind, character_id)?
     }))
 }
 
@@ -582,7 +591,9 @@ pub(crate) fn restore_sprite_cleanup_point(
     if restored > 0 && failed.is_empty() {
         let _ = fs::remove_dir_all(&restore_point_dir);
     }
-    Ok(json!({ "restored": restored, "failed": failed, "sprites": list_sprites_for_dir(&dir)? }))
+    Ok(
+        json!({ "restored": restored, "failed": failed, "sprites": list_sprites_for_dir(&dir, owner_kind, character_id)? }),
+    )
 }
 
 pub(crate) fn delete_sprite(
@@ -1617,19 +1628,44 @@ fn extract_base64_image_data(value: &str) -> &str {
         .trim()
 }
 
-fn sprite_info_from_path(path: &Path) -> AppResult<Value> {
+fn sprite_info_from_path(
+    path: &Path,
+    owner_kind: SpriteOwnerKind,
+    owner_id: &str,
+) -> AppResult<Value> {
     let filename = file_name(path)?;
     let expression = expression_from_path(path);
-    let bytes = fs::read(path)?;
-    let mime = mime_for_path(path);
+    let metadata = fs::metadata(path)?;
+    let cache_key = sprite_cache_key(&metadata);
+    let mut url = file_path_asset_url(path);
+    url.push_str("?v=");
+    url.push_str(&cache_key);
     Ok(json!({
         "expression": expression,
         "filename": filename,
-        "url": format!("data:{mime};base64,{}", general_purpose::STANDARD.encode(bytes))
+        "absolutePath": path.to_string_lossy(),
+        "ownerId": owner_id,
+        "ownerType": owner_kind.as_str(),
+        "size": metadata.len(),
+        "cacheKey": cache_key,
+        "url": url
     }))
 }
 
-fn list_sprites_for_dir(dir: &Path) -> AppResult<Value> {
+fn sprite_cache_key(metadata: &fs::Metadata) -> String {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis().to_string())
+        .unwrap_or_else(|| metadata.len().to_string())
+}
+
+fn list_sprites_for_dir(
+    dir: &Path,
+    owner_kind: SpriteOwnerKind,
+    owner_id: &str,
+) -> AppResult<Value> {
     let mut items = Vec::new();
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -1637,7 +1673,7 @@ fn list_sprites_for_dir(dir: &Path) -> AppResult<Value> {
         if !path.is_file() || !is_sprite_file(&path) {
             continue;
         }
-        items.push(sprite_info_from_path(&path)?);
+        items.push(sprite_info_from_path(&path, owner_kind, owner_id)?);
     }
     items.sort_by(|a, b| {
         a.get("expression")
@@ -1781,17 +1817,6 @@ fn extension(path: &Path) -> Option<String> {
     path.extension()
         .and_then(|value| value.to_str())
         .map(|value| value.to_ascii_lowercase())
-}
-
-fn mime_for_path(path: &Path) -> &'static str {
-    match extension(path).as_deref() {
-        Some("jpg" | "jpeg") => "image/jpeg",
-        Some("webp") => "image/webp",
-        Some("gif") => "image/gif",
-        Some("avif") => "image/avif",
-        Some("svg") => "image/svg+xml",
-        _ => "image/png",
-    }
 }
 
 fn normalize_sprite_expression(raw: &str) -> String {
@@ -2494,6 +2519,14 @@ mod sprite_upload_tests {
         assert_eq!(
             sprites[0].get("filename").and_then(Value::as_str),
             Some("happy_face.png")
+        );
+        let url = sprites[0]
+            .get("url")
+            .and_then(Value::as_str)
+            .expect("sprite list item should include a url");
+        assert!(
+            !url.starts_with("data:image/"),
+            "sprite list items should not eagerly embed image bytes"
         );
 
         let _ = fs::remove_dir_all(root);

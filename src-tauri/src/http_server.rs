@@ -212,8 +212,62 @@ fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBu
                 .map(PathBuf::from)
                 .ok_or_else(|| AppError::not_found("Lorebook image was not found"))
         }
+        "sprite" => sprite_asset_path(state, path),
         _ => Err(AppError::not_found("Managed asset type was not found")),
     }
+}
+
+fn sprite_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
+    let mut segments = path.split('/');
+    let owner_type = managed_asset_path_segment(
+        segments
+            .next()
+            .ok_or_else(|| AppError::not_found("Sprite asset was not found"))?,
+        "Sprite asset was not found",
+    )?;
+    let owner_id = managed_asset_path_segment(
+        segments
+            .next()
+            .ok_or_else(|| AppError::not_found("Sprite asset was not found"))?,
+        "Sprite asset was not found",
+    )?;
+    let filename = managed_asset_filename(
+        segments
+            .next()
+            .ok_or_else(|| AppError::not_found("Sprite asset was not found"))?,
+        "Sprite asset was not found",
+    )?;
+    if segments.next().is_some() {
+        return Err(AppError::not_found("Sprite asset was not found"));
+    }
+
+    match owner_type.as_str() {
+        "character" => Ok(state.data_dir.join("sprites").join(owner_id).join(filename)),
+        "persona" => Ok(state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join(owner_id)
+            .join(filename)),
+        _ => Err(AppError::not_found("Sprite asset was not found")),
+    }
+}
+
+fn managed_asset_path_segment(
+    value: &str,
+    not_found_message: &'static str,
+) -> Result<String, AppError> {
+    let value = value.trim();
+    if value.is_empty()
+        || value == "."
+        || value == ".."
+        || value.contains("..")
+        || value.contains('\\')
+        || value.contains(':')
+    {
+        return Err(AppError::not_found(not_found_message));
+    }
+    Ok(value.to_string())
 }
 
 fn gallery_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
@@ -1364,6 +1418,42 @@ mod tests {
         assert!(gallery_asset_path(&state, "gallery/scene.png").is_err());
         assert!(gallery_asset_path(&state, "gallery\\scene.png").is_err());
         assert!(gallery_asset_path(&state, "C:scene.png").is_err());
+    }
+
+    #[test]
+    fn sprite_asset_path_routes_character_and_persona_sprites() {
+        let state = test_state("sprite-assets");
+
+        assert_eq!(
+            sprite_asset_path(&state, "character/character-1/happy.png")
+                .expect("character sprite filename should resolve"),
+            state
+                .data_dir
+                .join("sprites")
+                .join("character-1")
+                .join("happy.png")
+        );
+        assert_eq!(
+            sprite_asset_path(&state, "persona/persona-1/happy.png")
+                .expect("persona sprite filename should resolve"),
+            state
+                .data_dir
+                .join("sprites")
+                .join("personas")
+                .join("persona-1")
+                .join("happy.png")
+        );
+    }
+
+    #[test]
+    fn sprite_asset_path_rejects_path_tokens() {
+        let state = test_state("sprite-asset-sanitize");
+
+        assert!(sprite_asset_path(&state, "character/../happy.png").is_err());
+        assert!(sprite_asset_path(&state, "character/character-1/../happy.png").is_err());
+        assert!(sprite_asset_path(&state, "character/character-1/nested/happy.png").is_err());
+        assert!(sprite_asset_path(&state, "unknown/character-1/happy.png").is_err());
+        assert!(sprite_asset_path(&state, "persona/persona:1/happy.png").is_err());
     }
 
     #[test]

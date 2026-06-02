@@ -66,9 +66,21 @@ function filePathToAssetUrl(path: string | null | undefined): string {
   }
 }
 
-type RemoteManagedAssetKind = "avatar" | "avatar-thumbnail" | "background" | "font" | "gallery" | "game" | "lorebook";
+type RemoteManagedAssetKind =
+  | "avatar"
+  | "avatar-thumbnail"
+  | "background"
+  | "font"
+  | "gallery"
+  | "game"
+  | "lorebook"
+  | "sprite";
 
-function remoteManagedAsset(kind: RemoteManagedAssetKind, path: string | null | undefined): RemoteManagedAsset | null {
+function remoteManagedAsset(
+  kind: RemoteManagedAssetKind,
+  path: string | null | undefined,
+  query?: string,
+): RemoteManagedAsset | null {
   const target = remoteRuntimeTarget();
   if (!target || !path?.trim()) return null;
   const encodedPath = path
@@ -78,11 +90,16 @@ function remoteManagedAsset(kind: RemoteManagedAssetKind, path: string | null | 
     .filter((segment) => segment && segment !== "." && segment !== "..")
     .map(encodeURIComponent)
     .join("/");
-  return encodedPath ? { url: `${target.baseUrl}/api/assets/${kind}/${encodedPath}`, target } : null;
+  const querySuffix = query ? `?${query}` : "";
+  return encodedPath ? { url: `${target.baseUrl}/api/assets/${kind}/${encodedPath}${querySuffix}`, target } : null;
 }
 
-function remoteManagedAssetUrl(kind: RemoteManagedAssetKind, path: string | null | undefined): string | null {
-  const asset = remoteManagedAsset(kind, path);
+function remoteManagedAssetUrl(
+  kind: RemoteManagedAssetKind,
+  path: string | null | undefined,
+  query?: string,
+): string | null {
+  const asset = remoteManagedAsset(kind, path, query);
   if (!asset || asset.target.authorization) return null;
   return asset.url;
 }
@@ -90,8 +107,9 @@ function remoteManagedAssetUrl(kind: RemoteManagedAssetKind, path: string | null
 async function remoteManagedAssetResolvableUrl(
   kind: RemoteManagedAssetKind,
   path: string | null | undefined,
+  query?: string,
 ): Promise<string | null> {
-  const asset = remoteManagedAsset(kind, path);
+  const asset = remoteManagedAsset(kind, path, query);
   if (!asset) return null;
   if (!asset.target.authorization) return asset.url;
   return fetchRemoteManagedAssetBlobUrl(asset);
@@ -221,12 +239,11 @@ function pathExtension(value: string | null | undefined): string | null {
   return extension && extension !== filename?.toLowerCase() ? extension : null;
 }
 
-export function canGenerateAvatarThumbnail(
-  filename: string | null | undefined,
-  absolutePath?: string | null,
-): boolean {
+export function canGenerateAvatarThumbnail(filename: string | null | undefined, absolutePath?: string | null): boolean {
   const extension = pathExtension(filename) ?? pathExtension(absolutePath);
-  return extension === "png" || extension === "jpg" || extension === "jpeg" || extension === "webp" || extension === "gif";
+  return (
+    extension === "png" || extension === "jpg" || extension === "jpeg" || extension === "webp" || extension === "gif"
+  );
 }
 
 export function gameAssetFileUrlFromPath(path: string, absolutePath?: string | null): string {
@@ -303,6 +320,47 @@ export async function resolveGalleryFileUrl(
   const remoteUrl = await remoteManagedAssetResolvableUrl("gallery", galleryRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath && isAbsoluteFilesystemPath(absolutePath) ? filePathToAssetUrl(absolutePath) : null;
+}
+
+function spriteRemoteManagedPath(
+  ownerType: string | null | undefined,
+  ownerId: string | null | undefined,
+  filename: string | null | undefined,
+): string | null {
+  const normalizedOwnerType = ownerType === "persona" ? "persona" : "character";
+  const normalizedOwnerId = ownerId?.trim();
+  const normalizedFilename = filename?.trim();
+  if (!normalizedOwnerId || !normalizedFilename) return null;
+  return `${normalizedOwnerType}/${normalizedOwnerId}/${normalizedFilename}`;
+}
+
+function cacheBustQuery(cacheKey: string | number | null | undefined): string | undefined {
+  const value = String(cacheKey ?? "").trim();
+  return value ? `v=${encodeURIComponent(value)}` : undefined;
+}
+
+function appendCacheBust(url: string, cacheKey: string | number | null | undefined): string {
+  const query = cacheBustQuery(cacheKey);
+  if (!query || url.startsWith("blob:")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
+}
+
+export async function resolveSpriteFileUrl(
+  ownerType: string | null | undefined,
+  ownerId: string | null | undefined,
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+  cacheKey?: string | number | null,
+): Promise<string | null> {
+  const remoteUrl = await remoteManagedAssetResolvableUrl(
+    "sprite",
+    spriteRemoteManagedPath(ownerType, ownerId, filename),
+    cacheBustQuery(cacheKey),
+  );
+  if (remoteUrl) return remoteUrl;
+  return absolutePath && isAbsoluteFilesystemPath(absolutePath)
+    ? appendCacheBust(filePathToAssetUrl(absolutePath), cacheKey)
+    : null;
 }
 
 export async function resolveAvatarThumbnailFileUrl(
