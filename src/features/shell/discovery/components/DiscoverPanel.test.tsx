@@ -38,8 +38,38 @@ describe("DiscoverPanel", () => {
     });
 
     expect(container.textContent).toContain("Discover Marinara");
-    expect(container.textContent).toContain("Conversation Mode");
     expect(container.textContent).toContain(`${DISCOVERY_ENTRIES.length} tracked`);
+  });
+
+  it("keeps the default feature list compact until expanded", () => {
+    act(() => {
+      root.render(<DiscoverPanel />);
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain(`${DISCOVERY_ENTRIES.length} features tracked`);
+    expect(container.textContent).toContain(`Browse all ${DISCOVERY_ENTRIES.length}`);
+
+    const showAllButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Browse all"),
+    );
+    act(() => {
+      showAllButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(DISCOVERY_ENTRIES.length);
+    expect(container.textContent).toContain("Show fewer");
+
+    const showFewerButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Show fewer"),
+    );
+    act(() => {
+      showFewerButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain(`${DISCOVERY_ENTRIES.length} features tracked`);
+    expect(container.textContent).toContain(`Browse all ${DISCOVERY_ENTRIES.length}`);
   });
 
   it("shows the empty state for unmatched searches", () => {
@@ -59,6 +89,11 @@ describe("DiscoverPanel", () => {
   it("runs panel actions from entry buttons", () => {
     act(() => {
       root.render(<DiscoverPanel />);
+    });
+
+    const input = container.querySelector("input") as HTMLInputElement;
+    act(() => {
+      changeInput(input, "characters");
     });
 
     const buttons = Array.from(container.querySelectorAll("button"));

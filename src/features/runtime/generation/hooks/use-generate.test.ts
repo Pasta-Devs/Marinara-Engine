@@ -105,6 +105,8 @@ describe("runGenerationWithUi notifications", () => {
     useUIStore.setState({
       convoNotificationSound: true,
       rpNotificationSound: true,
+      notificationSound: "refactor",
+      customNotificationSound: null,
       conversationBrowserNotifications: true,
     });
     markAutonomousUnreadMock.mockResolvedValue(chat());
@@ -150,6 +152,7 @@ describe("runGenerationWithUi notifications", () => {
       count: 1,
     });
     expect(playNotificationPingMock).toHaveBeenCalledTimes(1);
+    expect(playNotificationPingMock).toHaveBeenNthCalledWith(1, "refactor", null);
     expect(showConversationLocalNotificationMock).toHaveBeenCalledWith({
       enabled: true,
       characterName: "Mari",
@@ -157,16 +160,28 @@ describe("runGenerationWithUi notifications", () => {
     });
   });
 
-  it("uses the Roleplay notification sound toggle for off-chat Roleplay generation", async () => {
+  it("uses the selected Roleplay notification sound for off-chat Roleplay generation", async () => {
     const currentChat = chat({ mode: "roleplay" });
     const message = assistantMessage();
+    const customNotificationSound = {
+      name: "Chime",
+      type: "audio/wav",
+      size: 128,
+      dataUrl: "data:audio/wav;base64,AAAA",
+    };
     queryClient.setQueryData(chatKeys.detail(currentChat.id), currentChat);
     queryClient.setQueryData(chatKeys.messages(currentChat.id), { pages: [[]], pageParams: [undefined] });
-    useUIStore.setState({ convoNotificationSound: false, rpNotificationSound: true });
+    useUIStore.setState({
+      convoNotificationSound: false,
+      rpNotificationSound: true,
+      notificationSound: "custom",
+      customNotificationSound,
+    });
 
     await runAssistantMessage(queryClient, { chatId: currentChat.id }, message);
 
     expect(playNotificationPingMock).toHaveBeenCalledTimes(1);
+    expect(playNotificationPingMock).toHaveBeenNthCalledWith(1, "custom", customNotificationSound);
     expect(showConversationLocalNotificationMock).not.toHaveBeenCalled();
     expect(useChatStore.getState().unreadCounts.get(currentChat.id)).toBe(1);
   });

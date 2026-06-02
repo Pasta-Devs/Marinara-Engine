@@ -1,4 +1,4 @@
-import { Compass, HelpCircle, Search, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Compass, HelpCircle, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cn } from "../../../../shared/lib/utils";
 import {
@@ -24,6 +24,8 @@ const COVERAGE_CLASS: Record<DiscoveryCoverage, string> = {
   experimental: "border-amber-400/25 bg-amber-500/10 text-amber-700 dark:text-amber-200",
   "needs-polish": "border-zinc-400/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300",
 };
+
+const DEFAULT_PREVIEW_COUNT = 0;
 
 function DiscoveryEntryRow({ entry }: { entry: DiscoveryEntry }) {
   return (
@@ -78,11 +80,15 @@ export function DiscoverPanel() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<DiscoveryCategory | "All">("All");
   const [coverage, setCoverage] = useState<DiscoveryCoverage | "All">("All");
+  const [showAllEntries, setShowAllEntries] = useState(false);
 
   const entries = useMemo(
     () => filterDiscoveryEntries(DISCOVERY_ENTRIES, query, { category, coverage }),
     [category, coverage, query],
   );
+  const hasActiveFilter = query.trim().length > 0 || category !== "All" || coverage !== "All";
+  const shouldShowPreview = !hasActiveFilter && !showAllEntries;
+  const visibleEntries = shouldShowPreview ? entries.slice(0, DEFAULT_PREVIEW_COUNT) : entries;
 
   return (
     <div className="flex min-h-full flex-col gap-3 p-3">
@@ -155,15 +161,31 @@ export function DiscoverPanel() {
       </div>
 
       <div className="flex items-center justify-between px-0.5 text-[0.68rem] text-[var(--muted-foreground)]">
-        <span>{entries.length} features</span>
+        <span>
+          {shouldShowPreview
+            ? `${entries.length} features tracked`
+            : visibleEntries.length === entries.length
+              ? `${entries.length} features`
+              : `Showing ${visibleEntries.length} of ${entries.length} features`}
+        </span>
         <span>{DISCOVERY_ENTRIES.length} tracked</span>
       </div>
 
       {entries.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {entries.map((entry) => (
+          {visibleEntries.map((entry) => (
             <DiscoveryEntryRow key={entry.id} entry={entry} />
           ))}
+          {!hasActiveFilter && entries.length > DEFAULT_PREVIEW_COUNT && (
+            <button
+              type="button"
+              onClick={() => setShowAllEntries((value) => !value)}
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--secondary)]/65 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+            >
+              {showAllEntries ? <ChevronUp size="0.85rem" aria-hidden /> : <ChevronDown size="0.85rem" aria-hidden />}
+              {showAllEntries ? "Show fewer" : `Browse all ${entries.length}`}
+            </button>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)]/45 p-5 text-center">

@@ -110,6 +110,17 @@
     "coverage": "core"
   },
   {
+    "id": "notification-sounds",
+    "title": "Notification Sounds",
+    "category": "Settings",
+    "summary": "Choose the current notification ping, the legacy 1.6.1 ding, or a small custom audio file for local chat alerts.",
+    "keywords": ["notification", "sound", "ping", "ding", "audio", "legacy", "custom sound", "alert"],
+    "audience": "Users who want Conversation and Roleplay alerts to sound different or match older Marinara builds.",
+    "where": "Settings > Appearance > Notifications.",
+    "actions": [{ "type": "open-settings", "tab": "appearance", "label": "Open Notification Sounds" }],
+    "coverage": "advanced"
+  },
+  {
     "id": "imports",
     "title": "Imports",
     "category": "Getting started",

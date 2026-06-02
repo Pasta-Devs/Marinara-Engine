@@ -772,7 +772,7 @@ export function ConversationView({
     if (newAssistantMessage) {
       const uiState = useUIStore.getState();
       if (uiState.convoNotificationSound) {
-        playNotificationPing();
+        playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
       }
       void showConversationLocalNotification({
         enabled: uiState.conversationBrowserNotifications,
@@ -814,8 +814,9 @@ export function ConversationView({
             return next;
           });
           // Play ping for each revealed line
-          if (useUIStore.getState().convoNotificationSound) {
-            playNotificationPing();
+          const uiState = useUIStore.getState();
+          if (uiState.convoNotificationSound) {
+            playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
           }
           // Remove completed timer from the ref
           if (idx === newSplitChildren.length - 1) {

@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../lib/dialogue-quotes";
+import { normalizeNotificationSoundId } from "../lib/notification-sound";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
@@ -84,7 +85,6 @@ export type {
   QuoteFormat,
   RoleplayAvatarStyle,
   SummaryPopoverSourceMode,
-  TextBlipMode,
   TrackerDataPanelSection,
   TrackerPanelSizeProfile,
   TrackerPanelSide,
@@ -198,6 +198,8 @@ export const useUIStore = create<UIState>()(
       },
       convoNotificationSound: true,
       rpNotificationSound: true,
+      notificationSound: "refactor",
+      customNotificationSound: null,
       textBlipMode: "off" as TextBlipMode,
       customTextBlipSound: null,
       conversationBrowserNotifications: false,
@@ -473,6 +475,8 @@ export const useUIStore = create<UIState>()(
         })),
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
+      setNotificationSound: (v) => set({ notificationSound: normalizeNotificationSoundId(v) }),
+      setCustomNotificationSound: (v) => set({ customNotificationSound: v }),
       setTextBlipMode: (v) => set({ textBlipMode: normalizeTextBlipMode(v) }),
       setCustomTextBlipSound: (v) => set({ customTextBlipSound: v }),
       setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),

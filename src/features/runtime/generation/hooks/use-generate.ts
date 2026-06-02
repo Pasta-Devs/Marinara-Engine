@@ -405,14 +405,16 @@ async function notifyOffChatAssistantMessage(queryClient: QueryClient, chatId: s
 
   const uiState = useUIStore.getState();
   if (chat.mode === "conversation") {
-    if (uiState.convoNotificationSound) playNotificationPing();
+    if (uiState.convoNotificationSound) {
+      playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
+    }
     void showConversationLocalNotification({
       enabled: uiState.conversationBrowserNotifications,
       characterName,
       tag: `marinara-conversation-${chatId}`,
     });
   } else if (uiState.rpNotificationSound) {
-    playNotificationPing();
+    playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
   }
 }
 

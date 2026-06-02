@@ -1,5 +1,6 @@
 import { createJSONStorage } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../../lib/dialogue-quotes";
+import { normalizeCustomNotificationSound, normalizeNotificationSoundId } from "../../lib/notification-sound";
 import { normalizeCustomTextBlipSound } from "../../lib/text-blip-sound";
 import {
   RIGHT_PANEL_WIDTH_DEFAULT,
@@ -162,6 +163,8 @@ export function partializeUiState(state: UIState) {
     userActivity: state.userActivity,
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
+    notificationSound: state.notificationSound,
+    customNotificationSound: state.customNotificationSound,
     textBlipMode: state.textBlipMode,
     customTextBlipSound: state.customTextBlipSound,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
@@ -207,13 +210,15 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
   persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);
-  persisted.textBlipMode = normalizeTextBlipMode(persisted.textBlipMode);
-  persisted.customTextBlipSound = normalizeCustomTextBlipSound(persisted.customTextBlipSound);
   persisted.editMessagesOnDoubleClick = persisted.editMessagesOnDoubleClick !== false;
   persisted.imagePromptIncludeAppearances = persisted.imagePromptIncludeAppearances !== false;
   persisted.imagePromptFormat = persisted.imagePromptFormat === "tags" ? "tags" : "descriptive";
   persisted.userStatusManual = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   persisted.userStatus = persisted.userStatusManual === "dnd" ? "dnd" : "active";
+  persisted.notificationSound = normalizeNotificationSoundId(persisted.notificationSound);
+  persisted.customNotificationSound = normalizeCustomNotificationSound(persisted.customNotificationSound);
+  persisted.textBlipMode = normalizeTextBlipMode(persisted.textBlipMode);
+  persisted.customTextBlipSound = normalizeCustomTextBlipSound(persisted.customTextBlipSound);
   delete persisted.trackerPanelWidth;
 
   return persisted;
