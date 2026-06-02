@@ -63,6 +63,7 @@ import {
   parseInventoryItem,
   parseStat,
 } from "../../../../engine/shared/game-state/player-stats";
+import { filterPlayerPersonaPresentCharacters } from "../../../../engine/shared/game-state/present-character-filter";
 import type { AgentDebugEntry } from "../../../../engine/contracts/types/agent";
 import type { IntegrationGateway } from "../../../../engine/capabilities/integrations";
 import type { HapticStatus } from "../../../../engine/contracts/types/haptic";
@@ -909,7 +910,11 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
   };
 }
 
-function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {
+function gameStatePatchFromAgentResult(
+  result: AgentResult,
+  chatId: string,
+  persona?: ReturnType<typeof cachedPersonaSnapshot>,
+): Record<string, unknown> | null {
   if (result.agentType === "world-state" || result.type === "game_state_update") {
     return worldStatePatchFromAgentData(result.data, {
       allowFreeform: result.agentType === "world-state",
@@ -921,9 +926,12 @@ function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Rec
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)
-      ? data.presentCharacters
-          .map(parsePresentCharacter)
-          .filter((character): character is PresentCharacter => !!character)
+      ? filterPlayerPersonaPresentCharacters(
+          data.presentCharacters
+            .map(parsePresentCharacter)
+            .filter((character): character is PresentCharacter => !!character),
+          persona,
+        )
       : [];
     return { presentCharacters };
   }
@@ -958,8 +966,8 @@ function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Rec
   return null;
 }
 
-async function applyTrackerResultToGameState(chatId: string, result: AgentResult) {
-  const patch = gameStatePatchFromAgentResult(result, chatId);
+async function applyTrackerResultToGameState(queryClient: QueryClient, chatId: string, result: AgentResult) {
+  const patch = gameStatePatchFromAgentResult(result, chatId, cachedPersonaSnapshot(queryClient, chatId));
   if (!patch) return;
 
   const store = useGameStateStore.getState();
@@ -1119,7 +1127,7 @@ async function applyAgentResultEffects(
     await applyBackgroundChoice(chatId, data.chosen);
   }
   if (result.agentType === "quest") applyQuestUpdates(result.data);
-  if (!options.skipTrackerSync) await applyTrackerResultToGameState(chatId, result);
+  if (!options.skipTrackerSync) await applyTrackerResultToGameState(queryClient, chatId, result);
 }
 
 export async function runGenerationWithUi(
