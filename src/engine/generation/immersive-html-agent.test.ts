@@ -40,6 +40,7 @@ describe("Immersive HTML agent", () => {
       complete: vi.fn(),
       listModels: vi.fn(async () => []),
       stream: vi.fn(async function* () {
+        yield* [];
         throw new Error("Immersive HTML should not call the LLM");
       }),
     };
