@@ -1,6 +1,7 @@
 // UI store types, constants, and pure helpers.
 import { normalizeTemperatureUnit, type TemperatureUnit } from "../../lib/temperature-units";
 import type { QuoteFormat } from "../../lib/dialogue-quotes";
+import type { CustomNotificationSound, NotificationSoundId } from "../../lib/notification-sound";
 
 export type { QuoteFormat };
 
@@ -433,6 +434,10 @@ export interface UIState {
   // ── Sound ──
   convoNotificationSound: boolean;
   rpNotificationSound: boolean;
+  /** Sound used for local Conversation and Roleplay notification pings. */
+  notificationSound: NotificationSoundId;
+  /** Optional browser-readable audio data URL for custom notification pings. */
+  customNotificationSound: CustomNotificationSound | null;
   /** When true, show native local notifications for new Conversation messages while Marinara is unfocused. */
   conversationBrowserNotifications: boolean;
 
@@ -620,6 +625,8 @@ export interface UIState {
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;
   setRpNotificationSound: (v: boolean) => void;
+  setNotificationSound: (v: NotificationSoundId) => void;
+  setCustomNotificationSound: (v: CustomNotificationSound | null) => void;
   setConversationBrowserNotifications: (v: boolean) => void;
   setCustomConversationPrompt: (v: string | null) => void;
   setScheduleGenerationPreferences: (v: string) => void;

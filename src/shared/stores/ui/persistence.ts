@@ -1,5 +1,6 @@
 import { createJSONStorage } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../../lib/dialogue-quotes";
+import { normalizeCustomNotificationSound, normalizeNotificationSoundId } from "../../lib/notification-sound";
 import {
   RIGHT_PANEL_WIDTH_DEFAULT,
   RIGHT_PANEL_WIDTH_MAX,
@@ -160,6 +161,8 @@ export function partializeUiState(state: UIState) {
     userActivity: state.userActivity,
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
+    notificationSound: state.notificationSound,
+    customNotificationSound: state.customNotificationSound,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     customConversationPrompt: state.customConversationPrompt,
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
@@ -208,6 +211,8 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.imagePromptFormat = persisted.imagePromptFormat === "tags" ? "tags" : "descriptive";
   persisted.userStatusManual = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   persisted.userStatus = persisted.userStatusManual === "dnd" ? "dnd" : "active";
+  persisted.notificationSound = normalizeNotificationSoundId(persisted.notificationSound);
+  persisted.customNotificationSound = normalizeCustomNotificationSound(persisted.customNotificationSound);
   delete persisted.trackerPanelWidth;
 
   return persisted;

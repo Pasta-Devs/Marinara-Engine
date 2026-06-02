@@ -184,8 +184,9 @@ export function useBackgroundAutonomousPolling() {
                 }
 
                 // Play notification sound
-                if (useUIStore.getState().convoNotificationSound) {
-                  playNotificationPing();
+                const uiState = useUIStore.getState();
+                if (uiState.convoNotificationSound) {
+                  playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
                 }
 
                 // Increment unread badge

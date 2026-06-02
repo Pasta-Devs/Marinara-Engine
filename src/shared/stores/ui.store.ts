@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../lib/dialogue-quotes";
+import { DEFAULT_NOTIFICATION_SOUND_ID, normalizeNotificationSoundId } from "../lib/notification-sound";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
@@ -195,6 +196,8 @@ export const useUIStore = create<UIState>()(
       },
       convoNotificationSound: true,
       rpNotificationSound: true,
+      notificationSound: DEFAULT_NOTIFICATION_SOUND_ID,
+      customNotificationSound: null,
       conversationBrowserNotifications: false,
       customConversationPrompt: null,
       scheduleGenerationPreferences: "",
@@ -468,6 +471,8 @@ export const useUIStore = create<UIState>()(
         })),
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
+      setNotificationSound: (v) => set({ notificationSound: normalizeNotificationSoundId(v) }),
+      setCustomNotificationSound: (v) => set({ customNotificationSound: v }),
       setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),
       setCustomConversationPrompt: (v) => set({ customConversationPrompt: v }),
       setScheduleGenerationPreferences: (v) => set({ scheduleGenerationPreferences: v }),

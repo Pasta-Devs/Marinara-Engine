@@ -31,8 +31,9 @@ export function ConversationAutonomousEffects({
       const charInfo = characterMap.get(characterId);
       const name = charInfo?.name ?? "Someone";
 
-      if (useUIStore.getState().convoNotificationSound) {
-        playNotificationPing();
+      const uiState = useUIStore.getState();
+      if (uiState.convoNotificationSound) {
+        playNotificationPing(uiState.notificationSound, uiState.customNotificationSound);
       }
 
       if (useChatStore.getState().activeChatId !== chatId) {
