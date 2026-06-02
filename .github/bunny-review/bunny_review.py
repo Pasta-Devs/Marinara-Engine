@@ -1125,23 +1125,29 @@ def merge_review_objects(reviews):
     return merged
 
 
-def write_skipped_review(title, body):
+def write_skipped_review(title, body, *, status="unknown", metadata=None):
+    review_obj = {
+        "change_summary": [body],
+        "findings": [],
+        "pre_merge_checks": [{"name": title, "status": status, "detail": body}],
+        "open_questions": [],
+        "what_i_checked": ["No model pass ran; the specimen remained unexamined."],
+    }
+    if metadata:
+        review_obj.update(metadata)
     pathlib.Path("review.json").write_text(
-        json.dumps(
-            {
-                "change_summary": [body],
-                "findings": [],
-                "pre_merge_checks": [
-                    {"name": title, "status": "unknown", "detail": body}
-                ],
-                "open_questions": [],
-                "what_i_checked": ["No model pass ran; the specimen remained unexamined."],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
+        json.dumps(review_obj, indent=2, sort_keys=True) + "\n",
         "utf-8",
+    )
+
+
+def model_failure_detail(exc):
+    message = " ".join(str(exc).split())
+    if len(message) > 500:
+        message = message[:497] + "..."
+    return (
+        f"Bunny Review could not complete because the model provider rejected the "
+        f"review request: {type(exc).__name__}: {message}"
     )
 
 
@@ -1254,7 +1260,25 @@ def produce_review(args):
                 + "."
             )
             triage_content = triage_for_packet(review_packet, focus_note)
-            chunk_reviews.append(three_pass_review(client, skill, triage_content, stats))
+            try:
+                chunk_reviews.append(
+                    three_pass_review(client, skill, triage_content, stats)
+                )
+            except Exception as exc:
+                write_skipped_review(
+                    "Review Failed",
+                    model_failure_detail(exc),
+                    status="fail",
+                    metadata={
+                        "head_sha": head_sha,
+                        "head_commit_message": commit_subject(head_sha),
+                        "review_base": base,
+                        "base_ref": base_ref,
+                        "mode": effective_mode,
+                    },
+                )
+                print_telemetry(stats)
+                return
         review_obj = merge_review_objects(chunk_reviews)
         review_obj.setdefault("what_i_checked", []).append(
             f"Examined the PR in {len(chunks)} file chunk(s) so the large diff did not contaminate context retention."
@@ -1263,7 +1287,23 @@ def produce_review(args):
         review_packet = build_review_packet(base, ci_status, effective_mode)
         stats = build_stats(review_packet)
         triage_content = triage_for_packet(review_packet, "Review the full current diff.")
-        review_obj = three_pass_review(client, skill, triage_content, stats)
+        try:
+            review_obj = three_pass_review(client, skill, triage_content, stats)
+        except Exception as exc:
+            write_skipped_review(
+                "Review Failed",
+                model_failure_detail(exc),
+                status="fail",
+                metadata={
+                    "head_sha": head_sha,
+                    "head_commit_message": commit_subject(head_sha),
+                    "review_base": base,
+                    "base_ref": base_ref,
+                    "mode": effective_mode,
+                },
+            )
+            print_telemetry(stats)
+            return
     review_obj.setdefault("head_sha", head_sha)
     review_obj.setdefault("head_commit_message", commit_subject(head_sha))
     review_obj.setdefault("review_base", base)
