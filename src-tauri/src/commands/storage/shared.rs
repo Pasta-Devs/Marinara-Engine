@@ -917,6 +917,43 @@ mod tests {
     }
 
     #[test]
+    fn upload_gallery_image_persists_managed_file() {
+        let root = temp_root("gallery-upload-managed-file");
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let uploaded = upload_gallery_image(
+            &state,
+            "gallery",
+            "chatId",
+            "chat-1",
+            json!({
+                "file": {
+                    "name": "upload.png",
+                    "type": "image/png",
+                    "base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg=="
+                }
+            }),
+        )
+        .expect("gallery upload should be stored");
+
+        let url = uploaded
+            .get("url")
+            .and_then(Value::as_str)
+            .expect("gallery upload should return a url");
+        assert!(
+            !url.starts_with("data:image/"),
+            "gallery uploads should not store inline image data"
+        );
+        let filename = uploaded
+            .get("filename")
+            .and_then(Value::as_str)
+            .expect("managed filename should be present");
+        assert!(
+            state.data_dir.join("gallery").join(filename).exists(),
+            "managed gallery upload file should exist"
+        );
+    }
+
+    #[test]
     fn apply_storage_search_matches_character_prompt_fields() {
         let rows = vec![
             json!({
@@ -2256,16 +2293,21 @@ pub(crate) fn upload_gallery_image(
     body: Value,
 ) -> AppResult<Value> {
     let uploaded = decode_uploaded_image_file(&body)?;
-    let encoded = general_purpose::STANDARD.encode(&uploaded.bytes);
-    let data_url = format!("data:{};base64,{encoded}", uploaded.content_type);
+    let stored = media_uploads::persist_image_bytes(
+        state,
+        "gallery",
+        &uploaded.name,
+        &uploaded.bytes,
+        &uploaded.content_type,
+    )?;
     let mut record = Map::new();
     record.insert(
         parent_field.to_string(),
         Value::String(parent_id.to_string()),
     );
-    record.insert("filePath".to_string(), Value::String(uploaded.name.clone()));
-    record.insert("filename".to_string(), Value::String(uploaded.name));
-    record.insert("url".to_string(), Value::String(data_url));
+    record.insert("filePath".to_string(), Value::String(stored.absolute_path));
+    record.insert("filename".to_string(), Value::String(stored.filename));
+    record.insert("url".to_string(), Value::String(stored.asset_url));
     record.insert("prompt".to_string(), Value::Null);
     record.insert("provider".to_string(), Value::Null);
     record.insert("model".to_string(), Value::Null);

@@ -1469,10 +1469,15 @@ mod tests {
             result.get("filename").and_then(Value::as_str),
             Some("chat-image.png")
         );
-        assert!(result
+        assert!(!result
             .get("url")
             .and_then(Value::as_str)
             .is_some_and(|url| url.starts_with("data:image/png;base64,")));
+        assert!(state
+            .data_dir
+            .join("gallery")
+            .join("chat-image.png")
+            .exists());
     }
 
     #[tokio::test]
@@ -1499,10 +1504,15 @@ mod tests {
             result.get("filename").and_then(Value::as_str),
             Some("character-image.png")
         );
-        assert!(result
+        assert!(!result
             .get("url")
             .and_then(Value::as_str)
             .is_some_and(|url| url.starts_with("data:image/png;base64,")));
+        assert!(state
+            .data_dir
+            .join("gallery")
+            .join("character-image.png")
+            .exists());
     }
 
     #[tokio::test]

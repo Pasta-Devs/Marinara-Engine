@@ -402,8 +402,37 @@ pub(crate) fn prepare_entity_for_create(
     match entity {
         "connections" => connection_secrets::prepare_connection_for_create(state, value),
         "connection-folders" => connection_folder_defaults_for_create(state, value),
+        "gallery" | "character-gallery" => gallery_defaults_for_create(state, value),
         _ => Ok(value),
     }
+}
+
+fn gallery_defaults_for_create(state: &AppState, value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let Some(url) = object
+        .get("url")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| value.starts_with("data:image/"))
+        .map(str::to_string)
+    else {
+        return Ok(Value::Object(object));
+    };
+
+    let (mime, bytes) = media_uploads::decode_image_payload(&url, "url")?;
+    let filename_hint = object
+        .get("filename")
+        .or_else(|| object.get("filePath"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("gallery-image");
+    let stored =
+        media_uploads::persist_image_bytes(state, "gallery", filename_hint, &bytes, &mime)?;
+
+    object.insert("url".to_string(), Value::String(stored.asset_url));
+    object.insert("filePath".to_string(), Value::String(stored.absolute_path));
+    object.insert("filename".to_string(), Value::String(stored.filename));
+    Ok(Value::Object(object))
 }
 
 fn connection_folder_defaults_for_create(
@@ -1181,6 +1210,43 @@ mod tests {
         let read = storage_get_inner(&state, "characters".to_string(), "char-1".to_string(), None)
             .expect("supported get should succeed");
         assert_eq!(read["id"], "char-1");
+    }
+
+    #[test]
+    fn gallery_create_persists_data_url_as_managed_file() {
+        let state = test_state("gallery-create-managed-file");
+        let image =
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg==";
+
+        let created = storage_create_inner(
+            &state,
+            "gallery".to_string(),
+            json!({
+                "chatId": "chat-1",
+                "filePath": "generated.png",
+                "filename": "generated.png",
+                "url": image,
+                "prompt": "scene",
+            }),
+        )
+        .expect("gallery row should be created");
+
+        let url = created
+            .get("url")
+            .and_then(Value::as_str)
+            .expect("gallery url should be present");
+        assert!(
+            !url.starts_with("data:image/"),
+            "gallery rows should not store inline image data"
+        );
+        let filename = created
+            .get("filename")
+            .and_then(Value::as_str)
+            .expect("managed filename should be present");
+        assert!(
+            state.data_dir.join("gallery").join(filename).exists(),
+            "managed gallery file should exist"
+        );
     }
 
     #[test]

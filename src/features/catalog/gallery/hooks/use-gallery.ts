@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { galleryKeys } from "../query-keys";
 import { galleryApi, imageGenerationApi } from "../../../../shared/api/image-generation-api";
+import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type { ChatImage } from "../../../../shared/types/gallery";
@@ -10,10 +11,11 @@ function imageCreatedAt(image: ChatImage) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-function normalizeGalleryImage(image: ChatImage): ChatImage {
+async function normalizeGalleryImage(image: ChatImage): Promise<ChatImage> {
+  const managedUrl = await resolveGalleryFileUrl(image.filename, image.filePath).catch(() => null);
   return {
     ...image,
-    url: readTrimmed(image.url) || readTrimmed(image.filePath),
+    url: managedUrl || readTrimmed(image.url) || readTrimmed(image.filePath),
   };
 }
 
@@ -67,10 +69,8 @@ async function listGalleryImagesForChatIds(
     storageApi.list<ChatImage>("gallery", { filters: { chatId } }),
 ): Promise<ChatImage[]> {
   const batches = await Promise.all(galleryChatIds.map((chatId) => listByChatId(chatId)));
-  return batches
-    .flat()
-    .map(normalizeGalleryImage)
-    .sort((a, b) => imageCreatedAt(b) - imageCreatedAt(a));
+  const normalized = await Promise.all(batches.flat().map(normalizeGalleryImage));
+  return normalized.sort((a, b) => imageCreatedAt(b) - imageCreatedAt(a));
 }
 
 export function useGalleryImages(chat: Chat | null) {

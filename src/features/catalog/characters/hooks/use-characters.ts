@@ -15,6 +15,7 @@ import { ApiError } from "../../../../shared/api/api-errors";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { galleryApi } from "../../../../shared/api/image-generation-api";
+import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import type { CharacterCardVersion } from "../../../../engine/contracts/types/character";
 import {
   invalidateCharacterCollectionQueries,
@@ -339,10 +340,11 @@ export interface CharacterGalleryImage {
   url: string;
 }
 
-function normalizeCharacterGalleryImage(image: CharacterGalleryImage): CharacterGalleryImage {
+async function normalizeCharacterGalleryImage(image: CharacterGalleryImage): Promise<CharacterGalleryImage> {
+  const managedUrl = await resolveGalleryFileUrl(image.filename, image.filePath).catch(() => null);
   return {
     ...image,
-    url: readTrimmed(image.url) || readTrimmed(image.filePath),
+    url: managedUrl || readTrimmed(image.url) || readTrimmed(image.filePath),
   };
 }
 
@@ -350,8 +352,10 @@ export function useCharacterGalleryImages(characterId: string | null) {
   return useQuery({
     queryKey: characterKeys.gallery(characterId ?? ""),
     queryFn: async () =>
-      (await storageApi.list<CharacterGalleryImage>("character-gallery", { filters: { characterId } })).map(
-        normalizeCharacterGalleryImage,
+      Promise.all(
+        (await storageApi.list<CharacterGalleryImage>("character-gallery", { filters: { characterId } })).map(
+          normalizeCharacterGalleryImage,
+        ),
       ),
     enabled: !!characterId,
     staleTime: 5 * 60_000,
