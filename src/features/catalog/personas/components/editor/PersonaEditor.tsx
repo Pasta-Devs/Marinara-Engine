@@ -34,7 +34,12 @@ import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTe
 import { exportApi } from "../../../../../shared/api/export-api";
 import { AvatarGenerationModal } from "../../../../../shared/components/ui/AvatarGenerationModal";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../../shared/components/ui/ExportFormatDialog";
-import { buildPersonaFormData, type PersonaFormData, type PersonaRow } from "../../lib/persona-editor-model";
+import {
+  buildPersonaFormData,
+  buildPersonaSavePayload,
+  type PersonaFormData,
+  type PersonaRow,
+} from "../../lib/persona-editor-model";
 import { PersonaColorsTab } from "./PersonaColorsTab";
 import { PersonaDescriptionTab } from "./PersonaDescriptionTab";
 import { PersonaSpritesTab } from "../sprites/PersonaSpritesTab";
@@ -57,6 +62,7 @@ type TabId = (typeof TABS)[number]["id"];
 export function PersonaEditor() {
   const personaId = useUIStore((s) => s.personaDetailId);
   const closeDetail = useUIStore((s) => s.closePersonaDetail);
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
   const { data: rawPersona, isLoading } = usePersona(personaId);
   const updatePersona = useUpdatePersona();
   const uploadAvatar = useUploadPersonaAvatar();
@@ -115,13 +121,9 @@ export function PersonaEditor() {
     if (!personaId || !formData) return;
     setSaving(true);
     try {
-      const { altDescriptions, tags, avatarCrop, ...rest } = formData;
       await updatePersona.mutateAsync({
         id: personaId,
-        ...rest,
-        altDescriptions,
-        tags,
-        avatarCrop: avatarCrop ?? null,
+        ...buildPersonaSavePayload(formData, quoteFormat),
       });
       setDirty(false);
     } finally {

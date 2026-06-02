@@ -1,4 +1,5 @@
 import { parseAvatarCropJson, type AvatarCrop, type LegacyAvatarCrop } from "../../../../shared/lib/utils";
+import { formatTextQuotes, type QuoteFormat } from "../../../../shared/lib/dialogue-quotes";
 
 export interface AltDescriptionEntry {
   id: string;
@@ -48,6 +49,10 @@ export interface PersonaFormData {
   avatarCrop: AvatarCrop | LegacyAvatarCrop | null;
 }
 
+export type PersonaSavePayload = Omit<PersonaFormData, "avatarCrop"> & {
+  avatarCrop: AvatarCrop | LegacyAvatarCrop | null;
+};
+
 export interface PersonaRow {
   id: string;
   name: string;
@@ -91,6 +96,20 @@ export const DEFAULT_PERSONA_STATS: PersonaStatsData = {
   ],
   rpgStats: DEFAULT_RPG_STATS,
 };
+
+function formatPersonaSavePayloadText(value: string, quoteFormat: QuoteFormat): string {
+  return formatTextQuotes(value, quoteFormat);
+}
+
+function formatAltDescriptionsForSave(
+  altDescriptions: AltDescriptionEntry[],
+  quoteFormat: QuoteFormat,
+): AltDescriptionEntry[] {
+  return altDescriptions.map((entry) => ({
+    ...entry,
+    content: formatPersonaSavePayloadText(entry.content, quoteFormat),
+  }));
+}
 
 function parseAvatarCropValue(value: PersonaRow["avatarCrop"]): AvatarCrop | LegacyAvatarCrop | null {
   if (!value) return null;
@@ -169,5 +188,18 @@ export function buildPersonaFormData(persona: PersonaRow): PersonaFormData {
     altDescriptions: Array.isArray(persona.altDescriptions) ? persona.altDescriptions : [],
     tags: Array.isArray(persona.tags) ? persona.tags : [],
     avatarCrop: parseAvatarCropValue(persona.avatarCrop),
+  };
+}
+
+export function buildPersonaSavePayload(formData: PersonaFormData, quoteFormat: QuoteFormat): PersonaSavePayload {
+  return {
+    ...formData,
+    description: formatPersonaSavePayloadText(formData.description, quoteFormat),
+    personality: formatPersonaSavePayloadText(formData.personality, quoteFormat),
+    scenario: formatPersonaSavePayloadText(formData.scenario, quoteFormat),
+    backstory: formatPersonaSavePayloadText(formData.backstory, quoteFormat),
+    appearance: formatPersonaSavePayloadText(formData.appearance, quoteFormat),
+    altDescriptions: formatAltDescriptionsForSave(formData.altDescriptions, quoteFormat),
+    avatarCrop: formData.avatarCrop ?? null,
   };
 }
