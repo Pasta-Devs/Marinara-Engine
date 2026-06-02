@@ -552,6 +552,11 @@ impl FileStorage {
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(None);
         }
+        match read_pretty_record_by_id_from_file(&path, id) {
+            Ok(Some(row)) => return Ok(Some(row)),
+            Ok(None) => {}
+            Err(_) => {}
+        }
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
@@ -1898,6 +1903,81 @@ fn strip_trailing_json_comma(bytes: &mut Vec<u8>) {
     }
 }
 
+fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option<Value>> {
+    let file = fs::File::open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut record_lines: Vec<String> = Vec::new();
+    let mut in_record = false;
+    let mut saw_array_start = false;
+    let mut saw_record = false;
+    let expected_id_line = format!("\"id\": {}", serde_json::to_string(id)?);
+
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 {
+            break;
+        }
+        let line = line.trim_end_matches('\n').to_string();
+        let trimmed = line.trim_start();
+
+        if !in_record {
+            if trimmed.starts_with('[') {
+                saw_array_start = true;
+                continue;
+            }
+            if trimmed.starts_with(']') {
+                break;
+            }
+            if trimmed.trim().is_empty() {
+                continue;
+            }
+            if trimmed.starts_with('{') {
+                in_record = true;
+                saw_record = true;
+                record_lines.clear();
+                record_lines.push(line);
+                continue;
+            }
+            return Ok(None);
+        }
+
+        let is_id_line = trimmed
+            .strip_suffix(',')
+            .unwrap_or(trimmed)
+            .trim_end()
+            == expected_id_line;
+        record_lines.push(line);
+        if is_id_line {
+            loop {
+                let mut next_line = String::new();
+                let bytes = reader.read_line(&mut next_line)?;
+                if bytes == 0 {
+                    return Ok(None);
+                }
+                let next_line = next_line.trim_end_matches('\n').to_string();
+                let is_end = is_pretty_top_level_record_end(&next_line);
+                record_lines.push(next_line);
+                if is_end {
+                    let mut raw = record_lines.join("\n").into_bytes();
+                    strip_trailing_json_comma(&mut raw);
+                    return serde_json::from_slice(&raw).map(Some).map_err(Into::into);
+                }
+            }
+        }
+
+        if is_pretty_top_level_record_end(record_lines.last().map(String::as_str).unwrap_or_default()) {
+            in_record = false;
+            record_lines.clear();
+        }
+    }
+
+    if !saw_array_start || in_record || !saw_record {
+        return Ok(None);
+    }
+    Ok(None)
+}
+
 fn parse_storage_message_cursor(cursor: &str) -> (String, Option<String>) {
     let mut parts = cursor.splitn(2, '|');
     let created_at = parts.next().unwrap_or_default().to_string();
@@ -2363,6 +2443,59 @@ mod tests {
         assert_eq!(storage.count_messages_for_chat("chat-a").unwrap(), 2);
         assert_eq!(storage.count_messages_for_chat("chat-b").unwrap(), 1);
         assert_eq!(storage.count_messages_for_chat("missing").unwrap(), 0);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_reads_pretty_record_by_id_when_data_precedes_id() {
+        let root = temp_storage_root("get-pretty-record-by-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "data": {
+      "description": "large skipped payload",
+      "name": "Skip"
+    },
+    "id": "skip-me"
+  },
+  {
+    "data": {
+      "description": "target payload",
+      "name": "Target"
+    },
+    "id": "target"
+  }
+]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_falls_back_for_compact_collection_json() {
+        let root = temp_storage_root("get-compact-record-by-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[{"data":{"name":"Skip"},"id":"skip-me"},{"data":{"name":"Target"},"id":"target"}]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
 
         fs::remove_dir_all(root).unwrap();
     }
