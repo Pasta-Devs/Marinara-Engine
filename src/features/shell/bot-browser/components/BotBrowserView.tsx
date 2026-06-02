@@ -2187,10 +2187,6 @@ export function BotBrowserView() {
                     <RefreshCw size="0.75rem" /> Retry
                   </button>
                 </div>
-              ) : results.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center py-12 text-sm text-[var(--muted-foreground)]">
-                  No characters found
-                </div>
               ) : (
                 <>
                   {resultNotice && (
@@ -2199,11 +2195,17 @@ export function BotBrowserView() {
                       <span>{resultNotice}</span>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                    {results.map((card) => (
-                      <CardTile key={card.id} card={card} onClick={() => openDetail(card)} />
-                    ))}
-                  </div>
+                  {results.length === 0 ? (
+                    <div className="flex flex-1 items-center justify-center py-12 text-sm text-[var(--muted-foreground)]">
+                      No characters found
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                      {results.map((card) => (
+                        <CardTile key={card.id} card={card} onClick={() => openDetail(card)} />
+                      ))}
+                    </div>
+                  )}
                   {(totalPages > 1 || page > 1) && (
                     <div className="flex items-center justify-center gap-2 pt-2 pb-4">
                       <button
